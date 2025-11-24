@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\Permission;
 use App\Models\Role;
+use Illuminate\Database\Seeder;
 
 class PermissionSeeder extends Seeder
 {
@@ -32,7 +31,7 @@ class PermissionSeeder extends Seeder
             'users.bulk',
             'users.test',
 
-            // Institution Management  
+            // Institution Management
             'institutions.create',
             'institutions.read',
             'institutions.update',
@@ -170,7 +169,7 @@ class PermissionSeeder extends Seeder
             'subjects.manage',
             'subjects.assign',
 
-            // Schedule Management  
+            // Schedule Management
             'schedules.update',
             'schedules.delete',
             'schedules.approve',
@@ -178,7 +177,7 @@ class PermissionSeeder extends Seeder
             // Approval Management - Enhanced
             'approvals.create',
             'approvals.read',
-            'approvals.update', 
+            'approvals.update',
             'approvals.delete',
             'approvals.approve',
             'approvals.reject',
@@ -190,13 +189,13 @@ class PermissionSeeder extends Seeder
             'approvals.delegate',
             'approvals.workflow_manage',
             'approvals.template_manage',
-            
+
             // Task Approval Specific
             'tasks.approve',
             'tasks.reject',
             'tasks.approve_bulk',
-            
-            // Event Approval Specific  
+
+            // Event Approval Specific
             'events.approve',
             'events.reject',
             'events.approve_bulk',
@@ -306,7 +305,7 @@ class PermissionSeeder extends Seeder
         foreach ($permissions as $permissionName) {
             Permission::firstOrCreate([
                 'name' => $permissionName,
-                'guard_name' => $guard
+                'guard_name' => $guard,
             ]);
         }
 
@@ -340,7 +339,7 @@ class PermissionSeeder extends Seeder
                 'teachers.create', 'teachers.read', 'teachers.update', 'teachers.delete', 'teachers.write', 'teachers.manage', 'teachers.assign', 'teachers.bulk', 'teachers.analytics', 'teachers.performance',
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
                 'institution-types.read', 'institution-types.manage',
-                'system.config', 'analytics.view'
+                'system.config', 'analytics.view',
             ],
             'regionadmin' => [
                 'users.read', 'users.create', 'users.update', 'users.delete',
@@ -365,7 +364,7 @@ class PermissionSeeder extends Seeder
                 'tasks.approve', 'tasks.reject', 'events.approve', 'events.reject',
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
                 'institution-types.read',
-                'analytics.view'
+                'analytics.view',
             ],
             'schooladmin' => [
                 'users.read', 'users.create', 'users.update',
@@ -386,7 +385,7 @@ class PermissionSeeder extends Seeder
                 'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'manage teacher_performance',
                 'links.read',
-                'reports.read'
+                'reports.read',
             ],
             'regionoperator' => [
                 'surveys.read',
@@ -398,7 +397,7 @@ class PermissionSeeder extends Seeder
                 'departments.read',
                 'reports.read',
                 'institutions.read',
-                'links.read'
+                'links.read',
             ],
             'sektoradmin' => [
                 'users.read', 'users.create', 'users.update',
@@ -419,7 +418,7 @@ class PermissionSeeder extends Seeder
                 'classes.read',
                 'teaching_loads.read',
                 'links.read',
-                'reports.read'
+                'reports.read',
             ],
             'muavin' => [
                 'schedules.create', 'schedules.read', 'schedules.update',
@@ -433,7 +432,7 @@ class PermissionSeeder extends Seeder
                 'tasks.read', 'tasks.update',
                 'view teacher_performance', 'edit teacher_performance',
                 'links.read',
-                'reports.read'
+                'reports.read',
             ],
             'ubr' => [
                 'events.create', 'events.read', 'events.update', 'events.manage', 'events.register', 'events.cancel',
@@ -445,17 +444,17 @@ class PermissionSeeder extends Seeder
                 'rooms.read',
                 'surveys.read', 'surveys.respond',
                 'links.read',
-                'reports.read'
+                'reports.read',
             ],
             'tesarrufat' => [
-                'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 
+                'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage',
                 'inventory.assign', 'inventory.maintenance',
                 'rooms.read', 'rooms.update', 'rooms.manage',
                 'documents.read', 'documents.create', 'documents.update',
                 'tasks.read', 'tasks.update',
                 'links.read',
                 'reports.read',
-                'surveys.read', 'surveys.respond'
+                'surveys.read', 'surveys.respond',
             ],
             'psixoloq' => [
                 'psychology.create', 'psychology.read', 'psychology.update', 'psychology.manage', 'psychology.assess',
@@ -466,7 +465,7 @@ class PermissionSeeder extends Seeder
                 'assessments.read',
                 'surveys.read', 'surveys.respond',
                 'links.read',
-                'reports.read'
+                'reports.read',
             ],
             'müəllim' => [
                 'surveys.read', 'surveys.respond',
@@ -481,7 +480,7 @@ class PermissionSeeder extends Seeder
                 'rooms.read',
                 'events.read', 'events.register',
                 'links.read',
-                'view teacher_performance'
+                'view teacher_performance',
             ],
         ];
 

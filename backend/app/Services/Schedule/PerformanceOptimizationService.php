@@ -3,15 +3,13 @@
 namespace App\Services\Schedule;
 
 use App\Models\Schedule;
-use App\Models\ScheduleSession;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 
 class PerformanceOptimizationService
 {
     protected array $optimizationMetrics = [];
+
     protected array $cacheStrategies = [];
 
     public function __construct()
@@ -26,13 +24,13 @@ class PerformanceOptimizationService
     public function optimizeGenerationPerformance(array $workloadData, array $preferences = []): array
     {
         $startTime = microtime(true);
-        
+
         // Pre-optimization analysis
         $preAnalysis = $this->analyzeWorkloadComplexity($workloadData);
-        
+
         // Apply performance optimizations
         $optimizedData = $this->applyPerformanceOptimizations($workloadData, $preAnalysis);
-        
+
         // Parallel processing optimization
         if ($preAnalysis['complexity_score'] > 0.7) {
             $optimizedData = $this->enableParallelProcessing($optimizedData);
@@ -53,9 +51,9 @@ class PerformanceOptimizationService
                 'optimization_time' => $optimizationTime,
                 'memory_usage' => memory_get_usage(true),
                 'expected_generation_time' => $this->estimateGenerationTime($optimizedData),
-                'optimization_strategies_applied' => $this->getAppliedStrategies($preAnalysis)
+                'optimization_strategies_applied' => $this->getAppliedStrategies($preAnalysis),
             ],
-            'recommendations' => $this->generatePerformanceRecommendations($preAnalysis, $optimizedData)
+            'recommendations' => $this->generatePerformanceRecommendations($preAnalysis, $optimizedData),
         ];
     }
 
@@ -111,7 +109,7 @@ class PerformanceOptimizationService
             'cache_keys' => $cacheKeys,
             'cache_ttl' => 3600, // 1 hour
             'cache_tags' => ['schedule', 'workload', 'generation'],
-            'cache_size' => $this->calculateCacheSize($scheduleData)
+            'cache_size' => $this->calculateCacheSize($scheduleData),
         ];
     }
 
@@ -129,7 +127,7 @@ class PerformanceOptimizationService
             'execution_time' => $metrics['start_time'] ? (microtime(true) - $metrics['start_time']) : 0,
             'database_queries' => $this->getDatabaseQueryCount(),
             'cache_hits' => $this->getCacheHitCount(),
-            'active_connections' => $this->getActiveConnectionCount()
+            'active_connections' => $this->getActiveConnectionCount(),
         ];
 
         // Update metrics in cache
@@ -139,7 +137,7 @@ class PerformanceOptimizationService
         $issues = $this->detectPerformanceIssues($currentMetrics);
 
         // Auto-optimization if needed
-        if (!empty($issues)) {
+        if (! empty($issues)) {
             $this->triggerAutoOptimization($operationId, $issues);
         }
 
@@ -147,7 +145,7 @@ class PerformanceOptimizationService
             'current_metrics' => $currentMetrics,
             'performance_issues' => $issues,
             'optimization_suggestions' => $this->generateOptimizationSuggestions($currentMetrics),
-            'resource_utilization' => $this->calculateResourceUtilization($currentMetrics)
+            'resource_utilization' => $this->calculateResourceUtilization($currentMetrics),
         ];
     }
 
@@ -187,7 +185,7 @@ class PerformanceOptimizationService
             'max_processes' => min(4, count($chunks)),
             'chunk_size' => ceil(count($workloadData['teaching_loads']) / 4),
             'processing_strategy' => $this->determineOptimalStrategy($workloadData),
-            'synchronization_points' => $this->defineSynchronizationPoints($chunks)
+            'synchronization_points' => $this->defineSynchronizationPoints($chunks),
         ];
 
         // Prepare data for parallel execution
@@ -210,12 +208,12 @@ class PerformanceOptimizationService
             'alert_thresholds' => [
                 'memory_limit' => 512 * 1024 * 1024, // 512MB
                 'execution_time_limit' => 300, // 5 minutes
-                'query_count_limit' => 1000
-            ]
+                'query_count_limit' => 1000,
+            ],
         ];
 
         Cache::put("performance_metrics_{$operationId}", $startMetrics, 7200);
-        
+
         // Schedule periodic monitoring
         $this->schedulePeriodicMonitoring($operationId);
     }
@@ -231,7 +229,7 @@ class PerformanceOptimizationService
             'optimization_opportunities' => $this->identifyOptimizationOpportunities($operationIds),
             'resource_usage_analysis' => $this->analyzeResourceUsage($operationIds),
             'recommendations' => $this->generateSystemRecommendations($operationIds),
-            'trends' => $this->analyzePerformanceTrends($operationIds)
+            'trends' => $this->analyzePerformanceTrends($operationIds),
         ];
 
         return $report;
@@ -251,12 +249,12 @@ class PerformanceOptimizationService
             'total_hours' => array_sum(array_column($teachingLoads, 'weekly_hours')),
             'constraint_count' => $this->countConstraints($teachingLoads),
             'timeslot_count' => count($timeSlots),
-            'preference_complexity' => $this->calculatePreferenceComplexity($teachingLoads)
+            'preference_complexity' => $this->calculatePreferenceComplexity($teachingLoads),
         ];
 
         // Calculate overall complexity score
         $complexity['complexity_score'] = $this->calculateComplexityScore($complexity);
-        
+
         return $complexity;
     }
 
@@ -265,7 +263,7 @@ class PerformanceOptimizationService
         $optimizedData = $workloadData;
 
         // Sort teaching loads by priority for faster processing
-        usort($optimizedData['teaching_loads'], fn($a, $b) => $b['priority_level'] - $a['priority_level']);
+        usort($optimizedData['teaching_loads'], fn ($a, $b) => $b['priority_level'] - $a['priority_level']);
 
         // Pre-calculate common values
         $optimizedData = $this->preCalculateCommonValues($optimizedData);
@@ -285,38 +283,38 @@ class PerformanceOptimizationService
         $indexes = [
             'schedule_sessions_composite' => [
                 'columns' => ['schedule_id', 'day_of_week', 'period_number'],
-                'type' => 'btree'
+                'type' => 'btree',
             ],
             'schedule_sessions_teacher' => [
                 'columns' => ['teacher_id', 'day_of_week', 'period_number'],
-                'type' => 'btree'
+                'type' => 'btree',
             ],
             'schedule_sessions_class' => [
                 'columns' => ['class_id', 'schedule_id'],
-                'type' => 'btree'
-            ]
+                'type' => 'btree',
+            ],
         ];
 
         // Implement query result caching
         $cachingStrategies = [
             'teacher_schedule_cache' => 'Cache teacher daily schedules for 1 hour',
             'class_schedule_cache' => 'Cache class weekly schedules for 30 minutes',
-            'conflict_detection_cache' => 'Cache conflict detection results for 15 minutes'
+            'conflict_detection_cache' => 'Cache conflict detection results for 15 minutes',
         ];
 
         return [
             'indexes' => $indexes,
             'caching_strategies' => $cachingStrategies,
-            'query_optimization_rules' => $this->getQueryOptimizationRules()
+            'query_optimization_rules' => $this->getQueryOptimizationRules(),
         ];
     }
 
     protected function cacheWorkloadData(array $workloadData): string
     {
         $cacheKey = 'workload_' . md5(json_encode($workloadData));
-        
+
         Cache::put($cacheKey, $workloadData, 3600);
-        
+
         return $cacheKey;
     }
 
@@ -331,7 +329,7 @@ class PerformanceOptimizationService
                 'severity' => 'warning',
                 'current_value' => $metrics['memory_usage'],
                 'threshold' => 256 * 1024 * 1024,
-                'recommendation' => 'Consider implementing memory optimization strategies'
+                'recommendation' => 'Consider implementing memory optimization strategies',
             ];
         }
 
@@ -342,7 +340,7 @@ class PerformanceOptimizationService
                 'severity' => 'critical',
                 'current_value' => $metrics['execution_time'],
                 'threshold' => 120,
-                'recommendation' => 'Enable parallel processing or optimize algorithm'
+                'recommendation' => 'Enable parallel processing or optimize algorithm',
             ];
         }
 
@@ -353,7 +351,7 @@ class PerformanceOptimizationService
                 'severity' => 'warning',
                 'current_value' => $metrics['database_queries'],
                 'threshold' => 100,
-                'recommendation' => 'Implement query batching and caching'
+                'recommendation' => 'Implement query batching and caching',
             ];
         }
 
@@ -365,9 +363,9 @@ class PerformanceOptimizationService
         // Convert arrays to more memory-efficient structures
         // Implement SplFixedArray for fixed-size arrays
         // Use iterators for large datasets
-        
+
         $optimized = $data;
-        
+
         // Convert teaching loads to more efficient structure
         if (isset($optimized['teaching_loads']) && is_array($optimized['teaching_loads'])) {
             $optimized['teaching_loads'] = $this->optimizeTeachingLoadsStructure($optimized['teaching_loads']);
@@ -389,7 +387,7 @@ class PerformanceOptimizationService
                 'teaching_loads' => $chunk,
                 'settings' => $workloadData['settings'],
                 'time_slots' => $workloadData['time_slots'],
-                'processing_order' => $index
+                'processing_order' => $index,
             ];
         }, $chunks, array_keys($chunks));
     }
@@ -401,7 +399,7 @@ class PerformanceOptimizationService
             'query_optimization' => 0.9,
             'caching_effectiveness' => 0.85,
             'parallel_processing_gain' => 0.75,
-            'algorithm_efficiency' => 0.9
+            'algorithm_efficiency' => 0.9,
         ];
     }
 
@@ -412,7 +410,7 @@ class PerformanceOptimizationService
             'time_slots' => ['ttl' => 7200, 'tags' => ['schedule', 'settings']],
             'teacher_preferences' => ['ttl' => 1800, 'tags' => ['preferences']],
             'generation_results' => ['ttl' => 600, 'tags' => ['generation']],
-            'conflict_analysis' => ['ttl' => 900, 'tags' => ['conflicts']]
+            'conflict_analysis' => ['ttl' => 900, 'tags' => ['conflicts']],
         ];
     }
 }

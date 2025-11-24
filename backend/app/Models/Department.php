@@ -20,18 +20,18 @@ class Department extends Model
     const TYPES = [
         // Regional Administration Departments
         'maliyyə' => 'Maliyyə Şöbəsi',
-        'inzibati' => 'İnzibati Şöbəsi', 
+        'inzibati' => 'İnzibati Şöbəsi',
         'təsərrüfat' => 'Təsərrüfat Şöbəsi',
-        
+
         // School-level Departments
         'müavin' => 'Müavin Şöbəsi',
         'ubr' => 'UBR Şöbəsi',
         'psixoloq' => 'Psixoloji Dəstək Şöbəsi',
         'müəllim' => 'Fənn Müəllimləri Şöbəsi',
-        
+
         // General/Other
         'general' => 'Ümumi Şöbə',
-        'other' => 'Digər'
+        'other' => 'Digər',
     ];
 
     /**
@@ -41,7 +41,7 @@ class Department extends Model
         'regional' => ['maliyyə', 'inzibati', 'təsərrüfat', 'general', 'other'],
         'sector' => ['maliyyə', 'inzibati', 'təsərrüfat', 'general', 'other'],
         'school' => ['müavin', 'ubr', 'təsərrüfat', 'psixoloq', 'müəllim', 'general', 'other'],
-        'general' => ['general', 'other']
+        'general' => ['general', 'other'],
     ];
 
     /**
@@ -147,7 +147,7 @@ class Department extends Model
     public function scopeSearchByName($query, string $search)
     {
         return $query->where('name', 'LIKE', "%{$search}%")
-                    ->orWhere('short_name', 'LIKE', "%{$search}%");
+            ->orWhere('short_name', 'LIKE', "%{$search}%");
     }
 
     /**
@@ -174,10 +174,10 @@ class Department extends Model
         $typeMapping = [
             'regional' => self::TYPE_GROUPS['regional'],
             'region' => self::TYPE_GROUPS['regional'],
-            'sektor' => self::TYPE_GROUPS['sector'], 
+            'sektor' => self::TYPE_GROUPS['sector'],
             'school' => self::TYPE_GROUPS['school'],
             'vocational' => self::TYPE_GROUPS['school'],
-            'university' => self::TYPE_GROUPS['school']
+            'university' => self::TYPE_GROUPS['school'],
         ];
 
         return $typeMapping[$institutionType] ?? self::TYPE_GROUPS['general'];
@@ -188,11 +188,12 @@ class Department extends Model
      */
     public function isValidForInstitution(): bool
     {
-        if (!$this->institution) {
+        if (! $this->institution) {
             return false;
         }
 
         $allowedTypes = self::getAllowedTypesForInstitution($this->institution->type);
+
         return in_array($this->department_type, $allowedTypes);
     }
 
@@ -228,25 +229,25 @@ class Department extends Model
     private function applyRegionalDepartmentFiltering($query, User $user, $userRole)
     {
         $userInstitutionId = $user->institution_id;
-        
+
         switch ($userRole) {
             case 'regionadmin':
             case 'regionoperator':
                 // Regional admins can see departments in their region and sub-institutions
                 $this->applyRegionAdminDepartmentFiltering($query, $user, $userInstitutionId);
                 break;
-                
+
             case 'sektoradmin':
                 // Sector admins can see departments in their sector and schools
                 $this->applySektorAdminDepartmentFiltering($query, $user, $userInstitutionId);
                 break;
-                
+
             case 'məktəbadmin':
             case 'müəllim':
                 // School-level users can only see departments in their institution
                 $this->applySchoolDepartmentFiltering($query, $user, $userInstitutionId);
                 break;
-                
+
             default:
                 // Unknown role - very restricted access
                 $query->where('institution_id', $userInstitutionId);
@@ -260,9 +261,9 @@ class Department extends Model
     private function applyRegionAdminDepartmentFiltering($query, User $user, $userRegionId)
     {
         // Get all institutions in the region
-        $regionInstitutions = Institution::where(function($q) use ($userRegionId) {
+        $regionInstitutions = Institution::where(function ($q) use ($userRegionId) {
             $q->where('id', $userRegionId) // The region itself
-              ->orWhere('parent_id', $userRegionId); // Sectors
+                ->orWhere('parent_id', $userRegionId); // Sectors
         })->pluck('id');
 
         $schoolInstitutions = Institution::whereIn('parent_id', $regionInstitutions)->pluck('id');

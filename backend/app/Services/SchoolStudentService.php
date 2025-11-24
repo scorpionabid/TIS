@@ -2,15 +2,15 @@
 
 namespace App\Services;
 
+use App\Models\Grade;
 use App\Models\Institution;
 use App\Models\Student;
-use App\Models\User;
-use App\Models\Grade;
 use App\Models\StudentEnrollment;
+use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Carbon\Carbon;
 
 class SchoolStudentService
 {
@@ -19,7 +19,7 @@ class SchoolStudentService
         $user = auth()->user();
         $query = Student::query()
             ->with(['institution']);
-            
+
         // Role-based filtering
         if ($user->hasRole('superadmin')) {
             // SuperAdmin can see all students
@@ -28,13 +28,13 @@ class SchoolStudentService
             // RegionAdmin sees students in their region's institutions
             $query->whereHas('institution', function ($q) use ($user) {
                 $q->where('parent_id', $user->institution_id)
-                  ->orWhere('id', $user->institution_id);
+                    ->orWhere('id', $user->institution_id);
             });
         } elseif ($user->hasRole('sektoradmin')) {
             // SectorAdmin sees students in their sector's schools
             $query->whereHas('institution', function ($q) use ($user) {
                 $q->where('parent_id', $user->institution_id)
-                  ->orWhere('id', $user->institution_id);
+                    ->orWhere('id', $user->institution_id);
             });
         } else {
             // School staff see only their school students
@@ -44,7 +44,7 @@ class SchoolStudentService
                 $query->where('institution_id', $user->institution_id ?? 0);
             }
         }
-        
+
         // Institution filter from request (additional filtering)
         if ($request->has('institution_id') && $request->institution_id) {
             $query->where('institution_id', $request->institution_id);
@@ -67,9 +67,9 @@ class SchoolStudentService
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('first_name', 'like', "%{$search}%")
-                  ->orWhere('last_name', 'like', "%{$search}%")
-                  ->orWhere('student_number', 'like', "%{$search}%")
-                  ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", ["%{$search}%"]);
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('student_number', 'like', "%{$search}%")
+                    ->orWhereRaw("CONCAT(first_name, ' ', last_name) like ?", ["%{$search}%"]);
             });
         }
 
@@ -80,9 +80,9 @@ class SchoolStudentService
         $query->orderBy($sortBy, $sortOrder);
 
         $perPage = min($request->get('per_page', 50), 100);
-        
+
         $students = $query->paginate($perPage);
-        
+
         // Transform data for frontend compatibility
         $transformedStudents = $students->getCollection()->map(function ($student) {
             return [
@@ -110,7 +110,7 @@ class SchoolStudentService
                 'updated_at' => $student->updated_at,
             ];
         });
-        
+
         return [
             'students' => $transformedStudents,
             'pagination' => [
@@ -120,7 +120,7 @@ class SchoolStudentService
                 'last_page' => $students->lastPage(),
                 'from' => $students->firstItem(),
                 'to' => $students->lastItem(),
-            ]
+            ],
         ];
     }
 
@@ -229,7 +229,7 @@ class SchoolStudentService
             // Soft delete by marking as inactive
             $student->update(['is_active' => false]);
             $student->user->update(['is_active' => false]);
-            
+
             return true;
         });
     }
@@ -248,7 +248,7 @@ class SchoolStudentService
                     $errors[] = [
                         'row' => $index + 1,
                         'data' => $data,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
                 }
             }
@@ -257,7 +257,7 @@ class SchoolStudentService
         return [
             'imported' => $imported,
             'errors' => $errors,
-            'total' => count($studentsData)
+            'total' => count($studentsData),
         ];
     }
 
@@ -291,8 +291,8 @@ class SchoolStudentService
     private function getCurrentAcademicYear(): int
     {
         $academicYear = \App\Models\AcademicYear::where('is_current', true)->first();
-        
-        if (!$academicYear) {
+
+        if (! $academicYear) {
             // If no current academic year is set, create one
             $currentYear = date('Y');
             $academicYear = \App\Models\AcademicYear::create([
@@ -302,7 +302,7 @@ class SchoolStudentService
                 'is_current' => true,
             ]);
         }
-        
+
         return $academicYear->id;
     }
 }

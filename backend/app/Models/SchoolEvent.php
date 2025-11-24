@@ -2,12 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Carbon\Carbon;
 
 class SchoolEvent extends Model
 {
@@ -130,8 +129,8 @@ class SchoolEvent extends Model
     public function participants()
     {
         return $this->belongsToMany(User::class, 'event_registrations', 'event_id', 'participant_id')
-                    ->withPivot(['status', 'registered_at', 'attended', 'feedback'])
-                    ->withTimestamps();
+            ->withPivot(['status', 'registered_at', 'attended', 'feedback'])
+            ->withTimestamps();
     }
 
     /**
@@ -171,7 +170,7 @@ class SchoolEvent extends Model
     public function scopeToday($query)
     {
         return $query->whereDate('start_date', '<=', now())
-                    ->whereDate('end_date', '>=', now());
+            ->whereDate('end_date', '>=', now());
     }
 
     public function scopeByInstitution($query, $institutionId)
@@ -223,8 +222,8 @@ class SchoolEvent extends Model
     {
         return $query->where(function ($q) use ($search) {
             $q->where('title', 'ILIKE', "%{$search}%")
-              ->orWhere('description', 'ILIKE', "%{$search}%")
-              ->orWhere('location', 'ILIKE', "%{$search}%");
+                ->orWhere('description', 'ILIKE', "%{$search}%")
+                ->orWhere('location', 'ILIKE', "%{$search}%");
         });
     }
 
@@ -243,16 +242,17 @@ class SchoolEvent extends Model
             if ($this->start_time && $this->end_time) {
                 return $this->start_time->format('H:i') . ' - ' . $this->end_time->format('H:i');
             }
+
             return $this->start_date->format('d.m.Y');
-        } else {
-            // Multi-day event
-            return $this->start_date->format('d.m.Y') . ' - ' . $this->end_date->format('d.m.Y');
         }
+
+        // Multi-day event
+        return $this->start_date->format('d.m.Y') . ' - ' . $this->end_date->format('d.m.Y');
     }
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'draft' => 'Layihə',
             'pending' => 'Gözləmədə',
             'approved' => 'Təsdiqləndi',
@@ -265,7 +265,7 @@ class SchoolEvent extends Model
 
     public function getPriorityLabelAttribute(): string
     {
-        return match($this->priority) {
+        return match ($this->priority) {
             'low' => 'Aşağı',
             'medium' => 'Orta',
             'high' => 'Yüksək',
@@ -276,7 +276,7 @@ class SchoolEvent extends Model
 
     public function getCategoryLabelAttribute(): string
     {
-        return match($this->event_category) {
+        return match ($this->event_category) {
             'academic' => 'Akademik',
             'administrative' => 'İnzibati',
             'cultural' => 'Mədəni',
@@ -308,7 +308,7 @@ class SchoolEvent extends Model
 
     public function isToday(): bool
     {
-        return $this->start_date->isToday() || 
+        return $this->start_date->isToday() ||
                ($this->start_date->isPast() && $this->end_date->isFuture()) ||
                $this->end_date->isToday();
     }
@@ -320,7 +320,7 @@ class SchoolEvent extends Model
 
     public function canRegister(): bool
     {
-        if (!$this->registration_required) {
+        if (! $this->registration_required) {
             return false;
         }
 
@@ -341,7 +341,7 @@ class SchoolEvent extends Model
 
     public function getRemainingCapacity(): int
     {
-        if (!$this->max_participants) {
+        if (! $this->max_participants) {
             return 999; // Unlimited
         }
 
@@ -350,7 +350,7 @@ class SchoolEvent extends Model
 
     public function getRegistrationRate(): float
     {
-        if (!$this->max_participants) {
+        if (! $this->max_participants) {
             return 0;
         }
 
@@ -365,7 +365,7 @@ class SchoolEvent extends Model
     public function addTag($tag): void
     {
         $tags = $this->tags ?? [];
-        if (!in_array($tag, $tags)) {
+        if (! in_array($tag, $tags)) {
             $tags[] = $tag;
             $this->tags = $tags;
             $this->save();
@@ -416,7 +416,7 @@ class SchoolEvent extends Model
 
     public function generateRecurringEvents($endDate = null): array
     {
-        if (!$this->is_recurring || !$this->recurrence_pattern) {
+        if (! $this->is_recurring || ! $this->recurrence_pattern) {
             return [];
         }
 

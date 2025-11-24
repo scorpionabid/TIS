@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -21,14 +20,13 @@ return new class extends Migration
             $table->text('user_agent')->nullable()->after('ip_address');
             $table->timestamp('started_at')->nullable()->after('user_agent');
             $table->json('metadata')->default('{}')->after('rejection_reason');
-            
+
             // Remove columns that don't match the design
             $table->dropColumn(['attachments', 'workflow_history']);
-            
+
             // Update department to be nullable string instead of foreign key
             // (keeping the department column as is since it's already string)
         });
-
     }
 
     /**
@@ -39,11 +37,10 @@ return new class extends Migration
         Schema::table('survey_responses', function (Blueprint $table) {
             // Reverse the changes
             $table->dropColumn(['department_id', 'respondent_role', 'is_complete', 'ip_address', 'user_agent', 'started_at', 'metadata']);
-            
+
             // Add back removed columns
             $table->json('attachments')->default('[]');
             $table->json('workflow_history')->default('[]');
         });
-        
     }
 };

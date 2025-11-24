@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use App\Models\User;
+use App\Models\Document;
 use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\Task;
-use App\Models\Document;
-use Illuminate\Support\Facades\DB;
+use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class SuperAdminDashboardController extends Controller
 {
@@ -28,7 +28,7 @@ class SuperAdminDashboardController extends Controller
                         (SELECT COUNT(*) FROM users WHERE is_active = 1) as active,
                         (SELECT COUNT(*) FROM users WHERE created_at >= datetime('now', '-7 days')) as recent_registrations
                 ")[0];
-                
+
                 $roleStats = DB::table('users')
                     ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
                     ->join('roles', 'model_has_roles.role_id', '=', 'roles.id')
@@ -38,13 +38,13 @@ class SuperAdminDashboardController extends Controller
                     ->get()
                     ->pluck('count', 'role_name')
                     ->toArray();
-                
+
                 return [
                     'users' => [
                         'total' => $userStats->total,
                         'active' => $userStats->active,
                         'by_role' => $roleStats,
-                        'recent_registrations' => $userStats->recent_registrations
+                        'recent_registrations' => $userStats->recent_registrations,
                     ],
                     'institutions' => [
                         'total' => Institution::count(),
@@ -58,50 +58,50 @@ class SuperAdminDashboardController extends Controller
                             ->groupBy('region_code')
                             ->get()
                             ->pluck('count', 'region_code')
-                            ->toArray()
+                            ->toArray(),
                     ],
                     'activity' => [
                         'surveys' => [
                             'total' => Survey::count(),
                             'active' => Survey::where('status', 'active')->count(),
-                            'completed' => Survey::where('status', 'completed')->count()
+                            'completed' => Survey::where('status', 'completed')->count(),
                         ],
                         'tasks' => [
                             'total' => Task::count(),
                             'pending' => Task::where('status', 'pending')->count(),
                             'in_progress' => Task::where('status', 'in_progress')->count(),
-                            'completed' => Task::where('status', 'completed')->count()
+                            'completed' => Task::where('status', 'completed')->count(),
                         ],
                         'documents' => [
                             'total' => Document::count(),
-                            'recent_uploads' => Document::where('created_at', '>=', now()->subDays(7))->count()
-                        ]
+                            'recent_uploads' => Document::where('created_at', '>=', now()->subDays(7))->count(),
+                        ],
                     ],
                     'system' => [
                         'database_size' => $this->getDatabaseSize(),
                         'total_storage' => $this->getTotalStorageUsed(),
                         'avg_response_time' => $this->getAverageResponseTime(),
-                        'uptime' => $this->getSystemUptime()
+                        'uptime' => $this->getSystemUptime(),
                     ],
                     'performance' => [
                         'daily_active_users' => User::where('updated_at', '>=', now()->subDay())->count(),
                         'peak_concurrent_users' => $this->getPeakConcurrentUsers(),
                         'avg_session_duration' => $this->getAverageSessionDuration(),
-                        'page_load_times' => $this->getPageLoadTimes()
-                    ]
+                        'page_load_times' => $this->getPageLoadTimes(),
+                    ],
                 ];
             });
 
             return response()->json([
                 'success' => true,
                 'data' => $analytics,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Analytics məlumatları yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -113,7 +113,7 @@ class SuperAdminDashboardController extends Controller
     {
         try {
             $limit = $request->input('limit', 10);
-            
+
             $activities = Cache::remember("recent_activity_{$limit}", 120, function () use ($limit) {
                 $activities = collect();
 
@@ -131,7 +131,7 @@ class SuperAdminDashboardController extends Controller
                             'role' => $user->roles->first()?->name ?? 'N/A',
                             'timestamp' => $user->created_at,
                             'icon' => 'user-plus',
-                            'color' => 'green'
+                            'color' => 'green',
                         ];
                     });
 
@@ -149,7 +149,7 @@ class SuperAdminDashboardController extends Controller
                             'role' => $survey->creator?->roles->first()?->name ?? 'N/A',
                             'timestamp' => $survey->created_at,
                             'icon' => 'clipboard-list',
-                            'color' => 'blue'
+                            'color' => 'blue',
                         ];
                     });
 
@@ -167,7 +167,7 @@ class SuperAdminDashboardController extends Controller
                             'role' => $task->creator?->roles->first()?->name ?? 'N/A',
                             'timestamp' => $task->created_at,
                             'icon' => 'clipboard-check',
-                            'color' => 'orange'
+                            'color' => 'orange',
                         ];
                     });
 
@@ -185,7 +185,7 @@ class SuperAdminDashboardController extends Controller
                             'role' => $document->uploader?->roles->first()?->name ?? 'N/A',
                             'timestamp' => $document->created_at,
                             'icon' => 'file-text',
-                            'color' => 'purple'
+                            'color' => 'purple',
                         ];
                     });
 
@@ -203,13 +203,13 @@ class SuperAdminDashboardController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $activities,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Son fəaliyyətlər yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -226,20 +226,20 @@ class SuperAdminDashboardController extends Controller
                 'storage' => $this->checkStorageHealth(),
                 'memory' => $this->getMemoryUsage(),
                 'cpu' => $this->getCpuUsage(),
-                'disk' => $this->getDiskUsage()
+                'disk' => $this->getDiskUsage(),
             ];
 
             return response()->json([
                 'success' => true,
                 'data' => $health,
                 'overall_status' => $this->calculateOverallHealth($health),
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Sistem sağlamlığı yoxlanılarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -265,19 +265,19 @@ class SuperAdminDashboardController extends Controller
                     ->groupBy('date')
                     ->orderBy('date')
                     ->get(),
-                'login_statistics' => $this->getLoginStatistics()
+                'login_statistics' => $this->getLoginStatistics(),
             ];
 
             return response()->json([
                 'success' => true,
                 'data' => $analytics,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'İstifadəçi analitikası yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -297,19 +297,19 @@ class SuperAdminDashboardController extends Controller
                     ->whereNotNull('region_code')
                     ->groupBy('region_code')
                     ->get(),
-                'recent_additions' => Institution::where('created_at', '>=', now()->subDays(30))->count()
+                'recent_additions' => Institution::where('created_at', '>=', now()->subDays(30))->count(),
             ];
 
             return response()->json([
                 'success' => true,
                 'data' => $stats,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Müəssisə statistikaları yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -325,19 +325,19 @@ class SuperAdminDashboardController extends Controller
                 'database_performance' => $this->getDatabasePerformanceMetrics(),
                 'memory_usage' => $this->getMemoryUsageMetrics(),
                 'cache_performance' => $this->getCachePerformanceMetrics(),
-                'user_engagement' => $this->getUserEngagementMetrics()
+                'user_engagement' => $this->getUserEngagementMetrics(),
             ];
 
             return response()->json([
                 'success' => true,
                 'data' => $metrics,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Performans metrikaları yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -352,6 +352,7 @@ class SuperAdminDashboardController extends Controller
                     return $this->formatBytes(filesize($path));
                 }
             }
+
             return 'N/A';
         } catch (\Exception $e) {
             return 'N/A';
@@ -366,6 +367,7 @@ class SuperAdminDashboardController extends Controller
             if (is_dir($storagePath)) {
                 $storageSize = $this->getDirectorySize($storagePath);
             }
+
             return $this->formatBytes($storageSize);
         } catch (\Exception $e) {
             return 'N/A';
@@ -378,6 +380,7 @@ class SuperAdminDashboardController extends Controller
         foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($directory)) as $file) {
             $size += $file->getSize();
         }
+
         return $size;
     }
 
@@ -387,6 +390,7 @@ class SuperAdminDashboardController extends Controller
         for ($i = 0; $size > 1024 && $i < count($units) - 1; $i++) {
             $size /= 1024;
         }
+
         return round($size, $precision) . ' ' . $units[$i];
     }
 
@@ -420,7 +424,7 @@ class SuperAdminDashboardController extends Controller
         return [
             'dashboard' => '1.2s',
             'users' => '0.8s',
-            'institutions' => '0.9s'
+            'institutions' => '0.9s',
         ];
     }
 
@@ -428,6 +432,7 @@ class SuperAdminDashboardController extends Controller
     {
         try {
             DB::select('SELECT 1');
+
             return ['status' => 'healthy', 'response_time' => '5ms'];
         } catch (\Exception $e) {
             return ['status' => 'unhealthy', 'error' => $e->getMessage()];
@@ -439,6 +444,7 @@ class SuperAdminDashboardController extends Controller
         try {
             Cache::put('health_check', 'ok', 10);
             $result = Cache::get('health_check');
+
             return ['status' => $result === 'ok' ? 'healthy' : 'unhealthy'];
         } catch (\Exception $e) {
             return ['status' => 'unhealthy', 'error' => $e->getMessage()];
@@ -452,6 +458,7 @@ class SuperAdminDashboardController extends Controller
             file_put_contents($testFile, 'test');
             $result = file_get_contents($testFile);
             unlink($testFile);
+
             return ['status' => $result === 'test' ? 'healthy' : 'unhealthy'];
         } catch (\Exception $e) {
             return ['status' => 'unhealthy', 'error' => $e->getMessage()];
@@ -463,7 +470,7 @@ class SuperAdminDashboardController extends Controller
         return [
             'used' => $this->formatBytes(memory_get_usage(true)),
             'peak' => $this->formatBytes(memory_get_peak_usage(true)),
-            'limit' => ini_get('memory_limit')
+            'limit' => ini_get('memory_limit'),
         ];
     }
 
@@ -476,10 +483,11 @@ class SuperAdminDashboardController extends Controller
     private function getDiskUsage(): array
     {
         $path = storage_path();
+
         return [
             'free' => $this->formatBytes(disk_free_space($path)),
             'total' => $this->formatBytes(disk_total_space($path)),
-            'used_percentage' => round(((disk_total_space($path) - disk_free_space($path)) / disk_total_space($path)) * 100, 1) . '%'
+            'used_percentage' => round(((disk_total_space($path) - disk_free_space($path)) / disk_total_space($path)) * 100, 1) . '%',
         ];
     }
 
@@ -487,7 +495,7 @@ class SuperAdminDashboardController extends Controller
     {
         $healthy = 0;
         $total = 0;
-        
+
         foreach ($health as $check) {
             if (isset($check['status'])) {
                 $total++;
@@ -496,12 +504,19 @@ class SuperAdminDashboardController extends Controller
                 }
             }
         }
-        
+
         $percentage = $total > 0 ? ($healthy / $total) * 100 : 0;
-        
-        if ($percentage >= 90) return 'excellent';
-        if ($percentage >= 75) return 'good';
-        if ($percentage >= 50) return 'fair';
+
+        if ($percentage >= 90) {
+            return 'excellent';
+        }
+        if ($percentage >= 75) {
+            return 'good';
+        }
+        if ($percentage >= 50) {
+            return 'fair';
+        }
+
         return 'poor';
     }
 
@@ -512,7 +527,7 @@ class SuperAdminDashboardController extends Controller
             'total_logins_today' => 120,
             'unique_logins_today' => 85,
             'failed_login_attempts' => 12,
-            'avg_session_duration' => '24min'
+            'avg_session_duration' => '24min',
         ];
     }
 
@@ -522,7 +537,7 @@ class SuperAdminDashboardController extends Controller
         return [
             'avg_response_time' => '150ms',
             'p95_response_time' => '250ms',
-            'p99_response_time' => '400ms'
+            'p99_response_time' => '400ms',
         ];
     }
 
@@ -532,7 +547,7 @@ class SuperAdminDashboardController extends Controller
         return [
             'avg_query_time' => '25ms',
             'slow_queries' => 3,
-            'connections' => 15
+            'connections' => 15,
         ];
     }
 
@@ -541,7 +556,7 @@ class SuperAdminDashboardController extends Controller
         return [
             'current' => $this->formatBytes(memory_get_usage(true)),
             'peak' => $this->formatBytes(memory_get_peak_usage(true)),
-            'limit' => ini_get('memory_limit')
+            'limit' => ini_get('memory_limit'),
         ];
     }
 
@@ -551,7 +566,7 @@ class SuperAdminDashboardController extends Controller
         return [
             'hit_rate' => '85%',
             'miss_rate' => '15%',
-            'avg_lookup_time' => '2ms'
+            'avg_lookup_time' => '2ms',
         ];
     }
 
@@ -562,7 +577,7 @@ class SuperAdminDashboardController extends Controller
             'daily_active_users' => 45,
             'weekly_active_users' => 180,
             'monthly_active_users' => 650,
-            'bounce_rate' => '12%'
+            'bounce_rate' => '12%',
         ];
     }
 }

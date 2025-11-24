@@ -47,7 +47,7 @@ class GradeTag extends Model
     public function grades(): BelongsToMany
     {
         return $this->belongsToMany(Grade::class, 'grade_grade_tag')
-                    ->withTimestamps();
+            ->withTimestamps();
     }
 
     /**
@@ -100,6 +100,7 @@ class GradeTag extends Model
     public function getCategoryNameAttribute(): string
     {
         $categories = self::getCategories();
+
         return $categories[$this->category] ?? $this->category;
     }
 

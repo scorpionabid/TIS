@@ -41,19 +41,6 @@ class ImportOrchestrator
      * Constructor with dependency injection
      *
      * All domain services injected via constructor for testability and modularity.
-     *
-     * @param ExcelFileLoader $fileLoader
-     * @param ExcelDataParser $dataParser
-     * @param ImportDataValidator $validator
-     * @param DuplicateDetector $duplicateDetector
-     * @param InstitutionCreator $institutionCreator
-     * @param SchoolAdminCreator $schoolAdminCreator
-     * @param ChunkProcessor $chunkProcessor
-     * @param BatchOptimizer $batchOptimizer
-     * @param DataTypeParser $dataTypeParser
-     * @param MessageFormatter $messageFormatter
-     * @param ResponseBuilder $responseBuilder
-     * @param ImportStateManager $stateManager
      */
     public function __construct(
         protected ExcelFileLoader $fileLoader,
@@ -83,8 +70,6 @@ class ImportOrchestrator
      * 5. Execute import (dispatcher: small vs chunked)
      * 6. Build response
      *
-     * @param UploadedFile $file
-     * @param string $institutionTypeKey
      * @return array API response
      */
     public function importInstitutionsByType(UploadedFile $file, string $institutionTypeKey): array
@@ -105,7 +90,7 @@ class ImportOrchestrator
             Log::info('Excel data parsed', [
                 'institution_type' => $institutionTypeKey,
                 'parsed_rows' => count($data),
-                'sample_data' => $data ? array_slice($data, 0, 2) : []
+                'sample_data' => $data ? array_slice($data, 0, 2) : [],
             ]);
 
             // 5. Validate parsed data
@@ -113,7 +98,7 @@ class ImportOrchestrator
 
             Log::info('Validation completed', [
                 'validation_errors_count' => count($this->validator->getValidationErrors()),
-                'validation_errors' => $this->validator->getValidationErrors()
+                'validation_errors' => $this->validator->getValidationErrors(),
             ]);
 
             // Check for validation errors
@@ -123,14 +108,14 @@ class ImportOrchestrator
 
             // 6. Import institutions with transaction
             Log::info('Starting import execution', [
-                'data_count' => count($data)
+                'data_count' => count($data),
             ]);
 
             $importedCount = $this->executeImport($data, $institutionType);
 
             Log::info('Import execution completed', [
                 'imported_count' => $importedCount,
-                'import_results' => $this->stateManager->getImportResults()
+                'import_results' => $this->stateManager->getImportResults(),
             ]);
 
             // 7. Build success response
@@ -138,12 +123,11 @@ class ImportOrchestrator
                 $importedCount,
                 $this->stateManager->getImportResults()
             );
-
         } catch (\Exception $e) {
             Log::error('Institution import error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'institution_type' => $institutionTypeKey
+                'institution_type' => $institutionTypeKey,
             ]);
 
             return $this->responseBuilder->buildErrorResponse(
@@ -161,8 +145,6 @@ class ImportOrchestrator
      * - Small (<50 rows): Single transaction
      * - Large (>50 rows): Chunked processing with batch optimization
      *
-     * @param array $data
-     * @param InstitutionType $institutionType
      * @return int Imported count
      */
     protected function executeImport(array $data, InstitutionType $institutionType): int
@@ -172,6 +154,7 @@ class ImportOrchestrator
         // For large datasets (>50 rows), use chunked processing
         if ($totalRows > 50) {
             $importResults = $this->stateManager->getImportResults();
+
             return $this->chunkProcessor->executeChunkedImport($data, $institutionType, $importResults);
         }
 
@@ -184,8 +167,6 @@ class ImportOrchestrator
     /**
      * Process small dataset in single transaction
      *
-     * @param array $data
-     * @param InstitutionType $institutionType
      * @return int Imported count
      */
     protected function processSmallDataset(array $data, InstitutionType $institutionType): int
@@ -198,8 +179,9 @@ class ImportOrchestrator
                 // Skip sample data rows
                 if ($this->dataTypeParser->isSampleRow($rowData)) {
                     $this->stateManager->addResult(
-                        $this->messageFormatter->formatSkipMessage($rowData, "Nümunə sətri")
+                        $this->messageFormatter->formatSkipMessage($rowData, 'Nümunə sətri')
                     );
+
                     continue;
                 }
 
@@ -209,6 +191,7 @@ class ImportOrchestrator
                     $this->stateManager->addResult(
                         $this->messageFormatter->formatDuplicateMessage($rowData, $existingInstitution)
                     );
+
                     continue;
                 }
 
@@ -226,7 +209,7 @@ class ImportOrchestrator
                         'username' => $schoolAdmin->username,
                         'email' => $schoolAdmin->email,
                         'original_username' => $rowData['schooladmin']['username'] ?? '',
-                        'original_email' => $rowData['schooladmin']['email'] ?? ''
+                        'original_email' => $rowData['schooladmin']['email'] ?? '',
                     ];
                 }
 
@@ -234,12 +217,11 @@ class ImportOrchestrator
                 $this->stateManager->addResult(
                     $this->messageFormatter->formatSuccessMessage($rowData, $institution, $schoolAdminInfo)
                 );
-
             } catch (\Exception $e) {
-                Log::error("Institution import row error", [
+                Log::error('Institution import row error', [
                     'row' => $rowData['row'],
                     'error' => $e->getMessage(),
-                    'institution_name' => $rowData['name'] ?? 'N/A'
+                    'institution_name' => $rowData['name'] ?? 'N/A',
                 ]);
 
                 $this->stateManager->addResult(
@@ -258,8 +240,6 @@ class ImportOrchestrator
      * - Import results (via ImportStateManager)
      * - Validation errors (via ImportDataValidator)
      * - Batch caches (via BatchOptimizer and DuplicateDetector)
-     *
-     * @return void
      */
     protected function resetImportState(): void
     {
@@ -271,9 +251,6 @@ class ImportOrchestrator
 
     /**
      * Build validation error response with contextual help
-     *
-     * @param array $validationErrors
-     * @return array
      */
     protected function buildValidationErrorResponse(array $validationErrors): array
     {

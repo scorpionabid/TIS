@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\AcademicYear;
-use App\Models\AcademicTerm;
 use App\Models\AcademicCalendar;
+use App\Models\AcademicTerm;
+use App\Models\AcademicYear;
 use App\Models\Institution;
 use App\Models\StudentEnrollment;
 use App\Models\User;
@@ -21,7 +21,7 @@ class AcademicContextService
         $date = $date ?? now();
         $cacheKey = sprintf('academic_year.current.%s.%s', $institutionId ?? 'global', $date->toDateString());
 
-        return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($institutionId, $date) {
+        return Cache::remember($cacheKey, now()->addMinutes(10), function () use ($institutionId) {
             if ($institutionId) {
                 $calendar = AcademicCalendar::where('institution_id', $institutionId)
                     ->active()
@@ -97,6 +97,7 @@ class AcademicContextService
         }
 
         $student = User::with('grades')->find($studentId);
+
         return $student?->grades?->first()?->id;
     }
 }

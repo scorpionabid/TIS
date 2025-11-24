@@ -5,18 +5,18 @@ namespace App\Services\RegionAdmin;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class RegionAdminPermissionService
 {
     private ?array $normalizedModules = null;
+
     private ?array $permissionIndex = null;
 
     public function __construct(
         private readonly array $config = []
-    ) {
-    }
+    ) {}
 
     private function getConfig(): array
     {
@@ -82,10 +82,11 @@ class RegionAdminPermissionService
                 ));
 
                 if (empty($permissions)) {
-                    return null;
+                    return;
                 }
 
                 $module['permissions'] = $permissions;
+
                 return $module;
             })
             ->filter()
@@ -100,9 +101,10 @@ class RegionAdminPermissionService
                 ));
 
                 $template['key'] = $template['key'] ?? $key;
+
                 return $template;
             })
-            ->filter(fn ($template) => !empty($template['permissions']))
+            ->filter(fn ($template) => ! empty($template['permissions']))
             ->values()
             ->all();
 
@@ -121,7 +123,7 @@ class RegionAdminPermissionService
             $permissions = array_filter(array_map('trim', explode(',', $permissions)));
         }
 
-        if (!is_array($permissions)) {
+        if (! is_array($permissions)) {
             return [];
         }
 
@@ -134,13 +136,13 @@ class RegionAdminPermissionService
         $adminPermissions = $this->getUserPermissionNames($regionAdmin);
 
         foreach ($permissions as $permission) {
-            if (!$allowedForRole->contains($permission)) {
+            if (! $allowedForRole->contains($permission)) {
                 throw ValidationException::withMessages([
                     'assignable_permissions' => [__('Bu səlahiyyəti bu rol üçün təyin etmək olmaz: :permission', ['permission' => $permission])],
                 ]);
             }
 
-            if (!in_array($permission, $adminPermissions, true)) {
+            if (! in_array($permission, $adminPermissions, true)) {
                 throw ValidationException::withMessages([
                     'assignable_permissions' => [__('Sizin səlahiyyətiniz yoxdur: :permission', ['permission' => $permission])],
                 ]);
@@ -156,9 +158,11 @@ class RegionAdminPermissionService
     public function getDefaultPermissionsForRole(string $roleName): array
     {
         $modules = $this->getNormalizedModules();
+
         return collect($modules)
             ->filter(function (array $module) use ($roleName) {
                 $roles = $module['roles'] ?? [];
+
                 return empty($roles) || in_array($roleName, $roles, true);
             })
             ->flatMap(function (array $module) {
@@ -195,6 +199,7 @@ class RegionAdminPermissionService
         return collect($modules)
             ->filter(function (array $module) use ($roleName) {
                 $roles = $module['roles'] ?? [];
+
                 return empty($roles) || in_array($roleName, $roles, true);
             })
             ->flatMap(function (array $module) {
@@ -212,16 +217,16 @@ class RegionAdminPermissionService
         foreach ($permissions as $permission) {
             $dependencies = $this->permissionIndex[$permission]['dependencies'] ?? [];
             foreach ($dependencies as $dependency) {
-                if (!in_array($dependency, $permissions, true)) {
+                if (! in_array($dependency, $permissions, true)) {
                     $missing[$permission][] = $dependency;
                 }
             }
         }
 
-        if (!empty($missing)) {
+        if (! empty($missing)) {
             $messages = [];
             foreach ($missing as $permission => $deps) {
-                $messages[] = __("\":permission\" seçimi üçün :dependencies lazımdır.", [
+                $messages[] = __('":permission" seçimi üçün :dependencies lazımdır.', [
                     'permission' => $permission,
                     'dependencies' => implode(', ', $deps),
                 ]);
@@ -240,18 +245,18 @@ class RegionAdminPermissionService
 
         foreach ($modules as $module) {
             $roles = $module['roles'] ?? [];
-            if (!empty($roles) && !in_array($roleName, $roles, true)) {
+            if (! empty($roles) && ! in_array($roleName, $roles, true)) {
                 continue;
             }
 
             foreach ($module['required'] ?? [] as $requiredPermission) {
-                if (!in_array($requiredPermission, $permissions, true)) {
+                if (! in_array($requiredPermission, $permissions, true)) {
                     $missingRequired[] = $requiredPermission;
                 }
             }
         }
 
-        if (!empty($missingRequired)) {
+        if (! empty($missingRequired)) {
             throw ValidationException::withMessages([
                 'assignable_permissions' => [
                     __('Aşağıdakı səlahiyyətlər məcburidir: :permissions', [
@@ -264,7 +269,7 @@ class RegionAdminPermissionService
 
     private function getUserPermissionNames(User $user): array
     {
-        if (!$user->relationLoaded('permissions')) {
+        if (! $user->relationLoaded('permissions')) {
             $user->load('permissions');
         }
 

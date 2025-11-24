@@ -5,11 +5,9 @@ namespace App\Services;
 use App\Models\Document;
 use App\Models\DocumentShare;
 use App\Models\User;
-use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class DocumentSharingService
 {
@@ -28,7 +26,7 @@ class DocumentSharingService
         $user = Auth::user();
 
         // Check if user can share this document
-        if (!$this->canUserShareDocument($user, $document)) {
+        if (! $this->canUserShareDocument($user, $document)) {
             throw new \Exception('Bu sənədi paylaşmaq icazəniz yoxdur.');
         }
 
@@ -46,10 +44,10 @@ class DocumentSharingService
             'is_active' => true,
             'allow_download' => $shareData['allow_download'] ?? true,
             'allow_reshare' => $shareData['allow_reshare'] ?? false,
-            'password_protected' => !empty($shareData['password']),
-            'access_password' => !empty($shareData['password']) ? bcrypt($shareData['password']) : null,
-            'requires_password' => !empty($shareData['password']),
-            'password_hash' => !empty($shareData['password']) ? bcrypt($shareData['password']) : null,
+            'password_protected' => ! empty($shareData['password']),
+            'access_password' => ! empty($shareData['password']) ? bcrypt($shareData['password']) : null,
+            'requires_password' => ! empty($shareData['password']),
+            'password_hash' => ! empty($shareData['password']) ? bcrypt($shareData['password']) : null,
             'max_downloads' => $shareData['max_downloads'] ?? null,
         ]);
 
@@ -67,7 +65,7 @@ class DocumentSharingService
         $user = Auth::user();
 
         // Check permissions
-        if (!$this->canUserShareDocument($user, $document)) {
+        if (! $this->canUserShareDocument($user, $document)) {
             throw new \Exception('Bu sənəd üçün ictimai link yaratmaq icazəniz yoxdur.');
         }
 
@@ -84,10 +82,10 @@ class DocumentSharingService
             'is_active' => true,
             'allow_download' => $linkData['allow_download'] ?? false,
             'max_downloads' => $linkData['max_downloads'] ?? null,
-            'password_protected' => !empty($linkData['password']),
-            'access_password' => !empty($linkData['password']) ? bcrypt($linkData['password']) : null,
-            'requires_password' => !empty($linkData['password']),
-            'password_hash' => !empty($linkData['password']) ? bcrypt($linkData['password']) : null,
+            'password_protected' => ! empty($linkData['password']),
+            'access_password' => ! empty($linkData['password']) ? bcrypt($linkData['password']) : null,
+            'requires_password' => ! empty($linkData['password']),
+            'password_hash' => ! empty($linkData['password']) ? bcrypt($linkData['password']) : null,
         ]);
 
         return $share;
@@ -99,10 +97,10 @@ class DocumentSharingService
     public function accessViaPublicLink(string $token, ?string $password = null): Document
     {
         $share = DocumentShare::where('public_token', $token)
-                              ->where('is_active', true)
-                              ->first();
+            ->where('is_active', true)
+            ->first();
 
-        if (!$share) {
+        if (! $share) {
             throw new \Exception('Keçərsiz və ya vaxtı keçmiş link.');
         }
 
@@ -113,7 +111,7 @@ class DocumentSharingService
 
         // Check password if required
         if ($share->password_protected) {
-            if (!$password || !password_verify($password, $share->access_password)) {
+            if (! $password || ! password_verify($password, $share->access_password)) {
                 throw new \Exception('Yanlış parol.');
             }
         }
@@ -137,7 +135,7 @@ class DocumentSharingService
         $user = Auth::user();
 
         // Check permissions
-        if (!$this->canUserManageShare($user, $share)) {
+        if (! $this->canUserManageShare($user, $share)) {
             throw new \Exception('Bu paylaşımı ləğv etmək icazəniz yoxdur.');
         }
 
@@ -158,9 +156,9 @@ class DocumentSharingService
             'private_shares' => $shares->where('share_type', 'view')->count(),
             'total_accesses' => $shares->sum('access_count'),
             'recent_shares' => $shares->where('is_active', true)
-                                   ->sortByDesc('created_at')
-                                   ->take(5)
-                                   ->values()
+                ->sortByDesc('created_at')
+                ->take(5)
+                ->values(),
         ];
     }
 
@@ -170,26 +168,26 @@ class DocumentSharingService
     public function getUserSharedDocuments($userId): array
     {
         $user = User::find($userId);
-        
+
         // Documents shared by user
         $sharedByUser = DocumentShare::where('shared_by', $userId)
-                                   ->where('is_active', true)
-                                   ->with(['document', 'document.uploader'])
-                                   ->get();
+            ->where('is_active', true)
+            ->with(['document', 'document.uploader'])
+            ->get();
 
         // Documents shared with user
         $sharedWithUser = DocumentShare::where('is_active', true)
-                                     ->where(function ($query) use ($user) {
-                                         $query->whereJsonContains('shared_with_users', $user->id)
-                                               ->orWhereIn('shared_with_roles', $user->getRoleNames())
-                                               ->orWhereJsonContains('shared_with_institutions', $user->institution_id);
-                                     })
-                                     ->with(['document', 'sharedBy'])
-                                     ->get();
+            ->where(function ($query) use ($user) {
+                $query->whereJsonContains('shared_with_users', $user->id)
+                    ->orWhereIn('shared_with_roles', $user->getRoleNames())
+                    ->orWhereJsonContains('shared_with_institutions', $user->institution_id);
+            })
+            ->with(['document', 'sharedBy'])
+            ->get();
 
         return [
             'shared_by_me' => $sharedByUser,
-            'shared_with_me' => $sharedWithUser
+            'shared_with_me' => $sharedWithUser,
         ];
     }
 
@@ -213,18 +211,18 @@ class DocumentSharingService
             $recipients = [];
 
             // Add specific users
-            if (!empty($share->shared_with_users)) {
+            if (! empty($share->shared_with_users)) {
                 $recipients['users'] = $share->shared_with_users;
             }
 
             // Add users by institution (if institutions are specified)
-            if (!empty($share->shared_with_institutions)) {
+            if (! empty($share->shared_with_institutions)) {
                 $recipients['institutions'] = $share->shared_with_institutions;
                 $recipients['target_roles'] = $share->shared_with_roles ?? null;
             }
 
             // Send notification if we have recipients
-            if (!empty($recipients)) {
+            if (! empty($recipients)) {
                 $options = [
                     'related' => $document,
                     'priority' => 'normal',
@@ -234,29 +232,28 @@ class DocumentSharingService
                     'document_id' => $document->id,
                     'share_id' => $share->id,
                     'recipients' => array_keys($recipients),
-                    'variables' => array_keys($variables)
+                    'variables' => array_keys($variables),
                 ]);
 
                 $this->notificationService->sendFromTemplate('document_shared', $recipients, $variables, $options);
             }
 
             // Fallback: Handle role-based sharing without institutions
-            if (!empty($share->shared_with_roles) && empty($share->shared_with_institutions)) {
+            if (! empty($share->shared_with_roles) && empty($share->shared_with_institutions)) {
                 $roleUsers = User::whereHas('roles', function ($query) use ($share) {
                     $query->whereIn('name', $share->shared_with_roles);
                 })->pluck('id')->toArray();
 
-                if (!empty($roleUsers)) {
+                if (! empty($roleUsers)) {
                     $roleRecipients = ['users' => $roleUsers];
                     $this->notificationService->sendFromTemplate('document_shared', $roleRecipients, $variables, $options);
                 }
             }
-
         } catch (\Exception $e) {
             Log::error('Failed to send document sharing notification', [
                 'document_id' => $document->id,
                 'share_id' => $share->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -277,7 +274,7 @@ class DocumentSharingService
         }
 
         // Regional/Sector admins can share institution documents
-        if ($user->hasRole(['regionadmin', 'sektoradmin']) && 
+        if ($user->hasRole(['regionadmin', 'sektoradmin']) &&
             $document->institution_id === $user->institution_id) {
             return true;
         }

@@ -2,33 +2,31 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use App\Models\User;
+use App\Models\Document;
 use App\Models\Institution;
 use App\Models\Task;
-use App\Models\Document;
-use Carbon\Carbon;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class TaskDocumentSeeder extends Seeder
 {
     public function run()
     {
         $this->command->info('📋 Seeding tasks and documents data...');
-        
+
         DB::beginTransaction();
-        
+
         try {
             // 1. Task Management Data
             $this->seedTaskData();
-            
+
             // 2. Document Management Data
             $this->seedDocumentData();
-            
+
             DB::commit();
-            
+
             $this->command->info('✅ Tasks and documents seeding completed successfully!');
-            
         } catch (\Exception $e) {
             DB::rollback();
             $this->command->error('❌ Tasks and documents seeding failed: ' . $e->getMessage());
@@ -39,17 +37,26 @@ class TaskDocumentSeeder extends Seeder
     private function seedTaskData()
     {
         $this->command->info('📋 Seeding task data...');
-        
-        $superadmin = User::whereHas('roles', function($q) { $q->where('name', 'superadmin'); })->first();
-        $regionAdmins = User::whereHas('roles', function($q) { $q->where('name', 'regionadmin'); })->get();
-        $schoolAdmins = User::whereHas('roles', function($q) { $q->where('name', 'schooladmin'); })->get();
-        $teachers = User::whereHas('roles', function($q) { $q->where('name', 'müəllim'); })->take(3)->get();
-        
-        if (!$superadmin) {
+
+        $superadmin = User::whereHas('roles', function ($q) {
+            $q->where('name', 'superadmin');
+        })->first();
+        $regionAdmins = User::whereHas('roles', function ($q) {
+            $q->where('name', 'regionadmin');
+        })->get();
+        $schoolAdmins = User::whereHas('roles', function ($q) {
+            $q->where('name', 'schooladmin');
+        })->get();
+        $teachers = User::whereHas('roles', function ($q) {
+            $q->where('name', 'müəllim');
+        })->take(3)->get();
+
+        if (! $superadmin) {
             $this->command->warn('Skipping task seeding - no superadmin found');
+
             return;
         }
-        
+
         $tasks = [
             [
                 'title' => 'Həftəlik Davamiyyət Hesabatının Hazırlanması',
@@ -97,12 +104,12 @@ class TaskDocumentSeeder extends Seeder
                 'created_by' => $regionAdmins->first()->id ?? $superadmin->id,
             ],
         ];
-        
+
         foreach ($tasks as $taskData) {
             $institution = User::find($taskData['assigned_to'])->institution ?? Institution::first();
-            
+
             Task::firstOrCreate([
-                'title' => $taskData['title']
+                'title' => $taskData['title'],
             ], [
                 'description' => $taskData['description'],
                 'category' => $taskData['category'],
@@ -121,15 +128,16 @@ class TaskDocumentSeeder extends Seeder
     private function seedDocumentData()
     {
         $this->command->info('📄 Seeding document data...');
-        
+
         $users = User::whereHas('roles')->take(5)->get();
         $institutions = Institution::take(3)->get();
-        
+
         if ($users->count() === 0 || $institutions->count() === 0) {
             $this->command->warn('Skipping document seeding - insufficient users or institutions');
+
             return;
         }
-        
+
         $documents = [
             [
                 'title' => 'Təhsil Nazirliyi Sirkular Məktubu #2024-157',
@@ -180,13 +188,13 @@ class TaskDocumentSeeder extends Seeder
                 'access_level' => 'restricted',
             ],
         ];
-        
+
         foreach ($documents as $docData) {
             $user = $users->random();
             $institution = $institutions->random();
-            
+
             Document::firstOrCreate([
-                'title' => $docData['title']
+                'title' => $docData['title'],
             ], [
                 'description' => $docData['description'],
                 'original_filename' => $docData['original_filename'],

@@ -32,7 +32,10 @@ export const InstitutionTypeModalStandardized: React.FC<InstitutionTypeModalStan
     enabled: open,
   });
 
-  const existingTypes = institutionTypesResponse?.institution_types || [];
+  const existingTypes = useMemo(
+    () => institutionTypesResponse?.institution_types || [],
+    [institutionTypesResponse]
+  );
 
   // Multi-select for allowed parent types
   const allowedParentTypesField: FormField = useMemo(() => ({

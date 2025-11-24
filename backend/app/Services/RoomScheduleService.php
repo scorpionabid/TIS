@@ -3,9 +3,7 @@
 namespace App\Services;
 
 use App\Models\Room;
-use App\Models\Grade;
 use App\Models\Schedule;
-use Illuminate\Support\Facades\DB;
 
 class RoomScheduleService extends BaseService
 {
@@ -18,18 +16,18 @@ class RoomScheduleService extends BaseService
             ->where('date', $date)
             ->where(function ($q) use ($startTime, $endTime) {
                 $q->whereBetween('start_time', [$startTime, $endTime])
-                  ->orWhereBetween('end_time', [$startTime, $endTime])
-                  ->orWhere(function ($q2) use ($startTime, $endTime) {
-                      $q2->where('start_time', '<=', $startTime)
-                         ->where('end_time', '>=', $endTime);
-                  });
+                    ->orWhereBetween('end_time', [$startTime, $endTime])
+                    ->orWhere(function ($q2) use ($startTime, $endTime) {
+                        $q2->where('start_time', '<=', $startTime)
+                            ->where('end_time', '>=', $endTime);
+                    });
             });
 
         if ($excludeScheduleId) {
             $query->where('id', '!=', $excludeScheduleId);
         }
 
-        return !$query->exists();
+        return ! $query->exists();
     }
 
     /**
@@ -62,7 +60,7 @@ class RoomScheduleService extends BaseService
                 ] : null,
                 'teacher' => $schedule->teacher ? [
                     'id' => $schedule->teacher->id,
-                    'full_name' => $schedule->teacher->profile 
+                    'full_name' => $schedule->teacher->profile
                         ? "{$schedule->teacher->profile->first_name} {$schedule->teacher->profile->last_name}"
                         : $schedule->teacher->username,
                 ] : null,
@@ -78,7 +76,7 @@ class RoomScheduleService extends BaseService
     public function getRoomWeeklySchedule(int $roomId, string $startDate): array
     {
         $endDate = date('Y-m-d', strtotime($startDate . ' +6 days'));
-        
+
         $schedules = Schedule::where('room_id', $roomId)
             ->whereBetween('date', [$startDate, $endDate])
             ->with(['grade', 'subject', 'teacher.profile'])
@@ -87,13 +85,13 @@ class RoomScheduleService extends BaseService
             ->get();
 
         $weeklySchedule = [];
-        
+
         for ($i = 0; $i < 7; $i++) {
             $currentDate = date('Y-m-d', strtotime($startDate . " +{$i} days"));
             $dayName = date('l', strtotime($currentDate));
-            
+
             $daySchedules = $schedules->where('date', $currentDate);
-            
+
             $weeklySchedule[$dayName] = [
                 'date' => $currentDate,
                 'day_name' => $dayName,
@@ -104,7 +102,7 @@ class RoomScheduleService extends BaseService
                         'end_time' => $schedule->end_time,
                         'grade_name' => $schedule->grade?->full_name,
                         'subject_name' => $schedule->subject?->name,
-                        'teacher_name' => $schedule->teacher?->profile 
+                        'teacher_name' => $schedule->teacher?->profile
                             ? "{$schedule->teacher->profile->first_name} {$schedule->teacher->profile->last_name}"
                             : $schedule->teacher?->username,
                         'schedule_type' => $schedule->schedule_type,
@@ -123,27 +121,28 @@ class RoomScheduleService extends BaseService
     public function getRoomUtilization(int $roomId, string $startDate, string $endDate): array
     {
         $room = Room::findOrFail($roomId);
-        
+
         $schedules = Schedule::where('room_id', $roomId)
             ->whereBetween('date', [$startDate, $endDate])
             ->get();
 
         $totalMinutes = $schedules->sum('duration_minutes');
         $totalHours = round($totalMinutes / 60, 2);
-        
+
         // Calculate working hours (assuming 8 hours per day, 5 days per week)
         $startDateTime = new \DateTime($startDate);
         $endDateTime = new \DateTime($endDate);
         $interval = $startDateTime->diff($endDateTime);
         $totalDays = $interval->days + 1;
-        $workingDays = ceil($totalDays * 5/7); // Approximate working days
+        $workingDays = ceil($totalDays * 5 / 7); // Approximate working days
         $availableHours = $workingDays * 8;
-        
+
         $utilizationRate = $availableHours > 0 ? round(($totalHours / $availableHours) * 100, 2) : 0;
 
         // Daily breakdown
         $dailyBreakdown = $schedules->groupBy('date')->map(function ($daySchedules, $date) {
             $dayMinutes = $daySchedules->sum('duration_minutes');
+
             return [
                 'date' => $date,
                 'day_name' => date('l', strtotime($date)),
@@ -171,8 +170,8 @@ class RoomScheduleService extends BaseService
                 'available_hours' => $availableHours,
                 'utilization_rate' => $utilizationRate,
                 'total_schedules' => $schedules->count(),
-                'average_session_duration' => $schedules->count() > 0 
-                    ? round($totalMinutes / $schedules->count(), 2) 
+                'average_session_duration' => $schedules->count() > 0
+                    ? round($totalMinutes / $schedules->count(), 2)
                     : 0,
             ],
             'daily_breakdown' => $dailyBreakdown->values()->toArray(),
@@ -192,14 +191,14 @@ class RoomScheduleService extends BaseService
         // Define working hours (8:00 AM to 6:00 PM)
         $workingStart = '08:00:00';
         $workingEnd = '18:00:00';
-        
+
         $availableSlots = [];
         $currentTime = $workingStart;
-        
+
         foreach ($existingSchedules as $schedule) {
             // Check if there's time between current time and this schedule
             $timeBeforeSchedule = strtotime($schedule->start_time) - strtotime($currentTime);
-            
+
             if ($timeBeforeSchedule >= ($durationMinutes * 60)) {
                 $slotEnd = date('H:i:s', strtotime($currentTime) + ($durationMinutes * 60));
                 if (strtotime($slotEnd) <= strtotime($schedule->start_time)) {
@@ -210,10 +209,10 @@ class RoomScheduleService extends BaseService
                     ];
                 }
             }
-            
+
             $currentTime = $schedule->end_time;
         }
-        
+
         // Check if there's time after the last schedule
         $timeAfterLastSchedule = strtotime($workingEnd) - strtotime($currentTime);
         if ($timeAfterLastSchedule >= ($durationMinutes * 60)) {
@@ -242,11 +241,11 @@ class RoomScheduleService extends BaseService
             ->get();
 
         $conflicts = [];
-        
+
         for ($i = 0; $i < $schedules->count() - 1; $i++) {
             $current = $schedules[$i];
             $next = $schedules[$i + 1];
-            
+
             // Check if schedules are on the same date
             if ($current->date === $next->date) {
                 // Check for overlap
@@ -284,7 +283,7 @@ class RoomScheduleService extends BaseService
     public function getMostUtilizedRooms(array $roomIds, string $startDate, string $endDate, int $limit = 10): array
     {
         $utilizationData = [];
-        
+
         foreach ($roomIds as $roomId) {
             $utilization = $this->getRoomUtilization($roomId, $startDate, $endDate);
             $utilizationData[] = [
@@ -296,19 +295,19 @@ class RoomScheduleService extends BaseService
                 'total_schedules' => $utilization['utilization']['total_schedules'],
             ];
         }
-        
+
         // Sort by utilization rate descending
         usort($utilizationData, function ($a, $b) {
             return $b['utilization_rate'] <=> $a['utilization_rate'];
         });
-        
+
         return array_slice($utilizationData, 0, $limit);
     }
 
     /**
      * Suggest optimal room for a schedule
      */
-    public function suggestOptimalRoom(array $availableRoomIds, int $expectedStudents, string $roomType = null): ?array
+    public function suggestOptimalRoom(array $availableRoomIds, int $expectedStudents, ?string $roomType = null): ?array
     {
         $rooms = Room::whereIn('id', $availableRoomIds)
             ->where('is_active', true)
@@ -335,8 +334,8 @@ class RoomScheduleService extends BaseService
             'capacity' => $optimalRoom->capacity,
             'room_type' => $optimalRoom->room_type,
             'facilities' => $optimalRoom->facilities,
-            'efficiency_score' => $expectedStudents > 0 
-                ? round(($expectedStudents / $optimalRoom->capacity) * 100, 2) 
+            'efficiency_score' => $expectedStudents > 0
+                ? round(($expectedStudents / $optimalRoom->capacity) * 100, 2)
                 : 0,
         ];
     }

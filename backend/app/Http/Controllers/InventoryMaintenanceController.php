@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ResponseHelpers;
+use App\Http\Traits\ValidationRules;
 use App\Models\InventoryItem;
 use App\Models\MaintenanceRecord;
 use App\Services\InventoryMaintenanceService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use App\Http\Traits\ValidationRules;
-use App\Http\Traits\ResponseHelpers;
+use Illuminate\Http\Request;
 
 class InventoryMaintenanceController extends Controller
 {
-    use ValidationRules, ResponseHelpers;
+    use ResponseHelpers, ValidationRules;
 
     protected InventoryMaintenanceService $maintenanceService;
 
@@ -41,12 +41,12 @@ class InventoryMaintenanceController extends Controller
             'parts_needed' => 'sometimes|array',
             'external_service' => 'sometimes|boolean',
             'service_provider' => 'sometimes|string|max:255',
-            'immediate_maintenance' => 'sometimes|boolean'
+            'immediate_maintenance' => 'sometimes|boolean',
         ]);
 
         try {
             $maintenance = $this->maintenanceService->scheduleMaintenance($item, $validated);
-            
+
             return $this->successResponse(
                 $this->maintenanceService->formatMaintenanceForResponse($maintenance),
                 'Maintenance scheduled successfully',
@@ -65,12 +65,12 @@ class InventoryMaintenanceController extends Controller
         $validated = $request->validate([
             'actual_start_date' => 'sometimes|date',
             'technician_notes' => 'sometimes|string|max:1000',
-            'work_order_number' => 'sometimes|string|max:50'
+            'work_order_number' => 'sometimes|string|max:50',
         ]);
 
         try {
             $updatedMaintenance = $this->maintenanceService->startMaintenance($maintenance, $validated);
-            
+
             return $this->successResponse(
                 $this->maintenanceService->formatMaintenanceForResponse($updatedMaintenance),
                 'Maintenance started successfully'
@@ -94,12 +94,12 @@ class InventoryMaintenanceController extends Controller
             'warranty_period' => 'sometimes|integer|min:1',
             'quality_check_passed' => 'sometimes|boolean',
             'recommendations' => 'sometimes|string|max:1000',
-            'item_condition' => 'sometimes|string|in:new,excellent,good,fair,poor,damaged'
+            'item_condition' => 'sometimes|string|in:new,excellent,good,fair,poor,damaged',
         ]);
 
         try {
             $completedMaintenance = $this->maintenanceService->completeMaintenance($maintenance, $validated);
-            
+
             return $this->successResponse(
                 $this->maintenanceService->formatMaintenanceForResponse($completedMaintenance),
                 'Maintenance completed successfully'
@@ -115,12 +115,12 @@ class InventoryMaintenanceController extends Controller
     public function cancel(Request $request, MaintenanceRecord $maintenance): JsonResponse
     {
         $validated = $request->validate([
-            'reason' => 'required|string|max:500'
+            'reason' => 'required|string|max:500',
         ]);
 
         try {
             $cancelledMaintenance = $this->maintenanceService->cancelMaintenance($maintenance, $validated);
-            
+
             return $this->successResponse(
                 $this->maintenanceService->formatMaintenanceForResponse($cancelledMaintenance),
                 'Maintenance cancelled successfully'
@@ -141,12 +141,12 @@ class InventoryMaintenanceController extends Controller
             'date_from' => 'sometimes|date',
             'date_to' => 'sometimes|date|after_or_equal:date_from',
             'assigned_to' => 'sometimes|integer|exists:users,id',
-            'per_page' => 'sometimes|integer|min:1|max:100'
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         try {
             $history = $this->maintenanceService->getMaintenanceHistory($item, $validated);
-            
+
             return $this->successResponse($history, 'Maintenance records retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -165,12 +165,12 @@ class InventoryMaintenanceController extends Controller
             'priority' => 'sometimes|string|in:low,medium,high,urgent',
             'maintenance_type' => 'sometimes|string',
             'institution_id' => 'sometimes|integer|exists:institutions,id',
-            'per_page' => 'sometimes|integer|min:1|max:100'
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         try {
             $schedule = $this->maintenanceService->getMaintenanceSchedule($validated);
-            
+
             return $this->successResponse($schedule, 'Maintenance schedule retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -184,19 +184,19 @@ class InventoryMaintenanceController extends Controller
     {
         $validated = $request->validate([
             'status' => 'required|string|in:scheduled,in_progress,completed,cancelled',
-            'notes' => 'sometimes|string|max:1000'
+            'notes' => 'sometimes|string|max:1000',
         ]);
 
         try {
             $status = $validated['status'];
             $notes = $validated['notes'] ?? null;
-            
-            $updatedMaintenance = match($status) {
+
+            $updatedMaintenance = match ($status) {
                 'in_progress' => $this->maintenanceService->startMaintenance($maintenance, ['technician_notes' => $notes]),
                 'cancelled' => $this->maintenanceService->cancelMaintenance($maintenance, ['reason' => $notes ?? 'Status updated']),
                 default => throw new \Exception("Cannot update status to {$status} using this endpoint")
             };
-            
+
             return $this->successResponse(
                 $this->maintenanceService->formatMaintenanceForResponse($updatedMaintenance),
                 'Maintenance status updated successfully'
@@ -215,12 +215,12 @@ class InventoryMaintenanceController extends Controller
             'days_ahead' => 'sometimes|integer|min:1|max:365',
             'priority' => 'sometimes|string|in:low,medium,high,urgent',
             'assigned_to' => 'sometimes|integer|exists:users,id',
-            'per_page' => 'sometimes|integer|min:1|max:100'
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         try {
             $upcomingMaintenance = $this->maintenanceService->getUpcomingDueMaintenance($validated);
-            
+
             return $this->successResponse($upcomingMaintenance, 'Upcoming maintenance retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -237,12 +237,12 @@ class InventoryMaintenanceController extends Controller
             'priority' => 'sometimes|string|in:low,medium,high,urgent',
             'assigned_to' => 'sometimes|integer|exists:users,id',
             'institution_id' => 'sometimes|integer|exists:institutions,id',
-            'per_page' => 'sometimes|integer|min:1|max:100'
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         try {
             $overdueMaintenance = $this->maintenanceService->getOverdueMaintenance($validated);
-            
+
             return $this->successResponse($overdueMaintenance, 'Overdue maintenance retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -259,12 +259,12 @@ class InventoryMaintenanceController extends Controller
             'date_to' => 'sometimes|date|after_or_equal:date_from',
             'maintenance_type' => 'sometimes|string',
             'institution_id' => 'sometimes|integer|exists:institutions,id',
-            'assigned_to' => 'sometimes|integer|exists:users,id'
+            'assigned_to' => 'sometimes|integer|exists:users,id',
         ]);
 
         try {
             $statistics = $this->maintenanceService->getMaintenanceStatistics($validated);
-            
+
             return $this->successResponse($statistics, 'Maintenance statistics retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -281,12 +281,12 @@ class InventoryMaintenanceController extends Controller
             'date_to' => 'sometimes|date|after_or_equal:date_from',
             'maintenance_type' => 'sometimes|string',
             'institution_id' => 'sometimes|integer|exists:institutions,id',
-            'category' => 'sometimes|string'
+            'category' => 'sometimes|string',
         ]);
 
         try {
             $costSummary = $this->maintenanceService->getMaintenanceCostSummary($validated);
-            
+
             return $this->successResponse($costSummary, 'Maintenance cost summary retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -308,7 +308,7 @@ class InventoryMaintenanceController extends Controller
             'estimated_duration' => 'sometimes|integer|min:1',
             'estimated_cost' => 'sometimes|numeric|min:0',
             'assigned_to' => 'sometimes|integer|exists:users,id',
-            'notes' => 'sometimes|string|max:2000'
+            'notes' => 'sometimes|string|max:2000',
         ]);
 
         try {
@@ -316,7 +316,7 @@ class InventoryMaintenanceController extends Controller
                 $validated['item_ids'],
                 $validated
             );
-            
+
             return $this->successResponse($result, 'Bulk maintenance scheduling completed');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -333,12 +333,12 @@ class InventoryMaintenanceController extends Controller
             'year' => 'sometimes|integer|min:2020|max:2030',
             'assigned_to' => 'sometimes|integer|exists:users,id',
             'maintenance_type' => 'sometimes|string',
-            'institution_id' => 'sometimes|integer|exists:institutions,id'
+            'institution_id' => 'sometimes|integer|exists:institutions,id',
         ]);
 
         try {
             $calendar = $this->maintenanceService->getMaintenanceCalendar($validated);
-            
+
             return $this->successResponse($calendar, 'Maintenance calendar retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);

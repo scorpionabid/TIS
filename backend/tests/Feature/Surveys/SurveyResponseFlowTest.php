@@ -4,7 +4,6 @@ namespace Tests\Feature\Surveys;
 
 use App\Models\Institution;
 use App\Models\Survey;
-use App\Models\SurveyResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;

@@ -38,7 +38,7 @@ class QuestionAnalyticsService
                 'response_count' => $this->getQuestionResponseCount($responses, $index),
                 'skip_rate' => $this->getQuestionSkipRate($responses, $index),
                 'answer_distribution' => $this->getAnswerDistribution($responses, $index, $question['type']),
-                'average_rating' => $this->getAverageRating($responses, $index, $question['type'])
+                'average_rating' => $this->getAverageRating($responses, $index, $question['type']),
             ];
         }
 
@@ -59,7 +59,7 @@ class QuestionAnalyticsService
         foreach ($questions as $index => $question) {
             $completion[] = [
                 'question_index' => $index,
-                'completion_rate' => $this->getQuestionResponseCount($responses, $index)
+                'completion_rate' => $this->getQuestionResponseCount($responses, $index),
             ];
         }
 
@@ -73,9 +73,10 @@ class QuestionAnalyticsService
      */
     public function getQuestionResponseCount(Collection $responses, int $questionIndex): int
     {
-        return $responses->filter(function($response) use ($questionIndex) {
+        return $responses->filter(function ($response) use ($questionIndex) {
             $answers = $response->responses ?? [];
-            return isset($answers[$questionIndex]) && !empty($answers[$questionIndex]);
+
+            return isset($answers[$questionIndex]) && ! empty($answers[$questionIndex]);
         })->count();
     }
 
@@ -87,9 +88,12 @@ class QuestionAnalyticsService
     public function getQuestionSkipRate(Collection $responses, int $questionIndex): float
     {
         $total = $responses->count();
-        if ($total == 0) return 0;
+        if ($total == 0) {
+            return 0;
+        }
 
         $answered = $this->getQuestionResponseCount($responses, $questionIndex);
+
         return round((($total - $answered) / $total) * 100, 2);
     }
 
@@ -120,6 +124,7 @@ class QuestionAnalyticsService
                     $distribution[$answer] = ($distribution[$answer] ?? 0) + 1;
                 }
             }
+
             return $distribution;
         }
 
@@ -133,14 +138,14 @@ class QuestionAnalyticsService
      */
     public function getAverageRating(Collection $responses, int $questionIndex, string $questionType): ?float
     {
-        if (!in_array($questionType, ['rating', 'scale', 'number'])) {
+        if (! in_array($questionType, ['rating', 'scale', 'number'])) {
             return null;
         }
 
         $ratings = $responses
             ->pluck("responses.$questionIndex")
             ->filter()
-            ->filter(fn($val) => is_numeric($val));
+            ->filter(fn ($val) => is_numeric($val));
 
         return $ratings->isEmpty() ? null : round($ratings->average(), 2);
     }

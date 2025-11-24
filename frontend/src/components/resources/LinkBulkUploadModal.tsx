@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { UploadCloud, FileUp, AlertTriangle, CheckCircle2, Info, List } from 'lucide-react';
@@ -38,6 +38,7 @@ const DEFAULT_REQUIRED_COLUMNS = [
   'institution_unique_name',
   'link_type',
 ];
+const DEFAULT_LINK_TYPES = ['external', 'video', 'form', 'document'];
 
 type RowIssue = {
   column: string;
@@ -88,7 +89,11 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
   });
 
   const requiredColumns = metadata?.required_columns ?? DEFAULT_REQUIRED_COLUMNS;
-  const allowedLinkTypes = metadata?.link_types ?? ['external', 'video', 'form', 'document'];
+  const metadataLinkTypes = metadata?.link_types;
+  const allowedLinkTypes = useMemo(
+    () => metadataLinkTypes ?? DEFAULT_LINK_TYPES,
+    [metadataLinkTypes]
+  );
   const maxRows = metadata?.max_rows ?? MAX_BULK_ROWS_FALLBACK;
 
   const institutionLookup = useMemo(() => {
@@ -168,7 +173,7 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
     onClose();
   };
 
-  const parseFile = async (file: File, meta: LinkBulkMetadata) => {
+  const parseFile = useCallback(async (file: File, meta: LinkBulkMetadata) => {
     setIsParsing(true);
     setSubmitErrors([]);
     try {
@@ -258,7 +263,7 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
     } finally {
       setIsParsing(false);
     }
-  };
+  }, [allowedLinkTypes, institutionLookup, maxRows, requiredColumns]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -347,7 +352,7 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
     }
 
     parseFile(selectedFile, metadata);
-  }, [metadata, selectedFile, isOpen, previewRows.length, isParsing]);
+  }, [metadata, selectedFile, isOpen, previewRows.length, isParsing, parseFile]);
 
   const handleSubmit = (event: React.FormEvent) => {
     event.preventDefault();

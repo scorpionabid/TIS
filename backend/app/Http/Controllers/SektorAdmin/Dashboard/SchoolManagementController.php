@@ -4,8 +4,8 @@ namespace App\Http\Controllers\SektorAdmin\Dashboard;
 
 use App\Http\Controllers\Controller;
 use App\Models\Institution;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SchoolManagementController extends Controller
 {
@@ -15,17 +15,17 @@ class SchoolManagementController extends Controller
     public function getSectorSchools(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('sektoradmin')) {
+
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         try {
             $userSector = $user->institution;
-            
-            if (!$userSector) {
+
+            if (! $userSector) {
                 return response()->json([
-                    'message' => 'İstifadəçi sektora təyin edilməyib'
+                    'message' => 'İstifadəçi sektora təyin edilməyib',
                 ], 400);
             }
 
@@ -33,11 +33,11 @@ class SchoolManagementController extends Controller
                 ->where('level', 4)
                 ->with(['parent'])
                 ->get()
-                ->map(function($school) {
+                ->map(function ($school) {
                     // Mock student and teacher counts
                     $students = rand(200, 600);
                     $teachers = rand(15, 50);
-                    
+
                     return [
                         'id' => $school->id,
                         'name' => $school->name,
@@ -51,7 +51,7 @@ class SchoolManagementController extends Controller
                         'phone' => $school->phone ?? 'Telefon qeyd edilməyib',
                         'email' => $school->email ?? 'Email qeyd edilməyib',
                         'established_year' => $school->established_year ?? 'Bilinmir',
-                        'created_at' => $school->created_at->format('Y-m-d')
+                        'created_at' => $school->created_at->format('Y-m-d'),
                     ];
                 });
 
@@ -63,14 +63,13 @@ class SchoolManagementController extends Controller
                 'total_teachers' => $schools->sum('teachers'),
                 'sector' => [
                     'name' => $userSector->name,
-                    'region' => $userSector->parent?->name ?? 'Bilinmir'
-                ]
+                    'region' => $userSector->parent?->name ?? 'Bilinmir',
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Məktəb məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -85,7 +84,7 @@ class SchoolManagementController extends Controller
             'secondary_school' => 'Orta Məktəb',
             'gymnasium' => 'Gimnaziya',
             'vocational' => 'Peşə Məktəbi',
-            'kindergarten' => 'Uşaq Bağçası'
+            'kindergarten' => 'Uşaq Bağçası',
         ];
 
         return $types[$type] ?? $type;

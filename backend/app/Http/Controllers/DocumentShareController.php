@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DocumentShare;
 use App\Models\DocumentDownload;
-use Illuminate\Http\Request;
+use App\Models\DocumentShare;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -18,10 +18,10 @@ class DocumentShareController extends Controller
     public function access(Request $request, string $token): JsonResponse|Response
     {
         $share = DocumentShare::with(['document', 'sharedBy'])
-                             ->byToken($token)
-                             ->first();
+            ->byToken($token)
+            ->first();
 
-        if (!$share) {
+        if (! $share) {
             return response()->json([
                 'success' => false,
                 'message' => 'Paylaşım linki tapılmadı.',
@@ -29,7 +29,7 @@ class DocumentShareController extends Controller
         }
 
         // Check if share is valid
-        if (!$share->isValid()) {
+        if (! $share->isValid()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Paylaşım linkinin müddəti bitib və ya deaktiv edilib.',
@@ -41,7 +41,7 @@ class DocumentShareController extends Controller
         $document = $share->document;
 
         // Check if document exists and is accessible
-        if (!$document || $document->status !== 'active') {
+        if (! $document || $document->status !== 'active') {
             return response()->json([
                 'success' => false,
                 'message' => 'Sənəd mövcud deyil və ya deaktiv edilib.',
@@ -50,7 +50,7 @@ class DocumentShareController extends Controller
 
         // Check IP restrictions
         $clientIp = $request->ip();
-        if (!$share->isIpAllowed($clientIp)) {
+        if (! $share->isIpAllowed($clientIp)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu IP ünvanından paylaşım linkinə giriş icazəsi yoxdur.',
@@ -60,8 +60,8 @@ class DocumentShareController extends Controller
         // Handle password protection
         if ($share->requires_password) {
             $password = $request->input('password');
-            
-            if (!$password) {
+
+            if (! $password) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu paylaşım üçün parol tələb olunur.',
@@ -69,7 +69,7 @@ class DocumentShareController extends Controller
                 ], 401);
             }
 
-            if (!$share->checkPassword($password)) {
+            if (! $share->checkPassword($password)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Yanlış parol.',
@@ -87,10 +87,10 @@ class DocumentShareController extends Controller
         switch ($action) {
             case 'download':
                 return $this->handleDownload($share, $document, $clientIp);
-            
+
             case 'preview':
                 return $this->handlePreview($share, $document, $clientIp);
-            
+
             default:
                 return $this->handleInfo($share, $document);
         }
@@ -101,21 +101,21 @@ class DocumentShareController extends Controller
      */
     protected function handleDownload(DocumentShare $share, $document, string $clientIp): Response|JsonResponse
     {
-        if (!$share->can_download) {
+        if (! $share->can_download) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu paylaşım üçün endirmə icazəsi verilməyib.',
             ], 403);
         }
 
-        if (!$document->is_downloadable) {
+        if (! $document->is_downloadable) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu sənəd endirmə üçün mövcud deyil.',
             ], 403);
         }
 
-        if (!Storage::exists($document->file_path)) {
+        if (! Storage::exists($document->file_path)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Fayl tapılmadı.',
@@ -124,9 +124,9 @@ class DocumentShareController extends Controller
 
         // Record download
         DocumentDownload::recordDownload(
-            $document, 
+            $document,
             null, // Anonymous user
-            $share, 
+            $share,
             'shared_link'
         );
 
@@ -145,21 +145,21 @@ class DocumentShareController extends Controller
      */
     protected function handlePreview(DocumentShare $share, $document, string $clientIp): Response|JsonResponse
     {
-        if (!$share->can_view_online) {
+        if (! $share->can_view_online) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu paylaşım üçün onlayn görüntüləmə icazəsi verilməyib.',
             ], 403);
         }
 
-        if (!$document->is_viewable_online) {
+        if (! $document->is_viewable_online) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu sənəd onlayn görüntüləmə üçün mövcud deyil.',
             ], 403);
         }
 
-        if (!Storage::exists($document->file_path)) {
+        if (! Storage::exists($document->file_path)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Fayl tapılmadı.',
@@ -168,9 +168,9 @@ class DocumentShareController extends Controller
 
         // Record preview
         DocumentDownload::recordDownload(
-            $document, 
+            $document,
             null, // Anonymous user
-            $share, 
+            $share,
             'preview'
         );
 
@@ -240,14 +240,14 @@ class DocumentShareController extends Controller
 
         $share = DocumentShare::byToken($token)->first();
 
-        if (!$share || !$share->isValid()) {
+        if (! $share || ! $share->isValid()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Paylaşım linki mövcud deyil və ya deaktiv edilib.',
             ], 404);
         }
 
-        if (!$share->checkPassword($request->password)) {
+        if (! $share->checkPassword($request->password)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Yanlış parol.',
@@ -268,7 +268,7 @@ class DocumentShareController extends Controller
     {
         $share = DocumentShare::byToken($token)->first();
 
-        if (!$share) {
+        if (! $share) {
             return response()->json([
                 'success' => false,
                 'message' => 'Paylaşım tapılmadı.',
@@ -277,7 +277,7 @@ class DocumentShareController extends Controller
 
         // Basic validation - could add more security checks
         $user = auth()->user();
-        if (!$user || $share->shared_by !== $user->id) {
+        if (! $user || $share->shared_by !== $user->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu paylaşımın statistikasını görmək icazəniz yoxdur.',
@@ -299,7 +299,7 @@ class DocumentShareController extends Controller
     {
         $share = DocumentShare::byToken($token)->first();
 
-        if (!$share) {
+        if (! $share) {
             return response()->json([
                 'success' => false,
                 'message' => 'Paylaşım tapılmadı.',
@@ -307,7 +307,7 @@ class DocumentShareController extends Controller
         }
 
         $user = auth()->user();
-        if (!$user || $share->shared_by !== $user->id) {
+        if (! $user || $share->shared_by !== $user->id) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu paylaşımı deaktiv etmək icazəniz yoxdur.',

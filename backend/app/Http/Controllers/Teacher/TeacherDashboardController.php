@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\Teacher;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Institution;
-use App\Models\Department;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class TeacherDashboardController extends Controller
 {
@@ -18,19 +17,19 @@ class TeacherDashboardController extends Controller
     public function getDashboardStats(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         // Verify user has müəllim role
-        if (!$user->hasRole('müəllim')) {
+        if (! $user->hasRole('müəllim')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         try {
             // Get user's school (institution)
             $userSchool = $user->institution;
-            
-            if (!$userSchool || !in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational'])) {
+
+            if (! $userSchool || ! in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational'])) {
                 return response()->json([
-                    'message' => 'İstifadəçi məktəbə təyin edilməyib'
+                    'message' => 'İstifadəçi məktəbə təyin edilməyib',
                 ], 400);
             }
 
@@ -50,7 +49,7 @@ class TeacherDashboardController extends Controller
                 'subject' => $this->getRandomSubject(), // In real implementation, get from teacher's assignment
                 'school' => $userSchool->name,
                 'experienceYears' => $this->calculateExperienceYears($user->created_at),
-                'department' => $user->department?->name ?? 'Departament təyin edilməyib'
+                'department' => $user->department?->name ?? 'Departament təyin edilməyib',
             ];
 
             // Generate weekly schedule
@@ -74,13 +73,12 @@ class TeacherDashboardController extends Controller
                 'teacherInfo' => $teacherInfo,
                 'weeklySchedule' => $weeklySchedule,
                 'recentActivities' => $recentActivities,
-                'classPerformance' => $classPerformance
+                'classPerformance' => $classPerformance,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Dashboard məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -91,17 +89,17 @@ class TeacherDashboardController extends Controller
     public function getTeacherClasses(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('müəllim')) {
+
+        if (! $user->hasRole('müəllim')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         try {
             $userSchool = $user->institution;
-            
-            if (!$userSchool) {
+
+            if (! $userSchool) {
                 return response()->json([
-                    'message' => 'İstifadəçi məktəbə təyin edilməyib'
+                    'message' => 'İstifadəçi məktəbə təyin edilməyib',
                 ], 400);
             }
 
@@ -110,13 +108,13 @@ class TeacherDashboardController extends Controller
             $grades = [5, 6, 7, 8, 9, 10, 11];
             $sections = ['A', 'B', 'C'];
             $subject = $this->getRandomSubject();
-            
+
             $classCount = rand(3, 6);
             for ($i = 0; $i < $classCount; $i++) {
                 $grade = $grades[array_rand($grades)];
                 $section = $sections[array_rand($sections)];
                 $students = rand(20, 32);
-                
+
                 $classes[] = [
                     'id' => $i + 1,
                     'grade' => $grade,
@@ -126,7 +124,7 @@ class TeacherDashboardController extends Controller
                     'averageGrade' => rand(65, 95) / 10, // 6.5 - 9.5
                     'attendanceRate' => rand(85, 98),
                     'schedule' => $this->generateClassSchedule($grade, $section),
-                    'nextClass' => $this->getNextClassTime()
+                    'nextClass' => $this->getNextClassTime(),
                 ];
             }
 
@@ -138,14 +136,13 @@ class TeacherDashboardController extends Controller
                 'subject' => $subject,
                 'teacher' => [
                     'name' => trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) ?: $user->username,
-                    'school' => $userSchool->name
-                ]
+                    'school' => $userSchool->name,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Sinif məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -156,8 +153,8 @@ class TeacherDashboardController extends Controller
     public function getGradebook(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('müəllim')) {
+
+        if (! $user->hasRole('müəllim')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -166,27 +163,27 @@ class TeacherDashboardController extends Controller
             $gradebook = [];
             $classes = ['5-A', '6-B', '7-A', '8-C'];
             $subject = $this->getRandomSubject();
-            
+
             foreach ($classes as $class) {
                 $students = [];
                 $studentCount = rand(20, 30);
-                
+
                 for ($i = 1; $i <= $studentCount; $i++) {
                     $students[] = [
                         'id' => $i,
                         'name' => $this->generateStudentName(),
                         'grades' => $this->generateGrades(),
                         'attendance' => rand(85, 100),
-                        'average' => rand(65, 95) / 10
+                        'average' => rand(65, 95) / 10,
                     ];
                 }
-                
+
                 $gradebook[] = [
                     'class' => $class,
                     'subject' => $subject,
                     'students' => $students,
                     'class_average' => round(array_sum(array_column($students, 'average')) / count($students), 1),
-                    'total_students' => count($students)
+                    'total_students' => count($students),
                 ];
             }
 
@@ -194,13 +191,12 @@ class TeacherDashboardController extends Controller
                 'gradebook' => $gradebook,
                 'subject' => $subject,
                 'pending_grades' => rand(8, 25),
-                'total_students' => array_sum(array_column($gradebook, 'total_students'))
+                'total_students' => array_sum(array_column($gradebook, 'total_students')),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Qiymət dəftəri yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -220,11 +216,11 @@ class TeacherDashboardController extends Controller
     private function getRandomSubject(): string
     {
         $subjects = [
-            'Riyaziyyat', 'Azərbaycan dili', 'İngilis dili', 'Tarix', 
+            'Riyaziyyat', 'Azərbaycan dili', 'İngilis dili', 'Tarix',
             'Fizika', 'Kimya', 'Biologiya', 'Coğrafiya', 'Bədən tərbiyəsi',
-            'Musiqi', 'Təsviri sənət', 'İnformatika', 'Ədəbiyyat'
+            'Musiqi', 'Təsviri sənət', 'İnformatika', 'Ədəbiyyat',
         ];
-        
+
         return $subjects[array_rand($subjects)];
     }
 
@@ -235,32 +231,32 @@ class TeacherDashboardController extends Controller
     {
         $days = ['Bazar ertəsi', 'Çərşənbə axşamı', 'Çərşənbə', 'Cümə axşamı', 'Cümə'];
         $timeSlots = [
-            '08:30-09:15', '09:25-10:10', '10:20-11:05', 
-            '11:15-12:00', '12:10-12:55', '13:05-13:50'
+            '08:30-09:15', '09:25-10:10', '10:20-11:05',
+            '11:15-12:00', '12:10-12:55', '13:05-13:50',
         ];
         $classes = ['5-A', '6-B', '7-A', '8-C', '9-A', '10-B'];
         $rooms = ['Sinif 201', 'Sinif 202', 'Sinif 301', 'Sinif 302'];
-        
+
         $schedule = [];
         foreach ($days as $day) {
             $dayClasses = [];
             $lessonsPerDay = rand(2, 4);
-            
+
             for ($i = 0; $i < $lessonsPerDay; $i++) {
                 $dayClasses[] = [
                     'time' => $timeSlots[array_rand($timeSlots)],
                     'subject' => $subject,
                     'class' => $classes[array_rand($classes)],
-                    'room' => $rooms[array_rand($rooms)]
+                    'room' => $rooms[array_rand($rooms)],
                 ];
             }
-            
+
             $schedule[] = [
                 'day' => $day,
-                'classes' => $dayClasses
+                'classes' => $dayClasses,
             ];
         }
-        
+
         return $schedule;
     }
 
@@ -271,15 +267,15 @@ class TeacherDashboardController extends Controller
     {
         $timeSlots = ['08:30-09:15', '09:25-10:10', '10:20-11:05', '11:15-12:00'];
         $days = ['Bazar ertəsi', 'Çərşənbə axşamı', 'Çərşənbə', 'Cümə axşamı', 'Cümə'];
-        
+
         $schedule = [];
         foreach ($days as $day) {
             $schedule[$day] = [
                 'time' => $timeSlots[array_rand($timeSlots)],
-                'room' => "Sinif {$grade}0{$section}"
+                'room' => "Sinif {$grade}0{$section}",
             ];
         }
-        
+
         return $schedule;
     }
 
@@ -290,11 +286,11 @@ class TeacherDashboardController extends Controller
     {
         $nextTimes = [
             'Bugün 10:20-11:05',
-            'Sabah 08:30-09:15', 
+            'Sabah 08:30-09:15',
             'Çərşənbə 09:25-10:10',
-            null // No class today
+            null, // No class today
         ];
-        
+
         return $nextTimes[array_rand($nextTimes)];
     }
 
@@ -311,7 +307,7 @@ class TeacherDashboardController extends Controller
                 'description' => '5-A sinfi üçün riyaziyyat qiyməti əlavə edildi',
                 'time' => '2 saat əvvəl',
                 'status' => 'completed',
-                'class' => '5-A sinfi'
+                'class' => '5-A sinfi',
             ],
             [
                 'id' => '2',
@@ -320,7 +316,7 @@ class TeacherDashboardController extends Controller
                 'description' => '6-B sinfi üçün davamiyyət qeyd edildi',
                 'time' => '4 saat əvvəl',
                 'status' => 'completed',
-                'class' => '6-B sinfi'
+                'class' => '6-B sinfi',
             ],
             [
                 'id' => '3',
@@ -328,7 +324,7 @@ class TeacherDashboardController extends Controller
                 'title' => 'Sorğu cavablandı',
                 'description' => 'Müəllim qiymətləndirmə sorğusu tamamlandı',
                 'time' => '1 gün əvvəl',
-                'status' => 'completed'
+                'status' => 'completed',
             ],
             [
                 'id' => '4',
@@ -337,7 +333,7 @@ class TeacherDashboardController extends Controller
                 'description' => 'Yeni ev tapşırığı 7-A sinfinə verildi',
                 'time' => '2 gün əvvəl',
                 'status' => 'completed',
-                'class' => '7-A sinfi'
+                'class' => '7-A sinfi',
             ],
             [
                 'id' => '5',
@@ -345,10 +341,10 @@ class TeacherDashboardController extends Controller
                 'title' => 'Dərs planı hazırlandı',
                 'description' => 'Növbəti həftə üçün dərs planı yeniləndi',
                 'time' => '3 gün əvvəl',
-                'status' => 'completed'
-            ]
+                'status' => 'completed',
+            ],
         ];
-        
+
         return array_slice($activities, 0, rand(3, 5));
     }
 
@@ -360,17 +356,17 @@ class TeacherDashboardController extends Controller
         $classes = ['5-A', '6-B', '7-A', '8-C', '9-A', '10-B'];
         $subject = $this->getRandomSubject();
         $performance = [];
-        
+
         for ($i = 0; $i < min($classCount, count($classes)); $i++) {
             $performance[] = [
                 'class' => $classes[$i],
                 'subject' => $subject,
                 'students' => rand(20, 32),
                 'averageGrade' => rand(65, 95) / 10,
-                'attendanceRate' => rand(85, 98)
+                'attendanceRate' => rand(85, 98),
             ];
         }
-        
+
         return $performance;
     }
 
@@ -380,14 +376,14 @@ class TeacherDashboardController extends Controller
     private function generateStudentName(): string
     {
         $firstNames = [
-            'Əli', 'Aysel', 'Rəşad', 'Nigar', 'Farid', 'Leyla', 
-            'Mübariz', 'Gülnar', 'Vüsal', 'Səbinə', 'Tural', 'Aynur'
+            'Əli', 'Aysel', 'Rəşad', 'Nigar', 'Farid', 'Leyla',
+            'Mübariz', 'Gülnar', 'Vüsal', 'Səbinə', 'Tural', 'Aynur',
         ];
         $lastNames = [
-            'Məmmədov', 'Quliyeva', 'Əliyev', 'Həsənova', 'Bayramov', 
-            'Qasımova', 'Həsənov', 'Əhmədova', 'Rəhimli', 'Sultanova'
+            'Məmmədov', 'Quliyeva', 'Əliyev', 'Həsənova', 'Bayramov',
+            'Qasımova', 'Həsənov', 'Əhmədova', 'Rəhimli', 'Sultanova',
         ];
-        
+
         return $firstNames[array_rand($firstNames)] . ' ' . $lastNames[array_rand($lastNames)];
     }
 
@@ -398,11 +394,11 @@ class TeacherDashboardController extends Controller
     {
         $grades = [];
         $gradeCount = rand(3, 8);
-        
+
         for ($i = 0; $i < $gradeCount; $i++) {
             $grades[] = rand(5, 10);
         }
-        
+
         return $grades;
     }
 }

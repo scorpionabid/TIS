@@ -21,7 +21,7 @@ class ApprovalWorkflowTemplate extends Model
         'is_active',
         'is_system_template',
         'created_by',
-        'updated_by'
+        'updated_by',
     ];
 
     protected $casts = [
@@ -86,7 +86,7 @@ class ApprovalWorkflowTemplate extends Model
      */
     public function getMaxApprovalLevelAttribute(): int
     {
-        if (!$this->approval_levels || !is_array($this->approval_levels)) {
+        if (! $this->approval_levels || ! is_array($this->approval_levels)) {
             return 1;
         }
 
@@ -98,7 +98,7 @@ class ApprovalWorkflowTemplate extends Model
      */
     public function getRequiredLevelsAttribute(): array
     {
-        if (!$this->approval_levels || !is_array($this->approval_levels)) {
+        if (! $this->approval_levels || ! is_array($this->approval_levels)) {
             return [];
         }
 
@@ -113,7 +113,7 @@ class ApprovalWorkflowTemplate extends Model
      */
     public function hasAutoApprovalRules(): bool
     {
-        return !empty($this->auto_approval_rules) && is_array($this->auto_approval_rules);
+        return ! empty($this->auto_approval_rules) && is_array($this->auto_approval_rules);
     }
 
     /**
@@ -121,7 +121,7 @@ class ApprovalWorkflowTemplate extends Model
      */
     public function hasEscalationRules(): bool
     {
-        return !empty($this->escalation_rules) && is_array($this->escalation_rules);
+        return ! empty($this->escalation_rules) && is_array($this->escalation_rules);
     }
 
     /**
@@ -129,7 +129,7 @@ class ApprovalWorkflowTemplate extends Model
      */
     public function getApprovalLevelConfig(int $level): ?array
     {
-        if (!$this->approval_levels || !is_array($this->approval_levels)) {
+        if (! $this->approval_levels || ! is_array($this->approval_levels)) {
             return null;
         }
 
@@ -142,6 +142,7 @@ class ApprovalWorkflowTemplate extends Model
     public function isLevelRequired(int $level): bool
     {
         $config = $this->getApprovalLevelConfig($level);
+
         return $config ? ($config['required'] ?? false) : false;
     }
 
@@ -151,6 +152,7 @@ class ApprovalWorkflowTemplate extends Model
     public function getTimeoutDays(int $level): ?int
     {
         $config = $this->getApprovalLevelConfig($level);
+
         return $config ? ($config['timeout_days'] ?? null) : null;
     }
 }

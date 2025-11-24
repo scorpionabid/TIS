@@ -13,27 +13,27 @@ return new class extends Migration
     {
         Schema::table('subjects', function (Blueprint $table) {
             // Add missing columns if they don't exist
-            if (!Schema::hasColumn('subjects', 'description')) {
+            if (! Schema::hasColumn('subjects', 'description')) {
                 $table->text('description')->nullable();
             }
-            if (!Schema::hasColumn('subjects', 'grade_levels')) {
+            if (! Schema::hasColumn('subjects', 'grade_levels')) {
                 $table->json('grade_levels')->nullable();
             }
-            if (!Schema::hasColumn('subjects', 'weekly_hours')) {
+            if (! Schema::hasColumn('subjects', 'weekly_hours')) {
                 $table->integer('weekly_hours')->default(1);
             }
-            if (!Schema::hasColumn('subjects', 'category')) {
+            if (! Schema::hasColumn('subjects', 'category')) {
                 $table->enum('category', [
-                    'core', 'science', 'humanities', 'language', 'arts', 'physical', 'technical', 'elective'
+                    'core', 'science', 'humanities', 'language', 'arts', 'physical', 'technical', 'elective',
                 ])->default('core');
             }
-            if (!Schema::hasColumn('subjects', 'is_active')) {
+            if (! Schema::hasColumn('subjects', 'is_active')) {
                 $table->boolean('is_active')->default(true);
             }
-            if (!Schema::hasColumn('subjects', 'metadata')) {
+            if (! Schema::hasColumn('subjects', 'metadata')) {
                 $table->json('metadata')->nullable();
             }
-            
+
             // Add indexes if columns exist
             if (Schema::hasColumn('subjects', 'code')) {
                 $table->index('code');
@@ -54,8 +54,8 @@ return new class extends Migration
     {
         Schema::table('subjects', function (Blueprint $table) {
             $table->dropColumn([
-                'description', 'grade_levels', 'weekly_hours', 
-                'category', 'is_active', 'metadata'
+                'description', 'grade_levels', 'weekly_hours',
+                'category', 'is_active', 'metadata',
             ]);
         });
     }

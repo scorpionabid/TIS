@@ -5,9 +5,9 @@ namespace App\Services\Survey\Domains\Crud;
 use App\Models\Survey;
 use App\Models\SurveyVersion;
 use App\Services\Survey\Domains\Questions\QuestionSyncService;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Exception;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Survey CRUD Manager
@@ -53,7 +53,7 @@ class SurveyCrudManager
             $questionChanges = [];
 
             // Create questions if provided
-            if (!empty($data['questions'])) {
+            if (! empty($data['questions'])) {
                 $questionChanges = $this->questionSync->syncQuestions($survey, $data['questions']);
             }
 
@@ -81,7 +81,7 @@ class SurveyCrudManager
             $updateData = array_intersect_key($data, array_flip([
                 'title', 'description', 'survey_type', 'start_date', 'end_date',
                 'is_anonymous', 'allow_multiple_responses', 'max_questions',
-                'completion_threshold', 'target_institutions', 'target_departments'
+                'completion_threshold', 'target_institutions', 'target_departments',
             ]));
 
             // Update structure if settings changed
@@ -150,7 +150,7 @@ class SurveyCrudManager
             $surveyData = array_merge($surveyData, $overrides);
 
             // Set defaults for duplicate
-            if (!isset($overrides['title'])) {
+            if (! isset($overrides['title'])) {
                 $surveyData['title'] = $survey->title . ' (Copy)';
             }
             $surveyData['status'] = 'draft';
@@ -171,7 +171,7 @@ class SurveyCrudManager
 
         // Format questions for API response (backward compatibility)
         if ($survey->questions->count() > 0) {
-            $questionsData = $survey->questions->map(function($question) {
+            $questionsData = $survey->questions->map(function ($question) {
                 // Ensure options is always an array
                 $options = [];
                 if ($question->options) {
@@ -199,8 +199,8 @@ class SurveyCrudManager
                 [
                     'id' => 'default',
                     'title' => 'Questions',
-                    'questions' => $questionsData
-                ]
+                    'questions' => $questionsData,
+                ],
             ];
             $survey->structure = $structure;
         }
@@ -219,9 +219,9 @@ class SurveyCrudManager
             'structure' => [
                 'questions' => $data['questions'] ?? [],
                 'settings' => $data['settings'] ?? [],
-                'description' => $description
+                'description' => $description,
             ],
-            'created_by' => Auth::id()
+            'created_by' => Auth::id(),
         ]);
     }
 }

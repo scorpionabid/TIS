@@ -47,7 +47,7 @@ class PerformanceMiddleware
     {
         $staticExtensions = ['css', 'js', 'png', 'jpg', 'jpeg', 'gif', 'svg', 'ico', 'woff', 'woff2', 'ttf'];
         $extension = pathinfo($request->path(), PATHINFO_EXTENSION);
-        
+
         return in_array(strtolower($extension), $staticExtensions);
     }
 
@@ -57,15 +57,15 @@ class PerformanceMiddleware
     private function handleStaticContent(Request $request, Closure $next): Response
     {
         $response = $next($request);
-        
+
         // Set cache headers for static content
         $response->headers->set('Cache-Control', 'public, max-age=31536000, immutable');
         $response->headers->set('Expires', gmdate('D, d M Y H:i:s \G\M\T', time() + 31536000));
-        
+
         // Add ETag for cache validation
         $etag = md5($response->getContent());
         $response->headers->set('ETag', '"' . $etag . '"');
-        
+
         // Check if client has cached version
         if ($request->header('If-None-Match') === '"' . $etag . '"') {
             return response('', 304);
@@ -80,8 +80,8 @@ class PerformanceMiddleware
     private function shouldCompress(Request $request): bool
     {
         $acceptEncoding = $request->header('Accept-Encoding', '');
-        
-        return strpos($acceptEncoding, 'gzip') !== false || 
+
+        return strpos($acceptEncoding, 'gzip') !== false ||
                strpos($acceptEncoding, 'deflate') !== false;
     }
 
@@ -134,7 +134,7 @@ class PerformanceMiddleware
         if (config('app.debug')) {
             return \DB::getQueryLog() ? count(\DB::getQueryLog()) : 0;
         }
-        
+
         return 0;
     }
 
@@ -145,7 +145,7 @@ class PerformanceMiddleware
     {
         $key = 'rate_limit:' . $request->ip();
         $maxRequests = config('performance.api.rate_limiting.requests_per_minute', 60);
-        
+
         $requests = Cache::get($key, 0);
         $remaining = max(0, $maxRequests - $requests);
         $resetTime = Cache::get($key . ':reset', time() + 60);
@@ -171,7 +171,7 @@ class PerformanceMiddleware
                 'memory_usage' => round(memory_get_peak_usage(true) / 1024 / 1024, 2) . 'MB',
                 'user_id' => auth()->id(),
                 'ip' => $request->ip(),
-                'user_agent' => $request->userAgent()
+                'user_agent' => $request->userAgent(),
             ]);
         }
     }

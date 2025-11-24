@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SettingsController extends Controller
 {
@@ -23,8 +23,8 @@ class SettingsController extends Controller
                 'weekly_report' => true,
                 'survey_notifications' => true,
                 'task_notifications' => true,
-                'system_notifications' => true
-            ]
+                'system_notifications' => true,
+            ],
         ]);
     }
 
@@ -36,7 +36,7 @@ class SettingsController extends Controller
         // For now, just return success
         return response()->json([
             'success' => true,
-            'message' => 'Notification settings updated successfully'
+            'message' => 'Notification settings updated successfully',
         ]);
     }
 
@@ -51,11 +51,11 @@ class SettingsController extends Controller
             'cache' => $this->checkCache(),
             'storage' => $this->checkStorage(),
             'memory' => $this->checkMemory(),
-            'disk_space' => $this->checkDiskSpace()
+            'disk_space' => $this->checkDiskSpace(),
         ];
 
-        $overallStatus = collect($health)->every(fn($check) => $check['status'] === 'healthy') 
-            ? 'healthy' 
+        $overallStatus = collect($health)->every(fn ($check) => $check['status'] === 'healthy')
+            ? 'healthy'
             : 'warning';
 
         return response()->json([
@@ -63,8 +63,8 @@ class SettingsController extends Controller
             'data' => [
                 'overall_status' => $overallStatus,
                 'checks' => $health,
-                'timestamp' => now()->toISOString()
-            ]
+                'timestamp' => now()->toISOString(),
+            ],
         ]);
     }
 
@@ -75,16 +75,17 @@ class SettingsController extends Controller
     {
         try {
             \DB::connection()->getPdo();
+
             return [
                 'status' => 'healthy',
                 'message' => 'Database connection successful',
-                'response_time' => '< 1ms'
+                'response_time' => '< 1ms',
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'error',
                 'message' => 'Database connection failed: ' . $e->getMessage(),
-                'response_time' => null
+                'response_time' => null,
             ];
         }
     }
@@ -97,17 +98,17 @@ class SettingsController extends Controller
         try {
             cache()->put('health_check', 'test', 60);
             $value = cache()->get('health_check');
-            
+
             return [
                 'status' => $value === 'test' ? 'healthy' : 'warning',
                 'message' => $value === 'test' ? 'Cache working properly' : 'Cache not functioning correctly',
-                'response_time' => '< 1ms'
+                'response_time' => '< 1ms',
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'error',
                 'message' => 'Cache system error: ' . $e->getMessage(),
-                'response_time' => null
+                'response_time' => null,
             ];
         }
     }
@@ -120,17 +121,17 @@ class SettingsController extends Controller
         try {
             $path = storage_path('framework/cache');
             $writable = is_writable($path);
-            
+
             return [
                 'status' => $writable ? 'healthy' : 'error',
                 'message' => $writable ? 'Storage is writable' : 'Storage is not writable',
-                'path' => $path
+                'path' => $path,
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'error',
                 'message' => 'Storage check failed: ' . $e->getMessage(),
-                'path' => null
+                'path' => null,
             ];
         }
     }
@@ -142,21 +143,21 @@ class SettingsController extends Controller
     {
         $memoryUsage = memory_get_usage(true);
         $memoryLimit = ini_get('memory_limit');
-        
+
         // Convert memory limit to bytes
         $limitBytes = $this->convertToBytes($memoryLimit);
         $usagePercent = ($memoryUsage / $limitBytes) * 100;
-        
+
         $status = $usagePercent < 80 ? 'healthy' : ($usagePercent < 95 ? 'warning' : 'error');
-        
+
         return [
             'status' => $status,
-            'message' => sprintf('Memory usage: %.1f%% (%s / %s)', 
-                $usagePercent, 
-                $this->formatBytes($memoryUsage), 
+            'message' => sprintf('Memory usage: %.1f%% (%s / %s)',
+                $usagePercent,
+                $this->formatBytes($memoryUsage),
                 $memoryLimit
             ),
-            'usage_percent' => round($usagePercent, 1)
+            'usage_percent' => round($usagePercent, 1),
         ];
     }
 
@@ -168,26 +169,26 @@ class SettingsController extends Controller
         $path = base_path();
         $freeSpace = disk_free_space($path);
         $totalSpace = disk_total_space($path);
-        
+
         if ($freeSpace === false || $totalSpace === false) {
             return [
                 'status' => 'error',
                 'message' => 'Unable to check disk space',
-                'free_space' => null
+                'free_space' => null,
             ];
         }
-        
+
         $usedPercent = (($totalSpace - $freeSpace) / $totalSpace) * 100;
         $status = $usedPercent < 85 ? 'healthy' : ($usedPercent < 95 ? 'warning' : 'error');
-        
+
         return [
             'status' => $status,
-            'message' => sprintf('Disk usage: %.1f%% (%s free of %s)', 
+            'message' => sprintf('Disk usage: %.1f%% (%s free of %s)',
                 $usedPercent,
                 $this->formatBytes($freeSpace),
                 $this->formatBytes($totalSpace)
             ),
-            'usage_percent' => round($usedPercent, 1)
+            'usage_percent' => round($usedPercent, 1),
         ];
     }
 
@@ -199,7 +200,7 @@ class SettingsController extends Controller
         $value = trim($value);
         $last = strtolower($value[strlen($value) - 1]);
         $value = (int) $value;
-        
+
         switch ($last) {
             case 'g':
                 $value *= 1024;
@@ -208,7 +209,7 @@ class SettingsController extends Controller
             case 'k':
                 $value *= 1024;
         }
-        
+
         return $value;
     }
 
@@ -218,11 +219,11 @@ class SettingsController extends Controller
     private function formatBytes(int $bytes, int $precision = 2): string
     {
         $units = ['B', 'KB', 'MB', 'GB', 'TB'];
-        
+
         for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
             $bytes /= 1024;
         }
-        
+
         return round($bytes, $precision) . ' ' . $units[$i];
     }
 }

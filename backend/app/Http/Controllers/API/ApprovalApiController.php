@@ -3,16 +3,14 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use App\Models\ApprovalWorkflow;
-use App\Models\DataApprovalRequest;
 use App\Models\ApprovalAction;
 use App\Models\ApprovalNotification;
-use App\Models\ApprovalDelegate;
 use App\Models\ApprovalTemplate;
-use Illuminate\Http\Request;
+use App\Models\ApprovalWorkflow;
+use App\Models\DataApprovalRequest;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class ApprovalApiController extends Controller
 {
@@ -22,12 +20,12 @@ class ApprovalApiController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $query = DataApprovalRequest::with([
             'workflow:id,name,workflow_type',
             'institution:id,name,type',
             'submitter:id,name,username,email',
-            'approvalActions.approver:id,name,username'
+            'approvalActions.approver:id,name,username',
         ]);
 
         // Filter by status
@@ -43,7 +41,7 @@ class ApprovalApiController extends Controller
         }
 
         // Filter by institution (for institutional users)
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             $query->where('institution_id', $user->institution_id);
         }
 
@@ -53,11 +51,11 @@ class ApprovalApiController extends Controller
         }
 
         $approvals = $query->orderBy('created_at', 'desc')
-                          ->paginate($request->get('per_page', 20));
+            ->paginate($request->get('per_page', 20));
 
         return response()->json([
             'success' => true,
-            'data' => $approvals
+            'data' => $approvals,
         ]);
     }
 
@@ -71,20 +69,20 @@ class ApprovalApiController extends Controller
             'institution',
             'submitter',
             'approvalActions.approver',
-            'notifications.recipient'
+            'notifications.recipient',
         ])->findOrFail($id);
 
         // Check if user can view this approval
-        if (!$this->canUserViewApproval($request->user(), $approval)) {
+        if (! $this->canUserViewApproval($request->user(), $approval)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu təsdiq sorğusunu görməyə icazəniz yoxdur'
+                'message' => 'Bu təsdiq sorğusunu görməyə icazəniz yoxdur',
             ], 403);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $approval
+            'data' => $approval,
         ]);
     }
 
@@ -94,17 +92,17 @@ class ApprovalApiController extends Controller
     public function approve(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
-            'comments' => 'nullable|string|max:1000'
+            'comments' => 'nullable|string|max:1000',
         ]);
 
         $approval = DataApprovalRequest::with('workflow')->findOrFail($id);
         $user = $request->user();
 
         // Check if user can approve
-        if (!$approval->canBeApprovedBy($user)) {
+        if (! $approval->canBeApprovedBy($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu səviyyədə təsdiq etməyə icazəniz yoxdur'
+                'message' => 'Bu səviyyədə təsdiq etməyə icazəniz yoxdur',
             ], 403);
         }
 
@@ -141,15 +139,14 @@ class ApprovalApiController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Sorğu uğurla təsdiqləndi'
+                'message' => 'Sorğu uğurla təsdiqləndi',
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Təsdiq zamanı xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Təsdiq zamanı xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -160,17 +157,17 @@ class ApprovalApiController extends Controller
     public function reject(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
-            'comments' => 'required|string|max:1000'
+            'comments' => 'required|string|max:1000',
         ]);
 
         $approval = DataApprovalRequest::findOrFail($id);
         $user = $request->user();
 
         // Check if user can approve (reject permissions same as approve)
-        if (!$approval->canBeApprovedBy($user)) {
+        if (! $approval->canBeApprovedBy($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu səviyyədə rədd etməyə icazəniz yoxdur'
+                'message' => 'Bu səviyyədə rədd etməyə icazəniz yoxdur',
             ], 403);
         }
 
@@ -199,15 +196,14 @@ class ApprovalApiController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Sorğu rədd edildi'
+                'message' => 'Sorğu rədd edildi',
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Rədd zamanı xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Rədd zamanı xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -218,16 +214,16 @@ class ApprovalApiController extends Controller
     public function returnForRevision(Request $request, int $id): JsonResponse
     {
         $validated = $request->validate([
-            'comments' => 'required|string|max:1000'
+            'comments' => 'required|string|max:1000',
         ]);
 
         $approval = DataApprovalRequest::findOrFail($id);
         $user = $request->user();
 
-        if (!$approval->canBeApprovedBy($user)) {
+        if (! $approval->canBeApprovedBy($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu əməliyyatı icra etməyə icazəniz yoxdur'
+                'message' => 'Bu əməliyyatı icra etməyə icazəniz yoxdur',
             ], 403);
         }
 
@@ -256,15 +252,14 @@ class ApprovalApiController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Sorğu yenidən baxılmaq üçün göndərildi'
+                'message' => 'Sorğu yenidən baxılmaq üçün göndərildi',
             ]);
-
         } catch (\Exception $e) {
             DB::rollback();
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'Əməliyyat zamanı xəta baş verdi'
+                'message' => 'Əməliyyat zamanı xəta baş verdi',
             ], 500);
         }
     }
@@ -275,15 +270,15 @@ class ApprovalApiController extends Controller
     public function getPending(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $query = DataApprovalRequest::with([
             'workflow:id,name,workflow_type,approval_chain',
             'institution:id,name,type',
-            'submitter:id,name,username,email'
+            'submitter:id,name,username,email',
         ])->where('current_status', 'pending');
 
         // Filter by user's approval authority
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             if ($user->hasRole('sektoradmin')) {
                 $this->filterByApprovalAuthority($query, $user);
             } else {
@@ -300,7 +295,7 @@ class ApprovalApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $approvals
+            'data' => $approvals,
         ]);
     }
 
@@ -310,19 +305,19 @@ class ApprovalApiController extends Controller
     public function getMyApprovals(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $approvals = DataApprovalRequest::with([
             'workflow:id,name,workflow_type',
             'institution:id,name,type',
-            'submitter:id,name,username,email'
+            'submitter:id,name,username,email',
         ])
-        ->where('submitted_by', $user->id)
-        ->orderBy('created_at', 'desc')
-        ->get();
+            ->where('submitted_by', $user->id)
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $approvals
+            'data' => $approvals,
         ]);
     }
 
@@ -332,11 +327,11 @@ class ApprovalApiController extends Controller
     public function getAnalytics(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $baseQuery = DataApprovalRequest::query();
-        
+
         // Filter by user's scope
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             if ($user->hasRole('sektoradmin')) {
                 $baseQuery->whereHas('institution', function ($q) use ($user) {
                     $q->where('parent_id', $user->institution_id);
@@ -349,9 +344,9 @@ class ApprovalApiController extends Controller
         // Get pending approvals for current user
         $myPendingQuery = clone $baseQuery;
         $myPendingQuery->where('current_status', 'pending')
-                      ->whereHas('workflow', function ($q) use ($user) {
-                          $q->whereJsonContains('approval_chain', ['role' => $user->getRoleNames()->first()]);
-                      });
+            ->whereHas('workflow', function ($q) use ($user) {
+                $q->whereJsonContains('approval_chain', ['role' => $user->getRoleNames()->first()]);
+            });
 
         $stats = [
             'pending' => (clone $baseQuery)->where('current_status', 'pending')->count(),
@@ -364,7 +359,7 @@ class ApprovalApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $stats
+            'data' => $stats,
         ]);
     }
 
@@ -374,11 +369,11 @@ class ApprovalApiController extends Controller
     public function getStats(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $baseQuery = DataApprovalRequest::query();
-        
+
         // Filter by user's scope
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             $baseQuery->where('institution_id', $user->institution_id);
         }
 
@@ -404,7 +399,7 @@ class ApprovalApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $stats
+            'data' => $stats,
         ]);
     }
 
@@ -420,7 +415,7 @@ class ApprovalApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $workflows
+            'data' => $workflows,
         ]);
     }
 
@@ -458,7 +453,7 @@ class ApprovalApiController extends Controller
         return response()->json([
             'success' => true,
             'data' => $approval->load('workflow', 'institution'),
-            'message' => 'Təsdiq sorğusu yaradıldı'
+            'message' => 'Təsdiq sorğusu yaradıldı',
         ]);
     }
 
@@ -499,8 +494,10 @@ class ApprovalApiController extends Controller
     private function createNextLevelNotification(DataApprovalRequest $approval): void
     {
         $nextStep = $approval->workflow->getNextApprovalLevel($approval->current_approval_level - 1);
-        
-        if (!$nextStep) return;
+
+        if (! $nextStep) {
+            return;
+        }
 
         // Find users with required role in appropriate institutions
         $approvers = $this->findApprovers($approval, $nextStep['role']);
@@ -511,7 +508,7 @@ class ApprovalApiController extends Controller
                 'recipient_id' => $approver->id,
                 'notification_type' => 'approval_required',
                 'title' => "Təsdiq tələb olunur: {$approval->workflow->name}",
-                'message' => "Yeni təsdiq sorğusu sizin baxışınızı gözləyir.",
+                'message' => 'Yeni təsdiq sorğusu sizin baxışınızı gözləyir.',
                 'status' => 'pending',
                 'scheduled_for' => now(),
             ]);
@@ -557,8 +554,10 @@ class ApprovalApiController extends Controller
     {
         $workflow = $approval->workflow;
         $firstStep = collect($workflow->approval_chain)->first();
-        
-        if (!$firstStep) return;
+
+        if (! $firstStep) {
+            return;
+        }
 
         $approvers = $this->findApprovers($approval, $firstStep['role']);
 
@@ -568,7 +567,7 @@ class ApprovalApiController extends Controller
                 'recipient_id' => $approver->id,
                 'notification_type' => 'approval_required',
                 'title' => "Yeni təsdiq sorğusu: {$workflow->name}",
-                'message' => "Yeni təsdiq sorğusu sizin baxışınızı gözləyir.",
+                'message' => 'Yeni təsdiq sorğusu sizin baxışınızı gözləyir.',
                 'status' => 'pending',
                 'scheduled_for' => now(),
             ]);
@@ -582,7 +581,7 @@ class ApprovalApiController extends Controller
     {
         // Logic to find users with specific role who can approve this request
         // This would depend on institution hierarchy and delegation rules
-        
+
         if ($role === 'sektoradmin') {
             // Find SektorAdmin for the sector containing this institution
             return \App\Models\User::whereHas('roles', function ($q) use ($role) {
@@ -622,7 +621,7 @@ class ApprovalApiController extends Controller
         $validated = $request->validate([
             'ids' => 'required|array|min:1',
             'ids.*' => 'exists:data_approval_requests,id',
-            'comments' => 'nullable|string|max:1000'
+            'comments' => 'nullable|string|max:1000',
         ]);
 
         $user = $request->user();
@@ -632,9 +631,10 @@ class ApprovalApiController extends Controller
         foreach ($validated['ids'] as $id) {
             try {
                 $approval = DataApprovalRequest::with('workflow')->findOrFail($id);
-                
-                if (!$approval->canBeApprovedBy($user)) {
+
+                if (! $approval->canBeApprovedBy($user)) {
                     $failed[] = ['id' => $id, 'reason' => 'İcazə yoxdur'];
+
                     continue;
                 }
 
@@ -664,7 +664,6 @@ class ApprovalApiController extends Controller
 
                 DB::commit();
                 $successful[] = $id;
-
             } catch (\Exception $e) {
                 DB::rollback();
                 $failed[] = ['id' => $id, 'reason' => $e->getMessage()];
@@ -680,7 +679,7 @@ class ApprovalApiController extends Controller
                 'successful_count' => count($successful),
                 'failed_count' => count($failed),
             ],
-            'message' => count($successful) . ' sorğu təsdiqləndi'
+            'message' => count($successful) . ' sorğu təsdiqləndi',
         ]);
     }
 
@@ -690,17 +689,17 @@ class ApprovalApiController extends Controller
     public function getSurveysForApproval(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $surveysQuery = \App\Models\Survey::with(['creator.institution:id,name,type'])
             ->select('id', 'title', 'description', 'creator_id', 'status', 'created_at')
             ->where('status', 'published');
 
         // Filter by user's hierarchy
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             if ($user->hasRole('regionadmin')) {
                 // RegionAdmin sees surveys from creators in their region
                 $regionUsers = \App\Models\User::where('institution_id', $user->institution_id)
-                    ->orWhereHas('institution', function($q) use ($user) {
+                    ->orWhereHas('institution', function ($q) use ($user) {
                         $q->where('parent_id', $user->institution_id);
                     })->pluck('id');
                 $surveysQuery->whereIn('creator_id', $regionUsers);
@@ -718,7 +717,7 @@ class ApprovalApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $surveys
+            'data' => $surveys,
         ]);
     }
 
@@ -743,46 +742,46 @@ class ApprovalApiController extends Controller
             'survey:id,title,category',
             'institution:id,name,type,code',
             'respondent:id,name,email',
-            'approvedBy:id,name'
+            'approvedBy:id,name',
         ])
-        ->where('survey_id', $surveyId)
-        ->where('status', $status)
-        ->whereIn('institution_id', $institutionIds)
-        ->orderBy('submitted_at', 'desc')
-        ->get()
-        ->map(function ($response) {
-            return [
-                'id' => $response->id,
-                'survey' => [
-                    'id' => $response->survey->id,
-                    'title' => $response->survey->title,
-                    'category' => $response->survey->category,
-                ],
-                'institution' => [
-                    'id' => $response->institution->id,
-                    'name' => $response->institution->name,
-                    'type' => $response->institution->type,
-                    'code' => $response->institution->code,
-                ],
-                'respondent' => [
-                    'id' => $response->respondent->id,
-                    'name' => $response->respondent->name,
-                    'email' => $response->respondent->email,
-                ],
-                'response_data' => $response->responses,
-                'progress_percentage' => $response->progress_percentage,
-                'is_complete' => $response->is_complete,
-                'status' => $response->status,
-                'submitted_at' => $response->submitted_at,
-                'approved_by' => $response->approvedBy ? $response->approvedBy->name : null,
-                'approved_at' => $response->approved_at,
-                'rejection_reason' => $response->rejection_reason,
-            ];
-        });
+            ->where('survey_id', $surveyId)
+            ->where('status', $status)
+            ->whereIn('institution_id', $institutionIds)
+            ->orderBy('submitted_at', 'desc')
+            ->get()
+            ->map(function ($response) {
+                return [
+                    'id' => $response->id,
+                    'survey' => [
+                        'id' => $response->survey->id,
+                        'title' => $response->survey->title,
+                        'category' => $response->survey->category,
+                    ],
+                    'institution' => [
+                        'id' => $response->institution->id,
+                        'name' => $response->institution->name,
+                        'type' => $response->institution->type,
+                        'code' => $response->institution->code,
+                    ],
+                    'respondent' => [
+                        'id' => $response->respondent->id,
+                        'name' => $response->respondent->name,
+                        'email' => $response->respondent->email,
+                    ],
+                    'response_data' => $response->responses,
+                    'progress_percentage' => $response->progress_percentage,
+                    'is_complete' => $response->is_complete,
+                    'status' => $response->status,
+                    'submitted_at' => $response->submitted_at,
+                    'approved_by' => $response->approvedBy ? $response->approvedBy->name : null,
+                    'approved_at' => $response->approved_at,
+                    'rejection_reason' => $response->rejection_reason,
+                ];
+            });
 
         return response()->json([
             'success' => true,
-            'data' => $responses
+            'data' => $responses,
         ]);
     }
 
@@ -792,7 +791,7 @@ class ApprovalApiController extends Controller
     public function approveSurveyResponse(Request $request, int $responseId): JsonResponse
     {
         $validated = $request->validate([
-            'comments' => 'nullable|string|max:1000'
+            'comments' => 'nullable|string|max:1000',
         ]);
 
         $user = $request->user();
@@ -800,17 +799,17 @@ class ApprovalApiController extends Controller
 
         // Check if user can approve this response (hierarchy check)
         $institutionIds = $this->getUserInstitutionIds($user);
-        if (!in_array($response->institution_id, $institutionIds)) {
+        if (! in_array($response->institution_id, $institutionIds)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu sorğu cavabını təsdiq etməyə icazəniz yoxdur'
+                'message' => 'Bu sorğu cavabını təsdiq etməyə icazəniz yoxdur',
             ], 403);
         }
 
         if ($response->status !== 'submitted') {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu sorğu cavabı artıq işlənib'
+                'message' => 'Bu sorğu cavabı artıq işlənib',
             ], 400);
         }
 
@@ -833,7 +832,7 @@ class ApprovalApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Sorğu cavabı uğurla təsdiqləndi'
+            'message' => 'Sorğu cavabı uğurla təsdiqləndi',
         ]);
     }
 
@@ -843,7 +842,7 @@ class ApprovalApiController extends Controller
     public function rejectSurveyResponse(Request $request, int $responseId): JsonResponse
     {
         $validated = $request->validate([
-            'rejection_reason' => 'required|string|max:1000'
+            'rejection_reason' => 'required|string|max:1000',
         ]);
 
         $user = $request->user();
@@ -851,17 +850,17 @@ class ApprovalApiController extends Controller
 
         // Check if user can approve this response (hierarchy check)
         $institutionIds = $this->getUserInstitutionIds($user);
-        if (!in_array($response->institution_id, $institutionIds)) {
+        if (! in_array($response->institution_id, $institutionIds)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu sorğu cavabını rədd etməyə icazəniz yoxdur'
+                'message' => 'Bu sorğu cavabını rədd etməyə icazəniz yoxdur',
             ], 403);
         }
 
         if ($response->status !== 'submitted') {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu sorğu cavabı artıq işlənib'
+                'message' => 'Bu sorğu cavabı artıq işlənib',
             ], 400);
         }
 
@@ -884,7 +883,7 @@ class ApprovalApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Sorğu cavabı rədd edildi'
+            'message' => 'Sorğu cavabı rədd edildi',
         ]);
     }
 
@@ -896,12 +895,12 @@ class ApprovalApiController extends Controller
         $validated = $request->validate([
             'response_ids' => 'required|array|min:1',
             'response_ids.*' => 'exists:survey_responses,id',
-            'comments' => 'nullable|string|max:1000'
+            'comments' => 'nullable|string|max:1000',
         ]);
 
         $user = $request->user();
         $institutionIds = $this->getUserInstitutionIds($user);
-        
+
         $responses = \App\Models\SurveyResponse::whereIn('id', $validated['response_ids'])
             ->whereIn('institution_id', $institutionIds)
             ->where('status', 'submitted')
@@ -941,8 +940,8 @@ class ApprovalApiController extends Controller
             'data' => [
                 'approved_count' => $approvedCount,
                 'failed_count' => $failedCount,
-                'total_requested' => count($validated['response_ids'])
-            ]
+                'total_requested' => count($validated['response_ids']),
+            ],
         ]);
     }
 
@@ -987,7 +986,7 @@ class ApprovalApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $templates
+            'data' => $templates,
         ]);
     }
 }

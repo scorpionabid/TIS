@@ -27,7 +27,7 @@ return new class extends Migration
             $table->text('description')->nullable()->comment('Description of this institution type');
             $table->timestamps();
             $table->softDeletes();
-            
+
             // Add indexes for performance
             $table->index('key');
             $table->index('is_active');

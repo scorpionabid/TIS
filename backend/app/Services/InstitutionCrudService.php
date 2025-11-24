@@ -2,14 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\Institution;
-use App\Models\InstitutionType;
 use App\Models\Department;
+use App\Models\Institution;
 use App\Repositories\InstitutionRepository;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class InstitutionCrudService extends BaseService
 {
@@ -28,7 +27,7 @@ class InstitutionCrudService extends BaseService
         $query = Institution::with(['institutionType', 'parent', 'children']);
 
         // Apply user-based access control
-        if ($user && !$user->hasRole('superadmin')) {
+        if ($user && ! $user->hasRole('superadmin')) {
             $query = $this->applyUserAccessControl($query, $user);
         }
 
@@ -54,7 +53,7 @@ class InstitutionCrudService extends BaseService
             'total' => $institutions->total(),
             'current_page' => $institutions->currentPage(),
             'last_page' => $institutions->lastPage(),
-            'per_page' => $institutions->perPage()
+            'per_page' => $institutions->perPage(),
         ];
     }
 
@@ -63,7 +62,7 @@ class InstitutionCrudService extends BaseService
      */
     public function getInstitution($institution, $user)
     {
-        if (!$this->checkInstitutionAccess($user, $institution)) {
+        if (! $this->checkInstitutionAccess($user, $institution)) {
             throw new Exception('Bu quruma giriş icazəniz yoxdur', 403);
         }
 
@@ -75,7 +74,7 @@ class InstitutionCrudService extends BaseService
             'users',
             'statistics',
             'region',
-            'sector'
+            'sector',
         ]);
     }
 
@@ -88,7 +87,7 @@ class InstitutionCrudService extends BaseService
             // Validate parent access if parent is specified
             if (isset($data['parent_id'])) {
                 $parent = Institution::find($data['parent_id']);
-                if ($parent && !$this->checkInstitutionAccess($user, $parent)) {
+                if ($parent && ! $this->checkInstitutionAccess($user, $parent)) {
                     throw new Exception('Valideyn quruma giriş icazəniz yoxdur', 403);
                 }
             }
@@ -119,7 +118,7 @@ class InstitutionCrudService extends BaseService
      */
     public function updateInstitution($institution, array $data, $user)
     {
-        if (!$this->checkInstitutionAccess($user, $institution)) {
+        if (! $this->checkInstitutionAccess($user, $institution)) {
             throw new Exception('Bu quruma giriş icazəniz yoxdur', 403);
         }
 
@@ -153,7 +152,7 @@ class InstitutionCrudService extends BaseService
      */
     public function deleteInstitution($institution, $user)
     {
-        if (!$this->checkInstitutionAccess($user, $institution)) {
+        if (! $this->checkInstitutionAccess($user, $institution)) {
             throw new Exception('Bu quruma giriş icazəniz yoxdur', 403);
         }
 
@@ -242,7 +241,7 @@ class InstitutionCrudService extends BaseService
      */
     private function checkInstitutionAccess($user, $institution): bool
     {
-        if (!$user || !$institution) {
+        if (! $user || ! $institution) {
             return false;
         }
 
@@ -255,13 +254,13 @@ class InstitutionCrudService extends BaseService
      */
     private function wouldCreateCircularDependency($institutionId, $newParentId): bool
     {
-        if (!$newParentId) {
+        if (! $newParentId) {
             return false;
         }
 
         // Check if the new parent is actually a descendant of the current institution
         $newParent = Institution::find($newParentId);
-        if (!$newParent) {
+        if (! $newParent) {
             return false;
         }
 
@@ -285,8 +284,8 @@ class InstitutionCrudService extends BaseService
         $type = $institution->type;
         $level = $institution->level;
         $id = $institution->id;
-        
-        $prefix = match($type) {
+
+        $prefix = match ($type) {
             'ministry' => 'MN',
             'regional_education_department' => 'RG',
             'sector' => 'SC',
@@ -297,7 +296,7 @@ class InstitutionCrudService extends BaseService
             'gymnasium' => 'GY',
             default => 'IN'
         };
-        
+
         return $prefix . str_pad($level, 1, '0', STR_PAD_LEFT) . str_pad($id, 4, '0', STR_PAD_LEFT);
     }
 
@@ -313,20 +312,20 @@ class InstitutionCrudService extends BaseService
                 ['name' => 'İdarə', 'description' => 'İdarə şöbəsi'],
                 ['name' => 'Pedaqoji', 'description' => 'Pedaqoji şöbə'],
                 ['name' => 'Maliyyə', 'description' => 'Maliyyə şöbəsi'],
-                ['name' => 'Təsərrüfat', 'description' => 'Təsərrüfat şöbəsi']
+                ['name' => 'Təsərrüfat', 'description' => 'Təsərrüfat şöbəsi'],
             ];
         } elseif ($institution->type === 'kindergarten') {
             $defaultDepartments = [
                 ['name' => 'İdarə', 'description' => 'İdarə şöbəsi'],
                 ['name' => 'Tərbiyə', 'description' => 'Tərbiyə şöbəsi'],
-                ['name' => 'Tibb', 'description' => 'Tibbi şöbə']
+                ['name' => 'Tibb', 'description' => 'Tibbi şöbə'],
             ];
         } elseif (in_array($institution->type, ['regional_education_department', 'sector'])) {
             $defaultDepartments = [
                 ['name' => 'İdarə', 'description' => 'İdarə şöbəsi'],
                 ['name' => 'Təhsil', 'description' => 'Təhsil şöbəsi'],
                 ['name' => 'Maliyyə', 'description' => 'Maliyyə şöbəsi'],
-                ['name' => 'Kadr', 'description' => 'Kadr şöbəsi']
+                ['name' => 'Kadr', 'description' => 'Kadr şöbəsi'],
             ];
         }
 
@@ -335,7 +334,7 @@ class InstitutionCrudService extends BaseService
                 'name' => $dept['name'],
                 'description' => $dept['description'],
                 'institution_id' => $institution->id,
-                'is_active' => true
+                'is_active' => true,
             ]);
         }
     }

@@ -26,8 +26,6 @@ use Illuminate\Support\Facades\Auth;
  * ```
  *
  * REFACTORED: 2025-11-14
- *
- * @package App\Services\SurveyApproval\Utilities
  */
 class SurveyApprovalWorkflowResolver
 {
@@ -37,7 +35,6 @@ class SurveyApprovalWorkflowResolver
      * SINGLE SOURCE OF TRUTH: All survey approval workflows use this method
      *
      * @param string $workflowType Default: 'survey_response'
-     * @return ApprovalWorkflow
      */
     public function getOrCreateSurveyApprovalWorkflow(string $workflowType = 'survey_response'): ApprovalWorkflow
     {
@@ -58,9 +55,6 @@ class SurveyApprovalWorkflowResolver
      * Create default survey approval workflow
      *
      * UNIFIED CONFIGURATION: Standard approval chain for all surveys
-     *
-     * @param string $workflowType
-     * @return ApprovalWorkflow
      */
     protected function createDefaultWorkflow(string $workflowType): ApprovalWorkflow
     {
@@ -83,8 +77,6 @@ class SurveyApprovalWorkflowResolver
      * Get standard approval chain
      *
      * HIERARCHY: SchoolAdmin → SektorAdmin → RegionAdmin
-     *
-     * @return array
      */
     protected function getStandardApprovalChain(): array
     {
@@ -117,8 +109,6 @@ class SurveyApprovalWorkflowResolver
      * - Auto-approve after 7 days
      * - Not all levels required
      * - Skip levels allowed
-     *
-     * @return array
      */
     protected function getStandardWorkflowConfig(): array
     {
@@ -133,9 +123,6 @@ class SurveyApprovalWorkflowResolver
 
     /**
      * Get workflow name based on type
-     *
-     * @param string $workflowType
-     * @return string
      */
     protected function getWorkflowName(string $workflowType): string
     {
@@ -148,9 +135,6 @@ class SurveyApprovalWorkflowResolver
 
     /**
      * Get workflow description based on type
-     *
-     * @param string $workflowType
-     * @return string
      */
     protected function getWorkflowDescription(string $workflowType): string
     {
@@ -163,9 +147,6 @@ class SurveyApprovalWorkflowResolver
 
     /**
      * Get workflow by type (without creating)
-     *
-     * @param string $workflowType
-     * @return ApprovalWorkflow|null
      */
     public function findWorkflowByType(string $workflowType): ?ApprovalWorkflow
     {
@@ -176,9 +157,6 @@ class SurveyApprovalWorkflowResolver
 
     /**
      * Check if workflow exists for type
-     *
-     * @param string $workflowType
-     * @return bool
      */
     public function workflowExists(string $workflowType): bool
     {
@@ -189,9 +167,6 @@ class SurveyApprovalWorkflowResolver
 
     /**
      * Get initial approval level for workflow
-     *
-     * @param ApprovalWorkflow $workflow
-     * @return int
      */
     public function getInitialApprovalLevel(ApprovalWorkflow $workflow): int
     {

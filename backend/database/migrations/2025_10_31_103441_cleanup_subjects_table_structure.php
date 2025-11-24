@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -24,12 +24,12 @@ return new class extends Migration
         Schema::table('subjects', function (Blueprint $table) {
             // 1. ADD MISSING INDEXES FOR PERFORMANCE
             // Add index on name for search performance
-            if (!$this->indexExists('subjects', 'subjects_name_index')) {
+            if (! $this->indexExists('subjects', 'subjects_name_index')) {
                 $table->index('name', 'subjects_name_index');
             }
 
             // Add composite index for common query pattern: institution + active
-            if (!$this->indexExists('subjects', 'subjects_institution_active_index')) {
+            if (! $this->indexExists('subjects', 'subjects_institution_active_index')) {
                 $table->index(['institution_id', 'is_active'], 'subjects_institution_active_index');
             }
 
@@ -63,7 +63,7 @@ return new class extends Migration
             }
 
             // Restore code index if needed
-            if (!$this->indexExists('subjects', 'subjects_code_index') && Schema::hasColumn('subjects', 'code')) {
+            if (! $this->indexExists('subjects', 'subjects_code_index') && Schema::hasColumn('subjects', 'code')) {
                 $table->index('code', 'subjects_code_index');
             }
         });
@@ -86,19 +86,22 @@ return new class extends Migration
                     return true;
                 }
             }
+
             return false;
         }
 
         // For PostgreSQL
         if ($connection->getDriverName() === 'pgsql') {
-            $result = DB::select("SELECT indexname FROM pg_indexes WHERE tablename = ? AND indexname = ?", [$table, $index]);
-            return !empty($result);
+            $result = DB::select('SELECT indexname FROM pg_indexes WHERE tablename = ? AND indexname = ?', [$table, $index]);
+
+            return ! empty($result);
         }
 
         // For MySQL
         if ($connection->getDriverName() === 'mysql') {
             $result = DB::select("SHOW INDEX FROM {$table} WHERE Key_name = ?", [$index]);
-            return !empty($result);
+
+            return ! empty($result);
         }
 
         return false;

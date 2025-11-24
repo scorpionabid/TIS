@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class TimeSlot extends Model
 {
@@ -51,7 +51,7 @@ class TimeSlot extends Model
 
     const DAYS_OF_WEEK = [
         1 => 'Monday',
-        2 => 'Tuesday', 
+        2 => 'Tuesday',
         3 => 'Wednesday',
         4 => 'Thursday',
         5 => 'Friday',
@@ -137,8 +137,8 @@ class TimeSlot extends Model
     public function getApplicableDaysLabelsAttribute(): array
     {
         return collect($this->applicable_days)
-               ->map(fn($day) => self::DAYS_OF_WEEK[$day] ?? $day)
-               ->toArray();
+            ->map(fn ($day) => self::DAYS_OF_WEEK[$day] ?? $day)
+            ->toArray();
     }
 
     /**
@@ -175,10 +175,10 @@ class TimeSlot extends Model
     public function getOverlappingSlots(): \Illuminate\Database\Eloquent\Collection
     {
         return self::where('institution_id', $this->institution_id)
-                  ->where('id', '!=', $this->id)
-                  ->active()
-                  ->get()
-                  ->filter(fn($slot) => $this->overlapsWith($slot));
+            ->where('id', '!=', $this->id)
+            ->active()
+            ->get()
+            ->filter(fn ($slot) => $this->overlapsWith($slot));
     }
 
     /**
@@ -205,7 +205,7 @@ class TimeSlot extends Model
 
         // Find next applicable day
         $applicableDays = collect($this->applicable_days)->sort();
-        
+
         // Try to find a day this week
         $nextDay = $applicableDays->first(function ($day) use ($currentDay, $now) {
             if ($day > $currentDay) {
@@ -214,6 +214,7 @@ class TimeSlot extends Model
             if ($day === $currentDay) {
                 return $now->format('H:i') < $this->start_time->format('H:i');
             }
+
             return false;
         });
 
@@ -225,8 +226,8 @@ class TimeSlot extends Model
         }
 
         return $now->startOfDay()
-                  ->addDays($daysToAdd)
-                  ->setTimeFrom($this->start_time);
+            ->addDays($daysToAdd)
+            ->setTimeFrom($this->start_time);
     }
 
     /**
@@ -253,7 +254,7 @@ class TimeSlot extends Model
         foreach ($standardSlots as $index => $slotData) {
             $startTime = Carbon::createFromFormat('H:i', $slotData['start']);
             $endTime = Carbon::createFromFormat('H:i', $slotData['end']);
-            
+
             $slot = self::create([
                 'institution_id' => $institution->id,
                 'name' => $slotData['name'],
@@ -282,8 +283,8 @@ class TimeSlot extends Model
     {
         $totalSessions = $this->scheduleSessions()->count();
         $activeSessions = $this->scheduleSessions()
-                              ->whereHas('schedule', fn($q) => $q->where('status', 'active'))
-                              ->count();
+            ->whereHas('schedule', fn ($q) => $q->where('status', 'active'))
+            ->count();
 
         return [
             'total_sessions_scheduled' => $totalSessions,
@@ -300,10 +301,10 @@ class TimeSlot extends Model
     protected function getMostUsedDay(): ?string
     {
         $dayUsage = $this->scheduleSessions()
-                         ->selectRaw('day_of_week, COUNT(*) as count')
-                         ->groupBy('day_of_week')
-                         ->orderByDesc('count')
-                         ->first();
+            ->selectRaw('day_of_week, COUNT(*) as count')
+            ->groupBy('day_of_week')
+            ->orderByDesc('count')
+            ->first();
 
         return $dayUsage ? ucfirst($dayUsage->day_of_week) : null;
     }
@@ -314,11 +315,13 @@ class TimeSlot extends Model
     protected function getAverageSessionsPerWeek(): float
     {
         $weeks = $this->scheduleSessions()
-                     ->selectRaw('YEARWEEK(created_at) as week')
-                     ->distinct()
-                     ->count();
+            ->selectRaw('YEARWEEK(created_at) as week')
+            ->distinct()
+            ->count();
 
-        if ($weeks === 0) return 0;
+        if ($weeks === 0) {
+            return 0;
+        }
 
         return $this->scheduleSessions()->count() / $weeks;
     }
@@ -332,7 +335,7 @@ class TimeSlot extends Model
         $overlapping = $this->getOverlappingSlots();
 
         foreach ($overlapping as $slot) {
-            if (!$this->allow_conflicts && !$slot->allow_conflicts) {
+            if (! $this->allow_conflicts && ! $slot->allow_conflicts) {
                 $conflicts[] = [
                     'slot_id' => $slot->id,
                     'slot_name' => $slot->name,

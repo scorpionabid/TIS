@@ -3,9 +3,8 @@
 namespace App\Services;
 
 use App\Models\Document;
-use App\Models\DocumentDownload;
 use App\Models\DocumentAccessLog;
-use Illuminate\Http\Response;
+use App\Models\DocumentDownload;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -21,9 +20,9 @@ class DocumentDownloadService
      * 3. File existence verification
      * 4. Download activity logging
      *
-     * @param Document $document The document to download
-     * @param bool $forceDownload Whether to force download (attachment) or inline display
-     * @return StreamedResponse
+     * @param Document $document      The document to download
+     * @param bool     $forceDownload Whether to force download (attachment) or inline display
+     *
      * @throws \Symfony\Component\HttpKernel\Exception\HttpException
      */
     public function downloadDocument(Document $document, bool $forceDownload = true): StreamedResponse
@@ -31,18 +30,18 @@ class DocumentDownloadService
         $user = Auth::user();
 
         // Check if user can download this document
-        if (!$this->canUserDownloadDocument($user, $document)) {
+        if (! $this->canUserDownloadDocument($user, $document)) {
             abort(403, 'Bu sənədi yükləmək icazəniz yoxdur.');
         }
 
         // Check if document is downloadable
-        if (!$document->is_downloadable) {
+        if (! $document->is_downloadable) {
             abort(403, 'Bu sənəd yüklənmə üçün əlçatan deyil.');
         }
 
         // Check if file exists in private storage
         // Storage path: storage/app/private/{file_path}
-        if (!Storage::exists($document->file_path)) {
+        if (! Storage::exists($document->file_path)) {
             \Log::error('Document file not found in storage', [
                 'document_id' => $document->id,
                 'file_path' => $document->file_path,
@@ -66,7 +65,7 @@ class DocumentDownloadService
                 'Content-Disposition' => ($forceDownload ? 'attachment' : 'inline') . '; filename="' . $downloadFilename . '"',
                 'Cache-Control' => 'no-cache, must-revalidate',
                 'Pragma' => 'no-cache',
-                'Expires' => '0'
+                'Expires' => '0',
             ]
         );
     }
@@ -79,17 +78,17 @@ class DocumentDownloadService
         $user = Auth::user();
 
         // Check if user can view this document
-        if (!$this->canUserViewDocument($user, $document)) {
+        if (! $this->canUserViewDocument($user, $document)) {
             abort(403, 'Bu sənədi görüntüləmək icazəniz yoxdur.');
         }
 
         // Check if document is viewable online
-        if (!$document->is_viewable_online) {
+        if (! $document->is_viewable_online) {
             abort(403, 'Bu sənəd onlayn görüntülənmə üçün əlçatan deyil.');
         }
 
         // Check if file exists
-        if (!Storage::exists($document->file_path)) {
+        if (! Storage::exists($document->file_path)) {
             abort(404, 'Fayl tapılmadı.');
         }
 
@@ -108,15 +107,15 @@ class DocumentDownloadService
         return [
             'total_downloads' => DocumentDownload::where('document_id', $document->id)->count(),
             'unique_downloaders' => DocumentDownload::where('document_id', $document->id)
-                                                  ->distinct('user_id')
-                                                  ->count('user_id'),
+                ->distinct('user_id')
+                ->count('user_id'),
             'recent_downloads' => DocumentDownload::where('document_id', $document->id)
-                                                ->with('user:id,first_name,last_name')
-                                                ->orderByDesc('downloaded_at')
-                                                ->orderByDesc('created_at')
-                                                ->limit(10)
-                                                ->get(),
-            'downloads_by_month' => $this->getDownloadsByMonth($document)
+                ->with('user:id,first_name,last_name')
+                ->orderByDesc('downloaded_at')
+                ->orderByDesc('created_at')
+                ->limit(10)
+                ->get(),
+            'downloads_by_month' => $this->getDownloadsByMonth($document),
         ];
     }
 
@@ -140,14 +139,14 @@ class DocumentDownloadService
         // Create temporary ZIP file
         $zipFilename = 'documents_' . now()->format('Y-m-d_H-i-s') . '.zip';
         $zipPath = storage_path('app/temp/' . $zipFilename);
-        
+
         // Ensure temp directory exists
-        if (!file_exists(dirname($zipPath))) {
+        if (! file_exists(dirname($zipPath))) {
             mkdir(dirname($zipPath), 0755, true);
         }
 
-        $zip = new \ZipArchive();
-        if ($zip->open($zipPath, \ZipArchive::CREATE) !== TRUE) {
+        $zip = new \ZipArchive;
+        if ($zip->open($zipPath, \ZipArchive::CREATE) !== true) {
             abort(500, 'ZIP faylı yaradıla bilmədi.');
         }
 
@@ -158,7 +157,7 @@ class DocumentDownloadService
                     Storage::path($document->file_path),
                     $document->original_filename
                 );
-                
+
                 // Log download
                 $this->logDownload($document, $user);
             }
@@ -168,7 +167,7 @@ class DocumentDownloadService
 
         // Return ZIP file and delete after download
         return response()->download($zipPath, $zipFilename, [
-            'Content-Type' => 'application/zip'
+            'Content-Type' => 'application/zip',
         ])->deleteFileAfterSend(true);
     }
 
@@ -182,7 +181,7 @@ class DocumentDownloadService
             'user_id' => $user->id,
             'downloaded_at' => now(),
             'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent()
+            'user_agent' => request()->userAgent(),
         ]);
 
         // Also log as access
@@ -200,7 +199,7 @@ class DocumentDownloadService
                 'user_id' => Auth::id(),
                 'access_type' => $action,
                 'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent()
+                'user_agent' => request()->userAgent(),
             ]);
         } catch (\Exception $e) {
             // Log error but don't fail the operation
@@ -214,7 +213,7 @@ class DocumentDownloadService
     private function canUserDownloadDocument($user, Document $document): bool
     {
         // Check basic access first
-        if (!$this->canUserViewDocument($user, $document)) {
+        if (! $this->canUserViewDocument($user, $document)) {
             return false;
         }
 
@@ -254,15 +253,15 @@ class DocumentDownloadService
         }
 
         // Role-based access
-        if (!empty($document->allowed_roles)) {
+        if (! empty($document->allowed_roles)) {
             $userRoles = $user->getRoleNames()->toArray();
-            if (!empty(array_intersect($userRoles, $document->allowed_roles))) {
+            if (! empty(array_intersect($userRoles, $document->allowed_roles))) {
                 return true;
             }
         }
 
         // User-specific access
-        if (!empty($document->allowed_users) &&
+        if (! empty($document->allowed_users) &&
             in_array($user->id, $document->allowed_users)) {
             return true;
         }
@@ -278,7 +277,7 @@ class DocumentDownloadService
         }
 
         // Legacy field support (allowed_institutions)
-        if (!empty($document->allowed_institutions) &&
+        if (! empty($document->allowed_institutions) &&
             in_array($user->institution_id, $document->allowed_institutions)) {
             return true;
         }

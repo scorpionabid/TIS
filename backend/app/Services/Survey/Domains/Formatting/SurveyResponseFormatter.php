@@ -64,11 +64,11 @@ class SurveyResponseFormatter
             'creator' => [
                 'id' => $survey->creator?->id,
                 'username' => $survey->creator?->username,
-                'full_name' => $survey->creator?->profile?->full_name
+                'full_name' => $survey->creator?->profile?->full_name,
             ],
             'institution' => [
                 'id' => $survey->institution?->id,
-                'name' => $survey->institution?->name
+                'name' => $survey->institution?->name,
             ],
             'response_count' => $survey->responses_count ?? 0,
             'questions_count' => $survey->questions_count ?? $survey->questions()->count(),
@@ -81,7 +81,7 @@ class SurveyResponseFormatter
             'target_departments' => $survey->target_departments,
             'published_at' => $survey->published_at,
             'created_at' => $survey->created_at,
-            'updated_at' => $survey->updated_at
+            'updated_at' => $survey->updated_at,
         ];
     }
 
@@ -132,16 +132,16 @@ class SurveyResponseFormatter
                     'id' => $version->id,
                     'version_number' => $version->version_number,
                     'description' => $version->description,
-                    'created_at' => $version->created_at
+                    'created_at' => $version->created_at,
                 ];
             }),
             'recent_responses' => $survey->responses?->take(5)->map(function ($response) {
                 return [
                     'id' => $response->id,
                     'user' => $response->user?->username ?? 'Anonymous',
-                    'submitted_at' => $response->created_at
+                    'submitted_at' => $response->created_at,
                 ];
-            })
+            }),
         ]);
     }
 
@@ -182,7 +182,7 @@ class SurveyResponseFormatter
             'remaining_responses' => $survey->max_responses ?
                 $survey->max_responses - $survey->responses()->count() : null,
             'expires_at' => $survey->end_date,
-            'estimated_duration' => $this->estimateResponseTime($survey->questions->toArray())
+            'estimated_duration' => $this->estimateResponseTime($survey->questions->toArray()),
         ];
     }
 }

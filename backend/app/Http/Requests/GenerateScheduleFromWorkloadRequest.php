@@ -57,7 +57,7 @@ class GenerateScheduleFromWorkloadRequest extends FormRequest
             'workload_data.time_slots.*.duration' => 'required|integer|min:1',
             'workload_data.validation' => 'required|array',
             'workload_data.validation.is_valid' => 'required|boolean',
-            
+
             // Generation preferences (optional)
             'generation_preferences' => 'sometimes|array',
             'generation_preferences.prioritize_teacher_preferences' => 'sometimes|boolean',
@@ -137,7 +137,7 @@ class GenerateScheduleFromWorkloadRequest extends FormRequest
             if ($this->input('workload_data.validation.is_valid') === false) {
                 $validator->errors()->add(
                     'workload_data.validation',
-                    'Dərs yükü məlumatları validasiyadan keçmədi. Xətalar: ' . 
+                    'Dərs yükü məlumatları validasiyadan keçmədi. Xətalar: ' .
                     implode(', ', $this->input('workload_data.validation.errors', []))
                 );
             }
@@ -145,7 +145,7 @@ class GenerateScheduleFromWorkloadRequest extends FormRequest
             // Validate that break periods don't exceed daily periods
             $dailyPeriods = $this->input('workload_data.settings.daily_periods');
             $breakPeriods = $this->input('workload_data.settings.break_periods', []);
-            
+
             foreach ($breakPeriods as $index => $breakPeriod) {
                 if ($breakPeriod > $dailyPeriods) {
                     $validator->errors()->add(
@@ -158,17 +158,19 @@ class GenerateScheduleFromWorkloadRequest extends FormRequest
             // Validate that teacher loads don't exceed reasonable limits
             $teachingLoads = $this->input('workload_data.teaching_loads', []);
             $teacherHours = [];
-            
+
             foreach ($teachingLoads as $index => $load) {
                 $teacherId = $load['teacher']['id'] ?? null;
-                if (!$teacherId) continue;
-                
-                if (!isset($teacherHours[$teacherId])) {
+                if (! $teacherId) {
+                    continue;
+                }
+
+                if (! isset($teacherHours[$teacherId])) {
                     $teacherHours[$teacherId] = 0;
                 }
-                
+
                 $teacherHours[$teacherId] += $load['weekly_hours'] ?? 0;
-                
+
                 // Warn if teacher has more than 25 hours
                 if ($teacherHours[$teacherId] > 25) {
                     $validator->errors()->add(

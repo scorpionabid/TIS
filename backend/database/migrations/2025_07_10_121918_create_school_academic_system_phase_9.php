@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         // 1. Create Subjects Table (if doesn't exist)
-        if (!Schema::hasTable('subjects')) {
+        if (! Schema::hasTable('subjects')) {
             Schema::create('subjects', function (Blueprint $table) {
                 $table->id();
                 $table->string('name', 200);
@@ -25,14 +25,14 @@ return new class extends Migration
                 $table->boolean('is_active')->default(true);
                 $table->json('metadata')->nullable();
                 $table->timestamps();
-                
+
                 $table->index(['type', 'is_active']);
                 $table->index('code');
             });
         }
 
         // 2. Create Classes Table (School Organization)
-        if (!Schema::hasTable('classes')) {
+        if (! Schema::hasTable('classes')) {
             Schema::create('classes', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('institution_id')->constrained()->onDelete('cascade');
@@ -48,7 +48,7 @@ return new class extends Migration
                 $table->json('schedule_preferences')->nullable();
                 $table->json('metadata')->nullable();
                 $table->timestamps();
-                
+
                 $table->unique(['institution_id', 'academic_year_id', 'grade_level', 'section']);
                 $table->index(['institution_id', 'academic_year_id', 'grade_level']);
                 $table->index(['status', 'academic_year_id']);
@@ -56,7 +56,7 @@ return new class extends Migration
         }
 
         // 3. Create School Staff Table
-        if (!Schema::hasTable('school_staff')) {
+        if (! Schema::hasTable('school_staff')) {
             Schema::create('school_staff', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('user_id')->constrained()->onDelete('cascade');
@@ -71,7 +71,7 @@ return new class extends Migration
                 $table->json('permissions')->nullable();
                 $table->json('workload_allocation')->nullable();
                 $table->timestamps();
-                
+
                 $table->unique(['user_id', 'institution_id', 'academic_year_id']);
                 $table->index(['institution_id', 'academic_year_id', 'position']);
                 $table->index(['status', 'position']);
@@ -79,7 +79,7 @@ return new class extends Migration
         }
 
         // 4. Create Teaching Loads Table
-        if (!Schema::hasTable('teaching_loads')) {
+        if (! Schema::hasTable('teaching_loads')) {
             Schema::create('teaching_loads', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('teacher_id')->constrained('users')->onDelete('cascade');
@@ -94,7 +94,7 @@ return new class extends Migration
                 $table->date('end_date')->nullable();
                 $table->json('metadata')->nullable();
                 $table->timestamps();
-                
+
                 $table->unique(['teacher_id', 'class_id', 'subject_id', 'academic_year_id']);
                 $table->index(['teacher_id', 'academic_year_id']);
                 $table->index(['class_id', 'academic_year_id']);
@@ -103,7 +103,7 @@ return new class extends Migration
         }
 
         // 5. Create Class Attendance Table (Class-Level Tracking)
-        if (!Schema::hasTable('class_attendance')) {
+        if (! Schema::hasTable('class_attendance')) {
             Schema::create('class_attendance', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('class_id')->constrained('classes')->onDelete('cascade');
@@ -125,7 +125,7 @@ return new class extends Migration
                 $table->foreignId('approved_by')->nullable()->constrained('users')->onDelete('set null');
                 $table->timestamp('approved_at')->nullable();
                 $table->timestamps();
-                
+
                 $table->unique(['class_id', 'subject_id', 'attendance_date', 'period_number']);
                 $table->index(['class_id', 'attendance_date']);
                 $table->index(['teacher_id', 'attendance_date']);
@@ -134,7 +134,7 @@ return new class extends Migration
         }
 
         // 6. Create Schedules Table
-        if (!Schema::hasTable('schedules')) {
+        if (! Schema::hasTable('schedules')) {
             Schema::create('schedules', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('institution_id')->constrained()->onDelete('cascade');
@@ -151,7 +151,7 @@ return new class extends Migration
                 $table->json('generation_settings')->nullable();
                 $table->text('notes')->nullable();
                 $table->timestamps();
-                
+
                 $table->index(['institution_id', 'academic_year_id', 'status']);
                 $table->index(['status', 'effective_from']);
                 $table->index(['created_by', 'status']);
@@ -159,7 +159,7 @@ return new class extends Migration
         }
 
         // 7. Create Schedule Slots Table
-        if (!Schema::hasTable('schedule_slots')) {
+        if (! Schema::hasTable('schedule_slots')) {
             Schema::create('schedule_slots', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('schedule_id')->constrained()->onDelete('cascade');
@@ -175,7 +175,7 @@ return new class extends Migration
                 $table->enum('status', ['active', 'cancelled', 'moved', 'substituted'])->default('active');
                 $table->json('metadata')->nullable();
                 $table->timestamps();
-                
+
                 $table->unique(['schedule_id', 'class_id', 'day_of_week', 'period_number']);
                 $table->index(['schedule_id', 'day_of_week', 'period_number']);
                 $table->index(['teacher_id', 'day_of_week', 'period_number']);
@@ -184,7 +184,7 @@ return new class extends Migration
         }
 
         // 8. Create Schedule Conflicts Table
-        if (!Schema::hasTable('schedule_conflicts')) {
+        if (! Schema::hasTable('schedule_conflicts')) {
             Schema::create('schedule_conflicts', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('schedule_id')->constrained()->onDelete('cascade');
@@ -197,7 +197,7 @@ return new class extends Migration
                 $table->timestamp('resolved_at')->nullable();
                 $table->text('resolution_notes')->nullable();
                 $table->timestamps();
-                
+
                 $table->index(['schedule_id', 'resolution_status']);
                 $table->index(['conflict_type', 'severity']);
                 $table->index(['resolution_status', 'severity']);
@@ -205,7 +205,7 @@ return new class extends Migration
         }
 
         // 9. Create Academic Performance Summaries Table
-        if (!Schema::hasTable('academic_performance_summaries')) {
+        if (! Schema::hasTable('academic_performance_summaries')) {
             Schema::create('academic_performance_summaries', function (Blueprint $table) {
                 $table->id();
                 $table->foreignId('class_id')->constrained('classes')->onDelete('cascade');
@@ -225,7 +225,7 @@ return new class extends Migration
                 $table->text('summary_notes')->nullable();
                 $table->foreignId('generated_by')->constrained('users')->onDelete('cascade');
                 $table->timestamps();
-                
+
                 $table->unique(['class_id', 'subject_id', 'academic_year_id', 'reporting_period', 'period_start']);
                 $table->index(['class_id', 'academic_year_id', 'reporting_period']);
                 $table->index(['subject_id', 'academic_year_id', 'reporting_period']);

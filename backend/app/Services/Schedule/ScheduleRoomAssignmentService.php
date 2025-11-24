@@ -2,8 +2,8 @@
 
 namespace App\Services\Schedule;
 
-use App\Models\Room;
 use App\Models\Institution;
+use App\Models\Room;
 use Illuminate\Support\Collection;
 
 class ScheduleRoomAssignmentService
@@ -14,7 +14,7 @@ class ScheduleRoomAssignmentService
     public function assignRoom(array $load, string $dayOfWeek, array $timeSlot): ?int
     {
         $institutionId = $load['class']['institution_id'] ?? null;
-        if (!$institutionId) {
+        if (! $institutionId) {
             return null;
         }
 
@@ -32,7 +32,7 @@ class ScheduleRoomAssignmentService
                     'capacity' => 30,
                     'facilities' => [],
                     'is_active' => true,
-                ])
+                ]),
             ]);
         }
 

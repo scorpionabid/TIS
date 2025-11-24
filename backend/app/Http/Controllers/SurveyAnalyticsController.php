@@ -2,15 +2,15 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Survey;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use App\Http\Traits\ValidationRules;
 use App\Http\Traits\ResponseHelpers;
+use App\Http\Traits\ValidationRules;
+use App\Models\Survey;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SurveyAnalyticsController extends Controller
 {
-    use ValidationRules, ResponseHelpers;
+    use ResponseHelpers, ValidationRules;
 
     protected $analyticsService;
 
@@ -27,6 +27,7 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $statistics = $this->analyticsService->getSurveyStatistics($survey);
+
             return $this->success($statistics, 'Survey statistics retrieved successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -40,6 +41,7 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $analytics = $this->analyticsService->getSurveyAnalytics($survey);
+
             return $this->success($analytics, 'Survey analytics retrieved successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -53,6 +55,7 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $dashboardStats = $this->analyticsService->getDashboardStatistics();
+
             return $this->success($dashboardStats, 'Dashboard statistics retrieved successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -71,11 +74,12 @@ class SurveyAnalyticsController extends Controller
             'targeting_rules.institutions' => 'sometimes|array',
             'targeting_rules.institutions.*' => 'integer|exists:institutions,id',
             'targeting_rules.departments' => 'sometimes|array',
-            'targeting_rules.departments.*' => 'integer|exists:departments,id'
+            'targeting_rules.departments.*' => 'integer|exists:departments,id',
         ]);
 
         try {
             $estimates = $this->analyticsService->estimateRecipients($validated['targeting_rules']);
+
             return $this->success($estimates, 'Recipient estimates calculated successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -88,13 +92,13 @@ class SurveyAnalyticsController extends Controller
     public function export(Survey $survey, Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'format' => 'sometimes|string|in:json,csv,excel'
+            'format' => 'sometimes|string|in:json,csv,excel',
         ]);
 
         try {
             $format = $validated['format'] ?? 'json';
             $exportData = $this->analyticsService->exportSurveyData($survey, $format);
-            
+
             return $this->success($exportData, 'Survey data exported successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -109,7 +113,7 @@ class SurveyAnalyticsController extends Controller
         $validated = $request->validate([
             'period' => 'sometimes|string|in:daily,weekly,monthly',
             'start_date' => 'sometimes|date',
-            'end_date' => 'sometimes|date|after_or_equal:start_date'
+            'end_date' => 'sometimes|date|after_or_equal:start_date',
         ]);
 
         try {
@@ -118,6 +122,7 @@ class SurveyAnalyticsController extends Controller
             $endDate = $validated['end_date'] ?? null;
 
             $trends = $this->analyticsService->getResponseTrends($survey, $period, $startDate, $endDate);
+
             return $this->success($trends, 'Response trends retrieved successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -130,12 +135,12 @@ class SurveyAnalyticsController extends Controller
     public function questionAnalytics(Survey $survey, Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'question_index' => 'sometimes|integer|min:0'
+            'question_index' => 'sometimes|integer|min:0',
         ]);
 
         try {
             $questionIndex = $validated['question_index'] ?? null;
-            
+
             if ($questionIndex !== null) {
                 // Get specific question analytics
                 $analytics = $this->analyticsService->getQuestionAnalytics($survey, $questionIndex);
@@ -157,6 +162,7 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $engagement = $this->analyticsService->getUserEngagement($survey);
+
             return $this->success($engagement, 'User engagement metrics retrieved successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -170,6 +176,7 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $demographics = $this->analyticsService->getDemographicAnalytics($survey);
+
             return $this->success($demographics, 'Demographic analytics retrieved successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -183,6 +190,7 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $funnel = $this->analyticsService->getCompletionFunnel($survey);
+
             return $this->success($funnel, 'Completion funnel retrieved successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -196,6 +204,7 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $insights = $this->analyticsService->generateInsights($survey);
+
             return $this->success($insights, 'Survey insights generated successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -209,6 +218,7 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $recommendations = $this->analyticsService->generateRecommendations($survey);
+
             return $this->success($recommendations, 'Survey recommendations generated successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -224,7 +234,7 @@ class SurveyAnalyticsController extends Controller
             'survey_ids' => 'required|array|min:2|max:5',
             'survey_ids.*' => 'required|integer|exists:surveys,id',
             'metrics' => 'sometimes|array',
-            'metrics.*' => 'string|in:response_rate,completion_rate,engagement,satisfaction'
+            'metrics.*' => 'string|in:response_rate,completion_rate,engagement,satisfaction',
         ]);
 
         try {
@@ -244,6 +254,7 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $analytics = $this->analyticsService->getRegionAnalytics();
+
             return $this->success($analytics, 'Region analytics retrieved successfully');
         } catch (\Exception $e) {
             return $this->error($e->getMessage(), 500);
@@ -257,14 +268,16 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $breakdown = $this->analyticsService->getInstitutionBreakdown($survey);
+
             return $this->success($breakdown, 'Institution breakdown retrieved successfully');
         } catch (\Exception $e) {
             \Log::error('Institution breakdown error', [
                 'survey_id' => $survey->id,
                 'user_id' => auth()->id(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->error($e->getMessage(), 500);
         }
     }
@@ -277,14 +290,16 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $breakdown = $this->analyticsService->getHierarchicalBreakdown($survey);
+
             return $this->success($breakdown, 'Hierarchical breakdown retrieved successfully');
         } catch (\Exception $e) {
             \Log::error('Hierarchical breakdown error', [
                 'survey_id' => $survey->id,
                 'user_id' => auth()->id(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->error($e->getMessage(), 500);
         }
     }
@@ -302,14 +317,16 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $data = $this->analyticsService->getSurveyAnalyticsOverview($survey);
+
             return $this->success($data, 'Survey analytics overview retrieved successfully');
         } catch (\Exception $e) {
             \Log::error('Analytics overview error', [
                 'survey_id' => $survey->id,
                 'user_id' => auth()->id(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->error($e->getMessage(), 500);
         }
     }
@@ -324,14 +341,16 @@ class SurveyAnalyticsController extends Controller
             $days = min(max($days, 7), 365); // Limit between 7 and 365 days
 
             $data = $this->analyticsService->getResponseTrends($survey, $days);
+
             return $this->success($data, 'Response trends retrieved successfully');
         } catch (\Exception $e) {
             \Log::error('Response trends error', [
                 'survey_id' => $survey->id,
                 'user_id' => auth()->id(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->error($e->getMessage(), 500);
         }
     }
@@ -343,14 +362,16 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $data = $this->analyticsService->getHierarchicalInstitutionAnalyticsEnhanced($survey);
+
             return $this->success($data, 'Hierarchical institution analytics retrieved successfully');
         } catch (\Exception $e) {
             \Log::error('Hierarchical institutions analytics error', [
                 'survey_id' => $survey->id,
                 'user_id' => auth()->id(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->error($e->getMessage(), 500);
         }
     }
@@ -362,14 +383,16 @@ class SurveyAnalyticsController extends Controller
     {
         try {
             $data = $this->analyticsService->getNonRespondingInstitutions($survey);
+
             return $this->success($data, 'Non-responding institutions retrieved successfully');
         } catch (\Exception $e) {
             \Log::error('Non-responding institutions error', [
                 'survey_id' => $survey->id,
                 'user_id' => auth()->id(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->error($e->getMessage(), 500);
         }
     }

@@ -6,8 +6,8 @@ use App\Models\Institution;
 use App\Models\LinkShare;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Link Query Builder
@@ -41,8 +41,8 @@ class LinkQueryBuilder
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhere('tags', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('tags', 'like', "%{$search}%");
             });
         }
 
@@ -60,6 +60,7 @@ class LinkQueryBuilder
 
         // Paginate results
         $perPage = $request->get('per_page', 15);
+
         return $query->paginate($perPage);
     }
 
@@ -119,7 +120,7 @@ class LinkQueryBuilder
             $institutionFilterIds = $this->resolveInstitutionHierarchyIds((int) $request->institution_id);
         }
 
-        if (!empty($institutionFilterIds)) {
+        if (! empty($institutionFilterIds)) {
             $institutionFilterIds = array_values(array_unique(array_filter(
                 array_map('intval', $institutionFilterIds),
                 static function ($value) {
@@ -129,17 +130,17 @@ class LinkQueryBuilder
 
             $query->where(function ($q) use ($institutionFilterIds) {
                 $q->whereIn('institution_id', $institutionFilterIds)
-                  ->orWhere(function ($targetQuery) use ($institutionFilterIds) {
-                      foreach ($institutionFilterIds as $index => $institutionId) {
-                          if ($index === 0) {
-                              $targetQuery->whereJsonContains('target_institutions', (int) $institutionId)
-                                          ->orWhereJsonContains('target_institutions', (string) $institutionId);
-                          } else {
-                              $targetQuery->orWhereJsonContains('target_institutions', (int) $institutionId)
-                                          ->orWhereJsonContains('target_institutions', (string) $institutionId);
-                          }
-                      }
-                  });
+                    ->orWhere(function ($targetQuery) use ($institutionFilterIds) {
+                        foreach ($institutionFilterIds as $index => $institutionId) {
+                            if ($index === 0) {
+                                $targetQuery->whereJsonContains('target_institutions', (int) $institutionId)
+                                    ->orWhereJsonContains('target_institutions', (string) $institutionId);
+                            } else {
+                                $targetQuery->orWhereJsonContains('target_institutions', (int) $institutionId)
+                                    ->orWhereJsonContains('target_institutions', (string) $institutionId);
+                            }
+                        }
+                    });
             });
         }
 
@@ -180,7 +181,7 @@ class LinkQueryBuilder
         }
 
         $institution = Institution::withTrashed()->find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return $cache[$institutionId] = [$institutionId];
         }
 
@@ -191,7 +192,7 @@ class LinkQueryBuilder
 
         // Ensure numeric + unique values
         $ids = array_values(array_unique(array_map('intval', $ids)));
-        if (!in_array($institutionId, $ids, true)) {
+        if (! in_array($institutionId, $ids, true)) {
             array_unshift($ids, $institutionId);
         }
 
@@ -217,8 +218,8 @@ class LinkQueryBuilder
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhere('tags', 'like', "%{$search}%");
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('tags', 'like', "%{$search}%");
             });
         }
 
@@ -249,9 +250,10 @@ class LinkQueryBuilder
                         return 'This Week';
                     } elseif ($createdAt->isCurrentMonth()) {
                         return 'This Month';
-                    } else {
-                        return 'Older';
                     }
+
+                    return 'Older';
+
                 default:
                     return 'Other';
             }
@@ -263,7 +265,7 @@ class LinkQueryBuilder
             $result[] = [
                 'group' => $groupName,
                 'count' => $groupLinks->count(),
-                'links' => $groupLinks->values()
+                'links' => $groupLinks->values(),
             ];
         }
 
@@ -288,8 +290,9 @@ class LinkQueryBuilder
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             $query->where('shared_by', $user->id); // Only own links if no institution
+
             return;
         }
 
@@ -297,8 +300,8 @@ class LinkQueryBuilder
             // Regional admin can see links from their region
             $childIds = $userInstitution->getAllChildrenIds();
             $query->whereIn('institution_id', $childIds)
-                  ->orWhere('share_scope', 'regional')
-                  ->orWhere('share_scope', 'national');
+                ->orWhere('share_scope', 'regional')
+                ->orWhere('share_scope', 'national');
         } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             // Sector admin can only see links explicitly targeted to their sector hierarchy
             $childIds = $userInstitution->getAllChildrenIds() ?? [];
@@ -306,22 +309,22 @@ class LinkQueryBuilder
 
             $query->where(function ($q) use ($scopeIds) {
                 $q->whereIn('institution_id', $scopeIds)
-                  ->orWhere(function ($subQ) use ($scopeIds) {
-                      foreach ($scopeIds as $instId) {
-                          $subQ->orWhereJsonContains('target_institutions', (int) $instId)
-                               ->orWhereJsonContains('target_institutions', (string) $instId);
-                      }
-                  });
+                    ->orWhere(function ($subQ) use ($scopeIds) {
+                        foreach ($scopeIds as $instId) {
+                            $subQ->orWhereJsonContains('target_institutions', (int) $instId)
+                                ->orWhereJsonContains('target_institutions', (string) $instId);
+                        }
+                    });
             });
         } elseif ($user->hasRole(['schooladmin', 'müəllim', 'şagird'])) {
             // School users can see their own links and public ones
             $query->where(function ($q) use ($userInstitution, $user) {
                 $q->where('institution_id', $userInstitution->id)
-                  ->orWhere('share_scope', 'public')
-                  ->orWhere('share_scope', 'national')
-                  ->orWhere('shared_by', $user->id)
-                  ->orWhereJsonContains('target_institutions', (string)$userInstitution->id)
-                  ->orWhereJsonContains('target_users', $user->id); // NEW: User-based targeting
+                    ->orWhere('share_scope', 'public')
+                    ->orWhere('share_scope', 'national')
+                    ->orWhere('shared_by', $user->id)
+                    ->orWhereJsonContains('target_institutions', (string) $userInstitution->id)
+                    ->orWhereJsonContains('target_users', $user->id); // NEW: User-based targeting
             });
         }
 
@@ -407,16 +410,17 @@ class LinkQueryBuilder
             'user_id' => $user->id,
             'user_role' => $user->roles?->first()?->name,
             'institution_id' => $user->institution_id,
-            'request_params' => $request->all()
+            'request_params' => $request->all(),
         ]);
 
-        if (!$user->institution_id) {
+        if (! $user->institution_id) {
             \Log::warning('User has no institution assigned', ['user_id' => $user->id]);
+
             return [];
         }
 
         \Log::info('🔍 LinkSharingService: User has institution, proceeding', [
-            'institution_id' => $user->institution_id
+            'institution_id' => $user->institution_id,
         ]);
 
         // Get allowed institutions based on user role
@@ -430,25 +434,25 @@ class LinkQueryBuilder
                 ->where('status', 'active')
                 ->where(function ($query) use ($user, $allowedInstitutions) {
                     $query->whereIn('share_scope', ['public', 'regional', 'sectoral', 'institutional'])
-                          ->where(function ($scopeQuery) use ($allowedInstitutions) {
-                              $scopeQuery->where('share_scope', 'public')
-                                         ->orWhereIn('institution_id', $allowedInstitutions)
-                                         ->orWhere(function ($subQuery) use ($allowedInstitutions) {
-                                             foreach ($allowedInstitutions as $institutionId) {
-                                                 $subQuery->orWhereJsonContains('target_institutions', $institutionId);
-                                             }
-                                         });
-                          })
-                          ->orWhere(function ($userTargetQuery) use ($user) {
-                              $userTargetQuery->where('share_scope', 'specific_users')
-                                              ->whereJsonContains('target_users', $user->id);
-                          });
+                        ->where(function ($scopeQuery) use ($allowedInstitutions) {
+                            $scopeQuery->where('share_scope', 'public')
+                                ->orWhereIn('institution_id', $allowedInstitutions)
+                                ->orWhere(function ($subQuery) use ($allowedInstitutions) {
+                                    foreach ($allowedInstitutions as $institutionId) {
+                                        $subQuery->orWhereJsonContains('target_institutions', $institutionId);
+                                    }
+                                });
+                        })
+                        ->orWhere(function ($userTargetQuery) use ($user) {
+                            $userTargetQuery->where('share_scope', 'specific_users')
+                                ->whereJsonContains('target_users', $user->id);
+                        });
                 });
 
             \Log::info('🔍 LinkSharingService: Links query built', [
                 'user_institution_id' => $user->institution_id,
                 'sql' => $linksQuery->toSql(),
-                'bindings' => $linksQuery->getBindings()
+                'bindings' => $linksQuery->getBindings(),
             ]);
 
             // Apply filters
@@ -463,8 +467,8 @@ class LinkQueryBuilder
                 $search = $request->search;
                 $linksQuery->where(function ($q) use ($search) {
                     $q->where('title', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%")
-                      ->orWhere('url', 'like', "%{$search}%");
+                        ->orWhere('description', 'like', "%{$search}%")
+                        ->orWhere('url', 'like', "%{$search}%");
                 });
             }
 
@@ -472,16 +476,16 @@ class LinkQueryBuilder
 
             \Log::info('🔍 LinkSharingService: Links fetched', [
                 'links_count' => $links->count(),
-                'links_data' => $links->map(function($link) {
+                'links_data' => $links->map(function ($link) {
                     return [
                         'id' => $link->id,
                         'title' => $link->title,
                         'institution_id' => $link->institution_id,
                         'share_scope' => $link->share_scope,
                         'target_institutions' => $link->target_institutions,
-                        'status' => $link->status
+                        'status' => $link->status,
                     ];
-                })->toArray()
+                })->toArray(),
             ]);
 
             foreach ($links as $link) {
@@ -503,7 +507,7 @@ class LinkQueryBuilder
                     'assigned_at' => $link->created_at?->toISOString(),
                     'assigned_by' => [
                         'name' => $link->sharedBy?->name ?? 'N/A',
-                        'institution' => $link->institution?->name ?? 'N/A'
+                        'institution' => $link->institution?->name ?? 'N/A',
                     ],
                     'is_new' => $link->created_at?->isAfter(now()->subDays(7)) ?? false,
                     'viewed_at' => null, // TODO: Track user-specific views
@@ -511,25 +515,25 @@ class LinkQueryBuilder
             }
 
             // Get documents assigned to user's allowed institutions (if not filtering for links only)
-            if (!$request->filled('type') || $request->type !== 'link') {
+            if (! $request->filled('type') || $request->type !== 'link') {
                 $documentsQuery = \App\Models\Document::with(['uploader', 'institution'])
                     ->where('status', 'active')
-                    ->where(function ($query) use ($user, $allowedInstitutions) {
+                    ->where(function ($query) use ($allowedInstitutions) {
                         $query->where('is_public', true)
-                              ->orWhereIn('institution_id', $allowedInstitutions)
-                              ->orWhere(function ($subQuery) use ($allowedInstitutions) {
-                                  foreach ($allowedInstitutions as $institutionId) {
-                                      $subQuery->orWhereJsonContains('accessible_institutions', (string)$institutionId);
-                                  }
-                              });
+                            ->orWhereIn('institution_id', $allowedInstitutions)
+                            ->orWhere(function ($subQuery) use ($allowedInstitutions) {
+                                foreach ($allowedInstitutions as $institutionId) {
+                                    $subQuery->orWhereJsonContains('accessible_institutions', (string) $institutionId);
+                                }
+                            });
                     });
 
                 if ($request->filled('search')) {
                     $search = $request->search;
                     $documentsQuery->where(function ($q) use ($search) {
                         $q->where('title', 'like', "%{$search}%")
-                          ->orWhere('description', 'like', "%{$search}%")
-                          ->orWhere('original_filename', 'like', "%{$search}%");
+                            ->orWhere('description', 'like', "%{$search}%")
+                            ->orWhere('original_filename', 'like', "%{$search}%");
                     });
                 }
 
@@ -537,16 +541,16 @@ class LinkQueryBuilder
 
                 \Log::info('🔍 LinkSharingService: Documents fetched', [
                     'documents_count' => $documents->count(),
-                    'documents_data' => $documents->map(function($doc) {
+                    'documents_data' => $documents->map(function ($doc) {
                         return [
                             'id' => $doc->id,
                             'title' => $doc->title,
                             'institution_id' => $doc->institution_id,
                             'is_public' => $doc->is_public,
                             'allowed_institutions' => $doc->allowed_institutions,
-                            'status' => $doc->status
+                            'status' => $doc->status,
                         ];
-                    })->toArray()
+                    })->toArray(),
                 ]);
 
                 foreach ($documents as $document) {
@@ -568,7 +572,7 @@ class LinkQueryBuilder
                         'assigned_at' => $document->created_at?->toISOString(),
                         'assigned_by' => [
                             'name' => $document->uploader?->name ?? 'N/A',
-                            'institution' => $document->institution?->name ?? 'N/A'
+                            'institution' => $document->institution?->name ?? 'N/A',
                         ],
                         'is_new' => $document->created_at?->isAfter(now()->subDays(7)) ?? false,
                         'viewed_at' => null, // TODO: Track user-specific views
@@ -578,17 +582,16 @@ class LinkQueryBuilder
 
             \Log::info('✅ LinkSharingService: getAssignedResources successful', [
                 'total_resources' => count($assignedResources),
-                'links_count' => count(array_filter($assignedResources, fn($r) => $r['type'] === 'link')),
-                'documents_count' => count(array_filter($assignedResources, fn($r) => $r['type'] === 'document'))
+                'links_count' => count(array_filter($assignedResources, fn ($r) => $r['type'] === 'link')),
+                'documents_count' => count(array_filter($assignedResources, fn ($r) => $r['type'] === 'document')),
             ]);
 
             return $assignedResources;
-
         } catch (\Exception $e) {
             \Log::error('❌ LinkSharingService: getAssignedResources failed', [
                 'user_id' => $user->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [];

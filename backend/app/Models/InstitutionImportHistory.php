@@ -32,12 +32,12 @@ class InstitutionImportHistory extends Model
         'completed_at',
         'processing_time_ms',
         'ip_address',
-        'user_agent'
+        'user_agent',
     ];
 
     protected $casts = [
         'import_results' => 'array',
-        'duplicate_analysis' => 'array', 
+        'duplicate_analysis' => 'array',
         'error_summary' => 'array',
         'import_options' => 'array',
         'started_at' => 'datetime',
@@ -67,7 +67,10 @@ class InstitutionImportHistory extends Model
      */
     public function getSuccessRateAttribute(): float
     {
-        if ($this->total_rows == 0) return 0;
+        if ($this->total_rows == 0) {
+            return 0;
+        }
+
         return round(($this->successful_imports / $this->total_rows) * 100, 1);
     }
 
@@ -76,19 +79,21 @@ class InstitutionImportHistory extends Model
      */
     public function getProcessingTimeHumanAttribute(): string
     {
-        if (!$this->processing_time_ms) return 'N/A';
-        
+        if (! $this->processing_time_ms) {
+            return 'N/A';
+        }
+
         $seconds = $this->processing_time_ms / 1000;
-        
+
         if ($seconds < 1) {
             return $this->processing_time_ms . 'ms';
         } elseif ($seconds < 60) {
             return round($seconds, 1) . 's';
-        } else {
-            $minutes = floor($seconds / 60);
-            $remainingSeconds = $seconds % 60;
-            return $minutes . 'm ' . round($remainingSeconds) . 's';
         }
+        $minutes = floor($seconds / 60);
+        $remainingSeconds = $seconds % 60;
+
+        return $minutes . 'm ' . round($remainingSeconds) . 's';
     }
 
     /**
@@ -96,15 +101,17 @@ class InstitutionImportHistory extends Model
      */
     public function getFileSizeHumanAttribute(): string
     {
-        if (!$this->file_size) return 'N/A';
-        
-        $bytes = (int)$this->file_size;
+        if (! $this->file_size) {
+            return 'N/A';
+        }
+
+        $bytes = (int) $this->file_size;
         $units = ['B', 'KB', 'MB', 'GB'];
-        
+
         for ($i = 0; $bytes > 1024 && $i < count($units) - 1; $i++) {
             $bytes /= 1024;
         }
-        
+
         return round($bytes, 1) . ' ' . $units[$i];
     }
 
@@ -138,7 +145,7 @@ class InstitutionImportHistory extends Model
     public function scopeSuccessful($query)
     {
         return $query->where('status', 'completed')
-                    ->where('successful_imports', '>', 0);
+            ->where('successful_imports', '>', 0);
     }
 
     /**
@@ -147,6 +154,6 @@ class InstitutionImportHistory extends Model
     public function scopeFailed($query)
     {
         return $query->where('status', 'failed')
-                    ->orWhere('successful_imports', 0);
+            ->orWhere('successful_imports', 0);
     }
 }

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 class InstitutionDeleteProgressService
 {
     const CACHE_PREFIX = 'institution_delete_progress_';
+
     const CACHE_TTL = 3600; // 1 hour
 
     /**
@@ -25,7 +26,7 @@ class InstitutionDeleteProgressService
             'started_at' => now()->toISOString(),
             'metadata' => $metadata,
             'errors' => [],
-            'warnings' => []
+            'warnings' => [],
         ];
 
         Cache::put(
@@ -34,9 +35,9 @@ class InstitutionDeleteProgressService
             self::CACHE_TTL
         );
 
-        Log::info("Delete progress initialized", [
+        Log::info('Delete progress initialized', [
             'operation_id' => $operationId,
-            'metadata' => $metadata
+            'metadata' => $metadata,
         ]);
     }
 
@@ -53,7 +54,8 @@ class InstitutionDeleteProgressService
         $progressData = Cache::get($cacheKey, []);
 
         if (empty($progressData)) {
-            Log::warning("Progress data not found for operation", ['operation_id' => $operationId]);
+            Log::warning('Progress data not found for operation', ['operation_id' => $operationId]);
+
             return;
         }
 
@@ -61,15 +63,15 @@ class InstitutionDeleteProgressService
             'progress' => max(0, min(100, $progress)),
             'current_stage' => $stage,
             'stages_completed' => $progressData['stages_completed'] + 1,
-            'updated_at' => now()->toISOString()
+            'updated_at' => now()->toISOString(),
         ], $additionalData);
 
         Cache::put($cacheKey, $progressData, self::CACHE_TTL);
 
-        Log::info("Delete progress updated", [
+        Log::info('Delete progress updated', [
             'operation_id' => $operationId,
             'progress' => $progress,
-            'stage' => $stage
+            'stage' => $stage,
         ]);
     }
 
@@ -82,7 +84,8 @@ class InstitutionDeleteProgressService
         $progressData = Cache::get($cacheKey, []);
 
         if (empty($progressData)) {
-            Log::warning("Progress data not found for completion", ['operation_id' => $operationId]);
+            Log::warning('Progress data not found for completion', ['operation_id' => $operationId]);
+
             return;
         }
 
@@ -90,14 +93,14 @@ class InstitutionDeleteProgressService
             'status' => 'completed',
             'progress' => 100,
             'current_stage' => 'Tamamlandı',
-            'completed_at' => now()->toISOString()
+            'completed_at' => now()->toISOString(),
         ], $finalData);
 
         Cache::put($cacheKey, $progressData, self::CACHE_TTL);
 
-        Log::info("Delete progress completed", [
+        Log::info('Delete progress completed', [
             'operation_id' => $operationId,
-            'final_data' => $finalData
+            'final_data' => $finalData,
         ]);
     }
 
@@ -112,7 +115,7 @@ class InstitutionDeleteProgressService
         if (empty($progressData)) {
             $progressData = [
                 'operation_id' => $operationId,
-                'started_at' => now()->toISOString()
+                'started_at' => now()->toISOString(),
             ];
         }
 
@@ -121,15 +124,15 @@ class InstitutionDeleteProgressService
             'current_stage' => 'Xəta baş verdi',
             'error' => $error,
             'failed_at' => now()->toISOString(),
-            'context' => $context
+            'context' => $context,
         ]);
 
         Cache::put($cacheKey, $progressData, self::CACHE_TTL);
 
-        Log::error("Delete progress failed", [
+        Log::error('Delete progress failed', [
             'operation_id' => $operationId,
             'error' => $error,
-            'context' => $context
+            'context' => $context,
         ]);
     }
 
@@ -155,7 +158,7 @@ class InstitutionDeleteProgressService
 
         $progressData['warnings'][] = [
             'message' => $warning,
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ];
 
         Cache::put($cacheKey, $progressData, self::CACHE_TTL);
@@ -175,7 +178,7 @@ class InstitutionDeleteProgressService
 
         $progressData['errors'][] = [
             'message' => $error,
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ];
 
         Cache::put($cacheKey, $progressData, self::CACHE_TTL);

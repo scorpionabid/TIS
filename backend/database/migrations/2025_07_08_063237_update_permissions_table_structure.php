@@ -13,17 +13,17 @@ return new class extends Migration
     {
         Schema::table('permissions', function (Blueprint $table) {
             // Add description if it doesn't exist
-            if (!Schema::hasColumn('permissions', 'description')) {
+            if (! Schema::hasColumn('permissions', 'description')) {
                 $table->text('description')->nullable()->after('display_name');
             }
-            
+
             // Add department if it doesn't exist
-            if (!Schema::hasColumn('permissions', 'department')) {
+            if (! Schema::hasColumn('permissions', 'department')) {
                 $table->string('department')->nullable()->after('category');
             }
-            
+
             // Add is_active if it doesn't exist
-            if (!Schema::hasColumn('permissions', 'is_active')) {
+            if (! Schema::hasColumn('permissions', 'is_active')) {
                 $table->boolean('is_active')->default(true)->after('action');
             }
         });

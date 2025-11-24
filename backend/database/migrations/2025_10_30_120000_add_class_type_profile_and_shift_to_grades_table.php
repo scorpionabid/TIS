@@ -12,17 +12,17 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('grades', function (Blueprint $table) {
-            if (!Schema::hasColumn('grades', 'class_type')) {
+            if (! Schema::hasColumn('grades', 'class_type')) {
                 $table->string('class_type', 120)->nullable()->after('grade_type')
                     ->comment('Excel sinfin tipi dəyərinin saxlanılması üçün sahə');
             }
 
-            if (!Schema::hasColumn('grades', 'class_profile')) {
+            if (! Schema::hasColumn('grades', 'class_profile')) {
                 $table->string('class_profile', 120)->nullable()->after('class_type')
                     ->comment('Excel profil sütunu');
             }
 
-            if (!Schema::hasColumn('grades', 'teaching_shift')) {
+            if (! Schema::hasColumn('grades', 'teaching_shift')) {
                 $table->string('teaching_shift', 50)->nullable()->after('teaching_week')
                     ->comment('Növbə məlumatı: 1 növbə, 2 növbə və s.');
             }

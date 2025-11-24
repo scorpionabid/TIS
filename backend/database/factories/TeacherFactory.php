@@ -13,4 +13,3 @@ class TeacherFactory extends UserFactory
         return parent::definition();
     }
 }
-

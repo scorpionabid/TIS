@@ -2,8 +2,8 @@
 
 namespace App\Services\Auth;
 
-use App\Models\User;
 use App\Models\SecurityEvent;
+use App\Models\User;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -13,10 +13,6 @@ class LoginService
     /**
      * Attempt to authenticate the user.
      *
-     * @param array $credentials
-     * @param string|null $deviceName
-     * @param string|null $deviceId
-     * @return array
      * @throws ValidationException
      */
     public function attemptLogin(array $credentials, ?string $deviceName = null, ?string $deviceId = null): array
@@ -29,12 +25,12 @@ class LoginService
             $password = $credentials['password'];
             $identifierType = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'username';
             $identifierHash = hash('sha256', mb_strtolower($login));
-            $hasDeviceContext = !empty($deviceId) || !empty($deviceName);
+            $hasDeviceContext = ! empty($deviceId) || ! empty($deviceName);
 
             logger()->info('Login attempt', [
                 'identifier_type' => $identifierType,
                 'identifier_hash' => $identifierHash,
-                'device_context' => $hasDeviceContext
+                'device_context' => $hasDeviceContext,
             ]);
 
             // Find user by username or email
@@ -45,16 +41,16 @@ class LoginService
             logger()->debug('Login user lookup', [
                 'identifier_hash' => $identifierHash,
                 'user_found' => (bool) $user,
-                'user_active' => $user?->is_active
+                'user_active' => $user?->is_active,
             ]);
 
             // Check if user exists and password is correct
-            if (!$user || !Hash::check($password, $user->password)) {
+            if (! $user || ! Hash::check($password, $user->password)) {
                 logger()->warning('Authentication failed - invalid credentials', [
                     'identifier_hash' => $identifierHash,
-                    'user_found' => (bool) $user
+                    'user_found' => (bool) $user,
                 ]);
-                
+
                 $this->logFailedAttempt($login, $user);
                 throw ValidationException::withMessages([
                     'login' => 'İstifadəçi adı, email və ya şifrə yanlışdır.',
@@ -64,7 +60,7 @@ class LoginService
             logger()->info('Password check passed', ['user_id' => $user->id]);
 
             // Check if user is active
-            if (!$user->is_active) {
+            if (! $user->is_active) {
                 throw ValidationException::withMessages([
                     'login' => 'Hesabınız deaktiv edilib. Zəhmət olmasa inzibatçı ilə əlaqə saxlayın.',
                 ]);
@@ -75,7 +71,7 @@ class LoginService
                 return [
                     'requires_password_change' => true,
                     'user' => $user,
-                    'token' => $this->createPasswordResetToken($user)
+                    'token' => $this->createPasswordResetToken($user),
                 ];
             }
 
@@ -90,13 +86,13 @@ class LoginService
             // Get roles and permissions CORRECTLY
             $roles = $user->getRoleNames()->toArray();
             $permissions = $user->getAllPermissions()->pluck('name')->toArray();
-            
+
             logger()->debug('Login service - access context prepared', [
                 'user_id' => $user->id,
                 'role_count' => count($roles),
-                'permission_count' => count($permissions)
+                'permission_count' => count($permissions),
             ]);
-            
+
             // User data with proper role/permission arrays
             $userData = $user->toArray();
             $userData['roles'] = $roles;
@@ -105,13 +101,12 @@ class LoginService
             return [
                 'token' => $token,
                 'user' => $userData,
-                'requires_password_change' => false
+                'requires_password_change' => false,
             ];
-        
         } catch (\Exception $e) {
             logger()->error('Login attempt failed with exception', [
                 'identifier_hash' => $identifierHash,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
 
             throw ValidationException::withMessages([
@@ -137,7 +132,7 @@ class LoginService
      */
     protected function updateUserDevice(User $user, ?string $deviceId, ?string $deviceName): void
     {
-        if (!$deviceId) {
+        if (! $deviceId) {
             return;
         }
 
@@ -206,8 +201,8 @@ class LoginService
             'user_agent' => request()->userAgent(),
             'metadata' => [
                 'login_method' => 'password',
-                'login_attempt' => $login
-            ]
+                'login_attempt' => $login,
+            ],
         ]);
     }
 
@@ -223,14 +218,14 @@ class LoginService
             'description' => 'Uğurlu giriş',
             'user_id' => $user->id,
             'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent()
+            'user_agent' => request()->userAgent(),
         ]);
 
         // Update last login time
         $user->update([
             'last_login_at' => now(),
             'login_attempts' => 0,
-            'must_change_password' => false
+            'must_change_password' => false,
         ]);
     }
 
@@ -244,9 +239,10 @@ class LoginService
             ['email' => $user->email],
             [
                 'token' => Hash::make($token),
-                'created_at' => now()
+                'created_at' => now(),
             ]
         );
+
         return $token;
     }
 }

@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -25,7 +24,7 @@ return new class extends Migration
             $table->foreignId('approved_by')->nullable()->constrained('users');
             $table->json('metadata')->default('{}');
             $table->timestamps();
-            
+
             $table->unique(['indicator_id', 'institution_id', 'time_period']);
             $table->index('indicator_id');
             $table->index('institution_id');

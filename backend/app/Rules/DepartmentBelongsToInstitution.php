@@ -2,8 +2,8 @@
 
 namespace App\Rules;
 
-use Closure;
 use App\Models\Department;
+use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
 
 /**
@@ -20,24 +20,19 @@ class DepartmentBelongsToInstitution implements ValidationRule
     /**
      * Create a new rule instance.
      *
-     * @param  int|null  $institutionId  The institution ID to validate against
+     * @param int|null $institutionId The institution ID to validate against
      */
-    public function __construct(private ?int $institutionId)
-    {
-    }
+    public function __construct(private ?int $institutionId) {}
 
     /**
      * Run the validation rule.
      *
-     * @param  string  $attribute
-     * @param  mixed  $value
-     * @param  \Closure(string): \Illuminate\Translation\PotentiallyTranslatedString  $fail
-     * @return void
+     * @param \Closure(string): \Illuminate\Translation\PotentiallyTranslatedString $fail
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         // Skip validation if either institution_id or department_id is null
-        if (!$this->institutionId || !$value) {
+        if (! $this->institutionId || ! $value) {
             return;
         }
 
@@ -46,7 +41,7 @@ class DepartmentBelongsToInstitution implements ValidationRule
             ->where('institution_id', $this->institutionId)
             ->exists();
 
-        if (!$exists) {
+        if (! $exists) {
             $fail('Seçilmiş departament bu təşkilata aid deyil.');
         }
     }

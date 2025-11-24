@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
 use Exception;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class HealthController extends BaseController
 {
@@ -17,12 +17,12 @@ class HealthController extends BaseController
     {
         $checks = [
             'database' => $this->checkDatabase(),
-            'cache' => $this->checkCache(), 
+            'cache' => $this->checkCache(),
             'storage' => $this->checkStorage(),
             'queue' => $this->checkQueue(),
         ];
 
-        $overall = collect($checks)->every(fn($check) => $check['status'] === 'ok');
+        $overall = collect($checks)->every(fn ($check) => $check['status'] === 'ok');
 
         return response()->json([
             'status' => $overall ? 'ok' : 'error',
@@ -84,6 +84,7 @@ class HealthController extends BaseController
     {
         try {
             DB::select('SELECT 1');
+
             return ['status' => 'ok', 'message' => 'Database connection successful'];
         } catch (Exception $e) {
             return ['status' => 'error', 'message' => 'Database connection failed: ' . $e->getMessage()];
@@ -100,11 +101,11 @@ class HealthController extends BaseController
             Cache::put($key, 'test', 60);
             $value = Cache::get($key);
             Cache::forget($key);
-            
+
             if ($value === 'test') {
                 return ['status' => 'ok', 'message' => 'Cache system working'];
             }
-            
+
             return ['status' => 'error', 'message' => 'Cache read/write failed'];
         } catch (Exception $e) {
             return ['status' => 'error', 'message' => 'Cache system error: ' . $e->getMessage()];
@@ -121,11 +122,11 @@ class HealthController extends BaseController
             Storage::put($testFile, 'test');
             $content = Storage::get($testFile);
             Storage::delete($testFile);
-            
+
             if ($content === 'test') {
                 return ['status' => 'ok', 'message' => 'Storage system working'];
             }
-            
+
             return ['status' => 'error', 'message' => 'Storage read/write failed'];
         } catch (Exception $e) {
             return ['status' => 'error', 'message' => 'Storage system error: ' . $e->getMessage()];
@@ -143,7 +144,7 @@ class HealthController extends BaseController
             if ($connection) {
                 return ['status' => 'ok', 'message' => "Queue configured ($connection)"];
             }
-            
+
             return ['status' => 'warning', 'message' => 'Queue not configured'];
         } catch (Exception $e) {
             return ['status' => 'error', 'message' => 'Queue system error: ' . $e->getMessage()];

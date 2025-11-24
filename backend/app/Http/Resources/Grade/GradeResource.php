@@ -111,7 +111,7 @@ class GradeResource extends JsonResource
      */
     private function calculateCapacityStatus(): string
     {
-        if (!$this->room || !$this->room->capacity) {
+        if (! $this->room || ! $this->room->capacity) {
             return 'unknown';
         }
 
@@ -123,9 +123,9 @@ class GradeResource extends JsonResource
             return 'near_full';
         } elseif ($utilization >= 0.5) {
             return 'normal';
-        } else {
-            return 'low';
         }
+
+        return 'low';
     }
 
     /**
@@ -133,7 +133,7 @@ class GradeResource extends JsonResource
      */
     private function calculateUtilizationRate(): float
     {
-        if (!$this->room || !$this->room->capacity) {
+        if (! $this->room || ! $this->room->capacity) {
             return 0.0;
         }
 

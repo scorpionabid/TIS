@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class AssessmentEntry extends Model
 {
@@ -65,7 +65,7 @@ class AssessmentEntry extends Model
     protected $appends = [
         'status_label',
         'grade_label',
-        'entry_method_label'
+        'entry_method_label',
     ];
 
     /**
@@ -73,7 +73,7 @@ class AssessmentEntry extends Model
      */
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'draft' => 'Layihə',
             'submitted' => 'Təqdim edilib',
             'approved' => 'Təsdiqlənib',
@@ -87,13 +87,23 @@ class AssessmentEntry extends Model
      */
     public function getGradeLabelAttribute(): string
     {
-        if (!$this->percentage_score) return 'N/A';
-        
-        if ($this->percentage_score >= 90) return 'Əla';
-        if ($this->percentage_score >= 80) return 'Yaxşı';
-        if ($this->percentage_score >= 70) return 'Orta';
-        if ($this->percentage_score >= 60) return 'Kafi';
-        
+        if (! $this->percentage_score) {
+            return 'N/A';
+        }
+
+        if ($this->percentage_score >= 90) {
+            return 'Əla';
+        }
+        if ($this->percentage_score >= 80) {
+            return 'Yaxşı';
+        }
+        if ($this->percentage_score >= 70) {
+            return 'Orta';
+        }
+        if ($this->percentage_score >= 60) {
+            return 'Kafi';
+        }
+
         return 'Qeyri-kafi';
     }
 
@@ -191,11 +201,11 @@ class AssessmentEntry extends Model
     public function scopeByDateRange($query, $startDate, $endDate = null)
     {
         $query->where('assessment_date', '>=', $startDate);
-        
+
         if ($endDate) {
             $query->where('assessment_date', '<=', $endDate);
         }
-        
+
         return $query;
     }
 
@@ -244,10 +254,10 @@ class AssessmentEntry extends Model
      */
     public function calculatePercentageScore(): float
     {
-        if (!$this->assessmentType || !$this->assessmentType->max_score) {
+        if (! $this->assessmentType || ! $this->assessmentType->max_score) {
             return 0;
         }
-        
+
         return round(($this->score / $this->assessmentType->max_score) * 100, 2);
     }
 
@@ -260,17 +270,17 @@ class AssessmentEntry extends Model
         if ($this->status === 'draft' && $this->created_by === $user->id) {
             return true;
         }
-        
+
         // SuperAdmin can edit all
         if ($user->hasRole('superadmin')) {
             return true;
         }
-        
+
         // RegionAdmin can edit within their region
         if ($user->hasRole('regionadmin')) {
             return $this->institution->region_id === $user->institution?->region_id;
         }
-        
+
         return false;
     }
 
@@ -282,12 +292,12 @@ class AssessmentEntry extends Model
         if ($this->status !== 'draft') {
             return false;
         }
-        
+
         $this->update([
             'status' => 'submitted',
-            'submitted_at' => now()
+            'submitted_at' => now(),
         ]);
-        
+
         return true;
     }
 
@@ -299,14 +309,14 @@ class AssessmentEntry extends Model
         if ($this->status !== 'submitted') {
             return false;
         }
-        
+
         $this->update([
             'status' => 'approved',
             'approved_at' => now(),
             'approved_by' => $user->id,
-            'approval_notes' => $notes
+            'approval_notes' => $notes,
         ]);
-        
+
         return true;
     }
 
@@ -318,13 +328,13 @@ class AssessmentEntry extends Model
         if ($this->status !== 'submitted') {
             return false;
         }
-        
+
         $this->update([
             'status' => 'rejected',
             'approved_by' => $user->id,
-            'approval_notes' => $notes
+            'approval_notes' => $notes,
         ]);
-        
+
         return true;
     }
 
@@ -337,9 +347,9 @@ class AssessmentEntry extends Model
             'requires_review' => false,
             'reviewed_at' => now(),
             'reviewed_by' => $user->id,
-            'review_notes' => $notes
+            'review_notes' => $notes,
         ]);
-        
+
         return true;
     }
 
@@ -364,7 +374,7 @@ class AssessmentEntry extends Model
      */
     public function needsReview(): bool
     {
-        return $this->requires_review && !$this->reviewed_at;
+        return $this->requires_review && ! $this->reviewed_at;
     }
 
     /**
@@ -372,7 +382,7 @@ class AssessmentEntry extends Model
      */
     public function getEntryMethodLabelAttribute(): string
     {
-        return match($this->entry_method) {
+        return match ($this->entry_method) {
             'manual' => 'Manual Daxiletmə',
             'bulk' => 'Kütləvi Daxiletmə',
             'excel_import' => 'Excel İmport',

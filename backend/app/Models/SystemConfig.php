@@ -12,11 +12,11 @@ class SystemConfig extends Model
         'value',
         'type',
         'description',
-        'updated_by'
+        'updated_by',
     ];
 
     protected $casts = [
-        'value' => 'json'
+        'value' => 'json',
     ];
 
     /**
@@ -33,6 +33,7 @@ class SystemConfig extends Model
     public static function getValue(string $key, $default = null)
     {
         $config = self::where('key', $key)->first();
+
         return $config ? $config->value : $default;
     }
 
@@ -45,7 +46,7 @@ class SystemConfig extends Model
             ['key' => $key],
             [
                 'value' => $value,
-                'updated_by' => $updatedBy
+                'updated_by' => $updatedBy,
             ]
         );
     }
@@ -59,6 +60,7 @@ class SystemConfig extends Model
             ->get()
             ->mapWithKeys(function ($item) use ($category) {
                 $key = str_replace($category . '.', '', $item->key);
+
                 return [$key => $item->value];
             })
             ->toArray();

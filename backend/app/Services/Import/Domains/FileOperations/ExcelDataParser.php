@@ -21,10 +21,6 @@ class ExcelDataParser
 
     /**
      * Parse Excel data into structured array
-     *
-     * @param Spreadsheet $spreadsheet
-     * @param InstitutionType $institutionType
-     * @return array
      */
     public function parseExcelData(Spreadsheet $spreadsheet, InstitutionType $institutionType): array
     {
@@ -35,7 +31,7 @@ class ExcelDataParser
         Log::info('Parsing Excel sheet', [
             'sheet_name' => $sheet->getTitle(),
             'highest_row' => $highestRow,
-            'institution_type' => $institutionType->key
+            'institution_type' => $institutionType->key,
         ]);
 
         // Get institution level
@@ -46,13 +42,13 @@ class ExcelDataParser
             // Check if row has any data
             $hasData = false;
             for ($col = 'A'; $col <= 'T'; $col++) {
-                if (!empty(trim($sheet->getCell($col . $row)->getCalculatedValue()))) {
+                if (! empty(trim($sheet->getCell($col . $row)->getCalculatedValue()))) {
                     $hasData = true;
                     break;
                 }
             }
 
-            if (!$hasData) {
+            if (! $hasData) {
                 continue; // Skip empty rows
             }
 

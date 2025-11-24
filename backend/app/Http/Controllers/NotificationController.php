@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Notification;
 use App\Services\NotificationService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class NotificationController extends Controller
@@ -29,7 +29,7 @@ class NotificationController extends Controller
             'priority' => 'nullable|string|in:low,normal,high,critical',
             'is_read' => 'nullable|boolean',
             'sort_by' => 'nullable|string|in:created_at,priority,type',
-            'sort_direction' => 'nullable|string|in:asc,desc'
+            'sort_direction' => 'nullable|string|in:asc,desc',
         ]);
 
         $user = Auth::user();
@@ -74,7 +74,7 @@ class NotificationController extends Controller
                 'per_page' => $notifications->perPage(),
                 'to' => $notifications->lastItem(),
                 'total' => $notifications->total(),
-            ]
+            ],
         ]);
     }
 
@@ -88,7 +88,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => ['count' => $count]
+            'data' => ['count' => $count],
         ]);
     }
 
@@ -103,13 +103,13 @@ class NotificationController extends Controller
         if ($success) {
             return response()->json([
                 'success' => true,
-                'message' => 'Bildiriş oxunmuş kimi işarələndi.'
+                'message' => 'Bildiriş oxunmuş kimi işarələndi.',
             ]);
         }
 
         return response()->json([
             'success' => false,
-            'message' => 'Bildiriş tapılmadı və ya sizə aid deyil.'
+            'message' => 'Bildiriş tapılmadı və ya sizə aid deyil.',
         ], 404);
     }
 
@@ -124,7 +124,7 @@ class NotificationController extends Controller
         return response()->json([
             'success' => true,
             'message' => "{$count} bildiriş oxunmuş kimi işarələndi.",
-            'data' => ['marked_count' => $count]
+            'data' => ['marked_count' => $count],
         ]);
     }
 
@@ -134,30 +134,30 @@ class NotificationController extends Controller
     public function show(int $id): JsonResponse
     {
         $user = Auth::user();
-        
-        $notification = Notification::where('id', $id)
-                                   ->where(function ($q) use ($user) {
-                                       $q->where('user_id', $user->id)
-                                         ->orWhereJsonContains('target_users', $user->id);
-                                   })
-                                   ->with(['related', 'user'])
-                                   ->first();
 
-        if (!$notification) {
+        $notification = Notification::where('id', $id)
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhereJsonContains('target_users', $user->id);
+            })
+            ->with(['related', 'user'])
+            ->first();
+
+        if (! $notification) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bildiriş tapılmadı.'
+                'message' => 'Bildiriş tapılmadı.',
             ], 404);
         }
 
         // Mark as read if not already
-        if (!$notification->is_read) {
+        if (! $notification->is_read) {
             $notification->markAsRead();
         }
 
         return response()->json([
             'success' => true,
-            'data' => $notification
+            'data' => $notification,
         ]);
     }
 
@@ -167,18 +167,18 @@ class NotificationController extends Controller
     public function destroy(int $id): JsonResponse
     {
         $user = Auth::user();
-        
-        $notification = Notification::where('id', $id)
-                                   ->where(function ($q) use ($user) {
-                                       $q->where('user_id', $user->id)
-                                         ->orWhereJsonContains('target_users', $user->id);
-                                   })
-                                   ->first();
 
-        if (!$notification) {
+        $notification = Notification::where('id', $id)
+            ->where(function ($q) use ($user) {
+                $q->where('user_id', $user->id)
+                    ->orWhereJsonContains('target_users', $user->id);
+            })
+            ->first();
+
+        if (! $notification) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bildiriş tapılmadı.'
+                'message' => 'Bildiriş tapılmadı.',
             ], 404);
         }
 
@@ -186,7 +186,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Bildiriş silindi.'
+            'message' => 'Bildiriş silindi.',
         ]);
     }
 
@@ -196,7 +196,7 @@ class NotificationController extends Controller
     public function statistics(): JsonResponse
     {
         $user = Auth::user();
-        
+
         $stats = [
             'total' => Notification::forUser($user->id)->count(),
             'unread' => Notification::forUser($user->id)->unread()->count(),
@@ -216,12 +216,12 @@ class NotificationController extends Controller
                 'in_app' => Notification::forUser($user->id)->byChannel('in_app')->count(),
                 'email' => Notification::forUser($user->id)->byChannel('email')->count(),
                 'sms' => Notification::forUser($user->id)->byChannel('sms')->count(),
-            ]
+            ],
         ];
 
         return response()->json([
             'success' => true,
-            'data' => $stats
+            'data' => $stats,
         ]);
     }
 
@@ -233,10 +233,10 @@ class NotificationController extends Controller
         $user = Auth::user();
 
         // Only superadmin can send test notifications
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu əməliyyat üçün səlahiyyətiniz yoxdur.'
+                'message' => 'Bu əməliyyat üçün səlahiyyətiniz yoxdur.',
             ], 403);
         }
 
@@ -269,7 +269,7 @@ class NotificationController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Test bildirişi göndərildi.',
-            'data' => ['sent_count' => count($notifications)]
+            'data' => ['sent_count' => count($notifications)],
         ]);
     }
 
@@ -281,19 +281,19 @@ class NotificationController extends Controller
         $user = Auth::user();
 
         // Only superadmin can resend notifications
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu əməliyyat üçün səlahiyyətiniz yoxdur.'
+                'message' => 'Bu əməliyyat üçün səlahiyyətiniz yoxdur.',
             ], 403);
         }
 
         $notification = Notification::find($id);
 
-        if (!$notification) {
+        if (! $notification) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bildiriş tapılmadı.'
+                'message' => 'Bildiriş tapılmadı.',
             ], 404);
         }
 
@@ -311,7 +311,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'success' => $success,
-            'message' => $success ? 'Bildiriş yenidən göndərildi.' : 'Bildiriş göndərilməsində xəta baş verdi.'
+            'message' => $success ? 'Bildiriş yenidən göndərildi.' : 'Bildiriş göndərilməsində xəta baş verdi.',
         ]);
     }
 }

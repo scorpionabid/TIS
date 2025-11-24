@@ -10,7 +10,6 @@ class InstitutionAccessService
     /**
      * Get institutions accessible by the user based on their role.
      *
-     * @param User $user
      * @return array<int>
      */
     public static function getAccessibleInstitutions(User $user): array
@@ -25,15 +24,15 @@ class InstitutionAccessService
         // RegionAdmin can access their region and all schools/sektors under it
         if ($user->hasRole('regionadmin')) {
             $userInstitution = $user->institution;
-            if (!$userInstitution) {
+            if (! $userInstitution) {
                 return [];
             }
 
             // Get all institutions in the same region (level 3 and 4)
             return Institution::where(function ($query) use ($userInstitutionId, $userInstitution) {
                 $query->where('id', $userInstitutionId)
-                      ->orWhere('parent_id', $userInstitutionId)
-                      ->orWhere('region_id', $userInstitution->id);
+                    ->orWhere('parent_id', $userInstitutionId)
+                    ->orWhere('region_id', $userInstitution->id);
             })->pluck('id')->toArray();
         }
 
@@ -41,7 +40,7 @@ class InstitutionAccessService
         if ($user->hasRole('sektoradmin')) {
             return Institution::where(function ($query) use ($userInstitutionId) {
                 $query->where('id', $userInstitutionId)
-                      ->orWhere('parent_id', $userInstitutionId);
+                    ->orWhere('parent_id', $userInstitutionId);
             })->pluck('id')->toArray();
         }
 

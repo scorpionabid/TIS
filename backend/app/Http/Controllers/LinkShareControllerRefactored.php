@@ -2,24 +2,26 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\BaseController;
+use App\Exports\LinkBulkTemplateExport;
 use App\Models\Institution;
 use App\Models\LinkShare;
-use App\Services\LinkSharingService;
 use App\Services\LinkAnalyticsService;
-use App\Services\NotificationService;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
 use App\Services\LinkSharing\LinkBulkUploadService;
+use App\Services\LinkSharingService;
+use App\Services\NotificationService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
-use App\Exports\LinkBulkTemplateExport;
 
 class LinkShareControllerRefactored extends BaseController
 {
     protected $linkSharingService;
+
     protected $linkAnalyticsService;
+
     protected $notificationService;
+
     protected $bulkUploadService;
 
     public function __construct(
@@ -53,12 +55,12 @@ class LinkShareControllerRefactored extends BaseController
                 'date_to' => 'nullable|date|after_or_equal:date_from',
                 'sort_by' => 'nullable|string|in:created_at,expires_at,access_count,document_name',
                 'sort_direction' => 'nullable|string|in:asc,desc',
-                'per_page' => 'nullable|integer|min:1|max:500'
+                'per_page' => 'nullable|integer|min:1|max:500',
             ]);
 
             $user = Auth::user();
             $result = $this->linkSharingService->getAccessibleLinks($request, $user);
-            
+
             return $this->successResponse($result, 'Bağlantılar uğurla alındı');
         }, 'linkshare.index');
     }
@@ -71,12 +73,12 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request, $id) {
             $request->validate([
                 'include_accesses' => 'boolean',
-                'access_limit' => 'nullable|integer|min:1|max:100'
+                'access_limit' => 'nullable|integer|min:1|max:100',
             ]);
 
             $user = Auth::user();
             $linkShare = $this->linkSharingService->getLinkShare($id, $request, $user);
-            
+
             return $this->successResponse($linkShare, 'Bağlantı məlumatları alındı');
         }, 'linkshare.show');
     }
@@ -88,6 +90,7 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($linkShare) {
             $overview = $this->linkSharingService->getLinkSharingOverview($linkShare);
+
             return $this->successResponse($overview, 'Link paylaşım xülasəsi uğurla alındı');
         }, 'linkshare.sharing_overview');
     }
@@ -171,14 +174,14 @@ class LinkShareControllerRefactored extends BaseController
                 'allow_download' => 'boolean',
                 'notify_on_access' => 'boolean',
                 'custom_message' => 'nullable|string|max:1000',
-                'is_active' => 'boolean'
+                'is_active' => 'boolean',
             ]);
 
             $user = Auth::user();
             $linkShareModel = LinkShare::with(['sharedBy', 'institution'])->findOrFail($id);
             $linkShare = $this->linkSharingService->updateLinkShare($linkShareModel, $validated, $user);
             $this->sendLinkShareNotification($linkShare, $validated, $user, 'updated');
-            
+
             return $this->successResponse($linkShare, 'Bağlantı yeniləndi');
         }, 'linkshare.update');
     }
@@ -222,7 +225,7 @@ class LinkShareControllerRefactored extends BaseController
             $validated = $request->validate([
                 'password' => 'nullable|string',
                 'user_agent' => 'nullable|string|max:500',
-                'referrer' => 'nullable|string|max:500'
+                'referrer' => 'nullable|string|max:500',
             ]);
 
             $result = $this->linkSharingService->accessLink($token, $validated, $request);
@@ -238,7 +241,7 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request, $token) {
             $validated = $request->validate([
-                'password' => 'nullable|string'
+                'password' => 'nullable|string',
             ]);
 
             return $this->linkSharingService->downloadSharedDocument($token, $validated, $request);
@@ -255,7 +258,7 @@ class LinkShareControllerRefactored extends BaseController
                 'action' => 'required|string|in:delete,activate,deactivate,extend_expiry',
                 'link_ids' => 'required|array|min:1|max:100',
                 'link_ids.*' => 'integer|exists:link_shares,id',
-                'expires_at' => 'nullable|required_if:action,extend_expiry|date|after:now'
+                'expires_at' => 'nullable|required_if:action,extend_expiry|date|after:now',
             ]);
 
             $user = Auth::user();
@@ -265,7 +268,7 @@ class LinkShareControllerRefactored extends BaseController
                 $user,
                 $validated
             );
-            
+
             return $this->successResponse($result, 'Kütləvi əməliyyat tamamlandı');
         }, 'linkshare.bulk_action');
     }
@@ -322,7 +325,7 @@ class LinkShareControllerRefactored extends BaseController
     public function downloadBulkTemplate()
     {
         return $this->executeWithErrorHandling(function () {
-            return Excel::download(new LinkBulkTemplateExport(), 'link-bulk-template.xlsx');
+            return Excel::download(new LinkBulkTemplateExport, 'link-bulk-template.xlsx');
         }, 'linkshare.bulk_template');
     }
 
@@ -357,12 +360,12 @@ class LinkShareControllerRefactored extends BaseController
             $request->validate([
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
-                'institution_id' => 'nullable|exists:institutions,id'
+                'institution_id' => 'nullable|exists:institutions,id',
             ]);
 
             $user = Auth::user();
             $stats = $this->linkSharingService->getGlobalLinkStats($request, $user);
-            
+
             return $this->successResponse($stats, 'Statistika alındı');
         }, 'linkshare.stats');
     }
@@ -375,6 +378,7 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $user = Auth::user();
             $popularLinks = $this->linkSharingService->getPopularLinks($request, $user);
+
             return $this->successResponse($popularLinks, 'Popular links fetched successfully');
         }, 'linkshare.popular');
     }
@@ -387,6 +391,7 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $user = Auth::user();
             $featuredLinks = $this->linkSharingService->getFeaturedLinks($request, $user);
+
             return $this->successResponse($featuredLinks, 'Featured links fetched successfully');
         }, 'linkshare.featured');
     }
@@ -401,12 +406,12 @@ class LinkShareControllerRefactored extends BaseController
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
                 'include_trends' => 'boolean',
-                'include_security' => 'boolean'
+                'include_security' => 'boolean',
             ]);
 
             $user = Auth::user();
             $analytics = $this->linkAnalyticsService->getLinkAnalytics($request, $user);
-            
+
             return $this->successResponse($analytics, 'Analitik məlumatlar alındı');
         }, 'linkshare.analytics');
     }
@@ -420,12 +425,12 @@ class LinkShareControllerRefactored extends BaseController
             $request->validate([
                 'link_id' => 'nullable|exists:link_shares,id',
                 'date_from' => 'nullable|date',
-                'date_to' => 'nullable|date|after_or_equal:date_from'
+                'date_to' => 'nullable|date|after_or_equal:date_from',
             ]);
 
             $user = Auth::user();
             $stats = $this->linkAnalyticsService->getLinkAccessStats($request, $user);
-            
+
             return $this->successResponse($stats, 'Giriş statistikaları alındı');
         }, 'linkshare.access_stats');
     }
@@ -439,12 +444,12 @@ class LinkShareControllerRefactored extends BaseController
             $request->validate([
                 'limit' => 'nullable|integer|min:1|max:50',
                 'order_by' => 'nullable|string|in:access_count,unique_visitors,created_at',
-                'period' => 'nullable|integer|min:1|max:365'
+                'period' => 'nullable|integer|min:1|max:365',
             ]);
 
             $user = Auth::user();
             $topLinks = $this->linkAnalyticsService->getTopLinks($request, $user);
-            
+
             return $this->successResponse($topLinks, 'Ən yaxşı bağlantılar alındı');
         }, 'linkshare.top_links');
     }
@@ -457,12 +462,12 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $request->validate([
                 'period' => 'nullable|integer|min:1|max:365',
-                'group_by' => 'nullable|string|in:day,week,month'
+                'group_by' => 'nullable|string|in:day,week,month',
             ]);
 
             $user = Auth::user();
             $trends = $this->linkAnalyticsService->getSharingTrends($request, $user);
-            
+
             return $this->successResponse($trends, 'Paylaşım tendensiyaları alındı');
         }, 'linkshare.sharing_trends');
     }
@@ -474,12 +479,12 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $request->validate([
-                'period' => 'nullable|integer|min:1|max:365'
+                'period' => 'nullable|integer|min:1|max:365',
             ]);
 
             $user = Auth::user();
             $security = $this->linkAnalyticsService->getSecurityAnalytics($request, $user);
-            
+
             return $this->successResponse($security, 'Təhlükəsizlik analitikası alındı');
         }, 'linkshare.security_analytics');
     }
@@ -492,7 +497,7 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($id) {
             $user = Auth::user();
             $linkShare = $this->linkSharingService->regenerateToken($id, $user);
-            
+
             return $this->successResponse($linkShare, 'Bağlantı yeniləndi');
         }, 'linkshare.regenerate_token');
     }
@@ -505,12 +510,12 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $request->validate([
                 'limit' => 'nullable|integer|min:1|max:50',
-                'days' => 'nullable|integer|min:1|max:90'
+                'days' => 'nullable|integer|min:1|max:90',
             ]);
 
             $user = Auth::user();
             $activity = $this->linkSharingService->getRecentActivity($request, $user);
-            
+
             return $this->successResponse($activity, 'Son fəaliyyət alındı');
         }, 'linkshare.recent_activity');
     }
@@ -525,12 +530,12 @@ class LinkShareControllerRefactored extends BaseController
                 'format' => 'nullable|string|in:csv,excel,pdf',
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
-                'include_accesses' => 'boolean'
+                'include_accesses' => 'boolean',
             ]);
 
             $user = Auth::user();
             $exportData = $this->linkSharingService->exportLinkData($request, $user);
-            
+
             return $this->successResponse($exportData, 'Məlumatlar ixrac edildi');
         }, 'linkshare.export');
     }
@@ -549,11 +554,11 @@ class LinkShareControllerRefactored extends BaseController
                 $targetInstitutions = is_array($decoded) ? $decoded : [];
             }
 
-            if (!empty($targetInstitutions)) {
+            if (! empty($targetInstitutions)) {
                 $targetRoles = $shareData['target_roles']
                     ?? $linkShare['target_roles']
                     ?? config('notification_roles.resource_notification_roles', [
-                        'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+                        'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher',
                     ]);
 
                 $targetUserIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
@@ -563,13 +568,13 @@ class LinkShareControllerRefactored extends BaseController
             }
 
             $directUsers = $shareData['target_users'] ?? $linkShare['target_users'] ?? [];
-            if (!empty($directUsers)) {
+            if (! empty($directUsers)) {
                 $targetUserIds = array_merge($targetUserIds, $directUsers);
             }
 
             $targetUserIds = array_values(array_unique(array_filter($targetUserIds)));
 
-            if (!empty($targetUserIds)) {
+            if (! empty($targetUserIds)) {
                 // Prepare notification data
                 $notificationData = [
                     'creator_name' => $user->name,
@@ -580,7 +585,7 @@ class LinkShareControllerRefactored extends BaseController
                     'description' => $shareData['description'] ?? $linkShare['description'] ?? '',
                     'share_scope' => $shareData['share_scope'] ?? $linkShare['share_scope'] ?? 'institutional',
                     'expires_at' => optional($linkShare->expires_at)->format('d.m.Y H:i'),
-                    'action_url' => "/links/{$linkShare['id']}"
+                    'action_url' => "/links/{$linkShare['id']}",
                 ];
 
                 $this->notificationService->sendLinkNotification(
@@ -594,7 +599,7 @@ class LinkShareControllerRefactored extends BaseController
             \Log::error('Failed to send link sharing notification', [
                 'link_id' => $linkShare['id'] ?? null,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -608,13 +613,13 @@ class LinkShareControllerRefactored extends BaseController
             \Log::info('📋 LinkShareController: getAssignedResources called', [
                 'user_id' => Auth::id(),
                 'user_role' => Auth::user()?->roles?->first()?->name,
-                'request_params' => $request->all()
+                'request_params' => $request->all(),
             ]);
 
             $user = Auth::user();
 
             // Check if user has permission to view assigned resources
-            if (!$user->hasAnyRole(['sektoradmin', 'schooladmin', 'regionoperator', 'müəllim', 'teacher'])) {
+            if (! $user->hasAnyRole(['sektoradmin', 'schooladmin', 'regionoperator', 'müəllim', 'teacher'])) {
                 return $this->errorResponse('Bu səhifəni görməyə icazəniz yoxdur', 403);
             }
 
@@ -623,14 +628,13 @@ class LinkShareControllerRefactored extends BaseController
 
             \Log::info('📥 LinkShareController: getAssignedResources result', [
                 'resources_count' => count($assignedResources),
-                'user_institution' => $user->institution_id
+                'user_institution' => $user->institution_id,
             ]);
 
             return $this->successResponse([
                 'data' => $assignedResources,
-                'total' => count($assignedResources)
+                'total' => count($assignedResources),
             ], 'Təyin edilmiş resurslər alındı');
-
         }, 'linkshare.getAssignedResources');
     }
 }

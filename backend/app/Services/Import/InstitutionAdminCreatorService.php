@@ -2,14 +2,13 @@
 
 namespace App\Services\Import;
 
-use App\Models\User;
 use App\Models\Institution;
 use App\Models\Role;
+use App\Models\User;
 use App\Services\BaseService;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
 use Exception;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class InstitutionAdminCreatorService extends BaseService
 {
@@ -17,7 +16,7 @@ class InstitutionAdminCreatorService extends BaseService
 
     public function __construct()
     {
-        $this->adminExtension = new AdminTemplateExtensionService();
+        $this->adminExtension = new AdminTemplateExtensionService;
     }
 
     /**
@@ -30,23 +29,23 @@ class InstitutionAdminCreatorService extends BaseService
     ): array {
         try {
             // If no admin data provided, return success without creating admin
-            if (!$adminData || empty($adminData['email'])) {
+            if (! $adminData || empty($adminData['email'])) {
                 return [
                     'success' => true,
                     'admin_created' => false,
                     'message' => 'Admin məlumatları verilmədi, yalnız müəssisə yaradıldı',
-                    'admin' => null
+                    'admin' => null,
                 ];
             }
 
             // Validate admin data
             $validation = $this->validateAdminDataForCreation($adminData, $institution);
-            if (!$validation['valid']) {
+            if (! $validation['valid']) {
                 return [
                     'success' => false,
                     'admin_created' => false,
                     'message' => implode('; ', $validation['errors']),
-                    'admin' => null
+                    'admin' => null,
                 ];
             }
 
@@ -57,7 +56,7 @@ class InstitutionAdminCreatorService extends BaseService
                     'success' => true,
                     'admin_created' => false,
                     'message' => "Admin artıq mövcuddur: {$adminData['email']}",
-                    'admin' => $existingAdmin
+                    'admin' => $existingAdmin,
                 ];
             }
 
@@ -68,15 +67,14 @@ class InstitutionAdminCreatorService extends BaseService
                 'success' => true,
                 'admin_created' => true,
                 'message' => "Admin uğurla yaradıldı: {$admin->email}",
-                'admin' => $admin
+                'admin' => $admin,
             ];
-
         } catch (Exception $e) {
             return [
                 'success' => false,
                 'admin_created' => false,
                 'message' => 'Admin yaradılarkən xəta: ' . $e->getMessage(),
-                'admin' => null
+                'admin' => null,
             ];
         }
     }
@@ -90,17 +88,17 @@ class InstitutionAdminCreatorService extends BaseService
             // Get appropriate role for institution type
             $roleName = $this->adminExtension->getAdminRoleForType($institutionTypeKey);
             $role = Role::where('name', $roleName)->where('guard_name', 'sanctum')->first();
-            
-            if (!$role) {
+
+            if (! $role) {
                 throw new Exception("Admin rolu tapılmadı: {$roleName}");
             }
 
             // Generate unique username
             $username = $this->generateUniqueUsername($adminData['username'] ?? $adminData['email']);
-            
+
             // Use provided password or generate secure one
             $password = $this->processAdminPassword($adminData);
-            
+
             // Create user
             $admin = User::create([
                 'username' => $username,
@@ -118,21 +116,21 @@ class InstitutionAdminCreatorService extends BaseService
                     'auto_generated' => true,
                     'initial_password' => $password, // Store for first-time setup
                     'created_via_import' => true,
-                    'import_date' => now()->toDateString()
-                ]
+                    'import_date' => now()->toDateString(),
+                ],
             ]);
 
             // Assign role using Spatie
             $admin->assignRole($roleName);
 
             // Log admin creation
-            \Log::info("Admin yaradıldı import zamanı", [
+            \Log::info('Admin yaradıldı import zamanı', [
                 'admin_id' => $admin->id,
                 'admin_email' => $admin->email,
                 'institution_id' => $institution->id,
                 'institution_name' => $institution->name,
                 'role' => $roleName,
-                'username' => $username
+                'username' => $username,
             ]);
 
             return $admin;
@@ -149,20 +147,20 @@ class InstitutionAdminCreatorService extends BaseService
         // Email validation
         if (empty($adminData['email'])) {
             $errors[] = 'Admin email məcburidir';
-        } elseif (!filter_var($adminData['email'], FILTER_VALIDATE_EMAIL)) {
+        } elseif (! filter_var($adminData['email'], FILTER_VALIDATE_EMAIL)) {
             $errors[] = 'Admin email format düzgün deyil';
         } elseif (User::where('email', $adminData['email'])->exists()) {
             // This is actually handled as a warning/skip in the main flow
         }
 
         // Institution validation
-        if (!$institution || !$institution->id) {
+        if (! $institution || ! $institution->id) {
             $errors[] = 'Müəssisə məlumatları düzgün deyil';
         }
 
         return [
             'valid' => empty($errors),
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
@@ -174,7 +172,7 @@ class InstitutionAdminCreatorService extends BaseService
         // Clean base username
         $baseUsername = preg_replace('/[^a-zA-Z0-9_]/', '', strtolower($baseUsername));
         $baseUsername = substr($baseUsername, 0, 20); // Limit length
-        
+
         if (empty($baseUsername)) {
             $baseUsername = 'admin';
         }
@@ -197,39 +195,38 @@ class InstitutionAdminCreatorService extends BaseService
     private function processAdminPassword(array $adminData): string
     {
         $providedPassword = $adminData['password'] ?? '';
-        
-        if (!empty($providedPassword)) {
+
+        if (! empty($providedPassword)) {
             // Validate provided password
             $validation = $this->adminExtension->validatePassword($providedPassword);
-            
+
             if ($validation['valid']) {
                 // Log password acceptance
                 \Log::info('Admin import - Parol qəbul edildi', [
                     'email' => $adminData['email'],
                     'strength' => $validation['strength'],
-                    'message' => $validation['message']
+                    'message' => $validation['message'],
                 ]);
-                
+
                 return $providedPassword;
-            } else {
-                // Log password rejection and generate secure one
-                \Log::warning('Admin import - Parol tələbləri qarşılamır, avtomatik yaradılır', [
-                    'email' => $adminData['email'],
-                    'provided_password_strength' => $validation['strength'],
-                    'errors' => $validation['errors'],
-                    'warnings' => $validation['warnings'],
-                    'message' => $validation['message']
-                ]);
-                
-                return $this->generateSecurePassword();
             }
+            // Log password rejection and generate secure one
+            \Log::warning('Admin import - Parol tələbləri qarşılamır, avtomatik yaradılır', [
+                'email' => $adminData['email'],
+                'provided_password_strength' => $validation['strength'],
+                'errors' => $validation['errors'],
+                'warnings' => $validation['warnings'],
+                'message' => $validation['message'],
+            ]);
+
+            return $this->generateSecurePassword();
         }
-        
+
         // No password provided, generate secure one
         \Log::info('Admin import - Parol verilmədi, avtomatik yaradılır', [
-            'email' => $adminData['email']
+            'email' => $adminData['email'],
         ]);
-        
+
         return $this->generateSecurePassword();
     }
 
@@ -240,22 +237,22 @@ class InstitutionAdminCreatorService extends BaseService
     {
         // Generate strong password: 12 characters with mixed case, numbers, and symbols
         $uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        $lowercase = 'abcdefghijklmnopqrstuvwxyz'; 
+        $lowercase = 'abcdefghijklmnopqrstuvwxyz';
         $numbers = '0123456789';
         $symbols = '!@#$%^&*-_+=';
-        
+
         $password = '';
         $password .= $uppercase[rand(0, strlen($uppercase) - 1)]; // At least 1 uppercase
         $password .= $lowercase[rand(0, strlen($lowercase) - 1)]; // At least 1 lowercase
         $password .= $numbers[rand(0, strlen($numbers) - 1)]; // At least 1 number
         $password .= $symbols[rand(0, strlen($symbols) - 1)]; // At least 1 symbol
-        
+
         // Fill remaining 8 characters
         $allChars = $uppercase . $lowercase . $numbers . $symbols;
         for ($i = 4; $i < 12; $i++) {
             $password .= $allChars[rand(0, strlen($allChars) - 1)];
         }
-        
+
         // Shuffle the password
         return str_shuffle($password);
     }
@@ -289,8 +286,8 @@ class InstitutionAdminCreatorService extends BaseService
             'admins_created' => $adminsCreated,
             'admins_skipped' => $adminsSkipped,
             'admin_errors' => $adminErrors,
-            'admin_success_rate' => $totalInstitutions > 0 ? 
-                round(($adminsCreated / $totalInstitutions) * 100, 1) : 0
+            'admin_success_rate' => $totalInstitutions > 0 ?
+                round(($adminsCreated / $totalInstitutions) * 100, 1) : 0,
         ];
     }
 
@@ -308,7 +305,7 @@ class InstitutionAdminCreatorService extends BaseService
                     'email' => $admin->email,
                     'username' => $admin->username,
                     'password' => $admin->preferences['initial_password'],
-                    'role' => $admin->roles->first()->display_name ?? 'N/A'
+                    'role' => $admin->roles->first()->display_name ?? 'N/A',
                 ];
             }
         }
@@ -325,27 +322,27 @@ class InstitutionAdminCreatorService extends BaseService
             DB::transaction(function () use ($institution) {
                 // Find admins created for this institution during import
                 $admins = User::where('institution_id', $institution->id)
-                           ->whereJsonContains('preferences->created_via_import', true)
-                           ->get();
+                    ->whereJsonContains('preferences->created_via_import', true)
+                    ->get();
 
                 foreach ($admins as $admin) {
                     // Remove role assignments
                     $admin->roles()->detach();
-                    
+
                     // Delete user
                     $admin->delete();
-                    
-                    \Log::info("Admin rollback edildi", [
+
+                    \Log::info('Admin rollback edildi', [
                         'admin_id' => $admin->id,
                         'admin_email' => $admin->email,
-                        'institution_id' => $institution->id
+                        'institution_id' => $institution->id,
                     ]);
                 }
             });
         } catch (Exception $e) {
-            \Log::error("Admin rollback xətası", [
+            \Log::error('Admin rollback xətası', [
                 'institution_id' => $institution->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -359,30 +356,30 @@ class InstitutionAdminCreatorService extends BaseService
             DB::transaction(function () use ($institution, $admin) {
                 // Update admin's institution assignment
                 $admin->update([
-                    'institution_id' => $institution->id
+                    'institution_id' => $institution->id,
                 ]);
 
                 // Ensure proper role assignment
                 $expectedRole = $this->adminExtension->getAdminRoleForType($institution->type);
-                if (!$admin->hasRole($expectedRole)) {
+                if (! $admin->hasRole($expectedRole)) {
                     $admin->syncRoles([$expectedRole]);
                 }
 
-                \Log::info("Admin təyin edildi mövcud müəssisəyə", [
+                \Log::info('Admin təyin edildi mövcud müəssisəyə', [
                     'admin_id' => $admin->id,
                     'institution_id' => $institution->id,
-                    'role' => $expectedRole
+                    'role' => $expectedRole,
                 ]);
             });
 
             return true;
         } catch (Exception $e) {
-            \Log::error("Admin təyin xətası", [
+            \Log::error('Admin təyin xətası', [
                 'admin_id' => $admin->id,
                 'institution_id' => $institution->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             return false;
         }
     }

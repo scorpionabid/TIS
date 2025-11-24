@@ -89,7 +89,7 @@ class ApprovalAction extends Model
      */
     public function getFormattedAction(): string
     {
-        return match($this->action) {
+        return match ($this->action) {
             'approved' => 'Təsdiqləndi',
             'rejected' => 'Rədd edildi',
             'returned' => 'Geri qaytarıldı',
@@ -111,7 +111,7 @@ class ApprovalAction extends Model
      */
     public function getActionIcon(): string
     {
-        return match($this->action) {
+        return match ($this->action) {
             'approved' => 'check-circle',
             'rejected' => 'x-circle',
             'returned' => 'arrow-left',
@@ -125,7 +125,7 @@ class ApprovalAction extends Model
      */
     public function getActionColor(): string
     {
-        return match($this->action) {
+        return match ($this->action) {
             'approved' => 'success',
             'rejected' => 'destructive',
             'returned' => 'warning',

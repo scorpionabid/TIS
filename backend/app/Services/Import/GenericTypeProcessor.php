@@ -14,7 +14,7 @@ class GenericTypeProcessor extends BaseInstitutionTypeProcessor
             'Email',
             'Ünvan',
             'Açıqlama',
-            'Status (boş buraxsanız avtomatik aktiv olacaq)'
+            'Status (boş buraxsanız avtomatik aktiv olacaq)',
         ]);
     }
 
@@ -24,7 +24,7 @@ class GenericTypeProcessor extends BaseInstitutionTypeProcessor
     public function getSampleData(): array
     {
         return [
-            ['', 'Nümunə Qurum', 'NQ', '', '1', '', 'NQ001', '+994557890123', 'info@example.az', 'Ünvan', 'Açıqlama', '']
+            ['', 'Nümunə Qurum', 'NQ', '', '1', '', 'NQ001', '+994557890123', 'info@example.az', 'Ünvan', 'Açıqlama', ''],
         ];
     }
 
@@ -36,23 +36,23 @@ class GenericTypeProcessor extends BaseInstitutionTypeProcessor
         // This processor requires the institution type to be explicitly set
         // It will be determined by the calling orchestrator
         $baseData = $this->processBaseData($row, 'generic', $rowNum);
-        
+
         $baseData['contact_info'] = [
             'phone' => $this->validatePhone(trim($row[7] ?? '')),
-            'email' => $this->validateEmail(trim($row[8] ?? ''))
+            'email' => $this->validateEmail(trim($row[8] ?? '')),
         ];
-        
+
         $baseData['location'] = [
-            'address' => !empty(trim($row[9] ?? '')) ? trim($row[9]) : null
+            'address' => ! empty(trim($row[9] ?? '')) ? trim($row[9]) : null,
         ];
-        
+
         $baseData['metadata'] = [
-            'description' => !empty(trim($row[10] ?? '')) ? trim($row[10]) : null
+            'description' => ! empty(trim($row[10] ?? '')) ? trim($row[10]) : null,
         ];
-        
+
         // Set status
         $baseData['is_active'] = $this->parseStatus($row[11] ?? '');
-        
+
         return $baseData;
     }
 
@@ -62,23 +62,23 @@ class GenericTypeProcessor extends BaseInstitutionTypeProcessor
     public function processRowDataWithType(array $row, string $institutionTypeKey, int $rowNum): array
     {
         $baseData = $this->processBaseData($row, $institutionTypeKey, $rowNum);
-        
+
         $baseData['contact_info'] = [
             'phone' => $this->validatePhone(trim($row[7] ?? '')),
-            'email' => $this->validateEmail(trim($row[8] ?? ''))
+            'email' => $this->validateEmail(trim($row[8] ?? '')),
         ];
-        
+
         $baseData['location'] = [
-            'address' => !empty(trim($row[9] ?? '')) ? trim($row[9]) : null
+            'address' => ! empty(trim($row[9] ?? '')) ? trim($row[9]) : null,
         ];
-        
+
         $baseData['metadata'] = [
-            'description' => !empty(trim($row[10] ?? '')) ? trim($row[10]) : null
+            'description' => ! empty(trim($row[10] ?? '')) ? trim($row[10]) : null,
         ];
-        
+
         // Set status
         $baseData['is_active'] = $this->parseStatus($row[11] ?? '');
-        
+
         return $baseData;
     }
 
@@ -93,7 +93,7 @@ class GenericTypeProcessor extends BaseInstitutionTypeProcessor
             'special_education_school',
             'art_school',
             'sports_school',
-            'other'
+            'other',
         ];
     }
 

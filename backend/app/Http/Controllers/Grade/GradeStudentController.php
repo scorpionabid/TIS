@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Grade;
 
 use App\Http\Controllers\Controller;
 use App\Models\Grade;
-use App\Models\User;
 use App\Models\Institution;
 use App\Models\StudentEnrollment;
-use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -35,9 +35,9 @@ class GradeStudentController extends Controller
 
         // Check regional access
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            if (!in_array($grade->institution_id, $accessibleInstitutions)) {
+            if (! in_array($grade->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sinif üçün icazəniz yoxdur',
@@ -53,10 +53,11 @@ class GradeStudentController extends Controller
 
             foreach ($request->student_ids as $studentId) {
                 $student = User::find($studentId);
-                
+
                 // Check if user is actually a student
-                if (!$student->isStudent()) {
+                if (! $student->isStudent()) {
                     $errors[] = "İstifadəçi ID {$studentId} şagird deyil";
+
                     continue;
                 }
 
@@ -68,6 +69,7 @@ class GradeStudentController extends Controller
 
                 if ($existingEnrollment) {
                     $errors[] = "Şagird (ID: {$studentId}) artıq bu sinifdə qeydiyyatdadır";
+
                     continue;
                 }
 
@@ -75,13 +77,14 @@ class GradeStudentController extends Controller
                 $otherEnrollment = StudentEnrollment::where('student_id', $studentId)
                     ->whereHas('grade', function ($q) use ($grade) {
                         $q->where('academic_year_id', $grade->academic_year_id)
-                          ->where('is_active', true);
+                            ->where('is_active', true);
                     })
                     ->where('status', 'active')
                     ->first();
 
                 if ($otherEnrollment) {
                     $errors[] = "Şagird (ID: {$studentId}) artıq başqa sinifdə qeydiyyatdadır";
+
                     continue;
                 }
 
@@ -100,7 +103,7 @@ class GradeStudentController extends Controller
             $grade->update([
                 'student_count' => StudentEnrollment::where('grade_id', $grade->id)
                     ->where('status', 'active')
-                    ->count()
+                    ->count(),
             ]);
 
             DB::commit();
@@ -115,10 +118,9 @@ class GradeStudentController extends Controller
                 ],
                 'message' => "{$assignedCount} şagird sinifə uğurla təyin edildi",
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Şagirdlər təyin edilərkən xəta baş verdi',
@@ -134,9 +136,9 @@ class GradeStudentController extends Controller
     {
         // Check regional access
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            if (!in_array($grade->institution_id, $accessibleInstitutions)) {
+            if (! in_array($grade->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sinif üçün icazəniz yoxdur',
@@ -149,7 +151,7 @@ class GradeStudentController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$enrollment) {
+        if (! $enrollment) {
             return response()->json([
                 'success' => false,
                 'message' => 'Şagird bu sinifdə qeydiyyatda deyil',
@@ -169,7 +171,7 @@ class GradeStudentController extends Controller
             $grade->update([
                 'student_count' => StudentEnrollment::where('grade_id', $grade->id)
                     ->where('status', 'active')
-                    ->count()
+                    ->count(),
             ]);
 
             DB::commit();
@@ -183,10 +185,9 @@ class GradeStudentController extends Controller
                 ],
                 'message' => 'Şagird sinifdən uğurla çıxarıldı',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Şagird çıxarılarkən xəta baş verdi',
@@ -221,10 +222,10 @@ class GradeStudentController extends Controller
 
         // Check regional access for both grades
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            if (!in_array($fromGrade->institution_id, $accessibleInstitutions) ||
-                !in_array($toGrade->institution_id, $accessibleInstitutions)) {
+            if (! in_array($fromGrade->institution_id, $accessibleInstitutions) ||
+                ! in_array($toGrade->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu siniflər üçün icazəniz yoxdur',
@@ -245,7 +246,7 @@ class GradeStudentController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$currentEnrollment) {
+        if (! $currentEnrollment) {
             return response()->json([
                 'success' => false,
                 'message' => 'Şagird başlanğıc sinifdə qeydiyyatda deyil',
@@ -291,13 +292,13 @@ class GradeStudentController extends Controller
             $fromGrade->update([
                 'student_count' => StudentEnrollment::where('grade_id', $fromGrade->id)
                     ->where('status', 'active')
-                    ->count()
+                    ->count(),
             ]);
 
             $toGrade->update([
                 'student_count' => StudentEnrollment::where('grade_id', $toGrade->id)
                     ->where('status', 'active')
-                    ->count()
+                    ->count(),
             ]);
 
             DB::commit();
@@ -320,10 +321,9 @@ class GradeStudentController extends Controller
                 ],
                 'message' => 'Şagird uğurla köçürüldü',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Şagird köçürülürkən xəta baş verdi',
@@ -339,9 +339,9 @@ class GradeStudentController extends Controller
     {
         // Check regional access
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            if (!in_array($grade->institution_id, $accessibleInstitutions)) {
+            if (! in_array($grade->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sinif üçün icazəniz yoxdur',
@@ -362,9 +362,10 @@ class GradeStudentController extends Controller
 
         $students = $enrollments->map(function ($enrollment) {
             $student = $enrollment->student;
+
             return [
                 'id' => $student->id,
-                'full_name' => $student->profile 
+                'full_name' => $student->profile
                     ? "{$student->profile->first_name} {$student->profile->last_name}"
                     : $student->username,
                 'email' => $student->email,
@@ -460,10 +461,9 @@ class GradeStudentController extends Controller
                 ],
                 'message' => "Toplu əməliyyat tamamlandı: {$successCount} uğurlu, {$failureCount} uğursuz",
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Toplu əməliyyat yerinə yetirilərkən xəta baş verdi',
@@ -482,7 +482,7 @@ class GradeStudentController extends Controller
         }
 
         $institutions = [];
-        
+
         if ($user->hasRole('regionadmin')) {
             $institutions = Institution::where('parent_id', $user->institution_id)->pluck('id')->toArray();
             $institutions[] = $user->institution_id;
@@ -499,11 +499,11 @@ class GradeStudentController extends Controller
     private function performAssignOperation($user, $operation, $index, &$results, &$successCount)
     {
         $grade = Grade::find($operation['grade_id']);
-        
+
         // Check access
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            if (!in_array($grade->institution_id, $accessibleInstitutions)) {
+            if (! in_array($grade->institution_id, $accessibleInstitutions)) {
                 throw new \Exception('Bu sinif üçün icazəniz yoxdur');
             }
         }
@@ -521,7 +521,7 @@ class GradeStudentController extends Controller
         $grade->update([
             'student_count' => StudentEnrollment::where('grade_id', $grade->id)
                 ->where('status', 'active')
-                ->count()
+                ->count(),
         ]);
 
         $successCount++;
@@ -536,11 +536,11 @@ class GradeStudentController extends Controller
     private function performRemoveOperation($user, $operation, $index, &$results, &$successCount)
     {
         $grade = Grade::find($operation['grade_id']);
-        
+
         // Check access
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            if (!in_array($grade->institution_id, $accessibleInstitutions)) {
+            if (! in_array($grade->institution_id, $accessibleInstitutions)) {
                 throw new \Exception('Bu sinif üçün icazəniz yoxdur');
             }
         }
@@ -550,7 +550,7 @@ class GradeStudentController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$enrollment) {
+        if (! $enrollment) {
             throw new \Exception('Şagird bu sinifdə qeydiyyatda deyil');
         }
 
@@ -564,7 +564,7 @@ class GradeStudentController extends Controller
         $grade->update([
             'student_count' => StudentEnrollment::where('grade_id', $grade->id)
                 ->where('status', 'active')
-                ->count()
+                ->count(),
         ]);
 
         $successCount++;
@@ -580,12 +580,12 @@ class GradeStudentController extends Controller
     {
         $fromGrade = Grade::find($operation['from_grade_id']);
         $toGrade = Grade::find($operation['to_grade_id']);
-        
+
         // Check access for both grades
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            if (!in_array($fromGrade->institution_id, $accessibleInstitutions) ||
-                !in_array($toGrade->institution_id, $accessibleInstitutions)) {
+            if (! in_array($fromGrade->institution_id, $accessibleInstitutions) ||
+                ! in_array($toGrade->institution_id, $accessibleInstitutions)) {
                 throw new \Exception('Bu siniflər üçün icazəniz yoxdur');
             }
         }
@@ -595,7 +595,7 @@ class GradeStudentController extends Controller
             ->where('status', 'active')
             ->first();
 
-        if (!$currentEnrollment) {
+        if (! $currentEnrollment) {
             throw new \Exception('Şagird başlanğıc sinifdə qeydiyyatda deyil');
         }
 
@@ -622,13 +622,13 @@ class GradeStudentController extends Controller
         $fromGrade->update([
             'student_count' => StudentEnrollment::where('grade_id', $fromGrade->id)
                 ->where('status', 'active')
-                ->count()
+                ->count(),
         ]);
 
         $toGrade->update([
             'student_count' => StudentEnrollment::where('grade_id', $toGrade->id)
                 ->where('status', 'active')
-                ->count()
+                ->count(),
         ]);
 
         $successCount++;
@@ -664,9 +664,9 @@ class GradeStudentController extends Controller
         $user = $request->user();
 
         // Check regional access
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            if (!in_array($grade->institution_id, $accessibleInstitutions)) {
+            if (! in_array($grade->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sinif üçün icazəniz yoxdur',
@@ -681,8 +681,9 @@ class GradeStudentController extends Controller
                 ->where('grade_id', $grade->id)
                 ->first();
 
-            if (!$enrollment) {
+            if (! $enrollment) {
                 DB::rollBack();
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Şagird bu sinifdə qeydiyyatda deyil',
@@ -708,7 +709,7 @@ class GradeStudentController extends Controller
             $grade->update([
                 'student_count' => StudentEnrollment::where('grade_id', $grade->id)
                     ->where('status', 'active')
-                    ->count()
+                    ->count(),
             ]);
 
             DB::commit();
@@ -719,9 +720,8 @@ class GradeStudentController extends Controller
                 'data' => [
                     'enrollment' => $enrollment->fresh(),
                     'grade_student_count' => $grade->fresh()->student_count,
-                ]
+                ],
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
 

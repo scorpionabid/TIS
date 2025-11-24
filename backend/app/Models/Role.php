@@ -88,7 +88,7 @@ class Role extends Model
     public function syncPermissions($permissions): self
     {
         // Convert permission names to permission objects if strings are passed
-        if (is_array($permissions) && !empty($permissions) && is_string($permissions[0])) {
+        if (is_array($permissions) && ! empty($permissions) && is_string($permissions[0])) {
             $permissions = Permission::whereIn('name', $permissions)
                 ->where('guard_name', $this->guard_name)
                 ->get();

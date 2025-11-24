@@ -3,16 +3,14 @@
 namespace App\Services;
 
 use App\Models\Document;
-use App\Models\Institution;
-use App\Models\DocumentShare;
-use App\Models\DocumentDownload;
 use App\Models\DocumentAccessLog;
+use App\Models\Institution;
 use App\Models\UserStorageQuota;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class DocumentService
 {
@@ -20,6 +18,7 @@ class DocumentService
      * Cache configuration (Phase 2A: Redis tagged caching)
      */
     protected int $cacheTtl = 1800; // 30 minutes for documents (frequently updated)
+
     protected bool $cacheEnabled = true;
 
     /**
@@ -29,6 +28,7 @@ class DocumentService
     protected function getCacheTags(): array
     {
         $userId = Auth::id() ?? 'guest';
+
         return ['documents', "documents:user:{$userId}"];
     }
 
@@ -39,15 +39,16 @@ class DocumentService
     {
         $userId = Auth::id() ?? 'guest';
         $paramHash = md5(json_encode($params));
+
         return "documents:{$operation}:{$userId}:{$paramHash}";
     }
 
     /**
      * Get data from cache or execute callback with tagging (Phase 2A optimized)
      */
-    protected function getCached(string $key, callable $callback, int $ttl = null): mixed
+    protected function getCached(string $key, callable $callback, ?int $ttl = null): mixed
     {
-        if (!$this->cacheEnabled) {
+        if (! $this->cacheEnabled) {
             return $callback();
         }
 
@@ -70,7 +71,7 @@ class DocumentService
      */
     protected function clearDocumentCache(): void
     {
-        if (!$this->cacheEnabled) {
+        if (! $this->cacheEnabled) {
             return;
         }
 
@@ -104,9 +105,9 @@ class DocumentService
         return $this->getCached($cacheKey, function () use ($request) {
             $user = Auth::user();
             $query = Document::with(['uploader', 'institution'])
-                            ->accessibleBy($user)
-                            ->active()
-                            ->latestVersions();
+                ->accessibleBy($user)
+                ->active()
+                ->latestVersions();
 
             // Apply filters
             $this->applyFilters($query, $request);
@@ -130,7 +131,7 @@ class DocumentService
 
         // Check storage quota
         $quota = UserStorageQuota::getOrCreateForUser($user);
-        if (!$quota->canUpload($file->getSize())) {
+        if (! $quota->canUpload($file->getSize())) {
             throw new \Exception('Yüklənən fayl ölçüsü aylıq kvotanızı aşır.');
         }
 
@@ -168,7 +169,7 @@ class DocumentService
         $user = Auth::user();
 
         // Check permissions
-        if (!$this->canUserModifyDocument($user, $document)) {
+        if (! $this->canUserModifyDocument($user, $document)) {
             throw new \Exception('Bu sənədi dəyişdirmək icazəniz yoxdur.');
         }
 
@@ -188,7 +189,7 @@ class DocumentService
         $user = Auth::user();
 
         // Check permissions
-        if (!$this->canUserDeleteDocument($user, $document)) {
+        if (! $this->canUserDeleteDocument($user, $document)) {
             throw new \Exception('Bu sənədi silmək icazəniz yoxdur.');
         }
 
@@ -247,17 +248,17 @@ class DocumentService
             $institutionIds = $this->resolveInstitutionHierarchyIds((int) $request->institution_id);
             $query->where(function ($q) use ($institutionIds) {
                 $q->whereIn('institution_id', $institutionIds)
-                  ->orWhere(function ($targetQuery) use ($institutionIds) {
-                      foreach ($institutionIds as $index => $institutionId) {
-                          if ($index === 0) {
-                              $targetQuery->whereJsonContains('accessible_institutions', $institutionId)
-                                          ->orWhereJsonContains('accessible_institutions', (string) $institutionId);
-                          } else {
-                              $targetQuery->orWhereJsonContains('accessible_institutions', $institutionId)
-                                          ->orWhereJsonContains('accessible_institutions', (string) $institutionId);
-                          }
-                      }
-                  });
+                    ->orWhere(function ($targetQuery) use ($institutionIds) {
+                        foreach ($institutionIds as $index => $institutionId) {
+                            if ($index === 0) {
+                                $targetQuery->whereJsonContains('accessible_institutions', $institutionId)
+                                    ->orWhereJsonContains('accessible_institutions', (string) $institutionId);
+                            } else {
+                                $targetQuery->orWhereJsonContains('accessible_institutions', $institutionId)
+                                    ->orWhereJsonContains('accessible_institutions', (string) $institutionId);
+                            }
+                        }
+                    });
             });
         }
 
@@ -275,9 +276,9 @@ class DocumentService
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('title', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%")
-                  ->orWhere('content_preview', 'like', "%{$search}%")
-                  ->orWhereJsonContains('tags', $search);
+                    ->orWhere('description', 'like', "%{$search}%")
+                    ->orWhere('content_preview', 'like', "%{$search}%")
+                    ->orWhereJsonContains('tags', $search);
             });
         }
     }
@@ -301,7 +302,7 @@ class DocumentService
         }
 
         $institution = Institution::withTrashed()->find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return $cache[$institutionId] = [$institutionId];
         }
 
@@ -311,7 +312,7 @@ class DocumentService
         }
 
         $ids = array_values(array_unique(array_map('intval', $ids)));
-        if (!in_array($institutionId, $ids, true)) {
+        if (! in_array($institutionId, $ids, true)) {
             array_unshift($ids, $institutionId);
         }
 
@@ -326,8 +327,9 @@ class DocumentService
      * - Files are organized by upload date for better management
      * - Generates unique filename to prevent collisions
      *
-     * @param UploadedFile $file The uploaded file
-     * @return array File metadata
+     * @param  UploadedFile $file The uploaded file
+     * @return array        File metadata
+     *
      * @throws \Exception If file storage fails
      */
     private function storeFile(UploadedFile $file): array
@@ -340,18 +342,18 @@ class DocumentService
         // Using 'local' disk for private storage with access control
         $stored = $file->storeAs('documents/' . now()->format('Y/m'), $storedFilename, 'local');
 
-        if (!$stored) {
+        if (! $stored) {
             throw new \Exception('Fayl yüklənərkən xəta baş verdi.');
         }
 
         // Verify file was stored successfully
-        if (!Storage::exists($filePath)) {
+        if (! Storage::exists($filePath)) {
             throw new \Exception('Fayl saxlanıldı, amma yoxlanıla bilmədi.');
         }
 
         // Calculate file hash
         $fileHash = hash_file('sha256', $file->getPathname());
-        
+
         // Determine file type
         $fileType = Document::getFileTypeFromMime($file->getMimeType());
 
@@ -380,7 +382,7 @@ class DocumentService
             return true;
         }
 
-        if ($user->hasRole(['regionadmin', 'sektoradmin']) && 
+        if ($user->hasRole(['regionadmin', 'sektoradmin']) &&
             $document->institution_id === $user->institution_id) {
             return true;
         }
@@ -395,12 +397,12 @@ class DocumentService
     {
         $user = Auth::user();
         $query = Document::accessibleBy($user)->active();
-        
+
         $total = $query->count();
         $totalSize = $query->sum('file_size');
         $publicDocuments = $query->where('is_public', true)->count();
         $recentUploads = $query->where('created_at', '>=', now()->subMonth())->count();
-        
+
         return [
             'total' => $total,
             'total_size' => $totalSize,
@@ -432,7 +434,7 @@ class DocumentService
      * the current user's institution. Used by regionadmin and sektoradmin
      * to see what documents their sub-institutions have uploaded.
      *
-     * @param \App\Models\User $user
+     * @param  \App\Models\User               $user
      * @return \Illuminate\Support\Collection
      */
     public function getSubInstitutionDocumentsGrouped($user)
@@ -451,7 +453,7 @@ class DocumentService
             $userInstitutionId = $user->institution_id;
 
             // Exclude user's own institution to show only sub-institutions
-            $subInstitutionIds = array_filter($accessibleInstitutions, fn($id) => $id !== $userInstitutionId);
+            $subInstitutionIds = array_filter($accessibleInstitutions, fn ($id) => $id !== $userInstitutionId);
 
             if (empty($subInstitutionIds)) {
                 return collect([]);
@@ -474,7 +476,7 @@ class DocumentService
                     'institution_name' => $institution->name ?? 'Unknown',
                     'institution_type' => $institution->type ?? 'Unknown',
                     'document_count' => $docs->count(),
-                    'documents' => $docs->map(function($doc) {
+                    'documents' => $docs->map(function ($doc) {
                         return [
                             'id' => $doc->id,
                             'title' => $doc->title,
@@ -492,7 +494,7 @@ class DocumentService
                             'created_at' => $doc->created_at,
                             'is_downloadable' => $doc->is_downloadable,
                         ];
-                    })
+                    }),
                 ];
             })->values();
         }, 3600); // Cache for 1 hour (less frequently updated)

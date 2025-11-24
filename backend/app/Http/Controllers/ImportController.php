@@ -2,20 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use App\Imports\StudentsImport;
-use App\Imports\TeachersImport;
-use App\Imports\InstitutionsImport;
+use App\Exports\InstitutionExport;
+use App\Exports\InstitutionTemplateExport;
 use App\Exports\StudentTemplateExport;
 use App\Exports\TeacherTemplateExport;
-use App\Exports\InstitutionTemplateExport;
-use App\Exports\InstitutionExport;
+use App\Imports\StudentsImport;
+use App\Imports\TeachersImport;
 use App\Models\Institution;
 use App\Services\UtisCodeService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
 
@@ -34,12 +33,12 @@ class ImportController extends Controller
             $user = Auth::user();
             $institution = $user->institution;
 
-            if (!$institution) {
+            if (! $institution) {
                 return response()->json(['error' => 'User is not associated with an institution'], 400);
             }
 
             // Check permissions
-            if (!$user->hasPermissionTo('users.create')) {
+            if (! $user->hasPermissionTo('users.create')) {
                 return response()->json(['error' => 'Insufficient permissions'], 403);
             }
 
@@ -50,7 +49,7 @@ class ImportController extends Controller
             Log::info('Starting student import', [
                 'file' => $fileName,
                 'institution_id' => $institution->id,
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ]);
 
             // Validate headers first
@@ -58,11 +57,11 @@ class ImportController extends Controller
             $requiredColumns = ['first_name', 'last_name', 'date_of_birth'];
             $missingColumns = array_diff($requiredColumns, $headings);
 
-            if (!empty($missingColumns)) {
+            if (! empty($missingColumns)) {
                 return response()->json([
                     'error' => 'Missing required columns',
                     'missing_columns' => $missingColumns,
-                    'found_columns' => $headings
+                    'found_columns' => $headings,
                 ], 422);
             }
 
@@ -77,19 +76,19 @@ class ImportController extends Controller
                 'message' => 'Students imported successfully',
                 'success_count' => $import->getSuccessCount(),
                 'errors' => $import->getErrors(),
-                'total_processed' => $import->getSuccessCount() + count($import->getErrors())
+                'total_processed' => $import->getSuccessCount() + count($import->getErrors()),
             ]);
-
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             return response()->json([
                 'error' => 'Validation failed',
-                'validation_errors' => $e->failures()
+                'validation_errors' => $e->failures(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Student import error: ' . $e->getMessage());
+
             return response()->json([
                 'error' => 'Import failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -107,12 +106,12 @@ class ImportController extends Controller
             $user = Auth::user();
             $institution = $user->institution;
 
-            if (!$institution) {
+            if (! $institution) {
                 return response()->json(['error' => 'User is not associated with an institution'], 400);
             }
 
             // Check permissions
-            if (!$user->hasPermissionTo('users.create')) {
+            if (! $user->hasPermissionTo('users.create')) {
                 return response()->json(['error' => 'Insufficient permissions'], 403);
             }
 
@@ -123,7 +122,7 @@ class ImportController extends Controller
             Log::info('Starting teacher import', [
                 'file' => $fileName,
                 'institution_id' => $institution->id,
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ]);
 
             // Validate headers
@@ -131,11 +130,11 @@ class ImportController extends Controller
             $requiredColumns = ['first_name', 'last_name', 'email'];
             $missingColumns = array_diff($requiredColumns, $headings);
 
-            if (!empty($missingColumns)) {
+            if (! empty($missingColumns)) {
                 return response()->json([
                     'error' => 'Missing required columns',
                     'missing_columns' => $missingColumns,
-                    'found_columns' => $headings
+                    'found_columns' => $headings,
                 ], 422);
             }
 
@@ -150,19 +149,19 @@ class ImportController extends Controller
                 'message' => 'Teachers imported successfully',
                 'success_count' => $import->getSuccessCount(),
                 'errors' => $import->getErrors(),
-                'total_processed' => $import->getSuccessCount() + count($import->getErrors())
+                'total_processed' => $import->getSuccessCount() + count($import->getErrors()),
             ]);
-
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             return response()->json([
                 'error' => 'Validation failed',
-                'validation_errors' => $e->failures()
+                'validation_errors' => $e->failures(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Teacher import error: ' . $e->getMessage());
+
             return response()->json([
                 'error' => 'Import failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -180,7 +179,7 @@ class ImportController extends Controller
             $user = Auth::user();
 
             // Check if user is SuperAdmin
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 return response()->json(['error' => 'Only SuperAdmin can import institutions'], 403);
             }
 
@@ -190,7 +189,7 @@ class ImportController extends Controller
 
             Log::info('Starting institution import', [
                 'file' => $fileName,
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ]);
 
             // Use the orchestrator service for comprehensive import handling
@@ -208,19 +207,19 @@ class ImportController extends Controller
                 'message' => 'Institution import completed',
                 'results' => $results,
                 'analysis' => $analysis,
-                'detailed_report' => $analyzer->generateErrorReport($results)
+                'detailed_report' => $analyzer->generateErrorReport($results),
             ]);
-
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             return response()->json([
                 'error' => 'Validation failed',
-                'validation_errors' => $e->failures()
+                'validation_errors' => $e->failures(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Institution import error: ' . $e->getMessage());
+
             return response()->json([
                 'error' => 'Import failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -234,7 +233,7 @@ class ImportController extends Controller
             $user = Auth::user();
 
             // Check if user is SuperAdmin
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 return response()->json(['error' => 'Only SuperAdmin can generate UTIS codes'], 403);
             }
 
@@ -255,14 +254,14 @@ class ImportController extends Controller
                 'message' => 'UTIS codes generated successfully',
                 'users_updated' => $userUpdated,
                 'institutions_updated' => $institutionUpdated,
-                'total_updated' => $userUpdated + $institutionUpdated
+                'total_updated' => $userUpdated + $institutionUpdated,
             ]);
-
         } catch (\Exception $e) {
             Log::error('UTIS code generation error: ' . $e->getMessage());
+
             return response()->json([
                 'error' => 'UTIS code generation failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -274,51 +273,51 @@ class ImportController extends Controller
     {
         try {
             $type = $request->input('type');
-            
+
             $templates = [
                 'students' => [
                     'filename' => 'students_import_template.xlsx',
                     'headers' => [
                         'first_name', 'last_name', 'email', 'date_of_birth', 'gender',
                         'guardian_name', 'guardian_phone', 'guardian_email', 'grade_name',
-                        'address', 'utis_code'
-                    ]
+                        'address', 'utis_code',
+                    ],
                 ],
                 'teachers' => [
                     'filename' => 'teachers_import_template.xlsx',
                     'headers' => [
                         'first_name', 'last_name', 'email', 'phone', 'date_of_birth',
                         'gender', 'position', 'department_name', 'address', 'education',
-                        'experience', 'utis_code'
-                    ]
+                        'experience', 'utis_code',
+                    ],
                 ],
                 'institutions' => [
                     'filename' => 'institutions_import_template.xlsx',
                     'headers' => [
                         'name', 'short_name', 'type', 'parent_name', 'region_code',
                         'institution_code', 'phone', 'email', 'region', 'address',
-                        'student_capacity', 'staff_count', 'founded_year', 'established_date', 'utis_code'
-                    ]
-                ]
+                        'student_capacity', 'staff_count', 'founded_year', 'established_date', 'utis_code',
+                    ],
+                ],
             ];
 
-            if (!isset($templates[$type])) {
+            if (! isset($templates[$type])) {
                 return response()->json(['error' => 'Invalid template type'], 400);
             }
 
             $template = $templates[$type];
-            
+
             return response()->json([
                 'download_url' => route('import.template.download', ['type' => $type]),
                 'filename' => $template['filename'],
-                'headers' => $template['headers']
+                'headers' => $template['headers'],
             ]);
-
         } catch (\Exception $e) {
             Log::error('Template download error: ' . $e->getMessage());
+
             return response()->json([
                 'error' => 'Template download failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -332,19 +331,19 @@ class ImportController extends Controller
             $templates = [
                 'students' => [
                     'export' => StudentTemplateExport::class,
-                    'filename' => 'şagird_import_template.xlsx'
+                    'filename' => 'şagird_import_template.xlsx',
                 ],
                 'teachers' => [
                     'export' => TeacherTemplateExport::class,
-                    'filename' => 'müəllim_import_template.xlsx'
+                    'filename' => 'müəllim_import_template.xlsx',
                 ],
                 'institutions' => [
                     'export' => InstitutionTemplateExport::class,
-                    'filename' => 'məktəb_import_template.xlsx'
-                ]
+                    'filename' => 'məktəb_import_template.xlsx',
+                ],
             ];
 
-            if (!isset($templates[$type])) {
+            if (! isset($templates[$type])) {
                 return response()->json(['error' => 'Invalid template type'], 400);
             }
 
@@ -353,12 +352,12 @@ class ImportController extends Controller
             $filename = $template['filename'];
 
             return Excel::download(new $exportClass, $filename);
-
         } catch (\Exception $e) {
             Log::error('Template file download error: ' . $e->getMessage());
+
             return response()->json([
                 'error' => 'Template file download failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -372,7 +371,7 @@ class ImportController extends Controller
             $user = Auth::user();
 
             // Check if user is SuperAdmin
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 return response()->json(['error' => 'Only SuperAdmin can export institutions'], 403);
             }
 
@@ -383,11 +382,11 @@ class ImportController extends Controller
                 'region_code' => 'nullable|string|max:10',
                 'is_active' => 'nullable|string|in:true,false',
                 'search' => 'nullable|string|max:255',
-                'format' => 'nullable|string|in:xlsx,csv'
+                'format' => 'nullable|string|in:xlsx,csv',
             ]);
 
             $filters = $request->only([
-                'type', 'level', 'parent_id', 'region_code', 'is_active', 'search'
+                'type', 'level', 'parent_id', 'region_code', 'is_active', 'search',
             ]);
 
             // Remove empty filters
@@ -401,16 +400,16 @@ class ImportController extends Controller
             Log::info('Starting institution export', [
                 'filters' => $filters,
                 'format' => $format,
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ]);
 
             return Excel::download(new InstitutionExport($filters), $filename);
-
         } catch (\Exception $e) {
             Log::error('Institution export error: ' . $e->getMessage());
+
             return response()->json([
                 'error' => 'Export failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -423,12 +422,12 @@ class ImportController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 return response()->json(['error' => 'Only SuperAdmin can view export statistics'], 403);
             }
 
             $filters = $request->only([
-                'type', 'level', 'parent_id', 'region_code', 'is_active', 'search'
+                'type', 'level', 'parent_id', 'region_code', 'is_active', 'search',
             ]);
 
             // Remove empty filters
@@ -439,32 +438,32 @@ class ImportController extends Controller
             $query = Institution::query();
 
             // Apply same filters as export
-            if (!empty($filters['type'])) {
+            if (! empty($filters['type'])) {
                 $query->where('type', $filters['type']);
             }
 
-            if (!empty($filters['level'])) {
+            if (! empty($filters['level'])) {
                 $query->where('level', $filters['level']);
             }
 
-            if (!empty($filters['parent_id'])) {
+            if (! empty($filters['parent_id'])) {
                 $query->where('parent_id', $filters['parent_id']);
             }
 
-            if (!empty($filters['region_code'])) {
+            if (! empty($filters['region_code'])) {
                 $query->where('region_code', $filters['region_code']);
             }
 
-            if (!empty($filters['is_active'])) {
+            if (! empty($filters['is_active'])) {
                 $query->where('is_active', $filters['is_active'] === 'true');
             }
 
-            if (!empty($filters['search'])) {
+            if (! empty($filters['search'])) {
                 $search = $filters['search'];
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'ilike', "%{$search}%")
-                      ->orWhere('institution_code', 'ilike', "%{$search}%")
-                      ->orWhere('utis_code', 'ilike', "%{$search}%");
+                        ->orWhere('institution_code', 'ilike', "%{$search}%")
+                        ->orWhere('utis_code', 'ilike', "%{$search}%");
                 });
             }
 
@@ -499,14 +498,14 @@ class ImportController extends Controller
                 'inactive_institutions' => $inactiveCount,
                 'level_breakdown' => $levelCounts,
                 'type_breakdown' => $typeCounts,
-                'export_ready' => $totalCount > 0
+                'export_ready' => $totalCount > 0,
             ]);
-
         } catch (\Exception $e) {
             Log::error('Export stats error: ' . $e->getMessage());
+
             return response()->json([
                 'error' => 'Failed to get export statistics',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }

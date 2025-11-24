@@ -2,8 +2,8 @@
 
 namespace App\Services\RegionAdmin;
 
-use App\Models\User;
 use App\Models\Institution;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -11,10 +11,6 @@ class RegionTeacherService
 {
     /**
      * Get all teachers for a region with filtering, pagination, and statistics
-     *
-     * @param Request $request
-     * @param Institution $region
-     * @return array
      */
     public function getRegionTeachers(Request $request, Institution $region): array
     {
@@ -23,7 +19,7 @@ class RegionTeacherService
 
         // 2. Build base query for teachers
         $query = User::whereIn('institution_id', $institutionIds)
-            ->whereHas('roles', function($q) {
+            ->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             })
             ->with([
@@ -31,7 +27,7 @@ class RegionTeacherService
                 'institution:id,name,level,parent_id',
                 'institution.parent:id,name',
                 'department:id,name',
-                'profile'
+                'profile',
             ]);
 
         // 3. Apply filters
@@ -52,10 +48,6 @@ class RegionTeacherService
 
     /**
      * Apply filters to teacher query
-     *
-     * @param $query
-     * @param Request $request
-     * @return void
      */
     protected function applyFilters($query, Request $request): void
     {
@@ -68,7 +60,7 @@ class RegionTeacherService
             // Get all institution IDs under these sectors
             $sectorInstitutionIds = Institution::whereIn('id', $sectorIds)
                 ->get()
-                ->flatMap(fn($sector) => $sector->getAllChildrenIds())
+                ->flatMap(fn ($sector) => $sector->getAllChildrenIds())
                 ->unique()
                 ->toArray();
 
@@ -91,14 +83,14 @@ class RegionTeacherService
 
         // Position type filter
         if ($request->filled('position_type')) {
-            $query->whereHas('profile', function($q) use ($request) {
+            $query->whereHas('profile', function ($q) use ($request) {
                 $q->where('position_type', $request->position_type);
             });
         }
 
         // Employment status filter
         if ($request->filled('employment_status')) {
-            $query->whereHas('profile', function($q) use ($request) {
+            $query->whereHas('profile', function ($q) use ($request) {
                 $q->where('employment_status', $request->employment_status);
             });
         }
@@ -112,14 +104,14 @@ class RegionTeacherService
         // Search filter (name, email, username)
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('email', 'LIKE', "%{$search}%")
-                  ->orWhere('username', 'LIKE', "%{$search}%")
-                  ->orWhereHas('profile', function($pq) use ($search) {
-                      $pq->where('first_name', 'LIKE', "%{$search}%")
-                         ->orWhere('last_name', 'LIKE', "%{$search}%");
-                  });
+                    ->orWhere('email', 'LIKE', "%{$search}%")
+                    ->orWhere('username', 'LIKE', "%{$search}%")
+                    ->orWhereHas('profile', function ($pq) use ($search) {
+                        $pq->where('first_name', 'LIKE', "%{$search}%")
+                            ->orWhere('last_name', 'LIKE', "%{$search}%");
+                    });
             });
         }
 
@@ -140,16 +132,12 @@ class RegionTeacherService
 
     /**
      * Calculate statistics for teachers in region
-     *
-     * @param array $institutionIds
-     * @param Request $request
-     * @return array
      */
     protected function calculateStatistics(array $institutionIds, Request $request): array
     {
         // Base query for all teachers in region
         $baseQuery = User::whereIn('institution_id', $institutionIds)
-            ->whereHas('roles', function($q) {
+            ->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             });
 
@@ -203,14 +191,12 @@ class RegionTeacherService
     /**
      * Bulk update teacher status
      *
-     * @param array $teacherIds
-     * @param bool $isActive
      * @return int Number of updated records
      */
     public function bulkUpdateStatus(array $teacherIds, bool $isActive): int
     {
         return User::whereIn('id', $teacherIds)
-            ->whereHas('roles', function($q) {
+            ->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             })
             ->update(['is_active' => $isActive]);
@@ -219,13 +205,12 @@ class RegionTeacherService
     /**
      * Bulk delete teachers
      *
-     * @param array $teacherIds
      * @return int Number of deleted records
      */
     public function bulkDelete(array $teacherIds): int
     {
         return User::whereIn('id', $teacherIds)
-            ->whereHas('roles', function($q) {
+            ->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             })
             ->delete();
@@ -233,24 +218,20 @@ class RegionTeacherService
 
     /**
      * Export teachers data
-     *
-     * @param Request $request
-     * @param Institution $region
-     * @return array
      */
     public function exportTeachers(Request $request, Institution $region): array
     {
         $institutionIds = $region->getAllChildrenIds();
 
         $query = User::whereIn('institution_id', $institutionIds)
-            ->whereHas('roles', function($q) {
+            ->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             })
             ->with(['roles', 'institution', 'department', 'profile']);
 
         $this->applyFilters($query, $request);
 
-        return $query->get()->map(function($teacher) {
+        return $query->get()->map(function ($teacher) {
             $profile = $teacher->profile;
 
             return [
@@ -282,7 +263,6 @@ class RegionTeacherService
     /**
      * Get sectors for a region
      *
-     * @param Institution $region
      * @return \Illuminate\Support\Collection
      */
     public function getRegionSectors(Institution $region)
@@ -297,8 +277,6 @@ class RegionTeacherService
     /**
      * Get schools for sectors
      *
-     * @param array|null $sectorIds
-     * @param Institution $region
      * @return \Illuminate\Support\Collection
      */
     public function getRegionSchools(?array $sectorIds, Institution $region)
@@ -321,17 +299,13 @@ class RegionTeacherService
 
     /**
      * Get teacher details with full relationships
-     *
-     * @param int $id
-     * @param Institution $region
-     * @return User|null
      */
     public function getTeacherDetails(int $id, Institution $region): ?User
     {
         $institutionIds = $region->getAllChildrenIds();
 
         return User::whereIn('institution_id', $institutionIds)
-            ->whereHas('roles', function($q) {
+            ->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             })
             ->with([
@@ -346,17 +320,13 @@ class RegionTeacherService
 
     /**
      * Create new teacher
-     *
-     * @param array $data
-     * @param Institution $region
-     * @return User
      */
     public function createTeacher(array $data, Institution $region): User
     {
         // Validate institution belongs to region
         $institutionIds = $region->getAllChildrenIds();
 
-        if (!in_array($data['institution_id'], $institutionIds)) {
+        if (! in_array($data['institution_id'], $institutionIds)) {
             throw new \Exception('Müəssisə sizin regionunuzda deyil');
         }
 
@@ -389,8 +359,8 @@ class RegionTeacherService
             }
 
             DB::commit();
-            return $user->load(['profile', 'institution', 'roles']);
 
+            return $user->load(['profile', 'institution', 'roles']);
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -399,29 +369,24 @@ class RegionTeacherService
 
     /**
      * Update teacher
-     *
-     * @param int $id
-     * @param array $data
-     * @param Institution $region
-     * @return User|null
      */
     public function updateTeacher(int $id, array $data, Institution $region): ?User
     {
         $institutionIds = $region->getAllChildrenIds();
 
         $user = User::whereIn('institution_id', $institutionIds)
-            ->whereHas('roles', function($q) {
+            ->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             })
             ->find($id);
 
-        if (!$user) {
+        if (! $user) {
             return null;
         }
 
         // If changing institution, validate new institution belongs to region
         if (isset($data['institution_id']) && $data['institution_id'] != $user->institution_id) {
-            if (!in_array($data['institution_id'], $institutionIds)) {
+            if (! in_array($data['institution_id'], $institutionIds)) {
                 throw new \Exception('Yeni müəssisə sizin regionunuzda deyil');
             }
         }
@@ -430,21 +395,21 @@ class RegionTeacherService
         try {
             // Update user
             $userFields = array_intersect_key($data, array_flip(['email', 'institution_id', 'is_active']));
-            if (!empty($userFields)) {
+            if (! empty($userFields)) {
                 $user->update($userFields);
             }
 
             // Update profile if exists
             if ($user->profile) {
                 $profileFields = array_intersect_key($data, array_flip(['first_name', 'last_name', 'phone', 'position_type', 'employment_status']));
-                if (!empty($profileFields)) {
+                if (! empty($profileFields)) {
                     $user->profile->update($profileFields);
                 }
             }
 
             DB::commit();
-            return $user->load(['profile', 'institution', 'roles']);
 
+            return $user->load(['profile', 'institution', 'roles']);
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -453,22 +418,18 @@ class RegionTeacherService
 
     /**
      * Soft delete teacher (set is_active = false)
-     *
-     * @param int $id
-     * @param Institution $region
-     * @return bool
      */
     public function softDeleteTeacher(int $id, Institution $region): bool
     {
         $institutionIds = $region->getAllChildrenIds();
 
         $user = User::whereIn('institution_id', $institutionIds)
-            ->whereHas('roles', function($q) {
+            ->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             })
             ->find($id);
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -477,22 +438,18 @@ class RegionTeacherService
 
     /**
      * Hard delete teacher (permanent deletion)
-     *
-     * @param int $id
-     * @param Institution $region
-     * @return bool
      */
     public function hardDeleteTeacher(int $id, Institution $region): bool
     {
         $institutionIds = $region->getAllChildrenIds();
 
         $user = User::whereIn('institution_id', $institutionIds)
-            ->whereHas('roles', function($q) {
+            ->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             })
             ->find($id);
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -503,10 +460,6 @@ class RegionTeacherService
      * Import teachers from Excel file (🔥 KEY FEATURE - EXCEL)
      *
      * @param \Illuminate\Http\UploadedFile $file
-     * @param Institution $region
-     * @param bool $skipDuplicates
-     * @param bool $updateExisting
-     * @return array
      */
     public function importTeachers($file, Institution $region, bool $skipDuplicates = false, bool $updateExisting = false): array
     {
@@ -521,7 +474,6 @@ class RegionTeacherService
             \Maatwebsite\Excel\Facades\Excel::import($import, $file);
 
             return $import->getResults();
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherService - Error importing teachers', [
                 'error' => $e->getMessage(),
@@ -535,8 +487,7 @@ class RegionTeacherService
     /**
      * Import only valid rows (skip errors strategy) - NEW
      *
-     * @param array $validRows Pre-validated rows from pre-validation service
-     * @param Institution $region
+     * @param  array $validRows Pre-validated rows from pre-validation service
      * @return array Import results
      */
     public function importValidRows(array $validRows, Institution $region): array
@@ -580,7 +531,7 @@ class RegionTeacherService
                         'position_type' => $rowData['position_type'],
                         'workplace_type' => $rowData['workplace_type'],
                         'specialty' => $rowData['specialty'] ?: null,
-                        'subjects' => !empty($rowData['main_subject']) ? [$rowData['main_subject']] : null,
+                        'subjects' => ! empty($rowData['main_subject']) ? [$rowData['main_subject']] : null,
                         'assessment_type' => $rowData['assessment_type'] ?: null,
                         'assessment_score' => $rowData['assessment_score'] ?: null,
                         'contact_phone' => $rowData['contact_phone'] ?: null,
@@ -594,7 +545,6 @@ class RegionTeacherService
 
                     $successCount++;
                     $details['success'][] = "Sətir {$rowNumber}: {$rowData['first_name']} {$rowData['last_name']} ({$rowData['email']})";
-
                 } catch (\Exception $e) {
                     $errorCount++;
                     $details['errors'][] = "Sətir {$rowNumber}: {$e->getMessage()}";
@@ -616,7 +566,6 @@ class RegionTeacherService
                 'error_count' => $errorCount,
                 'details' => $details,
             ];
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherService - Error importing valid rows', [
                 'error' => $e->getMessage(),
@@ -630,7 +579,6 @@ class RegionTeacherService
     /**
      * Generate Excel import template
      *
-     * @param Institution $region
      * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
      */
     public function generateImportTemplate(Institution $region)

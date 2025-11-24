@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
+use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Models\UserProfile;
-use App\Models\SecurityEvent;
 use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -30,7 +30,7 @@ class PasswordController extends Controller
 
         $user = $request->user();
 
-        if (!Hash::check($request->current_password, $user->password)) {
+        if (! Hash::check($request->current_password, $user->password)) {
             throw ValidationException::withMessages([
                 'current_password' => ['Current password is incorrect.'],
             ]);
@@ -38,7 +38,7 @@ class PasswordController extends Controller
 
         $user->update([
             'password' => Hash::make($request->new_password),
-            'password_changed_at' => now()
+            'password_changed_at' => now(),
         ]);
 
         // Revoke all tokens to force re-login
@@ -49,11 +49,11 @@ class PasswordController extends Controller
             'user_id' => $user->id,
             'activity_type' => 'password_change',
             'description' => 'Password changed successfully',
-            'institution_id' => $user->institution_id
+            'institution_id' => $user->institution_id,
         ]);
 
         return response()->json([
-            'message' => 'Password changed successfully. Please login again.'
+            'message' => 'Password changed successfully. Please login again.',
         ]);
     }
 
@@ -68,18 +68,18 @@ class PasswordController extends Controller
         ]);
 
         $user = User::findOrFail($request->user_id);
-        
+
         // Check if current user has permission to reset passwords
-        if (!$request->user()->hasPermissionTo('reset_user_password')) {
+        if (! $request->user()->hasPermissionTo('reset_user_password')) {
             return response()->json([
-                'message' => 'Unauthorized to reset passwords'
+                'message' => 'Unauthorized to reset passwords',
             ], 403);
         }
 
         $user->update([
             'password' => Hash::make($request->new_password),
             'password_changed_at' => now(),
-            'password_change_required' => true
+            'password_change_required' => true,
         ]);
 
         // Revoke all tokens to force re-login
@@ -90,11 +90,11 @@ class PasswordController extends Controller
             'user_id' => $request->user()->id,
             'activity_type' => 'password_reset',
             'description' => 'Password reset for user: ' . $user->username,
-            'institution_id' => $user->institution_id
+            'institution_id' => $user->institution_id,
         ]);
 
         return response()->json([
-            'message' => 'Password reset successfully. User must login again.'
+            'message' => 'Password reset successfully. User must login again.',
         ]);
     }
 
@@ -111,19 +111,21 @@ class PasswordController extends Controller
         $key = 'password_reset:' . $request->email;
         if (RateLimiter::tooManyAttempts($key, 5)) {
             $availableIn = RateLimiter::availableIn($key);
+
             return response()->json([
                 'message' => "Çox sayda cəhd. {$availableIn} saniyə sonra cəhd edin.",
-                'retry_after' => $availableIn
+                'retry_after' => $availableIn,
             ], 429);
         }
 
         $user = User::where('email', $request->email)->first();
 
         // Check if user is active
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             RateLimiter::hit($key);
+
             return response()->json([
-                'message' => 'Hesabınız deaktiv edilib. İnzibatçı ilə əlaqə saxlayın.'
+                'message' => 'Hesabınız deaktiv edilib. İnzibatçı ilə əlaqə saxlayın.',
             ], 403);
         }
 
@@ -136,7 +138,7 @@ class PasswordController extends Controller
             ['email' => $user->email],
             [
                 'token' => $hashedToken,
-                'created_at' => now()
+                'created_at' => now(),
             ]
         );
 
@@ -150,14 +152,14 @@ class PasswordController extends Controller
             'user_id' => $user->id,
             'description' => 'Password reset requested',
             'institution_id' => $user->institution_id,
-            'event_data' => ['email' => $user->email]
+            'event_data' => ['email' => $user->email],
         ]);
 
         // Update rate limiting
         RateLimiter::hit($key);
 
         return response()->json([
-            'message' => 'Şifrə sıfırlama linki email ünvanınıza göndərildi.'
+            'message' => 'Şifrə sıfırlama linki email ünvanınıza göndərildi.',
         ]);
     }
 
@@ -178,9 +180,9 @@ class PasswordController extends Controller
             ->where('created_at', '>', now()->subHour())
             ->first();
 
-        if (!$resetRecord || !Hash::check($request->token, $resetRecord->token)) {
+        if (! $resetRecord || ! Hash::check($request->token, $resetRecord->token)) {
             return response()->json([
-                'message' => 'Keçərsiz və ya vaxtı keçmiş token.'
+                'message' => 'Keçərsiz və ya vaxtı keçmiş token.',
             ], 400);
         }
 
@@ -204,14 +206,14 @@ class PasswordController extends Controller
             'user_id' => $user->id,
             'activity_type' => 'password_reset_complete',
             'description' => 'Password reset completed successfully',
-            'institution_id' => $user->institution_id
+            'institution_id' => $user->institution_id,
         ]);
 
         // Send confirmation email
         $this->sendPasswordChangeConfirmation($user);
 
         return response()->json([
-            'message' => 'Şifrə uğurla yeniləndi. Yenidən daxil olun.'
+            'message' => 'Şifrə uğurla yeniləndi. Yenidən daxil olun.',
         ]);
     }
 
@@ -231,8 +233,8 @@ class PasswordController extends Controller
                 'reset_url' => $resetUrl,
                 'expires_at' => now()->addHour()->toISOString(),
                 'user_email' => $user->email,
-                'institution_name' => $user->institution?->name ?? 'Müəssisə məlumatı yoxdur'
-            ]
+                'institution_name' => $user->institution?->name ?? 'Müəssisə məlumatı yoxdur',
+            ],
         ];
 
         // Send using NotificationEmail with custom template
@@ -254,7 +256,7 @@ class PasswordController extends Controller
             'message' => 'Sizin ATİS hesabınızın şifrəsi uğurla dəyişdirildi. Əgər bu əməliyyatı siz həyata keçirmədinizsə, təcili olaraq sistem inzibatçısı ilə əlaqə saxlayın.',
             'type' => 'password_change_confirmation',
             'channel' => 'email',
-            'priority' => 'high'
+            'priority' => 'high',
         ]);
     }
 
@@ -271,7 +273,7 @@ class PasswordController extends Controller
             'institution_id' => 'nullable|exists:institutions,id',
             'departments' => 'nullable|array',
             'departments.*' => 'string',
-            
+
             // Profile data
             'first_name' => 'nullable|string|max:100',
             'last_name' => 'nullable|string|max:100',
@@ -319,7 +321,7 @@ class PasswordController extends Controller
                 'user_id' => $user->id,
                 'activity_type' => 'register',
                 'description' => 'New user registered',
-                'institution_id' => $user->institution_id
+                'institution_id' => $user->institution_id,
             ]);
 
             return response()->json([
@@ -333,22 +335,21 @@ class PasswordController extends Controller
                     'institution' => [
                         'id' => $user->institution?->id,
                         'name' => $user->institution?->name,
-                        'type' => $user->institution?->type
+                        'type' => $user->institution?->type,
                     ],
                     'profile' => $user->profile ? [
                         'first_name' => $user->profile->first_name,
                         'last_name' => $user->profile->last_name,
-                        'full_name' => $user->profile->full_name
-                    ] : null
-                ]
+                        'full_name' => $user->profile->full_name,
+                    ] : null,
+                ],
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'message' => 'Registration failed',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

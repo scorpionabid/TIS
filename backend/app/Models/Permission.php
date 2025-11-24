@@ -57,16 +57,16 @@ class Permission extends Model
 
         static::creating(function ($permission) {
             // Auto-populate category, resource, action if not set
-            if (!$permission->category || !$permission->resource || !$permission->action) {
+            if (! $permission->category || ! $permission->resource || ! $permission->action) {
                 $parsed = self::parsePermissionName($permission->name);
 
-                if (!$permission->category) {
+                if (! $permission->category) {
                     $permission->category = $parsed['category'];
                 }
-                if (!$permission->resource) {
+                if (! $permission->resource) {
                     $permission->resource = $parsed['resource'];
                 }
-                if (!$permission->action) {
+                if (! $permission->action) {
                     $permission->action = $parsed['action'];
                 }
             }
@@ -74,16 +74,16 @@ class Permission extends Model
 
         static::updating(function ($permission) {
             // Auto-populate on update if changed
-            if ($permission->isDirty('name') && (!$permission->category || !$permission->resource || !$permission->action)) {
+            if ($permission->isDirty('name') && (! $permission->category || ! $permission->resource || ! $permission->action)) {
                 $parsed = self::parsePermissionName($permission->name);
 
-                if (!$permission->category) {
+                if (! $permission->category) {
                     $permission->category = $parsed['category'];
                 }
-                if (!$permission->resource) {
+                if (! $permission->resource) {
                     $permission->resource = $parsed['resource'];
                 }
-                if (!$permission->action) {
+                if (! $permission->action) {
                     $permission->action = $parsed['action'];
                 }
             }
@@ -173,7 +173,7 @@ class Permission extends Model
      */
     public function getCategoryLabel(): string
     {
-        if (!$this->category) {
+        if (! $this->category) {
             return 'Digər';
         }
 
@@ -225,11 +225,22 @@ class Permission extends Model
      */
     public function getScopeAttribute(): string
     {
-        if (str_contains($this->name, 'system')) return 'system';
-        if (str_contains($this->name, 'reports') || str_contains($this->name, 'analytics')) return 'global';
-        if (str_contains($this->name, 'institutions') || str_contains($this->name, 'institution-types')) return 'regional';
-        if (str_contains($this->name, 'users') && str_contains($this->name, 'manage')) return 'sector';
-        if (str_contains($this->name, 'surveys') || str_contains($this->name, 'tasks') || str_contains($this->name, 'documents')) return 'institution';
+        if (str_contains($this->name, 'system')) {
+            return 'system';
+        }
+        if (str_contains($this->name, 'reports') || str_contains($this->name, 'analytics')) {
+            return 'global';
+        }
+        if (str_contains($this->name, 'institutions') || str_contains($this->name, 'institution-types')) {
+            return 'regional';
+        }
+        if (str_contains($this->name, 'users') && str_contains($this->name, 'manage')) {
+            return 'sector';
+        }
+        if (str_contains($this->name, 'surveys') || str_contains($this->name, 'tasks') || str_contains($this->name, 'documents')) {
+            return 'institution';
+        }
+
         return 'classroom';
     }
 
@@ -266,6 +277,7 @@ class Permission extends Model
             $result['action'] = $parts[0];
             $result['resource'] = $parts[1] ?? null;
             $result['category'] = self::getCategoryFromResource($parts[1] ?? '');
+
             return $result;
         }
 
@@ -275,6 +287,7 @@ class Permission extends Model
             $result['resource'] = $parts[0];
             $result['action'] = $parts[1] ?? null;
             $result['category'] = self::getCategoryFromResource($parts[0]);
+
             return $result;
         }
 

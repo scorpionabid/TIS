@@ -82,7 +82,7 @@ class ActivityLog extends Model
      */
     public function getChangesAttribute(): array
     {
-        if (!$this->before_state || !$this->after_state) {
+        if (! $this->before_state || ! $this->after_state) {
             return [];
         }
 
@@ -91,7 +91,7 @@ class ActivityLog extends Model
         $after = $this->after_state;
 
         foreach ($after as $key => $value) {
-            if (!isset($before[$key]) || $before[$key] !== $value) {
+            if (! isset($before[$key]) || $before[$key] !== $value) {
                 $changes[$key] = [
                     'old' => $before[$key] ?? null,
                     'new' => $value,
@@ -108,7 +108,7 @@ class ActivityLog extends Model
     public function getFullDescriptionAttribute(): string
     {
         $base = $this->description ?: $this->activity_type;
-        
+
         if ($this->entity_type && $this->entity_id) {
             $base .= " on {$this->entity_type} #{$this->entity_id}";
         }
@@ -122,12 +122,12 @@ class ActivityLog extends Model
     public static function logActivity(array $attributes): self
     {
         $attributes['created_at'] = now();
-        
-        if (!isset($attributes['ip_address'])) {
+
+        if (! isset($attributes['ip_address'])) {
             $attributes['ip_address'] = request()->ip();
         }
 
-        if (!isset($attributes['user_agent'])) {
+        if (! isset($attributes['user_agent'])) {
             $attributes['user_agent'] = request()->userAgent();
         }
 
@@ -156,7 +156,7 @@ class ActivityLog extends Model
     public function scopeByEntity($query, string $entityType, ?int $entityId = null)
     {
         $query = $query->where('entity_type', $entityType);
-        
+
         if ($entityId) {
             $query->where('entity_id', $entityId);
         }
@@ -194,6 +194,6 @@ class ActivityLog extends Model
     public function scopeWithChanges($query)
     {
         return $query->whereNotNull('before_state')
-                    ->whereNotNull('after_state');
+            ->whereNotNull('after_state');
     }
 }

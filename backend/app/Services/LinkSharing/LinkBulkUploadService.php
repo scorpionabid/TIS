@@ -17,6 +17,7 @@ use Maatwebsite\Excel\Facades\Excel;
 class LinkBulkUploadService
 {
     protected int $maxRows;
+
     protected array $allowedLinkTypes;
 
     public function __construct(
@@ -32,7 +33,7 @@ class LinkBulkUploadService
      */
     public function importFromExcel(UploadedFile $file, array $overrides, $user): array
     {
-        $import = new LinkBulkUploadImport();
+        $import = new LinkBulkUploadImport;
         Excel::import($import, $file);
 
         $rows = $import->getRows();
@@ -144,7 +145,7 @@ class LinkBulkUploadService
         }
 
         $url = trim($row['url'] ?? '');
-        if (empty($url) || !filter_var($url, FILTER_VALIDATE_URL)) {
+        if (empty($url) || ! filter_var($url, FILTER_VALIDATE_URL)) {
             throw new \InvalidArgumentException('URL düzgün formatda deyil.');
         }
 
@@ -164,16 +165,16 @@ class LinkBulkUploadService
         $targetInstitutions = [$institutionId];
 
         $shareScope = strtolower($overrides['share_scope'] ?? 'institutional');
-        if (!in_array($shareScope, ['public', 'regional', 'sectoral', 'institutional', 'specific_users'], true)) {
+        if (! in_array($shareScope, ['public', 'regional', 'sectoral', 'institutional', 'specific_users'], true)) {
             $shareScope = 'institutional';
         }
 
-        if (!$this->permissionService->canCreateLinkWithScope($user, $shareScope)) {
+        if (! $this->permissionService->canCreateLinkWithScope($user, $shareScope)) {
             throw new \InvalidArgumentException("{$shareScope} paylaşım sahəsi üçün icazəniz yoxdur.");
         }
 
         $linkType = strtolower($row['link_type'] ?? '');
-        if (!in_array($linkType, $this->allowedLinkTypes, true)) {
+        if (! in_array($linkType, $this->allowedLinkTypes, true)) {
             $linkType = $this->guessLinkType($url);
         }
 
@@ -199,7 +200,7 @@ class LinkBulkUploadService
             'expires_at' => $expiresAt,
             'is_featured' => $isFeatured,
         ], function ($value) {
-            return !is_null($value);
+            return ! is_null($value);
         });
     }
 
@@ -223,6 +224,7 @@ class LinkBulkUploadService
                 return false;
             }
         }
+
         return true;
     }
 
@@ -240,7 +242,7 @@ class LinkBulkUploadService
             ->orWhere('utis_code', $clean)
             ->first();
 
-        if (!$institution) {
+        if (! $institution) {
             throw new \InvalidArgumentException("{$clean} adlı müəssisə tapılmadı.");
         }
 
@@ -286,6 +288,7 @@ class LinkBulkUploadService
         }
 
         $normalized = strtolower((string) $value);
+
         return in_array($normalized, ['1', 'true', 'bəli', 'yes', 'hə', 'on'], true);
     }
 }

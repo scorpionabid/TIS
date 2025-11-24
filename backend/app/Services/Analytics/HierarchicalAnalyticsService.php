@@ -2,8 +2,8 @@
 
 namespace App\Services\Analytics;
 
-use App\Models\Survey;
 use App\Models\Institution;
+use App\Models\Survey;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
@@ -68,7 +68,7 @@ class HierarchicalAnalyticsService
 
         return $regions->map(function ($region) use ($survey, $responses) {
             $sectorIds = $region->children->pluck('id');
-            $allSchoolIds = $region->children->flatMap(fn($s) => $s->children->pluck('id'));
+            $allSchoolIds = $region->children->flatMap(fn ($s) => $s->children->pluck('id'));
             $regionResponses = $responses->whereIn('institution_id', $allSchoolIds);
 
             $children = $region->children->map(function ($sector) use ($survey, $responses) {
@@ -99,7 +99,7 @@ class HierarchicalAnalyticsService
     {
         $userRegion = $user->institution;
 
-        if (!$userRegion || $userRegion->level !== 2) {
+        if (! $userRegion || $userRegion->level !== 2) {
             return [];
         }
 
@@ -122,7 +122,7 @@ class HierarchicalAnalyticsService
     {
         $userSector = $user->institution;
 
-        if (!$userSector || $userSector->level !== 3) {
+        if (! $userSector || $userSector->level !== 3) {
             return [];
         }
 
@@ -197,7 +197,9 @@ class HierarchicalAnalyticsService
     protected function buildFlatHierarchyEnhanced(Survey $survey, Collection $responses, User $user): array
     {
         $institution = $user->institution;
-        if (!$institution) return [];
+        if (! $institution) {
+            return [];
+        }
 
         $institutionResponses = $responses->where('institution_id', $institution->id);
 
@@ -221,7 +223,7 @@ class HierarchicalAnalyticsService
      */
     protected function getHierarchyType(string $role): string
     {
-        return match($role) {
+        return match ($role) {
             'superadmin' => 'regions_sectors_schools',
             'regionadmin' => 'sectors_schools',
             'sektoradmin' => 'schools',
@@ -238,7 +240,7 @@ class HierarchicalAnalyticsService
             ->whereIn('institution_id', $institutionIds);
 
         // If no targeting rules, count all active users in institutions
-        if (!$survey->targeting_rules) {
+        if (! $survey->targeting_rules) {
             return $query->count();
         }
 
@@ -247,7 +249,7 @@ class HierarchicalAnalyticsService
             : $survey->targeting_rules;
 
         // If targeting rules exist and specify roles, filter by roles
-        if (isset($rules['roles']) && is_array($rules['roles']) && !empty($rules['roles'])) {
+        if (isset($rules['roles']) && is_array($rules['roles']) && ! empty($rules['roles'])) {
             $query->whereHas('roles', function ($q) use ($rules) {
                 $q->whereIn('name', $rules['roles']);
             });
@@ -278,6 +280,7 @@ class HierarchicalAnalyticsService
 
         // Calculate percentage, but cap at 100% (in case more people responded than targeted)
         $rate = ($responseCount / $targeted) * 100;
+
         return round(min($rate, 100), 1);
     }
 
@@ -321,6 +324,7 @@ class HierarchicalAnalyticsService
                 $partialResponseInstitutions++;
             } else {
                 $respondedInstitutions++;
+
                 continue; // Skip institutions with good response rate
             }
 
@@ -377,7 +381,7 @@ class HierarchicalAnalyticsService
         } elseif ($userRole === 'regionadmin') {
             // RegionAdmin sees all schools in their region
             $userRegion = $user->institution;
-            if (!$userRegion || $userRegion->level !== 2) {
+            if (! $userRegion || $userRegion->level !== 2) {
                 return collect([]);
             }
 
@@ -392,7 +396,7 @@ class HierarchicalAnalyticsService
         } elseif ($userRole === 'sektoradmin') {
             // SektorAdmin sees schools in their sector
             $userSector = $user->institution;
-            if (!$userSector || $userSector->level !== 3) {
+            if (! $userSector || $userSector->level !== 3) {
                 return collect([]);
             }
 

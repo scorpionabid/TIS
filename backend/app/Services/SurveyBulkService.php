@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\Survey;
 use App\Models\SurveyAuditLog;
-use App\Models\ActivityLog;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Exception;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class SurveyBulkService
 {
@@ -26,17 +26,16 @@ class SurveyBulkService
                     if ($survey->status === 'draft') {
                         // Validate survey before publishing
                         $this->validateSurveyForPublishing($survey);
-                        
+
                         $survey->update([
                             'status' => 'published',
-                            'published_at' => now()
+                            'published_at' => now(),
                         ]);
-                        
+
                         $publishedCount++;
-                        
+
                         // Log survey audit
                         $this->logSurveyAudit($survey, 'bulk_published', 'Survey published via bulk operation');
-                        
                     } elseif ($survey->status === 'published') {
                         $errors[] = "Survey '{$survey->title}' is already published";
                     } else {
@@ -50,18 +49,18 @@ class SurveyBulkService
             // Log bulk activity
             $this->logBulkActivity('bulk_survey_publish', $publishedCount, count($surveyIds), [
                 'survey_ids' => $surveyIds,
-                'errors' => $errors
+                'errors' => $errors,
             ]);
 
             return [
                 'published_count' => $publishedCount,
                 'total_requested' => count($surveyIds),
                 'errors' => $errors,
-                'message' => "{$publishedCount} survey(s) published successfully"
+                'message' => "{$publishedCount} survey(s) published successfully",
             ];
         });
     }
-    
+
     /**
      * Bulk close surveys
      */
@@ -77,14 +76,13 @@ class SurveyBulkService
                     if ($survey->status === 'published') {
                         $survey->update([
                             'status' => 'closed',
-                            'closed_at' => now()
+                            'closed_at' => now(),
                         ]);
-                        
+
                         $closedCount++;
-                        
+
                         // Log survey audit
                         $this->logSurveyAudit($survey, 'bulk_closed', 'Survey closed via bulk operation');
-                        
                     } elseif ($survey->status === 'closed') {
                         $errors[] = "Survey '{$survey->title}' is already closed";
                     } else {
@@ -98,18 +96,18 @@ class SurveyBulkService
             // Log bulk activity
             $this->logBulkActivity('bulk_survey_close', $closedCount, count($surveyIds), [
                 'survey_ids' => $surveyIds,
-                'errors' => $errors
+                'errors' => $errors,
             ]);
 
             return [
                 'closed_count' => $closedCount,
                 'total_requested' => count($surveyIds),
                 'errors' => $errors,
-                'message' => "{$closedCount} survey(s) closed successfully"
+                'message' => "{$closedCount} survey(s) closed successfully",
             ];
         });
     }
-    
+
     /**
      * Bulk archive surveys
      */
@@ -126,14 +124,13 @@ class SurveyBulkService
                         $oldStatus = $survey->status;
                         $survey->update([
                             'status' => 'archived',
-                            'archived_at' => now()
+                            'archived_at' => now(),
                         ]);
-                        
+
                         $archivedCount++;
-                        
+
                         // Log survey audit
                         $this->logSurveyAudit($survey, 'bulk_archived', "Survey archived via bulk operation (from {$oldStatus})");
-                        
                     } elseif ($survey->status === 'archived') {
                         $errors[] = "Survey '{$survey->title}' is already archived";
                     } else {
@@ -147,18 +144,18 @@ class SurveyBulkService
             // Log bulk activity
             $this->logBulkActivity('bulk_survey_archive', $archivedCount, count($surveyIds), [
                 'survey_ids' => $surveyIds,
-                'errors' => $errors
+                'errors' => $errors,
             ]);
 
             return [
                 'archived_count' => $archivedCount,
                 'total_requested' => count($surveyIds),
                 'errors' => $errors,
-                'message' => "{$archivedCount} survey(s) archived successfully"
+                'message' => "{$archivedCount} survey(s) archived successfully",
             ];
         });
     }
-    
+
     /**
      * Bulk delete surveys
      */
@@ -174,29 +171,31 @@ class SurveyBulkService
                     // Check if survey can be deleted
                     if ($survey->status === 'published' && $survey->responses->count() > 0) {
                         $errors[] = "Survey '{$survey->title}' cannot be deleted - has responses. Archive instead.";
+
                         continue;
                     }
-                    
+
                     // Additional safety check for published surveys
-                    if ($survey->status === 'published' && !$requireConfirmation) {
+                    if ($survey->status === 'published' && ! $requireConfirmation) {
                         $errors[] = "Survey '{$survey->title}' is published - requires confirmation to delete";
+
                         continue;
                     }
-                    
+
                     // Store survey info for logging before deletion
                     $surveyTitle = $survey->title;
                     $surveyId = $survey->id;
                     $surveyData = $survey->toArray();
-                    
+
                     // Delete related data
                     $survey->responses()->delete();
                     $survey->versions()->delete();
-                    
+
                     // Delete survey
                     $survey->delete();
-                    
+
                     $deletedCount++;
-                    
+
                     // Log survey audit (create manually since survey is deleted)
                     SurveyAuditLog::create([
                         'survey_id' => $surveyId,
@@ -205,9 +204,8 @@ class SurveyBulkService
                         'description' => 'Survey deleted via bulk operation',
                         'old_values' => $surveyData,
                         'ip_address' => request()->ip(),
-                        'user_agent' => request()->userAgent()
+                        'user_agent' => request()->userAgent(),
                     ]);
-                    
                 } catch (Exception $e) {
                     $errors[] = "Survey '{$survey->title}': " . $e->getMessage();
                 }
@@ -217,18 +215,18 @@ class SurveyBulkService
             $this->logBulkActivity('bulk_survey_delete', $deletedCount, count($surveyIds), [
                 'survey_ids' => $surveyIds,
                 'errors' => $errors,
-                'confirmation_required' => $requireConfirmation
+                'confirmation_required' => $requireConfirmation,
             ]);
 
             return [
                 'deleted_count' => $deletedCount,
                 'total_requested' => count($surveyIds),
                 'errors' => $errors,
-                'message' => "{$deletedCount} survey(s) deleted successfully"
+                'message' => "{$deletedCount} survey(s) deleted successfully",
             ];
         });
     }
-    
+
     /**
      * Bulk update survey settings
      */
@@ -247,21 +245,20 @@ class SurveyBulkService
                         'is_anonymous',
                         'allow_multiple_responses',
                         'requires_login',
-                        'auto_close_on_max'
+                        'auto_close_on_max',
                     ];
-                    
+
                     $updateData = array_intersect_key($settings, array_flip($allowedSettings));
-                    
-                    if (!empty($updateData)) {
+
+                    if (! empty($updateData)) {
                         $survey->update($updateData);
                         $updatedCount++;
-                        
+
                         // Log survey audit
                         $this->logSurveyAudit($survey, 'bulk_settings_updated', 'Survey settings updated via bulk operation', [
-                            'updated_settings' => $updateData
+                            'updated_settings' => $updateData,
                         ]);
                     }
-                    
                 } catch (Exception $e) {
                     $errors[] = "Survey '{$survey->title}': " . $e->getMessage();
                 }
@@ -271,18 +268,18 @@ class SurveyBulkService
             $this->logBulkActivity('bulk_survey_settings_update', $updatedCount, count($surveyIds), [
                 'survey_ids' => $surveyIds,
                 'updated_settings' => $settings,
-                'errors' => $errors
+                'errors' => $errors,
             ]);
 
             return [
                 'updated_count' => $updatedCount,
                 'total_requested' => count($surveyIds),
                 'errors' => $errors,
-                'message' => "{$updatedCount} survey(s) settings updated successfully"
+                'message' => "{$updatedCount} survey(s) settings updated successfully",
             ];
         });
     }
-    
+
     /**
      * Get bulk operation preview
      */
@@ -291,7 +288,7 @@ class SurveyBulkService
         $surveys = Survey::whereIn('id', $surveyIds)
             ->with(['creator', 'responses'])
             ->get(['id', 'title', 'status', 'creator_id', 'published_at', 'start_date', 'end_date']);
-            
+
         $preview = [
             'total_surveys' => count($surveyIds),
             'operation' => $operation,
@@ -303,16 +300,16 @@ class SurveyBulkService
                     'creator' => $survey->creator?->username,
                     'response_count' => $survey->responses?->count() ?? 0,
                     'published_at' => $survey->published_at,
-                    'can_perform_operation' => $this->canPerformOperation($survey, $operation)
+                    'can_perform_operation' => $this->canPerformOperation($survey, $operation),
                 ];
             }),
             'warnings' => $this->getOperationWarnings($surveys, $operation),
-            'estimated_duration' => $this->estimateOperationDuration(count($surveyIds), $operation)
+            'estimated_duration' => $this->estimateOperationDuration(count($surveyIds), $operation),
         ];
-        
+
         return $preview;
     }
-    
+
     /**
      * Validate bulk operation limits
      */
@@ -323,26 +320,26 @@ class SurveyBulkService
             'close' => 100,
             'archive' => 100,
             'delete' => 25,  // Smaller limit for safety
-            'update_settings' => 100
+            'update_settings' => 100,
         ];
-        
+
         $limit = $maxLimits[$operation] ?? 50;
-        
+
         if (count($surveyIds) > $limit) {
             throw new Exception("Bulk {$operation} operation limited to {$limit} surveys at once");
         }
-        
+
         if (empty($surveyIds)) {
             throw new Exception('No surveys selected for bulk operation');
         }
-        
+
         // Validate all survey IDs exist
         $existingCount = Survey::whereIn('id', $surveyIds)->count();
         if ($existingCount !== count($surveyIds)) {
             throw new Exception('Some survey IDs do not exist');
         }
     }
-    
+
     /**
      * Get bulk operation statistics
      */
@@ -353,10 +350,10 @@ class SurveyBulkService
             'by_status' => $this->getSurveyCountsByStatus(),
             'by_type' => $this->getSurveyCountsByType(),
             'response_statistics' => $this->getResponseStatistics(),
-            'recent_activity' => $this->getRecentActivity()
+            'recent_activity' => $this->getRecentActivity(),
         ];
     }
-    
+
     /**
      * Validate survey for publishing
      */
@@ -365,24 +362,24 @@ class SurveyBulkService
         if (empty($survey->title)) {
             throw new Exception('Survey must have a title');
         }
-        
-        if (empty($survey->questions) || !is_array($survey->questions)) {
+
+        if (empty($survey->questions) || ! is_array($survey->questions)) {
             throw new Exception('Survey must have at least one question');
         }
-        
+
         // Validate questions structure
         foreach ($survey->questions as $index => $question) {
             if (empty($question['question']) || empty($question['type'])) {
-                throw new Exception("Question " . ($index + 1) . " is missing required fields");
+                throw new Exception('Question ' . ($index + 1) . ' is missing required fields');
             }
         }
-        
+
         // Check date constraints
         if ($survey->start_date && $survey->end_date && $survey->start_date >= $survey->end_date) {
             throw new Exception('Start date must be before end date');
         }
     }
-    
+
     /**
      * Check if operation can be performed on survey
      */
@@ -396,19 +393,19 @@ class SurveyBulkService
             case 'archive':
                 return in_array($survey->status, ['draft', 'published', 'closed']);
             case 'delete':
-                return !($survey->status === 'published' && $survey->responses->count() > 0);
+                return ! ($survey->status === 'published' && $survey->responses->count() > 0);
             default:
                 return true;
         }
     }
-    
+
     /**
      * Get operation warnings
      */
     protected function getOperationWarnings(Collection $surveys, string $operation): array
     {
         $warnings = [];
-        
+
         switch ($operation) {
             case 'publish':
                 $draftCount = $surveys->where('status', 'draft')->count();
@@ -416,21 +413,21 @@ class SurveyBulkService
                     $warnings[] = ($surveys->count() - $draftCount) . ' survey(s) are not in draft status and will be skipped';
                 }
                 break;
-                
+
             case 'delete':
                 $publishedWithResponses = $surveys->filter(function ($survey) {
                     return $survey->status === 'published' && $survey->responses->count() > 0;
                 })->count();
-                
+
                 if ($publishedWithResponses > 0) {
                     $warnings[] = "{$publishedWithResponses} published survey(s) with responses cannot be deleted";
                 }
                 break;
         }
-        
+
         return $warnings;
     }
-    
+
     /**
      * Estimate operation duration
      */
@@ -441,20 +438,20 @@ class SurveyBulkService
             'close' => 1,
             'archive' => 1,
             'delete' => 3,
-            'update_settings' => 1
+            'update_settings' => 1,
         ];
-        
+
         $totalSeconds = $surveyCount * ($secondsPerSurvey[$operation] ?? 1);
-        
+
         if ($totalSeconds < 60) {
             return "{$totalSeconds} seconds";
         } elseif ($totalSeconds < 3600) {
-            return ceil($totalSeconds / 60) . " minutes";
-        } else {
-            return ceil($totalSeconds / 3600) . " hours";
+            return ceil($totalSeconds / 60) . ' minutes';
         }
+
+        return ceil($totalSeconds / 3600) . ' hours';
     }
-    
+
     /**
      * Get survey counts by status
      */
@@ -465,7 +462,7 @@ class SurveyBulkService
             ->pluck('count', 'status')
             ->toArray();
     }
-    
+
     /**
      * Get survey counts by type
      */
@@ -476,7 +473,7 @@ class SurveyBulkService
             ->pluck('count', 'survey_type')
             ->toArray();
     }
-    
+
     /**
      * Get response statistics
      */
@@ -488,10 +485,10 @@ class SurveyBulkService
             'responses_this_week' => DB::table('survey_responses')->where('created_at', '>=', now()->startOfWeek())->count(),
             'average_responses_per_survey' => round(
                 DB::table('survey_responses')->count() / max(Survey::count(), 1), 2
-            )
+            ),
         ];
     }
-    
+
     /**
      * Get recent activity
      */
@@ -501,10 +498,10 @@ class SurveyBulkService
             'surveys_created_today' => Survey::whereDate('created_at', today())->count(),
             'surveys_published_today' => Survey::whereDate('published_at', today())->count(),
             'surveys_created_this_week' => Survey::where('created_at', '>=', now()->startOfWeek())->count(),
-            'surveys_created_this_month' => Survey::where('created_at', '>=', now()->startOfMonth())->count()
+            'surveys_created_this_month' => Survey::where('created_at', '>=', now()->startOfMonth())->count(),
         ];
     }
-    
+
     /**
      * Log survey audit
      */
@@ -519,10 +516,10 @@ class SurveyBulkService
             'new_values' => $additionalData['new_values'] ?? null,
             'metadata' => $additionalData,
             'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent()
+            'user_agent' => request()->userAgent(),
         ]);
     }
-    
+
     /**
      * Log bulk activity
      */
@@ -536,10 +533,10 @@ class SurveyBulkService
             'event_data' => [
                 'updated_count' => $updatedCount,
                 'total_requested' => $totalRequested,
-                'success_rate' => round(($updatedCount / $totalRequested) * 100, 2) . '%'
-            ]
+                'success_rate' => round(($updatedCount / $totalRequested) * 100, 2) . '%',
+            ],
         ], $additionalData);
-        
+
         ActivityLog::logActivity($data);
     }
 }

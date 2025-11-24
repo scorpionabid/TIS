@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\DocumentCollection;
 use App\Models\Document;
+use App\Models\DocumentCollection;
 use App\Models\FolderAuditLog;
-use App\Models\User;
 use App\Models\Institution;
+use App\Models\User;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +36,7 @@ class DocumentCollectionService
             }
 
             DB::commit();
+
             return $createdFolders;
         } catch (\Exception $e) {
             DB::rollBack();
@@ -75,6 +76,7 @@ class DocumentCollectionService
             $this->logFolderAction($folder, $user, $action, $oldData, $newData, $reason);
 
             DB::commit();
+
             return $folder->fresh();
         } catch (\Exception $e) {
             DB::rollBack();
@@ -112,6 +114,7 @@ class DocumentCollectionService
             $folder->delete();
 
             DB::commit();
+
             return true;
         } catch (\Exception $e) {
             DB::rollBack();
@@ -136,22 +139,24 @@ class DocumentCollectionService
         if ($user->hasRole('regionadmin')) {
             return $query->where(function ($q) use ($user) {
                 $q->where('owner_institution_id', $user->institution_id)
-                  ->orWhere('institution_id', $user->institution_id);
+                    ->orWhere('institution_id', $user->institution_id);
             })->get();
         }
 
         // SektorAdmin sees folders in their sector and parent region
         if ($user->hasRole('sektoradmin')) {
             $institutionIds = $this->getHierarchicalInstitutionIds($user->institution_id);
+
             return $query->whereIn('owner_institution_id', $institutionIds)->get();
         }
 
         // SchoolAdmin sees folders from parent region/sector
         if ($user->hasRole('schooladmin')) {
             $parentInstitutionIds = $this->getParentInstitutionIds($user->institution_id);
+
             return $query->whereIn('owner_institution_id', $parentInstitutionIds)
-                         ->where('allow_school_upload', true)
-                         ->get();
+                ->where('allow_school_upload', true)
+                ->get();
         }
 
         // Default: return empty collection
@@ -176,7 +181,7 @@ class DocumentCollectionService
         }
 
         // Folder creator can manage their folders even if ownership changed (unless locked)
-        if ($folder->created_by === $user->id && !$folder->is_locked) {
+        if ($folder->created_by === $user->id && ! $folder->is_locked) {
             return true;
         }
 
@@ -292,7 +297,9 @@ class DocumentCollectionService
             $groupedByInstitution = $groupedByInstitution->filter(function ($inst) use ($regionId) {
                 // Check if institution is under this region
                 $institution = Institution::find($inst['institution_id']);
-                if (!$institution) return false;
+                if (! $institution) {
+                    return false;
+                }
 
                 // Check if institution is in this region (either directly or through parent)
                 return $institution->id === $regionId ||
@@ -305,7 +312,9 @@ class DocumentCollectionService
         if ($sectorId) {
             $groupedByInstitution = $groupedByInstitution->filter(function ($inst) use ($sectorId) {
                 $institution = Institution::find($inst['institution_id']);
-                if (!$institution) return false;
+                if (! $institution) {
+                    return false;
+                }
 
                 return $institution->id === $sectorId ||
                        $institution->parent_id === $sectorId;
@@ -382,7 +391,7 @@ class DocumentCollectionService
                 default:
                     return $inst['institution_name'];
             }
-        }, SORT_REGULAR, !$ascending)->values();
+        }, SORT_REGULAR, ! $ascending)->values();
     }
 
     /**
@@ -405,7 +414,7 @@ class DocumentCollectionService
             $path = $file->store('documents', 'local');
             \Log::info('File stored', ['path' => $path]);
 
-            if (!$path || !Storage::disk('local')->exists($path)) {
+            if (! $path || ! Storage::disk('local')->exists($path)) {
                 throw new \RuntimeException('Fayl saxlanılarkən xəta baş verdi.');
             }
 
@@ -424,6 +433,7 @@ class DocumentCollectionService
             DB::commit();
 
             \Log::info('Transaction committed, loading relationships');
+
             return $document->load(['institution', 'uploader']);
         } catch (\Exception $e) {
             \Log::error('uploadDocumentToFolder service exception', [
@@ -467,7 +477,7 @@ class DocumentCollectionService
             'is_locked' => false,
         ]);
 
-        if (!empty($targetInstitutionIds)) {
+        if (! empty($targetInstitutionIds)) {
             $folder->targetInstitutions()->sync($targetInstitutionIds);
         }
 
@@ -509,10 +519,10 @@ class DocumentCollectionService
 
     private function makeZipFilePath(DocumentCollection $folder): string
     {
-        $zipFileName = "folder_{$folder->id}_" . time() . ".zip";
+        $zipFileName = "folder_{$folder->id}_" . time() . '.zip';
         $tempDirectory = storage_path('app/temp');
 
-        if (!file_exists($tempDirectory)) {
+        if (! file_exists($tempDirectory)) {
             mkdir($tempDirectory, 0755, true);
         }
 
@@ -521,7 +531,7 @@ class DocumentCollectionService
 
     private function buildZipArchive(string $zipFilePath, Collection $documents): void
     {
-        $zip = new ZipArchive();
+        $zip = new ZipArchive;
 
         if ($zip->open($zipFilePath, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
             throw new \RuntimeException('ZIP faylı yaradılmadı.');
@@ -530,7 +540,7 @@ class DocumentCollectionService
         foreach ($documents as $document) {
             $filePath = Storage::disk('local')->path($document->file_path);
 
-            if (!file_exists($filePath)) {
+            if (! file_exists($filePath)) {
                 continue;
             }
 
@@ -579,11 +589,11 @@ class DocumentCollectionService
         $mimeType = $file->getMimeType();
         $extension = strtolower($file->getClientOriginalExtension());
 
-        if (!in_array($mimeType, Document::ALLOWED_MIME_TYPES, true)) {
+        if (! in_array($mimeType, Document::ALLOWED_MIME_TYPES, true)) {
             throw new \RuntimeException('Bu fayl növü dəstəklənmir.');
         }
 
-        if (!in_array($extension, Document::ALLOWED_EXTENSIONS, true)) {
+        if (! in_array($extension, Document::ALLOWED_EXTENSIONS, true)) {
             throw new \RuntimeException('Bu fayl uzantısı üçün yükləməyə icazə verilmir.');
         }
     }
@@ -761,7 +771,7 @@ class DocumentCollectionService
     private function getHierarchicalInstitutionIds(int $institutionId): array
     {
         $institution = Institution::find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return [$institutionId];
         }
 

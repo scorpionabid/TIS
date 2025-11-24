@@ -2,25 +2,26 @@
 
 namespace App\Imports;
 
+use App\Models\AcademicYear;
+use App\Models\Grade;
+use App\Models\StudentEnrollment;
 use App\Models\User;
 use App\Models\UserProfile;
-use App\Models\StudentEnrollment;
-use App\Models\Grade;
-use App\Models\AcademicYear;
 use App\Services\UtisCodeService;
-use Maatwebsite\Excel\Concerns\ToModel;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithValidation;
-use Maatwebsite\Excel\Concerns\WithBatchInserts;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\WithBatchInserts;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithValidation;
 
-class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBatchInserts, WithChunkReading
+class StudentsImport implements ToModel, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation
 {
     protected $institution;
+
     protected $errors = [];
+
     protected $successCount = 0;
 
     public function __construct($institution)
@@ -29,7 +30,6 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
     }
 
     /**
-     * @param array $row
      * @return \Illuminate\Database\Eloquent\Model|null
      */
     public function model(array $row)
@@ -40,7 +40,8 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
             // Validate required fields
             if (empty($row['first_name']) || empty($row['last_name']) || empty($row['date_of_birth'])) {
                 Log::warning('Skipping row due to missing required fields:', $row);
-                return null;
+
+                return;
             }
 
             // Generate username from name
@@ -50,7 +51,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
             $username = $this->generateUniqueUsername($baseUsername);
 
             // Generate email if not provided
-            $email = !empty($row['email']) ? $row['email'] : $username . '@student.local';
+            $email = ! empty($row['email']) ? $row['email'] : $username . '@student.local';
 
             // Validate email uniqueness
             if (User::where('email', $email)->exists()) {
@@ -59,7 +60,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
 
             // Find grade if specified
             $grade = null;
-            if (!empty($row['grade_name'])) {
+            if (! empty($row['grade_name'])) {
                 $grade = Grade::where('name', $row['grade_name'])
                     ->where('institution_id', $this->institution->id)
                     ->first();
@@ -79,8 +80,8 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
             $user->assignRole('şagird');
 
             // Generate UTIS code
-            $utisCode = !empty($row['utis_code']) && strlen($row['utis_code']) === 7 
-                ? $row['utis_code'] 
+            $utisCode = ! empty($row['utis_code']) && strlen($row['utis_code']) === 7
+                ? $row['utis_code']
                 : UtisCodeService::generateUserUtisCode();
 
             // Validate UTIS code uniqueness
@@ -94,14 +95,14 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'birth_date' => $row['date_of_birth'],
-                'gender' => !empty($row['gender']) ? $row['gender'] : null,
-                'contact_phone' => !empty($row['guardian_phone']) ? $row['guardian_phone'] : null,
+                'gender' => ! empty($row['gender']) ? $row['gender'] : null,
+                'contact_phone' => ! empty($row['guardian_phone']) ? $row['guardian_phone'] : null,
                 'emergency_contact' => json_encode([
-                    'name' => !empty($row['guardian_name']) ? $row['guardian_name'] : null,
-                    'phone' => !empty($row['guardian_phone']) ? $row['guardian_phone'] : null,
-                    'email' => !empty($row['guardian_email']) ? $row['guardian_email'] : null,
+                    'name' => ! empty($row['guardian_name']) ? $row['guardian_name'] : null,
+                    'phone' => ! empty($row['guardian_phone']) ? $row['guardian_phone'] : null,
+                    'email' => ! empty($row['guardian_email']) ? $row['guardian_email'] : null,
                 ]),
-                'address' => !empty($row['address']) ? $row['address'] : '',
+                'address' => ! empty($row['address']) ? $row['address'] : '',
             ]);
 
             // Create enrollment if grade is found
@@ -109,7 +110,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
                 $currentAcademicYear = AcademicYear::where('is_active', true)->first();
                 if ($currentAcademicYear) {
                     $studentNumber = $this->generateStudentNumber();
-                    
+
                     StudentEnrollment::create([
                         'student_id' => $user->id,
                         'grade_id' => $grade->id,
@@ -125,14 +126,14 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
             Log::info('Successfully imported student:', ['user_id' => $user->id, 'utis_code' => $utisCode]);
 
             return $user;
-
         } catch (\Exception $e) {
             Log::error('Error importing student:', [
                 'row' => $row,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            $this->errors[] = "Row error: " . $e->getMessage();
-            return null;
+            $this->errors[] = 'Row error: ' . $e->getMessage();
+
+            return;
         }
     }
 
@@ -182,7 +183,7 @@ class StudentsImport implements ToModel, WithHeadingRow, WithValidation, WithBat
             ->orderBy('student_number', 'desc')
             ->first();
 
-        $nextNumber = $lastStudent ? 
+        $nextNumber = $lastStudent ?
             intval(substr($lastStudent->student_number, 4)) + 1 : 1;
 
         return $currentYear . str_pad($nextNumber, 4, '0', STR_PAD_LEFT);

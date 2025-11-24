@@ -2,15 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\KSQResult;
+use App\Models\AcademicYear;
 use App\Models\BSQResult;
 use App\Models\Institution;
-use App\Models\AcademicYear;
-use App\Models\Survey;
-use App\Models\SurveyResponse;
-use Illuminate\Support\Facades\DB;
+use App\Models\KSQResult;
 use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
 
 class PerformanceAnalyticsService
 {
@@ -22,26 +18,26 @@ class PerformanceAnalyticsService
         \Log::info('PerformanceAnalyticsService called', [
             'institution_id' => $institutionId,
             'academic_year_id' => $academicYearId,
-            'institution_exists' => Institution::where('id', $institutionId)->exists()
+            'institution_exists' => Institution::where('id', $institutionId)->exists(),
         ]);
 
         $cacheKey = "institution_performance_{$institutionId}_{$academicYearId}";
-        
-        return Cache::remember($cacheKey, 3600, function () use ($institutionId, $academicYearId, $options) {
+
+        return Cache::remember($cacheKey, 3600, function () use ($institutionId, $academicYearId) {
             \Log::info('PerformanceAnalyticsService cache miss, executing query', [
                 'institution_id' => $institutionId,
-                'academic_year_id' => $academicYearId
+                'academic_year_id' => $academicYearId,
             ]);
 
             $institution = Institution::find($institutionId);
-            if (!$institution) {
+            if (! $institution) {
                 \Log::error('Institution not found', [
                     'institution_id' => $institutionId,
-                    'available_institutions' => Institution::pluck('id', 'name')->toArray()
+                    'available_institutions' => Institution::pluck('id', 'name')->toArray(),
                 ]);
                 throw new \Exception("Institution with ID {$institutionId} not found");
             }
-            
+
             $academicYear = $academicYearId ? AcademicYear::find($academicYearId) : AcademicYear::where('is_active', true)->first();
 
             return [
@@ -54,7 +50,7 @@ class PerformanceAnalyticsService
                 'rankings' => $this->getInstitutionRankings($institutionId, $academicYear?->id),
                 'comparison' => $this->getRegionalComparison($institutionId, $academicYear?->id),
                 'improvement_areas' => $this->identifyImprovementAreas($institutionId, $academicYear?->id),
-                'recommendations' => $this->generateRecommendations($institutionId, $academicYear?->id)
+                'recommendations' => $this->generateRecommendations($institutionId, $academicYear?->id),
             ];
         });
     }
@@ -66,7 +62,7 @@ class PerformanceAnalyticsService
     {
         try {
             $query = KSQResult::where('institution_id', $institutionId);
-            
+
             if ($academicYearId) {
                 $query->where('academic_year_id', $academicYearId);
             }
@@ -87,23 +83,23 @@ class PerformanceAnalyticsService
                         'academic_standards' => 85,
                         'teaching_quality' => 79,
                         'student_achievement' => 76,
-                        'curriculum_delivery' => 81
+                        'curriculum_delivery' => 81,
                     ],
                     'performance_distribution' => [
                         'excellent' => 2,
                         'good' => 6,
                         'satisfactory' => 3,
                         'needs_improvement' => 1,
-                        'unsatisfactory' => 0
+                        'unsatisfactory' => 0,
                     ],
                     'monthly_trends' => [
                         ['month' => 'Jan', 'score' => 75],
                         ['month' => 'Feb', 'score' => 77],
                         ['month' => 'Mar', 'score' => 79],
-                        ['month' => 'Apr', 'score' => 82]
+                        ['month' => 'Apr', 'score' => 82],
                     ],
                     'follow_up_required' => 3,
-                    'overdue_follow_ups' => 1
+                    'overdue_follow_ups' => 1,
                 ];
             }
 
@@ -125,14 +121,15 @@ class PerformanceAnalyticsService
                     'good' => $results->whereBetween('percentage_score', [80, 89.99])->count(),
                     'satisfactory' => $results->whereBetween('percentage_score', [70, 79.99])->count(),
                     'needs_improvement' => $results->whereBetween('percentage_score', [60, 69.99])->count(),
-                    'unsatisfactory' => $results->where('percentage_score', '<', 60)->count()
+                    'unsatisfactory' => $results->where('percentage_score', '<', 60)->count(),
                 ],
                 'monthly_trends' => [],
                 'follow_up_required' => $results->where('follow_up_required', true)->count(),
-                'overdue_follow_ups' => 0
+                'overdue_follow_ups' => 0,
             ];
         } catch (\Exception $e) {
             \Log::error('KSQ Analytics Error: ' . $e->getMessage());
+
             // Return mock data on error
             return [
                 'total_assessments' => 5,
@@ -147,11 +144,11 @@ class PerformanceAnalyticsService
                     'good' => 2,
                     'satisfactory' => 3,
                     'needs_improvement' => 0,
-                    'unsatisfactory' => 0
+                    'unsatisfactory' => 0,
                 ],
                 'monthly_trends' => [],
                 'follow_up_required' => 1,
-                'overdue_follow_ups' => 0
+                'overdue_follow_ups' => 0,
             ];
         }
     }
@@ -163,7 +160,7 @@ class PerformanceAnalyticsService
     {
         try {
             $query = BSQResult::where('institution_id', $institutionId);
-            
+
             if ($academicYearId) {
                 $query->where('academic_year_id', $academicYearId);
             }
@@ -184,22 +181,22 @@ class PerformanceAnalyticsService
                     'standards_analysis' => [
                         'iso_9001' => 78,
                         'iso_14001' => 71,
-                        'iso_45001' => 76
+                        'iso_45001' => 76,
                     ],
                     'certification_analysis' => [
                         'current_status' => 'certified',
                         'accreditation_level' => 'conditional_accreditation',
                         'valid_until' => now()->addMonths(18)->format('Y-m-d'),
                         'near_expiration' => false,
-                        'requires_reassessment' => false
+                        'requires_reassessment' => false,
                     ],
                     'benchmark_position' => [
                         'regional_percentile' => 75,
                         'national_percentile' => 62,
-                        'international_percentile' => 45
+                        'international_percentile' => 45,
                     ],
                     'compliance_score' => 74.5,
-                    'published_results' => 2
+                    'published_results' => 2,
                 ];
             }
 
@@ -220,14 +217,15 @@ class PerformanceAnalyticsService
                     'accreditation_level' => $latestResult->accreditation_level ?? 'not_applicable',
                     'valid_until' => $latestResult->certification_valid_until,
                     'near_expiration' => false,
-                    'requires_reassessment' => false
+                    'requires_reassessment' => false,
                 ],
                 'benchmark_position' => [],
                 'compliance_score' => $latestResult->compliance_score ?? 0,
-                'published_results' => $results->where('published', true)->count()
+                'published_results' => $results->where('published', true)->count(),
             ];
         } catch (\Exception $e) {
             \Log::error('BSQ Analytics Error: ' . $e->getMessage());
+
             // Return mock data on error
             return [
                 'total_assessments' => 1,
@@ -243,11 +241,11 @@ class PerformanceAnalyticsService
                     'accreditation_level' => 'not_applicable',
                     'valid_until' => null,
                     'near_expiration' => false,
-                    'requires_reassessment' => false
+                    'requires_reassessment' => false,
                 ],
                 'benchmark_position' => [],
                 'compliance_score' => 70.0,
-                'published_results' => 0
+                'published_results' => 0,
             ];
         }
     }
@@ -259,11 +257,11 @@ class PerformanceAnalyticsService
     {
         try {
             $ksqResults = KSQResult::where('institution_id', $institutionId)
-                ->when($academicYearId, fn($q) => $q->where('academic_year_id', $academicYearId))
+                ->when($academicYearId, fn ($q) => $q->where('academic_year_id', $academicYearId))
                 ->get();
 
             $bsqResults = BSQResult::where('institution_id', $institutionId)
-                ->when($academicYearId, fn($q) => $q->where('academic_year_id', $academicYearId))
+                ->when($academicYearId, fn ($q) => $q->where('academic_year_id', $academicYearId))
                 ->get();
 
             $ksqWeight = 0.6; // KSQ has 60% weight
@@ -287,11 +285,12 @@ class PerformanceAnalyticsService
                 'assessment_completeness' => [
                     'ksq_assessments' => $ksqResults->count(),
                     'bsq_assessments' => $bsqResults->count(),
-                    'total_expected' => 4 // Assume 4 assessments per year
-                ]
+                    'total_expected' => 4, // Assume 4 assessments per year
+                ],
             ];
         } catch (\Exception $e) {
             \Log::error('Overall Performance Error: ' . $e->getMessage());
+
             // Return mock data on error
             return [
                 'overall_score' => 76.5,
@@ -299,15 +298,15 @@ class PerformanceAnalyticsService
                 'bsq_score' => 73.8,
                 'performance_category' => [
                     'level' => 'satisfactory',
-                    'description' => 'Qənaətbəxş Performans'
+                    'description' => 'Qənaətbəxş Performans',
                 ],
                 'ksq_weight' => 60,
                 'bsq_weight' => 40,
                 'assessment_completeness' => [
                     'ksq_assessments' => 0,
                     'bsq_assessments' => 0,
-                    'total_expected' => 4
-                ]
+                    'total_expected' => 4,
+                ],
             ];
         }
     }
@@ -324,15 +323,16 @@ class PerformanceAnalyticsService
                 ->where('assessment_date', '>=', $startDate)
                 ->orderBy('assessment_date')
                 ->get()
-                ->groupBy(fn($item) => $item->assessment_date->format('Y-m'))
-                ->map(fn($group) => [
+                ->groupBy(fn ($item) => $item->assessment_date->format('Y-m'))
+                ->map(fn ($group) => [
                     'month' => $group->first()->assessment_date->format('Y-m'),
                     'average_score' => round($group->avg('percentage_score'), 2),
-                    'assessment_count' => $group->count()
+                    'assessment_count' => $group->count(),
                 ])
                 ->values();
         } catch (\Exception $e) {
             \Log::error('Performance Trends Error: ' . $e->getMessage());
+
             // Return mock trends data
             return [
                 ['month' => '2024-10', 'average_score' => 75.2, 'assessment_count' => 3],
@@ -341,11 +341,11 @@ class PerformanceAnalyticsService
                 ['month' => '2025-01', 'average_score' => 80.3, 'assessment_count' => 5],
             ];
         }
-        
+
         return [
             'ksq_trends' => [],
             'bsq_trends' => [],
-            'trend_analysis' => []
+            'trend_analysis' => [],
         ];
     }
 
@@ -360,7 +360,7 @@ class PerformanceAnalyticsService
 
         $regionalRanking = $this->calculateRanking($institutionId, $regionInstitutions, $academicYearId);
 
-        // National ranking  
+        // National ranking
         $nationalInstitutions = Institution::where('type', $institution->type)->pluck('id');
         $nationalRanking = $this->calculateRanking($institutionId, $nationalInstitutions, $academicYearId);
 
@@ -371,8 +371,8 @@ class PerformanceAnalyticsService
                 'ksq_performance' => 40,
                 'bsq_performance' => 35,
                 'improvement_rate' => 15,
-                'consistency' => 10
-            ]
+                'consistency' => 10,
+            ],
         ];
     }
 
@@ -398,8 +398,8 @@ class PerformanceAnalyticsService
                     'action_items' => [
                         'Müəllim kadr hazırlığının gücləndirilməsi',
                         'Tədris materiallarının yenilənməsi',
-                        'Sinif idarəetməsi sisteminin təkmilləşdirilməsi'
-                    ]
+                        'Sinif idarəetməsi sisteminin təkmilləşdirilməsi',
+                    ],
                 ];
             }
 
@@ -413,8 +413,8 @@ class PerformanceAnalyticsService
                     'action_items' => [
                         'Beynəlxalq sertifikat proqramlarına qatılım',
                         'İnnovasiya və texnologiya investisiyaları',
-                        'Keyfiyyət idarəetmə sisteminin təkmilləşdirilməsi'
-                    ]
+                        'Keyfiyyət idarəetmə sisteminin təkmilləşdirilməsi',
+                    ],
                 ];
             }
 
@@ -428,14 +428,15 @@ class PerformanceAnalyticsService
                     'action_items' => [
                         'Mövcud uğurlu təcrübələrin digər sahələrə tətbiqi',
                         'İnnovasiya və yaradıcılıq layihələrinin dəstəklənməsi',
-                        'Beynəlxalq əməkdaşlıq imkanlarının araşdırılması'
-                    ]
+                        'Beynəlxalq əməkdaşlıq imkanlarının araşdırılması',
+                    ],
                 ];
             }
 
             return $recommendations;
         } catch (\Exception $e) {
             \Log::error('Recommendations Error: ' . $e->getMessage());
+
             // Return mock recommendations on error
             return [
                 [
@@ -446,9 +447,9 @@ class PerformanceAnalyticsService
                     'action_items' => [
                         'Aylıq performans hesabatlarının hazırlanması',
                         'Müəllim və şagird geri bildiriminin toplanması',
-                        'Keyfiyyət göstəricilərinin sistematik olaraq yoxlanılması'
-                    ]
-                ]
+                        'Keyfiyyət göstəricilərinin sistematik olaraq yoxlanılması',
+                    ],
+                ],
             ];
         }
     }
@@ -466,9 +467,9 @@ class PerformanceAnalyticsService
             return ['level' => 'satisfactory', 'description' => 'Qənaətbəxş Performans'];
         } elseif ($score >= 60) {
             return ['level' => 'needs_improvement', 'description' => 'Təkmilləşdirmə Tələb Edir'];
-        } else {
-            return ['level' => 'unsatisfactory', 'description' => 'Qeyri-qənaətbəxş Performans'];
         }
+
+        return ['level' => 'unsatisfactory', 'description' => 'Qeyri-qənaətbəxş Performans'];
     }
 
     // Add empty methods to prevent errors
@@ -489,7 +490,7 @@ class PerformanceAnalyticsService
             'position' => 1,
             'total_institutions' => count($institutionIds),
             'score' => 75.0,
-            'percentile' => 75.0
+            'percentile' => 75.0,
         ];
     }
 }

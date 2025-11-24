@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\Psychology;
 
 use App\Http\Controllers\BaseController;
-use App\Models\PsychologySession;
 use App\Models\PsychologyNote;
-use Illuminate\Http\Request;
+use App\Models\PsychologySession;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
 
 class PsychologyNotesController extends BaseController
 {
@@ -33,7 +33,7 @@ class PsychologyNotesController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -41,10 +41,10 @@ class PsychologyNotesController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canAddNote($user, $session)) {
+            if (! $this->canAddNote($user, $session)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to add notes to this session'
+                    'message' => 'You do not have permission to add notes to this session',
                 ], 403);
             }
 
@@ -71,7 +71,7 @@ class PsychologyNotesController extends BaseController
                     'created_at' => now(),
                     'ip_address' => $request->ip(),
                     'user_agent' => $request->userAgent(),
-                ]
+                ],
             ]);
 
             // Log the activity
@@ -81,7 +81,7 @@ class PsychologyNotesController extends BaseController
                 ->withProperties([
                     'session_id' => $session->id,
                     'note_type' => $request->note_type,
-                    'student_name' => $session->student->name
+                    'student_name' => $session->student->name,
                 ])
                 ->log('Psychology session note added');
 
@@ -92,14 +92,14 @@ class PsychologyNotesController extends BaseController
             return response()->json([
                 'success' => true,
                 'data' => $this->transformNote($note),
-                'message' => 'Note added successfully'
+                'message' => 'Note added successfully',
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error adding note: ' . $e->getMessage()
+                'message' => 'Error adding note: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -113,10 +113,10 @@ class PsychologyNotesController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canViewNotes($user, $session)) {
+            if (! $this->canViewNotes($user, $session)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to view notes for this session'
+                    'message' => 'You do not have permission to view notes for this session',
                 ], 403);
             }
 
@@ -142,17 +142,16 @@ class PsychologyNotesController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'data' => $notes->map(function($note) {
+                'data' => $notes->map(function ($note) {
                     return $this->transformNote($note);
                 }),
                 'total' => $notes->count(),
-                'message' => 'Notes retrieved successfully'
+                'message' => 'Notes retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving notes: ' . $e->getMessage()
+                'message' => 'Error retrieving notes: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -174,7 +173,7 @@ class PsychologyNotesController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -182,10 +181,10 @@ class PsychologyNotesController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canEditNote($user, $note)) {
+            if (! $this->canEditNote($user, $note)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to edit this note'
+                    'message' => 'You do not have permission to edit this note',
                 ], 403);
             }
 
@@ -201,9 +200,9 @@ class PsychologyNotesController extends BaseController
                     'edit_history' => array_merge($note->note_metadata['edit_history'] ?? [], [[
                         'edited_by' => $user->id,
                         'edited_at' => now(),
-                        'changes' => $request->only(['content', 'is_confidential', 'visibility', 'tags'])
-                    ]])
-                ])
+                        'changes' => $request->only(['content', 'is_confidential', 'visibility', 'tags']),
+                    ]]),
+                ]),
             ]);
 
             // Log the activity
@@ -212,20 +211,19 @@ class PsychologyNotesController extends BaseController
                 ->causedBy($user)
                 ->withProperties([
                     'session_id' => $note->psychology_session_id,
-                    'changes' => $request->only(['content', 'is_confidential', 'visibility', 'tags'])
+                    'changes' => $request->only(['content', 'is_confidential', 'visibility', 'tags']),
                 ])
                 ->log('Psychology session note updated');
 
             return response()->json([
                 'success' => true,
                 'data' => $this->transformNote($note->fresh('author')),
-                'message' => 'Note updated successfully'
+                'message' => 'Note updated successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error updating note: ' . $e->getMessage()
+                'message' => 'Error updating note: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -239,10 +237,10 @@ class PsychologyNotesController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canDeleteNote($user, $note)) {
+            if (! $this->canDeleteNote($user, $note)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to delete this note'
+                    'message' => 'You do not have permission to delete this note',
                 ], 403);
             }
 
@@ -255,19 +253,18 @@ class PsychologyNotesController extends BaseController
                 ->causedBy($user)
                 ->withProperties([
                     'session_id' => $note->psychology_session_id,
-                    'note_type' => $note->note_type
+                    'note_type' => $note->note_type,
                 ])
                 ->log('Psychology session note deleted');
 
             return response()->json([
                 'success' => true,
-                'message' => 'Note deleted successfully'
+                'message' => 'Note deleted successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error deleting note: ' . $e->getMessage()
+                'message' => 'Error deleting note: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -290,7 +287,7 @@ class PsychologyNotesController extends BaseController
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -305,7 +302,7 @@ class PsychologyNotesController extends BaseController
             }
 
             if ($request->has('institution_id')) {
-                $query->whereHas('session', function($q) use ($request) {
+                $query->whereHas('session', function ($q) use ($request) {
                     $q->where('institution_id', $request->institution_id);
                 });
             }
@@ -333,13 +330,12 @@ class PsychologyNotesController extends BaseController
                 'success' => true,
                 'data' => $stats,
                 'filters' => $request->only(['session_id', 'institution_id', 'start_date', 'end_date']),
-                'message' => 'Note statistics retrieved successfully'
+                'message' => 'Note statistics retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving note statistics: ' . $e->getMessage()
+                'message' => 'Error retrieving note statistics: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -348,7 +344,7 @@ class PsychologyNotesController extends BaseController
     private function processAttachments($files, $session): array
     {
         $attachments = [];
-        
+
         foreach ($files as $file) {
             if ($file->isValid()) {
                 $path = $file->store('psychology/attachments/' . $session->id, 'local');
@@ -392,16 +388,28 @@ class PsychologyNotesController extends BaseController
     // Permission methods
     private function canAddNote($user, $session): bool
     {
-        if ($user->hasRole('SuperAdmin')) return true;
-        if ($user->id === $session->psychologist_id) return true;
+        if ($user->hasRole('SuperAdmin')) {
+            return true;
+        }
+        if ($user->id === $session->psychologist_id) {
+            return true;
+        }
+
         return false;
     }
 
     private function canViewNotes($user, $session): bool
     {
-        if ($user->hasRole('SuperAdmin')) return true;
-        if ($user->id === $session->psychologist_id) return true;
-        if ($user->hasRole('SchoolAdmin') && $user->institution_id === $session->institution_id) return true;
+        if ($user->hasRole('SuperAdmin')) {
+            return true;
+        }
+        if ($user->id === $session->psychologist_id) {
+            return true;
+        }
+        if ($user->hasRole('SchoolAdmin') && $user->institution_id === $session->institution_id) {
+            return true;
+        }
+
         return false;
     }
 
@@ -412,7 +420,10 @@ class PsychologyNotesController extends BaseController
 
     private function canDeleteNote($user, $note): bool
     {
-        if ($user->hasRole('SuperAdmin')) return true;
+        if ($user->hasRole('SuperAdmin')) {
+            return true;
+        }
+
         return $user->id === $note->author_id;
     }
 
@@ -436,7 +447,7 @@ class PsychologyNotesController extends BaseController
         if ($user->hasRole('psixoloq')) {
             $query->where('author_id', $user->id);
         } elseif ($user->hasRole('SchoolAdmin')) {
-            $query->whereHas('session', function($q) use ($user) {
+            $query->whereHas('session', function ($q) use ($user) {
                 $q->where('institution_id', $user->institution_id);
             });
         }
@@ -444,11 +455,13 @@ class PsychologyNotesController extends BaseController
 
     private function getAverageNotesPerSession($baseQuery): float
     {
-        $totalSessions = PsychologySession::whereIn('id', 
+        $totalSessions = PsychologySession::whereIn('id',
             $baseQuery->pluck('psychology_session_id')->unique()
         )->count();
 
-        if ($totalSessions == 0) return 0;
+        if ($totalSessions == 0) {
+            return 0;
+        }
 
         return round($baseQuery->count() / $totalSessions, 2);
     }

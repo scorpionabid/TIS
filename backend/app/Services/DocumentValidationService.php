@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Document;
-use App\Services\BaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -22,20 +21,20 @@ class DocumentValidationService extends BaseService
             'has_file' => $request->hasFile('file'),
             'file_info' => $request->hasFile('file') ? [
                 'name' => $request->file('file')->getClientOriginalName(),
-                'size' => $request->file('file')->getSize()
+                'size' => $request->file('file')->getSize(),
             ] : null,
             'boolean_fields' => [
                 'is_downloadable' => [
                     'value' => $request->get('is_downloadable'),
                     'type' => gettype($request->get('is_downloadable')),
-                    'exists' => $request->has('is_downloadable')
+                    'exists' => $request->has('is_downloadable'),
                 ],
                 'is_viewable_online' => [
                     'value' => $request->get('is_viewable_online'),
                     'type' => gettype($request->get('is_viewable_online')),
-                    'exists' => $request->has('is_viewable_online')
-                ]
-            ]
+                    'exists' => $request->has('is_viewable_online'),
+                ],
+            ],
         ]);
 
         return Validator::make($request->all(), [
@@ -123,7 +122,7 @@ class DocumentValidationService extends BaseService
             'expires_at.after' => 'Son tariх hazırkı vaxtdan sonra olmalıdır.',
             'max_downloads.min' => 'Maksimum yükləmə sayı ən azı 1 olmalıdır.',
             'password.min' => 'Şifrə ən azı 4 simvol olmalıdır.',
-            'password.max' => 'Şifrə ən çox 20 simvol ola bilər.'
+            'password.max' => 'Şifrə ən çox 20 simvol ola bilər.',
         ]);
     }
 
@@ -134,13 +133,13 @@ class DocumentValidationService extends BaseService
     {
         return Validator::make($request->all(), [
             'document_ids' => 'required|array|min:1|max:50',
-            'document_ids.*' => 'integer|exists:documents,id'
+            'document_ids.*' => 'integer|exists:documents,id',
         ], [
             'document_ids.required' => 'Sənəd ID-ləri tələb olunur.',
             'document_ids.array' => 'Sənəd ID-ləri massiv formatında olmalıdır.',
             'document_ids.min' => 'Ən azı 1 sənəd seçilməlidir.',
             'document_ids.max' => 'Maksimum 50 sənəd seçilə bilər.',
-            'document_ids.*.exists' => 'Seçilən sənəd mövcud deyil.'
+            'document_ids.*.exists' => 'Seçilən sənəd mövcud deyil.',
         ]);
     }
 
@@ -151,8 +150,9 @@ class DocumentValidationService extends BaseService
     {
         $errors = [];
 
-        if (!$file) {
+        if (! $file) {
             $errors[] = 'Fayl tələb olunur.';
+
             return $errors;
         }
 
@@ -169,13 +169,13 @@ class DocumentValidationService extends BaseService
 
         // Check file extension
         $extension = strtolower($file->getClientOriginalExtension());
-        if (!in_array($extension, $allowedTypes)) {
+        if (! in_array($extension, $allowedTypes)) {
             $errors[] = 'Fayl növü dəstəklənmir. İcazə verilən növlər: ' . implode(', ', $allowedTypes);
         }
 
         // Check MIME type
         $mimeType = $file->getMimeType();
-        if (!in_array($mimeType, $allowedMimeTypes)) {
+        if (! in_array($mimeType, $allowedMimeTypes)) {
             $errors[] = 'Fayl MIME tipi dəstəklənmir.';
         }
 
@@ -212,12 +212,12 @@ class DocumentValidationService extends BaseService
             'is_downloadable' => 'nullable|boolean',
             'sort_by' => 'nullable|in:title,created_at,updated_at,file_size,download_count',
             'sort_direction' => 'nullable|in:asc,desc',
-            'per_page' => 'nullable|integer|min:5|max:100'
+            'per_page' => 'nullable|integer|min:5|max:100',
         ], [
             'search.max' => 'Axtarış sorğusu 100 simvoldan çox ola bilməz.',
             'date_to.after_or_equal' => 'Bitiş tarixi başlanğıc tarixindən əvvəl ola bilməz.',
             'per_page.min' => 'Səhifə başına minimum 5 element olmalıdır.',
-            'per_page.max' => 'Səhifə başına maksimum 100 element ola bilər.'
+            'per_page.max' => 'Səhifə başına maksimum 100 element ola bilər.',
         ]);
     }
 
@@ -233,11 +233,11 @@ class DocumentValidationService extends BaseService
             'institution_id' => 'nullable|integer|exists:institutions,id',
             'user_id' => 'nullable|integer|exists:users,id',
             'document_id' => 'nullable|integer|exists:documents,id',
-            'per_page' => 'nullable|integer|min:5|max:100'
+            'per_page' => 'nullable|integer|min:5|max:100',
         ], [
             'date_to.after_or_equal' => 'Bitiş tarixi başlanğıc tarixindən əvvəl ola bilməz.',
             'per_page.min' => 'Səhifə başına minimum 5 element olmalıdır.',
-            'per_page.max' => 'Səhifə başına maksimum 100 element ola bilər.'
+            'per_page.max' => 'Səhifə başına maksimum 100 element ola bilər.',
         ]);
     }
 
@@ -259,7 +259,7 @@ class DocumentValidationService extends BaseService
             'allowed_users.*.exists' => 'Seçilən istifadəçi mövcud deyil.',
             'allowed_institutions.array' => 'İcazə verilən təşkilatlar massiv formatında olmalıdır.',
             'allowed_institutions.*.exists' => 'Seçilən təşkilat mövcud deyil.',
-            'expires_at.after' => 'Son tarix hazırkı vaxtdan sonra olmalıdır.'
+            'expires_at.after' => 'Son tarix hazırkı vaxtdan sonra olmalıdır.',
         ];
     }
 
@@ -276,7 +276,7 @@ class DocumentValidationService extends BaseService
             'institution_ids.array' => 'Təşkilat ID-ləri massiv formatında olmalıdır.',
             'institution_ids.*.exists' => 'Seçilən təşkilat mövcud deyil.',
             'message.max' => 'Mesaj 500 simvoldan çox ola bilməz.',
-            'expires_at.after' => 'Son tarix hazırkı vaxtdan sonra olmalıdır.'
+            'expires_at.after' => 'Son tarix hazırkı vaxtdan sonra olmalıdır.',
         ];
     }
 
@@ -309,15 +309,15 @@ class DocumentValidationService extends BaseService
         switch ($role) {
             case 'superadmin':
                 return array_merge($basicTypes, $imageTypes, $archiveTypes, $videoTypes);
-                
+
             case 'regionadmin':
             case 'sektoradmin':
                 return array_merge($basicTypes, $imageTypes, $archiveTypes);
-                
+
             case 'schooladmin':
             case 'müəllim':
                 return array_merge($basicTypes, $imageTypes);
-                
+
             default:
                 return $basicTypes;
         }
@@ -336,41 +336,41 @@ class DocumentValidationService extends BaseService
             'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             'application/vnd.ms-powerpoint',
             'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            'text/plain'
+            'text/plain',
         ];
 
         $imageMimes = [
             'image/jpeg',
             'image/png',
             'image/gif',
-            'image/bmp'
+            'image/bmp',
         ];
 
         $archiveMimes = [
             'application/zip',
             'application/x-rar-compressed',
-            'application/x-7z-compressed'
+            'application/x-7z-compressed',
         ];
 
         $videoMimes = [
             'video/mp4',
             'video/avi',
             'video/quicktime',
-            'video/x-ms-wmv'
+            'video/x-ms-wmv',
         ];
 
         switch ($role) {
             case 'superadmin':
                 return array_merge($basicMimes, $imageMimes, $archiveMimes, $videoMimes);
-                
+
             case 'regionadmin':
             case 'sektoradmin':
                 return array_merge($basicMimes, $imageMimes, $archiveMimes);
-                
+
             case 'schooladmin':
             case 'müəllim':
                 return array_merge($basicMimes, $imageMimes);
-                
+
             default:
                 return $basicMimes;
         }
@@ -417,7 +417,7 @@ class DocumentValidationService extends BaseService
 
         // Sanitize tags
         if (isset($data['tags']) && is_array($data['tags'])) {
-            $sanitized['tags'] = array_map(function($tag) {
+            $sanitized['tags'] = array_map(function ($tag) {
                 return strip_tags(trim($tag));
             }, $data['tags']);
             $sanitized['tags'] = array_filter($sanitized['tags']); // Remove empty tags
@@ -425,10 +425,10 @@ class DocumentValidationService extends BaseService
 
         // Copy other safe fields
         $safeFields = [
-            'category', 'access_level', 'is_public', 'is_downloadable', 
-            'is_viewable_online', 'expires_at', 'allowed_users', 
+            'category', 'access_level', 'is_public', 'is_downloadable',
+            'is_viewable_online', 'expires_at', 'allowed_users',
             'allowed_institutions', 'accessible_institutions',
-            'accessible_departments'
+            'accessible_departments',
         ];
 
         foreach ($safeFields as $field) {

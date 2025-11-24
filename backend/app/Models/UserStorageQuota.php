@@ -2,11 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class UserStorageQuota extends Model
 {
@@ -42,7 +41,9 @@ class UserStorageQuota extends Model
 
     // PRD-2: İstifadəçi başına aylıq 100MB limit
     const DEFAULT_MONTHLY_QUOTA = 104857600; // 100MB in bytes
+
     const WARNING_THRESHOLD = 0.8; // 80% warning
+
     const CRITICAL_THRESHOLD = 0.95; // 95% critical
 
     /**
@@ -75,7 +76,7 @@ class UserStorageQuota extends Model
     public function scopeCurrentPeriod(Builder $query): Builder
     {
         return $query->where('quota_period_start', '<=', now())
-                    ->where('quota_period_end', '>=', now());
+            ->where('quota_period_end', '>=', now());
     }
 
     /**
@@ -127,7 +128,7 @@ class UserStorageQuota extends Model
      */
     public function canUpload(int $fileSize): bool
     {
-        return !$this->quota_exceeded && 
+        return ! $this->quota_exceeded &&
                ($this->current_usage + $fileSize) <= $this->monthly_quota;
     }
 
@@ -160,7 +161,7 @@ class UserStorageQuota extends Model
      */
     public function addUpload(int $fileSize): bool
     {
-        if (!$this->canUpload($fileSize)) {
+        if (! $this->canUpload($fileSize)) {
             return false;
         }
 
@@ -200,7 +201,7 @@ class UserStorageQuota extends Model
      */
     public function markQuotaExceeded(): void
     {
-        if (!$this->quota_exceeded) {
+        if (! $this->quota_exceeded) {
             $this->update([
                 'quota_exceeded' => true,
                 'quota_exceeded_at' => now(),
@@ -290,9 +291,9 @@ class UserStorageQuota extends Model
             'quota_exceeded' => $this->quota_exceeded,
             'days_in_period' => $this->quota_period_start->diffInDays($this->quota_period_end) + 1,
             'days_remaining' => now()->diffInDays($this->quota_period_end),
-            'daily_average_usage' => $this->quota_period_start->diffInDays(now()) > 0 ? 
+            'daily_average_usage' => $this->quota_period_start->diffInDays(now()) > 0 ?
                 round($this->current_usage / $this->quota_period_start->diffInDays(now()), 2) : 0,
-            'projected_monthly_usage' => $this->quota_period_start->diffInDays(now()) > 0 ? 
+            'projected_monthly_usage' => $this->quota_period_start->diffInDays(now()) > 0 ?
                 round($this->current_usage / $this->quota_period_start->diffInDays(now()) * 30, 2) : 0,
             'is_warning' => $this->isNearingLimit(),
             'is_critical' => $this->isCritical(),
@@ -312,9 +313,9 @@ class UserStorageQuota extends Model
             return number_format($bytes / 1048576, 2) . ' MB';
         } elseif ($bytes >= 1024) {
             return number_format($bytes / 1024, 2) . ' KB';
-        } else {
-            return $bytes . ' bytes';
         }
+
+        return $bytes . ' bytes';
     }
 
     /**
@@ -347,7 +348,7 @@ class UserStorageQuota extends Model
     public static function resetAllQuotas(): int
     {
         $quotas = self::whereDate('quota_period_end', '<', now())->get();
-        
+
         foreach ($quotas as $quota) {
             $quota->resetMonthlyQuota();
         }
@@ -361,9 +362,9 @@ class UserStorageQuota extends Model
     public static function getUsersNeedingWarning(): \Illuminate\Database\Eloquent\Collection
     {
         return self::where('quota_warning_sent', false)
-                  ->whereRaw('current_usage >= (monthly_quota * ?)', [self::WARNING_THRESHOLD])
-                  ->with('user')
-                  ->get();
+            ->whereRaw('current_usage >= (monthly_quota * ?)', [self::WARNING_THRESHOLD])
+            ->with('user')
+            ->get();
     }
 
     /**

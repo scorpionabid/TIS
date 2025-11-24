@@ -2,28 +2,27 @@
 
 namespace App\Services;
 
-use App\Models\Institution;
 use App\Models\Department;
+use App\Models\Institution;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 
 /**
  * DEPRECATED: InstitutionService functionality has been migrated to InstitutionCrudService
- * 
+ *
  * This service is deprecated and will be removed in future versions.
  * Please use InstitutionCrudService instead for institution-related CRUD operations.
- * 
+ *
  * Available in InstitutionCrudService:
  * - getInstitutions() - with user-based access control
  * - createInstitution() - with validation
  * - updateInstitution() - with audit logging
  * - deleteInstitution() - with soft delete support
- * 
+ *
  * For specialized operations, use:
  * - RegionAdminInstitutionService - for region-specific statistics
  * - InstitutionImportExportService - for import/export operations
- * 
+ *
  * @deprecated Use InstitutionCrudService instead
  */
 class InstitutionService
@@ -35,32 +34,32 @@ class InstitutionService
     {
         $query = Institution::with(['parent', 'children', 'departments' => function ($q) {
             $q->where('is_active', true)
-              ->withCount(['users', 'users as active_users_count' => function ($subq) {
-                  $subq->where('is_active', true);
-              }])
-              ->with(['children' => function ($childq) {
-                  $childq->where('is_active', true)
-                         ->withCount(['users', 'users as active_users_count' => function ($subsubq) {
-                             $subsubq->where('is_active', true);
-                         }]);
-              }]);
+                ->withCount(['users', 'users as active_users_count' => function ($subq) {
+                    $subq->where('is_active', true);
+                }])
+                ->with(['children' => function ($childq) {
+                    $childq->where('is_active', true)
+                        ->withCount(['users', 'users as active_users_count' => function ($subsubq) {
+                            $subsubq->where('is_active', true);
+                        }]);
+                }]);
         }]);
 
         // Apply filters
         $this->applyFilters($query, $request);
-        
+
         // Apply sorting
         $this->applySorting($query, $request);
 
         // Return as hierarchy or paginated list
-        if ($request->hierarchy && !$request->parent_id) {
+        if ($request->hierarchy && ! $request->parent_id) {
             $institutions = $query->roots()->get();
             $this->loadHierarchy($institutions);
-            
+
             return $this->formatHierarchy($institutions);
-        } else {
-            return $query->paginate($request->per_page ?? 15);
         }
+
+        return $query->paginate($request->per_page ?? 15);
     }
 
     /**
@@ -69,7 +68,7 @@ class InstitutionService
     public function createInstitution(array $validatedData): Institution
     {
         DB::beginTransaction();
-        
+
         try {
             // Set level based on parent
             if (isset($validatedData['parent_id'])) {
@@ -87,7 +86,7 @@ class InstitutionService
             }
 
             DB::commit();
-            
+
             return $institution->load(['parent', 'children', 'departments']);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -101,7 +100,7 @@ class InstitutionService
     public function updateInstitution(Institution $institution, array $validatedData): Institution
     {
         DB::beginTransaction();
-        
+
         try {
             // Update level if parent changed
             if (isset($validatedData['parent_id']) && $validatedData['parent_id'] !== $institution->parent_id) {
@@ -111,7 +110,7 @@ class InstitutionService
                 } else {
                     $validatedData['level'] = 1;
                 }
-                
+
                 // Update children levels recursively
                 $this->updateChildrenLevels($institution, $validatedData['level']);
             }
@@ -119,7 +118,7 @@ class InstitutionService
             $institution->update($validatedData);
 
             DB::commit();
-            
+
             return $institution->fresh(['parent', 'children', 'departments']);
         } catch (\Exception $e) {
             DB::rollBack();
@@ -151,7 +150,7 @@ class InstitutionService
     public function getInstitutionStatistics($institutionId = null): array
     {
         $baseQuery = Institution::query();
-        
+
         if ($institutionId) {
             $institution = Institution::find($institutionId);
             $childrenIds = $institution->getAllChildrenIds();
@@ -162,17 +161,17 @@ class InstitutionService
         $totalInstitutions = (clone $baseQuery)->count();
         $activeInstitutions = (clone $baseQuery)->where('is_active', true)->count();
         $byType = (clone $baseQuery)->selectRaw('type, count(*) as count')
-                                    ->groupBy('type')
-                                    ->pluck('count', 'type');
+            ->groupBy('type')
+            ->pluck('count', 'type');
         $byLevel = (clone $baseQuery)->selectRaw('level, count(*) as count')
-                                     ->groupBy('level')
-                                     ->pluck('count', 'level');
+            ->groupBy('level')
+            ->pluck('count', 'level');
 
         $institutionIds = (clone $baseQuery)->pluck('id');
         $totalUsers = \App\Models\User::whereIn('institution_id', $institutionIds)->count();
         $activeUsers = \App\Models\User::whereIn('institution_id', $institutionIds)
-                                       ->where('is_active', true)
-                                       ->count();
+            ->where('is_active', true)
+            ->count();
 
         return [
             'total_institutions' => $totalInstitutions,
@@ -192,9 +191,9 @@ class InstitutionService
         $institutions = Institution::with(['children' => function ($query) {
             $query->where('is_active', true)->orderBy('name');
         }])->roots()->where('is_active', true)->orderBy('name')->get();
-        
+
         $this->loadHierarchy($institutions);
-        
+
         return $this->formatHierarchy($institutions);
     }
 
@@ -276,7 +275,7 @@ class InstitutionService
                 'children_count' => $institution->children->count(),
                 'users_count' => $institution->users_count ?? 0,
                 'departments_count' => $institution->departments->count(),
-                'children' => $institution->children->isNotEmpty() ? 
+                'children' => $institution->children->isNotEmpty() ?
                     $this->formatHierarchy($institution->children) : [],
             ];
         })->toArray();
@@ -302,7 +301,7 @@ class InstitutionService
     private function updateChildrenLevels(Institution $institution, int $newParentLevel): void
     {
         $children = $institution->children;
-        
+
         foreach ($children as $child) {
             $child->update(['level' => $newParentLevel + 1]);
             $this->updateChildrenLevels($child, $newParentLevel + 1);

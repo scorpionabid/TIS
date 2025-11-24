@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\Institution;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\InstitutionDeleteRequest;
 use App\Models\Institution;
 use App\Services\InstitutionDeleteProgressService;
-use App\Http\Requests\InstitutionDeleteRequest;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
@@ -58,10 +57,10 @@ class InstitutionCRUDController extends Controller
                 $query->where('type', $typeValue);
             } else {
                 // Regular search in name, code, and short_name
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('institution_code', 'like', "%{$search}%")
-                      ->orWhere('short_name', 'like', "%{$search}%");
+                        ->orWhere('institution_code', 'like', "%{$search}%")
+                        ->orWhere('short_name', 'like', "%{$search}%");
                 });
             }
         }
@@ -79,39 +78,39 @@ class InstitutionCRUDController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = Auth::user();
-        
+
         // Check permissions
-        if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin')) {
+        if (! $user->hasRole('superadmin') && ! $user->hasRole('regionadmin')) {
             return response()->json([
                 'success' => false,
-                'message' => 'User does not have the right permissions.'
+                'message' => 'User does not have the right permissions.',
             ], 403);
         }
-        
+
         // RegionAdmin can only create institutions under their region
         if ($user->hasRole('regionadmin')) {
             $parentId = $request->input('parent_id');
             $userInstitution = $user->institution;
-            
-            if (!$userInstitution || $userInstitution->level !== 2) {
+
+            if (! $userInstitution || $userInstitution->level !== 2) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'RegionAdmin must be associated with a regional institution.'
+                    'message' => 'RegionAdmin must be associated with a regional institution.',
                 ], 403);
             }
-            
+
             // Parent must be either their region or a sector under their region
             if ($parentId && $parentId !== $userInstitution->id) {
                 $parentInstitution = Institution::find($parentId);
-                if (!$parentInstitution || $parentInstitution->parent_id !== $userInstitution->id) {
+                if (! $parentInstitution || $parentInstitution->parent_id !== $userInstitution->id) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'RegionAdmin can only create institutions under their own region.'
+                        'message' => 'RegionAdmin can only create institutions under their own region.',
                     ], 403);
                 }
             }
         }
-        
+
         // Dynamic validation rules - parent_id required for levels > 1
         $level = $request->input('level', 1);
         $parentIdRule = $level > 1 ? 'required|exists:institutions,id' : 'nullable|exists:institutions,id';
@@ -150,39 +149,39 @@ class InstitutionCRUDController extends Controller
     public function update(Request $request, Institution $institution): JsonResponse
     {
         $user = Auth::user();
-        
+
         // Check permissions
-        if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin')) {
+        if (! $user->hasRole('superadmin') && ! $user->hasRole('regionadmin')) {
             return response()->json([
                 'success' => false,
-                'message' => 'User does not have the right permissions.'
+                'message' => 'User does not have the right permissions.',
             ], 403);
         }
-        
+
         // RegionAdmin can only update institutions within their hierarchy
         if ($user->hasRole('regionadmin')) {
             $userInstitution = $user->institution;
-            
-            if (!$userInstitution || $userInstitution->level !== 2) {
+
+            if (! $userInstitution || $userInstitution->level !== 2) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'RegionAdmin must be associated with a regional institution.'
+                    'message' => 'RegionAdmin must be associated with a regional institution.',
                 ], 403);
             }
-            
+
             // Check if institution is within their hierarchy
             $canUpdate = $institution->id === $userInstitution->id || // Their own region
                         $institution->parent_id === $userInstitution->id || // Direct child (sector)
                         ($institution->parent && $institution->parent->parent_id === $userInstitution->id); // Grandchild (school under sector)
-                        
-            if (!$canUpdate) {
+
+            if (! $canUpdate) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'RegionAdmin can only update institutions within their region.'
+                    'message' => 'RegionAdmin can only update institutions within their region.',
                 ], 403);
             }
         }
-        
+
         // Dynamic validation rules - parent_id required for levels > 1
         $level = $request->input('level', $institution->level);
         $parentIdRule = $level > 1 ? 'required|exists:institutions,id' : 'nullable|exists:institutions,id';
@@ -196,7 +195,7 @@ class InstitutionCRUDController extends Controller
                 'required',
                 'string',
                 'max:50',
-                Rule::unique('institutions')->ignore($institution->id)
+                Rule::unique('institutions')->ignore($institution->id),
             ],
             'parent_id' => $parentIdRule,
             'level' => 'sometimes|required|integer|min:1',
@@ -221,10 +220,10 @@ class InstitutionCRUDController extends Controller
         $user = Auth::user();
 
         // Check permissions
-        if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin') && !$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('superadmin') && ! $user->hasRole('regionadmin') && ! $user->hasRole('sektoradmin')) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'
+                'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
             ], 403);
         }
 
@@ -237,23 +236,23 @@ class InstitutionCRUDController extends Controller
                 $institution = $institution->first();
             }
 
-            if (!$institution) {
+            if (! $institution) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəssisə tapılmadı.'
+                    'message' => 'Müəssisə tapılmadı.',
                 ], 404);
             }
 
             // Verify the method exists before calling it
-            if (!method_exists($institution, 'getDeleteImpactSummary')) {
+            if (! method_exists($institution, 'getDeleteImpactSummary')) {
                 \Log::error('getDeleteImpactSummary method not found on Institution model', [
                     'institution_id' => $id,
-                    'institution_class' => get_class($institution)
+                    'institution_class' => get_class($institution),
                 ]);
 
                 return response()->json([
                     'success' => false,
-                    'message' => 'Sistem xətası: Metodun mövcud olmadığı müəyyən edildi.'
+                    'message' => 'Sistem xətası: Metodun mövcud olmadığı müəyyən edildi.',
                 ], 500);
             }
 
@@ -261,18 +260,18 @@ class InstitutionCRUDController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $impactSummary
+                'data' => $impactSummary,
             ], 200);
         } catch (\Exception $e) {
             \Log::error('Delete impact calculation failed', [
                 'institution_id' => $id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Məlumat toplanarkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Məlumat toplanarkən xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -282,19 +281,19 @@ class InstitutionCRUDController extends Controller
      */
     public function getDeleteProgress(Request $request, $operationId): JsonResponse
     {
-        $progressService = new InstitutionDeleteProgressService();
+        $progressService = new InstitutionDeleteProgressService;
         $progress = $progressService->getProgress($operationId);
 
-        if (!$progress) {
+        if (! $progress) {
             return response()->json([
                 'success' => false,
-                'message' => 'Progress not found'
+                'message' => 'Progress not found',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $progress
+            'data' => $progress,
         ]);
     }
 
@@ -306,11 +305,11 @@ class InstitutionCRUDController extends Controller
         \Log::info("🚀 DELETE request received for Institution ID: {$id}", [
             'request_data' => $request->all(),
             'user_id' => auth()->id(),
-            'ip' => $request->ip()
+            'ip' => $request->ip(),
         ]);
 
         $user = Auth::user();
-        $progressService = new InstitutionDeleteProgressService();
+        $progressService = new InstitutionDeleteProgressService;
 
         // Find institution including soft deleted ones
         $institution = Institution::withTrashed()->findOrFail($id);
@@ -325,72 +324,79 @@ class InstitutionCRUDController extends Controller
             'delete_type' => $request->input('type', 'soft'),
             'user_id' => $user->id,
             'children_count' => $institution->children()->withTrashed()->count(),
-            'users_count' => $institution->users()->count()
+            'users_count' => $institution->users()->count(),
         ]);
 
         $progressService->updateProgress($operationId, 10, 'İcazələr yoxlanılır...');
 
         // Check permissions - align with frontend UI permissions
-        if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin') && !$user->hasRole('sektoradmin')) {
+        if (! $user->hasRole('superadmin') && ! $user->hasRole('regionadmin') && ! $user->hasRole('sektoradmin')) {
             \Log::warning("Permission denied for User ID: {$user->id} attempting to delete Institution ID: {$institution->id}. Required roles: superadmin, regionadmin, or sektoradmin.");
             $progressService->failProgress($operationId, 'Bu əməliyyat üçün icazəniz yoxdur.');
+
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
-                'operation_id' => $operationId
+                'operation_id' => $operationId,
             ], 403);
         }
-        
+
         // RegionAdmin permission checks
         if ($user->hasRole('regionadmin')) {
             $userInstitution = $user->institution;
-            if (!$userInstitution || $userInstitution->level !== 2) {
+            if (! $userInstitution || $userInstitution->level !== 2) {
                 \Log::warning("RegionAdmin (User ID: {$user->id}) permission failed: Not associated with a regional institution.");
+
                 return response()->json(['success' => false, 'message' => 'RegionAdmin regional müəssisə ilə əlaqələndirilməlidir.'], 403);
             }
             $canDelete = $institution->parent_id === $userInstitution->id || ($institution->parent_id && Institution::withTrashed()->where('id', $institution->parent_id)->where('parent_id', $userInstitution->id)->exists());
-            if (!$canDelete || $institution->level < 3) {
+            if (! $canDelete || $institution->level < 3) {
                 \Log::warning("RegionAdmin (User ID: {$user->id}) permission failed: Attempted to delete institution ({$institution->id}) outside of their hierarchy.");
+
                 return response()->json(['success' => false, 'message' => 'RegionAdmin yalnız öz regionu altındakı müəssisələri silə bilər.'], 403);
             }
         }
-        
+
         // SektorAdmin permission checks
         if ($user->hasRole('sektoradmin')) {
             $userInstitution = $user->institution;
-            if (!$userInstitution || $userInstitution->level !== 3) {
+            if (! $userInstitution || $userInstitution->level !== 3) {
                 \Log::warning("SektorAdmin (User ID: {$user->id}) permission failed: Not associated with a sector institution.");
+
                 return response()->json(['success' => false, 'message' => 'SektorAdmin sektor müəssisəsi ilə əlaqələndirilməlidir.'], 403);
             }
             if ($institution->parent_id !== $userInstitution->id || $institution->level !== 4) {
                 \Log::warning("SektorAdmin (User ID: {$user->id}) permission failed: Attempted to delete institution ({$institution->id}) outside of their hierarchy.");
+
                 return response()->json(['success' => false, 'message' => 'SektorAdmin yalnız öz sektoru altındakı məktəbləri silə bilər.'], 403);
             }
         }
-        
+
         $deleteType = $request->input('type', 'soft');
         \Log::info("Delete type specified: '{$deleteType}' for Institution ID: {$institution->id}.");
 
         $progressService->updateProgress($operationId, 20, 'Silmə növü təsdiq edilir...');
 
-        if (!in_array($deleteType, ['soft', 'hard'])) {
+        if (! in_array($deleteType, ['soft', 'hard'])) {
             \Log::error("Invalid delete type '{$deleteType}' requested for Institution ID: {$institution->id}.");
             $progressService->failProgress($operationId, 'Yanlış silmə növü. "soft" və ya "hard" olmalıdır.');
+
             return response()->json([
                 'success' => false,
                 'message' => 'Yanlış silmə növü. "soft" və ya "hard" olmalıdır.',
-                'operation_id' => $operationId
+                'operation_id' => $operationId,
             ], 422);
         }
-        
+
         // Check if institution has users (prevent soft delete if users exist)
         if ($deleteType === 'soft') {
             $userCount = $institution->users()->count();
             if ($userCount > 0) {
                 \Log::warning("Soft delete aborted for Institution ID: {$institution->id}. Reason: Institution has {$userCount} associated users.");
+
                 return response()->json([
                     'success' => false,
-                    'message' => "İstifadəçiləri ({$userCount} nəfər) olan müəssisə arxivə köçürülə bilməz. Əvvəlcə istifadəçiləri köçürün."
+                    'message' => "İstifadəçiləri ({$userCount} nəfər) olan müəssisə arxivə köçürülə bilməz. Əvvəlcə istifadəçiləri köçürün.",
                 ], 422);
             }
         }
@@ -406,61 +412,59 @@ class InstitutionCRUDController extends Controller
 
                 $progressService->completeProgress($operationId, [
                     'message' => $message,
-                    'delete_type' => $deleteType
+                    'delete_type' => $deleteType,
                 ]);
 
                 return response()->json([
                     'success' => true,
                     'message' => $message,
                     'delete_type' => $deleteType,
-                    'operation_id' => $operationId
-                ], 200);
-            } else {
-                $progressService->updateProgress($operationId, 40, 'Həmişəlik silmə başlanılır...');
-
-                \Log::info("Executing hard delete for Institution ID: {$institution->id}. Calling hardDeleteWithRelationships method.");
-
-                // Pass progress service to hard delete method
-                $deletedData = $institution->hardDeleteWithRelationships($progressService, $operationId);
-                \Log::info("Hard delete completed for Institution ID: {$institution->id}.", ['details' => $deletedData]);
-
-                $childrenCount = isset($deletedData['children_deleted']) ? count($deletedData['children_deleted']) : 0;
-                $detailMessage = $childrenCount > 0 ? ' (Rekursiv silmə - alt müəssisələr də daxil olmaqla)' : '';
-                $message = 'Müəssisə və bütün əlaqəli məlumatlar həmişəlik silindi.' . $detailMessage;
-
-                $progressService->completeProgress($operationId, [
-                    'message' => $message,
-                    'delete_type' => $deleteType,
-                    'deleted_data' => $deletedData
-                ]);
-
-                return response()->json([
-                    'success' => true,
-                    'message' => $message,
-                    'delete_type' => $deleteType,
-                    'deleted_data' => $deletedData,
-                    'operation_id' => $operationId
+                    'operation_id' => $operationId,
                 ], 200);
             }
+            $progressService->updateProgress($operationId, 40, 'Həmişəlik silmə başlanılır...');
 
+            \Log::info("Executing hard delete for Institution ID: {$institution->id}. Calling hardDeleteWithRelationships method.");
+
+            // Pass progress service to hard delete method
+            $deletedData = $institution->hardDeleteWithRelationships($progressService, $operationId);
+            \Log::info("Hard delete completed for Institution ID: {$institution->id}.", ['details' => $deletedData]);
+
+            $childrenCount = isset($deletedData['children_deleted']) ? count($deletedData['children_deleted']) : 0;
+            $detailMessage = $childrenCount > 0 ? ' (Rekursiv silmə - alt müəssisələr də daxil olmaqla)' : '';
+            $message = 'Müəssisə və bütün əlaqəli məlumatlar həmişəlik silindi.' . $detailMessage;
+
+            $progressService->completeProgress($operationId, [
+                'message' => $message,
+                'delete_type' => $deleteType,
+                'deleted_data' => $deletedData,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => $message,
+                'delete_type' => $deleteType,
+                'deleted_data' => $deletedData,
+                'operation_id' => $operationId,
+            ], 200);
         } catch (\Exception $e) {
             \Log::error("An exception occurred during the '{$deleteType}' deletion of Institution ID: {$institution->id}.", [
                 'error_message' => $e->getMessage(),
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             $progressService->failProgress($operationId, 'Müəssisə silinərkən xəta baş verdi: ' . $e->getMessage(), [
                 'exception' => get_class($e),
                 'file' => $e->getFile(),
-                'line' => $e->getLine()
+                'line' => $e->getLine(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'Müəssisə silinərkən xəta baş verdi: ' . $e->getMessage(),
-                'operation_id' => $operationId
+                'operation_id' => $operationId,
             ], 500);
         }
     }
@@ -478,13 +482,13 @@ class InstitutionCRUDController extends Controller
                     // Their own regional institution
                     $q->where('id', $userInstitution->id)
                       // Or their child institutions (sectors and schools)
-                      ->orWhere('parent_id', $userInstitution->id)
+                        ->orWhere('parent_id', $userInstitution->id)
                       // Or grandchild institutions (schools under sectors)
-                      ->orWhereIn('parent_id', function ($subQuery) use ($userInstitution) {
-                          $subQuery->select('id')
-                                   ->from('institutions')
-                                   ->where('parent_id', $userInstitution->id);
-                      });
+                        ->orWhereIn('parent_id', function ($subQuery) use ($userInstitution) {
+                            $subQuery->select('id')
+                                ->from('institutions')
+                                ->where('parent_id', $userInstitution->id);
+                        });
                 });
             }
         } elseif ($user->hasRole('sektoradmin')) {
@@ -493,7 +497,7 @@ class InstitutionCRUDController extends Controller
             if ($userInstitution && $userInstitution->level === 3) {
                 $query->where(function ($q) use ($userInstitution) {
                     $q->where('id', $userInstitution->id)
-                      ->orWhere('parent_id', $userInstitution->id);
+                        ->orWhere('parent_id', $userInstitution->id);
                 });
             }
         } elseif ($user->hasRole('schooladmin')) {

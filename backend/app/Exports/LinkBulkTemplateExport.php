@@ -10,7 +10,7 @@ use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Events\AfterSheet;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class LinkBulkTemplateExport implements FromArray, WithHeadings, WithStyles, ShouldAutoSize, WithEvents
+class LinkBulkTemplateExport implements FromArray, ShouldAutoSize, WithEvents, WithHeadings, WithStyles
 {
     public function headings(): array
     {

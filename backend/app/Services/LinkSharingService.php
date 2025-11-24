@@ -3,19 +3,17 @@
 namespace App\Services;
 
 use App\Models\Institution;
-use App\Models\LinkShare;
 use App\Models\LinkAccessLog;
+use App\Models\LinkShare;
 use App\Models\User;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use App\Services\BaseService;
+use App\Services\LinkSharing\Domains\Access\LinkAccessManager;
+use App\Services\LinkSharing\Domains\Configuration\LinkConfigurationService;
+use App\Services\LinkSharing\Domains\Crud\LinkCrudManager;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
 use App\Services\LinkSharing\Domains\Query\LinkQueryBuilder;
-use App\Services\LinkSharing\Domains\Crud\LinkCrudManager;
-use App\Services\LinkSharing\Domains\Access\LinkAccessManager;
 use App\Services\LinkSharing\Domains\Statistics\LinkStatisticsService;
-use App\Services\LinkSharing\Domains\Configuration\LinkConfigurationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Link Sharing Service (Refactored - Sprint 4)
@@ -74,7 +72,7 @@ class LinkSharingService extends BaseService
         $canView = $this->permissionService->canAccessLink($user, $linkShare)
             || $this->permissionService->canModifyLink($user, $linkShare);
 
-        if (!$canView) {
+        if (! $canView) {
             throw new \Exception('Bu linkə baxmaq icazəniz yoxdur', 403);
         }
 
@@ -199,7 +197,7 @@ class LinkSharingService extends BaseService
             $targets = is_array($decoded) ? $decoded : [];
         }
 
-        if (!is_array($targets)) {
+        if (! is_array($targets)) {
             $targets = [];
         }
 
@@ -247,13 +245,13 @@ class LinkSharingService extends BaseService
             $targetUsersRaw = is_array($decodedUsers) ? $decodedUsers : [];
         }
 
-        if (!is_array($targetUsersRaw)) {
+        if (! is_array($targetUsersRaw)) {
             $targetUsersRaw = [];
         }
 
         $targetUserIds = array_values(array_unique(array_filter(array_map('intval', $targetUsersRaw))));
 
-        if (!empty($targetUserIds)) {
+        if (! empty($targetUserIds)) {
             $users = User::whereIn('id', $targetUserIds)
                 ->with('roles:id,name')
                 ->get(['id', 'first_name', 'last_name', 'username', 'email']);
@@ -298,7 +296,7 @@ class LinkSharingService extends BaseService
         $schoolsGrouped = $schoolTargets->groupBy(fn ($school) => $school->parent_id ?: 0);
         foreach ($schoolsGrouped as $sectorId => $schools) {
             $sectorId = (int) $sectorId;
-            if (!isset($sectorConfigs[$sectorId])) {
+            if (! isset($sectorConfigs[$sectorId])) {
                 $sectorConfigs[$sectorId] = [
                     'coverage' => 'partial',
                 ];
@@ -380,11 +378,12 @@ class LinkSharingService extends BaseService
                     'school_count' => count($schoolsData),
                     'schools' => $schoolsData,
                 ];
+
                 continue;
             }
 
             $sector = $sectorRecords->get($sectorId);
-            if (!$sector) {
+            if (! $sector) {
                 continue;
             }
 
@@ -432,6 +431,7 @@ class LinkSharingService extends BaseService
             if ($regionComparison !== 0) {
                 return $regionComparison;
             }
+
             return strcmp($a['name'] ?? '', $b['name'] ?? '');
         });
 
@@ -451,8 +451,8 @@ class LinkSharingService extends BaseService
      * Get merged sharing overview for all links with the same title (grouped links)
      * This method aggregates all institutions from multiple links sharing the same title
      *
-     * @param string $linkTitle The title of the link group
-     * @return array Merged overview with all institutions from all links in the group
+     * @param  string $linkTitle The title of the link group
+     * @return array  Merged overview with all institutions from all links in the group
      */
     public function getMergedSharingOverviewByTitle(string $linkTitle): array
     {
@@ -495,7 +495,7 @@ class LinkSharingService extends BaseService
                 $targets = is_array($decoded) ? $decoded : [];
             }
 
-            if (!is_array($targets)) {
+            if (! is_array($targets)) {
                 $targets = [];
             }
 
@@ -571,7 +571,7 @@ class LinkSharingService extends BaseService
         $schoolsGrouped = $schoolTargets->groupBy(fn ($school) => $school->parent_id ?: 0);
         foreach ($schoolsGrouped as $sectorId => $schools) {
             $sectorId = (int) $sectorId;
-            if (!isset($sectorConfigs[$sectorId])) {
+            if (! isset($sectorConfigs[$sectorId])) {
                 $sectorConfigs[$sectorId] = [
                     'coverage' => 'partial',
                 ];
@@ -650,11 +650,12 @@ class LinkSharingService extends BaseService
                     'school_count' => count($schoolsData),
                     'schools' => $schoolsData,
                 ];
+
                 continue;
             }
 
             $sector = $sectorRecords->get($sectorId);
-            if (!$sector) {
+            if (! $sector) {
                 continue;
             }
 
@@ -702,6 +703,7 @@ class LinkSharingService extends BaseService
             if ($regionComparison !== 0) {
                 return $regionComparison;
             }
+
             return strcmp($a['name'] ?? '', $b['name'] ?? '');
         });
 
@@ -721,7 +723,7 @@ class LinkSharingService extends BaseService
      * Get merged access statistics for multiple links
      * Aggregates access stats from all links in a group by institution
      *
-     * @param array $linkShareIds Array of link IDs
+     * @param  array $linkShareIds Array of link IDs
      * @return array Merged access statistics by institution
      */
     private function getMergedInstitutionAccessStats(array $linkShareIds): array

@@ -2,16 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Models\Grade;
 use App\Models\Institution;
 use App\Models\Role;
+use App\Models\User;
+use Exception;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\IOFactory;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
-use Exception;
 
 class StudentImportExportService extends BaseService
 {
@@ -27,7 +25,7 @@ class StudentImportExportService extends BaseService
      */
     public function generateImportTemplate($fileName): string
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         // Set headers
@@ -35,7 +33,7 @@ class StudentImportExportService extends BaseService
             'Ad', 'Soyad', 'Ata adı', 'İstifadəçi adı', 'Email', 'Şifrə',
             'Telefon', 'Doğum tarixi', 'Cins', 'Şəxsiyyət vəsiqəsi', 'Qurum ID',
             'Sinif ID', 'Ünvan', 'Təcili əlaqə (Ad)', 'Təcili əlaqə (Telefon)',
-            'Təcili əlaqə (Email)', 'Qeydlər', 'Status'
+            'Təcili əlaqə (Email)', 'Qeydlər', 'Status',
         ];
 
         foreach ($headers as $index => $header) {
@@ -49,14 +47,14 @@ class StudentImportExportService extends BaseService
                 'Əhməd', 'Məmmədov', 'Əli', 'ahmed.memmedov', 'ahmed@student.edu.az', 'student123',
                 '+994501234567', '2010-05-15', 'male', 'AZE1234567', '32',
                 '15', 'Bakı şəhəri, Nəsimi rayonu', 'Fatimə Məmmədova', '+994701234567',
-                'fatime@example.com', 'Yaxşı şagirddir', 'active'
+                'fatime@example.com', 'Yaxşı şagirddir', 'active',
             ],
             [
                 'Leyla', 'Həsənova', 'Rəşad', 'leyla.hasanova', '', '',
                 '', '2011-03-20', 'female', '', '32',
                 '14', 'Bakı şəhəri, Yasamal rayonu', 'Gülnar Həsənova', '+994551234567',
-                '', 'Dil fənlərində güclüdür', 'active'
-            ]
+                '', 'Dil fənlərində güclüdür', 'active',
+            ],
         ];
 
         foreach ($sampleData as $rowIndex => $data) {
@@ -72,10 +70,10 @@ class StudentImportExportService extends BaseService
 
         // Save to temporary file
         $filePath = storage_path('app/temp/' . $fileName);
-        if (!file_exists(dirname($filePath))) {
+        if (! file_exists(dirname($filePath))) {
             mkdir(dirname($filePath), 0755, true);
         }
-        
+
         $writer = new Xlsx($spreadsheet);
         $writer->save($filePath);
 
@@ -91,14 +89,14 @@ class StudentImportExportService extends BaseService
             $spreadsheet = IOFactory::load($file->getPathname());
             $sheet = $spreadsheet->getActiveSheet();
             $data = $sheet->toArray();
-            
+
             // Remove header row
             array_shift($data);
-            
+
             $results = [
                 'success' => 0,
                 'errors' => [],
-                'created_students' => []
+                'created_students' => [],
             ];
 
             $studentRole = Role::where('name', 'şagird')->firstOrFail();
@@ -106,18 +104,19 @@ class StudentImportExportService extends BaseService
             foreach ($data as $index => $row) {
                 try {
                     $rowNum = $index + 2; // Account for header row
-                    
+
                     // Skip empty rows
                     if (empty(trim($row[0])) && empty(trim($row[1]))) {
                         continue;
                     }
-                    
+
                     // Validate required fields
                     if (empty(trim($row[0])) || empty(trim($row[1]))) {
                         $results['errors'][] = "Sətir {$rowNum}: Ad və soyad sahələri tələb olunur";
+
                         continue;
                     }
-                    
+
                     // Prepare student data
                     $studentData = [
                         'first_name' => trim($row[0]),
@@ -127,84 +126,87 @@ class StudentImportExportService extends BaseService
                         'email' => trim($row[4]) ?: null,
                         'password' => trim($row[5]) ?: 'student123',
                         'contact_phone' => trim($row[6]) ?: null,
-                        'birth_date' => !empty(trim($row[7])) ? $this->parseDate(trim($row[7])) : null,
+                        'birth_date' => ! empty(trim($row[7])) ? $this->parseDate(trim($row[7])) : null,
                         'gender' => in_array(trim($row[8]), ['male', 'female']) ? trim($row[8]) : null,
                         'national_id' => trim($row[9]) ?: null,
-                        'institution_id' => !empty(trim($row[10])) ? (int)trim($row[10]) : null,
-                        'class_id' => !empty(trim($row[11])) ? (int)trim($row[11]) : null,
+                        'institution_id' => ! empty(trim($row[10])) ? (int) trim($row[10]) : null,
+                        'class_id' => ! empty(trim($row[11])) ? (int) trim($row[11]) : null,
                         'address' => trim($row[12]) ?: null,
                         'emergency_contact_name' => trim($row[13]) ?: null,
                         'emergency_contact_phone' => trim($row[14]) ?: null,
                         'emergency_contact_email' => trim($row[15]) ?: null,
                         'notes' => trim($row[16]) ?: null,
-                        'is_active' => trim($row[17]) !== 'inactive'
+                        'is_active' => trim($row[17]) !== 'inactive',
                     ];
-                    
+
                     // Validate institution
                     if ($studentData['institution_id']) {
-                        if (!Institution::where('id', $studentData['institution_id'])->exists()) {
+                        if (! Institution::where('id', $studentData['institution_id'])->exists()) {
                             $results['errors'][] = "Sətir {$rowNum}: Qurum tapılmadı: {$studentData['institution_id']}";
+
                             continue;
                         }
-                        
+
                         // Check if user can access this institution
                         $institution = Institution::find($studentData['institution_id']);
-                        if (!$this->studentManagementService->canManageStudentsInInstitution($user, $institution->id)) {
+                        if (! $this->studentManagementService->canManageStudentsInInstitution($user, $institution->id)) {
                             $results['errors'][] = "Sətir {$rowNum}: Bu quruma şagird əlavə etmək icazəniz yoxdur";
+
                             continue;
                         }
                     } else {
                         // Use user's institution if not specified
                         $studentData['institution_id'] = $user->institution_id;
                     }
-                    
+
                     // Validate class/grade
                     if ($studentData['class_id']) {
                         $grade = Grade::where('id', $studentData['class_id'])
-                                     ->where('institution_id', $studentData['institution_id'])
-                                     ->first();
-                        if (!$grade) {
+                            ->where('institution_id', $studentData['institution_id'])
+                            ->first();
+                        if (! $grade) {
                             $results['errors'][] = "Sətir {$rowNum}: Bu qurumda sinif tapılmadı: {$studentData['class_id']}";
+
                             continue;
                         }
                     }
-                    
+
                     // Validate username uniqueness if provided
                     if ($studentData['username']) {
                         if (User::where('username', $studentData['username'])->exists()) {
                             $results['errors'][] = "Sətir {$rowNum}: İstifadəçi adı artıq mövcuddur: {$studentData['username']}";
+
                             continue;
                         }
                     }
-                    
+
                     // Validate email uniqueness if provided
                     if ($studentData['email']) {
                         if (User::where('email', $studentData['email'])->exists()) {
                             $results['errors'][] = "Sətir {$rowNum}: Email artıq mövcuddur: {$studentData['email']}";
+
                             continue;
                         }
                     }
-                    
+
                     // Create student
                     $student = $this->studentManagementService->createStudent($studentData, $user);
-                    
+
                     $results['success']++;
                     $results['created_students'][] = [
                         'id' => $student->id,
                         'name' => $student->profile->first_name . ' ' . $student->profile->last_name,
                         'username' => $student->username,
-                        'institution' => $student->institution->name ?? ''
+                        'institution' => $student->institution->name ?? '',
                     ];
-                    
                 } catch (Exception $e) {
                     $results['errors'][] = "Sətir {$rowNum}: " . $e->getMessage();
                 }
             }
-            
+
             return $results;
-            
         } catch (Exception $e) {
-            throw new Exception("Fayl oxunarkən xəta: " . $e->getMessage());
+            throw new Exception('Fayl oxunarkən xəta: ' . $e->getMessage());
         }
     }
 
@@ -213,7 +215,7 @@ class StudentImportExportService extends BaseService
      */
     public function generateExportFile($students, $fileName): string
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         // Set headers
@@ -222,7 +224,7 @@ class StudentImportExportService extends BaseService
             'Telefon', 'Doğum tarixi', 'Cins', 'Şəxsiyyət vəsiqəsi',
             'Qurum', 'Sinif', 'Qeydiyyat tarixi', 'Şagird nömrəsi',
             'Ünvan', 'Təcili əlaqə (Ad)', 'Təcili əlaqə (Telefon)',
-            'Status', 'Son giriş', 'Yaradılma tarixi'
+            'Status', 'Son giriş', 'Yaradılma tarixi',
         ];
 
         foreach ($headers as $index => $header) {
@@ -265,10 +267,10 @@ class StudentImportExportService extends BaseService
 
         // Save to temporary file
         $filePath = storage_path('app/temp/' . $fileName);
-        if (!file_exists(dirname($filePath))) {
+        if (! file_exists(dirname($filePath))) {
             mkdir(dirname($filePath), 0755, true);
         }
-        
+
         $writer = new Xlsx($spreadsheet);
         $writer->save($filePath);
 
@@ -283,7 +285,7 @@ class StudentImportExportService extends BaseService
         $total = $students->count();
         $active = $students->where('is_active', true)->count();
         $inactive = $total - $active;
-        
+
         // Group by institution
         $byInstitution = $students->groupBy('institution.name')
             ->map(function ($group) {
@@ -305,13 +307,20 @@ class StudentImportExportService extends BaseService
 
         // Age distribution
         $ageGroups = $students->map(function ($student) {
-            if (!$student->profile->birth_date) {
+            if (! $student->profile->birth_date) {
                 return 'unknown';
             }
             $age = \Carbon\Carbon::parse($student->profile->birth_date)->age;
-            if ($age < 10) return '6-10';
-            if ($age < 15) return '10-15';
-            if ($age < 18) return '15-18';
+            if ($age < 10) {
+                return '6-10';
+            }
+            if ($age < 15) {
+                return '10-15';
+            }
+            if ($age < 18) {
+                return '15-18';
+            }
+
             return '18+';
         })->countBy();
 
@@ -322,7 +331,7 @@ class StudentImportExportService extends BaseService
             'by_institution' => $byInstitution,
             'by_grade' => $byGrade,
             'by_gender' => $byGender,
-            'by_age_group' => $ageGroups
+            'by_age_group' => $ageGroups,
         ];
     }
 
@@ -338,18 +347,18 @@ class StudentImportExportService extends BaseService
         try {
             // Try common date formats
             $formats = ['Y-m-d', 'd.m.Y', 'd/m/Y', 'Y-m-d H:i:s'];
-            
+
             foreach ($formats as $format) {
                 $date = \DateTime::createFromFormat($format, $dateString);
                 if ($date !== false) {
                     return $date->format('Y-m-d');
                 }
             }
-            
+
             // Try using Carbon for more flexible parsing
             $date = \Carbon\Carbon::parse($dateString);
+
             return $date->format('Y-m-d');
-            
         } catch (Exception $e) {
             return null;
         }

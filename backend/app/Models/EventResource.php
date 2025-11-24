@@ -117,7 +117,7 @@ class EventResource extends Model
      */
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'Gözləmədə',
             'approved' => 'Təsdiqləndi',
             'acquired' => 'Əldə edildi',
@@ -129,7 +129,7 @@ class EventResource extends Model
 
     public function getResourceTypeLabelAttribute(): string
     {
-        return match($this->resource_type) {
+        return match ($this->resource_type) {
             'equipment' => 'Avadanlıq',
             'material' => 'Material',
             'facility' => 'Təsis',
@@ -150,9 +150,9 @@ class EventResource extends Model
             return 'sufficient';
         } elseif ($this->quantity_available > 0) {
             return 'partial';
-        } else {
-            return 'unavailable';
         }
+
+        return 'unavailable';
     }
 
     /**

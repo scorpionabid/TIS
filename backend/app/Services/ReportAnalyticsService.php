@@ -2,13 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Institution;
 use App\Models\Report;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Models\Institution;
 use App\Models\User;
-use App\Services\BaseService;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class ReportAnalyticsService extends BaseService
@@ -29,7 +27,7 @@ class ReportAnalyticsService extends BaseService
             'institution_analytics' => $this->getInstitutionAnalytics($user, $filters),
             'response_patterns' => $this->getResponsePatterns($user, $dateFrom, $dateTo),
             'user_engagement' => $this->getUserEngagement($user, $dateFrom, $dateTo),
-            'report_usage' => $this->getReportUsage($user, $dateFrom, $dateTo)
+            'report_usage' => $this->getReportUsage($user, $dateFrom, $dateTo),
         ];
     }
 
@@ -50,7 +48,7 @@ class ReportAnalyticsService extends BaseService
         $totalSurveys = $surveysQuery->count();
         $totalResponses = $responsesQuery->count();
         $totalReports = $reportsQuery->count();
-        
+
         $completedResponses = $responsesQuery->where('status', 'completed')->count();
         $overallResponseRate = $this->calculateOverallResponseRate($dateFrom, $dateTo, $user);
 
@@ -72,9 +70,9 @@ class ReportAnalyticsService extends BaseService
             'trends' => [
                 'surveys_change' => $this->calculatePercentageChange($totalSurveys, $prevSurveys),
                 'responses_change' => $this->calculatePercentageChange($totalResponses, $prevResponses),
-                'reports_change' => $this->calculatePercentageChange($totalReports, $prevReports)
+                'reports_change' => $this->calculatePercentageChange($totalReports, $prevReports),
             ],
-            'completion_rate' => $totalResponses > 0 ? round(($completedResponses / $totalResponses) * 100, 2) : 0
+            'completion_rate' => $totalResponses > 0 ? round(($completedResponses / $totalResponses) * 100, 2) : 0,
         ];
     }
 
@@ -93,7 +91,7 @@ class ReportAnalyticsService extends BaseService
             ->whereBetween('created_at', [$dateFrom, $dateTo])
             ->groupBy('period')
             ->orderBy('period');
-        
+
         $this->applyUserAccessControl($surveysQuery, $user);
         $surveyTimeline = $surveysQuery->get()->pluck('count', 'period')->toArray();
 
@@ -102,7 +100,7 @@ class ReportAnalyticsService extends BaseService
             ->whereBetween('created_at', [$dateFrom, $dateTo])
             ->groupBy('period')
             ->orderBy('period');
-        
+
         $this->applyUserAccessControl($responsesQuery, $user, 'survey');
         $responseTimeline = $responsesQuery->get()->pluck('count', 'period')->toArray();
 
@@ -111,7 +109,7 @@ class ReportAnalyticsService extends BaseService
             ->whereBetween('created_at', [$dateFrom, $dateTo])
             ->groupBy('period')
             ->orderBy('period');
-        
+
         $this->applyUserAccessControl($reportsQuery, $user);
         $reportTimeline = $reportsQuery->get()->pluck('count', 'period')->toArray();
 
@@ -120,7 +118,7 @@ class ReportAnalyticsService extends BaseService
             'surveys' => $surveyTimeline,
             'responses' => $responseTimeline,
             'reports' => $reportTimeline,
-            'combined_activity' => $this->combineTimelineData([$surveyTimeline, $responseTimeline, $reportTimeline])
+            'combined_activity' => $this->combineTimelineData([$surveyTimeline, $responseTimeline, $reportTimeline]),
         ];
     }
 
@@ -133,15 +131,15 @@ class ReportAnalyticsService extends BaseService
         $orderBy = $filters['order_by'] ?? 'response_count';
 
         $query = Survey::with(['institution', 'creator'])
-            ->withCount(['responses as response_count', 'responses as completed_count' => function($q) {
+            ->withCount(['responses as response_count', 'responses as completed_count' => function ($q) {
                 $q->where('status', 'completed');
             }]);
 
         // Apply date filter if provided
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
 
@@ -160,7 +158,7 @@ class ReportAnalyticsService extends BaseService
 
         $surveys = $query->limit($limit)->get();
 
-        return $surveys->map(function($survey) {
+        return $surveys->map(function ($survey) {
             return [
                 'id' => $survey->id,
                 'title' => $survey->title,
@@ -168,10 +166,10 @@ class ReportAnalyticsService extends BaseService
                 'creator' => $survey->creator?->name,
                 'response_count' => $survey->response_count,
                 'completed_count' => $survey->completed_count,
-                'completion_rate' => $survey->response_count > 0 ? 
+                'completion_rate' => $survey->response_count > 0 ?
                     round(($survey->completed_count / $survey->response_count) * 100, 2) : 0,
                 'created_at' => $survey->created_at,
-                'status' => $survey->status
+                'status' => $survey->status,
             ];
         })->toArray();
     }
@@ -185,10 +183,10 @@ class ReportAnalyticsService extends BaseService
             ->withCount(['surveys as survey_count', 'users as user_count']);
 
         // Apply filters
-        if (!empty($filters['institution_type'])) {
+        if (! empty($filters['institution_type'])) {
             $query->where('type', $filters['institution_type']);
         }
-        if (!empty($filters['level'])) {
+        if (! empty($filters['level'])) {
             $query->where('level', $filters['level']);
         }
 
@@ -196,10 +194,10 @@ class ReportAnalyticsService extends BaseService
 
         $institutions = $query->limit(20)->get();
 
-        return $institutions->map(function($institution) {
+        return $institutions->map(function ($institution) {
             $totalResponses = $this->getTotalResponsesForInstitution($institution);
             $completedResponses = $this->getCompletedResponsesForInstitution($institution);
-            
+
             return [
                 'id' => $institution->id,
                 'name' => $institution->name,
@@ -209,9 +207,9 @@ class ReportAnalyticsService extends BaseService
                 'user_count' => $institution->user_count,
                 'total_responses' => $totalResponses,
                 'completed_responses' => $completedResponses,
-                'response_rate' => $totalResponses > 0 ? 
+                'response_rate' => $totalResponses > 0 ?
                     round(($completedResponses / $totalResponses) * 100, 2) : 0,
-                'activity_score' => $this->calculateActivityScore($institution)
+                'activity_score' => $this->calculateActivityScore($institution),
             ];
         })->sortByDesc('activity_score')->values()->toArray();
     }
@@ -222,14 +220,14 @@ class ReportAnalyticsService extends BaseService
     private function getInstitutionAnalytics($user, array $filters = []): array
     {
         $institutionId = $filters['institution_id'] ?? $user->institution_id;
-        
-        if (!$institutionId) {
+
+        if (! $institutionId) {
             return ['error' => 'Müəssisə ID-si tapılmadı'];
         }
 
         $institution = Institution::with(['surveys', 'users', 'children'])->find($institutionId);
-        
-        if (!$institution) {
+
+        if (! $institution) {
             return ['error' => 'Müəssisə tapılmadı'];
         }
 
@@ -241,28 +239,28 @@ class ReportAnalyticsService extends BaseService
                 'id' => $institution->id,
                 'name' => $institution->name,
                 'type' => $institution->type,
-                'level' => $institution->level
+                'level' => $institution->level,
             ],
             'surveys' => [
                 'total' => $institution->surveys()->count(),
                 'active' => $institution->surveys()->where('status', 'active')->count(),
-                'recent' => $institution->surveys()->whereBetween('created_at', [$dateFrom, $dateTo])->count()
+                'recent' => $institution->surveys()->whereBetween('created_at', [$dateFrom, $dateTo])->count(),
             ],
             'responses' => [
                 'total' => $this->getTotalResponsesForInstitution($institution, $dateFrom, $dateTo),
                 'completed' => $this->getCompletedResponsesForInstitution($institution, $dateFrom, $dateTo),
-                'in_progress' => $this->getInProgressResponsesForInstitution($institution, $dateFrom, $dateTo)
+                'in_progress' => $this->getInProgressResponsesForInstitution($institution, $dateFrom, $dateTo),
             ],
             'users' => [
                 'total' => $institution->users()->count(),
                 'active' => $institution->users()->where('is_active', true)->count(),
-                'by_role' => $this->getUsersByRole($institution)
+                'by_role' => $this->getUsersByRole($institution),
             ],
             'children' => [
                 'count' => $institution->children->count(),
                 'active' => $institution->children->where('is_active', true)->count(),
-                'performance_summary' => $this->getChildrenPerformanceSummary($institution)
-            ]
+                'performance_summary' => $this->getChildrenPerformanceSummary($institution),
+            ],
         ];
     }
 
@@ -278,7 +276,7 @@ class ReportAnalyticsService extends BaseService
             'by_hour' => $this->getResponsesByHour($responsesQuery),
             'by_day_of_week' => $this->getResponsesByDayOfWeek($responsesQuery),
             'by_status' => $this->getResponsesByStatus($responsesQuery),
-            'completion_time_distribution' => $this->getCompletionTimeDistribution($responsesQuery)
+            'completion_time_distribution' => $this->getCompletionTimeDistribution($responsesQuery),
         ];
     }
 
@@ -292,14 +290,14 @@ class ReportAnalyticsService extends BaseService
 
         $totalUsers = $usersQuery->count();
         $activeUsers = $usersQuery->where('is_active', true)->count();
-        
+
         return [
             'total_users' => $totalUsers,
             'active_users' => $activeUsers,
             'activation_rate' => $totalUsers > 0 ? round(($activeUsers / $totalUsers) * 100, 2) : 0,
             'new_registrations' => $totalUsers,
             'engagement_by_role' => $this->getEngagementByRole($usersQuery),
-            'login_frequency' => $this->getLoginFrequencyData($user, $dateFrom, $dateTo)
+            'login_frequency' => $this->getLoginFrequencyData($user, $dateFrom, $dateTo),
         ];
     }
 
@@ -312,14 +310,14 @@ class ReportAnalyticsService extends BaseService
         $this->applyUserAccessControl($reportsQuery, $user);
 
         $reports = $reportsQuery->get();
-        
+
         return [
             'total_reports' => $reports->count(),
             'by_type' => $reports->groupBy('type')->map->count()->toArray(),
             'by_status' => $reports->groupBy('status')->map->count()->toArray(),
             'generation_time_stats' => $this->calculateGenerationTimeStats($reports),
             'most_popular_types' => $this->getMostPopularReportTypes($reports),
-            'usage_trends' => $this->getReportUsageTrends($user, $dateFrom, $dateTo)
+            'usage_trends' => $this->getReportUsageTrends($user, $dateFrom, $dateTo),
         ];
     }
 
@@ -330,45 +328,46 @@ class ReportAnalyticsService extends BaseService
     {
         $surveysQuery = Survey::whereBetween('created_at', [$dateFrom, $dateTo]);
         $this->applyUserAccessControl($surveysQuery, $user);
-        
+
         $totalSurveys = $surveysQuery->count();
-        
+
         if ($totalSurveys === 0) {
             return 0.0;
         }
 
         $totalPossibleResponses = $surveysQuery->sum('target_responses') ?: $totalSurveys * 10; // Default assumption
-        
-        $responsesQuery = SurveyResponse::whereHas('survey', function($q) use ($dateFrom, $dateTo, $user) {
+
+        $responsesQuery = SurveyResponse::whereHas('survey', function ($q) use ($dateFrom, $dateTo, $user) {
             $q->whereBetween('created_at', [$dateFrom, $dateTo]);
             $this->applyUserAccessControl($q, $user);
         });
-        
+
         $actualResponses = $responsesQuery->count();
-        
+
         return round(($actualResponses / $totalPossibleResponses) * 100, 2);
     }
 
     /**
      * Apply user-based access control
      */
-    private function applyUserAccessControl($query, $user, string $relation = null): void
+    private function applyUserAccessControl($query, $user, ?string $relation = null): void
     {
         if ($user->hasRole('superadmin')) {
             return; // SuperAdmin can see all
         }
 
         $userInstitution = $user->institution;
-        
-        if (!$userInstitution) {
+
+        if (! $userInstitution) {
             $query->whereRaw('1 = 0'); // No access
+
             return;
         }
 
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
             if ($relation === 'survey') {
-                $query->whereHas('survey', function($q) use ($childIds) {
+                $query->whereHas('survey', function ($q) use ($childIds) {
                     $q->whereIn('institution_id', $childIds);
                 });
             } else {
@@ -377,7 +376,7 @@ class ReportAnalyticsService extends BaseService
         } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
             if ($relation === 'survey') {
-                $query->whereHas('survey', function($q) use ($childIds) {
+                $query->whereHas('survey', function ($q) use ($childIds) {
                     $q->whereIn('institution_id', $childIds);
                 });
             } else {
@@ -386,7 +385,7 @@ class ReportAnalyticsService extends BaseService
         } else {
             // School level or other roles
             if ($relation === 'survey') {
-                $query->whereHas('survey', function($q) use ($userInstitution) {
+                $query->whereHas('survey', function ($q) use ($userInstitution) {
                     $q->where('institution_id', $userInstitution->id);
                 });
             } else {
@@ -403,20 +402,20 @@ class ReportAnalyticsService extends BaseService
         if ($previous == 0) {
             return $current > 0 ? 100.0 : 0.0;
         }
-        
+
         return round((($current - $previous) / $previous) * 100, 2);
     }
 
     private function combineTimelineData(array $timelines): array
     {
         $combined = [];
-        
+
         foreach ($timelines as $timeline) {
             foreach ($timeline as $period => $value) {
                 $combined[$period] = ($combined[$period] ?? 0) + $value;
             }
         }
-        
+
         return $combined;
     }
 
@@ -425,16 +424,16 @@ class ReportAnalyticsService extends BaseService
         $surveyScore = min(100, $institution->survey_count * 10);
         $userScore = min(100, $institution->user_count * 5);
         $responseScore = min(100, $this->getTotalResponsesForInstitution($institution) * 2);
-        
+
         return round(($surveyScore + $userScore + $responseScore) / 3, 2);
     }
 
     /**
      * Get total responses for institution
      */
-    private function getTotalResponsesForInstitution(Institution $institution, Carbon $dateFrom = null, Carbon $dateTo = null): int
+    private function getTotalResponsesForInstitution(Institution $institution, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): int
     {
-        $query = SurveyResponse::whereHas('survey', function($q) use ($institution) {
+        $query = SurveyResponse::whereHas('survey', function ($q) use ($institution) {
             $q->where('institution_id', $institution->id);
         });
 
@@ -448,10 +447,10 @@ class ReportAnalyticsService extends BaseService
     /**
      * Get completed responses for institution
      */
-    private function getCompletedResponsesForInstitution(Institution $institution, Carbon $dateFrom = null, Carbon $dateTo = null): int
+    private function getCompletedResponsesForInstitution(Institution $institution, ?Carbon $dateFrom = null, ?Carbon $dateTo = null): int
     {
         $query = SurveyResponse::where('status', 'completed')
-            ->whereHas('survey', function($q) use ($institution) {
+            ->whereHas('survey', function ($q) use ($institution) {
                 $q->where('institution_id', $institution->id);
             });
 

@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 
 class SecurityAlert extends Model
 {
@@ -218,7 +218,7 @@ class SecurityAlert extends Model
             return false;
         }
 
-        $maxHours = match($this->severity) {
+        $maxHours = match ($this->severity) {
             'critical' => 1,
             'high' => 4,
             'medium' => 24,
@@ -244,7 +244,7 @@ class SecurityAlert extends Model
     /**
      * Resolve alert
      */
-    public function resolve(string $action, string $notes = null): bool
+    public function resolve(string $action, ?string $notes = null): bool
     {
         return $this->update([
             'status' => 'resolved',
@@ -257,7 +257,7 @@ class SecurityAlert extends Model
     /**
      * Mark as false positive
      */
-    public function markAsFalsePositive(string $reason = null): bool
+    public function markAsFalsePositive(?string $reason = null): bool
     {
         return $this->update([
             'status' => 'false_positive',
@@ -272,7 +272,7 @@ class SecurityAlert extends Model
     public function escalate(): bool
     {
         $newLevel = $this->escalation_level + 1;
-        
+
         // Escalate severity if needed
         $newSeverity = $this->severity;
         if ($newLevel >= 2 && $this->severity === 'low') {
@@ -295,18 +295,18 @@ class SecurityAlert extends Model
     public static function createAlert(array $data): self
     {
         // Auto-determine severity if not provided
-        if (!isset($data['severity'])) {
+        if (! isset($data['severity'])) {
             $data['severity'] = self::determineSeverity($data);
         }
 
         // Auto-determine if immediate action required
-        if (!isset($data['requires_immediate_action'])) {
+        if (! isset($data['requires_immediate_action'])) {
             $data['requires_immediate_action'] = in_array($data['severity'], ['high', 'critical']) ||
                                                 in_array($data['alert_type'], [
                                                     'session_hijacking',
                                                     'brute_force_attack',
                                                     'data_breach_attempt',
-                                                    'system_intrusion'
+                                                    'system_intrusion',
                                                 ]);
         }
 
@@ -344,10 +344,16 @@ class SecurityAlert extends Model
         }
 
         // Risk score based severity
-        if ($riskScore >= 80) return 'critical';
-        if ($riskScore >= 60) return 'high';
-        if ($riskScore >= 40) return 'medium';
-        
+        if ($riskScore >= 80) {
+            return 'critical';
+        }
+        if ($riskScore >= 60) {
+            return 'high';
+        }
+        if ($riskScore >= 40) {
+            return 'medium';
+        }
+
         return 'low';
     }
 
@@ -357,8 +363,8 @@ class SecurityAlert extends Model
     protected function autoAssignToAdmin(): void
     {
         $admin = User::role(['superadmin', 'regionadmin'])
-                    ->where('is_active', true)
-                    ->first();
+            ->where('is_active', true)
+            ->first();
 
         if ($admin) {
             $this->update(['assigned_to' => $admin->id]);
@@ -378,7 +384,7 @@ class SecurityAlert extends Model
      */
     public function getResponseTimeAttribute(): ?int
     {
-        if (!$this->acknowledged_at) {
+        if (! $this->acknowledged_at) {
             return null;
         }
 
@@ -390,7 +396,7 @@ class SecurityAlert extends Model
      */
     public function getResolutionTimeAttribute(): ?int
     {
-        if (!$this->resolved_at) {
+        if (! $this->resolved_at) {
             return null;
         }
 
@@ -413,13 +419,13 @@ class SecurityAlert extends Model
             'average_response_time' => $alerts->whereNotNull('acknowledged_at')->avg('response_time'),
             'average_resolution_time' => $alerts->whereNotNull('resolved_at')->avg('resolution_time'),
             'alerts_by_type' => $alerts->selectRaw('alert_type, COUNT(*) as count')
-                                      ->groupBy('alert_type')
-                                      ->pluck('count', 'alert_type')
-                                      ->toArray(),
+                ->groupBy('alert_type')
+                ->pluck('count', 'alert_type')
+                ->toArray(),
             'alerts_by_severity' => $alerts->selectRaw('severity, COUNT(*) as count')
-                                           ->groupBy('severity')
-                                           ->pluck('count', 'severity')
-                                           ->toArray(),
+                ->groupBy('severity')
+                ->pluck('count', 'severity')
+                ->toArray(),
             'overdue_alerts' => self::getOverdueAlerts()->count(),
             'escalated_alerts' => $alerts->where('escalation_level', '>', 0)->count(),
         ];
@@ -432,19 +438,19 @@ class SecurityAlert extends Model
     {
         return self::open()->where(function ($query) {
             $query->where('severity', 'critical')
-                  ->where('detected_at', '<=', now()->subHour())
-                  ->orWhere(function ($q) {
-                      $q->where('severity', 'high')
+                ->where('detected_at', '<=', now()->subHour())
+                ->orWhere(function ($q) {
+                    $q->where('severity', 'high')
                         ->where('detected_at', '<=', now()->subHours(4));
-                  })
-                  ->orWhere(function ($q) {
-                      $q->where('severity', 'medium')
+                })
+                ->orWhere(function ($q) {
+                    $q->where('severity', 'medium')
                         ->where('detected_at', '<=', now()->subDay());
-                  })
-                  ->orWhere(function ($q) {
-                      $q->where('severity', 'low')
+                })
+                ->orWhere(function ($q) {
+                    $q->where('severity', 'low')
                         ->where('detected_at', '<=', now()->subDays(3));
-                  });
+                });
         });
     }
 

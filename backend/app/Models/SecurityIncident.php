@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class SecurityIncident extends Model
 {
@@ -126,7 +126,7 @@ class SecurityIncident extends Model
         'review_comments',
         'retention_period',
         'archived',
-        'archived_at'
+        'archived_at',
     ];
 
     protected $casts = [
@@ -207,7 +207,7 @@ class SecurityIncident extends Model
         'response_cost' => 'decimal:2',
         'external_consultant_cost' => 'decimal:2',
         'technology_cost' => 'decimal:2',
-        'business_loss' => 'decimal:2'
+        'business_loss' => 'decimal:2',
     ];
 
     // Relationships
@@ -279,7 +279,7 @@ class SecurityIncident extends Model
 
     public function isActive(): bool
     {
-        return !in_array($this->status, ['resolved', 'closed', 'false_positive']);
+        return ! in_array($this->status, ['resolved', 'closed', 'false_positive']);
     }
 
     // Severity and impact assessment
@@ -306,46 +306,46 @@ class SecurityIncident extends Model
     // Time calculations
     public function getTimeToDetection(): ?int
     {
-        if (!$this->occurred_at || !$this->detected_at) {
+        if (! $this->occurred_at || ! $this->detected_at) {
             return null;
         }
-        
+
         return $this->occurred_at->diffInMinutes($this->detected_at);
     }
 
     public function getTimeToResponse(): ?int
     {
-        if (!$this->detected_at || !$this->response_started_at) {
+        if (! $this->detected_at || ! $this->response_started_at) {
             return null;
         }
-        
+
         return $this->detected_at->diffInMinutes($this->response_started_at);
     }
 
     public function getTimeToContainment(): ?int
     {
-        if (!$this->detected_at || !$this->contained_at) {
+        if (! $this->detected_at || ! $this->contained_at) {
             return null;
         }
-        
+
         return $this->detected_at->diffInMinutes($this->contained_at);
     }
 
     public function getTimeToResolution(): ?int
     {
-        if (!$this->detected_at || !$this->resolved_at) {
+        if (! $this->detected_at || ! $this->resolved_at) {
             return null;
         }
-        
+
         return $this->detected_at->diffInMinutes($this->resolved_at);
     }
 
     public function getTotalResponseTime(): ?int
     {
-        if (!$this->response_started_at || !$this->closed_at) {
+        if (! $this->response_started_at || ! $this->closed_at) {
             return null;
         }
-        
+
         return $this->response_started_at->diffInMinutes($this->closed_at);
     }
 
@@ -356,38 +356,39 @@ class SecurityIncident extends Model
             'time_to_detection_minutes' => $this->getTimeToDetection(),
             'time_to_response_minutes' => $this->getTimeToResponse(),
             'time_to_containment_minutes' => $this->getTimeToContainment(),
-            'time_to_resolution_minutes' => $this->getTimeToResolution()
+            'time_to_resolution_minutes' => $this->getTimeToResolution(),
         ]);
     }
 
     public function isWithinSLA(): bool
     {
-        $slaMinutes = match($this->severity_level) {
+        $slaMinutes = match ($this->severity_level) {
             'critical' => 60,      // 1 hour for critical
             'high' => 240,         // 4 hours for high
             'medium' => 1440,      // 24 hours for medium
             'low' => 4320,         // 72 hours for low
             default => 1440
         };
-        
+
         $responseTime = $this->getTimeToResponse();
+
         return $responseTime !== null && $responseTime <= $slaMinutes;
     }
 
     // Data protection and compliance
     public function requiresGDPRNotification(): bool
     {
-        return $this->gdpr_applicable && 
-               $this->personal_data_involved && 
+        return $this->gdpr_applicable &&
+               $this->personal_data_involved &&
                $this->hasMajorImpact();
     }
 
     public function getGDPRNotificationDeadline(): ?Carbon
     {
-        if (!$this->requiresGDPRNotification()) {
+        if (! $this->requiresGDPRNotification()) {
             return null;
         }
-        
+
         // GDPR requires notification within 72 hours
         return $this->detected_at->addHours(72);
     }
@@ -395,65 +396,72 @@ class SecurityIncident extends Model
     public function isGDPRNotificationOverdue(): bool
     {
         $deadline = $this->getGDPRNotificationDeadline();
-        return $deadline && $deadline->isPast() && !$this->regulatory_notification_sent;
+
+        return $deadline && $deadline->isPast() && ! $this->regulatory_notification_sent;
     }
 
     // Cost calculation
     public function calculateTotalCost(): float
     {
-        return ($this->response_cost ?? 0) + 
-               ($this->external_consultant_cost ?? 0) + 
-               ($this->technology_cost ?? 0) + 
+        return ($this->response_cost ?? 0) +
+               ($this->external_consultant_cost ?? 0) +
+               ($this->technology_cost ?? 0) +
                ($this->business_loss ?? 0);
     }
 
     public function calculateDirectCosts(): float
     {
-        return ($this->response_cost ?? 0) + 
-               ($this->external_consultant_cost ?? 0) + 
+        return ($this->response_cost ?? 0) +
+               ($this->external_consultant_cost ?? 0) +
                ($this->technology_cost ?? 0);
     }
 
     // Risk assessment
     public function calculateRiskScore(): int
     {
-        $severityWeight = match($this->severity_level) {
+        $severityWeight = match ($this->severity_level) {
             'critical' => 40,
             'high' => 30,
             'medium' => 20,
             'low' => 10,
             'informational' => 5
         };
-        
-        $impactWeight = match($this->impact_level) {
+
+        $impactWeight = match ($this->impact_level) {
             'catastrophic' => 30,
             'major' => 25,
             'moderate' => 15,
             'minor' => 10,
             'negligible' => 5
         };
-        
+
         $dataWeight = 0;
-        if ($this->personal_data_involved) $dataWeight += 15;
-        if ($this->gdpr_applicable) $dataWeight += 10;
-        if ($this->regulatory_notification_required) $dataWeight += 5;
-        
+        if ($this->personal_data_involved) {
+            $dataWeight += 15;
+        }
+        if ($this->gdpr_applicable) {
+            $dataWeight += 10;
+        }
+        if ($this->regulatory_notification_required) {
+            $dataWeight += 5;
+        }
+
         $systemWeight = 0;
-        if (!empty($this->affected_systems)) {
+        if (! empty($this->affected_systems)) {
             $systemWeight = min(count($this->affected_systems) * 2, 10);
         }
-        
+
         return min(100, $severityWeight + $impactWeight + $dataWeight + $systemWeight);
     }
 
     // Incident workflow
-    public function assignIncident(int $userId, int $commanderId = null): bool
+    public function assignIncident(int $userId, ?int $commanderId = null): bool
     {
         return $this->update([
             'assigned_to' => $userId,
             'assigned_at' => now(),
             'incident_commander' => $commanderId,
-            'status' => 'assigned'
+            'status' => 'assigned',
         ]);
     }
 
@@ -462,10 +470,10 @@ class SecurityIncident extends Model
         if ($this->status !== 'assigned') {
             return false;
         }
-        
+
         return $this->update([
             'response_started_at' => now(),
-            'status' => 'investigating'
+            'status' => 'investigating',
         ]);
     }
 
@@ -474,20 +482,20 @@ class SecurityIncident extends Model
         return $this->update([
             'contained_at' => now(),
             'containment_actions' => array_merge($this->containment_actions ?? [], $actions),
-            'status' => 'containing'
+            'status' => 'containing',
         ]);
     }
 
     public function eradicateIncident(array $actions = []): bool
     {
-        if (!$this->isContained()) {
+        if (! $this->isContained()) {
             return false;
         }
-        
+
         return $this->update([
             'eradicated_at' => now(),
             'eradication_actions' => array_merge($this->eradication_actions ?? [], $actions),
-            'status' => 'eradicating'
+            'status' => 'eradicating',
         ]);
     }
 
@@ -496,34 +504,34 @@ class SecurityIncident extends Model
         return $this->update([
             'recovered_at' => now(),
             'recovery_actions' => array_merge($this->recovery_actions ?? [], $actions),
-            'status' => 'recovering'
+            'status' => 'recovering',
         ]);
     }
 
-    public function resolveIncident(string $rootCause = null): bool
+    public function resolveIncident(?string $rootCause = null): bool
     {
         $updateData = [
             'resolved_at' => now(),
-            'status' => 'resolved'
+            'status' => 'resolved',
         ];
-        
+
         if ($rootCause) {
             $updateData['root_cause'] = $rootCause;
         }
-        
+
         return $this->update($updateData);
     }
 
-    public function closeIncident(string $reviewComments = null): bool
+    public function closeIncident(?string $reviewComments = null): bool
     {
-        if (!$this->isResolved()) {
+        if (! $this->isResolved()) {
             return false;
         }
-        
+
         return $this->update([
             'closed_at' => now(),
             'status' => 'closed',
-            'review_comments' => $reviewComments
+            'review_comments' => $reviewComments,
         ]);
     }
 
@@ -533,16 +541,16 @@ class SecurityIncident extends Model
         $existingEvidence = $this->evidence_collected ?? [];
         $existingEvidence[] = array_merge($evidence, [
             'collected_at' => now()->toISOString(),
-            'collected_by' => auth()->id()
+            'collected_by' => auth()->id(),
         ]);
-        
+
         $this->update(['evidence_collected' => $existingEvidence]);
     }
 
     public function requiresForensicInvestigation(): bool
     {
-        return $this->forensic_investigation_required || 
-               $this->law_enforcement_involved || 
+        return $this->forensic_investigation_required ||
+               $this->law_enforcement_involved ||
                $this->isCritical();
     }
 
@@ -552,9 +560,9 @@ class SecurityIncident extends Model
         $log = $this->communication_log ?? [];
         $log[] = array_merge($communication, [
             'timestamp' => now()->toISOString(),
-            'logged_by' => auth()->id()
+            'logged_by' => auth()->id(),
         ]);
-        
+
         $this->update(['communication_log' => $log]);
     }
 
@@ -563,9 +571,9 @@ class SecurityIncident extends Model
         $this->addCommunicationLog([
             'type' => 'stakeholder_notification',
             'recipients' => $stakeholders,
-            'message' => $message
+            'message' => $message,
         ]);
-        
+
         // Update stakeholders notified
         $notified = $this->stakeholders_notified ?? [];
         $this->update(['stakeholders_notified' => array_unique(array_merge($notified, $stakeholders))]);
@@ -574,10 +582,10 @@ class SecurityIncident extends Model
     // Knowledge management
     public function addToKnowledgeBase(): bool
     {
-        if (!$this->isResolved() || empty($this->lessons_learned)) {
+        if (! $this->isResolved() || empty($this->lessons_learned)) {
             return false;
         }
-        
+
         $knowledgeEntry = [
             'incident_type' => $this->incident_type,
             'severity' => $this->severity_level,
@@ -585,12 +593,12 @@ class SecurityIncident extends Model
             'lessons_learned' => $this->lessons_learned,
             'preventive_measures' => $this->preventive_measures,
             'indicators_of_compromise' => $this->indicators_of_compromise,
-            'response_effectiveness' => $this->calculateResponseEffectiveness()
+            'response_effectiveness' => $this->calculateResponseEffectiveness(),
         ];
-        
+
         return $this->update([
             'knowledge_base_entry' => json_encode($knowledgeEntry),
-            'playbook_updated' => true
+            'playbook_updated' => true,
         ]);
     }
 
@@ -598,16 +606,16 @@ class SecurityIncident extends Model
     {
         $responseTime = $this->getTimeToResponse();
         $containmentTime = $this->getTimeToContainment();
-        
+
         if ($responseTime <= 30 && $containmentTime <= 120) {
             return 'excellent';
         } elseif ($responseTime <= 60 && $containmentTime <= 240) {
             return 'good';
         } elseif ($responseTime <= 120 && $containmentTime <= 480) {
             return 'acceptable';
-        } else {
-            return 'needs_improvement';
         }
+
+        return 'needs_improvement';
     }
 
     // Scopes
@@ -629,32 +637,32 @@ class SecurityIncident extends Model
     public function scopeRequiringAttention(Builder $query): Builder
     {
         return $query->whereIn('status', ['new', 'assigned'])
-                    ->whereIn('severity_level', ['critical', 'high']);
+            ->whereIn('severity_level', ['critical', 'high']);
     }
 
     public function scopeOverdue(Builder $query): Builder
     {
-        return $query->where(function($q) {
+        return $query->where(function ($q) {
             $q->where('severity_level', 'critical')
-              ->where('detected_at', '<', now()->subHour())
-              ->whereNull('response_started_at');
-        })->orWhere(function($q) {
+                ->where('detected_at', '<', now()->subHour())
+                ->whereNull('response_started_at');
+        })->orWhere(function ($q) {
             $q->where('severity_level', 'high')
-              ->where('detected_at', '<', now()->subHours(4))
-              ->whereNull('response_started_at');
+                ->where('detected_at', '<', now()->subHours(4))
+                ->whereNull('response_started_at');
         });
     }
 
     public function scopeGDPRRelevant(Builder $query): Builder
     {
         return $query->where('gdpr_applicable', true)
-                    ->where('personal_data_involved', true);
+            ->where('personal_data_involved', true);
     }
 
     public function scopeRequiringFollowUp(Builder $query): Builder
     {
         return $query->where('follow_up_required', true)
-                    ->where('follow_up_date', '<=', now());
+            ->where('follow_up_date', '<=', now());
     }
 
     public function scopeRecentIncidents(Builder $query, int $days = 30): Builder

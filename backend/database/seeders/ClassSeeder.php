@@ -2,11 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\Institution;
-use App\Models\AcademicYear;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Seeder;
 
 class ClassSeeder extends Seeder
 {
@@ -19,7 +18,7 @@ class ClassSeeder extends Seeder
         // Get current academic year
         $currentYear = AcademicYear::where('is_active', true)->first();
 
-        if (!$currentYear) {
+        if (! $currentYear) {
             // Create current academic year if doesn't exist
             $currentYear = AcademicYear::create([
                 'name' => '2024-2025',
@@ -35,20 +34,21 @@ class ClassSeeder extends Seeder
         }
 
         // Get schools (institutions with school types)
-        $schools = Institution::where(function($query) {
+        $schools = Institution::where(function ($query) {
             $query->where('type', 'LIKE', '%school%')
-                  ->orWhere('type', 'LIKE', '%məktəb%')
-                  ->orWhere('type', 'LIKE', '%Lisey%')
-                  ->orWhere('type', 'LIKE', '%Gimnaziya%')
-                  ->orWhere('type', 'LIKE', '%lyceum%')
-                  ->orWhere('type', 'LIKE', '%gymnasium%');
+                ->orWhere('type', 'LIKE', '%məktəb%')
+                ->orWhere('type', 'LIKE', '%Lisey%')
+                ->orWhere('type', 'LIKE', '%Gimnaziya%')
+                ->orWhere('type', 'LIKE', '%lyceum%')
+                ->orWhere('type', 'LIKE', '%gymnasium%');
         })
-        ->whereNull('deleted_at')
-        ->limit(20) // Limit to first 20 schools for initial testing
-        ->get();
+            ->whereNull('deleted_at')
+            ->limit(20) // Limit to first 20 schools for initial testing
+            ->get();
 
         if ($schools->isEmpty()) {
             $this->command->warn('⚠️ No schools found in database. Please seed institutions first.');
+
             return;
         }
 

@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\SystemConfig;
 use App\Models\ActivityLog;
 use App\Models\SecurityEvent;
-use App\Services\BaseService;
+use App\Models\SystemConfig;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -24,7 +23,7 @@ class SystemConfigService extends BaseService
                 'maintenance' => $this->getMaintenanceSettings(),
                 'performance' => $this->getPerformanceSettings(),
                 'audit' => $this->getAuditSettings(),
-                'integrations' => $this->getIntegrationSettings()
+                'integrations' => $this->getIntegrationSettings(),
             ];
         });
     }
@@ -58,9 +57,9 @@ class SystemConfigService extends BaseService
                 'description' => "Updated {$category} configuration settings",
                 'properties' => [
                     'category' => $category,
-                    'updated_keys' => array_keys($settings)
+                    'updated_keys' => array_keys($settings),
                 ],
-                'institution_id' => $user->institution_id
+                'institution_id' => $user->institution_id,
             ]);
 
             // Log security event for sensitive changes
@@ -74,15 +73,15 @@ class SystemConfigService extends BaseService
                         'category' => $category,
                         'changed_keys' => array_keys($settings),
                         'ip_address' => request()->ip(),
-                        'user_agent' => request()->userAgent()
-                    ]
+                        'user_agent' => request()->userAgent(),
+                    ],
                 ]);
             }
 
             return [
                 'category' => $category,
                 'updated_settings' => count($settings),
-                'updated_at' => now()
+                'updated_at' => now(),
             ];
         });
     }
@@ -93,6 +92,7 @@ class SystemConfigService extends BaseService
     public function getConfigValue(string $key, $default = null)
     {
         $config = SystemConfig::where('key', $key)->first();
+
         return $config ? json_decode($config->value, true) : $default;
     }
 
@@ -105,7 +105,7 @@ class SystemConfigService extends BaseService
             ['key' => $key],
             [
                 'value' => json_encode($value),
-                'updated_by' => $user?->id
+                'updated_by' => $user?->id,
             ]
         );
 
@@ -121,16 +121,16 @@ class SystemConfigService extends BaseService
     {
         return DB::transaction(function () use ($category, $user) {
             $defaults = $this->getDefaultSettings($category);
-            
+
             // Delete existing settings for category
             SystemConfig::where('key', 'LIKE', "{$category}.%")->delete();
-            
+
             // Set defaults
             foreach ($defaults as $key => $value) {
                 SystemConfig::create([
                     'key' => "{$category}.{$key}",
                     'value' => json_encode($value),
-                    'updated_by' => $user->id
+                    'updated_by' => $user->id,
                 ]);
             }
 
@@ -145,13 +145,13 @@ class SystemConfigService extends BaseService
                 'entity_type' => 'SystemConfig',
                 'description' => "Reset {$category} configuration to defaults",
                 'properties' => ['category' => $category],
-                'institution_id' => $user->institution_id
+                'institution_id' => $user->institution_id,
             ]);
 
             return [
                 'category' => $category,
                 'reset_settings' => count($defaults),
-                'reset_at' => now()
+                'reset_at' => now(),
             ];
         });
     }
@@ -168,7 +168,7 @@ class SystemConfigService extends BaseService
             'default_language' => $this->getConfigValue('general.default_language', 'az'),
             'maintenance_mode' => $this->getConfigValue('general.maintenance_mode', false),
             'feature_flags' => $this->getConfigValue('general.feature_flags', []),
-            'registration_enabled' => $this->getConfigValue('general.registration_enabled', false)
+            'registration_enabled' => $this->getConfigValue('general.registration_enabled', false),
         ];
     }
 
@@ -188,8 +188,8 @@ class SystemConfigService extends BaseService
                 'min_length' => 8,
                 'require_uppercase' => true,
                 'require_numbers' => true,
-                'require_symbols' => false
-            ])
+                'require_symbols' => false,
+            ]),
         ];
     }
 
@@ -205,8 +205,8 @@ class SystemConfigService extends BaseService
             'default_templates' => $this->getConfigValue('notifications.default_templates', []),
             'rate_limiting' => $this->getConfigValue('notifications.rate_limiting', [
                 'enabled' => true,
-                'max_per_hour' => 100
-            ])
+                'max_per_hour' => 100,
+            ]),
         ];
     }
 
@@ -220,7 +220,7 @@ class SystemConfigService extends BaseService
             'backup_frequency' => $this->getConfigValue('maintenance.backup_frequency', 'daily'),
             'cleanup_old_logs' => $this->getConfigValue('maintenance.cleanup_old_logs', true),
             'log_retention_days' => $this->getConfigValue('maintenance.log_retention_days', 30),
-            'database_optimization' => $this->getConfigValue('maintenance.database_optimization', false)
+            'database_optimization' => $this->getConfigValue('maintenance.database_optimization', false),
         ];
     }
 
@@ -234,7 +234,7 @@ class SystemConfigService extends BaseService
             'cache_ttl' => $this->getConfigValue('performance.cache_ttl', 3600),
             'query_optimization' => $this->getConfigValue('performance.query_optimization', true),
             'compression_enabled' => $this->getConfigValue('performance.compression_enabled', true),
-            'cdn_enabled' => $this->getConfigValue('performance.cdn_enabled', false)
+            'cdn_enabled' => $this->getConfigValue('performance.cdn_enabled', false),
         ];
     }
 
@@ -248,7 +248,7 @@ class SystemConfigService extends BaseService
             'detailed_logging' => $this->getConfigValue('audit.detailed_logging', true),
             'log_sensitive_data' => $this->getConfigValue('audit.log_sensitive_data', false),
             'retention_days' => $this->getConfigValue('audit.retention_days', 365),
-            'export_enabled' => $this->getConfigValue('audit.export_enabled', true)
+            'export_enabled' => $this->getConfigValue('audit.export_enabled', true),
         ];
     }
 
@@ -260,11 +260,11 @@ class SystemConfigService extends BaseService
         return [
             'api_rate_limiting' => $this->getConfigValue('integrations.api_rate_limiting', [
                 'enabled' => true,
-                'requests_per_minute' => 60
+                'requests_per_minute' => 60,
             ]),
             'webhooks_enabled' => $this->getConfigValue('integrations.webhooks_enabled', false),
             'external_apis' => $this->getConfigValue('integrations.external_apis', []),
-            'sso_enabled' => $this->getConfigValue('integrations.sso_enabled', false)
+            'sso_enabled' => $this->getConfigValue('integrations.sso_enabled', false),
         ];
     }
 
@@ -274,11 +274,11 @@ class SystemConfigService extends BaseService
     private function validateCategorySettings(string $category, array $settings): void
     {
         $validationRules = $this->getValidationRules($category);
-        
+
         foreach ($settings as $key => $value) {
             if (isset($validationRules[$key])) {
                 $rule = $validationRules[$key];
-                if (!$this->validateSetting($value, $rule)) {
+                if (! $this->validateSetting($value, $rule)) {
                     throw new \InvalidArgumentException("Invalid value for {$category}.{$key}");
                 }
             }
@@ -295,20 +295,20 @@ class SystemConfigService extends BaseService
                 'app_name' => ['type' => 'string', 'max_length' => 255],
                 'timezone' => ['type' => 'string', 'in' => timezone_identifiers_list()],
                 'maintenance_mode' => ['type' => 'boolean'],
-                'registration_enabled' => ['type' => 'boolean']
+                'registration_enabled' => ['type' => 'boolean'],
             ],
             'security' => [
                 'session_timeout' => ['type' => 'integer', 'min' => 300, 'max' => 86400],
                 'password_expiry_days' => ['type' => 'integer', 'min' => 1, 'max' => 365],
                 'max_login_attempts' => ['type' => 'integer', 'min' => 1, 'max' => 10],
                 'force_https' => ['type' => 'boolean'],
-                'two_factor_enabled' => ['type' => 'boolean']
+                'two_factor_enabled' => ['type' => 'boolean'],
             ],
             'notifications' => [
                 'email_enabled' => ['type' => 'boolean'],
                 'sms_enabled' => ['type' => 'boolean'],
-                'push_enabled' => ['type' => 'boolean']
-            ]
+                'push_enabled' => ['type' => 'boolean'],
+            ],
         ];
 
         return $rules[$category] ?? [];
@@ -322,21 +322,33 @@ class SystemConfigService extends BaseService
         if (isset($rule['type'])) {
             switch ($rule['type']) {
                 case 'boolean':
-                    if (!is_bool($value)) return false;
+                    if (! is_bool($value)) {
+                        return false;
+                    }
                     break;
                 case 'integer':
-                    if (!is_int($value)) return false;
-                    if (isset($rule['min']) && $value < $rule['min']) return false;
-                    if (isset($rule['max']) && $value > $rule['max']) return false;
+                    if (! is_int($value)) {
+                        return false;
+                    }
+                    if (isset($rule['min']) && $value < $rule['min']) {
+                        return false;
+                    }
+                    if (isset($rule['max']) && $value > $rule['max']) {
+                        return false;
+                    }
                     break;
                 case 'string':
-                    if (!is_string($value)) return false;
-                    if (isset($rule['max_length']) && strlen($value) > $rule['max_length']) return false;
+                    if (! is_string($value)) {
+                        return false;
+                    }
+                    if (isset($rule['max_length']) && strlen($value) > $rule['max_length']) {
+                        return false;
+                    }
                     break;
             }
         }
 
-        if (isset($rule['in']) && !in_array($value, $rule['in'])) {
+        if (isset($rule['in']) && ! in_array($value, $rule['in'])) {
             return false;
         }
 
@@ -354,7 +366,7 @@ class SystemConfigService extends BaseService
                 'timezone' => 'Asia/Baku',
                 'default_language' => 'az',
                 'maintenance_mode' => false,
-                'registration_enabled' => false
+                'registration_enabled' => false,
             ],
             'security' => [
                 'session_timeout' => 3600,
@@ -362,8 +374,8 @@ class SystemConfigService extends BaseService
                 'max_login_attempts' => 5,
                 'login_throttle_time' => 300,
                 'force_https' => true,
-                'two_factor_enabled' => false
-            ]
+                'two_factor_enabled' => false,
+            ],
         ];
 
         return $defaults[$category] ?? [];

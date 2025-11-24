@@ -155,6 +155,7 @@ class UserProfile extends Model
     public function getFullNameAttribute(): string
     {
         $parts = array_filter([$this->first_name, $this->patronymic, $this->last_name]);
+
         return implode(' ', $parts);
     }
 
@@ -164,6 +165,7 @@ class UserProfile extends Model
     public function getDisplayNameAttribute(): string
     {
         $parts = array_filter([$this->first_name, $this->last_name]);
+
         return implode(' ', $parts);
     }
 
@@ -190,8 +192,8 @@ class UserProfile extends Model
     {
         return $query->where(function ($q) use ($search) {
             $q->where('first_name', 'ILIKE', "%{$search}%")
-              ->orWhere('last_name', 'ILIKE', "%{$search}%")
-              ->orWhere('patronymic', 'ILIKE', "%{$search}%");
+                ->orWhere('last_name', 'ILIKE', "%{$search}%")
+                ->orWhere('patronymic', 'ILIKE', "%{$search}%");
         });
     }
 
@@ -216,11 +218,11 @@ class UserProfile extends Model
      */
     public function getPositionTypeLabelAttribute(): ?string
     {
-        if (!$this->position_type) {
+        if (! $this->position_type) {
             return null;
         }
 
-        return match($this->position_type) {
+        return match ($this->position_type) {
             'direktor' => 'Direktor',
             'direktor_muavini_tedris' => 'Direktor müavini (Təhsil)',
             'direktor_muavini_inzibati' => 'Direktor müavini (İnzibati)',
@@ -242,7 +244,7 @@ class UserProfile extends Model
      */
     public function getEmploymentStatusLabelAttribute(): string
     {
-        return match($this->employment_status) {
+        return match ($this->employment_status) {
             'full_time' => 'Tam ştat',
             'part_time' => 'Yarım ştat',
             'contract' => 'Müqavilə',
@@ -257,13 +259,13 @@ class UserProfile extends Model
      */
     public function getIsContractActiveAttribute(): bool
     {
-        if (!$this->contract_start_date) {
+        if (! $this->contract_start_date) {
             return true; // No contract means permanent
         }
 
         $now = now();
         $isAfterStart = $now->gte($this->contract_start_date);
-        $isBeforeEnd = !$this->contract_end_date || $now->lte($this->contract_end_date);
+        $isBeforeEnd = ! $this->contract_end_date || $now->lte($this->contract_end_date);
 
         return $isAfterStart && $isBeforeEnd;
     }
@@ -273,7 +275,7 @@ class UserProfile extends Model
      */
     public function getContractDaysRemainingAttribute(): ?int
     {
-        if (!$this->contract_end_date) {
+        if (! $this->contract_end_date) {
             return null;
         }
 
@@ -303,6 +305,7 @@ class UserProfile extends Model
     {
         $count = $this->primary_institution_id ? 1 : 0;
         $count += $this->additionalWorkplaces()->count();
+
         return $count;
     }
 }

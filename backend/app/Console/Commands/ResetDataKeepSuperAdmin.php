@@ -10,13 +10,15 @@ use Illuminate\Support\Facades\Schema;
 class ResetDataKeepSuperAdmin extends Command
 {
     protected $signature = 'db:reset-keep-superadmin {--confirm : Skip confirmation prompt}';
+
     protected $description = 'Reset all database data except SuperAdmin user';
 
     public function handle()
     {
-        if (!$this->option('confirm')) {
-            if (!$this->confirm('This will delete ALL data except SuperAdmin user. Continue?')) {
+        if (! $this->option('confirm')) {
+            if (! $this->confirm('This will delete ALL data except SuperAdmin user. Continue?')) {
                 $this->info('Operation cancelled.');
+
                 return;
             }
         }
@@ -25,8 +27,9 @@ class ResetDataKeepSuperAdmin extends Command
 
         // Find SuperAdmin user
         $superAdmin = User::where('email', 'superadmin@atis.az')->first();
-        if (!$superAdmin) {
+        if (! $superAdmin) {
             $this->error('SuperAdmin user not found!');
+
             return 1;
         }
 

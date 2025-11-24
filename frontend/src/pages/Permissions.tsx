@@ -63,6 +63,19 @@ export default function Permissions() {
   const categories = categoriesData?.categories || [];
   const scopes = scopesData?.scopes || [];
 
+  const clearFilters = () => {
+    setSearchTerm('');
+    setCategoryFilter('all');
+    setScopeFilter('all');
+    setStatusFilter('all');
+    setCurrentPage(1);
+  };
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, categoryFilter, scopeFilter, statusFilter]);
+
   // Security check
   if (!isSuperAdmin) {
     return (
@@ -77,19 +90,6 @@ export default function Permissions() {
       </div>
     );
   }
-
-  const clearFilters = () => {
-    setSearchTerm('');
-    setCategoryFilter('all');
-    setScopeFilter('all');
-    setStatusFilter('all');
-    setCurrentPage(1);
-  };
-
-  // Reset to first page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, categoryFilter, scopeFilter, statusFilter]);
 
   const handleToggleStatus = async (permission: Permission) => {
     try {

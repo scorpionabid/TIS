@@ -2,8 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\Institution;
-use App\Models\InstitutionType;
 use Illuminate\Database\Seeder;
 
 class InstitutionHierarchySeeder extends Seeder

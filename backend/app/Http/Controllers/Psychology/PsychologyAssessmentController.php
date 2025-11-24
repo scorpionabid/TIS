@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\Psychology;
 
 use App\Http\Controllers\BaseController;
-use App\Models\PsychologySession;
 use App\Models\PsychologyAssessment;
-use Illuminate\Http\Request;
+use App\Models\PsychologySession;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 
 class PsychologyAssessmentController extends BaseController
 {
@@ -40,7 +39,7 @@ class PsychologyAssessmentController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -48,10 +47,10 @@ class PsychologyAssessmentController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canAddAssessment($user, $session)) {
+            if (! $this->canAddAssessment($user, $session)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to add assessments to this session'
+                    'message' => 'You do not have permission to add assessments to this session',
                 ], 403);
             }
 
@@ -87,7 +86,7 @@ class PsychologyAssessmentController extends BaseController
                     'created_at' => now(),
                     'version' => '1.0',
                     'tool_version' => $this->getToolVersion($request->assessment_tool),
-                ]
+                ],
             ]);
 
             // Log the activity
@@ -98,7 +97,7 @@ class PsychologyAssessmentController extends BaseController
                     'session_id' => $session->id,
                     'assessment_type' => $request->assessment_type,
                     'student_name' => $session->student->name,
-                    'assessment_tool' => $request->assessment_tool
+                    'assessment_tool' => $request->assessment_tool,
                 ])
                 ->log('Psychology assessment created');
 
@@ -109,14 +108,14 @@ class PsychologyAssessmentController extends BaseController
             return response()->json([
                 'success' => true,
                 'data' => $this->transformAssessment($assessment),
-                'message' => 'Assessment created successfully'
+                'message' => 'Assessment created successfully',
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error creating assessment: ' . $e->getMessage()
+                'message' => 'Error creating assessment: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -138,7 +137,7 @@ class PsychologyAssessmentController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -146,17 +145,17 @@ class PsychologyAssessmentController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canCompleteAssessment($user, $assessment)) {
+            if (! $this->canCompleteAssessment($user, $assessment)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to complete this assessment'
+                    'message' => 'You do not have permission to complete this assessment',
                 ], 403);
             }
 
             if ($assessment->status === 'completed') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Assessment is already completed'
+                    'message' => 'Assessment is already completed',
                 ], 400);
             }
 
@@ -172,7 +171,7 @@ class PsychologyAssessmentController extends BaseController
                     'completed_by' => $user->id,
                     'completed_at' => now(),
                     'completion_version' => '1.0',
-                ])
+                ]),
             ];
 
             if ($request->has('final_interpretation')) {
@@ -203,7 +202,7 @@ class PsychologyAssessmentController extends BaseController
                 ->causedBy($user)
                 ->withProperties([
                     'session_id' => $assessment->psychology_session_id,
-                    'assessment_type' => $assessment->assessment_type
+                    'assessment_type' => $assessment->assessment_type,
                 ])
                 ->log('Psychology assessment completed');
 
@@ -212,14 +211,14 @@ class PsychologyAssessmentController extends BaseController
             return response()->json([
                 'success' => true,
                 'data' => $this->transformAssessment($assessment->fresh()),
-                'message' => 'Assessment completed successfully'
+                'message' => 'Assessment completed successfully',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error completing assessment: ' . $e->getMessage()
+                'message' => 'Error completing assessment: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -244,7 +243,7 @@ class PsychologyAssessmentController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -278,16 +277,15 @@ class PsychologyAssessmentController extends BaseController
                 'success' => true,
                 'data' => $assessments,
                 'filters' => $request->only([
-                    'session_id', 'institution_id', 'assessment_type', 
-                    'status', 'psychologist_id', 'start_date', 'end_date'
+                    'session_id', 'institution_id', 'assessment_type',
+                    'status', 'psychologist_id', 'start_date', 'end_date',
                 ]),
-                'message' => 'Assessments retrieved successfully'
+                'message' => 'Assessments retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving assessments: ' . $e->getMessage()
+                'message' => 'Error retrieving assessments: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -301,10 +299,10 @@ class PsychologyAssessmentController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canViewAssessment($user, $assessment)) {
+            if (! $this->canViewAssessment($user, $assessment)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to view this assessment'
+                    'message' => 'You do not have permission to view this assessment',
                 ], 403);
             }
 
@@ -325,15 +323,14 @@ class PsychologyAssessmentController extends BaseController
                         'can_edit' => $this->canEditAssessment($user, $assessment),
                         'can_complete' => $this->canCompleteAssessment($user, $assessment),
                         'can_archive' => $this->canArchiveAssessment($user, $assessment),
-                    ]
+                    ],
                 ],
-                'message' => 'Assessment retrieved successfully'
+                'message' => 'Assessment retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving assessment: ' . $e->getMessage()
+                'message' => 'Error retrieving assessment: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -355,7 +352,7 @@ class PsychologyAssessmentController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -363,10 +360,10 @@ class PsychologyAssessmentController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canViewStatistics($user)) {
+            if (! $this->canViewStatistics($user)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to view statistics'
+                    'message' => 'You do not have permission to view statistics',
                 ], 403);
             }
 
@@ -396,15 +393,14 @@ class PsychologyAssessmentController extends BaseController
                 'period' => [
                     'start_date' => $startDate,
                     'end_date' => $endDate,
-                    'period' => $period
+                    'period' => $period,
                 ],
-                'message' => 'Statistics retrieved successfully'
+                'message' => 'Statistics retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving statistics: ' . $e->getMessage()
+                'message' => 'Error retrieving statistics: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -463,6 +459,7 @@ class PsychologyAssessmentController extends BaseController
     private function transformDetailedAssessment($assessment): array
     {
         $basic = $this->transformAssessment($assessment);
+
         return array_merge($basic, [
             'raw_scores' => $assessment->raw_scores,
             'standardized_scores' => $assessment->standardized_scores,
@@ -491,9 +488,16 @@ class PsychologyAssessmentController extends BaseController
 
     private function canViewAssessment($user, $assessment): bool
     {
-        if ($user->hasRole('SuperAdmin')) return true;
-        if ($user->id === $assessment->psychologist_id) return true;
-        if ($user->hasRole('SchoolAdmin') && $user->institution_id === $assessment->session->institution_id) return true;
+        if ($user->hasRole('SuperAdmin')) {
+            return true;
+        }
+        if ($user->id === $assessment->psychologist_id) {
+            return true;
+        }
+        if ($user->hasRole('SchoolAdmin') && $user->institution_id === $assessment->session->institution_id) {
+            return true;
+        }
+
         return false;
     }
 
@@ -522,7 +526,7 @@ class PsychologyAssessmentController extends BaseController
         if ($user->hasRole('psixoloq')) {
             $query->where('psychologist_id', $user->id);
         } elseif ($user->hasRole('SchoolAdmin')) {
-            $query->whereHas('session', function($q) use ($user) {
+            $query->whereHas('session', function ($q) use ($user) {
                 $q->where('institution_id', $user->institution_id);
             });
         }
@@ -535,7 +539,7 @@ class PsychologyAssessmentController extends BaseController
         }
 
         if ($request->has('institution_id')) {
-            $query->whereHas('session', function($q) use ($request) {
+            $query->whereHas('session', function ($q) use ($request) {
                 $q->where('institution_id', $request->institution_id);
             });
         }
@@ -564,7 +568,7 @@ class PsychologyAssessmentController extends BaseController
     // Statistics helper methods (placeholder implementations)
     private function getStartDateForPeriod($period): string
     {
-        return match($period) {
+        return match ($period) {
             'week' => now()->subWeek()->toDateString(),
             'month' => now()->subMonth()->toDateString(),
             'quarter' => now()->subMonths(3)->toDateString(),
@@ -578,10 +582,33 @@ class PsychologyAssessmentController extends BaseController
         // Apply user-based filtering to both queries
     }
 
-    private function getSessionStatistics($query): array { return []; }
-    private function getAssessmentStatistics($query): array { return []; }
-    private function getTrendData($sessionQuery, $assessmentQuery, $period): array { return []; }
-    private function getPerformanceMetrics($sessionQuery, $assessmentQuery): array { return []; }
-    private function getDemographics($query): array { return []; }
-    private function getOutcomeMetrics($query): array { return []; }
+    private function getSessionStatistics($query): array
+    {
+        return [];
+    }
+
+    private function getAssessmentStatistics($query): array
+    {
+        return [];
+    }
+
+    private function getTrendData($sessionQuery, $assessmentQuery, $period): array
+    {
+        return [];
+    }
+
+    private function getPerformanceMetrics($sessionQuery, $assessmentQuery): array
+    {
+        return [];
+    }
+
+    private function getDemographics($query): array
+    {
+        return [];
+    }
+
+    private function getOutcomeMetrics($query): array
+    {
+        return [];
+    }
 }

@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -12,9 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Strategy: Use departments JSON for multiple departments, 
+        // Strategy: Use departments JSON for multiple departments,
         // keep department_id as primary department for backward compatibility
-        
+
         Schema::table('users', function (Blueprint $table) {
             // Add comment to clarify the relationship
             $table->comment('departments JSON contains all department IDs, department_id is the primary department');
@@ -68,7 +68,7 @@ return new class extends Migration
         if (DB::getDriverName() === 'pgsql') {
             DB::statement('DROP INDEX IF EXISTS users_departments_gin_idx');
         }
-        
+
         Schema::table('users', function (Blueprint $table) {
             $table->comment('');
         });

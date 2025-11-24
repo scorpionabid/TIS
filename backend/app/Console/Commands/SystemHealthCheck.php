@@ -5,12 +5,13 @@ namespace App\Console\Commands;
 use App\Models\User;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class SystemHealthCheck extends Command
 {
     protected $signature = 'system:health {--fix : Automatically fix found issues}';
+
     protected $description = 'Check system health and role/permission integrity';
 
     public function handle()
@@ -24,7 +25,7 @@ class SystemHealthCheck extends Command
         $this->info("\n📋 Checking SuperAdmin user...");
         $superAdmin = User::where('email', 'superadmin@atis.az')->first();
 
-        if (!$superAdmin) {
+        if (! $superAdmin) {
             $this->error('❌ SuperAdmin user not found!');
             if ($autoFix) {
                 $this->call('db:seed', ['--class' => 'SuperAdminSeeder']);

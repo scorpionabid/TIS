@@ -2,10 +2,10 @@
 
 namespace App\Services\SurveyApproval\Domains\Security;
 
-use App\Models\User;
-use App\Models\SurveyResponse;
-use App\Models\DataApprovalRequest;
 use App\Models\ApprovalWorkflow;
+use App\Models\DataApprovalRequest;
+use App\Models\SurveyResponse;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -24,8 +24,6 @@ use Illuminate\Database\Eloquent\Builder;
  * - All methods reviewed for authorization bypass
  * - SQL injection prevention verified
  * - Rate limiting ready
- *
- * @package App\Services\SurveyApproval\Domains\Security
  */
 class ApprovalSecurityService
 {
@@ -33,10 +31,6 @@ class ApprovalSecurityService
      * Apply user access control to query based on role hierarchy
      *
      * SECURITY CRITICAL: Prevents unauthorized data access
-     *
-     * @param Builder $query
-     * @param User $user
-     * @return void
      */
     public function applyUserAccessControl(Builder $query, User $user): void
     {
@@ -52,6 +46,7 @@ class ApprovalSecurityService
         if ($roleName === 'RegionAdmin') {
             $institutionIds = $this->getRegionInstitutionIds($user);
             $query->whereIn('institution_id', $institutionIds);
+
             return;
         }
 
@@ -59,6 +54,7 @@ class ApprovalSecurityService
         if ($roleName === 'RegionOperator') {
             $institutionIds = $this->getRegionInstitutionIds($user);
             $query->whereIn('institution_id', $institutionIds);
+
             return;
         }
 
@@ -66,12 +62,14 @@ class ApprovalSecurityService
         if ($roleName === 'SektorAdmin') {
             $institutionIds = $this->getSectorInstitutionIds($user);
             $query->whereIn('institution_id', $institutionIds);
+
             return;
         }
 
         // SchoolAdmin: See only their institution's responses
         if ($roleName === 'SchoolAdmin' || $roleName === 'PreschoolAdmin') {
             $query->where('institution_id', $user->institution_id);
+
             return;
         }
 
@@ -83,12 +81,6 @@ class ApprovalSecurityService
      * Check if user can approve at a specific level
      *
      * SECURITY CRITICAL: Prevents unauthorized approvals
-     *
-     * @param User $user
-     * @param DataApprovalRequest $approvalRequest
-     * @param ApprovalWorkflow $workflow
-     * @param int $level
-     * @return bool
      */
     public function canUserApproveAtLevel(User $user, DataApprovalRequest $approvalRequest, ApprovalWorkflow $workflow, int $level): bool
     {
@@ -98,13 +90,13 @@ class ApprovalSecurityService
 
         // Find the step definition for this level
         $stepDef = collect($workflowSteps)->firstWhere('level', $level);
-        if (!$stepDef) {
+        if (! $stepDef) {
             return false;
         }
 
         // Check if user's role is in the allowed roles for this level
         $allowedRoles = $stepDef['allowed_roles'] ?? [];
-        if (!in_array($roleName, $allowedRoles)) {
+        if (! in_array($roleName, $allowedRoles)) {
             return false;
         }
 
@@ -116,11 +108,6 @@ class ApprovalSecurityService
      * Determine approval level for approver
      *
      * SECURITY CRITICAL: Prevents privilege escalation
-     *
-     * @param DataApprovalRequest $approvalRequest
-     * @param ApprovalWorkflow $workflow
-     * @param User $approver
-     * @return int
      */
     public function determineApprovalLevelForApprover(DataApprovalRequest $approvalRequest, ApprovalWorkflow $workflow, User $approver): int
     {
@@ -132,6 +119,7 @@ class ApprovalSecurityService
         if ($roleName && strtolower($roleName) === 'superadmin') {
             // Return current approval level or first level if not set
             $currentLevel = (int) ($approvalRequest->current_approval_level ?? 1);
+
             return max($currentLevel, 1);
         }
 
@@ -155,10 +143,6 @@ class ApprovalSecurityService
      * Check institution hierarchy permission
      *
      * SECURITY CRITICAL: Prevents cross-institution unauthorized access
-     *
-     * @param User $user
-     * @param DataApprovalRequest $approvalRequest
-     * @return bool
      */
     protected function checkInstitutionHierarchyPermission(User $user, DataApprovalRequest $approvalRequest): bool
     {
@@ -173,12 +157,14 @@ class ApprovalSecurityService
         // RegionAdmin/RegionOperator: Can approve in their region
         if (in_array($roleName, ['RegionAdmin', 'RegionOperator'])) {
             $institutionIds = $this->getRegionInstitutionIds($user);
+
             return in_array($approvalRequest->institution_id, $institutionIds);
         }
 
         // SektorAdmin: Can approve in their sector
         if ($roleName === 'SektorAdmin') {
             $institutionIds = $this->getSectorInstitutionIds($user);
+
             return in_array($approvalRequest->institution_id, $institutionIds);
         }
 
@@ -192,13 +178,10 @@ class ApprovalSecurityService
 
     /**
      * Get all institution IDs in user's region
-     *
-     * @param User $user
-     * @return array
      */
     protected function getRegionInstitutionIds(User $user): array
     {
-        if (!$user->institution) {
+        if (! $user->institution) {
             return [];
         }
 
@@ -218,13 +201,10 @@ class ApprovalSecurityService
 
     /**
      * Get all institution IDs in user's sector
-     *
-     * @param User $user
-     * @return array
      */
     protected function getSectorInstitutionIds(User $user): array
     {
-        if (!$user->institution) {
+        if (! $user->institution) {
             return [$user->institution_id];
         }
 
@@ -242,8 +222,6 @@ class ApprovalSecurityService
      *
      * SECURITY CRITICAL: Prevents mass unauthorized approvals
      *
-     * @param array $responseIds
-     * @param User $user
      * @return array ['authorized' => [...], 'unauthorized' => [...]]
      */
     public function validateBulkApprovalAuthorization(array $responseIds, User $user): array
@@ -256,8 +234,9 @@ class ApprovalSecurityService
             ->get();
 
         foreach ($responses as $response) {
-            if (!$response->approvalRequest) {
+            if (! $response->approvalRequest) {
                 $unauthorized[] = $response->id;
+
                 continue;
             }
 
@@ -275,7 +254,7 @@ class ApprovalSecurityService
 
         return [
             'authorized' => $authorized,
-            'unauthorized' => $unauthorized
+            'unauthorized' => $unauthorized,
         ];
     }
 }

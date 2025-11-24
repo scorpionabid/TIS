@@ -1,10 +1,10 @@
 <?php
 
-use App\Http\Controllers\DocumentControllerRefactored as DocumentController;
 use App\Http\Controllers\DocumentCollectionController;
+use App\Http\Controllers\DocumentControllerRefactored as DocumentController;
 use App\Http\Controllers\DocumentShareController;
-use App\Http\Controllers\TaskControllerRefactored as TaskController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\TaskControllerRefactored as TaskController;
 use Illuminate\Support\Facades\Route;
 
 Route::pattern('task', '[0-9]+');

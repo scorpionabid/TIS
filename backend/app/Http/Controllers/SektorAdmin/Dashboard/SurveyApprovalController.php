@@ -5,8 +5,8 @@ namespace App\Http\Controllers\SektorAdmin\Dashboard;
 use App\Http\Controllers\Controller;
 use App\Models\Institution;
 use App\Models\SurveyResponse;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class SurveyApprovalController extends Controller
@@ -19,7 +19,7 @@ class SurveyApprovalController extends Controller
         $user = Auth::user();
         $sector = $user->institution;
 
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['error' => 'User is not associated with a sector'], 400);
         }
 
@@ -32,7 +32,7 @@ class SurveyApprovalController extends Controller
             ->with([
                 'survey:id,title,description,category',
                 'institution:id,name',
-                'respondent:id,name,email'
+                'respondent:id,name,email',
             ])
             ->orderBy('submitted_at', 'desc')
             ->get()
@@ -59,7 +59,7 @@ class SurveyApprovalController extends Controller
             'sector' => [
                 'id' => $sector->id,
                 'name' => $sector->name,
-            ]
+            ],
         ]);
     }
 
@@ -71,7 +71,7 @@ class SurveyApprovalController extends Controller
         $user = Auth::user();
         $sector = $user->institution;
 
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['error' => 'User is not associated with a sector'], 400);
         }
 
@@ -84,18 +84,18 @@ class SurveyApprovalController extends Controller
                     $query->active()->ordered();
                 },
                 'institution:id,name',
-                'respondent:id,name,email'
+                'respondent:id,name,email',
             ])
             ->find($responseId);
 
-        if (!$response) {
+        if (! $response) {
             return response()->json(['error' => 'Survey response not found or not accessible'], 404);
         }
 
         // Format response data with questions
         $questionsWithAnswers = $response->survey->questions->map(function ($question) use ($response) {
             $answer = $response->responses[$question->id] ?? null;
-            
+
             return [
                 'id' => $question->id,
                 'title' => $question->title,
@@ -143,7 +143,7 @@ class SurveyApprovalController extends Controller
         $user = Auth::user();
         $sector = $user->institution;
 
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['error' => 'User is not associated with a sector'], 400);
         }
 
@@ -154,7 +154,7 @@ class SurveyApprovalController extends Controller
             ->where('status', 'submitted')
             ->find($responseId);
 
-        if (!$response) {
+        if (! $response) {
             return response()->json(['error' => 'Survey response not found or not accessible'], 404);
         }
 
@@ -178,7 +178,7 @@ class SurveyApprovalController extends Controller
         $user = Auth::user();
         $sector = $user->institution;
 
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['error' => 'User is not associated with a sector'], 400);
         }
 
@@ -193,7 +193,7 @@ class SurveyApprovalController extends Controller
             ->where('status', 'submitted')
             ->find($responseId);
 
-        if (!$response) {
+        if (! $response) {
             return response()->json(['error' => 'Survey response not found or not accessible'], 404);
         }
 
@@ -221,6 +221,7 @@ class SurveyApprovalController extends Controller
             case 'rating':
                 $min = $question->rating_min ?? 1;
                 $max = $question->rating_max ?? 5;
+
                 return "{$answer} / {$max}";
 
             case 'single_choice':
@@ -231,6 +232,7 @@ class SurveyApprovalController extends Controller
                         }
                     }
                 }
+
                 return $answer;
 
             case 'multiple_choice':
@@ -238,20 +240,21 @@ class SurveyApprovalController extends Controller
                     if (isset($question->options[0]) && is_string($question->options[0])) {
                         // Simple array format
                         return implode(', ', $answer);
-                    } else {
-                        // Object format with id/label
-                        $labels = [];
-                        foreach ($answer as $selectedId) {
-                            foreach ($question->options as $option) {
-                                if (isset($option['id']) && $option['id'] === $selectedId) {
-                                    $labels[] = $option['label'];
-                                    break;
-                                }
+                    }
+                    // Object format with id/label
+                    $labels = [];
+                    foreach ($answer as $selectedId) {
+                        foreach ($question->options as $option) {
+                            if (isset($option['id']) && $option['id'] === $selectedId) {
+                                $labels[] = $option['label'];
+                                break;
                             }
                         }
-                        return implode(', ', $labels);
                     }
+
+                    return implode(', ', $labels);
                 }
+
                 return is_array($answer) ? implode(', ', $answer) : $answer;
 
             case 'number':

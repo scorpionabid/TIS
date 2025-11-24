@@ -269,24 +269,20 @@ class RegionAdminClassService {
    * Download CSV template aligned with Grades table structure
    */
   async downloadCsvTemplate(): Promise<Blob> {
-    try {
-      const response = await apiClient.get(
-        `${this.baseUrl}/export/template/csv`,
-        undefined,
-        {
-          responseType: 'blob',
-          cache: false,
-        }
-      );
-
-      if (!response?.data) {
-        throw new Error('API cavabında CSV məlumatı tapılmadı');
+    const response = await apiClient.get(
+      `${this.baseUrl}/export/template/csv`,
+      undefined,
+      {
+        responseType: 'blob',
+        cache: false,
       }
+    );
 
-      return response.data;
-    } catch (error) {
-      throw error;
+    if (!response?.data) {
+      throw new Error('API cavabında CSV məlumatı tapılmadı');
     }
+
+    return response.data;
   }
 
   /**

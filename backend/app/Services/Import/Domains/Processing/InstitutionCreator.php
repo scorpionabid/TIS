@@ -21,16 +21,12 @@ class InstitutionCreator
      * - Dynamic field assignment based on institution type
      * - School-specific fields (class_count, student_count, teacher_count)
      * - Parent hierarchy linkage
-     *
-     * @param array $rowData
-     * @param InstitutionType $institutionType
-     * @return Institution
      */
     public function createInstitution(array $rowData, InstitutionType $institutionType): Institution
     {
         // Handle empty contact_info and location - ensure valid JSON
-        $contactInfo = !empty($rowData['contact_info']) ? $rowData['contact_info'] : '{}';
-        $location = !empty($rowData['location']) ? $rowData['location'] : '{}';
+        $contactInfo = ! empty($rowData['contact_info']) ? $rowData['contact_info'] : '{}';
+        $location = ! empty($rowData['location']) ? $rowData['location'] : '{}';
 
         // Decode JSON if it's a string, otherwise use as-is
         if (is_string($contactInfo)) {

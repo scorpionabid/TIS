@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class ReportSchedule extends Model
 {
@@ -22,7 +22,7 @@ class ReportSchedule extends Model
         'next_run',
         'last_run',
         'status',
-        'created_by'
+        'created_by',
     ];
 
     protected $casts = [
@@ -31,7 +31,7 @@ class ReportSchedule extends Model
         'next_run' => 'datetime',
         'last_run' => 'datetime',
         'day_of_week' => 'integer',
-        'day_of_month' => 'integer'
+        'day_of_month' => 'integer',
     ];
 
     /**
@@ -47,8 +47,8 @@ class ReportSchedule extends Model
      */
     public function isDue(): bool
     {
-        return $this->status === 'active' && 
-               $this->next_run && 
+        return $this->status === 'active' &&
+               $this->next_run &&
                $this->next_run <= now();
     }
 
@@ -59,7 +59,7 @@ class ReportSchedule extends Model
     {
         $this->update([
             'last_run' => now(),
-            'next_run' => $this->calculateNextRun()
+            'next_run' => $this->calculateNextRun(),
         ]);
     }
 
@@ -120,7 +120,7 @@ class ReportSchedule extends Model
     {
         $this->update([
             'status' => 'active',
-            'next_run' => $this->calculateNextRun()
+            'next_run' => $this->calculateNextRun(),
         ]);
     }
 
@@ -133,7 +133,7 @@ class ReportSchedule extends Model
             'daily' => 'Günlük',
             'weekly' => 'Həftəlik',
             'monthly' => 'Aylıq',
-            'quarterly' => 'Rüblük'
+            'quarterly' => 'Rüblük',
         ];
 
         return $frequencies[$this->frequency] ?? $this->frequency;
@@ -147,7 +147,7 @@ class ReportSchedule extends Model
         $statuses = [
             'active' => 'Aktiv',
             'paused' => 'Dayandırılmış',
-            'disabled' => 'Deaktiv'
+            'disabled' => 'Deaktiv',
         ];
 
         return $statuses[$this->status] ?? $this->status;

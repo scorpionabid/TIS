@@ -73,7 +73,7 @@ class Room extends Model
     public function addFacility(string $facility): void
     {
         $facilities = $this->facilities ?? [];
-        if (!in_array($facility, $facilities)) {
+        if (! in_array($facility, $facilities)) {
             $facilities[] = $facility;
             $this->facilities = $facilities;
             $this->save();
@@ -101,8 +101,9 @@ class Room extends Model
     {
         $parts = array_filter([
             $this->building,
-            $this->room_number ?: $this->name
+            $this->room_number ?: $this->name,
         ]);
+
         return implode(' - ', $parts);
     }
 
@@ -169,7 +170,7 @@ class Room extends Model
     {
         return $query->where(function ($q) use ($search) {
             $q->where('name', 'ILIKE', "%{$search}%")
-              ->orWhere('room_number', 'ILIKE', "%{$search}%");
+                ->orWhere('room_number', 'ILIKE', "%{$search}%");
         });
     }
 }

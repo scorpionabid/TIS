@@ -23,7 +23,7 @@ class InstitutionAssignmentService
         ];
 
         $allowedLevels = $roleInstitutionMap[$roleName] ?? [4];
-        
+
         return Institution::whereIn('level', $allowedLevels)
             ->where('is_active', true)
             ->orderBy('level')
@@ -37,8 +37,8 @@ class InstitutionAssignmentService
     public function getInstitutionDisplayFormat(int $institutionId): string
     {
         $institution = Institution::find($institutionId);
-        
-        if (!$institution) {
+
+        if (! $institution) {
             return (string) $institutionId;
         }
 
@@ -53,7 +53,7 @@ class InstitutionAssignmentService
     {
         // Clean the value and extract just the ID
         $trimmed = trim($institutionValue);
-        
+
         // If it contains parentheses, extract the ID before the parentheses
         if (strpos($trimmed, '(') !== false) {
             $parts = explode('(', $trimmed);
@@ -61,7 +61,7 @@ class InstitutionAssignmentService
         } else {
             $idPart = $trimmed;
         }
-        
+
         // Return the numeric ID or null if invalid
         return is_numeric($idPart) ? (int) $idPart : null;
     }
@@ -72,8 +72,8 @@ class InstitutionAssignmentService
     public function validateAssignment(string $roleName, int $institutionId): bool
     {
         $institution = Institution::find($institutionId);
-        
-        if (!$institution) {
+
+        if (! $institution) {
             return false;
         }
 
@@ -87,7 +87,7 @@ class InstitutionAssignmentService
         ];
 
         $allowedLevels = $roleInstitutionMap[$roleName] ?? [4];
-        
+
         return in_array($institution->level, $allowedLevels);
     }
 
@@ -99,28 +99,28 @@ class InstitutionAssignmentService
         $examples = [
             'superadmin' => [
                 ['id' => 23, 'format' => '23 (MÜTDA)'],
-                ['id' => 24, 'format' => '24 (Şəki-Zaqatala Regional Təhsil İdarəsi)']
+                ['id' => 24, 'format' => '24 (Şəki-Zaqatala Regional Təhsil İdarəsi)'],
             ],
             'regionadmin' => [
                 ['id' => 24, 'format' => '24 (Şəki-Zaqatala Regional Təhsil İdarəsi)'],
-                ['id' => 25, 'format' => '25 (Lənkəran-Astara Regional Təhsil idarəsi)']
+                ['id' => 25, 'format' => '25 (Lənkəran-Astara Regional Təhsil idarəsi)'],
             ],
             'sektoradmin' => [
                 ['id' => 26, 'format' => '26 (Balakən)'],
-                ['id' => 27, 'format' => '27 (Zaqatala)']
+                ['id' => 27, 'format' => '27 (Zaqatala)'],
             ],
             'schooladmin' => [
                 ['id' => 32, 'format' => '32 (6 nömrəli tam orta məktəb)'],
-                ['id' => 33, 'format' => '33 (6 nömrəli tam orta məktəb)']
+                ['id' => 33, 'format' => '33 (6 nömrəli tam orta məktəb)'],
             ],
             'müəllim' => [
                 ['id' => 32, 'format' => '32 (6 nömrəli tam orta məktəb)'],
-                ['id' => 34, 'format' => '34 (7 nömrəli tam orta məktəb)']
+                ['id' => 34, 'format' => '34 (7 nömrəli tam orta məktəb)'],
             ],
             'şagird' => [
                 ['id' => 32, 'format' => '32 (6 nömrəli tam orta məktəb)'],
-                ['id' => 35, 'format' => '35 (8 nömrəli tam orta məktəb)']
-            ]
+                ['id' => 35, 'format' => '35 (8 nömrəli tam orta məktəb)'],
+            ],
         ];
 
         return $examples[$roleName] ?? $examples['şagird'];
@@ -131,24 +131,24 @@ class InstitutionAssignmentService
      */
     public function getInstitutionHierarchy(int $institutionId): string
     {
-        $institution = Institution::with(['parent' => function($query) {
-            $query->with(['parent' => function($query) {
+        $institution = Institution::with(['parent' => function ($query) {
+            $query->with(['parent' => function ($query) {
                 $query->with('parent');
             }]);
         }])->find($institutionId);
-        
-        if (!$institution) {
+
+        if (! $institution) {
             return '';
         }
 
         $path = [];
         $current = $institution;
-        
+
         while ($current) {
             $path[] = $current->name;
             $current = $current->parent;
         }
-        
+
         return implode(' > ', array_reverse($path));
     }
 
@@ -158,7 +158,7 @@ class InstitutionAssignmentService
     public function getInstitutionsForBulkImport(string $roleName): array
     {
         $institutions = $this->getAvailableInstitutions($roleName);
-        
+
         return $institutions->map(function ($institution) {
             return [
                 'id' => $institution->id,
@@ -166,7 +166,7 @@ class InstitutionAssignmentService
                 'display_format' => $this->getInstitutionDisplayFormat($institution->id),
                 'level' => $institution->level,
                 'type' => $institution->type,
-                'hierarchy' => $this->getInstitutionHierarchy($institution->id)
+                'hierarchy' => $this->getInstitutionHierarchy($institution->id),
             ];
         })->toArray();
     }
@@ -177,14 +177,14 @@ class InstitutionAssignmentService
     public function getInstitutionOptions(string $roleName): array
     {
         $institutions = $this->getAvailableInstitutions($roleName);
-        
+
         return $institutions->map(function ($institution) {
             return [
                 'value' => $institution->id,
                 'label' => $institution->name,
                 'display_format' => $this->getInstitutionDisplayFormat($institution->id),
                 'level' => $institution->level,
-                'type' => $institution->type
+                'type' => $institution->type,
             ];
         })->toArray();
     }

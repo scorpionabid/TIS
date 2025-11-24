@@ -28,7 +28,7 @@ class ScheduleTemplate extends Model
         'tags',
         'difficulty_level',
         'estimated_generation_time',
-        'last_used_at'
+        'last_used_at',
     ];
 
     protected $casts = [
@@ -39,7 +39,7 @@ class ScheduleTemplate extends Model
         'is_public' => 'boolean',
         'is_default' => 'boolean',
         'success_rate' => 'decimal:2',
-        'last_used_at' => 'datetime'
+        'last_used_at' => 'datetime',
     ];
 
     /**
@@ -87,9 +87,9 @@ class ScheduleTemplate extends Model
      */
     public function scopeForInstitution($query, int $institutionId)
     {
-        return $query->where(function($q) use ($institutionId) {
+        return $query->where(function ($q) use ($institutionId) {
             $q->where('institution_id', $institutionId)
-              ->orWhere('is_public', true);
+                ->orWhere('is_public', true);
         });
     }
 
@@ -114,10 +114,19 @@ class ScheduleTemplate extends Model
      */
     public function getEffectivenessRatingAttribute(): string
     {
-        if ($this->success_rate >= 0.9) return 'excellent';
-        if ($this->success_rate >= 0.8) return 'very_good';
-        if ($this->success_rate >= 0.7) return 'good';
-        if ($this->success_rate >= 0.6) return 'fair';
+        if ($this->success_rate >= 0.9) {
+            return 'excellent';
+        }
+        if ($this->success_rate >= 0.8) {
+            return 'very_good';
+        }
+        if ($this->success_rate >= 0.7) {
+            return 'good';
+        }
+        if ($this->success_rate >= 0.6) {
+            return 'fair';
+        }
+
         return 'needs_improvement';
     }
 
@@ -127,12 +136,12 @@ class ScheduleTemplate extends Model
     public function isCompatibleWith(array $constraints): bool
     {
         $templateConstraints = $this->constraints ?? [];
-        
+
         // Check working days compatibility
         if (isset($constraints['working_days']) && isset($templateConstraints['working_days'])) {
             $requiredDays = $constraints['working_days'];
             $templateDays = $templateConstraints['working_days'];
-            
+
             if (count(array_intersect($requiredDays, $templateDays)) < count($requiredDays)) {
                 return false;
             }
@@ -175,7 +184,7 @@ class ScheduleTemplate extends Model
         if (isset($templateData['distribution_patterns'])) {
             foreach ($modifiedWorkload['teaching_loads'] as &$load) {
                 $subjectType = $this->categorizeSubject($load['subject']['name']);
-                
+
                 if (isset($templateData['distribution_patterns'][$subjectType])) {
                     $load['distribution_pattern'] = $templateData['distribution_patterns'][$subjectType];
                 }
@@ -207,7 +216,7 @@ class ScheduleTemplate extends Model
         if (isset($templateData['teacher_count'])) {
             $actualTeacherCount = count($workloadData['teaching_loads'] ?? []);
             $templateTeacherCount = $templateData['teacher_count'];
-            
+
             $teacherSimilarity = 1.0 - abs($actualTeacherCount - $templateTeacherCount) / max($actualTeacherCount, $templateTeacherCount, 1);
             $similarity += $teacherSimilarity * 0.3;
             $factors += 0.3;
@@ -225,7 +234,7 @@ class ScheduleTemplate extends Model
         if (isset($templateData['complexity_score'])) {
             $actualComplexity = $this->calculateWorkloadComplexity($workloadData);
             $templateComplexity = $templateData['complexity_score'];
-            
+
             $complexitySimilarity = 1.0 - abs($actualComplexity - $templateComplexity) / max($actualComplexity, $templateComplexity, 1);
             $similarity += $complexitySimilarity * 0.3;
             $factors += 0.3;
@@ -244,11 +253,11 @@ class ScheduleTemplate extends Model
 
         // Weighted average update
         $newRate = ($currentRate * $usageCount + $schedulePerformance) / ($usageCount + 1);
-        
+
         $this->update([
             'success_rate' => $newRate,
             'usage_count' => $usageCount + 1,
-            'last_used_at' => now()
+            'last_used_at' => now(),
         ]);
     }
 
@@ -268,18 +277,18 @@ class ScheduleTemplate extends Model
             'optimization_preferences' => $schedule->optimization_preferences ?? [],
             'complexity_score' => static::calculateScheduleComplexity($sessions),
             'time_patterns' => static::extractTimePatterns($sessions),
-            'success_indicators' => static::identifySuccessIndicators($schedule)
+            'success_indicators' => static::identifySuccessIndicators($schedule),
         ];
 
         return [
             'name' => $metadata['name'] ?? "Template from {$schedule->name}",
-            'description' => $metadata['description'] ?? "Generated from successful schedule",
+            'description' => $metadata['description'] ?? 'Generated from successful schedule',
             'template_type' => $metadata['type'] ?? 'generated',
             'template_data' => $templateData,
             'constraints' => static::extractConstraints($workloadData),
             'tags' => static::generateTags($templateData),
             'difficulty_level' => static::calculateDifficultyLevel($templateData),
-            'estimated_generation_time' => static::estimateGenerationTime($templateData)
+            'estimated_generation_time' => static::estimateGenerationTime($templateData),
         ];
     }
 
@@ -289,7 +298,7 @@ class ScheduleTemplate extends Model
     public static function getRecommendedTemplates(array $workloadData, ?int $institutionId = null): Collection
     {
         $query = static::query()
-            ->when($institutionId, fn($q) => $q->forInstitution($institutionId))
+            ->when($institutionId, fn ($q) => $q->forInstitution($institutionId))
             ->where('success_rate', '>', 0.6)
             ->orderBy('success_rate', 'desc');
 
@@ -298,10 +307,11 @@ class ScheduleTemplate extends Model
         return $templates->map(function ($template) use ($workloadData) {
             $similarity = $template->calculateSimilarityWith($workloadData);
             $template->similarity_score = $similarity;
+
             return $template;
-        })->filter(fn($template) => $template->similarity_score > 0.3)
-          ->sortByDesc('similarity_score')
-          ->take(5);
+        })->filter(fn ($template) => $template->similarity_score > 0.3)
+            ->sortByDesc('similarity_score')
+            ->take(5);
     }
 
     // Helper methods
@@ -311,10 +321,16 @@ class ScheduleTemplate extends Model
         $socialSubjects = ['Tarix', 'Coğrafiya', 'Vətəndaşlıq'];
         $practicalSubjects = ['Bədən tərbiyəsi', 'İnformatika', 'Texnologiya'];
 
-        if (in_array($subjectName, $coreSubjects)) return 'core';
-        if (in_array($subjectName, $socialSubjects)) return 'social';
-        if (in_array($subjectName, $practicalSubjects)) return 'practical';
-        
+        if (in_array($subjectName, $coreSubjects)) {
+            return 'core';
+        }
+        if (in_array($subjectName, $socialSubjects)) {
+            return 'social';
+        }
+        if (in_array($subjectName, $practicalSubjects)) {
+            return 'practical';
+        }
+
         return 'other';
     }
 
@@ -330,7 +346,9 @@ class ScheduleTemplate extends Model
         $actualTotal = array_sum($actualDistribution);
         $templateTotal = array_sum($templateDistribution);
 
-        if ($actualTotal === 0 || $templateTotal === 0) return 0.0;
+        if ($actualTotal === 0 || $templateTotal === 0) {
+            return 0.0;
+        }
 
         $similarity = 0.0;
         $allCategories = array_unique(array_merge(array_keys($actualDistribution), array_keys($templateDistribution)));
@@ -349,7 +367,7 @@ class ScheduleTemplate extends Model
         $complexity = 0.0;
 
         $teachingLoads = $workloadData['teaching_loads'] ?? [];
-        
+
         // Teacher diversity complexity
         $uniqueTeachers = count(array_unique(array_column($teachingLoads, 'teacher_id')));
         $complexity += $uniqueTeachers * 0.1;
@@ -369,8 +387,12 @@ class ScheduleTemplate extends Model
         // Constraint complexity
         $constraintCount = 0;
         foreach ($teachingLoads as $load) {
-            if (!empty($load['preferred_time_slots'])) $constraintCount++;
-            if (!empty($load['unavailable_periods'])) $constraintCount++;
+            if (! empty($load['preferred_time_slots'])) {
+                $constraintCount++;
+            }
+            if (! empty($load['unavailable_periods'])) {
+                $constraintCount++;
+            }
         }
         $complexity += $constraintCount * 0.05;
 
@@ -381,7 +403,7 @@ class ScheduleTemplate extends Model
     protected static function calculateSubjectDistribution(Collection $sessions): array
     {
         $distribution = [];
-        
+
         foreach ($sessions as $session) {
             $subjectName = $session->subject->name;
             $category = (new static)->categorizeSubject($subjectName);
@@ -394,24 +416,24 @@ class ScheduleTemplate extends Model
     protected static function extractDistributionPatterns(Collection $sessions): array
     {
         $patterns = [];
-        
+
         $sessionsBySubject = $sessions->groupBy('subject.name');
-        
+
         foreach ($sessionsBySubject as $subjectName => $subjectSessions) {
             $category = (new static)->categorizeSubject($subjectName);
-            
+
             $dayDistribution = $subjectSessions->groupBy('day_of_week')
-                ->map(fn($sessions) => $sessions->count())
+                ->map(fn ($sessions) => $sessions->count())
                 ->toArray();
-                
+
             $timeDistribution = $subjectSessions->groupBy('period_number')
-                ->map(fn($sessions) => $sessions->count())
+                ->map(fn ($sessions) => $sessions->count())
                 ->toArray();
 
             $patterns[$category] = [
                 'day_distribution' => $dayDistribution,
                 'time_distribution' => $timeDistribution,
-                'preferred_periods' => static::extractPreferredPeriods($timeDistribution)
+                'preferred_periods' => static::extractPreferredPeriods($timeDistribution),
             ];
         }
 
@@ -421,6 +443,7 @@ class ScheduleTemplate extends Model
     protected static function extractPreferredPeriods(array $timeDistribution): array
     {
         arsort($timeDistribution);
+
         return array_slice(array_keys($timeDistribution), 0, 3, true);
     }
 }

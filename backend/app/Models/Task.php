@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
 
 class Task extends Model
 {
@@ -222,8 +222,8 @@ class Task extends Model
     public function scopeDeadlineApproaching(Builder $query, int $days = 3): Builder
     {
         return $query->where('deadline', '<=', now()->addDays($days))
-                    ->where('status', '!=', 'completed')
-                    ->where('status', '!=', 'cancelled');
+            ->where('status', '!=', 'completed')
+            ->where('status', '!=', 'cancelled');
     }
 
     /**
@@ -232,8 +232,8 @@ class Task extends Model
     public function scopeOverdue(Builder $query): Builder
     {
         return $query->where('deadline', '<', now())
-                    ->where('status', '!=', 'completed')
-                    ->where('status', '!=', 'cancelled');
+            ->where('status', '!=', 'completed')
+            ->where('status', '!=', 'cancelled');
     }
 
     /**
@@ -245,16 +245,16 @@ class Task extends Model
             // Direct assignment
             $q->where('assigned_institution_id', $institutionId)
               // Direct targeting
-              ->orWhereJsonContains('target_institutions', $institutionId)
+                ->orWhereJsonContains('target_institutions', $institutionId)
               // Global scope
-              ->orWhere('target_scope', 'all')
+                ->orWhere('target_scope', 'all')
               // Hierarchical targeting: institution is a child of a targeted institution
-              ->orWhere(function ($subQ) use ($institutionId) {
-                  $institution = Institution::find($institutionId);
-                  if ($institution && $institution->parent_id) {
-                      $subQ->whereJsonContains('target_institutions', $institution->parent_id);
-                  }
-              });
+                ->orWhere(function ($subQ) use ($institutionId) {
+                    $institution = Institution::find($institutionId);
+                    if ($institution && $institution->parent_id) {
+                        $subQ->whereJsonContains('target_institutions', $institution->parent_id);
+                    }
+                });
         });
     }
 
@@ -263,9 +263,9 @@ class Task extends Model
      */
     public function isOverdue(): bool
     {
-        return $this->deadline && 
-               $this->deadline < now() && 
-               !in_array($this->status, ['completed', 'cancelled']);
+        return $this->deadline &&
+               $this->deadline < now() &&
+               ! in_array($this->status, ['completed', 'cancelled']);
     }
 
     /**
@@ -273,9 +273,9 @@ class Task extends Model
      */
     public function isDeadlineApproaching(int $days = 3): bool
     {
-        return $this->deadline && 
-               $this->deadline <= now()->addDays($days) && 
-               !in_array($this->status, ['completed', 'cancelled']);
+        return $this->deadline &&
+               $this->deadline <= now()->addDays($days) &&
+               ! in_array($this->status, ['completed', 'cancelled']);
     }
 
     /**
@@ -308,6 +308,7 @@ class Task extends Model
     public function getOriginScopeLabelAttribute(): ?string
     {
         $origin = $this->origin_scope ?? $this->inferOriginScope();
+
         return $origin ? (self::ORIGIN_SCOPES[$origin] ?? ucfirst($origin)) : null;
     }
 
@@ -341,13 +342,17 @@ class Task extends Model
     public static function canCreateTaskForTargets(User $user, array $targetInstitutionIds): bool
     {
         $userRole = $user->roles->first();
-        if (!$userRole) return false;
+        if (! $userRole) {
+            return false;
+        }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) return false;
+        if (! $userInstitution) {
+            return false;
+        }
 
         foreach ($targetInstitutionIds as $targetId) {
-            if (!self::canUserTargetInstitution($user, $userRole, $targetId)) {
+            if (! self::canUserTargetInstitution($user, $userRole, $targetId)) {
                 return false;
             }
         }
@@ -362,11 +367,15 @@ class Task extends Model
     {
         $userInstitution = $user->institution;
         $targetInstitution = Institution::find($targetInstitutionId);
-        
-        if (!$targetInstitution) return false;
+
+        if (! $targetInstitution) {
+            return false;
+        }
 
         // SuperAdmin can target anyone
-        if ($userRole->name === 'superadmin') return true;
+        if ($userRole->name === 'superadmin') {
+            return true;
+        }
 
         // RegionAdmin can target own region and below
         if ($userRole->name === 'regionadmin') {
@@ -380,13 +389,13 @@ class Task extends Model
 
         // RegionOperator can target schools in their region
         if ($userRole->name === 'regionoperator') {
-            return self::isInstitutionInRegionalHierarchy($userInstitution, $targetInstitution) && 
+            return self::isInstitutionInRegionalHierarchy($userInstitution, $targetInstitution) &&
                    $targetInstitution->type === 'school';
         }
 
         // SektorOperator can target schools in their sector
         if ($userRole->name === 'sektoroperator') {
-            return self::isInstitutionInSectorHierarchy($userInstitution, $targetInstitution) && 
+            return self::isInstitutionInSectorHierarchy($userInstitution, $targetInstitution) &&
                    $targetInstitution->type === 'school';
         }
 
@@ -412,6 +421,7 @@ class Task extends Model
         // If user is at sector level, get their region and check
         if ($userInstitution->type === 'sektor') {
             $userRegion = $userInstitution->parent;
+
             return $userRegion && $targetInstitution->region_code === $userRegion->region_code;
         }
 
@@ -439,7 +449,9 @@ class Task extends Model
     public static function getAllowedTargetRoles(User $user): array
     {
         $userRole = $user->roles->first();
-        if (!$userRole) return [];
+        if (! $userRole) {
+            return [];
+        }
 
         $allowedRoles = [
             'superadmin' => ['regionadmin', 'regionoperator', 'sektoradmin', 'sektoroperator', 'schooladmin', 'deputy', 'teacher'],
@@ -460,10 +472,14 @@ class Task extends Model
     public static function getUserTargetableInstitutions(User $user): array
     {
         $userRole = $user->roles->first();
-        if (!$userRole) return [];
+        if (! $userRole) {
+            return [];
+        }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) return [];
+        if (! $userInstitution) {
+            return [];
+        }
 
         // SuperAdmin can target all active institutions
         if ($userRole->name === 'superadmin') {
@@ -473,22 +489,22 @@ class Task extends Model
         // RegionAdmin can target all institutions in their region
         if ($userRole->name === 'regionadmin') {
             return Institution::where('region_code', $userInstitution->region_code)
-                             ->where('is_active', true)
-                             ->pluck('id')->toArray();
+                ->where('is_active', true)
+                ->pluck('id')->toArray();
         }
 
         // SektorAdmin can target their sector and schools under it
         if ($userRole->name === 'sektoradmin') {
-            return Institution::where(function($q) use ($userInstitution) {
+            return Institution::where(function ($q) use ($userInstitution) {
                 $q->where('id', $userInstitution->id)
-                  ->orWhere('parent_id', $userInstitution->id);
+                    ->orWhere('parent_id', $userInstitution->id);
             })->where('is_active', true)->pluck('id')->toArray();
         }
 
         // Operators can target schools
         if (in_array($userRole->name, ['regionoperator', 'sektoroperator'])) {
             $query = Institution::where('type', 'school')->where('is_active', true);
-            
+
             if ($userRole->name === 'regionoperator') {
                 $query->where('region_code', $userInstitution->region_code);
             } else {
@@ -497,7 +513,7 @@ class Task extends Model
                     $query->where('parent_id', $userSector->id);
                 }
             }
-            
+
             return $query->pluck('id')->toArray();
         }
 
@@ -516,9 +532,9 @@ class Task extends Model
     {
         static::updating(function ($task) {
             if ($task->isDirty('status')) {
-                if ($task->status === 'in_progress' && !$task->started_at) {
+                if ($task->status === 'in_progress' && ! $task->started_at) {
                     $task->started_at = now();
-                } elseif ($task->status === 'completed' && !$task->completed_at) {
+                } elseif ($task->status === 'completed' && ! $task->completed_at) {
                     $task->completed_at = now();
                     $task->progress = 100;
                 }

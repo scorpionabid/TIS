@@ -20,14 +20,14 @@ class RoomFactory extends Factory
         $roomTypes = [
             'classroom', 'laboratory', 'library', 'office', 'meeting_room',
             'auditorium', 'gymnasium', 'cafeteria', 'storage', 'computer_lab',
-            'art_room', 'music_room', 'workshop', 'medical_room', 'principal_office'
+            'art_room', 'music_room', 'workshop', 'medical_room', 'principal_office',
         ];
 
         $facilities = [
             'projector', 'whiteboard', 'computer', 'air_conditioning',
             'heating', 'windows', 'storage_cabinets', 'electrical_outlets',
             'internet_connection', 'audio_system', 'emergency_exit',
-            'fire_extinguisher', 'first_aid_kit'
+            'fire_extinguisher', 'first_aid_kit',
         ];
 
         return [

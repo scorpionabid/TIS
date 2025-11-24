@@ -18,7 +18,6 @@ class ImportAnalyzer
      * - ⏭️/⚠️ Skip
      * - ❌ Error
      *
-     * @param array $importResults
      * @return array Statistics array with counts and breakdowns
      */
     public function analyzeImportResults(array $importResults): array
@@ -71,7 +70,7 @@ class ImportAnalyzer
             'error_count' => $errorCount,
             'school_admin_count' => $schoolAdminCount,
             'skip_reasons' => $skipReasons,
-            'error_types' => $errorTypes
+            'error_types' => $errorTypes,
         ];
     }
 }

@@ -35,13 +35,13 @@ class LinkConfigurationService
                 'survey' => 'Sorğu',
                 'announcement' => 'Elan',
                 'resource' => 'Resurs',
-                'external' => 'Xarici link'
+                'external' => 'Xarici link',
             ],
             'priorities' => [
                 'low' => 'Aşağı',
                 'normal' => 'Normal',
-                'high' => 'Yüksək'
-            ]
+                'high' => 'Yüksək',
+            ],
         ];
     }
 
@@ -71,7 +71,7 @@ class LinkConfigurationService
             'survey' => 'Sorğu',
             'announcement' => 'Elan',
             'resource' => 'Resurs',
-            'external' => 'Xarici link'
+            'external' => 'Xarici link',
         ];
     }
 
@@ -83,7 +83,7 @@ class LinkConfigurationService
         return [
             'low' => 'Aşağı',
             'normal' => 'Normal',
-            'high' => 'Yüksək'
+            'high' => 'Yüksək',
         ];
     }
 }

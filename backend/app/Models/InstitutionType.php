@@ -106,7 +106,7 @@ class InstitutionType extends Model
      */
     public function canBeDeleted(): bool
     {
-        return !$this->is_system && $this->institutions()->count() === 0;
+        return ! $this->is_system && $this->institutions()->count() === 0;
     }
 
     /**

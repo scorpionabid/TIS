@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 
 class NotificationTemplate extends Model
 {
@@ -63,8 +63,8 @@ class NotificationTemplate extends Model
     public function getTemplate(string $field, string $language = 'az'): string
     {
         // Check if translation exists
-        if ($this->translations && 
-            isset($this->translations[$language]) && 
+        if ($this->translations &&
+            isset($this->translations[$language]) &&
             isset($this->translations[$language][$field])) {
             return $this->translations[$language][$field];
         }
@@ -79,12 +79,12 @@ class NotificationTemplate extends Model
     public function render(string $field, array $variables = [], string $language = 'az'): string
     {
         $template = $this->getTemplate($field, $language);
-        
+
         // Replace variables in template
         foreach ($variables as $key => $value) {
             $template = str_replace('{' . $key . '}', $value, $template);
         }
-        
+
         return $template;
     }
 
@@ -104,7 +104,7 @@ class NotificationTemplate extends Model
         if (is_string($value)) {
             return json_decode($value, true) ?? [];
         }
-        
+
         return $value ?? [];
     }
 }

@@ -3,14 +3,14 @@
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class SummaryReportExport implements FromCollection, WithHeadings, WithMapping, WithStyles, ShouldAutoSize, WithTitle
+class SummaryReportExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping, WithStyles, WithTitle
 {
     protected $reportData;
 
@@ -76,7 +76,7 @@ class SummaryReportExport implements FromCollection, WithHeadings, WithMapping, 
             return $row['metadata'][$field['key']] ?? '-';
         })->toArray();
 
-        $recordedAt = !empty($row['recorded_at'])
+        $recordedAt = ! empty($row['recorded_at'])
             ? \Carbon\Carbon::parse($row['recorded_at'])->format('d.m.Y H:i')
             : '-';
 
@@ -93,7 +93,7 @@ class SummaryReportExport implements FromCollection, WithHeadings, WithMapping, 
                 'font' => ['bold' => true, 'size' => 12],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => 'E2E8F0']
+                    'startColor' => ['rgb' => 'E2E8F0'],
                 ],
                 'alignment' => [
                     'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,

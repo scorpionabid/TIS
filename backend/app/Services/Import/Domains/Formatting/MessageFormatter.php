@@ -14,10 +14,6 @@ class MessageFormatter
 {
     /**
      * Format skip message with detailed reason
-     *
-     * @param array $rowData
-     * @param string $reason
-     * @return string
      */
     public function formatSkipMessage(array $rowData, string $reason): string
     {
@@ -26,10 +22,6 @@ class MessageFormatter
 
     /**
      * Format duplicate message with existing institution info
-     *
-     * @param array $rowData
-     * @param Institution|null $existingInstitution
-     * @return string
      */
     public function formatDuplicateMessage(array $rowData, ?Institution $existingInstitution): string
     {
@@ -38,11 +30,6 @@ class MessageFormatter
 
     /**
      * Format success message with detailed information
-     *
-     * @param array $rowData
-     * @param Institution $institution
-     * @param array|null $schoolAdminInfo
-     * @return string
      */
     public function formatSuccessMessage(array $rowData, Institution $institution, ?array $schoolAdminInfo = null): string
     {
@@ -51,7 +38,7 @@ class MessageFormatter
         if ($schoolAdminInfo && $schoolAdminInfo['username'] !== $schoolAdminInfo['original_username']) {
             $message .= " + Admin({$schoolAdminInfo['username']})";
         } elseif ($schoolAdminInfo) {
-            $message .= " + Admin";
+            $message .= ' + Admin';
         }
 
         return $message;
@@ -64,10 +51,6 @@ class MessageFormatter
      * - UNIQUE constraint failures
      * - NOT NULL constraint failures
      * - Role assignment errors
-     *
-     * @param array $rowData
-     * @param \Exception $e
-     * @return string
      */
     public function formatErrorMessage(array $rowData, \Exception $e): string
     {

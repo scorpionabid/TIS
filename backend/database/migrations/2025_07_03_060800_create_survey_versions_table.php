@@ -18,7 +18,7 @@ return new class extends Migration
             $table->json('structure');
             $table->foreignId('created_by')->constrained('users');
             $table->timestamp('created_at')->useCurrent();
-            
+
             $table->unique(['survey_id', 'version_number']);
             $table->index(['survey_id', 'version_number']);
         });

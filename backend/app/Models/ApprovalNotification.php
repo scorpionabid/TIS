@@ -86,8 +86,8 @@ class ApprovalNotification extends Model
     public function scopeScheduled($query)
     {
         return $query->whereNotNull('scheduled_for')
-                    ->where('scheduled_for', '<=', now())
-                    ->where('status', 'pending');
+            ->where('scheduled_for', '<=', now())
+            ->where('status', 'pending');
     }
 
     /**
@@ -117,8 +117,8 @@ class ApprovalNotification extends Model
      */
     public function isOverdue(): bool
     {
-        return $this->scheduled_for && 
-               $this->scheduled_for->isPast() && 
+        return $this->scheduled_for &&
+               $this->scheduled_for->isPast() &&
                $this->status === 'pending';
     }
 
@@ -127,7 +127,7 @@ class ApprovalNotification extends Model
      */
     public function getFormattedType(): string
     {
-        return match($this->notification_type) {
+        return match ($this->notification_type) {
             'request_submitted' => 'Sorğu göndərildi',
             'approval_required' => 'Təsdiq tələb olunur',
             'approved' => 'Təsdiqləndi',
@@ -143,7 +143,7 @@ class ApprovalNotification extends Model
      */
     public function getPriority(): string
     {
-        return match($this->notification_type) {
+        return match ($this->notification_type) {
             'overdue' => 'high',
             'deadline_approaching' => 'medium',
             'approval_required' => 'medium',
@@ -157,7 +157,7 @@ class ApprovalNotification extends Model
      */
     public function getIcon(): string
     {
-        return match($this->notification_type) {
+        return match ($this->notification_type) {
             'request_submitted' => 'send',
             'approval_required' => 'clock',
             'approved' => 'check-circle',

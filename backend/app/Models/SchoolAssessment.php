@@ -39,8 +39,11 @@ class SchoolAssessment extends Model
     protected $appends = ['generated_title'];
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_IN_PROGRESS = 'in_progress';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_SUBMITTED = 'submitted';
 
     public function assessmentType(): BelongsTo

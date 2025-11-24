@@ -2,19 +2,24 @@
 
 namespace App\Repositories;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Cache;
 
 abstract class BaseRepository
 {
     protected Model $model;
+
     protected array $searchableFields = [];
+
     protected array $filterableFields = [];
+
     protected array $defaultRelationships = [];
+
     protected int $cacheTtl = 3600; // 1 hour
+
     protected bool $cacheEnabled = true;
 
     public function __construct(Model $model)
@@ -93,6 +98,7 @@ abstract class BaseRepository
     {
         $model = $this->model->create($data);
         $this->clearModelCache();
+
         return $model;
     }
 
@@ -104,6 +110,7 @@ abstract class BaseRepository
         $model = $this->findOrFail($id);
         $model->update($data);
         $this->clearModelCache();
+
         return $model->fresh();
     }
 
@@ -115,6 +122,7 @@ abstract class BaseRepository
         $model = $this->findOrFail($id);
         $result = $model->delete();
         $this->clearModelCache();
+
         return $result;
     }
 
@@ -125,6 +133,7 @@ abstract class BaseRepository
     {
         $count = $this->model->whereIn('id', $ids)->delete();
         $this->clearModelCache();
+
         return $count;
     }
 
@@ -135,6 +144,7 @@ abstract class BaseRepository
     {
         $count = $this->model->whereIn('id', $ids)->update($data);
         $this->clearModelCache();
+
         return $count;
     }
 
@@ -160,6 +170,7 @@ abstract class BaseRepository
     public function search(string $term, int $perPage = 15): LengthAwarePaginator
     {
         $query = $this->buildSearchQuery($term);
+
         return $query->paginate($perPage);
     }
 
@@ -170,6 +181,7 @@ abstract class BaseRepository
     {
         $query = $this->buildSearchQuery($term);
         $this->applyFilters($query, $filters);
+
         return $query->paginate($perPage);
     }
 
@@ -180,6 +192,7 @@ abstract class BaseRepository
     {
         $query = $this->model->newQuery();
         $this->applyFilters($query, $filters);
+
         return $query->paginate($perPage);
     }
 
@@ -190,6 +203,7 @@ abstract class BaseRepository
     {
         $query = $this->model->with($relationships);
         $this->applyFilters($query, $filters);
+
         return $query->paginate($perPage);
     }
 
@@ -252,13 +266,14 @@ abstract class BaseRepository
     /**
      * Get records with cache
      */
-    public function getCached(string $key, callable $callback, int $ttl = null): mixed
+    public function getCached(string $key, callable $callback, ?int $ttl = null): mixed
     {
-        if (!$this->cacheEnabled) {
+        if (! $this->cacheEnabled) {
             return $callback();
         }
 
         $ttl = $ttl ?? $this->cacheTtl;
+
         return Cache::remember($key, $ttl, $callback);
     }
 
@@ -268,7 +283,7 @@ abstract class BaseRepository
     public function getStatistics(): array
     {
         $cacheKey = $this->getCacheKey('statistics');
-        
+
         return $this->getCached($cacheKey, function () {
             return [
                 'total' => $this->count(),
@@ -277,11 +292,11 @@ abstract class BaseRepository
                 'created_today' => $this->model->whereDate('created_at', today())->count(),
                 'created_this_week' => $this->model->whereBetween('created_at', [
                     now()->startOfWeek(),
-                    now()->endOfWeek()
+                    now()->endOfWeek(),
                 ])->count(),
                 'created_this_month' => $this->model->whereMonth('created_at', now()->month)
-                                                  ->whereYear('created_at', now()->year)
-                                                  ->count(),
+                    ->whereYear('created_at', now()->year)
+                    ->count(),
             ];
         });
     }
@@ -320,13 +335,13 @@ abstract class BaseRepository
     protected function applyFilters(Builder $query, array $filters): void
     {
         foreach ($filters as $key => $value) {
-            if (!in_array($key, $this->filterableFields) || $value === null || $value === '') {
+            if (! in_array($key, $this->filterableFields) || $value === null || $value === '') {
                 continue;
             }
 
             switch ($key) {
                 case 'search':
-                    if (!empty($this->searchableFields)) {
+                    if (! empty($this->searchableFields)) {
                         $searchQuery = $this->buildSearchQuery($value);
                         $query->mergeConstraintsFrom($searchQuery);
                     }
@@ -368,7 +383,7 @@ abstract class BaseRepository
         }
 
         // Apply default sorting if no sort specified
-        if (!isset($filters['sort_by'])) {
+        if (! isset($filters['sort_by'])) {
             $query->latest();
         }
     }
@@ -394,6 +409,7 @@ abstract class BaseRepository
     protected function getCacheKey(string $suffix = ''): string
     {
         $modelName = strtolower(class_basename($this->model));
+
         return $suffix ? "{$modelName}_{$suffix}" : $modelName;
     }
 
@@ -402,7 +418,7 @@ abstract class BaseRepository
      */
     protected function clearModelCache(): void
     {
-        if (!$this->cacheEnabled) {
+        if (! $this->cacheEnabled) {
             return;
         }
 
@@ -411,7 +427,7 @@ abstract class BaseRepository
             "{$modelName}_statistics",
             "{$modelName}_all",
             "{$modelName}_active",
-            "{$modelName}_hierarchy"
+            "{$modelName}_hierarchy",
         ];
 
         foreach ($keys as $key) {
@@ -444,6 +460,7 @@ abstract class BaseRepository
     public function setModel(Model $model): self
     {
         $this->model = $model;
+
         return $this;
     }
 
@@ -453,6 +470,7 @@ abstract class BaseRepository
     public function setCacheEnabled(bool $enabled): self
     {
         $this->cacheEnabled = $enabled;
+
         return $this;
     }
 
@@ -462,6 +480,7 @@ abstract class BaseRepository
     public function setCacheTtl(int $ttl): self
     {
         $this->cacheTtl = $ttl;
+
         return $this;
     }
 }

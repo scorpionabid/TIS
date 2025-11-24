@@ -9,7 +9,7 @@ use Maatwebsite\Excel\Concerns\WithCustomCsvSettings;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 
-class ClassesTemplateExportCSV implements FromArray, WithHeadings, WithColumnFormatting, WithCustomCsvSettings
+class ClassesTemplateExportCSV implements FromArray, WithColumnFormatting, WithCustomCsvSettings, WithHeadings
 {
     /**
      * @var \Illuminate\Support\Collection<int, object>
@@ -52,7 +52,7 @@ class ClassesTemplateExportCSV implements FromArray, WithHeadings, WithColumnFor
     public function array(): array
     {
         if ($this->institutions->isEmpty()) {
-            $placeholder = (object)[
+            $placeholder = (object) [
                 'utis_code' => 'UTIS001',
                 'institution_code' => 'MKT001',
                 'name' => 'Nümunə Məktəb',
@@ -184,7 +184,7 @@ class ClassesTemplateExportCSV implements FromArray, WithHeadings, WithColumnFor
         $data = array_merge($defaults, $overrides);
 
         // Ensure totals stay consistent
-        if (!isset($overrides['student_count'])) {
+        if (! isset($overrides['student_count'])) {
             $data['student_count'] = $data['male_count'] + $data['female_count'];
         }
 
@@ -211,6 +211,7 @@ class ClassesTemplateExportCSV implements FromArray, WithHeadings, WithColumnFor
     protected function getAcademicYear(): string
     {
         $year = (int) date('Y');
+
         return $year . '-' . ($year + 1);
     }
 

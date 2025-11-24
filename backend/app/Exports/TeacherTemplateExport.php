@@ -3,12 +3,12 @@
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class TeacherTemplateExport implements FromArray, WithHeadings, WithStyles, WithColumnWidths
+class TeacherTemplateExport implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
     public function array(): array
     {
@@ -42,7 +42,7 @@ class TeacherTemplateExport implements FromArray, WithHeadings, WithStyles, With
                 'ali.hasanov@example.com',
                 '', // UTIS avtomatik yaradılacaq
                 'Riyaziyyat və informatika sahəsində ixtisaslaşmış müəllim',
-                'active'
+                'active',
             ],
             [
                 'Rəşad',
@@ -73,8 +73,8 @@ class TeacherTemplateExport implements FromArray, WithHeadings, WithStyles, With
                 'leyla.memmedova@example.com',
                 '', // UTIS avtomatik yaradılacaq
                 'Tarix və coğrafiya sahəsində təcrübəli müəllim',
-                'active'
-            ]
+                'active',
+            ],
         ];
     }
 
@@ -109,7 +109,7 @@ class TeacherTemplateExport implements FromArray, WithHeadings, WithStyles, With
             'emergency_contact_email',
             'utis_code',
             'notes',
-            'status'
+            'status',
         ];
     }
 

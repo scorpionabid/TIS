@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\PsychologySession;
 use App\Models\PsychologyAssessment;
 use App\Models\PsychologyNote;
+use App\Models\PsychologySession;
+use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Carbon\Carbon;
 
 class PsychologyService extends BaseService
 {
@@ -23,30 +23,30 @@ class PsychologyService extends BaseService
             ->where('institution_id', Auth::user()->institution_id);
 
         // Apply filters
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->where(function ($q) use ($filters) {
                 $q->where('student_name', 'like', '%' . $filters['search'] . '%')
-                  ->orWhere('student_class', 'like', '%' . $filters['search'] . '%');
+                    ->orWhere('student_class', 'like', '%' . $filters['search'] . '%');
             });
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['session_type'])) {
+        if (! empty($filters['session_type'])) {
             $query->where('session_type', $filters['session_type']);
         }
 
-        if (!empty($filters['psychologist_id'])) {
+        if (! empty($filters['psychologist_id'])) {
             $query->where('psychologist_id', $filters['psychologist_id']);
         }
 
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->whereDate('session_date', '>=', $filters['date_from']);
         }
 
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->whereDate('session_date', '<=', $filters['date_to']);
         }
 
@@ -79,7 +79,7 @@ class PsychologyService extends BaseService
                 'metadata' => [
                     'created_by' => Auth::user()->username,
                     'created_at' => now()->format('Y-m-d H:i:s'),
-                ]
+                ],
             ]);
 
             // Log the session creation
@@ -99,7 +99,7 @@ class PsychologyService extends BaseService
     {
         return DB::transaction(function () use ($session, $data) {
             $originalStatus = $session->status;
-            
+
             $session->update([
                 'student_name' => $data['student_name'] ?? $session->student_name,
                 'student_class' => $data['student_class'] ?? $session->student_class,
@@ -181,9 +181,9 @@ class PsychologyService extends BaseService
     public function getStatistics(): array
     {
         $user = Auth::user();
-        
+
         $baseQuery = PsychologySession::where('institution_id', $user->institution_id);
-        
+
         // If user is psychologist, filter by their sessions
         if ($user->hasRole('müəllim')) {
             $baseQuery->where('psychologist_id', $user->id);
@@ -224,9 +224,9 @@ class PsychologyService extends BaseService
                 $q->where('psychologist_id', $user->id);
             }
         })
-        ->selectRaw('assessment_type, COUNT(*) as count')
-        ->groupBy('assessment_type')
-        ->pluck('count', 'assessment_type');
+            ->selectRaw('assessment_type, COUNT(*) as count')
+            ->groupBy('assessment_type')
+            ->pluck('count', 'assessment_type');
 
         return [
             'total_sessions' => $totalSessions,
@@ -253,7 +253,7 @@ class PsychologyService extends BaseService
             },
             'notes' => function ($query) {
                 $query->orderBy('created_at', 'desc');
-            }
+            },
         ]);
     }
 
@@ -267,7 +267,7 @@ class PsychologyService extends BaseService
             ->where('status', 'completed')
             ->whereHas('assessments', function ($query) {
                 $query->where('follow_up_required', true)
-                      ->where('follow_up_date', '<=', now()->addDays(7));
+                    ->where('follow_up_date', '<=', now()->addDays(7));
             })
             ->get();
     }
@@ -295,7 +295,7 @@ class PsychologyService extends BaseService
         $existingSessions = PsychologySession::where('institution_id', Auth::user()->institution_id)
             ->where(function ($q) use ($query) {
                 $q->where('student_name', 'like', '%' . $query . '%')
-                  ->orWhere('student_class', 'like', '%' . $query . '%');
+                    ->orWhere('student_class', 'like', '%' . $query . '%');
             })
             ->select('student_name', 'student_class', 'student_id')
             ->distinct()

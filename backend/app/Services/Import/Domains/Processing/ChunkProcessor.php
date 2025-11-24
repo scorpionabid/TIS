@@ -48,10 +48,8 @@ class ChunkProcessor
      * - Batch optimization (N+1 prevention)
      * - 100ms delay between chunks
      *
-     * @param array $data
-     * @param InstitutionType $institutionType
-     * @param array &$importResults Reference to results array
-     * @return int Total imported count
+     * @param  array &$importResults Reference to results array
+     * @return int   Total imported count
      */
     public function executeChunkedImport(array $data, InstitutionType $institutionType, array &$importResults): int
     {
@@ -64,7 +62,7 @@ class ChunkProcessor
             'total_rows' => $totalRows,
             'chunk_size' => self::CHUNK_SIZE,
             'total_chunks' => $totalChunks,
-            'institution_type' => $institutionType->key
+            'institution_type' => $institutionType->key,
         ]);
 
         foreach ($chunks as $chunkIndex => $chunk) {
@@ -73,7 +71,7 @@ class ChunkProcessor
             try {
                 Log::info("Processing chunk {$chunkNumber}/{$totalChunks}", [
                     'chunk_size' => count($chunk),
-                    'rows' => array_column($chunk, 'row')
+                    'rows' => array_column($chunk, 'row'),
                 ]);
 
                 // Process each chunk in its own transaction
@@ -85,18 +83,17 @@ class ChunkProcessor
 
                 Log::info("Chunk {$chunkNumber} completed", [
                     'imported_in_chunk' => $chunkImported,
-                    'total_imported_so_far' => $totalImported
+                    'total_imported_so_far' => $totalImported,
                 ]);
 
                 // Add a small delay between chunks to prevent resource exhaustion
                 if ($chunkNumber < $totalChunks) {
                     usleep(self::CHUNK_DELAY);
                 }
-
             } catch (\Exception $e) {
                 Log::error("Chunk {$chunkNumber} failed", [
                     'error' => $e->getMessage(),
-                    'chunk_data' => array_column($chunk, 'name')
+                    'chunk_data' => array_column($chunk, 'name'),
                 ]);
 
                 // Add error messages for this chunk
@@ -108,7 +105,7 @@ class ChunkProcessor
 
         Log::info('Chunked import completed', [
             'total_imported' => $totalImported,
-            'total_chunks_processed' => $totalChunks
+            'total_chunks_processed' => $totalChunks,
         ]);
 
         return $totalImported;
@@ -125,10 +122,8 @@ class ChunkProcessor
      * 5. Create institution + SchoolAdmin
      * 6. Format result messages
      *
-     * @param array $chunk
-     * @param InstitutionType $institutionType
-     * @param array &$importResults Reference to results array
-     * @return int Imported count in this chunk
+     * @param  array &$importResults Reference to results array
+     * @return int   Imported count in this chunk
      */
     public function processChunk(array $chunk, InstitutionType $institutionType, array &$importResults): int
     {
@@ -140,7 +135,7 @@ class ChunkProcessor
 
         // Extract UTIS codes and preload for duplicate detector
         $utisCodes = array_filter(array_column($chunk, 'utis_code'));
-        if (!empty($utisCodes)) {
+        if (! empty($utisCodes)) {
             $this->duplicateDetector->preloadInstitutionsByUtis($utisCodes);
         }
 
@@ -148,7 +143,8 @@ class ChunkProcessor
             try {
                 // Skip sample data rows
                 if ($this->dataTypeParser->isSampleRow($rowData)) {
-                    $importResults[] = $this->messageFormatter->formatSkipMessage($rowData, "Nümunə sətri");
+                    $importResults[] = $this->messageFormatter->formatSkipMessage($rowData, 'Nümunə sətri');
+
                     continue;
                 }
 
@@ -156,6 +152,7 @@ class ChunkProcessor
                 if ($this->duplicateDetector->isDuplicateUtisCodeBatch($rowData['utis_code'])) {
                     $existingInstitution = $this->duplicateDetector->getInstitutionByUtisCodeBatch($rowData['utis_code']);
                     $importResults[] = $this->messageFormatter->formatDuplicateMessage($rowData, $existingInstitution);
+
                     continue;
                 }
 
@@ -174,18 +171,17 @@ class ChunkProcessor
                         'username' => $schoolAdmin->username,
                         'email' => $schoolAdmin->email,
                         'original_username' => $rowData['schooladmin']['username'] ?? '',
-                        'original_email' => $rowData['schooladmin']['email'] ?? ''
+                        'original_email' => $rowData['schooladmin']['email'] ?? '',
                     ];
                 }
 
                 $importedCount++;
                 $importResults[] = $this->messageFormatter->formatSuccessMessage($rowData, $institution, $schoolAdminInfo);
-
             } catch (\Exception $e) {
-                Log::error("Institution import row error in chunk", [
+                Log::error('Institution import row error in chunk', [
                     'row' => $rowData['row'],
                     'error' => $e->getMessage(),
-                    'institution_name' => $rowData['name'] ?? 'N/A'
+                    'institution_name' => $rowData['name'] ?? 'N/A',
                 ]);
 
                 $importResults[] = $this->messageFormatter->formatErrorMessage($rowData, $e);

@@ -135,9 +135,9 @@ class ApprovalTemplate extends Model
      */
     public function getCategory(): string
     {
-        return match($this->template_type) {
+        return match ($this->template_type) {
             'attendance', 'schedule', 'gradebook' => 'Academic',
-            'survey', 'task', 'document' => 'Administrative', 
+            'survey', 'task', 'document' => 'Administrative',
             'assessment', 'report' => 'Evaluation',
             'event', 'notification' => 'Communication',
             default => 'General'
@@ -149,7 +149,7 @@ class ApprovalTemplate extends Model
      */
     public function getFormattedType(): string
     {
-        return match($this->template_type) {
+        return match ($this->template_type) {
             'attendance' => 'Davamiyyət',
             'schedule' => 'Cədvəl',
             'survey' => 'Sorğu',

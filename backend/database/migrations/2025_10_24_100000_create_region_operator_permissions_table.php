@@ -31,4 +31,3 @@ return new class extends Migration
         Schema::dropIfExists('region_operator_permissions');
     }
 };
-

@@ -2,13 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Institution;
 use App\Models\Report;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Models\Institution;
 use App\Models\User;
-use App\Services\BaseService;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class ReportGenerationService extends BaseService
@@ -21,7 +19,7 @@ class ReportGenerationService extends BaseService
         $startTime = microtime(true);
 
         try {
-            $data = match($report->type) {
+            $data = match ($report->type) {
                 'survey_analysis' => $this->generateSurveyAnalysis($report, $parameters),
                 'institution_performance' => $this->generateInstitutionPerformance($report, $parameters),
                 'response_summary' => $this->generateResponseSummary($report, $parameters),
@@ -42,10 +40,9 @@ class ReportGenerationService extends BaseService
                     'generated_at' => now(),
                     'execution_time_ms' => $executionTime,
                     'data_points' => $this->countDataPoints($data),
-                    'parameters' => $parameters
-                ]
+                    'parameters' => $parameters,
+                ],
             ];
-
         } catch (\Exception $e) {
             return [
                 'success' => false,
@@ -53,8 +50,8 @@ class ReportGenerationService extends BaseService
                 'metadata' => [
                     'report_id' => $report->id,
                     'generated_at' => now(),
-                    'execution_time_ms' => round((microtime(true) - $startTime) * 1000, 2)
-                ]
+                    'execution_time_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                ],
             ];
         }
     }
@@ -66,33 +63,33 @@ class ReportGenerationService extends BaseService
     {
         $config = $report->config;
         $dateRange = $this->getDateRange($config);
-        
+
         $surveysQuery = Survey::with(['responses', 'institution'])
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
 
         // Apply institution filter if specified
-        if (!empty($config['institution_id'])) {
+        if (! empty($config['institution_id'])) {
             $surveysQuery->where('institution_id', $config['institution_id']);
         }
 
         // Apply survey type filter
-        if (!empty($config['survey_type'])) {
+        if (! empty($config['survey_type'])) {
             $surveysQuery->where('survey_type', $config['survey_type']);
         }
 
         $surveys = $surveysQuery->get();
-        
+
         $analysis = [
             'overview' => [
                 'total_surveys' => $surveys->count(),
                 'active_surveys' => $surveys->where('status', 'active')->count(),
                 'completed_surveys' => $surveys->where('status', 'completed')->count(),
-                'draft_surveys' => $surveys->where('status', 'draft')->count()
+                'draft_surveys' => $surveys->where('status', 'draft')->count(),
             ],
             'response_metrics' => [],
             'survey_details' => [],
             'completion_trends' => [],
-            'institutional_breakdown' => []
+            'institutional_breakdown' => [],
         ];
 
         foreach ($surveys as $survey) {
@@ -110,17 +107,17 @@ class ReportGenerationService extends BaseService
                 'completed_responses' => $completedResponses,
                 'completion_rate' => $completionRate,
                 'average_response_time' => $this->calculateAverageResponseTime($survey),
-                'question_analytics' => $this->analyzeQuestionResponses($survey)
+                'question_analytics' => $this->analyzeQuestionResponses($survey),
             ];
 
             $analysis['survey_details'][] = $surveyDetail;
-            
+
             // Aggregate response metrics
-            if (!isset($analysis['response_metrics']['total_responses'])) {
+            if (! isset($analysis['response_metrics']['total_responses'])) {
                 $analysis['response_metrics']['total_responses'] = 0;
                 $analysis['response_metrics']['completed_responses'] = 0;
             }
-            
+
             $analysis['response_metrics']['total_responses'] += $totalResponses;
             $analysis['response_metrics']['completed_responses'] += $completedResponses;
         }
@@ -136,7 +133,7 @@ class ReportGenerationService extends BaseService
 
         // Generate completion trends
         $analysis['completion_trends'] = $this->generateCompletionTrends($surveys, $dateRange);
-        
+
         // Generate institutional breakdown
         $analysis['institutional_breakdown'] = $this->generateInstitutionalBreakdown($surveys);
 
@@ -150,38 +147,38 @@ class ReportGenerationService extends BaseService
     {
         $config = $report->config;
         $dateRange = $this->getDateRange($config);
-        
+
         $institutionsQuery = Institution::with(['surveys', 'users', 'children']);
 
         // Apply filters
-        if (!empty($config['institution_level'])) {
+        if (! empty($config['institution_level'])) {
             $institutionsQuery->where('level', $config['institution_level']);
         }
 
-        if (!empty($config['institution_type'])) {
+        if (! empty($config['institution_type'])) {
             $institutionsQuery->where('type', $config['institution_type']);
         }
 
-        if (!empty($config['region_id'])) {
+        if (! empty($config['region_id'])) {
             $institutionsQuery->where('parent_id', $config['region_id']);
         }
 
         $institutions = $institutionsQuery->get();
-        
+
         $performance = [
             'overview' => [
                 'total_institutions' => $institutions->count(),
                 'active_institutions' => $institutions->where('is_active', true)->count(),
-                'performance_distribution' => []
+                'performance_distribution' => [],
             ],
             'institutional_metrics' => [],
             'ranking' => [],
-            'trends' => []
+            'trends' => [],
         ];
 
         foreach ($institutions as $institution) {
             $metrics = $this->calculateInstitutionMetrics($institution, $dateRange);
-            
+
             $institutionData = [
                 'id' => $institution->id,
                 'name' => $institution->name,
@@ -190,14 +187,14 @@ class ReportGenerationService extends BaseService
                 'is_active' => $institution->is_active,
                 'metrics' => $metrics,
                 'performance_score' => $this->calculatePerformanceScore($metrics),
-                'ranking_factors' => $this->calculateRankingFactors($metrics)
+                'ranking_factors' => $this->calculateRankingFactors($metrics),
             ];
 
             $performance['institutional_metrics'][] = $institutionData;
         }
 
         // Sort by performance score for ranking
-        usort($performance['institutional_metrics'], function($a, $b) {
+        usort($performance['institutional_metrics'], function ($a, $b) {
             return $b['performance_score'] <=> $a['performance_score'];
         });
 
@@ -221,16 +218,16 @@ class ReportGenerationService extends BaseService
     {
         $config = $report->config;
         $dateRange = $this->getDateRange($config);
-        
+
         $responsesQuery = SurveyResponse::with(['survey', 'user'])
             ->whereBetween('created_at', [$dateRange['start'], $dateRange['end']]);
 
         // Apply filters
-        if (!empty($config['survey_id'])) {
+        if (! empty($config['survey_id'])) {
             $responsesQuery->where('survey_id', $config['survey_id']);
         }
 
-        if (!empty($config['status'])) {
+        if (! empty($config['status'])) {
             $responsesQuery->where('status', $config['status']);
         }
 
@@ -241,19 +238,19 @@ class ReportGenerationService extends BaseService
                 'total_responses' => $responses->count(),
                 'completed_responses' => $responses->where('status', 'completed')->count(),
                 'in_progress_responses' => $responses->where('status', 'in_progress')->count(),
-                'abandoned_responses' => $responses->where('status', 'abandoned')->count()
+                'abandoned_responses' => $responses->where('status', 'abandoned')->count(),
             ],
             'response_patterns' => [
                 'by_date' => $this->groupResponsesByDate($responses),
                 'by_hour' => $this->groupResponsesByHour($responses),
-                'by_day_of_week' => $this->groupResponsesByDayOfWeek($responses)
+                'by_day_of_week' => $this->groupResponsesByDayOfWeek($responses),
             ],
             'user_engagement' => [
                 'unique_respondents' => $responses->groupBy('user_id')->count(),
                 'repeat_respondents' => $this->calculateRepeatRespondents($responses),
-                'response_time_analytics' => $this->analyzeResponseTimes($responses)
+                'response_time_analytics' => $this->analyzeResponseTimes($responses),
             ],
-            'survey_breakdown' => $this->generateSurveyBreakdown($responses)
+            'survey_breakdown' => $this->generateSurveyBreakdown($responses),
         ];
 
         return $summary;
@@ -267,17 +264,17 @@ class ReportGenerationService extends BaseService
         $config = $report->config;
         $dateRange = $this->getDateRange($config);
         $indicators = $config['indicators'] ?? [];
-        
+
         $trends = [
             'overview' => [
                 'period' => [
                     'start' => $dateRange['start'],
                     'end' => $dateRange['end'],
-                    'duration_days' => Carbon::parse($dateRange['start'])->diffInDays($dateRange['end'])
+                    'duration_days' => Carbon::parse($dateRange['start'])->diffInDays($dateRange['end']),
                 ],
-                'indicators_analyzed' => count($indicators)
+                'indicators_analyzed' => count($indicators),
             ],
-            'trends' => []
+            'trends' => [],
         ];
 
         foreach ($indicators as $indicator) {
@@ -286,7 +283,7 @@ class ReportGenerationService extends BaseService
                 'indicator' => $indicator,
                 'data' => $trendData,
                 'statistics' => $this->calculateTrendStatistics($trendData),
-                'forecast' => $this->generateForecast($trendData)
+                'forecast' => $this->generateForecast($trendData),
             ];
         }
 
@@ -300,16 +297,16 @@ class ReportGenerationService extends BaseService
     {
         $config = $report->config;
         $dateRange = $this->getDateRange($config);
-        
+
         // This would integrate with attendance system
         return [
             'overview' => [
                 'total_attendance_records' => 0,
                 'average_attendance_rate' => 0,
-                'peak_attendance_day' => null
+                'peak_attendance_day' => null,
             ],
             'trends' => [],
-            'institutional_comparison' => []
+            'institutional_comparison' => [],
         ];
     }
 
@@ -320,12 +317,12 @@ class ReportGenerationService extends BaseService
     {
         $config = $report->config;
         $dateRange = $this->getDateRange($config);
-        
-        $teachersQuery = User::whereHas('roles', function($q) {
+
+        $teachersQuery = User::whereHas('roles', function ($q) {
             $q->where('name', 'teacher');
         })->with(['institution']);
 
-        if (!empty($config['institution_id'])) {
+        if (! empty($config['institution_id'])) {
             $teachersQuery->where('institution_id', $config['institution_id']);
         }
 
@@ -334,21 +331,21 @@ class ReportGenerationService extends BaseService
         $performance = [
             'overview' => [
                 'total_teachers' => $teachers->count(),
-                'active_teachers' => $teachers->where('is_active', true)->count()
+                'active_teachers' => $teachers->where('is_active', true)->count(),
             ],
             'teacher_metrics' => [],
-            'performance_distribution' => []
+            'performance_distribution' => [],
         ];
 
         foreach ($teachers as $teacher) {
             $metrics = $this->calculateTeacherMetrics($teacher, $dateRange);
-            
+
             $performance['teacher_metrics'][] = [
                 'id' => $teacher->id,
                 'name' => $teacher->name,
                 'institution' => $teacher->institution?->name,
                 'metrics' => $metrics,
-                'performance_score' => $this->calculateTeacherPerformanceScore($metrics)
+                'performance_score' => $this->calculateTeacherPerformanceScore($metrics),
             ];
         }
 
@@ -362,16 +359,16 @@ class ReportGenerationService extends BaseService
     {
         $config = $report->config;
         $dateRange = $this->getDateRange($config);
-        
+
         // This would integrate with student progress tracking
         return [
             'overview' => [
                 'total_students' => 0,
                 'students_with_progress' => 0,
-                'average_progress_rate' => 0
+                'average_progress_rate' => 0,
             ],
             'progress_trends' => [],
-            'institutional_comparison' => []
+            'institutional_comparison' => [],
         ];
     }
 
@@ -425,7 +422,7 @@ class ReportGenerationService extends BaseService
                 'question_type' => $question['type'],
                 'total_responses' => count($questionResponses),
                 'response_distribution' => $this->analyzeResponseDistribution($questionResponses, $question['type']),
-                'statistics' => $this->calculateQuestionStatistics($questionResponses, $question['type'])
+                'statistics' => $this->calculateQuestionStatistics($questionResponses, $question['type']),
             ];
         }
 
@@ -441,17 +438,17 @@ class ReportGenerationService extends BaseService
             'survey_participation' => [
                 'surveys_created' => $institution->surveys()->whereBetween('created_at', [$dateRange['start'], $dateRange['end']])->count(),
                 'total_responses' => $this->getTotalResponsesForInstitution($institution, $dateRange),
-                'completion_rate' => $this->getCompletionRateForInstitution($institution, $dateRange)
+                'completion_rate' => $this->getCompletionRateForInstitution($institution, $dateRange),
             ],
             'user_engagement' => [
                 'active_users' => $institution->users()->where('is_active', true)->count(),
                 'total_users' => $institution->users()->count(),
-                'login_frequency' => $this->calculateLoginFrequency($institution, $dateRange)
+                'login_frequency' => $this->calculateLoginFrequency($institution, $dateRange),
             ],
             'content_creation' => [
                 'documents_uploaded' => $this->getDocumentsCount($institution, $dateRange),
-                'tasks_created' => $this->getTasksCount($institution, $dateRange)
-            ]
+                'tasks_created' => $this->getTasksCount($institution, $dateRange),
+            ],
         ];
     }
 
@@ -489,7 +486,7 @@ class ReportGenerationService extends BaseService
      */
     private function countDataPoints($data): int
     {
-        if (!is_array($data)) {
+        if (! is_array($data)) {
             return 1;
         }
 
@@ -515,7 +512,7 @@ class ReportGenerationService extends BaseService
 
         return [
             'start' => isset($config['date_from']) ? Carbon::parse($config['date_from']) : $defaultStart,
-            'end' => isset($config['date_to']) ? Carbon::parse($config['date_to']) : $defaultEnd
+            'end' => isset($config['date_to']) ? Carbon::parse($config['date_to']) : $defaultEnd,
         ];
     }
 
@@ -535,13 +532,14 @@ class ReportGenerationService extends BaseService
     {
         return $surveys->groupBy('institution_id')->map(function ($institutionSurveys) {
             $institution = $institutionSurveys->first()->institution;
+
             return [
                 'institution_id' => $institution->id,
                 'institution_name' => $institution->name,
                 'survey_count' => $institutionSurveys->count(),
-                'total_responses' => $institutionSurveys->sum(function($survey) {
+                'total_responses' => $institutionSurveys->sum(function ($survey) {
                     return $survey->responses->count();
-                })
+                }),
             ];
         })->values()->toArray();
     }

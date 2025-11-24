@@ -21,7 +21,7 @@ return new class extends Migration
             $table->json('validation_rules')->nullable()->after('allows_excel_import');
             $table->decimal('minimum_score', 5, 2)->default(0)->after('validation_rules');
             $table->enum('approval_required', ['none', 'teacher', 'admin', 'region'])->default('none')->after('minimum_score');
-            
+
             // Indexes
             $table->index('due_date');
             $table->index(['is_recurring', 'recurring_frequency']);
@@ -38,17 +38,17 @@ return new class extends Migration
             $table->dropIndex(['due_date']);
             $table->dropIndex(['is_recurring', 'recurring_frequency']);
             $table->dropIndex(['allows_bulk_entry', 'allows_excel_import']);
-            
+
             $table->dropColumn([
                 'due_date',
-                'is_recurring', 
+                'is_recurring',
                 'recurring_frequency',
                 'notification_settings',
                 'allows_bulk_entry',
                 'allows_excel_import',
                 'validation_rules',
                 'minimum_score',
-                'approval_required'
+                'approval_required',
             ]);
         });
     }

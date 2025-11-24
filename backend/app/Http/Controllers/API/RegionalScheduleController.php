@@ -7,10 +7,10 @@ use App\Models\Institution;
 use App\Models\Schedule;
 use App\Models\ScheduleSession;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class RegionalScheduleController extends Controller
 {
@@ -21,21 +21,21 @@ class RegionalScheduleController extends Controller
     {
         try {
             $user = $request->user();
-            $cacheKey = "regional_dashboard_" . $user->id;
+            $cacheKey = 'regional_dashboard_' . $user->id;
 
             $dashboardData = Cache::remember($cacheKey, 1800, function () use ($user) {
                 // Get institutions based on user's hierarchy level
                 $institutions = $this->getUserAccessibleInstitutions($user);
-                
+
                 // Regional statistics
                 $regionalStats = $this->calculateRegionalStatistics($institutions);
-                
+
                 // Institution performance overview
                 $institutionPerformance = $this->getInstitutionPerformanceOverview($institutions);
-                
+
                 // Recent activities
                 $recentActivities = $this->getRecentScheduleActivities($institutions);
-                
+
                 // Critical issues
                 $criticalIssues = $this->getCriticalIssues($institutions);
 
@@ -44,19 +44,18 @@ class RegionalScheduleController extends Controller
                     'institutions' => $institutionPerformance,
                     'recent_activities' => $recentActivities,
                     'critical_issues' => $criticalIssues,
-                    'performance_trends' => $this->getPerformanceTrends($institutions)
+                    'performance_trends' => $this->getPerformanceTrends($institutions),
                 ];
             });
 
             return response()->json([
                 'success' => true,
-                'data' => $dashboardData
+                'data' => $dashboardData,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Dashboard məlumatları yüklənə bilmədi: ' . $e->getMessage()
+                'message' => 'Dashboard məlumatları yüklənə bilmədi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -92,9 +91,9 @@ class RegionalScheduleController extends Controller
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhereHas('institution', function ($subQ) use ($search) {
-                          $subQ->where('name', 'like', "%{$search}%");
-                      });
+                        ->orWhereHas('institution', function ($subQ) use ($search) {
+                            $subQ->where('name', 'like', "%{$search}%");
+                        });
                 });
             }
 
@@ -114,15 +113,14 @@ class RegionalScheduleController extends Controller
                         'current_page' => $schedules->currentPage(),
                         'last_page' => $schedules->lastPage(),
                         'total' => $schedules->total(),
-                        'per_page' => $schedules->perPage()
-                    ]
-                ]
+                        'per_page' => $schedules->perPage(),
+                    ],
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Cədvəllər yüklənə bilmədi: ' . $e->getMessage()
+                'message' => 'Cədvəllər yüklənə bilmədi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -134,17 +132,17 @@ class RegionalScheduleController extends Controller
     {
         try {
             $user = $request->user();
-            
+
             // Check access permission
-            if (!$this->canAccessInstitution($user, $institutionId)) {
+            if (! $this->canAccessInstitution($user, $institutionId)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu müəssisəyə giriş icazəniz yoxdur'
+                    'message' => 'Bu müəssisəyə giriş icazəniz yoxdur',
                 ], 403);
             }
 
             $institution = Institution::findOrFail($institutionId);
-            
+
             $analytics = [
                 'institution_info' => $this->getInstitutionInfo($institution),
                 'schedule_performance' => $this->getSchedulePerformanceAnalytics($institutionId),
@@ -152,18 +150,17 @@ class RegionalScheduleController extends Controller
                 'resource_utilization' => $this->getResourceUtilizationAnalytics($institutionId),
                 'trend_analysis' => $this->getTrendAnalysis($institutionId),
                 'benchmarking' => $this->getBenchmarkingData($institution),
-                'improvement_suggestions' => $this->getImprovementSuggestions($institutionId)
+                'improvement_suggestions' => $this->getImprovementSuggestions($institutionId),
             ];
 
             return response()->json([
                 'success' => true,
-                'data' => $analytics
+                'data' => $analytics,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Analitika məlumatları yüklənə bilmədi: ' . $e->getMessage()
+                'message' => 'Analitika məlumatları yüklənə bilmədi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -176,7 +173,7 @@ class RegionalScheduleController extends Controller
         $request->validate([
             'institution_ids' => 'required|array|min:2|max:5',
             'institution_ids.*' => 'integer|exists:institutions,id',
-            'comparison_metrics' => 'array'
+            'comparison_metrics' => 'array',
         ]);
 
         try {
@@ -186,15 +183,15 @@ class RegionalScheduleController extends Controller
                 'performance',
                 'teacher_satisfaction',
                 'resource_utilization',
-                'schedule_efficiency'
+                'schedule_efficiency',
             ]);
 
             // Check access to all institutions
             foreach ($institutionIds as $institutionId) {
-                if (!$this->canAccessInstitution($user, $institutionId)) {
+                if (! $this->canAccessInstitution($user, $institutionId)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Bəzi müəssisələrə giriş icazəniz yoxdur'
+                        'message' => 'Bəzi müəssisələrə giriş icazəniz yoxdur',
                     ], 403);
                 }
             }
@@ -204,18 +201,17 @@ class RegionalScheduleController extends Controller
                 'metrics_comparison' => $this->getMetricsComparison($institutionIds, $metrics),
                 'ranking' => $this->getRankingData($institutionIds, $metrics),
                 'insights' => $this->generateComparisonInsights($institutionIds, $metrics),
-                'recommendations' => $this->generateComparisonRecommendations($institutionIds, $metrics)
+                'recommendations' => $this->generateComparisonRecommendations($institutionIds, $metrics),
             ];
 
             return response()->json([
                 'success' => true,
-                'data' => $comparisonData
+                'data' => $comparisonData,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Müqayisə məlumatları hazırlana bilmədi: ' . $e->getMessage()
+                'message' => 'Müqayisə məlumatları hazırlana bilmədi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -235,26 +231,25 @@ class RegionalScheduleController extends Controller
                 3600,
                 function () use ($user, $period, $metric) {
                     $institutions = $this->getUserAccessibleInstitutions($user);
-                    
+
                     return [
                         'time_series' => $this->getTimeSeriesData($institutions, $period, $metric),
                         'institution_trends' => $this->getInstitutionTrends($institutions, $period, $metric),
                         'regional_averages' => $this->getRegionalAverages($institutions, $period, $metric),
                         'forecast' => $this->generateForecast($institutions, $period, $metric),
-                        'seasonal_patterns' => $this->analyzeSeasonalPatterns($institutions, $period, $metric)
+                        'seasonal_patterns' => $this->analyzeSeasonalPatterns($institutions, $period, $metric),
                     ];
                 }
             );
 
             return response()->json([
                 'success' => true,
-                'data' => $trendsData
+                'data' => $trendsData,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Trend məlumatları yüklənə bilmədi: ' . $e->getMessage()
+                'message' => 'Trend məlumatları yüklənə bilmədi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -268,7 +263,7 @@ class RegionalScheduleController extends Controller
             'format' => 'required|in:pdf,excel,csv',
             'report_type' => 'required|in:summary,detailed,comparison',
             'institution_ids' => 'sometimes|array',
-            'date_range' => 'sometimes|array'
+            'date_range' => 'sometimes|array',
         ]);
 
         try {
@@ -276,10 +271,10 @@ class RegionalScheduleController extends Controller
             $format = $request->input('format');
             $reportType = $request->input('report_type');
             $institutionIds = $request->input('institution_ids');
-            
+
             // Generate report data
             $reportData = $this->generateReportData($user, $reportType, $institutionIds);
-            
+
             // Export to requested format
             $exportUrl = $this->exportToFormat($reportData, $format, $reportType);
 
@@ -288,14 +283,13 @@ class RegionalScheduleController extends Controller
                 'data' => [
                     'download_url' => $exportUrl,
                     'file_name' => $this->generateFileName($reportType, $format),
-                    'file_size' => $this->getFileSize($exportUrl)
-                ]
+                    'file_size' => $this->getFileSize($exportUrl),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Hesabat ixrac edilə bilmədi: ' . $e->getMessage()
+                'message' => 'Hesabat ixrac edilə bilmədi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -318,28 +312,28 @@ class RegionalScheduleController extends Controller
             // Sector admins see institutions in their sector
             return $query->where('parent_institution_id', $user->institution_id)
                 ->get();
-        } else {
-            // School admins see only their institution
-            return $query->where('id', $user->institution_id)->get();
         }
+
+        // School admins see only their institution
+        return $query->where('id', $user->institution_id)->get();
     }
 
     protected function calculateRegionalStatistics($institutions)
     {
         $totalInstitutions = $institutions->count();
-        
+
         $scheduleStats = Schedule::whereIn('institution_id', $institutions->pluck('id'))
             ->select([
                 DB::raw('COUNT(*) as total_schedules'),
                 DB::raw('COUNT(CASE WHEN status = "active" THEN 1 END) as active_schedules'),
                 DB::raw('AVG(performance_rating) as average_performance'),
-                DB::raw('COUNT(CASE WHEN performance_rating < 3 THEN 1 END) as critical_issues')
+                DB::raw('COUNT(CASE WHEN performance_rating < 3 THEN 1 END) as critical_issues'),
             ])
             ->first();
 
         $teacherSatisfaction = ScheduleSession::whereHas('schedule', function ($q) use ($institutions) {
-                $q->whereIn('institution_id', $institutions->pluck('id'));
-            })
+            $q->whereIn('institution_id', $institutions->pluck('id'));
+        })
             ->whereNotNull('teacher_satisfaction_rating')
             ->avg('teacher_satisfaction_rating');
 
@@ -351,7 +345,7 @@ class RegionalScheduleController extends Controller
             'critical_issues' => $scheduleStats->critical_issues ?? 0,
             'teacher_satisfaction_avg' => round($teacherSatisfaction ?? 0, 1),
             'improvement_rate' => $this->calculateImprovementRate($institutions),
-            'schedule_completion_rate' => $this->calculateCompletionRate($institutions)
+            'schedule_completion_rate' => $this->calculateCompletionRate($institutions),
         ];
     }
 
@@ -363,7 +357,7 @@ class RegionalScheduleController extends Controller
                     DB::raw('COUNT(*) as total_schedules'),
                     DB::raw('COUNT(CASE WHEN status = "active" THEN 1 END) as active_schedules'),
                     DB::raw('AVG(performance_rating) as avg_performance'),
-                    DB::raw('MAX(updated_at) as last_update')
+                    DB::raw('MAX(updated_at) as last_update'),
                 ])
                 ->first();
 
@@ -378,16 +372,23 @@ class RegionalScheduleController extends Controller
                 'active_schedules' => $scheduleStats->active_schedules ?? 0,
                 'last_update' => $scheduleStats->last_update,
                 'performance_score' => $performanceScore,
-                'status' => $this->determineInstitutionStatus($performanceScore)
+                'status' => $this->determineInstitutionStatus($performanceScore),
             ];
         });
     }
 
     protected function determineInstitutionStatus($performanceScore): string
     {
-        if ($performanceScore >= 90) return 'excellent';
-        if ($performanceScore >= 80) return 'good';
-        if ($performanceScore >= 60) return 'needs_attention';
+        if ($performanceScore >= 90) {
+            return 'excellent';
+        }
+        if ($performanceScore >= 80) {
+            return 'good';
+        }
+        if ($performanceScore >= 60) {
+            return 'needs_attention';
+        }
+
         return 'critical';
     }
 
@@ -398,6 +399,7 @@ class RegionalScheduleController extends Controller
         }
 
         $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
+
         return $accessibleInstitutions->contains('id', $institutionId);
     }
 
@@ -407,7 +409,7 @@ class RegionalScheduleController extends Controller
             ->select([
                 DB::raw('COUNT(*) as total_sessions'),
                 DB::raw('COUNT(DISTINCT teacher_id) as unique_teachers'),
-                DB::raw('AVG(CASE WHEN conflicts_resolved THEN 1 ELSE 0 END) as resolution_rate')
+                DB::raw('AVG(CASE WHEN conflicts_resolved THEN 1 ELSE 0 END) as resolution_rate'),
             ])
             ->first();
 
@@ -417,7 +419,7 @@ class RegionalScheduleController extends Controller
             'institution' => [
                 'id' => $schedule->institution->id,
                 'name' => $schedule->institution->name,
-                'type' => $schedule->institution->type
+                'type' => $schedule->institution->type,
             ],
             'status' => $schedule->status,
             'created_at' => $schedule->created_at,
@@ -426,7 +428,7 @@ class RegionalScheduleController extends Controller
             'unique_teachers' => $sessionStats->unique_teachers ?? 0,
             'conflicts_count' => $schedule->conflicts_count ?? 0,
             'teacher_satisfaction' => $this->getScheduleTeacherSatisfaction($schedule->id),
-            'utilization_rate' => $this->calculateUtilizationRate($schedule->id)
+            'utilization_rate' => $this->calculateUtilizationRate($schedule->id),
         ];
     }
 
@@ -441,7 +443,9 @@ class RegionalScheduleController extends Controller
     {
         // Calculate schedule utilization rate based on time slots and sessions
         $schedule = Schedule::find($scheduleId);
-        if (!$schedule) return 0;
+        if (! $schedule) {
+            return 0;
+        }
 
         $totalSlots = $this->getTotalAvailableSlots($schedule);
         $usedSlots = $schedule->sessions()->count();
@@ -455,7 +459,7 @@ class RegionalScheduleController extends Controller
         $settings = $schedule->generation_settings ?? [];
         $workingDays = count($settings['working_days'] ?? [5]);
         $dailyPeriods = $settings['daily_periods'] ?? 7;
-        
+
         return $workingDays * $dailyPeriods;
     }
 }

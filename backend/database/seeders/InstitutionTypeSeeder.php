@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\InstitutionType;
+use Illuminate\Database\Seeder;
 
 class InstitutionTypeSeeder extends Seeder
 {
@@ -28,12 +27,12 @@ class InstitutionTypeSeeder extends Seeder
                 'is_system' => true,
                 'metadata' => [
                     'description' => 'Ən yüksək səviyyəli dövlət təşkilatı',
-                    'responsibilities' => ['Təhsil siyasəti', 'Strateji planlaşdırma', 'Qanunvericilik']
+                    'responsibilities' => ['Təhsil siyasəti', 'Strateji planlaşdırma', 'Qanunvericilik'],
                 ],
                 'description' => 'Dövlət təhsil sistemi üzərində ümumi nəzarət və rəhbərlik edən nazirlik',
             ],
 
-            // Level 2: Regional Education Departments  
+            // Level 2: Regional Education Departments
             [
                 'key' => 'regional_education_department',
                 'label' => 'Regional Təhsil İdarəsi',
@@ -47,14 +46,14 @@ class InstitutionTypeSeeder extends Seeder
                 'is_system' => true,
                 'metadata' => [
                     'description' => 'Regional səviyyədə təhsilin təşkil edilməsi',
-                    'responsibilities' => ['Regional koordinasiya', 'Yerli təhsil idarəetmə', 'Statistika toplanması']
+                    'responsibilities' => ['Regional koordinasiya', 'Yerli təhsil idarəetmə', 'Statistika toplanması'],
                 ],
                 'description' => 'Müəyyən coğrafi regionda təhsil fəaliyyətini koordinasiya edən təşkilat',
             ],
 
             // Level 3: Sector Education Offices
             [
-                'key' => 'sector_education_office', 
+                'key' => 'sector_education_office',
                 'label' => 'Sektor Təhsil Şöbəsi',
                 'label_az' => 'Sektor Təhsil Şöbəsi',
                 'label_en' => 'Sector Education Office',
@@ -66,7 +65,7 @@ class InstitutionTypeSeeder extends Seeder
                 'is_system' => true,
                 'metadata' => [
                     'description' => 'Yerli səviyyədə təhsil müəssisələrinin birbaşa idarəetməsi',
-                    'responsibilities' => ['Yerli məktəblərin idarəsi', 'Kadr təminatı', 'Maliyyə nəzarəti']
+                    'responsibilities' => ['Yerli məktəblərin idarəsi', 'Kadr təminatı', 'Maliyyə nəzarəti'],
                 ],
                 'description' => 'Müəyyən sektorda təhsil müəssisələrinin birbaşa idarə edilməsi',
             ],
@@ -74,7 +73,7 @@ class InstitutionTypeSeeder extends Seeder
             // Level 4: School Types
             [
                 'key' => 'secondary_school',
-                'label' => 'Tam Orta Məktəb', 
+                'label' => 'Tam Orta Məktəb',
                 'label_az' => 'Tam Orta Məktəb',
                 'label_en' => 'Secondary School',
                 'default_level' => 4,
@@ -87,7 +86,7 @@ class InstitutionTypeSeeder extends Seeder
                     'grade_levels' => ['1-11'],
                     'age_range' => '6-17',
                     'curriculum_type' => 'standard',
-                    'capacity_range' => [100, 1500]
+                    'capacity_range' => [100, 1500],
                 ],
                 'description' => 'Ümumi orta təhsil verən əsas təhsil müəssisəsi',
             ],
@@ -95,7 +94,7 @@ class InstitutionTypeSeeder extends Seeder
             [
                 'key' => 'lyceum',
                 'label' => 'Lisey',
-                'label_az' => 'Lisey', 
+                'label_az' => 'Lisey',
                 'label_en' => 'Lyceum',
                 'default_level' => 4,
                 'allowed_parent_types' => ['sector_education_office'],
@@ -107,7 +106,7 @@ class InstitutionTypeSeeder extends Seeder
                     'grade_levels' => ['10-11'],
                     'age_range' => '15-17',
                     'curriculum_type' => 'academic_specialized',
-                    'specializations' => ['Təbiət-riyazi', 'Humanitar', 'İctimai-iqtisadi']
+                    'specializations' => ['Təbiət-riyazi', 'Humanitar', 'İctimai-iqtisadi'],
                 ],
                 'description' => 'Ali təhsilə hazırlıq məqsədilə ixtisaslaşmış orta təhsil',
             ],
@@ -116,7 +115,7 @@ class InstitutionTypeSeeder extends Seeder
                 'key' => 'gymnasium',
                 'label' => 'Gimnaziya',
                 'label_az' => 'Gimnaziya',
-                'label_en' => 'Gymnasium', 
+                'label_en' => 'Gymnasium',
                 'default_level' => 4,
                 'allowed_parent_types' => ['sector_education_office'],
                 'icon' => 'School',
@@ -127,7 +126,7 @@ class InstitutionTypeSeeder extends Seeder
                     'grade_levels' => ['5-9'],
                     'age_range' => '10-15',
                     'curriculum_type' => 'enhanced_general',
-                    'focus_areas' => ['Dil təhsili', 'Elm təhsili', 'İncəsənət']
+                    'focus_areas' => ['Dil təhsili', 'Elm təhsili', 'İncəsənət'],
                 ],
                 'description' => 'Gücləndirilmiş proqramla orta təhsil verən müəssisə',
             ],
@@ -136,7 +135,7 @@ class InstitutionTypeSeeder extends Seeder
             [
                 'key' => 'kindergarten',
                 'label' => 'Uşaq Bağçası',
-                'label_az' => 'Uşaq Bağçası', 
+                'label_az' => 'Uşaq Bağçası',
                 'label_en' => 'Kindergarten',
                 'default_level' => 4,
                 'allowed_parent_types' => ['sector_education_office'],
@@ -149,7 +148,7 @@ class InstitutionTypeSeeder extends Seeder
                     'capacity_per_group' => 20,
                     'staff_child_ratio' => '1:10',
                     'services' => ['Qidalanma', 'Yataq', 'Oyun', 'Təhsil fəaliyyəti'],
-                    'operating_hours' => '07:00-19:00'
+                    'operating_hours' => '07:00-19:00',
                 ],
                 'description' => 'Məktəbəqədər yaşlı uşaqların baxım və təhsili üçün müəssisə',
             ],
@@ -158,7 +157,7 @@ class InstitutionTypeSeeder extends Seeder
                 'key' => 'preschool_center',
                 'label' => 'Məktəbəqədər Təhsil Mərkəzi',
                 'label_az' => 'Məktəbəqədər Təhsil Mərkəzi',
-                'label_en' => 'Preschool Education Center', 
+                'label_en' => 'Preschool Education Center',
                 'default_level' => 4,
                 'allowed_parent_types' => ['sector_education_office'],
                 'icon' => 'GraduationCap',
@@ -171,7 +170,7 @@ class InstitutionTypeSeeder extends Seeder
                     'staff_child_ratio' => '1:8',
                     'services' => ['Məktəbə hazırlıq', 'İnkişaf proqramları', 'Psixoloq dəstəyi'],
                     'operating_hours' => '08:00-17:00',
-                    'specializations' => ['Kreativ inkişaf', 'Dil inkişafı', 'Riyazi təfəkkür']
+                    'specializations' => ['Kreativ inkişaf', 'Dil inkişafı', 'Riyazi təfəkkür'],
                 ],
                 'description' => 'Uşaqları məktəbə hazırlayan ixtisaslaşmış təhsil mərkəzi',
             ],
@@ -193,7 +192,7 @@ class InstitutionTypeSeeder extends Seeder
                     'staff_child_ratio' => '1:6',
                     'services' => ['Tibbi baxım', 'Qidalanma', 'İnkişaf stimullaşdırması'],
                     'operating_hours' => '07:00-19:00',
-                    'special_requirements' => ['Tibbi heyət', 'İxtisas avadanlıqları']
+                    'special_requirements' => ['Tibbi heyət', 'İxtisas avadanlıqları'],
                 ],
                 'description' => 'Kiçik yaşlı uşaqlar üçün baxım və ilkin inkişaf müəssisəsi',
             ],
@@ -214,7 +213,7 @@ class InstitutionTypeSeeder extends Seeder
                     'education_duration' => '2-4 years',
                     'specializations' => ['Texniki', 'İqtisadi', 'Xidmət', 'Kənd təsərrüfatı'],
                     'certification' => 'Peşə sertifikatı',
-                    'practicum_required' => true
+                    'practicum_required' => true,
                 ],
                 'description' => 'Peşə hazırlığı və ixtisaslaşma təmin edən təhsil müəssisəsi',
             ],
@@ -234,10 +233,10 @@ class InstitutionTypeSeeder extends Seeder
                     'target_groups' => ['Eşitmə problemi', 'Görme problemi', 'İntellektual inkişaf', 'Fiziki əlillk'],
                     'specialized_staff' => ['Xüsusi pedaqoq', 'Psixoloq', 'Loqoped', 'Reabilitasiya mütəxəssisi'],
                     'adaptive_equipment' => true,
-                    'individual_programs' => true
+                    'individual_programs' => true,
                 ],
                 'description' => 'Xüsusi ehtiyaclı uşaqlar üçün adaptasiya edilmiş təhsil müəssisəsi',
-            ]
+            ],
         ];
 
         foreach ($institutionTypes as $type) {

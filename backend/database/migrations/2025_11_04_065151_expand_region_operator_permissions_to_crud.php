@@ -103,7 +103,7 @@ return new class extends Migration
             }
 
             // Update the record with new CRUD permissions
-            if (!empty($updates)) {
+            if (! empty($updates)) {
                 \Illuminate\Support\Facades\DB::table('region_operator_permissions')
                     ->where('id', $perm->id)
                     ->update($updates);

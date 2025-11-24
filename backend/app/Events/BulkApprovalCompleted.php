@@ -2,9 +2,7 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -15,7 +13,9 @@ class BulkApprovalCompleted implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public string $jobId;
+
     public int $userId;
+
     public array $result;
 
     /**
@@ -35,7 +35,7 @@ class BulkApprovalCompleted implements ShouldBroadcast
     {
         return [
             new PrivateChannel("user.{$this->userId}.bulk-approval"),
-            new PrivateChannel("bulk-approval.{$this->jobId}")
+            new PrivateChannel("bulk-approval.{$this->jobId}"),
         ];
     }
 
@@ -51,12 +51,12 @@ class BulkApprovalCompleted implements ShouldBroadcast
             'status' => $this->result['successful'] > 0 ? 'completed' : 'failed',
             'summary' => [
                 'successful' => $this->result['successful'],
-                'failed' => $this->result['failed'], 
+                'failed' => $this->result['failed'],
                 'total' => $this->result['total'],
-                'success_rate' => $this->result['total'] > 0 
-                    ? round(($this->result['successful'] / $this->result['total']) * 100, 2) 
-                    : 0
-            ]
+                'success_rate' => $this->result['total'] > 0
+                    ? round(($this->result['successful'] / $this->result['total']) * 100, 2)
+                    : 0,
+            ],
         ];
     }
 

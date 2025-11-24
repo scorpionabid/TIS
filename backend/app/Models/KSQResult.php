@@ -39,7 +39,7 @@ class KSQResult extends Model
         'follow_up_required',
         'follow_up_date',
         'previous_assessment_id',
-        'improvement_percentage'
+        'improvement_percentage',
     ];
 
     protected $casts = [
@@ -55,7 +55,7 @@ class KSQResult extends Model
         'total_score' => 'decimal:2',
         'max_possible_score' => 'decimal:2',
         'percentage_score' => 'decimal:2',
-        'improvement_percentage' => 'decimal:2'
+        'improvement_percentage' => 'decimal:2',
     ];
 
     /**
@@ -122,7 +122,7 @@ class KSQResult extends Model
     public function scopeNeedsFollowUp($query)
     {
         return $query->where('follow_up_required', true)
-                    ->where('follow_up_date', '<=', now());
+            ->where('follow_up_date', '<=', now());
     }
 
     /**
@@ -135,20 +135,40 @@ class KSQResult extends Model
 
     public function getPerformanceLevelAttribute()
     {
-        if ($this->percentage_score >= 90) return 'excellent';
-        if ($this->percentage_score >= 80) return 'good';
-        if ($this->percentage_score >= 70) return 'satisfactory';
-        if ($this->percentage_score >= 60) return 'needs_improvement';
+        if ($this->percentage_score >= 90) {
+            return 'excellent';
+        }
+        if ($this->percentage_score >= 80) {
+            return 'good';
+        }
+        if ($this->percentage_score >= 70) {
+            return 'satisfactory';
+        }
+        if ($this->percentage_score >= 60) {
+            return 'needs_improvement';
+        }
+
         return 'unsatisfactory';
     }
 
     public function getImprovementStatusAttribute()
     {
-        if (!$this->improvement_percentage) return 'no_comparison';
-        if ($this->improvement_percentage > 5) return 'significant_improvement';
-        if ($this->improvement_percentage > 0) return 'slight_improvement';
-        if ($this->improvement_percentage == 0) return 'no_change';
-        if ($this->improvement_percentage > -5) return 'slight_decline';
+        if (! $this->improvement_percentage) {
+            return 'no_comparison';
+        }
+        if ($this->improvement_percentage > 5) {
+            return 'significant_improvement';
+        }
+        if ($this->improvement_percentage > 0) {
+            return 'slight_improvement';
+        }
+        if ($this->improvement_percentage == 0) {
+            return 'no_change';
+        }
+        if ($this->improvement_percentage > -5) {
+            return 'slight_decline';
+        }
+
         return 'significant_decline';
     }
 
@@ -166,11 +186,11 @@ class KSQResult extends Model
     public function generateRecommendations()
     {
         $recommendations = [];
-        
+
         if ($this->percentage_score < 70) {
             $recommendations[] = 'Təhsil keyfiyyətinin artırılması üçün dəstək tədbirləri lazımdır';
         }
-        
+
         if ($this->improvement_percentage < 0) {
             $recommendations[] = 'Əvvəlki qiymətləndirmə ilə müqayisədə gerilədiyinə görə xüsusi diqqət tələb olunur';
         }
@@ -189,8 +209,8 @@ class KSQResult extends Model
 
     public function isOverdue()
     {
-        return $this->follow_up_required && 
-               $this->follow_up_date && 
+        return $this->follow_up_required &&
+               $this->follow_up_date &&
                $this->follow_up_date->isPast();
     }
 }

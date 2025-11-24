@@ -2,28 +2,30 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
-use App\Http\Controllers\Events\EventQueryController;
-use App\Http\Controllers\Events\EventManagementController;
 use App\Http\Controllers\Events\EventApprovalController;
+use App\Http\Controllers\Events\EventManagementController;
+use App\Http\Controllers\Events\EventQueryController;
 use App\Http\Controllers\Events\EventStatisticsController;
 use App\Models\SchoolEvent;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SchoolEventController extends Controller
 {
     protected $queryController;
+
     protected $managementController;
+
     protected $approvalController;
+
     protected $statisticsController;
 
     public function __construct()
     {
-        $this->queryController = new EventQueryController();
-        $this->managementController = new EventManagementController();
-        $this->approvalController = new EventApprovalController();
-        $this->statisticsController = new EventStatisticsController();
+        $this->queryController = new EventQueryController;
+        $this->managementController = new EventManagementController;
+        $this->approvalController = new EventApprovalController;
+        $this->statisticsController = new EventStatisticsController;
     }
 
     /**

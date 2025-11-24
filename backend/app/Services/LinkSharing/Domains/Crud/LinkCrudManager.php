@@ -4,11 +4,11 @@ namespace App\Services\LinkSharing\Domains\Crud;
 
 use App\Models\LinkShare;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use Carbon\Carbon;
-use Exception;
 
 /**
  * Link CRUD Manager
@@ -31,7 +31,7 @@ class LinkCrudManager
     {
         return DB::transaction(function () use ($data, $user) {
             // Validate user can create link with specified scope
-            if (!$this->permissionService->canCreateLinkWithScope($user, $data['share_scope'])) {
+            if (! $this->permissionService->canCreateLinkWithScope($user, $data['share_scope'])) {
                 throw new Exception('Bu paylaşım sahəsi üçün icazəniz yoxdur', 403);
             }
 
@@ -57,11 +57,11 @@ class LinkCrudManager
                 'link_hash' => $linkHash,
                 'is_active' => $data['is_active'] ?? true,
                 'is_featured' => $data['is_featured'] ?? false,
-                'expires_at' => !empty($data['expires_at']) ? Carbon::parse($data['expires_at']) : null,
+                'expires_at' => ! empty($data['expires_at']) ? Carbon::parse($data['expires_at']) : null,
                 'priority' => $data['priority'] ?? 'normal',
                 'tags' => $data['tags'] ?? null,
                 'access_restrictions' => $data['access_restrictions'] ?? null,
-                'metadata' => $data['metadata'] ?? null
+                'metadata' => $data['metadata'] ?? null,
             ];
 
             Log::info('Creating LinkShare with data:', $linkData);
@@ -80,14 +80,14 @@ class LinkCrudManager
     public function updateLinkShare($linkShare, array $data, $user)
     {
         // Check if user can modify this link
-        if (!$this->permissionService->canModifyLink($user, $linkShare)) {
+        if (! $this->permissionService->canModifyLink($user, $linkShare)) {
             throw new Exception('Bu linki dəyişmək icazəniz yoxdur', 403);
         }
 
         return DB::transaction(function () use ($linkShare, $data, $user) {
             // Validate scope change if provided
             if (isset($data['share_scope']) && $data['share_scope'] !== $linkShare->share_scope) {
-                if (!$this->permissionService->canCreateLinkWithScope($user, $data['share_scope'])) {
+                if (! $this->permissionService->canCreateLinkWithScope($user, $data['share_scope'])) {
                     throw new Exception('Bu paylaşım sahəsi üçün icazəniz yoxdur', 403);
                 }
             }
@@ -108,7 +108,7 @@ class LinkCrudManager
                 'priority' => $data['priority'] ?? null,
                 'tags' => $data['tags'] ?? null,
                 'access_restrictions' => $data['access_restrictions'] ?? null,
-                'metadata' => $data['metadata'] ?? null
+                'metadata' => $data['metadata'] ?? null,
             ], function ($value) {
                 return $value !== null;
             });
@@ -126,7 +126,7 @@ class LinkCrudManager
      */
     public function deleteLinkShare($linkShare, $user)
     {
-        if (!$this->permissionService->canModifyLink($user, $linkShare)) {
+        if (! $this->permissionService->canModifyLink($user, $linkShare)) {
             throw new Exception('Bu linki silmək icazəniz yoxdur', 403);
         }
 
@@ -153,7 +153,7 @@ class LinkCrudManager
                 'created' => 0,
                 'failed' => 0,
                 'errors' => [],
-                'links' => []
+                'links' => [],
             ];
 
             foreach ($linksData as $index => $linkData) {
@@ -163,7 +163,7 @@ class LinkCrudManager
                     $results['links'][] = $link;
                 } catch (Exception $e) {
                     $results['failed']++;
-                    $results['errors'][] = "Link " . ($index + 1) . ": " . $e->getMessage();
+                    $results['errors'][] = 'Link ' . ($index + 1) . ': ' . $e->getMessage();
                 }
             }
 

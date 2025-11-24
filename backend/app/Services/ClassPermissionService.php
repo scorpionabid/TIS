@@ -21,13 +21,13 @@ class ClassPermissionService extends BaseService
             // RegionAdmin can see classes in their regional institutions
             $query->whereHas('institution', function ($q) use ($user) {
                 $q->where('parent_id', $user->institution_id)
-                  ->orWhere('id', $user->institution_id);
+                    ->orWhere('id', $user->institution_id);
             });
         } elseif ($user->hasRole('sektoradmin')) {
             // SektorAdmin can see classes in their sector schools
             $query->whereHas('institution', function ($q) use ($user) {
                 $q->where('parent_id', $user->institution_id)
-                  ->orWhere('id', $user->institution_id);
+                    ->orWhere('id', $user->institution_id);
             });
         } elseif ($user->hasRole(['məktəbadmin', 'müəllim', 'müavin'])) {
             // School staff can only see classes in their school
@@ -47,15 +47,15 @@ class ClassPermissionService extends BaseService
 
         // RegionAdmin can access classes in their region
         if ($user->hasRole('regionadmin')) {
-            return $class->institution && 
-                   ($class->institution->parent_id === $user->institution_id || 
+            return $class->institution &&
+                   ($class->institution->parent_id === $user->institution_id ||
                     $class->institution_id === $user->institution_id);
         }
 
         // SektorAdmin can access classes in their sector
         if ($user->hasRole('sektoradmin')) {
-            return $class->institution && 
-                   ($class->institution->parent_id === $user->institution_id || 
+            return $class->institution &&
+                   ($class->institution->parent_id === $user->institution_id ||
                     $class->institution_id === $user->institution_id);
         }
 
@@ -80,7 +80,7 @@ class ClassPermissionService extends BaseService
      */
     public function canModifyClass(User $user, Grade $class): bool
     {
-        if (!$this->canAccessClass($user, $class)) {
+        if (! $this->canAccessClass($user, $class)) {
             return false;
         }
 
@@ -97,7 +97,7 @@ class ClassPermissionService extends BaseService
      */
     public function canDeleteClass(User $user, Grade $class): bool
     {
-        if (!$this->canAccessClass($user, $class)) {
+        if (! $this->canAccessClass($user, $class)) {
             return false;
         }
 
@@ -110,7 +110,7 @@ class ClassPermissionService extends BaseService
      */
     public function canAssignTeacher(User $user, Grade $class): bool
     {
-        if (!$this->canAccessClass($user, $class)) {
+        if (! $this->canAccessClass($user, $class)) {
             return false;
         }
 
@@ -136,7 +136,7 @@ class ClassPermissionService extends BaseService
             // RegionAdmin can create classes in their regional institutions
             return \App\Models\Institution::where(function ($q) use ($user) {
                 $q->where('parent_id', $user->institution_id)
-                  ->orWhere('id', $user->institution_id);
+                    ->orWhere('id', $user->institution_id);
             })
                 ->where('is_active', true)
                 ->select('id', 'name', 'code', 'type')
@@ -149,7 +149,7 @@ class ClassPermissionService extends BaseService
             // SektorAdmin can create classes in their sector schools
             return \App\Models\Institution::where(function ($q) use ($user) {
                 $q->where('parent_id', $user->institution_id)
-                  ->orWhere('id', $user->institution_id);
+                    ->orWhere('id', $user->institution_id);
             })
                 ->where('is_active', true)
                 ->select('id', 'name', 'code', 'type')
@@ -190,7 +190,7 @@ class ClassPermissionService extends BaseService
                         'id' => $teacher->id,
                         'username' => $teacher->username,
                         'email' => $teacher->email,
-                        'full_name' => $teacher->profile 
+                        'full_name' => $teacher->profile
                             ? "{$teacher->profile->first_name} {$teacher->profile->last_name}"
                             : $teacher->username,
                     ];
@@ -205,7 +205,7 @@ class ClassPermissionService extends BaseService
             })
                 ->whereHas('institution', function ($q) use ($user) {
                     $q->where('parent_id', $user->institution_id)
-                      ->orWhere('id', $user->institution_id);
+                        ->orWhere('id', $user->institution_id);
                 })
                 ->where('is_active', true)
                 ->with('profile')
@@ -217,7 +217,7 @@ class ClassPermissionService extends BaseService
                         'id' => $teacher->id,
                         'username' => $teacher->username,
                         'email' => $teacher->email,
-                        'full_name' => $teacher->profile 
+                        'full_name' => $teacher->profile
                             ? "{$teacher->profile->first_name} {$teacher->profile->last_name}"
                             : $teacher->username,
                     ];
@@ -241,7 +241,7 @@ class ClassPermissionService extends BaseService
                         'id' => $teacher->id,
                         'username' => $teacher->username,
                         'email' => $teacher->email,
-                        'full_name' => $teacher->profile 
+                        'full_name' => $teacher->profile
                             ? "{$teacher->profile->first_name} {$teacher->profile->last_name}"
                             : $teacher->username,
                     ];

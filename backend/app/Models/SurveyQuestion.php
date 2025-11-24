@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
 
 class SurveyQuestion extends Model
 {
@@ -21,13 +21,13 @@ class SurveyQuestion extends Model
 
         static::creating(function ($question) {
             // Set default values for fields that cannot be NULL in SQLite
-            if (!isset($question->max_file_size)) {
+            if (! isset($question->max_file_size)) {
                 $question->max_file_size = 10240; // 10MB default
             }
-            if (!isset($question->rating_min)) {
+            if (! isset($question->rating_min)) {
                 $question->rating_min = 1;
             }
-            if (!isset($question->rating_max)) {
+            if (! isset($question->rating_max)) {
                 $question->rating_max = 10;
             }
         });
@@ -126,7 +126,7 @@ class SurveyQuestion extends Model
     }
 
     /**
-     * Get required field as alias for is_required (frontend compatibility)  
+     * Get required field as alias for is_required (frontend compatibility)
      */
     public function getRequiredAttribute(): bool
     {
@@ -173,7 +173,7 @@ class SurveyQuestion extends Model
         if ($this->translations && isset($this->translations[$language]['title'])) {
             return $this->translations[$language]['title'];
         }
-        
+
         return $this->title;
     }
 
@@ -185,7 +185,7 @@ class SurveyQuestion extends Model
         if ($this->translations && isset($this->translations[$language]['description'])) {
             return $this->translations[$language]['description'];
         }
-        
+
         return $this->description;
     }
 
@@ -198,6 +198,7 @@ class SurveyQuestion extends Model
 
         if ($enforceRequired && $this->is_required && $this->isEmpty($responseData)) {
             $errors[] = 'Bu sual mütləqdir və cavablandırılmalıdır.';
+
             return $errors;
         }
 
@@ -240,10 +241,16 @@ class SurveyQuestion extends Model
      */
     private function isEmpty($responseData): bool
     {
-        if (is_null($responseData)) return true;
-        if (is_string($responseData) && trim($responseData) === '') return true;
-        if (is_array($responseData) && empty($responseData)) return true;
-        
+        if (is_null($responseData)) {
+            return true;
+        }
+        if (is_string($responseData) && trim($responseData) === '') {
+            return true;
+        }
+        if (is_array($responseData) && empty($responseData)) {
+            return true;
+        }
+
         return false;
     }
 
@@ -253,9 +260,10 @@ class SurveyQuestion extends Model
     private function validateTextResponse($response): array
     {
         $errors = [];
-        
-        if (!is_string($response)) {
+
+        if (! is_string($response)) {
             $errors[] = 'Mətn cavabı gözlənilir.';
+
             return $errors;
         }
 
@@ -278,9 +286,10 @@ class SurveyQuestion extends Model
     private function validateNumberResponse($response): array
     {
         $errors = [];
-        
-        if (!is_numeric($response)) {
+
+        if (! is_numeric($response)) {
             $errors[] = 'Rəqəm gözlənilir.';
+
             return $errors;
         }
 
@@ -303,7 +312,7 @@ class SurveyQuestion extends Model
     private function validateDateResponse($response): array
     {
         $errors = [];
-        
+
         try {
             $date = new \DateTime($response);
         } catch (\Exception $e) {
@@ -319,14 +328,15 @@ class SurveyQuestion extends Model
     private function validateSingleChoiceResponse($response): array
     {
         $errors = [];
-        
-        if (!is_string($response) && !is_numeric($response)) {
+
+        if (! is_string($response) && ! is_numeric($response)) {
             $errors[] = 'Seçim cavabı gözlənilir.';
+
             return $errors;
         }
 
         $availableOptions = array_column($this->options ?? [], 'id');
-        if (!in_array($response, $availableOptions)) {
+        if (! in_array($response, $availableOptions)) {
             $errors[] = 'Mövcud seçimlərdən birini seçin.';
         }
 
@@ -339,15 +349,16 @@ class SurveyQuestion extends Model
     private function validateMultipleChoiceResponse($response): array
     {
         $errors = [];
-        
-        if (!is_array($response)) {
+
+        if (! is_array($response)) {
             $errors[] = 'Çoxseçimli cavab gözlənilir.';
+
             return $errors;
         }
 
         $availableOptions = array_column($this->options ?? [], 'id');
         foreach ($response as $choice) {
-            if (!in_array($choice, $availableOptions)) {
+            if (! in_array($choice, $availableOptions)) {
                 $errors[] = 'Bütün seçimlər mövcud seçimlərdən olmalıdır.';
                 break;
             }
@@ -362,9 +373,10 @@ class SurveyQuestion extends Model
     private function validateRatingResponse($response): array
     {
         $errors = [];
-        
-        if (!is_numeric($response)) {
+
+        if (! is_numeric($response)) {
             $errors[] = 'Qiymətləndirmə rəqəmi gözlənilir.';
+
             return $errors;
         }
 
@@ -385,9 +397,10 @@ class SurveyQuestion extends Model
     private function validateFileResponse($response): array
     {
         $errors = [];
-        
-        if (!is_array($response)) {
+
+        if (! is_array($response)) {
             $errors[] = 'Fayl məlumatları gözlənilir.';
+
             return $errors;
         }
 
@@ -403,9 +416,10 @@ class SurveyQuestion extends Model
     private function validateTableResponse($response): array
     {
         $errors = [];
-        
-        if (!is_array($response)) {
+
+        if (! is_array($response)) {
             $errors[] = 'Cədvəl məlumatları gözlənilir.';
+
             return $errors;
         }
 
@@ -415,8 +429,9 @@ class SurveyQuestion extends Model
 
         foreach ($rows as $rowIndex => $row) {
             foreach ($headers as $headerIndex => $header) {
-                if (!isset($response[$rowIndex][$headerIndex])) {
-                    $errors[] = "Cədvəldə bütün xanalar doldurulmalıdır.";
+                if (! isset($response[$rowIndex][$headerIndex])) {
+                    $errors[] = 'Cədvəldə bütün xanalar doldurulmalıdır.';
+
                     return $errors;
                 }
             }
@@ -437,7 +452,7 @@ class SurveyQuestion extends Model
 
         if ($this->survey->estimated_recipients > 0) {
             $summary['response_rate'] = round(
-                ($summary['total_responses'] / $this->survey->estimated_recipients) * 100, 
+                ($summary['total_responses'] / $this->survey->estimated_recipients) * 100,
                 2
             );
         }
@@ -454,7 +469,7 @@ class SurveyQuestion extends Model
                 $numbers = $this->responses()
                     ->whereNotNull('number_response')
                     ->pluck('number_response');
-                
+
                 $summary['number_stats'] = [
                     'count' => $numbers->count(),
                     'average' => $numbers->avg(),
@@ -468,7 +483,7 @@ class SurveyQuestion extends Model
                 $choices = $this->responses()
                     ->whereNotNull('choice_response')
                     ->pluck('choice_response');
-                
+
                 $summary['choice_distribution'] = [];
                 foreach ($this->options ?? [] as $option) {
                     $count = 0;
@@ -491,7 +506,7 @@ class SurveyQuestion extends Model
                 $ratings = $this->responses()
                     ->whereNotNull('rating_response')
                     ->pluck('rating_response');
-                
+
                 $summary['rating_stats'] = [
                     'count' => $ratings->count(),
                     'average' => round($ratings->avg(), 2),
@@ -499,7 +514,7 @@ class SurveyQuestion extends Model
                 ];
 
                 for ($i = $this->rating_min; $i <= $this->rating_max; $i++) {
-                    $count = $ratings->filter(fn($r) => $r == $i)->count();
+                    $count = $ratings->filter(fn ($r) => $r == $i)->count();
                     $summary['rating_stats']['distribution'][$i] = [
                         'count' => $count,
                         'percentage' => $summary['total_responses'] > 0 ? round(($count / $summary['total_responses']) * 100, 2) : 0,

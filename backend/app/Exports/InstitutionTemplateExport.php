@@ -4,37 +4,37 @@ namespace App\Exports;
 
 use App\Models\Institution;
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, WithColumnWidths
+class InstitutionTemplateExport implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
     public function array(): array
     {
         $data = [];
-        
+
         // Get sample institutions from different levels and types
         $sampleInstitutions = $this->getSampleInstitutions();
-        
+
         foreach ($sampleInstitutions as $institution) {
             // Get contact info
             $contactInfo = $institution['contact_info'] ?? [];
             $phone = $contactInfo['phone'] ?? '';
             $email = $contactInfo['email'] ?? '';
-            
-            // Get location info  
+
+            // Get location info
             $location = $institution['location'] ?? [];
             $region = $location['region'] ?? '';
             $address = $institution['address'] ?? '';
-            
+
             // Get metadata
             $metadata = $institution['metadata'] ?? [];
             $studentCapacity = $metadata['student_capacity'] ?? null;
             $staffCount = $metadata['staff_count'] ?? null;
             $foundedYear = $metadata['founded_year'] ?? null;
-            
+
             $data[] = [
                 $institution['name'],
                 $institution['short_name'] ?? '',
@@ -50,10 +50,10 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
                 $staffCount,
                 $foundedYear,
                 $institution['established_date'] ?? '',
-                $institution['utis_code'] ?? '' // UTIS avtomatik yaradılacaq
+                $institution['utis_code'] ?? '', // UTIS avtomatik yaradılacaq
             ];
         }
-        
+
         return $data;
     }
 
@@ -94,7 +94,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
         // Level 4 - Different school types (get variety)
         if (isset($realInstitutions[4]) && $realInstitutions[4]->count() > 0) {
             $schoolTypes = $realInstitutions[4]->groupBy('type');
-            
+
             // Get one example of each type that exists
             foreach ($schoolTypes as $type => $institutions) {
                 if (count($samples) < 8) { // Limit total samples
@@ -102,13 +102,13 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
                 }
             }
         }
-        
+
         // Add sample school types if we don't have enough variety
         $existingTypes = collect($samples)->pluck('type')->toArray();
         $desiredTypes = ['secondary_school', 'kindergarten', 'lyceum', 'vocational_school'];
-        
+
         foreach ($desiredTypes as $type) {
-            if (!in_array($type, $existingTypes) && count($samples) < 8) {
+            if (! in_array($type, $existingTypes) && count($samples) < 8) {
                 $samples[] = $this->getSampleSchool($type);
             }
         }
@@ -134,7 +134,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
             'address' => $institution->address,
             'metadata' => $metadata,
             'established_date' => $institution->established_date ? $institution->established_date->format('Y-m-d') : '',
-            'utis_code' => $institution->utis_code
+            'utis_code' => $institution->utis_code,
         ];
     }
 
@@ -152,7 +152,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
             'address' => 'Bakı şəhəri, Xətai rayonu, Koroğlu Rəhimov küçəsi 49',
             'metadata' => ['staff_count' => 500],
             'established_date' => '1991-10-18',
-            'utis_code' => ''
+            'utis_code' => '',
         ];
     }
 
@@ -161,7 +161,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
         return [
             'name' => 'Bakı Şəhər Təhsil İdarəsi',
             'short_name' => 'BŞTİ',
-            'type' => 'regional_education_department', 
+            'type' => 'regional_education_department',
             'parent_name' => 'Azərbaycan Respublikasının Təhsil Nazirliyi',
             'region_code' => 'BA',
             'institution_code' => 'REG-BA-001',
@@ -170,7 +170,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
             'address' => 'Bakı şəhəri, Nəsimi rayonu, Fizuli küçəsi 123',
             'metadata' => ['staff_count' => 150],
             'established_date' => '1991-12-01',
-            'utis_code' => ''
+            'utis_code' => '',
         ];
     }
 
@@ -188,7 +188,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
             'address' => 'Bakı şəhəri, Nəsimi rayonu, Azadlıq prospekti 200',
             'metadata' => ['staff_count' => 50],
             'established_date' => '1992-01-15',
-            'utis_code' => ''
+            'utis_code' => '',
         ];
     }
 
@@ -202,7 +202,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
                 'phone' => '+994 12 000-03-01',
                 'email' => 'school001@edu.gov.az',
                 'student_capacity' => 800,
-                'staff_count' => 45
+                'staff_count' => 45,
             ],
             'kindergarten' => [
                 'name' => '5 nömrəli uşaq bağçası',
@@ -211,7 +211,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
                 'phone' => '+994 12 000-03-05',
                 'email' => 'kindergarten005@edu.gov.az',
                 'student_capacity' => 150,
-                'staff_count' => 20
+                'staff_count' => 20,
             ],
             'lyceum' => [
                 'name' => 'Nəsimi rayonu 1 nömrəli lisey',
@@ -220,7 +220,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
                 'phone' => '+994 12 000-03-10',
                 'email' => 'lyceum001@edu.gov.az',
                 'student_capacity' => 600,
-                'staff_count' => 35
+                'staff_count' => 35,
             ],
             'vocational_school' => [
                 'name' => 'Peşə Təhsili Məktəbi №1',
@@ -229,8 +229,8 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
                 'phone' => '+994 12 000-03-20',
                 'email' => 'vocational001@edu.gov.az',
                 'student_capacity' => 400,
-                'staff_count' => 30
-            ]
+                'staff_count' => 30,
+            ],
         ];
 
         $sample = $samples[$type] ?? $samples['secondary_school'];
@@ -248,10 +248,10 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
             'metadata' => [
                 'student_capacity' => $sample['student_capacity'],
                 'staff_count' => $sample['staff_count'],
-                'founded_year' => 2005
+                'founded_year' => 2005,
             ],
             'established_date' => '2005-09-01',
-            'utis_code' => ''
+            'utis_code' => '',
         ];
     }
 
@@ -272,7 +272,7 @@ class InstitutionTemplateExport implements FromArray, WithHeadings, WithStyles, 
             'staff_count (İşçi sayı)',
             'founded_year (Təsis ili)',
             'established_date (Təsis tarixi YYYY-MM-DD)',
-            'utis_code (UTIS kodu - könüllü, 8 rəqəmli)'
+            'utis_code (UTIS kodu - könüllü, 8 rəqəmli)',
         ];
     }
 

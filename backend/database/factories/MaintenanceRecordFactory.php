@@ -21,7 +21,7 @@ class MaintenanceRecordFactory extends Factory
     {
         $maintenanceTypes = [
             'preventive', 'corrective', 'emergency', 'routine', 'upgrade',
-            'inspection', 'calibration', 'cleaning', 'repair', 'replacement'
+            'inspection', 'calibration', 'cleaning', 'repair', 'replacement',
         ];
 
         $statuses = ['scheduled', 'in_progress', 'completed', 'cancelled', 'on_hold'];
@@ -67,10 +67,10 @@ class MaintenanceRecordFactory extends Factory
             'work_performed' => fake()->optional()->paragraph(),
             'parts_used' => fake()->optional()->randomElements([
                 'Filter', 'Belt', 'Battery', 'Fuse', 'Bulb', 'Cable',
-                'Screw', 'Gasket', 'Oil', 'Brake pad', 'Wire'
+                'Screw', 'Gasket', 'Oil', 'Brake pad', 'Wire',
             ], fake()->numberBetween(0, 3)),
             'parts_needed' => fake()->optional()->randomElements([
-                'Filter', 'Battery', 'Cable', 'Fuse'
+                'Filter', 'Battery', 'Cable', 'Fuse',
             ], fake()->numberBetween(0, 2)),
             'labor_hours' => $laborHours,
             'actual_duration' => fake()->optional()->numberBetween(1, 10),
@@ -95,7 +95,7 @@ class MaintenanceRecordFactory extends Factory
             'completion_notes' => fake()->optional()->paragraph(),
             'attachments' => fake()->optional()->randomElements([
                 'before_photo.jpg', 'after_photo.jpg', 'receipt.pdf',
-                'manual.pdf', 'warranty.pdf'
+                'manual.pdf', 'warranty.pdf',
             ], fake()->numberBetween(0, 2)),
             'external_service' => fake()->boolean(20),
             'service_provider' => fake()->optional()->company(),

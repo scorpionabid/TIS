@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -40,7 +39,7 @@ return new class extends Migration
     {
         Schema::table('users', function (Blueprint $table) {
             $table->dropColumn(['username', 'role_id', 'institution_id', 'is_active', 'last_login_at', 'password_changed_at', 'failed_login_attempts', 'locked_until']);
-            
+
             // Revert changes to existing columns if necessary
             $table->string('email')->change();
             $table->string('password')->change();

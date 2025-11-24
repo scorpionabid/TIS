@@ -2,10 +2,10 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
+use App\Models\Institution;
 use App\Models\LinkShare;
 use App\Models\User;
-use App\Models\Institution;
+use Illuminate\Database\Seeder;
 
 class LinkShareSeeder extends Seeder
 {
@@ -14,9 +14,10 @@ class LinkShareSeeder extends Seeder
         // Get first user and institution for seeding
         $user = User::first();
         $institution = Institution::first();
-        
-        if (!$user || !$institution) {
+
+        if (! $user || ! $institution) {
             $this->command->warn('No users or institutions found. Skipping LinkShare seeding.');
+
             return;
         }
 
@@ -33,7 +34,7 @@ class LinkShareSeeder extends Seeder
                 'title' => 'ASAN Xidmət Portalı',
                 'description' => 'ASAN Xidmət mərkəzlərinin elektron xidmətləri və online ərizələr',
                 'url' => 'https://asan.gov.az',
-                'link_type' => 'external', 
+                'link_type' => 'external',
                 'share_scope' => 'public',
                 'is_featured' => true,
             ],
@@ -102,7 +103,7 @@ class LinkShareSeeder extends Seeder
                 'link_type' => 'document',
                 'share_scope' => 'public',
                 'is_featured' => false,
-            ]
+            ],
         ];
 
         foreach ($links as $index => $linkData) {

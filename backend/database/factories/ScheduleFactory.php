@@ -2,9 +2,9 @@
 
 namespace Database\Factories;
 
-use App\Models\Schedule;
-use App\Models\Institution;
 use App\Models\AcademicYear;
+use App\Models\Institution;
+use App\Models\Schedule;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -221,4 +221,3 @@ class ScheduleFactory extends Factory
         ]);
     }
 }
-

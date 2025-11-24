@@ -4,20 +4,23 @@ namespace App\Exports;
 
 use App\Models\Survey;
 use App\Models\SurveyResponse;
+use App\Models\User;
+use Illuminate\Http\Request;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use Illuminate\Http\Request;
-use App\Models\User;
 
-class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping, WithStyles, WithColumnWidths
+class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHeadings, WithMapping, WithStyles
 {
     protected Survey $survey;
+
     protected Request $request;
+
     protected User $user;
+
     protected array $filters;
 
     public function __construct(Survey $survey, Request $request, User $user)
@@ -31,7 +34,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
     public function collection()
     {
         // Load survey questions to ensure they're available for export
-        $this->survey->load(['questions' => function($query) {
+        $this->survey->load(['questions' => function ($query) {
             $query->orderBy('order_index')->select('id', 'survey_id', 'title', 'text', 'question', 'order_index');
         }]);
 
@@ -40,7 +43,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
             \Log::info('Survey questions loaded for export', [
                 'survey_id' => $this->survey->id,
                 'questions_count' => $this->survey->questions->count(),
-                'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2)
+                'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
             ]);
         }
 
@@ -48,57 +51,57 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         $query = SurveyResponse::where('survey_id', $this->survey->id)
             ->select([
                 'id', 'survey_id', 'institution_id', 'department_id', 'respondent_id',
-                'responses', 'status', 'submitted_at', 'approved_at', 'created_at'
+                'responses', 'status', 'submitted_at', 'approved_at', 'created_at',
             ])
             ->with([
                 'institution:id,name,type,short_name,parent_id,level',
                 'institution.parent:id,name,type,short_name', // Load sector (parent institution)
                 'department:id,name',
                 'respondent:id,name,email',
-                'approvalRequest' => function($query) {
+                'approvalRequest' => function ($query) {
                     $query->select('id', 'approvalable_id', 'current_status', 'submitted_at', 'completed_at');
                 },
-                'approvalRequest.approvalActions' => function($query) {
+                'approvalRequest.approvalActions' => function ($query) {
                     $query->select('id', 'approval_request_id', 'approver_id', 'action', 'comments', 'action_taken_at')
-                          ->latest('action_taken_at')
-                          ->limit(1); // Only get latest action per response
+                        ->latest('action_taken_at')
+                        ->limit(1); // Only get latest action per response
                 },
-                'approvalRequest.approvalActions.approver:id,name'
+                'approvalRequest.approvalActions.approver:id,name',
             ]);
 
         // Apply user access control
         $this->applyUserAccessControl($query);
 
         // Apply filters from request
-        if (!empty($this->filters['status'])) {
+        if (! empty($this->filters['status'])) {
             $query->where('status', $this->filters['status']);
         }
 
-        if (!empty($this->filters['approval_status'])) {
+        if (! empty($this->filters['approval_status'])) {
             $query->whereHas('approvalRequest', function ($q) {
                 $q->where('current_status', $this->filters['approval_status']);
             });
         }
 
-        if (!empty($this->filters['institution_id'])) {
+        if (! empty($this->filters['institution_id'])) {
             $query->where('institution_id', $this->filters['institution_id']);
         }
 
-        if (!empty($this->filters['institution_type'])) {
+        if (! empty($this->filters['institution_type'])) {
             $query->whereHas('institution', function ($q) {
                 $q->where('type', $this->filters['institution_type']);
             });
         }
 
-        if (!empty($this->filters['date_from'])) {
+        if (! empty($this->filters['date_from'])) {
             $query->where('created_at', '>=', $this->filters['date_from']);
         }
 
-        if (!empty($this->filters['date_to'])) {
+        if (! empty($this->filters['date_to'])) {
             $query->where('created_at', '<=', $this->filters['date_to'] . ' 23:59:59');
         }
 
-        if (!empty($this->filters['search'])) {
+        if (! empty($this->filters['search'])) {
             $search = $this->filters['search'];
             $query->whereHas('institution', function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%");
@@ -106,7 +109,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         }
 
         // Filter by specific response IDs if provided (for bulk exports)
-        if (!empty($this->filters['response_ids']) && is_array($this->filters['response_ids'])) {
+        if (! empty($this->filters['response_ids']) && is_array($this->filters['response_ids'])) {
             $responseIds = array_map('intval', $this->filters['response_ids']);
             $query->whereIn('id', $responseIds);
         }
@@ -118,11 +121,11 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         // Sort by sector (via parent institution), then by institution name, then by submission date
         // Note: We need to join institutions table for proper sorting
         $query->leftJoin('institutions', 'survey_responses.institution_id', '=', 'institutions.id')
-              ->leftJoin('institutions as sectors', 'institutions.parent_id', '=', 'sectors.id')
-              ->orderBy('sectors.name', 'asc')        // Group by sector
-              ->orderBy('institutions.name', 'asc')   // Then by school name
-              ->orderBy('survey_responses.created_at', 'desc')  // Finally by submission date
-              ->select('survey_responses.*'); // Ensure we only select survey_responses columns
+            ->leftJoin('institutions as sectors', 'institutions.parent_id', '=', 'sectors.id')
+            ->orderBy('sectors.name', 'asc')        // Group by sector
+            ->orderBy('institutions.name', 'asc')   // Then by school name
+            ->orderBy('survey_responses.created_at', 'desc')  // Finally by submission date
+            ->select('survey_responses.*'); // Ensure we only select survey_responses columns
 
         $query->chunk($chunkSize, function ($responses) use ($results) {
             foreach ($responses as $response) {
@@ -134,7 +137,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         \Log::info('[EXPORT] Survey export completed', [
             'survey_id' => $this->survey->id,
             'total_responses' => $results->count(),
-            'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2)
+            'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
         ]);
 
         return $results;
@@ -148,7 +151,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
                 'response_id' => $response->id,
                 'institution_name' => $response->institution?->name,
                 'institution_level' => $response->institution?->level,
-                'sector_name' => $this->getSectorName($response->institution)
+                'sector_name' => $this->getSectorName($response->institution),
             ]);
         }
 
@@ -159,7 +162,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         // Start with sector, then institution
         $row = [
             $sectorName,        // NEW - Sector column
-            $institutionName    // Institution column
+            $institutionName,    // Institution column
         ];
 
         // Get survey questions and add response for each question
@@ -171,7 +174,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
             'questions_count' => $questions->count(),
             'question_ids' => $questions->pluck('id')->toArray(),
             'responses_keys' => is_array($responses) ? array_keys($responses) : 'not_array',
-            'responses_values' => is_array($responses) ? array_values($responses) : 'not_array'
+            'responses_values' => is_array($responses) ? array_values($responses) : 'not_array',
         ]);
 
         foreach ($questions as $question) {
@@ -210,7 +213,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         // Start with sector and institution columns
         $headings = [
             'Sektor',      // NEW - Sector column
-            'Müəssisə'     // Institution column
+            'Müəssisə',     // Institution column
         ];
 
         // Add column for each survey question
@@ -231,7 +234,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
             'Təqdim Tarixi',
             'Təsdiq Tarixi',
             'Təsdiq Edən',
-            'Qeydlər'
+            'Qeydlər',
         ]);
 
         return $headings;
@@ -244,9 +247,9 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
                 'font' => ['bold' => true, 'size' => 11],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['argb' => 'FF2563EB']
+                    'startColor' => ['argb' => 'FF2563EB'],
                 ],
-                'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true]
+                'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true],
             ],
         ];
     }
@@ -269,7 +272,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
         foreach ($questions as $question) {
             if ($columnIndex < count($columns)) {
                 // Set width based on question type
-                $width = match($question->type ?? 'text') {
+                $width = match ($question->type ?? 'text') {
                     'textarea' => 40,
                     'multiple_choice' => 25,
                     'single_choice' => 20,
@@ -308,17 +311,18 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
             'user_role_type' => gettype($this->user->role),
             'user_institution_id' => $this->user->institution_id,
             'user_institution_name' => $this->user->institution?->name,
-            'has_specific_response_ids' => !empty($this->filters['response_ids']),
-            'response_ids_count' => !empty($this->filters['response_ids']) ? count($this->filters['response_ids']) : 0
+            'has_specific_response_ids' => ! empty($this->filters['response_ids']),
+            'response_ids_count' => ! empty($this->filters['response_ids']) ? count($this->filters['response_ids']) : 0,
         ]);
 
         // Special case: If specific response IDs are provided for export and user has appropriate permissions,
         // allow export of those specific responses (this is for bulk export functionality)
-        if (!empty($this->filters['response_ids']) && in_array($userRoleName, ['superadmin', 'regionadmin', 'sektoradmin'])) {
+        if (! empty($this->filters['response_ids']) && in_array($userRoleName, ['superadmin', 'regionadmin', 'sektoradmin'])) {
             \Log::info('📋 [EXPORT] Allowing export of specific response IDs for authorized user', [
                 'user_role_name' => $userRoleName,
-                'response_ids' => $this->filters['response_ids']
+                'response_ids' => $this->filters['response_ids'],
             ]);
+
             // Don't apply additional institution restrictions when specific response IDs are provided
             return;
         }
@@ -332,7 +336,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
                 if ($this->user->institution) {
                     $childInstitutionIds = $this->user->institution->getAllChildrenIds();
                     \Log::info('🌐 [EXPORT] RegionAdmin access control', [
-                        'allowed_institution_ids' => $childInstitutionIds
+                        'allowed_institution_ids' => $childInstitutionIds,
                     ]);
                     $query->whereIn('institution_id', $childInstitutionIds);
                 }
@@ -342,7 +346,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
                 if ($this->user->institution) {
                     $childInstitutionIds = $this->user->institution->getAllChildrenIds();
                     \Log::info('🏢 [EXPORT] SektorAdmin access control', [
-                        'allowed_institution_ids' => $childInstitutionIds
+                        'allowed_institution_ids' => $childInstitutionIds,
                     ]);
                     $query->whereIn('institution_id', $childInstitutionIds);
                 }
@@ -351,7 +355,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
             case 'schooladmin':
                 if ($this->user->institution) {
                     \Log::info('🏫 [EXPORT] SchoolAdmin access control', [
-                        'allowed_institution_id' => $this->user->institution->id
+                        'allowed_institution_id' => $this->user->institution->id,
                     ]);
                     $query->where('institution_id', $this->user->institution->id);
                 }
@@ -361,8 +365,8 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
                 // For other roles, restrict to their own institution
                 \Log::info('👤 [EXPORT] Default role access control', [
                     'role_name' => $userRoleName,
-                    'has_institution' => !!$this->user->institution,
-                    'allowed_institution_id' => $this->user->institution?->id
+                    'has_institution' => (bool) $this->user->institution,
+                    'allowed_institution_id' => $this->user->institution?->id,
                 ]);
                 if ($this->user->institution) {
                     $query->where('institution_id', $this->user->institution->id);
@@ -372,7 +376,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
 
     private function getStatusText(string $status): string
     {
-        return match($status) {
+        return match ($status) {
             'draft' => 'Layihə',
             'submitted' => 'Təqdim edilib',
             'approved' => 'Təsdiqlənib',
@@ -383,9 +387,11 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
 
     private function getApprovalStatusText(?string $status): string
     {
-        if (!$status) return '';
+        if (! $status) {
+            return '';
+        }
 
-        return match($status) {
+        return match ($status) {
             'pending' => 'Gözləyir',
             'in_progress' => 'İcrada',
             'approved' => 'Təsdiqləndi',
@@ -404,7 +410,7 @@ class SurveyApprovalExport implements FromCollection, WithHeadings, WithMapping,
      */
     private function getSectorName($institution): string
     {
-        if (!$institution) {
+        if (! $institution) {
             return 'N/A';
         }
 

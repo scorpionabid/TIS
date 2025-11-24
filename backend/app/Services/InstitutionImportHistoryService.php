@@ -13,20 +13,20 @@ class InstitutionImportHistoryService
      * Create a new import history record
      */
     public function createImportRecord(
-        string $institutionType, 
-        string $fileName, 
-        int $fileSize, 
+        string $institutionType,
+        string $fileName,
+        int $fileSize,
         array $options = [],
-        Request $request = null
+        ?Request $request = null
     ): InstitutionImportHistory {
         $user = Auth::user();
         $fileHash = $this->generateFileHash($fileName, $fileSize, $user->id);
-        
+
         return InstitutionImportHistory::create([
             'user_id' => $user->id,
             'institution_type' => $institutionType,
             'file_name' => $fileName,
-            'file_size' => (string)$fileSize,
+            'file_size' => (string) $fileSize,
             'file_hash' => $fileHash,
             'import_options' => $options,
             'status' => 'pending',
@@ -40,12 +40,12 @@ class InstitutionImportHistoryService
      * Update import record with results
      */
     public function updateImportRecord(
-        InstitutionImportHistory $record, 
-        array $results, 
-        int $processingTimeMs = null
+        InstitutionImportHistory $record,
+        array $results,
+        ?int $processingTimeMs = null
     ): void {
         $errorSummary = $this->categorizeErrors($results['errors'] ?? []);
-        
+
         $record->update([
             'total_rows' => $results['total_rows'] ?? 0,
             'successful_imports' => $results['success'] ?? 0,
@@ -70,8 +70,8 @@ class InstitutionImportHistoryService
             'status' => 'failed',
             'completed_at' => now(),
             'error_summary' => [
-                'fatal_error' => [$error]
-            ]
+                'fatal_error' => [$error],
+            ],
         ]);
     }
 
@@ -107,10 +107,10 @@ class InstitutionImportHistoryService
     /**
      * Get import analytics
      */
-    public function getImportAnalytics(int $userId = null, int $days = 30): array
+    public function getImportAnalytics(?int $userId = null, int $days = 30): array
     {
         $query = InstitutionImportHistory::recent($days);
-        
+
         if ($userId) {
             $query->byUser($userId);
         }
@@ -129,10 +129,10 @@ class InstitutionImportHistoryService
                 ->map(function ($group) {
                     return [
                         'count' => $group->count(),
-                        'success_rate' => $group->avg('success_rate')
+                        'success_rate' => $group->avg('success_rate'),
                     ];
                 }),
-            'daily_imports' => $this->getDailyImportStats($records)
+            'daily_imports' => $this->getDailyImportStats($records),
         ];
     }
 
@@ -142,7 +142,7 @@ class InstitutionImportHistoryService
     public function isDuplicateFile(string $fileName, int $fileSize, int $userId): ?InstitutionImportHistory
     {
         $fileHash = $this->generateFileHash($fileName, $fileSize, $userId);
-        
+
         return InstitutionImportHistory::where('file_hash', $fileHash)
             ->where('user_id', $userId)
             ->where('created_at', '>=', now()->subHours(24)) // Check last 24 hours
@@ -168,12 +168,12 @@ class InstitutionImportHistoryService
             'duplicate_errors' => [],
             'database_errors' => [],
             'format_errors' => [],
-            'other_errors' => []
+            'other_errors' => [],
         ];
 
         foreach ($errors as $error) {
             $errorLower = strtolower($error);
-            
+
             if (str_contains($errorLower, 'duplicate') || str_contains($errorLower, 'unique')) {
                 $categories['duplicate_errors'][] = $error;
             } elseif (str_contains($errorLower, 'validation') || str_contains($errorLower, 'required') || str_contains($errorLower, 'invalid')) {
@@ -188,8 +188,8 @@ class InstitutionImportHistoryService
         }
 
         // Remove empty categories
-        return array_filter($categories, function($category) {
-            return !empty($category);
+        return array_filter($categories, function ($category) {
+            return ! empty($category);
         });
     }
 
@@ -200,16 +200,16 @@ class InstitutionImportHistoryService
     {
         $success = $results['success'] ?? 0;
         $errors = count($results['errors'] ?? []);
-        
+
         if ($success > 0 && $errors === 0) {
             return 'completed';
         } elseif ($success > 0 && $errors > 0) {
             return 'completed'; // Partial success is still completed
         } elseif ($success === 0 && $errors > 0) {
             return 'failed';
-        } else {
-            return 'completed'; // No data processed, but completed
         }
+
+        return 'completed'; // No data processed, but completed
     }
 
     /**
@@ -218,7 +218,7 @@ class InstitutionImportHistoryService
     private function getMostCommonErrors($records): array
     {
         $errorCounts = [];
-        
+
         foreach ($records as $record) {
             $errorSummary = $record->error_summary ?? [];
             foreach ($errorSummary as $category => $errors) {
@@ -229,8 +229,9 @@ class InstitutionImportHistoryService
                 }
             }
         }
-        
+
         arsort($errorCounts);
+
         return array_slice($errorCounts, 0, 10, true);
     }
 
@@ -239,15 +240,15 @@ class InstitutionImportHistoryService
      */
     private function getDailyImportStats($records): array
     {
-        return $records->groupBy(function($record) {
+        return $records->groupBy(function ($record) {
             return $record->created_at->format('Y-m-d');
-        })->map(function($group) {
+        })->map(function ($group) {
             return [
                 'imports' => $group->count(),
                 'success_rate' => $group->avg('success_rate'),
-                'total_created' => $group->sum('successful_imports')
+                'total_created' => $group->sum('successful_imports'),
             ];
-        })->sortBy(function($value, $key) {
+        })->sortBy(function ($value, $key) {
             return $key;
         });
     }

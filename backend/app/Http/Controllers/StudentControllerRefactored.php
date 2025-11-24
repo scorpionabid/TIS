@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\BaseController;
-use App\Services\StudentManagementService;
-use App\Services\StudentImportExportService;
 use App\Models\User;
-use Illuminate\Http\Request;
+use App\Services\StudentImportExportService;
+use App\Services\StudentManagementService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class StudentControllerRefactored extends BaseController
 {
     protected $studentManagementService;
+
     protected $importExportService;
 
     public function __construct(
@@ -42,12 +42,12 @@ class StudentControllerRefactored extends BaseController
                 'gender' => 'sometimes|in:male,female',
                 'sort' => 'sometimes|in:name,created_at,updated_at,username,email',
                 'direction' => 'sometimes|in:asc,desc',
-                'per_page' => 'sometimes|integer|min:1|max:100'
+                'per_page' => 'sometimes|integer|min:1|max:100',
             ]);
 
             $user = Auth::user();
             $result = $this->studentManagementService->getStudents($request, $user);
-            
+
             return $this->successResponse($result, 'Şagirdlər uğurla alındı');
         }, 'student.index');
     }
@@ -78,12 +78,12 @@ class StudentControllerRefactored extends BaseController
                 'notes' => 'nullable|string|max:1000',
                 'is_active' => 'boolean',
                 'enrollment_date' => 'nullable|date',
-                'student_number' => 'nullable|string|max:50'
+                'student_number' => 'nullable|string|max:50',
             ]);
 
             $user = Auth::user();
             $student = $this->studentManagementService->createStudent($validated, $user);
-            
+
             return $this->successResponse($student, 'Şagird uğurla yaradıldı', 201);
         }, 'student.store');
     }
@@ -96,14 +96,14 @@ class StudentControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request, $student) {
             $request->validate([
                 'include_performance' => 'boolean',
-                'include_enrollments' => 'boolean'
+                'include_enrollments' => 'boolean',
             ]);
 
             $user = Auth::user();
-            
+
             // Get basic student data
             $result = [
-                'student' => $student->load(['profile', 'institution', 'studentEnrollments.grade'])
+                'student' => $student->load(['profile', 'institution', 'studentEnrollments.grade']),
             ];
 
             // Include performance data if requested
@@ -120,7 +120,7 @@ class StudentControllerRefactored extends BaseController
                     ->get();
                 $result['enrollment_history'] = $enrollments;
             }
-            
+
             return $this->successResponse($result, 'Şagird məlumatları uğurla alındı');
         }, 'student.show');
     }
@@ -148,12 +148,12 @@ class StudentControllerRefactored extends BaseController
                 'emergency_contact_phone' => 'nullable|string|max:20',
                 'emergency_contact_email' => 'nullable|email|max:255',
                 'notes' => 'nullable|string|max:1000',
-                'is_active' => 'boolean'
+                'is_active' => 'boolean',
             ]);
 
             $user = Auth::user();
             $updatedStudent = $this->studentManagementService->updateStudent($student, $validated, $user);
-            
+
             return $this->successResponse($updatedStudent, 'Şagird uğurla yeniləndi');
         }, 'student.update');
     }
@@ -165,12 +165,12 @@ class StudentControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request, $student) {
             $request->validate([
-                'confirm' => 'required|boolean|accepted'
+                'confirm' => 'required|boolean|accepted',
             ]);
 
             $user = Auth::user();
             $this->studentManagementService->deleteStudent($student, $user);
-            
+
             return $this->successResponse(null, 'Şagird uğurla silindi');
         }, 'student.destroy');
     }
@@ -185,17 +185,17 @@ class StudentControllerRefactored extends BaseController
                 'grade_id' => 'required|exists:grades,id',
                 'enrollment_date' => 'nullable|date',
                 'student_number' => 'nullable|string|max:50',
-                'notes' => 'nullable|string|max:1000'
+                'notes' => 'nullable|string|max:1000',
             ]);
 
             $enrollment = $this->studentManagementService->enrollStudent(
-                $student, 
-                $validated['grade_id'], 
+                $student,
+                $validated['grade_id'],
                 $validated
             );
-            
+
             return $this->successResponse(
-                $enrollment->load(['grade', 'academicYear']), 
+                $enrollment->load(['grade', 'academicYear']),
                 'Şagird uğurla sinifə yazıldı'
             );
         }, 'student.enroll');
@@ -209,12 +209,12 @@ class StudentControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request, $student) {
             $request->validate([
                 'academic_year_id' => 'nullable|exists:academic_years,id',
-                'subject_id' => 'nullable|exists:subjects,id'
+                'subject_id' => 'nullable|exists:subjects,id',
             ]);
 
             $user = Auth::user();
             $performance = $this->studentManagementService->getStudentPerformance($student, $user);
-            
+
             return $this->successResponse($performance, 'Şagird performansı uğurla alındı');
         }, 'student.performance');
     }
@@ -224,10 +224,10 @@ class StudentControllerRefactored extends BaseController
      */
     public function downloadTemplate(Request $request): BinaryFileResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request) {
+        return $this->executeWithErrorHandling(function () {
             $fileName = 'student_import_template_' . date('Y-m-d_H-i-s') . '.xlsx';
             $filePath = $this->importExportService->generateImportTemplate($fileName);
-            
+
             return response()->download($filePath, $fileName)->deleteFileAfterSend();
         }, 'student.download_template');
     }
@@ -239,15 +239,15 @@ class StudentControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
-                'file' => 'required|file|mimes:xlsx,xls|max:10240'
+                'file' => 'required|file|mimes:xlsx,xls|max:10240',
             ]);
 
             $user = Auth::user();
             $results = $this->importExportService->processImportFile($validated['file'], $user);
-            
+
             $message = "İdxal tamamlandı: {$results['success']} şagird əlavə edildi";
-            if (!empty($results['errors'])) {
-                $message .= ", " . count($results['errors']) . " xəta baş verdi";
+            if (! empty($results['errors'])) {
+                $message .= ', ' . count($results['errors']) . ' xəta baş verdi';
             }
 
             return $this->successResponse($results, $message);
@@ -262,18 +262,18 @@ class StudentControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $request->validate([
                 'filters' => 'nullable|array',
-                'include_inactive' => 'boolean'
+                'include_inactive' => 'boolean',
             ]);
 
             $user = Auth::user();
-            
+
             // Get students based on filters
             $studentQuery = $this->studentManagementService->getStudents($request, $user);
             $students = $studentQuery['students'];
 
             $fileName = 'students_export_' . date('Y-m-d_H-i-s') . '.xlsx';
             $filePath = $this->importExportService->generateExportFile($students, $fileName);
-            
+
             return response()->download($filePath, $fileName)->deleteFileAfterSend();
         }, 'student.export');
     }
@@ -285,13 +285,13 @@ class StudentControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $user = Auth::user();
-            
+
             // Get students based on current filters
             $studentQuery = $this->studentManagementService->getStudents($request, $user);
             $students = $studentQuery['students'];
-            
+
             $stats = $this->importExportService->getExportStats($students);
-            
+
             return $this->successResponse($stats, 'Statistikalar uğurla alındı');
         }, 'student.export_stats');
     }

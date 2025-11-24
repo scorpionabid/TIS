@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Carbon\Carbon;
 
 class StudentEnrollment extends Model
 {
@@ -40,7 +40,7 @@ class StudentEnrollment extends Model
         'withdrawal_reason',
         'fee_amount',
         'fee_status',
-        'fee_due_date'
+        'fee_due_date',
     ];
 
     protected $casts = [
@@ -58,7 +58,7 @@ class StudentEnrollment extends Model
         'medical_consent' => 'boolean',
         'trip_permission' => 'boolean',
         'fee_amount' => 'decimal:2',
-        'entrance_score' => 'decimal:2'
+        'entrance_score' => 'decimal:2',
     ];
 
     // Relationships
@@ -125,14 +125,14 @@ class StudentEnrollment extends Model
 
     public function hasMedicalRestrictions(): bool
     {
-        return !empty($this->medical_information) && 
-               isset($this->medical_information['restrictions']) && 
-               !empty($this->medical_information['restrictions']);
+        return ! empty($this->medical_information) &&
+               isset($this->medical_information['restrictions']) &&
+               ! empty($this->medical_information['restrictions']);
     }
 
     public function requiresSpecialAccommodation(): bool
     {
-        return !empty($this->special_requirements) || 
+        return ! empty($this->special_requirements) ||
                $this->enrollment_type === 'special_needs';
     }
 
@@ -143,7 +143,9 @@ class StudentEnrollment extends Model
             ->where('day_type', 'regular')
             ->count();
 
-        if ($totalDays === 0) return 0.0;
+        if ($totalDays === 0) {
+            return 0.0;
+        }
 
         $presentDays = $this->dailyAttendanceSummaries()
             ->whereIn('daily_status', ['full_present', 'partial_present'])
@@ -155,6 +157,7 @@ class StudentEnrollment extends Model
     public function getAttendanceTargetDifference(): float
     {
         $currentRate = $this->calculateCurrentAttendanceRate();
+
         return $currentRate - $this->attendance_target_percentage;
     }
 
@@ -167,15 +170,15 @@ class StudentEnrollment extends Model
     public function getAllGuardians(): array
     {
         $guardians = [];
-        
+
         if ($this->primaryGuardian) {
             $guardians['primary'] = $this->primaryGuardian;
         }
-        
+
         if ($this->secondaryGuardian) {
             $guardians['secondary'] = $this->secondaryGuardian;
         }
-        
+
         return $guardians;
     }
 
@@ -183,7 +186,7 @@ class StudentEnrollment extends Model
     {
         $contacts = $this->emergency_contacts ?? [];
         $guardians = $this->getAllGuardians();
-        
+
         // Merge guardian contacts with emergency contacts
         foreach ($guardians as $type => $guardian) {
             $contacts[] = [
@@ -191,18 +194,18 @@ class StudentEnrollment extends Model
                 'relationship' => $type . '_guardian',
                 'phone' => $guardian->profile->contact_phone,
                 'email' => $guardian->email,
-                'priority' => $type === 'primary' ? 1 : 2
+                'priority' => $type === 'primary' ? 1 : 2,
             ];
         }
-        
+
         return $contacts;
     }
 
     // Fee management
     public function isFeeOverdue(): bool
     {
-        return $this->fee_due_date && 
-               $this->fee_due_date->isPast() && 
+        return $this->fee_due_date &&
+               $this->fee_due_date->isPast() &&
                in_array($this->fee_status, ['unpaid', 'partial']);
     }
 
@@ -211,13 +214,13 @@ class StudentEnrollment extends Model
         if ($this->fee_status === 'paid' || $this->fee_status === 'exempt') {
             return 0.0;
         }
-        
+
         if ($this->fee_status === 'partial') {
             // This would need to be calculated based on payment records
             // For now, return half the fee amount as an estimate
             return $this->fee_amount ? $this->fee_amount / 2 : 0.0;
         }
-        
+
         return $this->fee_amount ?? 0.0;
     }
 
@@ -226,8 +229,8 @@ class StudentEnrollment extends Model
     {
         $attendanceRate = $this->calculateCurrentAttendanceRate();
         $minimumAttendance = 75; // Minimum attendance for progression
-        
-        return $attendanceRate >= $minimumAttendance && 
+
+        return $attendanceRate >= $minimumAttendance &&
                $this->enrollment_status === 'active';
     }
 
@@ -236,18 +239,18 @@ class StudentEnrollment extends Model
         if ($this->expected_graduation_date) {
             return $this->expected_graduation_date->year;
         }
-        
+
         // Calculate based on current grade and typical progression
         $currentGradeLevel = $this->grade->level ?? 1;
         $yearsToGraduation = 12 - $currentGradeLevel; // Assuming 12 grades
-        
+
         return Carbon::now()->year + $yearsToGraduation;
     }
 
     // Transportation and logistics
     public function usesSchoolTransportation(): bool
     {
-        return isset($this->transportation_info['type']) && 
+        return isset($this->transportation_info['type']) &&
                $this->transportation_info['type'] === 'school_bus';
     }
 
@@ -259,41 +262,41 @@ class StudentEnrollment extends Model
     // Medical and health
     public function hasAllergies(): bool
     {
-        return isset($this->medical_information['allergies']) && 
-               !empty($this->medical_information['allergies']);
+        return isset($this->medical_information['allergies']) &&
+               ! empty($this->medical_information['allergies']);
     }
 
     public function requiresMedication(): bool
     {
-        return isset($this->medical_information['medications']) && 
-               !empty($this->medical_information['medications']);
+        return isset($this->medical_information['medications']) &&
+               ! empty($this->medical_information['medications']);
     }
 
     public function getMedicalAlerts(): array
     {
         $alerts = [];
-        
+
         if ($this->hasAllergies()) {
             $alerts[] = [
                 'type' => 'allergy',
-                'details' => $this->medical_information['allergies']
+                'details' => $this->medical_information['allergies'],
             ];
         }
-        
+
         if ($this->requiresMedication()) {
             $alerts[] = [
                 'type' => 'medication',
-                'details' => $this->medical_information['medications']
+                'details' => $this->medical_information['medications'],
             ];
         }
-        
+
         if (isset($this->medical_information['conditions'])) {
             $alerts[] = [
                 'type' => 'medical_condition',
-                'details' => $this->medical_information['conditions']
+                'details' => $this->medical_information['conditions'],
             ];
         }
-        
+
         return $alerts;
     }
 
@@ -325,6 +328,6 @@ class StudentEnrollment extends Model
     public function scopeFeesOverdue($query)
     {
         return $query->where('fee_due_date', '<', Carbon::now())
-                    ->whereIn('fee_status', ['unpaid', 'partial']);
+            ->whereIn('fee_status', ['unpaid', 'partial']);
     }
 }

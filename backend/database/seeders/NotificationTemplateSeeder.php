@@ -37,7 +37,7 @@ ATİS Sistemi',
                 'channels' => ['in_app', 'email', 'sms'],
                 'priority' => 'normal',
                 'available_variables' => [
-                    'task_title', 'task_category', 'creator_name', 'deadline', 'user_name'
+                    'task_title', 'task_category', 'creator_name', 'deadline', 'user_name',
                 ],
                 'translations' => [
                     'en' => [
@@ -57,7 +57,7 @@ Please log into the system to view the task.
 
 Best regards,
 ATIS System',
-                        'sms_template' => 'New task: {task_title}. Deadline: {deadline}. ATIS'
+                        'sms_template' => 'New task: {task_title}. Deadline: {deadline}. ATIS',
                     ],
                     'ru' => [
                         'subject_template' => 'Новая задача назначена: {task_title}',
@@ -76,9 +76,9 @@ ATIS System',
 
 С уважением,
 Система АТИС',
-                        'sms_template' => 'Новая задача: {task_title}. Срок: {deadline}. АТИС'
-                    ]
-                ]
+                        'sms_template' => 'Новая задача: {task_title}. Срок: {deadline}. АТИС',
+                    ],
+                ],
             ],
             [
                 'key' => 'task_deadline',
@@ -103,7 +103,7 @@ ATİS Sistemi',
                 'channels' => ['in_app', 'email', 'sms'],
                 'priority' => 'high',
                 'available_variables' => [
-                    'task_title', 'deadline', 'hours_remaining', 'user_name'
+                    'task_title', 'deadline', 'hours_remaining', 'user_name',
                 ],
                 'translations' => [
                     'en' => [
@@ -122,9 +122,9 @@ Please complete the task on time.
 
 Best regards,
 ATIS System',
-                        'sms_template' => 'Reminder: {task_title} - Deadline {deadline}. ATIS'
-                    ]
-                ]
+                        'sms_template' => 'Reminder: {task_title} - Deadline {deadline}. ATIS',
+                    ],
+                ],
             ],
             [
                 'key' => 'survey_published',
@@ -150,7 +150,7 @@ ATİS Sistemi',
                 'channels' => ['in_app', 'email'],
                 'priority' => 'normal',
                 'available_variables' => [
-                    'survey_title', 'survey_description', 'creator_name', 'deadline', 'user_name'
+                    'survey_title', 'survey_description', 'creator_name', 'deadline', 'user_name',
                 ],
                 'translations' => [
                     'en' => [
@@ -169,9 +169,9 @@ Deadline: {deadline}
 Please log into the system to participate in the survey.
 
 Best regards,
-ATIS System'
-                    ]
-                ]
+ATIS System',
+                    ],
+                ],
             ],
             [
                 'key' => 'survey_approved',
@@ -190,7 +190,7 @@ Hörmətlə,
 ATİS Sistemi',
                 'channels' => ['in_app', 'email'],
                 'priority' => 'normal',
-                'available_variables' => ['survey_title', 'user_name']
+                'available_variables' => ['survey_title', 'user_name'],
             ],
             [
                 'key' => 'survey_assigned',
@@ -216,7 +216,7 @@ ATİS Sistemi',
                 'channels' => ['in_app', 'email', 'sms'],
                 'priority' => 'normal',
                 'available_variables' => [
-                    'survey_title', 'survey_description', 'creator_name', 'deadline', 'user_name'
+                    'survey_title', 'survey_description', 'creator_name', 'deadline', 'user_name',
                 ],
                 'translations' => [
                     'en' => [
@@ -236,9 +236,9 @@ Please log into the system to complete the survey.
 
 Best regards,
 ATIS System',
-                        'sms_template' => 'New survey assigned: {survey_title}. Deadline: {deadline}. ATIS'
-                    ]
-                ]
+                        'sms_template' => 'New survey assigned: {survey_title}. Deadline: {deadline}. ATIS',
+                    ],
+                ],
             ],
             [
                 'key' => 'link_shared',
@@ -263,7 +263,7 @@ ATİS Sistemi',
                 'channels' => ['in_app', 'email'],
                 'priority' => 'normal',
                 'available_variables' => [
-                    'link_title', 'link_description', 'creator_name', 'link_url', 'user_name'
+                    'link_title', 'link_description', 'creator_name', 'link_url', 'user_name',
                 ],
                 'translations' => [
                     'en' => [
@@ -282,9 +282,9 @@ Link: {link_url}
 Please log into the system to access the link.
 
 Best regards,
-ATIS System'
-                    ]
-                ]
+ATIS System',
+                    ],
+                ],
             ],
             [
                 'key' => 'link_updated',
@@ -296,15 +296,15 @@ ATIS System'
                 'channels' => ['in_app'],
                 'priority' => 'normal',
                 'available_variables' => [
-                    'link_title', 'creator_name', 'link_url', 'share_scope'
+                    'link_title', 'creator_name', 'link_url', 'share_scope',
                 ],
                 'translations' => [
                     'en' => [
                         'subject_template' => 'Link updated: {link_title}',
                         'title_template' => 'Link updated',
                         'message_template' => '{creator_name} updated the link "{link_title}".',
-                    ]
-                ]
+                    ],
+                ],
             ],
             [
                 'key' => 'document_shared',
@@ -328,7 +328,7 @@ ATİS Sistemi',
                 'channels' => ['in_app', 'email'],
                 'priority' => 'normal',
                 'available_variables' => [
-                    'document_title', 'creator_name', 'share_message', 'user_name'
+                    'document_title', 'creator_name', 'share_message', 'user_name',
                 ],
                 'translations' => [
                     'en' => [
@@ -346,9 +346,9 @@ Note: {share_message}
 Please log into the system to view the document.
 
 Best regards,
-ATIS System'
-                    ]
-                ]
+ATIS System',
+                    ],
+                ],
             ],
             [
                 'key' => 'document_uploaded',
@@ -360,15 +360,15 @@ ATIS System'
                 'channels' => ['in_app'],
                 'priority' => 'normal',
                 'available_variables' => [
-                    'document_title', 'creator_name', 'creator_institution', 'action_url'
+                    'document_title', 'creator_name', 'creator_institution', 'action_url',
                 ],
                 'translations' => [
                     'en' => [
                         'subject_template' => 'New document uploaded: {document_title}',
                         'title_template' => 'New document',
                         'message_template' => '{creator_name} uploaded "{document_title}" to the system.',
-                    ]
-                ]
+                    ],
+                ],
             ],
             [
                 'key' => 'document_updated',
@@ -380,15 +380,15 @@ ATIS System'
                 'channels' => ['in_app'],
                 'priority' => 'normal',
                 'available_variables' => [
-                    'document_title', 'creator_name', 'creator_institution', 'action_url'
+                    'document_title', 'creator_name', 'creator_institution', 'action_url',
                 ],
                 'translations' => [
                     'en' => [
                         'subject_template' => 'Document updated: {document_title}',
                         'title_template' => 'Document updated',
                         'message_template' => '{creator_name} updated the document "{document_title}".',
-                    ]
-                ]
+                    ],
+                ],
             ],
             [
                 'key' => 'system_alert',
@@ -408,7 +408,7 @@ ATİS Sistemi',
                 'sms_template' => 'Sistem bildirişi: {message}. ATİS',
                 'channels' => ['in_app', 'email', 'sms'],
                 'priority' => 'high',
-                'available_variables' => ['title', 'message', 'sender_name', 'user_name']
+                'available_variables' => ['title', 'message', 'sender_name', 'user_name'],
             ],
             [
                 'key' => 'maintenance',
@@ -431,8 +431,8 @@ Hörmətlə,
 ATİS Sistemi',
                 'channels' => ['in_app', 'email'],
                 'priority' => 'normal',
-                'available_variables' => ['maintenance_date', 'duration', 'message', 'user_name']
-            ]
+                'available_variables' => ['maintenance_date', 'duration', 'message', 'user_name'],
+            ],
         ];
 
         foreach ($templates as $template) {

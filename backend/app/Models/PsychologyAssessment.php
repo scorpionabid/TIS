@@ -160,7 +160,7 @@ class PsychologyAssessment extends Model
      */
     public function getAssessmentTypeLabelAttribute(): string
     {
-        return match($this->assessment_type) {
+        $labels = [
             'cognitive' => 'Koqnitiv Qiymətləndirmə',
             'behavioral' => 'Davranış Qiymətləndirməsi',
             'emotional' => 'Emosional Qiymətləndirmə',
@@ -175,47 +175,65 @@ class PsychologyAssessment extends Model
             'anxiety' => 'Narahatlıq Qiymətləndirməsi',
             'depression' => 'Depressiya Skringinqi',
             'other' => 'Digər',
-            default => 'Ümumi Qiymətləndirmə'
         ];
+
+        return $labels[$this->assessment_type] ?? 'Ümumi Qiymətləndirmə';
     }
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        $labels = [
             'draft' => 'Layihə',
             'in_progress' => 'Davam edir',
             'completed' => 'Tamamlandı',
             'reviewed' => 'Baxılıb',
             'cancelled' => 'Ləğv edildi',
-            default => 'Naməlum'
         ];
+
+        return $labels[$this->status] ?? 'Naməlum';
     }
 
     public function getOverallPerformanceLevelAttribute(): string
     {
-        if (!$this->standardized_scores) {
+        if (! $this->standardized_scores) {
             return 'Qiymətləndirilməyib';
         }
 
         $scores = $this->standardized_scores;
         $averageScore = collect($scores)->avg();
 
-        if ($averageScore >= 130) return 'Çox yüksək';
-        if ($averageScore >= 115) return 'Yüksək';
-        if ($averageScore >= 85) return 'Orta';
-        if ($averageScore >= 70) return 'Orta aşağı';
+        if ($averageScore >= 130) {
+            return 'Çox yüksək';
+        }
+        if ($averageScore >= 115) {
+            return 'Yüksək';
+        }
+        if ($averageScore >= 85) {
+            return 'Orta';
+        }
+        if ($averageScore >= 70) {
+            return 'Orta aşağı';
+        }
+
         return 'Aşağı';
     }
 
     public function getReliabilityLevelAttribute(): string
     {
-        if (!$this->reliability_score) {
+        if (! $this->reliability_score) {
             return 'Məlum deyil';
         }
 
-        if ($this->reliability_score >= 0.90) return 'Çox yüksək';
-        if ($this->reliability_score >= 0.80) return 'Yüksək';
-        if ($this->reliability_score >= 0.70) return 'Qəbuloluna';
+        if ($this->reliability_score >= 0.90) {
+            return 'Çox yüksək';
+        }
+        if ($this->reliability_score >= 0.80) {
+            return 'Yüksək';
+        }
+        if ($this->reliability_score >= 0.70) {
+            return 'Qəbuloluna';
+        }
+
         return 'Aşağı';
     }
 
@@ -256,12 +274,14 @@ class PsychologyAssessment extends Model
     public function getScoreInDomain($domain): ?float
     {
         $scores = $this->standardized_scores ?? [];
+
         return $scores[$domain] ?? null;
     }
 
     public function getPercentileInDomain($domain): ?float
     {
         $percentiles = $this->percentile_ranks ?? [];
+
         return $percentiles[$domain] ?? null;
     }
 
@@ -304,13 +324,14 @@ class PsychologyAssessment extends Model
     public function calculateCompositeScore($domains = null): ?float
     {
         $scores = $this->standardized_scores ?? [];
-        
+
         if (empty($scores)) {
             return null;
         }
 
         if ($domains) {
             $filteredScores = array_intersect_key($scores, array_flip($domains));
+
             return collect($filteredScores)->avg();
         }
 
@@ -328,14 +349,14 @@ class PsychologyAssessment extends Model
                     'domain' => $domain,
                     'score' => $score,
                     'level' => 'exceptional',
-                    'description' => "{$domain} sahəsində istisnai performans"
+                    'description' => "{$domain} sahəsində istisnai performans",
                 ];
             } elseif ($score <= 70) {
                 $findings[] = [
                     'domain' => $domain,
                     'score' => $score,
                     'level' => 'concerning',
-                    'description' => "{$domain} sahəsində dəstək tələb olunur"
+                    'description' => "{$domain} sahəsində dəstək tələb olunur",
                 ];
             }
         }
@@ -350,7 +371,7 @@ class PsychologyAssessment extends Model
                 'type' => $this->assessment_type,
                 'name' => $this->assessment_name,
                 'date' => $this->assessment_date,
-                'psychologist' => $this->psychologist->profile 
+                'psychologist' => $this->psychologist->profile
                     ? "{$this->psychologist->profile->first_name} {$this->psychologist->profile->last_name}"
                     : $this->psychologist->username,
             ],

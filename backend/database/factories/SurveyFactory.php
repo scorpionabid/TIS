@@ -39,11 +39,11 @@ class SurveyFactory extends Factory
                                 'question' => $this->faker->sentence(6) . '?',
                                 'type' => $this->faker->randomElement(['text', 'textarea', 'select', 'radio', 'checkbox', 'number', 'email']),
                                 'required' => $this->faker->boolean(70), // 70% chance of required
-                                'options' => $this->faker->words(4)
-                            ]
-                        ]
-                    ]
-                ]
+                                'options' => $this->faker->words(4),
+                            ],
+                        ],
+                    ],
+                ],
             ],
             'target_institutions' => [$this->faker->numberBetween(1, 10)],
             'target_departments' => [],

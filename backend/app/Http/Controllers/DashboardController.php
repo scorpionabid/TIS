@@ -2,26 +2,28 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Dashboard\DashboardStatsController;
 use App\Http\Controllers\Dashboard\DashboardAnalyticsController;
+use App\Http\Controllers\Dashboard\DashboardStatsController;
 use App\Http\Controllers\Dashboard\DashboardSystemController;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * DashboardController - Legacy Controller
- * 
+ *
  * This controller has been refactored and split into specialized controllers:
  * - DashboardStatsController: Basic statistics, role-based stats, recent activity
  * - DashboardAnalyticsController: Advanced analytics, SuperAdmin analytics, regional analytics
  * - DashboardSystemController: System status, health monitoring, recent activity
- * 
+ *
  * This file acts as a proxy to maintain backward compatibility.
  */
 class DashboardController extends Controller
 {
     protected DashboardStatsController $statsController;
+
     protected DashboardAnalyticsController $analyticsController;
+
     protected DashboardSystemController $systemController;
 
     public function __construct(
@@ -102,25 +104,25 @@ class DashboardController extends Controller
                 'DashboardStatsController' => [
                     'methods' => ['stats', 'detailedStats'],
                     'size' => '~400 lines',
-                    'description' => 'Basic statistics, role-based stats, hierarchy metrics'
+                    'description' => 'Basic statistics, role-based stats, hierarchy metrics',
                 ],
                 'DashboardAnalyticsController' => [
                     'methods' => ['superAdminAnalytics', 'regionalAnalytics'],
-                    'size' => '~450 lines', 
-                    'description' => 'Advanced analytics, growth metrics, performance insights'
+                    'size' => '~450 lines',
+                    'description' => 'Advanced analytics, growth metrics, performance insights',
                 ],
                 'DashboardSystemController' => [
                     'methods' => ['systemStatus', 'recentActivity', 'monitoringMetrics'],
                     'size' => '~350 lines',
-                    'description' => 'System health, monitoring, activity logs'
-                ]
+                    'description' => 'System health, monitoring, activity logs',
+                ],
             ],
             'improvements' => [
                 'Caching strategies for performance',
                 'Role-based access control',
                 'Modular analytics functions',
                 'System health monitoring',
-                'Real-time metrics collection'
+                'Real-time metrics collection',
             ],
             'refactored_at' => '2025-08-19T14:00:00Z',
             'size_reduction' => '92.3%', // 993 -> 76 lines in this proxy

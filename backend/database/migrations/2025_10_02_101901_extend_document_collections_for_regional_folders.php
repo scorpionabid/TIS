@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::table('document_collections', function (Blueprint $table) {
             // Folder scope and type
             $table->enum('scope', ['personal', 'regional', 'sectoral'])
-                  ->default('personal')
-                  ->after('collection_type');
+                ->default('personal')
+                ->after('collection_type');
 
             // Template/folder identifier
             $table->string('folder_key')->nullable()->after('scope');
@@ -40,9 +40,9 @@ return new class extends Migration
 
             // Foreign key for owner institution
             $table->foreign('owner_institution_id')
-                  ->references('id')
-                  ->on('institutions')
-                  ->onDelete('set null');
+                ->references('id')
+                ->on('institutions')
+                ->onDelete('set null');
         });
     }
 

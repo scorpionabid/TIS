@@ -108,7 +108,7 @@ class PerformanceMetric extends Model
      */
     public function getMetricTypeLabelAttribute(): string
     {
-        return match($this->metric_type) {
+        $labels = [
             'student_performance' => 'Şagird Performansı',
             'attendance' => 'Davamiyyət',
             'lesson_quality' => 'Dərs Keyfiyyəti',
@@ -121,40 +121,51 @@ class PerformanceMetric extends Model
             'peer_evaluation' => 'Həmkarların Qiymətləndirməsi',
             'administrative_tasks' => 'İnzibati Vəzifələr',
             'extracurricular' => 'Kurikulum Xarici',
-            default => 'Ümumi'
         ];
+
+        return $labels[$this->metric_type] ?? 'Ümumi';
     }
 
     public function getAchievementLevelLabelAttribute(): string
     {
-        return match($this->achievement_level) {
+        $labels = [
             'exceeds' => 'Hədəfi Üstələyir',
             'meets' => 'Hədəfə Çatır',
             'approaches' => 'Hədəfə Yaxınlaşır',
             'below' => 'Hədəfdən Aşağı',
             'significantly_below' => 'Hədəfdən Əhəmiyyətli Aşağı',
-            default => 'Qiymətləndirilməyib'
         ];
+
+        return $labels[$this->achievement_level] ?? 'Qiymətləndirilməyib';
     }
 
     public function getPerformanceIndicatorAttribute(): string
     {
-        if (!$this->metric_value || !$this->target_value) {
+        if (! $this->metric_value || ! $this->target_value) {
             return 'Məlum deyil';
         }
 
         $percentage = ($this->metric_value / $this->target_value) * 100;
 
-        if ($percentage >= 120) return 'Əla';
-        if ($percentage >= 100) return 'Hədəfə çatıb';
-        if ($percentage >= 90) return 'Yaxın';
-        if ($percentage >= 80) return 'Orta';
+        if ($percentage >= 120) {
+            return 'Əla';
+        }
+        if ($percentage >= 100) {
+            return 'Hədəfə çatıb';
+        }
+        if ($percentage >= 90) {
+            return 'Yaxın';
+        }
+        if ($percentage >= 80) {
+            return 'Orta';
+        }
+
         return 'Aşağı';
     }
 
     public function getProgressPercentageAttribute(): ?float
     {
-        if (!$this->metric_value || !$this->target_value) {
+        if (! $this->metric_value || ! $this->target_value) {
             return null;
         }
 
@@ -166,41 +177,46 @@ class PerformanceMetric extends Model
      */
     public function isAboveTarget(): bool
     {
-        return $this->metric_value && $this->target_value && 
+        return $this->metric_value && $this->target_value &&
                $this->metric_value >= $this->target_value;
     }
 
     public function isBelowTarget(): bool
     {
-        return $this->metric_value && $this->target_value && 
+        return $this->metric_value && $this->target_value &&
                $this->metric_value < $this->target_value;
     }
 
     public function calculateScore($maxScore = 100): float
     {
-        if (!$this->metric_value || !$this->target_value) {
+        if (! $this->metric_value || ! $this->target_value) {
             return 0;
         }
 
         $percentage = ($this->metric_value / $this->target_value) * 100;
+
         return min($maxScore, $percentage);
     }
 
     public function updateAchievementLevel(): void
     {
-        if (!$this->metric_value || !$this->target_value) {
+        if (! $this->metric_value || ! $this->target_value) {
             return;
         }
 
         $percentage = ($this->metric_value / $this->target_value) * 100;
 
-        $level = match(true) {
-            $percentage >= 120 => 'exceeds',
-            $percentage >= 100 => 'meets',
-            $percentage >= 80 => 'approaches',
-            $percentage >= 60 => 'below',
-            default => 'significantly_below'
-        };
+        if ($percentage >= 120) {
+            $level = 'exceeds';
+        } elseif ($percentage >= 100) {
+            $level = 'meets';
+        } elseif ($percentage >= 80) {
+            $level = 'approaches';
+        } elseif ($percentage >= 60) {
+            $level = 'below';
+        } else {
+            $level = 'significantly_below';
+        }
 
         $this->update(['achievement_level' => $level]);
     }
@@ -254,7 +270,7 @@ class PerformanceMetric extends Model
     public function getTrendDirection(): string
     {
         $trends = $this->trend_analysis ?? [];
-        
+
         if (count($trends) < 2) {
             return 'insufficient_data';
         }
@@ -266,9 +282,9 @@ class PerformanceMetric extends Model
             return 'improving';
         } elseif ($latest['value'] < $previous['value']) {
             return 'declining';
-        } else {
-            return 'stable';
         }
+
+        return 'stable';
     }
 
     public function getMetricSummary(): array

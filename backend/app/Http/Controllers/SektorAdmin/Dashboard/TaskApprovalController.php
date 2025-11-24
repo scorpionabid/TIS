@@ -7,8 +7,8 @@ use App\Models\Institution;
 use App\Models\Task;
 use App\Models\TaskProgressLog;
 use App\Services\TaskNotificationService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TaskApprovalController extends Controller
@@ -21,7 +21,7 @@ class TaskApprovalController extends Controller
         $user = Auth::user();
         $sector = $user->institution;
 
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['error' => 'User is not associated with a sector'], 400);
         }
 
@@ -29,32 +29,32 @@ class TaskApprovalController extends Controller
         $schoolIds = Institution::where('parent_id', $sector->id)->pluck('id');
 
         // Get pending tasks from schools in this sector that require approval
-        $pendingTasks = Task::whereIn('id', function($query) use ($schoolIds) {
-                // Tasks that are either assigned to schools or target schools in this sector
-                $query->select('id')->from('tasks')
-                    ->where(function($q) use ($schoolIds) {
-                        $q->whereIn('assigned_institution_id', $schoolIds)
-                          ->orWhere(function($subQ) use ($schoolIds) {
-                              foreach ($schoolIds as $schoolId) {
-                                  $subQ->orWhereJsonContains('target_institutions', $schoolId);
-                              }
-                          });
-                    });
-            })
+        $pendingTasks = Task::whereIn('id', function ($query) use ($schoolIds) {
+            // Tasks that are either assigned to schools or target schools in this sector
+            $query->select('id')->from('tasks')
+                ->where(function ($q) use ($schoolIds) {
+                    $q->whereIn('assigned_institution_id', $schoolIds)
+                        ->orWhere(function ($subQ) use ($schoolIds) {
+                            foreach ($schoolIds as $schoolId) {
+                                $subQ->orWhereJsonContains('target_institutions', $schoolId);
+                            }
+                        });
+                });
+        })
             ->where('status', 'review')
             ->where('requires_approval', true)
             ->with([
                 'creator:id,name,email',
                 'assignedInstitution:id,name',
-                'progressLogs' => function($query) {
+                'progressLogs' => function ($query) {
                     $query->latest()->limit(1);
-                }
+                },
             ])
             ->orderBy('completed_at', 'desc')
             ->get()
             ->map(function ($task) {
                 $latestLog = $task->progressLogs->first();
-                
+
                 return [
                     'id' => $task->id,
                     'title' => $task->title,
@@ -82,7 +82,7 @@ class TaskApprovalController extends Controller
             'sector' => [
                 'id' => $sector->id,
                 'name' => $sector->name,
-            ]
+            ],
         ]);
     }
 
@@ -94,32 +94,32 @@ class TaskApprovalController extends Controller
         $user = Auth::user();
         $sector = $user->institution;
 
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['error' => 'User is not associated with a sector'], 400);
         }
 
         // Get schools under this sector
         $schoolIds = Institution::where('parent_id', $sector->id)->pluck('id');
 
-        $task = Task::where(function($q) use ($schoolIds) {
-                $q->whereIn('assigned_institution_id', $schoolIds)
-                  ->orWhere(function($subQ) use ($schoolIds) {
-                      foreach ($schoolIds as $schoolId) {
-                          $subQ->orWhereJsonContains('target_institutions', $schoolId);
-                      }
-                  });
-            })
+        $task = Task::where(function ($q) use ($schoolIds) {
+            $q->whereIn('assigned_institution_id', $schoolIds)
+                ->orWhere(function ($subQ) use ($schoolIds) {
+                    foreach ($schoolIds as $schoolId) {
+                        $subQ->orWhereJsonContains('target_institutions', $schoolId);
+                    }
+                });
+        })
             ->with([
                 'creator:id,name,email',
                 'assignedInstitution:id,name',
                 'progressLogs.updatedBy:id,name,email,institution_id',
-                'progressLogs' => function($query) {
+                'progressLogs' => function ($query) {
                     $query->orderBy('created_at', 'desc');
-                }
+                },
             ])
             ->find($taskId);
 
-        if (!$task) {
+        if (! $task) {
             return response()->json(['error' => 'Task not found or not accessible'], 404);
         }
 
@@ -128,14 +128,14 @@ class TaskApprovalController extends Controller
         if ($task->target_institutions) {
             $completedSchools = Institution::whereIn('id', $task->target_institutions)
                 ->get()
-                ->map(function($school) use ($task) {
+                ->map(function ($school) use ($task) {
                     $latestProgress = TaskProgressLog::where('task_id', $task->id)
-                        ->whereHas('updatedBy', function($q) use ($school) {
+                        ->whereHas('updatedBy', function ($q) use ($school) {
                             $q->where('institution_id', $school->id);
                         })
                         ->latest()
                         ->first();
-                    
+
                     return [
                         'id' => $school->id,
                         'name' => $school->name,
@@ -194,26 +194,26 @@ class TaskApprovalController extends Controller
         $user = Auth::user();
         $sector = $user->institution;
 
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['error' => 'User is not associated with a sector'], 400);
         }
 
         // Get schools under this sector
         $schoolIds = Institution::where('parent_id', $sector->id)->pluck('id');
 
-        $task = Task::where(function($q) use ($schoolIds) {
-                $q->whereIn('assigned_institution_id', $schoolIds)
-                  ->orWhere(function($subQ) use ($schoolIds) {
-                      foreach ($schoolIds as $schoolId) {
-                          $subQ->orWhereJsonContains('target_institutions', $schoolId);
-                      }
-                  });
-            })
+        $task = Task::where(function ($q) use ($schoolIds) {
+            $q->whereIn('assigned_institution_id', $schoolIds)
+                ->orWhere(function ($subQ) use ($schoolIds) {
+                    foreach ($schoolIds as $schoolId) {
+                        $subQ->orWhereJsonContains('target_institutions', $schoolId);
+                    }
+                });
+        })
             ->where('status', 'review')
             ->where('requires_approval', true)
             ->find($taskId);
 
-        if (!$task) {
+        if (! $task) {
             return response()->json(['error' => 'Task not found or not accessible'], 404);
         }
 
@@ -259,7 +259,7 @@ class TaskApprovalController extends Controller
         $user = Auth::user();
         $sector = $user->institution;
 
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['error' => 'User is not associated with a sector'], 400);
         }
 
@@ -270,19 +270,19 @@ class TaskApprovalController extends Controller
         // Get schools under this sector
         $schoolIds = Institution::where('parent_id', $sector->id)->pluck('id');
 
-        $task = Task::where(function($q) use ($schoolIds) {
-                $q->whereIn('assigned_institution_id', $schoolIds)
-                  ->orWhere(function($subQ) use ($schoolIds) {
-                      foreach ($schoolIds as $schoolId) {
-                          $subQ->orWhereJsonContains('target_institutions', $schoolId);
-                      }
-                  });
-            })
+        $task = Task::where(function ($q) use ($schoolIds) {
+            $q->whereIn('assigned_institution_id', $schoolIds)
+                ->orWhere(function ($subQ) use ($schoolIds) {
+                    foreach ($schoolIds as $schoolId) {
+                        $subQ->orWhereJsonContains('target_institutions', $schoolId);
+                    }
+                });
+        })
             ->where('status', 'review')
             ->where('requires_approval', true)
             ->find($taskId);
 
-        if (!$task) {
+        if (! $task) {
             return response()->json(['error' => 'Task not found or not accessible'], 404);
         }
 
@@ -321,7 +321,7 @@ class TaskApprovalController extends Controller
         $user = Auth::user();
         $sector = $user->institution;
 
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['error' => 'User is not associated with a sector'], 400);
         }
 
@@ -330,49 +330,49 @@ class TaskApprovalController extends Controller
 
         // Get task statistics
         $stats = [
-            'total_tasks' => Task::where(function($q) use ($schoolIds) {
+            'total_tasks' => Task::where(function ($q) use ($schoolIds) {
                 $q->whereIn('assigned_institution_id', $schoolIds)
-                  ->orWhere(function($subQ) use ($schoolIds) {
-                      foreach ($schoolIds as $schoolId) {
-                          $subQ->orWhereJsonContains('target_institutions', $schoolId);
-                      }
-                  });
+                    ->orWhere(function ($subQ) use ($schoolIds) {
+                        foreach ($schoolIds as $schoolId) {
+                            $subQ->orWhereJsonContains('target_institutions', $schoolId);
+                        }
+                    });
             })->count(),
-            
-            'pending_approval' => Task::where(function($q) use ($schoolIds) {
+
+            'pending_approval' => Task::where(function ($q) use ($schoolIds) {
                 $q->whereIn('assigned_institution_id', $schoolIds)
-                  ->orWhere(function($subQ) use ($schoolIds) {
-                      foreach ($schoolIds as $schoolId) {
-                          $subQ->orWhereJsonContains('target_institutions', $schoolId);
-                      }
-                  });
+                    ->orWhere(function ($subQ) use ($schoolIds) {
+                        foreach ($schoolIds as $schoolId) {
+                            $subQ->orWhereJsonContains('target_institutions', $schoolId);
+                        }
+                    });
             })->where('status', 'review')->where('requires_approval', true)->count(),
-            
-            'approved_tasks' => Task::where(function($q) use ($schoolIds) {
+
+            'approved_tasks' => Task::where(function ($q) use ($schoolIds) {
                 $q->whereIn('assigned_institution_id', $schoolIds)
-                  ->orWhere(function($subQ) use ($schoolIds) {
-                      foreach ($schoolIds as $schoolId) {
-                          $subQ->orWhereJsonContains('target_institutions', $schoolId);
-                      }
-                  });
+                    ->orWhere(function ($subQ) use ($schoolIds) {
+                        foreach ($schoolIds as $schoolId) {
+                            $subQ->orWhereJsonContains('target_institutions', $schoolId);
+                        }
+                    });
             })->where('status', 'completed')->whereNotNull('approved_by')->count(),
-            
-            'in_progress_tasks' => Task::where(function($q) use ($schoolIds) {
+
+            'in_progress_tasks' => Task::where(function ($q) use ($schoolIds) {
                 $q->whereIn('assigned_institution_id', $schoolIds)
-                  ->orWhere(function($subQ) use ($schoolIds) {
-                      foreach ($schoolIds as $schoolId) {
-                          $subQ->orWhereJsonContains('target_institutions', $schoolId);
-                      }
-                  });
+                    ->orWhere(function ($subQ) use ($schoolIds) {
+                        foreach ($schoolIds as $schoolId) {
+                            $subQ->orWhereJsonContains('target_institutions', $schoolId);
+                        }
+                    });
             })->where('status', 'in_progress')->count(),
-            
-            'overdue_tasks' => Task::where(function($q) use ($schoolIds) {
+
+            'overdue_tasks' => Task::where(function ($q) use ($schoolIds) {
                 $q->whereIn('assigned_institution_id', $schoolIds)
-                  ->orWhere(function($subQ) use ($schoolIds) {
-                      foreach ($schoolIds as $schoolId) {
-                          $subQ->orWhereJsonContains('target_institutions', $schoolId);
-                      }
-                  });
+                    ->orWhere(function ($subQ) use ($schoolIds) {
+                        foreach ($schoolIds as $schoolId) {
+                            $subQ->orWhereJsonContains('target_institutions', $schoolId);
+                        }
+                    });
             })->overdue()->count(),
         ];
 

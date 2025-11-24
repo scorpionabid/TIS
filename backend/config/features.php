@@ -53,13 +53,12 @@ return [
      */
     'log_analytics_performance' => env('FEATURE_LOG_ANALYTICS_PERFORMANCE', false),
 
-    /**
-     * FUTURE: Additional feature flags can be added here
-     *
-     * Examples:
-     * - 'use_refactored_approvals' => env('FEATURE_REFACTORED_APPROVALS', false),
-     * - 'use_refactored_grades' => env('FEATURE_REFACTORED_GRADES', false),
-     * - 'enable_new_dashboard' => env('FEATURE_NEW_DASHBOARD', false),
-     */
-
+/**
+ * FUTURE: Additional feature flags can be added here
+ *
+ * Examples:
+ * - 'use_refactored_approvals' => env('FEATURE_REFACTORED_APPROVALS', false),
+ * - 'use_refactored_grades' => env('FEATURE_REFACTORED_GRADES', false),
+ * - 'enable_new_dashboard' => env('FEATURE_NEW_DASHBOARD', false),
+ */
 ];

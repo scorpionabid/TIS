@@ -3,7 +3,6 @@
 namespace Tests\Feature\Tasks;
 
 use App\Models\Institution;
-use App\Models\NotificationTemplate;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use Illuminate\Foundation\Testing\RefreshDatabase;

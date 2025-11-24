@@ -3,13 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Events\NotificationSent;
-use App\Events\TaskAssigned;
 use App\Events\SurveyCreated;
+use App\Events\TaskAssigned;
 use App\Events\UserLoggedIn;
-use App\Models\User;
-use App\Models\Task;
-use App\Models\Survey;
 use App\Models\Notification;
+use App\Models\Survey;
+use App\Models\Task;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -23,7 +23,7 @@ class TestWebSocketController extends Controller
         return response()->json([
             'success' => true,
             'message' => $message,
-            'data' => $data
+            'data' => $data,
         ], $status);
     }
 
@@ -34,17 +34,18 @@ class TestWebSocketController extends Controller
     {
         return response()->json([
             'success' => false,
-            'message' => $message
+            'message' => $message,
         ], $status);
     }
+
     /**
      * Test notification broadcasting
      */
     public function testNotification(Request $request): JsonResponse
     {
         $user = User::first(); // Get first user for testing
-        
-        if (!$user) {
+
+        if (! $user) {
             return $this->errorResponse('No users found for testing', 404);
         }
 
@@ -55,12 +56,12 @@ class TestWebSocketController extends Controller
             'type' => 'system_alert',
             'data' => [
                 'test' => true,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ],
             'priority' => 'normal',
-            'user_id' => $user->id
+            'user_id' => $user->id,
         ]);
-        
+
         $notification->save();
 
         // Broadcast the notification
@@ -69,7 +70,7 @@ class TestWebSocketController extends Controller
         return $this->successResponse([
             'notification' => $notification,
             'user' => $user->only(['id', 'username']),
-            'message' => 'Test notification broadcasted successfully'
+            'message' => 'Test notification broadcasted successfully',
         ], 'Test bildirişi göndərildi');
     }
 
@@ -80,8 +81,8 @@ class TestWebSocketController extends Controller
     {
         $assignedUser = User::where('role_id', '!=', 1)->first(); // Not superadmin
         $assignedBy = User::where('role_id', 1)->first(); // Superadmin
-        
-        if (!$assignedUser || !$assignedBy) {
+
+        if (! $assignedUser || ! $assignedBy) {
             return $this->errorResponse('Required users not found for testing', 404);
         }
 
@@ -94,9 +95,9 @@ class TestWebSocketController extends Controller
             'deadline' => now()->addDays(7),
             'assigned_to' => $assignedUser->id,
             'created_by' => $assignedBy->id,
-            'institution_id' => $assignedUser->institution_id
+            'institution_id' => $assignedUser->institution_id,
         ]);
-        
+
         $task->save();
 
         // Broadcast the task assignment
@@ -106,7 +107,7 @@ class TestWebSocketController extends Controller
             'task' => $task,
             'assigned_user' => $assignedUser->only(['id', 'username']),
             'assigned_by' => $assignedBy->only(['id', 'username']),
-            'message' => 'Test task assignment broadcasted successfully'
+            'message' => 'Test task assignment broadcasted successfully',
         ], 'Test tapşırıq təyinatı göndərildi');
     }
 
@@ -116,8 +117,8 @@ class TestWebSocketController extends Controller
     public function testSurveyCreation(Request $request): JsonResponse
     {
         $creator = User::where('role_id', 1)->first(); // Superadmin
-        
-        if (!$creator) {
+
+        if (! $creator) {
             return $this->errorResponse('SuperAdmin user not found for testing', 404);
         }
 
@@ -136,11 +137,11 @@ class TestWebSocketController extends Controller
                 [
                     'title' => 'Test sualı',
                     'type' => 'text',
-                    'required' => true
-                ]
-            ]
+                    'required' => true,
+                ],
+            ],
         ]);
-        
+
         $survey->save();
 
         // Broadcast the survey creation
@@ -149,7 +150,7 @@ class TestWebSocketController extends Controller
         return $this->successResponse([
             'survey' => $survey,
             'creator' => $creator->only(['id', 'username']),
-            'message' => 'Test survey creation broadcasted successfully'
+            'message' => 'Test survey creation broadcasted successfully',
         ], 'Test sorğu yaradılması göndərildi');
     }
 
@@ -159,15 +160,15 @@ class TestWebSocketController extends Controller
     public function testUserLogin(Request $request): JsonResponse
     {
         $user = User::first();
-        
-        if (!$user) {
+
+        if (! $user) {
             return $this->errorResponse('No users found for testing', 404);
         }
 
         $sessionInfo = [
             'ip' => $request->ip(),
             'user_agent' => $request->userAgent(),
-            'login_time' => now()->toISOString()
+            'login_time' => now()->toISOString(),
         ];
 
         // Broadcast the user login
@@ -176,7 +177,7 @@ class TestWebSocketController extends Controller
         return $this->successResponse([
             'user' => $user->only(['id', 'username']),
             'session' => $sessionInfo,
-            'message' => 'Test user login broadcasted successfully'
+            'message' => 'Test user login broadcasted successfully',
         ], 'Test istifadəçi girişi göndərildi');
     }
 
@@ -193,10 +194,10 @@ class TestWebSocketController extends Controller
             'status' => 'WebSocket server should be running on the configured host and port',
             'test_endpoints' => [
                 'POST /api/test/websocket/notification' => 'Test notification broadcasting',
-                'POST /api/test/websocket/task' => 'Test task assignment broadcasting', 
+                'POST /api/test/websocket/task' => 'Test task assignment broadcasting',
                 'POST /api/test/websocket/survey' => 'Test survey creation broadcasting',
-                'POST /api/test/websocket/login' => 'Test user login broadcasting'
-            ]
+                'POST /api/test/websocket/login' => 'Test user login broadcasting',
+            ],
         ], 'WebSocket əlaqə məlumatları');
     }
 
@@ -241,7 +242,7 @@ class TestWebSocketController extends Controller
 
         return $this->successResponse([
             'results' => $results,
-            'message' => 'All WebSocket tests completed'
+            'message' => 'All WebSocket tests completed',
         ], 'Bütün WebSocket testləri tamamlandı');
     }
 }

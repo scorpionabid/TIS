@@ -3,9 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Services\PerformanceMonitoringService;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class PerformanceController extends Controller
 {
@@ -23,17 +23,17 @@ class PerformanceController extends Controller
     {
         try {
             $metrics = $this->performanceService->getRealTimeMetrics();
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $metrics,
-                'timestamp' => now()->toISOString()
+                'timestamp' => now()->toISOString(),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch performance metrics',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -45,16 +45,16 @@ class PerformanceController extends Controller
     {
         try {
             $trends = $this->performanceService->getPerformanceTrends();
-            
+
             return response()->json([
                 'success' => true,
-                'data' => $trends
+                'data' => $trends,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch performance trends',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -69,16 +69,16 @@ class PerformanceController extends Controller
             $endDate = Carbon::parse($request->get('end_date', now()));
 
             $report = $this->performanceService->generatePerformanceReport($startDate, $endDate);
-            
+
             return response()->json([
                 'success' => true,
-                'data' => $report
+                'data' => $report,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to generate performance report',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -90,16 +90,16 @@ class PerformanceController extends Controller
     {
         try {
             $health = $this->performanceService->getSystemHealth();
-            
+
             return response()->json([
                 'success' => true,
-                'data' => $health
+                'data' => $health,
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch system health',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

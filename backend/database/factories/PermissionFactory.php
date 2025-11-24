@@ -22,7 +22,7 @@ class PermissionFactory extends Factory
     public function definition()
     {
         $name = $this->faker->unique()->word . '-' . $this->faker->word;
-        
+
         return [
             'name' => $name,
             'display_name' => ucfirst(str_replace('-', ' ', $name)),
@@ -34,7 +34,6 @@ class PermissionFactory extends Factory
     /**
      * Set the guard name for the permission.
      *
-     * @param  string  $guard
      * @return \Illuminate\Database\Eloquent\Factories\Factory
      */
     public function withGuard(string $guard)

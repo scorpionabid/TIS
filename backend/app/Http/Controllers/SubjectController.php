@@ -2,13 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Subject;
-use App\Models\User;
 use App\Models\Grade;
-use App\Models\TeacherSubject;
-use Illuminate\Http\Request;
+use App\Models\Subject;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
@@ -62,10 +59,10 @@ class SubjectController extends BaseController
 
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('code', 'like', "%{$search}%")
-                  ->orWhere('description', 'like', "%{$search}%");
+                    ->orWhere('code', 'like', "%{$search}%")
+                    ->orWhere('description', 'like', "%{$search}%");
             });
         }
 
@@ -101,7 +98,7 @@ class SubjectController extends BaseController
             ->orderBy('name')
             ->get()
             ->groupBy('category');
-            
+
         return $this->successResponse($subjects, 'Kateqoriyaya görə fənlər');
     }
 
@@ -114,7 +111,7 @@ class SubjectController extends BaseController
             ->active()
             ->orderBy('name')
             ->get();
-            
+
         return $this->successResponse($subjects, "$grade-cı sinif üçün fənlər");
     }
 
@@ -143,7 +140,7 @@ class SubjectController extends BaseController
             'name' => $request->name,
             'code' => $request->code,
             'description' => $request->description,
-            'grade_levels' => $request->grade_levels ?? [1,2,3,4,5,6,7,8,9,10,11],
+            'grade_levels' => $request->grade_levels ?? [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
             'weekly_hours' => $request->weekly_hours ?? 1,
             'category' => $request->category ?? 'core',
             'metadata' => $request->metadata ?? [],
@@ -159,6 +156,7 @@ class SubjectController extends BaseController
     public function show($id): JsonResponse
     {
         $subject = Subject::findOrFail($id);
+
         return $this->successResponse($subject, 'Fən məlumatları');
     }
 
@@ -196,14 +194,14 @@ class SubjectController extends BaseController
     public function destroy($id): JsonResponse
     {
         $subject = Subject::findOrFail($id);
-        
+
         // Check if subject is in use
         if ($subject->teacherAssignments()->exists()) {
             return $this->errorResponse('Bu fən hazırda istifadə edildiyi üçün silinə bilməz', 422);
         }
-        
+
         $subject->delete();
-        
+
         return $this->successResponse(null, 'Fən uğurla silindi');
     }
 
@@ -214,7 +212,7 @@ class SubjectController extends BaseController
     {
         $subject = Subject::findOrFail($subjectId);
         $teachers = $subject->teachers()->get();
-        
+
         return $this->successResponse($teachers, 'Fən üzrə müəllimlər');
     }
 
@@ -225,7 +223,7 @@ class SubjectController extends BaseController
     {
         $subject = Subject::findOrFail($subjectId);
         $grades = Grade::whereIn('id', $subject->grade_levels)->get();
-        
+
         return $this->successResponse($grades, 'Fənin tədris olunduğu siniflər');
     }
 
@@ -235,9 +233,10 @@ class SubjectController extends BaseController
     public function toggleStatus($id): JsonResponse
     {
         $subject = Subject::findOrFail($id);
-        $subject->update(['is_active' => !$subject->is_active]);
-        
+        $subject->update(['is_active' => ! $subject->is_active]);
+
         $status = $subject->is_active ? 'aktivləşdirildi' : 'deaktiv edildi';
+
         return $this->successResponse($subject, "Fən {$status}");
     }
 
@@ -250,7 +249,7 @@ class SubjectController extends BaseController
             ->select('id', 'name', 'code', 'category')
             ->orderBy('name')
             ->get();
-            
+
         return $this->successResponse($subjects, 'Aktiv fənlər siyahısı');
     }
 
@@ -260,7 +259,7 @@ class SubjectController extends BaseController
     public function bulkCreate(Request $request): JsonResponse
     {
         // Authorization handled by middleware
-        
+
         $validated = $request->validate([
             'subjects' => 'required|array|min:1',
             'subjects.*.name' => 'required|string|max:255',
@@ -272,11 +271,11 @@ class SubjectController extends BaseController
             'subjects.*.category' => 'required|string|in:core,elective,extra,vocational',
             'subjects.*.metadata' => 'nullable|array',
         ]);
-        
+
         $subjects = collect($validated['subjects'])->map(function ($subjectData) {
             return Subject::create($subjectData);
         });
-        
+
         return $this->successResponse($subjects, 'Fənlər yaradıldı', 201);
     }
 
@@ -286,7 +285,7 @@ class SubjectController extends BaseController
     public function bulkUpdate(Request $request): JsonResponse
     {
         // Authorization handled by middleware
-        
+
         $validated = $request->validate([
             'subjects' => 'required|array|min:1',
             'subjects.*.id' => 'required|exists:subjects,id',
@@ -300,40 +299,41 @@ class SubjectController extends BaseController
             'subjects.*.is_active' => 'sometimes|boolean',
             'subjects.*.metadata' => 'nullable|array',
         ]);
-        
+
         $subjects = collect($validated['subjects'])->map(function ($subjectData) {
             $subject = Subject::find($subjectData['id']);
             $subject->update($subjectData);
+
             return $subject;
         });
-        
+
         return $this->successResponse($subjects, 'Fənlər yeniləndi');
     }
-    
+
     /**
      * Bulk delete subjects
      */
     public function bulkDelete(Request $request): JsonResponse
     {
         // Authorization handled by middleware
-        
+
         $validated = $request->validate([
             'ids' => 'required|array|min:1',
             'ids.*' => 'required|exists:subjects,id',
         ]);
-        
+
         Subject::whereIn('id', $validated['ids'])->delete();
-        
+
         return $this->successResponse(null, 'Fənlər silindi');
     }
-    
+
     /**
      * Get subject statistics
      */
     public function statistics(): JsonResponse
     {
         // Authorization handled by middleware
-        
+
         $stats = [
             'total_subjects' => Subject::count(),
             'active_subjects' => Subject::active()->count(),
@@ -341,9 +341,9 @@ class SubjectController extends BaseController
                 ->selectRaw('COALESCE(category, "core") as category, COUNT(*) as count')
                 ->groupBy('category')
                 ->pluck('count', 'category'),
-            'subjects_by_grade_range' => []
+            'subjects_by_grade_range' => [],
         ];
-        
+
         return $this->successResponse($stats, 'Fənn statistikaları');
     }
 }

@@ -2,15 +2,15 @@
 
 namespace App\Services\SurveyApproval\Domains\Query;
 
+use App\Models\ApprovalAction;
+use App\Models\DataApprovalRequest;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Models\DataApprovalRequest;
-use App\Models\ApprovalAction;
 use App\Models\User;
 use App\Services\SurveyApproval\Domains\Security\ApprovalSecurityService;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Approval Query Service
@@ -33,12 +33,11 @@ use Illuminate\Support\Facades\Cache;
  * LOGIC PRESERVED FROM: SurveyApprovalService (lines 30-109, 570-604)
  *
  * SECURITY AUDIT: 2025-11-14
- *
- * @package App\Services\SurveyApproval\Domains\Query
  */
 class ApprovalQueryService
 {
     protected ApprovalSecurityService $securityService;
+
     protected int $cacheMinutes = 3; // Short cache for approval data
 
     public function __construct(ApprovalSecurityService $securityService)
@@ -51,9 +50,6 @@ class ApprovalQueryService
      *
      * LOGIC PRESERVED FROM: SurveyApprovalService::getResponsesForApproval() (lines 30-109)
      *
-     * @param Survey $survey
-     * @param Request $request
-     * @param User $user
      * @return array ['responses' => array, 'pagination' => array, 'stats' => array]
      */
     public function getResponsesForApproval(Survey $survey, Request $request, User $user): array
@@ -62,12 +58,12 @@ class ApprovalQueryService
             ->with([
                 'institution:id,name,type,parent_id',
                 'department:id,name',
-                'respondent' => function($query) {
+                'respondent' => function ($query) {
                     $query->select('id', 'username', 'email')
-                          ->with('profile:user_id,first_name,last_name');
+                        ->with('profile:user_id,first_name,last_name');
                 },
                 'approvalRequest:id,approvalable_id,current_status,current_approval_level,submitted_at,completed_at',
-                'approvalRequest.approvalActions:id,approval_request_id,approver_id,action,comments,action_taken_at'
+                'approvalRequest.approvalActions:id,approval_request_id,approver_id,action,comments,action_taken_at',
             ])
             ->select(['id', 'survey_id', 'institution_id', 'department_id', 'respondent_id', 'status', 'responses', 'submitted_at', 'approved_at', 'progress_percentage']);
 
@@ -84,7 +80,7 @@ class ApprovalQueryService
         }
 
         if ($request->filled('institution_type')) {
-            $query->whereHas('institution', function($q) use ($request) {
+            $query->whereHas('institution', function ($q) use ($request) {
                 $q->where('type', $request->get('institution_type'));
             });
         }
@@ -99,7 +95,7 @@ class ApprovalQueryService
 
         if ($request->filled('search')) {
             $search = $request->get('search');
-            $query->whereHas('institution', function($q) use ($search) {
+            $query->whereHas('institution', function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%");
             });
         }
@@ -107,7 +103,7 @@ class ApprovalQueryService
         // Apply approval status filter
         if ($request->filled('approval_status')) {
             $approvalStatus = $request->get('approval_status');
-            $query->whereHas('approvalRequest', function($q) use ($approvalStatus) {
+            $query->whereHas('approvalRequest', function ($q) use ($approvalStatus) {
                 $q->where('current_status', $approvalStatus);
             });
         }
@@ -140,17 +136,13 @@ class ApprovalQueryService
      * Get approval statistics for a survey
      *
      * LOGIC PRESERVED FROM: SurveyApprovalService::getApprovalStats() (lines 570-604)
-     *
-     * @param Survey $survey
-     * @param User $user
-     * @return array
      */
     public function getApprovalStats(Survey $survey, User $user): array
     {
         $cacheKey = $this->getCacheKey('approval_stats', [
             'survey_id' => $survey->id,
             'user_id' => $user->id,
-            'user_role' => $user->role?->name ?? 'unknown'
+            'user_role' => $user->role?->name ?? 'unknown',
         ]);
 
         return Cache::remember($cacheKey, now()->addMinutes($this->cacheMinutes), function () use ($survey, $user) {
@@ -185,17 +177,13 @@ class ApprovalQueryService
      * Get pending approvals for a user
      *
      * Returns list of approval requests waiting for user's action
-     *
-     * @param User $user
-     * @param int $limit
-     * @return array
      */
     public function getPendingApprovals(User $user, int $limit = 50): array
     {
         $cacheKey = $this->getCacheKey('pending_approvals', [
             'user_id' => $user->id,
             'user_role' => $user->role?->name ?? 'unknown',
-            'limit' => $limit
+            'limit' => $limit,
         ]);
 
         return Cache::remember($cacheKey, now()->addMinutes($this->cacheMinutes), function () use ($user, $limit) {
@@ -203,11 +191,11 @@ class ApprovalQueryService
                 'approvalable',
                 'institution',
                 'submitter',
-                'workflow'
+                'workflow',
             ])
-            ->whereIn('current_status', ['pending', 'in_progress'])
-            ->orderBy('submitted_at', 'desc')
-            ->limit($limit);
+                ->whereIn('current_status', ['pending', 'in_progress'])
+                ->orderBy('submitted_at', 'desc')
+                ->limit($limit);
 
             // Apply user access control
             $this->applyApprovalRequestAccessControl($query, $user);
@@ -230,15 +218,12 @@ class ApprovalQueryService
 
     /**
      * Get approval history for a response
-     *
-     * @param SurveyResponse $response
-     * @return array
      */
     public function getApprovalHistory(SurveyResponse $response): array
     {
         $approvalRequest = $response->approvalRequest;
 
-        if (!$approvalRequest) {
+        if (! $approvalRequest) {
             return [];
         }
 
@@ -268,16 +253,12 @@ class ApprovalQueryService
      * Check if user can approve a specific response
      *
      * SECURITY CHECK: Verifies user has permission to approve
-     *
-     * @param SurveyResponse $response
-     * @param User $user
-     * @return bool
      */
     public function canUserApprove(SurveyResponse $response, User $user): bool
     {
         $approvalRequest = $response->approvalRequest;
 
-        if (!$approvalRequest) {
+        if (! $approvalRequest) {
             return false;
         }
 
@@ -288,7 +269,7 @@ class ApprovalQueryService
 
         $workflow = $approvalRequest->workflow;
 
-        if (!$workflow) {
+        if (! $workflow) {
             return false;
         }
 
@@ -310,11 +291,6 @@ class ApprovalQueryService
      * Get responses organized for table editing interface
      *
      * LOGIC PRESERVED FROM: SurveyApprovalService::getResponsesForTableView() (lines 890-927)
-     *
-     * @param Survey $survey
-     * @param Request $request
-     * @param User $user
-     * @return array
      */
     public function getResponsesForTableView(Survey $survey, Request $request, User $user): array
     {
@@ -332,26 +308,28 @@ class ApprovalQueryService
         $institutionMatrix = [];
         foreach ($institutionGroups as $institutionId => $institutionResponses) {
             $institution = $institutionResponses->first()->institution ?? null;
-            if (!$institution) continue;
+            if (! $institution) {
+                continue;
+            }
 
             $institutionMatrix[$institutionId] = [
                 'institution' => [
                     'id' => $institution->id,
                     'name' => $institution->name,
                     'type' => $institution->type,
-                    'code' => $institution->code ?? 'N/A'
+                    'code' => $institution->code ?? 'N/A',
                 ],
                 'responses' => $this->buildResponseMatrix($institutionResponses, $questions),
                 'respondents_count' => $institutionResponses->count(),
                 'can_edit' => $this->canUserEditInstitution($user, $institution),
-                'can_approve' => $this->canUserApproveInstitution($user, $institution)
+                'can_approve' => $this->canUserApproveInstitution($user, $institution),
             ];
         }
 
         return [
             'institutions' => $institutionMatrix,
             'questions' => $questions,
-            'stats' => $baseData['stats'] ?? []
+            'stats' => $baseData['stats'] ?? [],
         ];
     }
 
@@ -359,8 +337,6 @@ class ApprovalQueryService
      * Apply access control to approval request query
      *
      * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param User $user
-     * @return void
      */
     protected function applyApprovalRequestAccessControl($query, User $user): void
     {
@@ -373,12 +349,14 @@ class ApprovalQueryService
         if ($roleName === 'RegionAdmin') {
             $institutionIds = $this->getRegionInstitutionIds($user);
             $query->whereIn('institution_id', $institutionIds);
+
             return;
         }
 
         if ($roleName === 'SektorAdmin') {
             $institutionIds = $this->getSectorInstitutionIds($user);
             $query->whereIn('institution_id', $institutionIds);
+
             return;
         }
 
@@ -393,7 +371,6 @@ class ApprovalQueryService
      *
      * @param \Illuminate\Support\Collection $institutionResponses
      * @param \Illuminate\Support\Collection $questions
-     * @return array
      */
     protected function buildResponseMatrix($institutionResponses, $questions): array
     {
@@ -403,7 +380,7 @@ class ApprovalQueryService
             $questionResponses = [];
 
             foreach ($questions as $question) {
-                $questionId = (string)$question->id;
+                $questionId = (string) $question->id;
                 $responseValue = $response->responses[$questionId] ?? null;
 
                 $questionResponses[$questionId] = [
@@ -412,10 +389,10 @@ class ApprovalQueryService
                         'title' => $question->title,
                         'type' => $question->type,
                         'is_required' => $question->is_required,
-                        'options' => $question->options
+                        'options' => $question->options,
                     ],
                     'value' => $responseValue,
-                    'is_editable' => true
+                    'is_editable' => true,
                 ];
             }
 
@@ -430,11 +407,11 @@ class ApprovalQueryService
                 'respondent' => [
                     'id' => $response->respondent->id,
                     'name' => $response->respondent->name,
-                    'email' => $response->respondent->email
+                    'email' => $response->respondent->email,
                 ],
                 'questions' => $questionResponses,
                 'submitted_at' => $response->submitted_at,
-                'status' => $response->status
+                'status' => $response->status,
             ];
         }
 
@@ -444,9 +421,7 @@ class ApprovalQueryService
     /**
      * Check if user can edit institution responses
      *
-     * @param User $user
      * @param mixed $institution
-     * @return bool
      */
     protected function canUserEditInstitution(User $user, $institution): bool
     {
@@ -473,9 +448,7 @@ class ApprovalQueryService
     /**
      * Check if user can approve institution responses
      *
-     * @param User $user
      * @param mixed $institution
-     * @return bool
      */
     protected function canUserApproveInstitution(User $user, $institution): bool
     {
@@ -485,13 +458,10 @@ class ApprovalQueryService
 
     /**
      * Get region institution IDs
-     *
-     * @param User $user
-     * @return array
      */
     protected function getRegionInstitutionIds(User $user): array
     {
-        if (!$user->institution) {
+        if (! $user->institution) {
             return [];
         }
 
@@ -510,13 +480,10 @@ class ApprovalQueryService
 
     /**
      * Get sector institution IDs
-     *
-     * @param User $user
-     * @return array
      */
     protected function getSectorInstitutionIds(User $user): array
     {
-        if (!$user->institution) {
+        if (! $user->institution) {
             return [$user->institution_id];
         }
 
@@ -530,10 +497,6 @@ class ApprovalQueryService
 
     /**
      * Get cache key
-     *
-     * @param string $prefix
-     * @param array $params
-     * @return string
      */
     protected function getCacheKey(string $prefix, array $params): string
     {
@@ -541,6 +504,7 @@ class ApprovalQueryService
         foreach ($params as $paramKey => $paramValue) {
             $key .= "_{$paramKey}_{$paramValue}";
         }
+
         return $key;
     }
 }

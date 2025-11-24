@@ -48,9 +48,18 @@ export const DepartmentModalStandardized: React.FC<DepartmentModalStandardizedPr
     enabled: open,
   });
 
-  const institutions = institutionsResponse?.data || institutionsResponse?.institutions || [];
-  const departmentTypes = typesResponse?.data || [];
-  const parentDepartments = parentDepartmentsResponse?.data || [];
+  const institutions = useMemo(
+    () => institutionsResponse?.data || institutionsResponse?.institutions || [],
+    [institutionsResponse]
+  );
+  const departmentTypes = useMemo(
+    () => typesResponse?.data || [],
+    [typesResponse]
+  );
+  const parentDepartments = useMemo(
+    () => parentDepartmentsResponse?.data || [],
+    [parentDepartmentsResponse]
+  );
 
   // Dynamic fields with loaded data
   const dynamicFields = useMemo(() => [

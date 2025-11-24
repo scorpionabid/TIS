@@ -11,7 +11,7 @@ trait ValidationRules
     {
         return [
             'per_page' => 'nullable|integer|min:1|max:100',
-            'page' => 'nullable|integer|min:1'
+            'page' => 'nullable|integer|min:1',
         ];
     }
 
@@ -21,7 +21,7 @@ trait ValidationRules
     protected function getSearchRules(): array
     {
         return [
-            'search' => 'nullable|string|max:255'
+            'search' => 'nullable|string|max:255',
         ];
     }
 
@@ -31,10 +31,10 @@ trait ValidationRules
     protected function getSortingRules(array $sortableFields = []): array
     {
         $rules = [
-            'sort_direction' => 'nullable|string|in:asc,desc'
+            'sort_direction' => 'nullable|string|in:asc,desc',
         ];
 
-        if (!empty($sortableFields)) {
+        if (! empty($sortableFields)) {
             $rules['sort_by'] = 'nullable|string|in:' . implode(',', $sortableFields);
         }
 
@@ -47,10 +47,10 @@ trait ValidationRules
     protected function getDateRangeRules(string $prefix = ''): array
     {
         $prefix = $prefix ? $prefix . '_' : '';
-        
+
         return [
             $prefix . 'from' => 'nullable|date',
-            $prefix . 'to' => 'nullable|date|after_or_equal:' . $prefix . 'from'
+            $prefix . 'to' => 'nullable|date|after_or_equal:' . $prefix . 'from',
         ];
     }
 
@@ -61,7 +61,7 @@ trait ValidationRules
     {
         return [
             'status' => 'nullable|string|in:active,inactive',
-            'is_active' => 'nullable|boolean'
+            'is_active' => 'nullable|boolean',
         ];
     }
 
@@ -75,7 +75,7 @@ trait ValidationRules
 
         return [
             $idField => "required|array|min:1|max:{$maxItems}",
-            "{$idField}.*" => "integer|exists:{$tableName},id"
+            "{$idField}.*" => "integer|exists:{$tableName},id",
         ];
     }
 
@@ -94,7 +94,7 @@ trait ValidationRules
                 'role' => 'nullable|string|exists:roles,name',
                 'institution' => 'nullable|integer|exists:institutions,id',
                 'institution_id' => 'nullable|integer|exists:institutions,id',
-                'department' => 'nullable|string'
+                'department' => 'nullable|string',
             ]
         );
     }
@@ -113,7 +113,7 @@ trait ValidationRules
                 'type' => 'nullable|string|in:ministry,region,sektor,school,vocational,university',
                 'level' => 'nullable|integer|between:1,5',
                 'parent_id' => 'nullable|integer|exists:institutions,id',
-                'region_code' => 'nullable|string|max:10'
+                'region_code' => 'nullable|string|max:10',
             ]
         );
     }
@@ -132,7 +132,7 @@ trait ValidationRules
                 'institution_id' => 'nullable|integer|exists:institutions,id',
                 'parent_id' => 'nullable|integer|exists:departments,id',
                 'department_type' => 'nullable|string|max:50',
-                'hierarchy' => 'nullable|boolean'
+                'hierarchy' => 'nullable|boolean',
             ]
         );
     }
@@ -154,7 +154,7 @@ trait ValidationRules
                 'starts_from' => 'nullable|date',
                 'starts_to' => 'nullable|date',
                 'ends_from' => 'nullable|date',
-                'ends_to' => 'nullable|date'
+                'ends_to' => 'nullable|date',
             ]
         );
     }
@@ -175,7 +175,7 @@ trait ValidationRules
                 'creator_id' => 'nullable|integer|exists:users,id',
                 'institution_id' => 'nullable|integer|exists:institutions,id',
                 'due_from' => 'nullable|date',
-                'due_to' => 'nullable|date'
+                'due_to' => 'nullable|date',
             ]
         );
     }
@@ -189,7 +189,7 @@ trait ValidationRules
             'format' => 'required|string|in:csv,json,xlsx',
             'filters' => 'nullable|array',
             'include_deleted' => 'nullable|boolean',
-            'include_relations' => 'nullable|boolean'
+            'include_relations' => 'nullable|boolean',
         ];
     }
 
@@ -212,7 +212,7 @@ trait ValidationRules
             'departments' => 'departments',
             'surveys' => 'surveys',
             'tasks' => 'tasks',
-            'items' => 'items'
+            'items' => 'items',
         ];
 
         return $tableMap[$entityName] ?? $entityName;

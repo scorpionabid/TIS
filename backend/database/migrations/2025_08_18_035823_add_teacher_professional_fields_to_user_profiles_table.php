@@ -25,7 +25,7 @@ return new class extends Migration
             $table->string('graduation_university', 255)->nullable()->after('degree_level'); // Bitirdiyi universitet
             $table->integer('graduation_year')->nullable()->after('graduation_university'); // Bitirmə ili
             $table->decimal('university_gpa', 4, 2)->nullable()->after('graduation_year'); // Universitet GPA
-            
+
             // Student academic fields
             $table->decimal('student_miq_score', 5, 2)->nullable()->after('university_gpa'); // Şagird MİQ balı
             $table->json('academic_achievements')->nullable()->after('student_miq_score'); // Akademik nailiyyətlər
@@ -36,7 +36,7 @@ return new class extends Migration
             $table->decimal('family_income', 10, 2)->nullable()->after('parent_occupation'); // Ailə gəliri
             $table->json('special_needs')->nullable()->after('family_income'); // Xüsusi ehtiyaclar
             $table->text('notes')->nullable()->after('special_needs'); // Əlavə qeydlər
-            
+
             // Add indexes for performance
             $table->index('experience_years');
             $table->index('miq_score');
@@ -57,7 +57,7 @@ return new class extends Migration
             $table->dropIndex(['certification_score']);
             $table->dropIndex(['degree_level']);
             $table->dropIndex(['graduation_year']);
-            
+
             $table->dropColumn([
                 'subjects',
                 'specialty',
@@ -79,7 +79,7 @@ return new class extends Migration
                 'parent_occupation',
                 'family_income',
                 'special_needs',
-                'notes'
+                'notes',
             ]);
         });
     }

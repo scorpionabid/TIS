@@ -2,8 +2,8 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Jobs\SendDeadlineReminders;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Log;
 
 class SendDeadlineRemindersCommand extends Command
@@ -45,12 +45,11 @@ class SendDeadlineRemindersCommand extends Command
             }
 
             return Command::SUCCESS;
-
         } catch (\Exception $e) {
             $this->error('❌ Failed to process deadline reminders: ' . $e->getMessage());
             Log::error('Deadline reminders command failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return Command::FAILURE;
@@ -85,7 +84,7 @@ class SendDeadlineRemindersCommand extends Command
         $deadlineThresholds = [
             ['days' => 3, 'label' => '3 days'],
             ['days' => 1, 'label' => '1 day'],
-            ['days' => 0, 'label' => 'today']
+            ['days' => 0, 'label' => 'today'],
         ];
 
         foreach ($deadlineThresholds as $threshold) {
@@ -108,7 +107,7 @@ class SendDeadlineRemindersCommand extends Command
             ->where('end_date', '<', $now)
             ->get();
 
-        $this->line("• Overdue surveys: " . $overdueSurveys->count());
+        $this->line('• Overdue surveys: ' . $overdueSurveys->count());
         foreach ($overdueSurveys as $survey) {
             $daysPast = $now->diffInDays($survey->end_date);
             $this->line("  - {$survey->title} (overdue by {$daysPast} days)");
@@ -129,7 +128,7 @@ class SendDeadlineRemindersCommand extends Command
         $deadlineThresholds = [
             ['days' => 3, 'label' => '3 days'],
             ['days' => 1, 'label' => '1 day'],
-            ['days' => 0, 'label' => 'today']
+            ['days' => 0, 'label' => 'today'],
         ];
 
         foreach ($deadlineThresholds as $threshold) {
@@ -152,7 +151,7 @@ class SendDeadlineRemindersCommand extends Command
             ->where('due_date', '<', $now)
             ->get();
 
-        $this->line("• Overdue tasks: " . $overdueTasks->count());
+        $this->line('• Overdue tasks: ' . $overdueTasks->count());
         foreach ($overdueTasks as $task) {
             $daysPast = $now->diffInDays($task->due_date);
             $this->line("  - {$task->title} (overdue by {$daysPast} days, Priority: {$task->priority})");

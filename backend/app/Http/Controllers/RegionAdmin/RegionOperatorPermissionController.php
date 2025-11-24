@@ -5,19 +5,18 @@ namespace App\Http\Controllers\RegionAdmin;
 use App\Http\Controllers\Controller;
 use App\Models\RegionOperatorPermission;
 use App\Models\User;
-use App\Services\RegionOperatorPermissionService;
 use App\Services\RegionOperatorPermissionMappingService;
+use App\Services\RegionOperatorPermissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Validator;
 
 class RegionOperatorPermissionController extends Controller
 {
     public function __construct(
         private readonly RegionOperatorPermissionService $regionOperatorPermissionService
-    ) {
-    }
+    ) {}
 
     // NEW: Granular CRUD-based permission fields (25 permissions)
     private const CRUD_PERMISSION_FIELDS = [
@@ -89,16 +88,16 @@ class RegionOperatorPermissionController extends Controller
     {
         $regionAdmin = $request->user();
 
-        if (!$regionAdmin->hasRole('regionadmin')) {
+        if (! $regionAdmin->hasRole('regionadmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        if (!$user->hasRole('regionoperator')) {
+        if (! $user->hasRole('regionoperator')) {
             return response()->json(['message' => 'İstifadəçi RegionOperator deyil'], 404);
         }
 
-        if (!$this->isUserInRegion($regionAdmin, $user)) {
-            return response()->json(['message' => "Bu istifadəçi sizin regiona aid deyil"], 403);
+        if (! $this->isUserInRegion($regionAdmin, $user)) {
+            return response()->json(['message' => 'Bu istifadəçi sizin regiona aid deyil'], 403);
         }
 
         // Get or create permission record with CRUD defaults
@@ -128,16 +127,16 @@ class RegionOperatorPermissionController extends Controller
     {
         $regionAdmin = $request->user();
 
-        if (!$regionAdmin->hasRole('regionadmin')) {
+        if (! $regionAdmin->hasRole('regionadmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        if (!$user->hasRole('regionoperator')) {
+        if (! $user->hasRole('regionoperator')) {
             return response()->json(['message' => 'İstifadəçi RegionOperator deyil'], 404);
         }
 
-        if (!$this->isUserInRegion($regionAdmin, $user)) {
-            return response()->json(['message' => "Bu istifadəçi sizin regiona aid deyil"], 403);
+        if (! $this->isUserInRegion($regionAdmin, $user)) {
+            return response()->json(['message' => 'Bu istifadəçi sizin regiona aid deyil'], 403);
         }
 
         // Validate all 25 CRUD permission fields
@@ -179,7 +178,7 @@ class RegionOperatorPermissionController extends Controller
         // Calculate changes for audit log
         $changes = array_filter(
             array_diff_assoc($newPermissions, $oldPermissions),
-            fn($value) => $value !== null
+            fn ($value) => $value !== null
         );
 
         // Audit log: CRUD Permission changes
@@ -209,14 +208,10 @@ class RegionOperatorPermissionController extends Controller
      * Sync RegionOperator permissions to Spatie permissions
      *
      * This allows route middleware to properly check RegionOperator permissions
-     *
-     * @param User $user
-     * @param array $roPermissions
-     * @return void
      */
     private function syncToSpatiePermissions(User $user, array $roPermissions): void
     {
-        $mappingService = new RegionOperatorPermissionMappingService();
+        $mappingService = new RegionOperatorPermissionMappingService;
         $spatiePermissions = $mappingService->toSpatiePermissions($roPermissions);
 
         // Sync permissions (replaces existing permissions)
@@ -235,7 +230,7 @@ class RegionOperatorPermissionController extends Controller
     private function isUserInRegion(User $regionAdmin, User $targetUser): bool
     {
         $region = $regionAdmin->institution;
-        if (!$region || $region->level !== 2) {
+        if (! $region || $region->level !== 2) {
             return false;
         }
 

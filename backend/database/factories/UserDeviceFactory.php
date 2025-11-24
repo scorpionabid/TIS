@@ -29,7 +29,7 @@ class UserDeviceFactory extends Factory
         $resolutions = ['1920x1080', '1366x768', '1536x864', '1440x900'];
         $languages = ['en-US', 'az-AZ', 'ru-RU', 'tr-TR'];
         $cities = ['Baku', 'Ganja', 'Sumqayit', 'Lankaran', 'Shaki'];
-        
+
         return [
             'user_id' => User::factory(),
             'device_id' => 'device_' . Str::random(16),

@@ -17,8 +17,11 @@ class BatchOptimizer
      * Cache arrays for batch processing
      */
     protected array $existingInstitutionsByUtis = [];
+
     protected array $existingInstitutionsByCode = [];
+
     protected array $existingUsersByUsername = [];
+
     protected array $existingUsersByEmail = [];
 
     /**
@@ -26,9 +29,6 @@ class BatchOptimizer
      *
      * Loads all relevant data for a chunk using whereIn() queries.
      * This is called before processing each chunk.
-     *
-     * @param array $chunk
-     * @return void
      */
     public function preloadExistingData(array $chunk): void
     {
@@ -51,14 +51,14 @@ class BatchOptimizer
         }
 
         // Batch load existing institutions
-        if (!empty($utisCodes)) {
+        if (! empty($utisCodes)) {
             $this->existingInstitutionsByUtis = Institution::whereIn('utis_code', $utisCodes)
                 ->get()
                 ->keyBy('utis_code')
                 ->toArray();
         }
 
-        if (!empty($institutionCodes)) {
+        if (! empty($institutionCodes)) {
             $this->existingInstitutionsByCode = Institution::whereIn('institution_code', $institutionCodes)
                 ->get()
                 ->keyBy('institution_code')
@@ -66,14 +66,14 @@ class BatchOptimizer
         }
 
         // Batch load existing users
-        if (!empty($usernames)) {
+        if (! empty($usernames)) {
             $this->existingUsersByUsername = User::whereIn('username', $usernames)
                 ->get()
                 ->keyBy('username')
                 ->toArray();
         }
 
-        if (!empty($emails)) {
+        if (! empty($emails)) {
             $this->existingUsersByEmail = User::whereIn('email', $emails)
                 ->get()
                 ->keyBy('email')
@@ -83,8 +83,6 @@ class BatchOptimizer
 
     /**
      * Get cache arrays
-     *
-     * @return array
      */
     public function getCacheArrays(): array
     {
@@ -98,9 +96,6 @@ class BatchOptimizer
 
     /**
      * Check if username exists in cache
-     *
-     * @param string $username
-     * @return bool
      */
     public function isUsernameCached(string $username): bool
     {
@@ -109,9 +104,6 @@ class BatchOptimizer
 
     /**
      * Check if email exists in cache
-     *
-     * @param string $email
-     * @return bool
      */
     public function isEmailCached(string $email): bool
     {
@@ -120,9 +112,6 @@ class BatchOptimizer
 
     /**
      * Add username to cache
-     *
-     * @param string $username
-     * @return void
      */
     public function addUsernameToCache(string $username): void
     {
@@ -131,9 +120,6 @@ class BatchOptimizer
 
     /**
      * Add email to cache
-     *
-     * @param string $email
-     * @return void
      */
     public function addEmailToCache(string $email): void
     {
@@ -142,8 +128,6 @@ class BatchOptimizer
 
     /**
      * Reset cache arrays
-     *
-     * @return void
      */
     public function resetCache(): void
     {

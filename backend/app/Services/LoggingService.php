@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Http\Request;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Throwable;
 
 class LoggingService
@@ -17,7 +17,7 @@ class LoggingService
         'bulk_operations' => 'bulk_operations',
         'approval_workflow' => 'approval_workflow',
         'api' => 'api',
-        'error' => 'error'
+        'error' => 'error',
     ];
 
     /**
@@ -35,7 +35,7 @@ class LoggingService
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
             'timestamp' => now()->toISOString(),
-            'session_id' => session()->getId()
+            'session_id' => session()->getId(),
         ];
 
         Log::channel(self::LOG_CHANNELS['audit'])->info('Audit Event', $context);
@@ -55,7 +55,7 @@ class LoggingService
             'user_agent' => request()->userAgent(),
             'data' => $data,
             'timestamp' => now()->toISOString(),
-            'session_id' => session()->getId()
+            'session_id' => session()->getId(),
         ];
 
         $logMethod = match ($severity) {
@@ -84,8 +84,8 @@ class LoggingService
                 'ip_address' => request()->ip(),
                 'timestamp' => now()->toISOString(),
                 'memory_peak' => memory_get_peak_usage(true),
-                'memory_current' => memory_get_usage(true)
-            ], $context)
+                'memory_current' => memory_get_usage(true),
+            ], $context),
         ];
 
         Log::channel(self::LOG_CHANNELS['performance'])->info('Performance Metric', $logData);
@@ -103,7 +103,7 @@ class LoggingService
             'data' => $data,
             'timestamp' => now()->toISOString(),
             'ip_address' => request()->ip(),
-            'session_id' => session()->getId()
+            'session_id' => session()->getId(),
         ];
 
         Log::channel(self::LOG_CHANNELS['bulk_operations'])->info('Bulk Operation', $context);
@@ -121,7 +121,7 @@ class LoggingService
             'data' => $data,
             'timestamp' => now()->toISOString(),
             'ip_address' => request()->ip(),
-            'session_id' => session()->getId()
+            'session_id' => session()->getId(),
         ];
 
         Log::channel(self::LOG_CHANNELS['approval_workflow'])->info('Approval Workflow', $context);
@@ -145,12 +145,12 @@ class LoggingService
             'duration_ms' => $duration,
             'response' => $response ? [
                 'status' => $response['status'] ?? null,
-                'size' => isset($response['data']) ? strlen(json_encode($response['data'])) : null
-            ] : null
+                'size' => isset($response['data']) ? strlen(json_encode($response['data'])) : null,
+            ] : null,
         ];
 
         // Don't log sensitive request data
-        if (!in_array($request->getPathInfo(), ['/api/auth/login', '/api/auth/register'])) {
+        if (! in_array($request->getPathInfo(), ['/api/auth/login', '/api/auth/register'])) {
             $context['request_data'] = self::filterSensitiveData($request->all());
         }
 
@@ -176,7 +176,7 @@ class LoggingService
             'method' => request()->method(),
             'user_agent' => request()->userAgent(),
             'timestamp' => now()->toISOString(),
-            'additional_context' => $context
+            'additional_context' => $context,
         ];
 
         Log::channel(self::LOG_CHANNELS['error'])->error('Application Error', $errorContext);
@@ -209,12 +209,12 @@ class LoggingService
             'memory_used_bytes' => $endMemory - $startMemory,
             'memory_peak_bytes' => memory_get_peak_usage(true),
             'success' => $success,
-            'error' => $error
+            'error' => $error,
         ];
 
         self::performance($operation, $metrics, $context);
 
-        if (!$success) {
+        if (! $success) {
             throw new Exception($error);
         }
 
@@ -227,7 +227,7 @@ class LoggingService
     private static function filterSensitiveHeaders(array $headers): array
     {
         $sensitiveHeaders = ['authorization', 'cookie', 'x-api-key', 'x-auth-token'];
-        
+
         foreach ($sensitiveHeaders as $header) {
             if (isset($headers[$header])) {
                 $headers[$header] = ['[REDACTED]'];
@@ -252,7 +252,7 @@ class LoggingService
             'private_key',
             'credit_card',
             'ssn',
-            'social_security'
+            'social_security',
         ];
 
         foreach ($sensitiveFields as $field) {
@@ -296,7 +296,7 @@ class LoggingService
             'data' => $data,
             'timestamp' => now()->toISOString(),
             'ip_address' => request()->ip(),
-            'session_id' => session()->getId()
+            'session_id' => session()->getId(),
         ];
 
         self::audit("survey_response_{$action}", $context, 'survey_response', $responseId);
@@ -313,8 +313,8 @@ class LoggingService
             'cache_key' => $key,
             'context' => array_merge([
                 'timestamp' => now()->toISOString(),
-                'user_id' => Auth::id()
-            ], $context)
+                'user_id' => Auth::id(),
+            ], $context),
         ];
 
         Log::channel(self::LOG_CHANNELS['performance'])->debug('Cache Operation', $logData);
@@ -331,13 +331,13 @@ class LoggingService
             'execution_time_ms' => $time,
             'context' => array_merge([
                 'timestamp' => now()->toISOString(),
-                'user_id' => Auth::id()
-            ], $context)
+                'user_id' => Auth::id(),
+            ], $context),
         ];
 
         // Log slow queries as warnings
         $level = $time > 1000 ? 'warning' : 'debug'; // 1 second threshold
-        
+
         Log::channel(self::LOG_CHANNELS['performance'])->$level('Database Query', $logData);
     }
 
@@ -348,7 +348,7 @@ class LoggingService
     {
         // This is a simplified implementation
         // In production, you'd query your log aggregation system
-        
+
         return [
             'period' => $period,
             'total_events' => 0,
@@ -358,7 +358,7 @@ class LoggingService
             'bulk_operations' => 0,
             'approval_actions' => 0,
             'security_events' => 0,
-            'generated_at' => now()->toISOString()
+            'generated_at' => now()->toISOString(),
         ];
     }
 
@@ -369,7 +369,7 @@ class LoggingService
     {
         // This would integrate with your log storage system
         // Return path to exported file or direct file content
-        
+
         return storage_path("logs/export_{$channel}_{$startDate}_{$endDate}.json");
     }
 }

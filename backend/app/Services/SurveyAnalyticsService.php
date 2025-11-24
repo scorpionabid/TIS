@@ -2,21 +2,21 @@
 
 namespace App\Services;
 
+use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Models\Institution;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Collection;
 use App\Services\Analytics\HierarchicalAnalyticsService;
 use App\Services\SurveyAnalytics\Domains\Question\QuestionAnalyticsService;
-use App\Services\SurveyTargetingService;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class SurveyAnalyticsService
 {
     protected HierarchicalAnalyticsService $hierarchicalService;
+
     protected QuestionAnalyticsService $questionService;
+
     protected SurveyTargetingService $targetingService;
 
     public function __construct(
@@ -28,13 +28,14 @@ class SurveyAnalyticsService
         $this->questionService = $questionService;
         $this->targetingService = $targetingService;
     }
+
     /**
      * Get comprehensive survey statistics
      */
     public function getSurveyStatistics(Survey $survey): array
     {
         $survey->load(['responses.respondent', 'creator']);
-        
+
         return [
             'basic_stats' => $this->getBasicStats($survey),
             'response_stats' => $this->getResponseStats($survey),
@@ -42,10 +43,10 @@ class SurveyAnalyticsService
             'temporal_stats' => $this->getTemporalStats($survey),
             'completion_stats' => $this->getCompletionStats($survey),
             'question_stats' => $this->getQuestionStats($survey),
-            'performance_metrics' => $this->getPerformanceMetrics($survey)
+            'performance_metrics' => $this->getPerformanceMetrics($survey),
         ];
     }
-    
+
     /**
      * Get survey analytics with insights
      */
@@ -54,7 +55,7 @@ class SurveyAnalyticsService
         $survey->load(['responses' => function ($query) {
             $query->with(['respondent.role', 'respondent.institution'])->latest();
         }]);
-        
+
         return [
             'overview' => $this->getAnalyticsOverview($survey),
             'response_analysis' => $this->getResponseAnalysis($survey),
@@ -62,10 +63,10 @@ class SurveyAnalyticsService
             'user_engagement' => $this->getUserEngagement($survey),
             'trend_analysis' => $this->getTrendAnalysis($survey),
             'insights' => $this->generateInsights($survey),
-            'recommendations' => $this->generateRecommendations($survey)
+            'recommendations' => $this->generateRecommendations($survey),
         ];
     }
-    
+
     /**
      * Get dashboard statistics
      */
@@ -74,7 +75,7 @@ class SurveyAnalyticsService
         // Placeholder - can be implemented with DashboardAnalyticsService
         return [];
     }
-    
+
     /**
      * Estimate survey recipients
      * Delegated to SurveyTargetingService
@@ -91,10 +92,10 @@ class SurveyAnalyticsService
 
         return array_merge($result, [
             'estimated_responses' => $this->estimateResponseCount($totalCount, $targetingRules),
-            'estimated_duration' => $this->estimateSurveyDuration($totalCount)
+            'estimated_duration' => $this->estimateSurveyDuration($totalCount),
         ]);
     }
-    
+
     /**
      * Export survey data for analysis
      */
@@ -111,7 +112,7 @@ class SurveyAnalyticsService
                 'type' => $survey->survey_type,
                 'status' => $survey->status,
                 'created_at' => $survey->created_at,
-                'published_at' => $survey->published_at
+                'published_at' => $survey->published_at,
             ],
             'questions' => $survey->questions,
             'responses' => $survey->responses->map(function ($response) {
@@ -124,22 +125,22 @@ class SurveyAnalyticsService
                     'submitted_at' => $response->submitted_at ?? $response->created_at,
                     'completion_time' => $response->started_at && $response->submitted_at
                         ? $response->started_at->diffInSeconds($response->submitted_at)
-                        : null
+                        : null,
                 ];
             }),
             'statistics' => $this->getSurveyStatistics($survey),
             'exported_at' => now(),
-            'exported_by' => Auth::user()->username
+            'exported_by' => Auth::user()->username,
         ];
-        
+
         return [
             'format' => $format,
             'data' => $exportData,
             'file_size' => strlen(json_encode($exportData)),
-            'record_count' => $survey->responses->count()
+            'record_count' => $survey->responses->count(),
         ];
     }
-    
+
     /**
      * Get basic survey stats
      */
@@ -152,27 +153,27 @@ class SurveyAnalyticsService
             'completion_rate' => $this->calculateCompletionRate($survey),
             'average_completion_time' => $this->calculateAverageCompletionTime($survey),
             'first_response_at' => $survey->responses->min('created_at'),
-            'last_response_at' => $survey->responses->max('created_at')
+            'last_response_at' => $survey->responses->max('created_at'),
         ];
     }
-    
+
     /**
      * Get response statistics
      */
     protected function getResponseStats(Survey $survey): array
     {
         $responses = $survey->responses;
-        
+
         return [
             'total_responses' => $responses->count(),
             'complete_responses' => $responses->where('is_complete', true)->count(),
             'partial_responses' => $responses->where('is_complete', false)->count(),
             'anonymous_responses' => $responses->whereNull('user_id')->count(),
             'responses_per_day' => $this->getResponsesPerDay($survey),
-            'response_distribution' => $this->getResponseDistribution($survey)
+            'response_distribution' => $this->getResponseDistribution($survey),
         ];
     }
-    
+
     /**
      * Get demographic statistics
      */
@@ -183,10 +184,10 @@ class SurveyAnalyticsService
         return [
             'by_role' => $responses->groupBy('respondent.role.name')->map->count(),
             'by_institution' => $responses->groupBy('respondent.institution.name')->map->count(),
-            'by_institution_type' => $responses->groupBy('respondent.institution.type')->map->count()
+            'by_institution_type' => $responses->groupBy('respondent.institution.type')->map->count(),
         ];
     }
-    
+
     /**
      * Get temporal statistics
      */
@@ -203,27 +204,27 @@ class SurveyAnalyticsService
             })->map->count(),
             'responses_by_week' => $responses->groupBy(function ($response) {
                 return $response->created_at->format('Y-W');
-            })->map->count()
+            })->map->count(),
         ];
     }
-    
+
     /**
      * Get completion statistics
      */
     protected function getCompletionStats(Survey $survey): array
     {
         $responses = $survey->responses;
-        
+
         return [
             'completion_rate' => $this->calculateCompletionRate($survey),
             'average_time' => $this->calculateAverageCompletionTime($survey),
             'median_time' => $this->calculateMedianCompletionTime($survey),
             'completion_by_question' => $this->getCompletionByQuestion($survey),
             'dropout_points' => $this->getDropoutPoints($survey),
-            'completion_trends' => $this->getCompletionTrends($survey)
+            'completion_trends' => $this->getCompletionTrends($survey),
         ];
     }
-    
+
     /**
      * Get question-level statistics
      * Delegated to QuestionAnalyticsService
@@ -232,7 +233,7 @@ class SurveyAnalyticsService
     {
         return $this->questionService->getQuestionStats($survey);
     }
-    
+
     /**
      * Get performance metrics
      */
@@ -243,10 +244,10 @@ class SurveyAnalyticsService
             'quality_score' => $this->calculateQualityScore($survey),
             'reach_score' => $this->calculateReachScore($survey),
             'satisfaction_score' => $this->calculateSatisfactionScore($survey),
-            'overall_performance' => $this->calculateOverallPerformance($survey)
+            'overall_performance' => $this->calculateOverallPerformance($survey),
         ];
     }
-    
+
     /**
      * Get analytics overview
      */
@@ -255,7 +256,7 @@ class SurveyAnalyticsService
         // Placeholder - can be enhanced with dedicated analytics services
         return [];
     }
-    
+
     /**
      * Get response analysis
      */
@@ -264,7 +265,7 @@ class SurveyAnalyticsService
         // Placeholder - can be enhanced with ResponseAnalyticsService
         return [];
     }
-    
+
     /**
      * Get question analysis
      */
@@ -273,7 +274,7 @@ class SurveyAnalyticsService
         // Placeholder - can be enhanced with QuestionAnalyticsService
         return [];
     }
-    
+
     /**
      * Get user engagement metrics
      */
@@ -281,24 +282,24 @@ class SurveyAnalyticsService
     {
         return [];
     }
-    
+
     /**
      * Get trend analysis
      */
     protected function getTrendAnalysis(Survey $survey): array
     {
         return [
-            'completion_trends' => $this->getCompletionTrends($survey)
+            'completion_trends' => $this->getCompletionTrends($survey),
         ];
     }
-    
+
     /**
      * Generate insights
      */
     protected function generateInsights(Survey $survey): array
     {
         $insights = [];
-        
+
         // Response rate insights
         $responseRate = $this->calculateResponseRate($survey);
         if ($responseRate < 20) {
@@ -306,10 +307,10 @@ class SurveyAnalyticsService
                 'type' => 'warning',
                 'category' => 'response_rate',
                 'message' => 'Low response rate detected. Consider improving survey promotion or incentives.',
-                'metric' => $responseRate . '%'
+                'metric' => $responseRate . '%',
             ];
         }
-        
+
         // Completion rate insights
         $completionRate = $this->calculateCompletionRate($survey);
         if ($completionRate < 70) {
@@ -317,34 +318,34 @@ class SurveyAnalyticsService
                 'type' => 'warning',
                 'category' => 'completion',
                 'message' => 'High dropout rate. Survey may be too long or complex.',
-                'metric' => $completionRate . '%'
+                'metric' => $completionRate . '%',
             ];
         }
-        
+
         // Question performance insights
         $dropoutPoints = $this->getDropoutPoints($survey);
-        if (!empty($dropoutPoints)) {
+        if (! empty($dropoutPoints)) {
             $insights[] = [
                 'type' => 'info',
                 'category' => 'questions',
                 'message' => 'Significant dropout detected at question ' . $dropoutPoints[0],
-                'metric' => 'Question ' . $dropoutPoints[0]
+                'metric' => 'Question ' . $dropoutPoints[0],
             ];
         }
-        
+
         return $insights;
     }
-    
+
     /**
      * Generate recommendations
      */
     protected function generateRecommendations(Survey $survey): array
     {
         $recommendations = [];
-        
+
         $responseRate = $this->calculateResponseRate($survey);
         $completionRate = $this->calculateCompletionRate($survey);
-        
+
         if ($responseRate < 30) {
             $recommendations[] = [
                 'priority' => 'high',
@@ -354,11 +355,11 @@ class SurveyAnalyticsService
                 'actions' => [
                     'Send reminder notifications',
                     'Offer incentives for completion',
-                    'Improve survey invitation messaging'
-                ]
+                    'Improve survey invitation messaging',
+                ],
             ];
         }
-        
+
         if ($completionRate < 60) {
             $recommendations[] = [
                 'priority' => 'high',
@@ -368,14 +369,14 @@ class SurveyAnalyticsService
                 'actions' => [
                     'Reduce number of questions',
                     'Simplify question language',
-                    'Add progress indicators'
-                ]
+                    'Add progress indicators',
+                ],
             ];
         }
-        
+
         return $recommendations;
     }
-    
+
     /**
      * Calculate response rate
      */
@@ -383,12 +384,14 @@ class SurveyAnalyticsService
     {
         $totalTargeted = $this->estimateTotalTargeted($survey);
         $totalResponses = $survey->responses->count();
-        
-        if ($totalTargeted == 0) return 0;
-        
+
+        if ($totalTargeted == 0) {
+            return 0;
+        }
+
         return round(($totalResponses / $totalTargeted) * 100, 2);
     }
-    
+
     /**
      * Calculate completion rate
      */
@@ -396,12 +399,14 @@ class SurveyAnalyticsService
     {
         $totalResponses = $survey->responses->count();
         $completeResponses = $survey->responses->where('is_complete', true)->count();
-        
-        if ($totalResponses == 0) return 0;
-        
+
+        if ($totalResponses == 0) {
+            return 0;
+        }
+
         return round(($completeResponses / $totalResponses) * 100, 2);
     }
-    
+
     /**
      * Calculate average completion time
      */
@@ -412,7 +417,9 @@ class SurveyAnalyticsService
             ->whereNotNull('submitted_at')
             ->get();
 
-        if ($responses->isEmpty()) return 0;
+        if ($responses->isEmpty()) {
+            return 0;
+        }
 
         $totalTime = 0;
         foreach ($responses as $response) {
@@ -421,8 +428,7 @@ class SurveyAnalyticsService
 
         return round($totalTime / $responses->count());
     }
-    
-    
+
     /**
      * Estimate response count based on targeting
      */
@@ -435,24 +441,24 @@ class SurveyAnalyticsService
             'sektoradmin' => 0.6,
             'schooladmin' => 0.5,
             'müəllim' => 0.4,
-            'default' => 0.3
+            'default' => 0.3,
         ];
-        
+
         $estimatedRate = $responseRates['default'];
-        
+
         // Adjust based on targeting
         if (isset($targetingRules['roles']) && count($targetingRules['roles']) == 1) {
             $role = $targetingRules['roles'][0];
             $estimatedRate = $responseRates[$role] ?? $responseRates['default'];
         }
-        
+
         return [
             'conservative' => round($totalRecipients * ($estimatedRate * 0.7)),
             'expected' => round($totalRecipients * $estimatedRate),
-            'optimistic' => round($totalRecipients * ($estimatedRate * 1.3))
+            'optimistic' => round($totalRecipients * ($estimatedRate * 1.3)),
         ];
     }
-    
+
     /**
      * Log analytics activity
      */
@@ -462,7 +468,7 @@ class SurveyAnalyticsService
             'user_id' => Auth::id(),
             'activity_type' => $activityType,
             'description' => $description,
-            'institution_id' => Auth::user()?->institution_id
+            'institution_id' => Auth::user()?->institution_id,
         ], $additionalData);
 
         ActivityLog::logActivity($data);
@@ -484,7 +490,7 @@ class SurveyAnalyticsService
                 'survey_id' => $survey->id,
                 'breakdown' => [],
                 'user_scope' => 'none',
-                'total_responses' => 0
+                'total_responses' => 0,
             ];
         }
 
@@ -495,16 +501,16 @@ class SurveyAnalyticsService
             ->get();
 
         // Group by institution with statistics
-        $breakdown = $responses->groupBy('institution_id')->map(function($instResponses, $instId) use ($survey) {
+        $breakdown = $responses->groupBy('institution_id')->map(function ($instResponses, $instId) use ($survey) {
             $institution = $instResponses->first()->institution;
 
-            if (!$institution) {
-                return null;
+            if (! $institution) {
+                return;
             }
 
             // Calculate targeted count from survey's target_institutions
             $totalTargeted = 0;
-            if (!empty($survey->target_institutions) && in_array($instId, $survey->target_institutions)) {
+            if (! empty($survey->target_institutions) && in_array($instId, $survey->target_institutions)) {
                 // Count active users in this institution
                 $totalTargeted = User::where('institution_id', $instId)
                     ->where('is_active', true)
@@ -528,19 +534,19 @@ class SurveyAnalyticsService
                 'completion_rate' => $totalResponses > 0
                     ? round(($completedResponses / $totalResponses) * 100, 1)
                     : 0,
-                'last_response_at' => $instResponses->max('submitted_at')
+                'last_response_at' => $instResponses->max('submitted_at'),
             ];
         })
-        ->filter() // Remove nulls
-        ->sortByDesc('response_rate')
-        ->values();
+            ->filter() // Remove nulls
+            ->sortByDesc('response_rate')
+            ->values();
 
         return [
             'survey_id' => $survey->id,
             'total_responses' => $responses->count(),
             'breakdown' => $breakdown,
             'user_scope' => \App\Helpers\DataIsolationHelper::getUserScopeLevel($user),
-            'allowed_institution_count' => $allowedInstitutionIds->count()
+            'allowed_institution_count' => $allowedInstitutionIds->count(),
         ];
     }
 
@@ -557,7 +563,7 @@ class SurveyAnalyticsService
                 'survey_id' => $survey->id,
                 'hierarchy' => [],
                 'user_scope' => 'none',
-                'total_responses' => 0
+                'total_responses' => 0,
             ];
         }
 
@@ -574,10 +580,10 @@ class SurveyAnalyticsService
             return $this->buildRegionHierarchy($survey, $responses, $user);
         } elseif ($userRole === 'sektoradmin') {
             return $this->buildSectorHierarchy($survey, $responses, $user);
-        } else {
-            // SuperAdmin or others - use flat structure
-            return $this->getInstitutionBreakdown($survey);
         }
+
+        // SuperAdmin or others - use flat structure
+        return $this->getInstitutionBreakdown($survey);
     }
 
     /**
@@ -587,24 +593,24 @@ class SurveyAnalyticsService
     {
         $userRegion = $user->institution;
 
-        if (!$userRegion || $userRegion->level !== 2) {
+        if (! $userRegion || $userRegion->level !== 2) {
             return [
                 'survey_id' => $survey->id,
                 'hierarchy' => [],
                 'user_scope' => 'regional',
-                'total_responses' => 0
+                'total_responses' => 0,
             ];
         }
 
         // Get all sectors under this region
         $sectors = Institution::where('parent_id', $userRegion->id)
             ->where('level', 3)
-            ->with(['children' => function($q) {
+            ->with(['children' => function ($q) {
                 $q->where('level', 4); // Schools only
             }])
             ->get();
 
-        $hierarchy = $sectors->map(function($sector) use ($survey, $responses) {
+        $hierarchy = $sectors->map(function ($sector) use ($responses) {
             // Get all schools under this sector
             $schoolIds = $sector->children->pluck('id');
 
@@ -623,9 +629,11 @@ class SurveyAnalyticsService
             $respondedSchools = $sectorResponses->unique('institution_id')->count();
 
             // Schools breakdown
-            $schoolsBreakdown = $sectorResponses->groupBy('institution_id')->map(function($schoolResponses, $schoolId) {
+            $schoolsBreakdown = $sectorResponses->groupBy('institution_id')->map(function ($schoolResponses, $schoolId) {
                 $school = Institution::find($schoolId);
-                if (!$school) return null;
+                if (! $school) {
+                    return;
+                }
 
                 $targetedCount = User::where('institution_id', $schoolId)
                     ->where('is_active', true)
@@ -646,7 +654,7 @@ class SurveyAnalyticsService
                         : 0,
                     'completion_rate' => $totalResponses > 0
                         ? round(($completedResponses / $totalResponses) * 100, 1)
-                        : 0
+                        : 0,
                 ];
             })->filter()->sortByDesc('response_rate')->values();
 
@@ -672,7 +680,7 @@ class SurveyAnalyticsService
                 'school_response_rate' => $totalSchools > 0
                     ? round(($respondedSchools / $totalSchools) * 100, 1)
                     : 0,
-                'children' => $schoolsBreakdown
+                'children' => $schoolsBreakdown,
             ];
         })->sortByDesc('response_rate')->values();
 
@@ -680,7 +688,7 @@ class SurveyAnalyticsService
             'survey_id' => $survey->id,
             'hierarchy' => $hierarchy,
             'user_scope' => 'regional',
-            'total_responses' => $responses->count()
+            'total_responses' => $responses->count(),
         ];
     }
 
@@ -691,12 +699,12 @@ class SurveyAnalyticsService
     {
         $userSector = $user->institution;
 
-        if (!$userSector || $userSector->level !== 3) {
+        if (! $userSector || $userSector->level !== 3) {
             return [
                 'survey_id' => $survey->id,
                 'hierarchy' => [],
                 'user_scope' => 'sector',
-                'total_responses' => 0
+                'total_responses' => 0,
             ];
         }
 
@@ -708,9 +716,11 @@ class SurveyAnalyticsService
         $schoolIds = $schools->pluck('id');
 
         // Schools breakdown (flat for SektorAdmin)
-        $schoolsBreakdown = $responses->groupBy('institution_id')->map(function($schoolResponses, $schoolId) {
+        $schoolsBreakdown = $responses->groupBy('institution_id')->map(function ($schoolResponses, $schoolId) {
             $school = Institution::find($schoolId);
-            if (!$school) return null;
+            if (! $school) {
+                return;
+            }
 
             $targetedCount = User::where('institution_id', $schoolId)
                 ->where('is_active', true)
@@ -731,7 +741,7 @@ class SurveyAnalyticsService
                     : 0,
                 'completion_rate' => $totalResponses > 0
                     ? round(($completedResponses / $totalResponses) * 100, 1)
-                    : 0
+                    : 0,
             ];
         })->filter()->sortByDesc('response_rate')->values();
 
@@ -741,7 +751,7 @@ class SurveyAnalyticsService
             'user_scope' => 'sector',
             'total_responses' => $responses->count(),
             'total_schools' => $schools->count(),
-            'responded_schools' => $schoolsBreakdown->count()
+            'responded_schools' => $schoolsBreakdown->count(),
         ];
     }
 
@@ -752,38 +762,38 @@ class SurveyAnalyticsService
     {
         $user = Auth::user();
 
-        if (!$user->hasRole('regionadmin')) {
+        if (! $user->hasRole('regionadmin')) {
             throw new \Exception('Bu xidmət yalnız RegionAdmin üçündür');
         }
 
         $userRegionId = $user->institution_id;
 
         // Get all institutions in region hierarchy
-        $allRegionInstitutions = Institution::where(function($query) use ($userRegionId) {
+        $allRegionInstitutions = Institution::where(function ($query) use ($userRegionId) {
             $query->where('id', $userRegionId)
-                  ->orWhere('parent_id', $userRegionId)
-                  ->orWhereHas('parent', function($q) use ($userRegionId) {
-                      $q->where('parent_id', $userRegionId);
-                  });
+                ->orWhere('parent_id', $userRegionId)
+                ->orWhereHas('parent', function ($q) use ($userRegionId) {
+                    $q->where('parent_id', $userRegionId);
+                });
         })->get();
 
         $institutionIds = $allRegionInstitutions->pluck('id');
 
         // Survey statistics using creator relationship
-        $totalSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
+        $totalSurveys = Survey::whereHas('creator', function ($q) use ($institutionIds) {
             $q->whereIn('institution_id', $institutionIds);
         })->count();
 
-        $publishedSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
+        $publishedSurveys = Survey::whereHas('creator', function ($q) use ($institutionIds) {
             $q->whereIn('institution_id', $institutionIds);
         })->where('status', 'published')->count();
 
-        $draftSurveys = Survey::whereHas('creator', function($q) use ($institutionIds) {
+        $draftSurveys = Survey::whereHas('creator', function ($q) use ($institutionIds) {
             $q->whereIn('institution_id', $institutionIds);
         })->where('status', 'draft')->count();
 
         // Response statistics
-        $totalResponses = SurveyResponse::whereHas('survey.creator', function($query) use ($institutionIds) {
+        $totalResponses = SurveyResponse::whereHas('survey.creator', function ($query) use ($institutionIds) {
             $query->whereIn('institution_id', $institutionIds);
         })->count();
 
@@ -792,12 +802,12 @@ class SurveyAnalyticsService
             ->where('level', 3)
             ->with(['children'])
             ->get()
-            ->map(function($sector) use ($institutionIds) {
+            ->map(function ($sector) use ($institutionIds) {
                 $schoolIds = $sector->children->pluck('id');
 
                 $surveys = Survey::whereJsonOverlaps('target_institutions', $schoolIds->toArray())->count();
 
-                $responses = SurveyResponse::whereHas('survey.creator', function($query) use ($institutionIds) {
+                $responses = SurveyResponse::whereHas('survey.creator', function ($query) use ($institutionIds) {
                     $query->whereIn('institution_id', $institutionIds);
                 })->whereIn('institution_id', $schoolIds)->count();
 
@@ -805,7 +815,7 @@ class SurveyAnalyticsService
                     'sector_name' => $sector->name,
                     'surveys_count' => $surveys,
                     'responses_count' => $responses,
-                    'response_rate' => $surveys > 0 ? round(($responses / ($surveys * 10)) * 100, 1) : 0
+                    'response_rate' => $surveys > 0 ? round(($responses / ($surveys * 10)) * 100, 1) : 0,
                 ];
             });
 
@@ -814,11 +824,11 @@ class SurveyAnalyticsService
                 'total' => $totalSurveys,
                 'published' => $publishedSurveys,
                 'draft' => $draftSurveys,
-                'total_responses' => $totalResponses
+                'total_responses' => $totalResponses,
             ],
             'surveys_by_sector' => $surveysBySector,
             'average_response_rate' => $surveysBySector->avg('response_rate') ?? 0,
-            'most_active_sector' => $surveysBySector->sortByDesc('responses_count')->first()
+            'most_active_sector' => $surveysBySector->sortByDesc('responses_count')->first(),
         ];
     }
 
@@ -830,16 +840,17 @@ class SurveyAnalyticsService
     protected function estimateTotalTargeted(Survey $survey): int
     {
         // If survey has target_institutions, count users in those institutions
-        if (!empty($survey->target_institutions)) {
+        if (! empty($survey->target_institutions)) {
             return User::whereIn('institution_id', $survey->target_institutions)
                 ->where('is_active', true)
                 ->count();
         }
 
         // If survey has targeting_rules, estimate from rules
-        if (!empty($survey->targeting_rules)) {
+        if (! empty($survey->targeting_rules)) {
             $query = User::where('is_active', true);
             $this->applyTargetingRules($query, $survey->targeting_rules);
+
             return $query->count();
         }
 
@@ -858,10 +869,9 @@ class SurveyAnalyticsService
 
         return [
             'estimated_days' => ceil($totalRecipients / ($totalRecipients * $dailyResponseRate)),
-            'estimated_hours' => ceil(($totalRecipients * $avgResponseTime) / 60)
+            'estimated_hours' => ceil(($totalRecipients * $avgResponseTime) / 60),
         ];
     }
-
 
     /**
      * Get completion trends
@@ -901,7 +911,6 @@ class SurveyAnalyticsService
         return $dropoutRates;
     }
 
-
     /**
      * Calculate engagement score
      */
@@ -930,7 +939,9 @@ class SurveyAnalyticsService
     protected function calculateQualityScore(Survey $survey): float
     {
         $totalResponses = $survey->responses->count();
-        if ($totalResponses == 0) return 0;
+        if ($totalResponses == 0) {
+            return 0;
+        }
 
         $completeResponses = $survey->responses->where('is_complete', true)->count();
         $qualityScore = ($completeResponses / $totalResponses) * 100;
@@ -946,7 +957,9 @@ class SurveyAnalyticsService
         $targeted = $this->estimateTotalTargeted($survey);
         $reached = $survey->responses->count();
 
-        if ($targeted == 0) return 0;
+        if ($targeted == 0) {
+            return 0;
+        }
 
         return round(($reached / $targeted) * 100, 2);
     }
@@ -983,9 +996,11 @@ class SurveyAnalyticsService
             ->whereNotNull('submitted_at')
             ->get();
 
-        if ($responses->isEmpty()) return 0;
+        if ($responses->isEmpty()) {
+            return 0;
+        }
 
-        $times = $responses->map(function($response) {
+        $times = $responses->map(function ($response) {
             return $response->started_at->diffInSeconds($response->submitted_at);
         })->sort()->values();
 
@@ -1031,11 +1046,10 @@ class SurveyAnalyticsService
             'by_status' => $survey->responses->countBy('status')->toArray(),
             'by_completion' => [
                 'complete' => $survey->responses->where('is_complete', true)->count(),
-                'partial' => $survey->responses->where('is_complete', false)->count()
-            ]
+                'partial' => $survey->responses->where('is_complete', false)->count(),
+            ],
         ];
     }
-
 
     /**
      * ========================================

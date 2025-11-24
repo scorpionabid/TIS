@@ -3,20 +3,19 @@
 namespace App\Http\Controllers\RegionAdmin;
 
 use App\Http\Controllers\Controller;
+use App\Imports\ClassesImport;
+use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\Institution;
-use App\Models\AcademicYear;
-use App\Imports\ClassesImport;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class RegionAdminClassController extends Controller
 {
@@ -28,23 +27,23 @@ class RegionAdminClassController extends Controller
         try {
             $user = Auth::user();
             $userRegionId = $user->institution_id;
-            
+
             // Get all institutions in this region
             $region = Institution::find($userRegionId);
-            if (!$region) {
+            if (! $region) {
                 return response()->json(['message' => 'Region not found'], 404);
             }
-            
+
             $allowedInstitutionIds = $region->getAllChildrenIds();
             $allowedInstitutionIds[] = $userRegionId; // Include region itself
-            
+
             // Get all classes (grades) from schools in this region
             $classes = Grade::whereIn('institution_id', $allowedInstitutionIds)
                 ->with([
                     'institution:id,name,type,utis_code,institution_code',
                     'homeroomTeacher:id,username,first_name,last_name',
                     'room:id,name,capacity',
-                    'academicYear:id,year,is_current'
+                    'academicYear:id,year,is_current',
                 ])
                 ->select([
                     'id',
@@ -67,7 +66,7 @@ class RegionAdminClassController extends Controller
                     'description',
                     'is_active',
                     'created_at',
-                    'updated_at'
+                    'updated_at',
                 ])
                 ->when($request->get('search'), function ($query, $search) {
                     $query->where('name', 'ILIKE', "%{$search}%");
@@ -98,12 +97,11 @@ class RegionAdminClassController extends Controller
                 'region_name' => $region->name,
                 'total_institutions' => count($allowedInstitutionIds),
             ]);
-            
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch classes',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -116,19 +114,19 @@ class RegionAdminClassController extends Controller
         try {
             $user = Auth::user();
             $userRegionId = $user->institution_id;
-            
+
             // Get allowed institutions
             $region = Institution::find($userRegionId);
             $allowedInstitutionIds = $region->getAllChildrenIds();
             $allowedInstitutionIds[] = $userRegionId;
-            
+
             $class = Grade::whereIn('institution_id', $allowedInstitutionIds)
                 ->with([
                     'institution:id,name,type,address',
                     'homeroomTeacher:id,username,first_name,last_name',
                     'homeroomTeacher.profile:user_id,first_name,last_name',
                     'room:id,name,capacity',
-                    'academicYear:id,year,is_current'
+                    'academicYear:id,year,is_current',
                 ])
                 ->findOrFail($id);
 
@@ -145,12 +143,11 @@ class RegionAdminClassController extends Controller
                 'data' => $class,
                 'statistics' => $stats,
             ]);
-            
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch class details',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -163,12 +160,12 @@ class RegionAdminClassController extends Controller
         try {
             $user = Auth::user();
             $userRegionId = $user->institution_id;
-            
+
             // Get allowed institutions
             $region = Institution::find($userRegionId);
             $allowedInstitutionIds = $region->getAllChildrenIds();
             $allowedInstitutionIds[] = $userRegionId;
-            
+
             $stats = [
                 'total_classes' => Grade::whereIn('institution_id', $allowedInstitutionIds)->count(),
                 'active_classes' => Grade::whereIn('institution_id', $allowedInstitutionIds)->where('is_active', true)->count(),
@@ -190,12 +187,11 @@ class RegionAdminClassController extends Controller
                 'data' => $stats,
                 'region_name' => $region->name,
             ]);
-            
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch class statistics',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -227,7 +223,7 @@ class RegionAdminClassController extends Controller
             Log::info('Detected file type', [
                 'extension' => $fileExtension,
                 'type' => $fileType,
-                'mime' => $file->getMimeType()
+                'mime' => $file->getMimeType(),
             ]);
 
             // Generate unique session ID for progress tracking
@@ -279,9 +275,8 @@ class RegionAdminClassController extends Controller
                     'errors' => $stats['errors'],
                     'structured_errors' => $stats['structured_errors'] ?? [], // NEW: Structured error format
                     'total_processed' => $stats['total_processed'] ?? ($stats['success_count'] + $stats['error_count']),
-                ]
+                ],
             ]);
-
         } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
             // Laravel Excel validation errors - convert to structured format
             $failures = $e->failures();
@@ -310,14 +305,14 @@ class RegionAdminClassController extends Controller
                             'institution_name' => $values['institution_name'] ?? null,
                             'class_level' => $values['class_level'] ?? null,
                             'class_name' => $values['class_name'] ?? null,
-                        ]
+                        ],
                     ];
                 }
             }
 
             Log::warning('Import validation failed', [
                 'error_count' => count($simpleErrors),
-                'first_errors' => array_slice($simpleErrors, 0, 5)
+                'first_errors' => array_slice($simpleErrors, 0, 5),
             ]);
 
             return response()->json([
@@ -329,17 +324,17 @@ class RegionAdminClassController extends Controller
                     'errors' => $simpleErrors,
                     'structured_errors' => $structuredErrors,
                     'total_processed' => count($simpleErrors),
-                ]
+                ],
             ], 422);
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Fayl validasiya xətası',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             Log::error('Class import failed: ' . $e->getMessage(), [
-                'exception' => $e->getTraceAsString()
+                'exception' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -367,7 +362,7 @@ class RegionAdminClassController extends Controller
 
             Log::info('🏫 Institutions loaded', [
                 'count' => $institutions->count(),
-                'first_few' => $institutions->take(3)->pluck('name')->toArray()
+                'first_few' => $institutions->take(3)->pluck('name')->toArray(),
             ]);
 
             $filename = 'sinif-import-shablon-' . date('Y-m-d') . '.xlsx';
@@ -389,19 +384,20 @@ class RegionAdminClassController extends Controller
 
             Log::info('✅ Response headers set, returning file', [
                 'filename' => $filename,
-                'content_type' => $response->headers->get('Content-Type')
+                'content_type' => $response->headers->get('Content-Type'),
             ]);
 
             return $response;
-
         } catch (\Exception $e) {
             Log::error('❌ Template export failed: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             // Fallback to simple template
             Log::info('⚠️ Using fallback template');
-            return Excel::download(new class implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings {
+
+            return Excel::download(new class implements \Maatwebsite\Excel\Concerns\FromArray, \Maatwebsite\Excel\Concerns\WithHeadings
+            {
                 public function array(): array
                 {
                     return [];
@@ -446,7 +442,7 @@ class RegionAdminClassController extends Controller
 
             Log::info('🏫 CSV institutions loaded', [
                 'count' => $institutions->count(),
-                'first_few' => $institutions->take(3)->pluck('name')->toArray()
+                'first_few' => $institutions->take(3)->pluck('name')->toArray(),
             ]);
 
             $filename = 'sinif-import-shablon-' . date('Y-m-d') . '.csv';
@@ -476,20 +472,19 @@ class RegionAdminClassController extends Controller
 
             Log::info('✅ CSV response headers set, returning file', [
                 'filename' => $filename,
-                'content_type' => $response->headers->get('Content-Type')
+                'content_type' => $response->headers->get('Content-Type'),
             ]);
 
             return $response;
-
         } catch (\Exception $e) {
             Log::error('❌ CSV template export failed: ' . $e->getMessage(), [
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'CSV şablonunun yaradılması uğursuz oldu',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -537,7 +532,8 @@ class RegionAdminClassController extends Controller
 
             $filename = 'classes_export_' . date('Y-m-d_His') . '.xlsx';
 
-            return Excel::download(new class($classes) implements \Maatwebsite\Excel\Concerns\FromCollection, \Maatwebsite\Excel\Concerns\WithHeadings, \Maatwebsite\Excel\Concerns\WithMapping {
+            return Excel::download(new class($classes) implements \Maatwebsite\Excel\Concerns\FromCollection, \Maatwebsite\Excel\Concerns\WithHeadings, \Maatwebsite\Excel\Concerns\WithMapping
+            {
                 protected $classes;
 
                 public function __construct($classes)
@@ -586,7 +582,6 @@ class RegionAdminClassController extends Controller
                     ];
                 }
             }, $filename);
-
         } catch (\Exception $e) {
             Log::error('Class export failed: ' . $e->getMessage());
             abort(500, 'Export zamanı xəta baş verdi');
@@ -614,12 +609,11 @@ class RegionAdminClassController extends Controller
                 'success' => true,
                 'data' => $institutions,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch institutions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -636,12 +630,11 @@ class RegionAdminClassController extends Controller
                 'success' => true,
                 'data' => $academicYears,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch academic years',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -698,7 +691,7 @@ class RegionAdminClassController extends Controller
                         'Lisey',
                         'Gimnaziya',
                         'Texniki peşə məktəbi',
-                        'Xüsusi məktəb'
+                        'Xüsusi məktəb',
                     ])
                     ->values();
 
@@ -728,19 +721,18 @@ class RegionAdminClassController extends Controller
                         'Lisey',
                         'Gimnaziya',
                         'Texniki peşə məktəbi',
-                        'Xüsusi məktəb'
+                        'Xüsusi məktəb',
                     ])->values(),
                 ],
                 'region_name' => $region->name,
             ]);
-
         } catch (\Exception $e) {
             Log::error('Failed to fetch grouped institutions: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch institutions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -753,7 +745,7 @@ class RegionAdminClassController extends Controller
         try {
             $progress = Cache::get("import_progress:{$sessionId}");
 
-            if (!$progress) {
+            if (! $progress) {
                 return response()->json([
                     'success' => false,
                     'message' => 'İdxal sessiyası tapılmadı və ya müddəti bitib',
@@ -762,16 +754,15 @@ class RegionAdminClassController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $progress
+                'data' => $progress,
             ]);
-
         } catch (\Exception $e) {
             Log::error('Failed to fetch import progress: ' . $e->getMessage());
 
             return response()->json([
                 'success' => false,
                 'message' => 'Progress məlumatı əldə ediləmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -820,7 +811,7 @@ class RegionAdminClassController extends Controller
                     ? (int) $validated['female_student_count']
                     : $class->female_student_count;
 
-                if (!array_key_exists('student_count', $validated)) {
+                if (! array_key_exists('student_count', $validated)) {
                     $validated['student_count'] = $male + $female;
                 }
             }
@@ -831,7 +822,7 @@ class RegionAdminClassController extends Controller
             $class->load([
                 'institution:id,name,type,utis_code,institution_code',
                 'homeroomTeacher:id,username,first_name,last_name',
-                'academicYear:id,year,is_current'
+                'academicYear:id,year,is_current',
             ]);
 
             return response()->json([
@@ -847,7 +838,7 @@ class RegionAdminClassController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Sinif yenilənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -878,7 +869,7 @@ class RegionAdminClassController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Sinif silinə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -891,7 +882,7 @@ class RegionAdminClassController extends Controller
         try {
             $validated = $request->validate([
                 'ids' => 'required|array|min:1',
-                'ids.*' => 'integer'
+                'ids.*' => 'integer',
             ]);
 
             $user = Auth::user();
@@ -912,7 +903,7 @@ class RegionAdminClassController extends Controller
                 'data' => [
                     'deleted' => $deleted,
                     'requested' => count($ids),
-                ]
+                ],
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
@@ -922,7 +913,7 @@ class RegionAdminClassController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Seçilmiş siniflər silinə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -958,7 +949,7 @@ class RegionAdminClassController extends Controller
 
         if ($institutions->isEmpty()) {
             return collect([
-                (object)[
+                (object) [
                     'id' => null,
                     'name' => 'Nümunə Məktəb',
                     'utis_code' => 'UTIS001',

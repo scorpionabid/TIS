@@ -4,14 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\AssessmentEntry;
 use App\Models\AssessmentType;
-use App\Models\Student;
 use App\Models\Institution;
-use Illuminate\Http\Request;
+use App\Models\Student;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Validation\Rule;
 
 class AssessmentEntryController extends Controller
 {
@@ -32,14 +31,14 @@ class AssessmentEntryController extends Controller
             'date_to' => 'sometimes|date|after_or_equal:date_from',
             'grade_level' => 'sometimes|string|max:10',
             'subject' => 'sometimes|string|max:100',
-            'per_page' => 'sometimes|integer|min:1|max:100'
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -49,7 +48,7 @@ class AssessmentEntryController extends Controller
             'student',
             'institution',
             'creator',
-            'approver'
+            'approver',
         ])->orderBy('created_at', 'desc');
 
         // Apply access control based on user role
@@ -99,7 +98,7 @@ class AssessmentEntryController extends Controller
         return response()->json([
             'success' => true,
             'data' => $assessmentEntries,
-            'message' => 'Qiymətləndirmə qeydləri uğurla yükləndi'
+            'message' => 'Qiymətləndirmə qeydləri uğurla yükləndi',
         ]);
     }
 
@@ -111,10 +110,10 @@ class AssessmentEntryController extends Controller
         $user = Auth::user();
 
         // Check permissions
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
+                'message' => 'Bu əməliyyat üçün icazəniz yoxdur',
             ], 403);
         }
 
@@ -128,32 +127,32 @@ class AssessmentEntryController extends Controller
             'entries' => 'required|array|min:1',
             'entries.*.student_id' => 'required|exists:students,id',
             'entries.*.score' => 'required|numeric|min:0',
-            'entries.*.notes' => 'nullable|string|max:500'
+            'entries.*.notes' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         // Validate assessment type access
         $assessmentType = AssessmentType::find($request->assessment_type_id);
-        if (!$this->canAccessAssessmentType($user, $assessmentType)) {
+        if (! $this->canAccessAssessmentType($user, $assessmentType)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə növünə giriş icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə növünə giriş icazəniz yoxdur',
             ], 403);
         }
 
         // Validate institution access
         $institution = Institution::find($request->institution_id);
-        if (!$this->canAccessInstitution($user, $institution)) {
+        if (! $this->canAccessInstitution($user, $institution)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu təşkilata giriş icazəniz yoxdur'
+                'message' => 'Bu təşkilata giriş icazəniz yoxdur',
             ], 403);
         }
 
@@ -168,6 +167,7 @@ class AssessmentEntryController extends Controller
                     // Validate score against assessment type max_score
                     if ($entryData['score'] > $assessmentType->max_score) {
                         $errors[] = "Şagird {$entryData['student_id']} üçün bal maksimum {$assessmentType->max_score} ola bilər";
+
                         continue;
                     }
 
@@ -176,8 +176,9 @@ class AssessmentEntryController extends Controller
                         ->where('institution_id', $request->institution_id)
                         ->first();
 
-                    if (!$student) {
+                    if (! $student) {
                         $errors[] = "Şagird {$entryData['student_id']} bu təşkilata aid deyil";
+
                         continue;
                     }
 
@@ -185,7 +186,7 @@ class AssessmentEntryController extends Controller
                     $existingEntry = AssessmentEntry::where([
                         'assessment_type_id' => $request->assessment_type_id,
                         'student_id' => $entryData['student_id'],
-                        'assessment_date' => $request->assessment_date
+                        'assessment_date' => $request->assessment_date,
                     ])->first();
 
                     if ($existingEntry) {
@@ -201,6 +202,7 @@ class AssessmentEntryController extends Controller
                         } else {
                             $errors[] = "Şagird {$student->name} üçün bu tarixdə artıq qiymətləndirmə mövcuddur";
                         }
+
                         continue;
                     }
 
@@ -215,11 +217,10 @@ class AssessmentEntryController extends Controller
                         'grade_level' => $request->grade_level,
                         'subject' => $request->subject,
                         'notes' => $entryData['notes'] ?? null,
-                        'status' => 'draft'
+                        'status' => 'draft',
                     ]);
 
                     $createdEntries[] = $assessmentEntry;
-
                 } catch (\Exception $e) {
                     $errors[] = "Şagird {$entryData['student_id']} üçün xəta: " . $e->getMessage();
                 }
@@ -232,24 +233,23 @@ class AssessmentEntryController extends Controller
                 'data' => [
                     'created_count' => count($createdEntries),
                     'error_count' => count($errors),
-                    'entries' => $createdEntries
+                    'entries' => $createdEntries,
                 ],
-                'message' => count($createdEntries) . ' qiymətləndirmə uğurla saxlanıldı'
+                'message' => count($createdEntries) . ' qiymətləndirmə uğurla saxlanıldı',
             ];
 
-            if (!empty($errors)) {
+            if (! empty($errors)) {
                 $response['warnings'] = $errors;
             }
 
             return response()->json($response, 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Qiymətləndirmələr saxlanılarkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -262,10 +262,10 @@ class AssessmentEntryController extends Controller
         $user = Auth::user();
 
         // Check if user can view this entry
-        if (!$this->canAccessAssessmentEntry($user, $assessmentEntry)) {
+        if (! $this->canAccessAssessmentEntry($user, $assessmentEntry)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə qeydinə giriş icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə qeydinə giriş icazəniz yoxdur',
             ], 403);
         }
 
@@ -274,13 +274,13 @@ class AssessmentEntryController extends Controller
             'student',
             'institution',
             'creator',
-            'approver'
+            'approver',
         ]);
 
         return response()->json([
             'success' => true,
             'data' => $assessmentEntry,
-            'message' => 'Qiymətləndirmə qeydi məlumatları'
+            'message' => 'Qiymətləndirmə qeydi məlumatları',
         ]);
     }
 
@@ -292,10 +292,10 @@ class AssessmentEntryController extends Controller
         $user = Auth::user();
 
         // Check if user can edit this entry
-        if (!$assessmentEntry->canBeEditedBy($user)) {
+        if (! $assessmentEntry->canBeEditedBy($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə qeydini redaktə etmək icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə qeydini redaktə etmək icazəniz yoxdur',
             ], 403);
         }
 
@@ -304,14 +304,14 @@ class AssessmentEntryController extends Controller
             'score' => 'required|numeric|min:0',
             'notes' => 'nullable|string|max:500',
             'grade_level' => 'nullable|string|max:10',
-            'subject' => 'nullable|string|max:100'
+            'subject' => 'nullable|string|max:100',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -319,7 +319,7 @@ class AssessmentEntryController extends Controller
         if ($request->score > $assessmentEntry->assessmentType->max_score) {
             return response()->json([
                 'success' => false,
-                'message' => "Bal maksimum {$assessmentEntry->assessmentType->max_score} ola bilər"
+                'message' => "Bal maksimum {$assessmentEntry->assessmentType->max_score} ola bilər",
             ], 422);
         }
 
@@ -335,7 +335,7 @@ class AssessmentEntryController extends Controller
         return response()->json([
             'success' => true,
             'data' => $assessmentEntry,
-            'message' => 'Qiymətləndirmə qeydi uğurla yeniləndi'
+            'message' => 'Qiymətləndirmə qeydi uğurla yeniləndi',
         ]);
     }
 
@@ -346,17 +346,17 @@ class AssessmentEntryController extends Controller
     {
         $user = Auth::user();
 
-        if (!$assessmentEntry->canBeEditedBy($user)) {
+        if (! $assessmentEntry->canBeEditedBy($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə qeydini təqdim etmək icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə qeydini təqdim etmək icazəniz yoxdur',
             ], 403);
         }
 
         if ($assessmentEntry->status !== 'draft') {
             return response()->json([
                 'success' => false,
-                'message' => 'Yalnız layihə statusunda olan qeydlər təqdim edilə bilər'
+                'message' => 'Yalnız layihə statusunda olan qeydlər təqdim edilə bilər',
             ], 422);
         }
 
@@ -365,7 +365,7 @@ class AssessmentEntryController extends Controller
         return response()->json([
             'success' => true,
             'data' => $assessmentEntry,
-            'message' => 'Qiymətləndirmə qeydi təsdiqə təqdim edildi'
+            'message' => 'Qiymətləndirmə qeydi təsdiqə təqdim edildi',
         ]);
     }
 
@@ -376,36 +376,36 @@ class AssessmentEntryController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Qiymətləndirmə təsdiqləmək icazəniz yoxdur'
+                'message' => 'Qiymətləndirmə təsdiqləmək icazəniz yoxdur',
             ], 403);
         }
 
         $validator = Validator::make($request->all(), [
-            'notes' => 'nullable|string|max:500'
+            'notes' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        if (!$assessmentEntry->approve($user, $request->notes)) {
+        if (! $assessmentEntry->approve($user, $request->notes)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Qiymətləndirmə təsdiqlənə bilmədi'
+                'message' => 'Qiymətləndirmə təsdiqlənə bilmədi',
             ], 422);
         }
 
         return response()->json([
             'success' => true,
             'data' => $assessmentEntry,
-            'message' => 'Qiymətləndirmə qeydi uğurla təsdiqləndi'
+            'message' => 'Qiymətləndirmə qeydi uğurla təsdiqləndi',
         ]);
     }
 
@@ -416,36 +416,36 @@ class AssessmentEntryController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Qiymətləndirmə rədd etmək icazəniz yoxdur'
+                'message' => 'Qiymətləndirmə rədd etmək icazəniz yoxdur',
             ], 403);
         }
 
         $validator = Validator::make($request->all(), [
-            'notes' => 'required|string|max:500'
+            'notes' => 'required|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Rədd etmə səbəbi qeyd edilməlidir',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
-        if (!$assessmentEntry->reject($user, $request->notes)) {
+        if (! $assessmentEntry->reject($user, $request->notes)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Qiymətləndirmə rədd edilə bilmədi'
+                'message' => 'Qiymətləndirmə rədd edilə bilmədi',
             ], 422);
         }
 
         return response()->json([
             'success' => true,
             'data' => $assessmentEntry,
-            'message' => 'Qiymətləndirmə qeydi rədd edildi'
+            'message' => 'Qiymətləndirmə qeydi rədd edildi',
         ]);
     }
 
@@ -456,17 +456,17 @@ class AssessmentEntryController extends Controller
     {
         $user = Auth::user();
 
-        if (!$assessmentEntry->canBeEditedBy($user)) {
+        if (! $assessmentEntry->canBeEditedBy($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə qeydini silmək icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə qeydini silmək icazəniz yoxdur',
             ], 403);
         }
 
         if ($assessmentEntry->status === 'approved') {
             return response()->json([
                 'success' => false,
-                'message' => 'Təsdiqlənmiş qiymətləndirmə qeydləri silinə bilməz'
+                'message' => 'Təsdiqlənmiş qiymətləndirmə qeydləri silinə bilməz',
             ], 422);
         }
 
@@ -474,7 +474,7 @@ class AssessmentEntryController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Qiymətləndirmə qeydi uğurla silindi'
+            'message' => 'Qiymətləndirmə qeydi uğurla silindi',
         ]);
     }
 
@@ -501,7 +501,7 @@ class AssessmentEntryController extends Controller
                 ->exists();
         }
 
-        return $assessmentType->institution_id === null || 
+        return $assessmentType->institution_id === null ||
                $assessmentType->institution_id === $user->institution_id ||
                $assessmentType->assignedInstitutions()
                    ->where('institutions.id', $user->institution_id)

@@ -64,7 +64,7 @@ class LoginRequest extends FormRequest
 
         throw ValidationException::withMessages([
             'login' => $message,
-            'type' => $type . '_blocked'
+            'type' => $type . '_blocked',
         ])->status(429);
     }
 }

@@ -16,16 +16,15 @@ class SchoolAssessmentReportController extends Controller
 {
     public function __construct(
         private readonly SchoolAssessmentReportService $reportService
-    ) {
-    }
+    ) {}
 
     public function __invoke(Request $request): JsonResponse
     {
         $user = Auth::user();
-        if (!$user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu hesabat üçün icazəniz yoxdur'
+                'message' => 'Bu hesabat üçün icazəniz yoxdur',
             ], 403);
         }
 
@@ -43,7 +42,7 @@ class SchoolAssessmentReportController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -57,7 +56,7 @@ class SchoolAssessmentReportController extends Controller
         if ($stage->assessment_type_id !== $assessmentType->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Seçilmiş mərhələ bu qiymətləndirmə növünə aid deyil'
+                'message' => 'Seçilmiş mərhələ bu qiymətləndirmə növünə aid deyil',
             ], 422);
         }
 
@@ -90,10 +89,10 @@ class SchoolAssessmentReportController extends Controller
     public function export(Request $request)
     {
         $user = Auth::user();
-        if (!$user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu hesabat üçün icazəniz yoxdur'
+                'message' => 'Bu hesabat üçün icazəniz yoxdur',
             ], 403);
         }
 
@@ -109,7 +108,7 @@ class SchoolAssessmentReportController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -123,7 +122,7 @@ class SchoolAssessmentReportController extends Controller
         if ($stage->assessment_type_id !== $assessmentType->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Seçilmiş mərhələ bu qiymətləndirmə növünə aid deyil'
+                'message' => 'Seçilmiş mərhələ bu qiymətləndirmə növünə aid deyil',
             ], 422);
         }
 

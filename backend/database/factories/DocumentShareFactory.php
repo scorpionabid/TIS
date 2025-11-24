@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\DocumentShare;
 use App\Models\Document;
+use App\Models\DocumentShare;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -99,10 +99,10 @@ class DocumentShareFactory extends Factory
     /**
      * Indicate that this share has been accessed.
      */
-    public function accessed(int $count = null): Factory
+    public function accessed(?int $count = null): Factory
     {
         $accessCount = $count ?? $this->faker->numberBetween(1, 50);
-        
+
         return $this->state(function (array $attributes) use ($accessCount) {
             return [
                 'access_count' => $accessCount,

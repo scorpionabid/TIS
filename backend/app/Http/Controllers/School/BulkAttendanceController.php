@@ -3,15 +3,15 @@
 namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\BaseController;
+use App\Models\AcademicYear;
 use App\Models\ClassBulkAttendance;
 use App\Models\Grade;
-use App\Models\AcademicYear;
-use Illuminate\Http\Request;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
 
 class BulkAttendanceController extends BaseController
 {
@@ -24,7 +24,7 @@ class BulkAttendanceController extends BaseController
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school) {
+            if (! $school) {
                 return response()->json(['error' => 'Məktəb məlumatları tapılmadı'], 400);
             }
 
@@ -45,7 +45,7 @@ class BulkAttendanceController extends BaseController
                 ->keyBy('grade_id');
 
             // Transform classes data
-            $classesData = $classes->map(function ($class) use ($existingRecords, $academicYear) {
+            $classesData = $classes->map(function ($class) use ($existingRecords) {
                 $studentCount = $class->student_count ?? 30; // Use student_count field or default to 30
                 $existingRecord = $existingRecords->get($class->id);
 
@@ -80,7 +80,7 @@ class BulkAttendanceController extends BaseController
                         'is_complete' => $existingRecord->is_complete,
                         'morning_recorded_at' => $existingRecord->morning_recorded_at,
                         'evening_recorded_at' => $existingRecord->evening_recorded_at,
-                    ] : null
+                    ] : null,
                 ];
             });
 
@@ -96,13 +96,13 @@ class BulkAttendanceController extends BaseController
                     'school' => [
                         'id' => $school->id,
                         'name' => $school->name,
-                    ]
+                    ],
                 ],
-                'message' => count($classesData) . ' sinif tapıldı'
+                'message' => count($classesData) . ' sinif tapıldı',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Bulk attendance index error: ' . $e->getMessage());
+
             return response()->json(['error' => 'Səhv baş verdi: ' . $e->getMessage()], 500);
         }
     }
@@ -116,7 +116,7 @@ class BulkAttendanceController extends BaseController
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school) {
+            if (! $school) {
                 return response()->json(['error' => 'Məktəb məlumatları tapılmadı'], 400);
             }
 
@@ -150,7 +150,7 @@ class BulkAttendanceController extends BaseController
                     ->where('institution_id', $school->id)
                     ->first();
 
-                if (!$grade) {
+                if (! $grade) {
                     continue; // Skip classes not belonging to this school
                 }
 
@@ -186,9 +186,9 @@ class BulkAttendanceController extends BaseController
                 $record->is_complete = $record->morning_recorded_at && $record->evening_recorded_at;
 
                 // Validate counts
-                if (!$record->isValidAttendanceCount()) {
+                if (! $record->isValidAttendanceCount()) {
                     return response()->json([
-                        'error' => "Sinif {$grade->name} üçün davamiyyət sayı yanlışdır (ümumi şagird sayından çoxdur)"
+                        'error' => "Sinif {$grade->name} üçün davamiyyət sayı yanlışdır (ümumi şagird sayından çoxdur)",
                     ], 400);
                 }
 
@@ -211,11 +211,11 @@ class BulkAttendanceController extends BaseController
                         'daily_attendance_rate' => $record->daily_attendance_rate,
                         'is_complete' => $record->is_complete,
                     ];
-                })
+                }),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Bulk attendance store error: ' . $e->getMessage());
+
             return response()->json(['error' => 'Səhv baş verdi: ' . $e->getMessage()], 500);
         }
     }
@@ -229,7 +229,7 @@ class BulkAttendanceController extends BaseController
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school) {
+            if (! $school) {
                 return response()->json(['error' => 'Məktəb məlumatları tapılmadı'], 400);
             }
 
@@ -273,13 +273,13 @@ class BulkAttendanceController extends BaseController
                             'daily_attendance_rate' => $record->daily_attendance_rate,
                             'is_complete' => $record->is_complete,
                         ];
-                    })
+                    }),
                 ],
-                'date' => $date
+                'date' => $date,
             ]);
-
         } catch (\Exception $e) {
             Log::error('Daily report error: ' . $e->getMessage());
+
             return response()->json(['error' => 'Səhv baş verdi: ' . $e->getMessage()], 500);
         }
     }
@@ -293,7 +293,7 @@ class BulkAttendanceController extends BaseController
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school) {
+            if (! $school) {
                 return response()->json(['error' => 'Məktəb məlumatları tapılmadı'], 400);
             }
 
@@ -323,7 +323,7 @@ class BulkAttendanceController extends BaseController
                             'daily_attendance_rate' => $record->daily_attendance_rate,
                             'is_complete' => $record->is_complete,
                         ];
-                    })
+                    }),
                 ];
             }
 
@@ -338,12 +338,12 @@ class BulkAttendanceController extends BaseController
                     'school' => [
                         'id' => $school->id,
                         'name' => $school->name,
-                    ]
-                ]
+                    ],
+                ],
             ]);
-
         } catch (\Exception $e) {
             Log::error('Weekly summary error: ' . $e->getMessage());
+
             return response()->json(['error' => 'Səhv baş verdi: ' . $e->getMessage()], 500);
         }
     }
@@ -357,7 +357,7 @@ class BulkAttendanceController extends BaseController
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school) {
+            if (! $school) {
                 return response()->json(['error' => 'Məktəb məlumatları tapılmadı'], 400);
             }
 
@@ -393,11 +393,11 @@ class BulkAttendanceController extends BaseController
             return response()->json([
                 'success' => true,
                 'data' => $exportData,
-                'filename' => 'toplu_davamiyyət_' . $startDate . '_' . $endDate . '.csv'
+                'filename' => 'toplu_davamiyyət_' . $startDate . '_' . $endDate . '.csv',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Export error: ' . $e->getMessage());
+
             return response()->json(['error' => 'Səhv baş verdi: ' . $e->getMessage()], 500);
         }
     }

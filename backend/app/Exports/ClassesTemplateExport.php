@@ -3,20 +3,19 @@
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromCollection;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
+use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithMapping;
+use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Events\AfterSheet;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
-use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
-use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles, WithMapping, WithColumnWidths, WithEvents
+class ClassesTemplateExport implements FromCollection, WithColumnWidths, WithEvents, WithHeadings, WithMapping, WithStyles
 {
     protected $institutions;
 
@@ -35,7 +34,7 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
         // Add 5 diverse example rows for first 3 institutions
         foreach ($this->institutions->take(3) as $index => $institution) {
             // Example 1: Standard Azerbaijani class
-            $examples->push((object)[
+            $examples->push((object) [
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
                 'institution_name' => $institution->name,
@@ -55,7 +54,7 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             ]);
 
             // Example 2: Russian language class
-            $examples->push((object)[
+            $examples->push((object) [
                 'utis_code' => $institution->utis_code ?? '',
                 'institution_code' => $institution->institution_code ?? '',
                 'institution_name' => $institution->name,
@@ -77,7 +76,7 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
             // Only add specialized examples for first institution
             if ($index === 0) {
                 // Example 3: Specialized math class with 5-day week
-                $examples->push((object)[
+                $examples->push((object) [
                     'utis_code' => $institution->utis_code ?? '',
                     'institution_code' => $institution->institution_code ?? '',
                     'institution_name' => $institution->name,
@@ -97,7 +96,7 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 ]);
 
                 // Example 4: Special education class
-                $examples->push((object)[
+                $examples->push((object) [
                     'utis_code' => $institution->utis_code ?? '',
                     'institution_code' => $institution->institution_code ?? '',
                     'institution_name' => $institution->name,
@@ -310,7 +309,6 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                 ],
             ]);
             $sheet->getRowDimension(1)->setRowHeight(30);
-
         } catch (\Exception $e) {
             \Log::error('Excel styling error: ' . $e->getMessage());
         }
@@ -324,7 +322,7 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
     public function registerEvents(): array
     {
         return [
-            AfterSheet::class => function(AfterSheet $event) {
+            AfterSheet::class => function (AfterSheet $event) {
                 $sheet = $event->sheet->getDelegate();
 
                 try {
@@ -427,7 +425,6 @@ class ClassesTemplateExport implements FromCollection, WithHeadings, WithStyles,
                     $sheet->getComment('N2')->getText()->createTextRun('⚪ İXTİYARİ: Sinif profili (məsələn: Ümumi, Riyaziyyat, İnklüziv)');
                     $sheet->getComment('O2')->getText()->createTextRun('⚪ İXTİYARİ: Təhsil proqramı. Dropdown-dan seçin: umumi, xususi, ferdi_mekteb, ferdi_ev');
                     $sheet->getComment('P2')->getText()->createTextRun('⚪ İXTİYARİ: Tədris ili (məsələn: 2024-2025). Boş qalarsa cari il istifadə olunacaq');
-
                 } catch (\Exception $e) {
                     \Log::error('Excel validation error: ' . $e->getMessage());
                 }

@@ -86,10 +86,12 @@ class RegionOperatorDashboardService
         $entries = $this->collectTaskEntries($user, $department->id)
             ->filter(function (array $entry) {
                 $task = $entry['task'];
+
                 return in_array($task->status, ['pending', 'in_progress', 'review'], true);
             })
             ->sortBy(function (array $entry) {
                 $task = $entry['task'];
+
                 return $task->deadline ? $task->deadline->timestamp : PHP_INT_MAX;
             })
             ->take($limit)
@@ -112,7 +114,7 @@ class RegionOperatorDashboardService
                     'assigned_via' => $assignment?->department_id === $department->id ? 'department' : 'direct',
                     'assignment_status' => $assignment?->assignment_status,
                     'deadline_days_left' => $task->deadline ? now()->diffInDays($task->deadline, false) : null,
-                    'is_overdue' => $task->deadline ? $task->deadline->isPast() && !in_array($task->status, ['completed', 'cancelled'], true) : false,
+                    'is_overdue' => $task->deadline ? $task->deadline->isPast() && ! in_array($task->status, ['completed', 'cancelled'], true) : false,
                 ];
             })
             ->values()
@@ -140,11 +142,11 @@ class RegionOperatorDashboardService
         $assignments = TaskAssignment::with('task')
             ->where(function ($q) use ($user, $department) {
                 $q->where('assigned_user_id', $user->id)
-                  ->orWhere('department_id', $department->id);
+                    ->orWhere('department_id', $department->id);
             })
             ->where(function ($q) use ($start, $end) {
                 $q->whereBetween('updated_at', [$start, $end])
-                  ->orWhereBetween('completed_at', [$start, $end]);
+                    ->orWhereBetween('completed_at', [$start, $end]);
             })
             ->get(['id', 'assigned_user_id', 'department_id', 'assignment_status', 'updated_at', 'completed_at']);
 
@@ -164,6 +166,7 @@ class RegionOperatorDashboardService
                 'date' => $date->format('Y-m-d'),
                 'tasks_completed' => $assignments->filter(function ($assignment) use ($date) {
                     $completedAt = $assignment->completed_at;
+
                     return $completedAt && Carbon::parse($completedAt)->isSameDay($date);
                 })->count(),
                 'tasks_updated' => $assignments->filter(function ($assignment) use ($date) {
@@ -174,6 +177,7 @@ class RegionOperatorDashboardService
                 })->count(),
                 'survey_responses_submitted' => $responses->filter(function ($response) use ($date) {
                     $submittedAt = $response->submitted_at ?? $response->created_at;
+
                     return $submittedAt && Carbon::parse($submittedAt)->isSameDay($date);
                 })->count(),
             ];
@@ -233,14 +237,14 @@ class RegionOperatorDashboardService
      */
     private function resolveContext(User $user): array
     {
-        if (!$user->hasRole('regionoperator')) {
+        if (! $user->hasRole('regionoperator')) {
             throw new DomainException('RegionOperator səlahiyyəti tələb olunur.');
         }
 
         $institution = $user->institution;
         $department = $user->department;
 
-        if (!$institution instanceof Institution || !$department) {
+        if (! $institution instanceof Institution || ! $department) {
             throw new DomainException('RegionOperator üçün müəssisə və departament təyinatı lazımdır.');
         }
 
@@ -257,30 +261,30 @@ class RegionOperatorDashboardService
         $entries = collect();
 
         $assignments = TaskAssignment::with(['task' => function ($query) {
-                $query->select([
-                    'id',
-                    'title',
-                    'status',
-                    'priority',
-                    'deadline',
-                    'origin_scope',
-                    'progress',
-                    'assigned_to',
-                    'created_by',
-                    'assigned_institution_id',
-                    'completed_at',
-                ]);
-            }])
+            $query->select([
+                'id',
+                'title',
+                'status',
+                'priority',
+                'deadline',
+                'origin_scope',
+                'progress',
+                'assigned_to',
+                'created_by',
+                'assigned_institution_id',
+                'completed_at',
+            ]);
+        }])
             ->where(function ($q) use ($user, $departmentId) {
                 $q->where('assigned_user_id', $user->id)
-                  ->orWhere('department_id', $departmentId);
+                    ->orWhere('department_id', $departmentId);
             })
             ->whereHas('task')
             ->get();
 
         foreach ($assignments as $assignment) {
             $task = $assignment->task;
-            if (!$task) {
+            if (! $task) {
                 continue;
             }
             $entries[$task->id] = [
@@ -307,7 +311,7 @@ class RegionOperatorDashboardService
             ->get();
 
         foreach ($directTasks as $task) {
-            if (!isset($entries[$task->id])) {
+            if (! isset($entries[$task->id])) {
                 $entries[$task->id] = [
                     'task' => $task,
                     'assignment' => null,
@@ -330,20 +334,23 @@ class RegionOperatorDashboardService
 
         $overdue = $entries->filter(function ($entry) {
             $task = $entry['task'];
+
             return $task->deadline
                 && $task->deadline->isPast()
-                && !in_array($task->status, ['completed', 'cancelled'], true);
+                && ! in_array($task->status, ['completed', 'cancelled'], true);
         })->count();
 
         $upcoming = $entries->filter(function ($entry) {
-                $task = $entry['task'];
-                return $task->deadline && $task->deadline->isFuture();
-            })
+            $task = $entry['task'];
+
+            return $task->deadline && $task->deadline->isFuture();
+        })
             ->sortBy(fn ($entry) => $entry['task']->deadline->timestamp)
             ->take(5)
             ->map(function ($entry) {
                 /** @var Task $task */
                 $task = $entry['task'];
+
                 return [
                     'id' => $task->id,
                     'title' => $task->title,
@@ -444,9 +451,9 @@ class RegionOperatorDashboardService
         $linksQuery = LinkShare::active()
             ->where(function ($q) use ($user, $departmentId, $departmentUserIds) {
                 $q->whereIn('shared_by', $departmentUserIds)
-                  ->orWhere('institution_id', $user->institution_id)
-                  ->orWhereJsonContains('target_departments', $departmentId)
-                  ->orWhereJsonContains('target_roles', 'regionoperator');
+                    ->orWhere('institution_id', $user->institution_id)
+                    ->orWhereJsonContains('target_departments', $departmentId)
+                    ->orWhereJsonContains('target_roles', 'regionoperator');
             });
 
         $total = (clone $linksQuery)->count();
@@ -479,13 +486,14 @@ class RegionOperatorDashboardService
         $taskEvents = TaskAssignment::with('task:id,title,status,deadline')
             ->where(function ($q) use ($user, $departmentId) {
                 $q->where('assigned_user_id', $user->id)
-                  ->orWhere('department_id', $departmentId);
+                    ->orWhere('department_id', $departmentId);
             })
             ->latest('updated_at')
             ->take(10)
             ->get(['id', 'task_id', 'assignment_status', 'updated_at', 'completed_at'])
             ->map(function (TaskAssignment $assignment) {
                 $task = $assignment->task;
+
                 return [
                     'type' => 'task',
                     'title' => $task?->title,
@@ -523,6 +531,7 @@ class RegionOperatorDashboardService
             ->get(['id', 'survey_id', 'status', 'created_at', 'submitted_at'])
             ->map(function (SurveyResponse $response) {
                 $timestamp = $response->submitted_at ?? $response->created_at;
+
                 return [
                     'type' => 'survey',
                     'title' => $response->survey?->title,
@@ -545,6 +554,7 @@ class RegionOperatorDashboardService
                 $event['timestamp_iso'] = $event['timestamp']->toISOString();
                 $event['timestamp_human'] = $event['timestamp']->diffForHumans();
                 unset($event['timestamp']);
+
                 return $event;
             })
             ->values()
@@ -570,4 +580,3 @@ class RegionOperatorDashboardService
         return $types[$type] ?? ($type ?? 'Naməlum');
     }
 }
-

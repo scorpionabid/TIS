@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Models\InstitutionType;
 use App\Models\InstitutionImportHistory;
-use Illuminate\Support\Facades\Auth;
+use App\Models\InstitutionType;
+use App\Models\User;
 
 class InstitutionImportPermissionService
 {
@@ -20,7 +19,7 @@ class InstitutionImportPermissionService
             'allowed_institution_types' => 'all',
             'can_skip_duplicate_detection' => true,
             'can_auto_resolve_duplicates' => true,
-            'can_bulk_import' => true
+            'can_bulk_import' => true,
         ],
         'regionadmin' => [
             'max_file_size_mb' => 20,
@@ -30,7 +29,7 @@ class InstitutionImportPermissionService
             'can_skip_duplicate_detection' => false,
             'can_auto_resolve_duplicates' => true,
             'can_bulk_import' => true,
-            'regional_restrictions' => true // Can only import within their region
+            'regional_restrictions' => true, // Can only import within their region
         ],
         'sektoradmin' => [
             'max_file_size_mb' => 10,
@@ -40,7 +39,7 @@ class InstitutionImportPermissionService
             'can_skip_duplicate_detection' => false,
             'can_auto_resolve_duplicates' => false,
             'can_bulk_import' => true,
-            'sector_restrictions' => true // Can only import within their sector
+            'sector_restrictions' => true, // Can only import within their sector
         ],
         'schooladmin' => [
             'max_file_size_mb' => 5,
@@ -49,7 +48,7 @@ class InstitutionImportPermissionService
             'allowed_institution_types' => [], // No import permissions
             'can_skip_duplicate_detection' => false,
             'can_auto_resolve_duplicates' => false,
-            'can_bulk_import' => false
+            'can_bulk_import' => false,
         ],
         'teacher' => [
             'max_file_size_mb' => 0,
@@ -58,8 +57,8 @@ class InstitutionImportPermissionService
             'allowed_institution_types' => [],
             'can_skip_duplicate_detection' => false,
             'can_auto_resolve_duplicates' => false,
-            'can_bulk_import' => false
-        ]
+            'can_bulk_import' => false,
+        ],
     ];
 
     /**
@@ -69,30 +68,30 @@ class InstitutionImportPermissionService
     {
         $role = $user->roles()->first()?->name ?? 'teacher';
         $limits = self::IMPORT_LIMITS[$role] ?? self::IMPORT_LIMITS['teacher'];
-        
+
         if ($limits['max_rows_per_import'] === 0) {
             return [
                 'allowed' => false,
-                'reason' => 'Bu rola idxal icazəsi verilməyib'
+                'reason' => 'Bu rola idxal icazəsi verilməyib',
             ];
         }
-        
+
         // Check daily import limits
         $todayImports = InstitutionImportHistory::byUser($user->id)
             ->whereDate('created_at', today())
             ->count();
-            
+
         if ($todayImports >= $limits['max_daily_imports']) {
             return [
                 'allowed' => false,
-                'reason' => "Günlük idxal limitiniz bitmişdir ({$limits['max_daily_imports']} idxal)"
+                'reason' => "Günlük idxal limitiniz bitmişdir ({$limits['max_daily_imports']} idxal)",
             ];
         }
-        
+
         return [
             'allowed' => true,
             'limits' => $limits,
-            'daily_usage' => $todayImports
+            'daily_usage' => $todayImports,
         ];
     }
 
@@ -103,36 +102,36 @@ class InstitutionImportPermissionService
     {
         $role = $user->roles()->first()?->name ?? 'teacher';
         $limits = self::IMPORT_LIMITS[$role] ?? self::IMPORT_LIMITS['teacher'];
-        
+
         // Check if institution type is allowed
-        if ($limits['allowed_institution_types'] !== 'all' && 
-            !in_array($institutionType->key, $limits['allowed_institution_types'])) {
+        if ($limits['allowed_institution_types'] !== 'all' &&
+            ! in_array($institutionType->key, $limits['allowed_institution_types'])) {
             return [
                 'allowed' => false,
-                'reason' => "Bu müəssisə növü üçün idxal icazəniz yoxdur: {$institutionType->label_az}"
+                'reason' => "Bu müəssisə növü üçün idxal icazəniz yoxdur: {$institutionType->label_az}",
             ];
         }
-        
+
         // Check regional restrictions
         if (isset($limits['regional_restrictions']) && $limits['regional_restrictions']) {
-            if (!$this->isInUserRegion($user, $institutionType)) {
+            if (! $this->isInUserRegion($user, $institutionType)) {
                 return [
                     'allowed' => false,
-                    'reason' => 'Yalnız öz regionunuzda müəssisələr idxal edə bilərsiniz'
+                    'reason' => 'Yalnız öz regionunuzda müəssisələr idxal edə bilərsiniz',
                 ];
             }
         }
-        
+
         // Check sector restrictions
         if (isset($limits['sector_restrictions']) && $limits['sector_restrictions']) {
-            if (!$this->isInUserSector($user, $institutionType)) {
+            if (! $this->isInUserSector($user, $institutionType)) {
                 return [
                     'allowed' => false,
-                    'reason' => 'Yalnız öz sektorunuzda müəssisələr idxal edə bilərsiniz'
+                    'reason' => 'Yalnız öz sektorunuzda müəssisələr idxal edə bilərsiniz',
                 ];
             }
         }
-        
+
         return ['allowed' => true];
     }
 
@@ -143,16 +142,16 @@ class InstitutionImportPermissionService
     {
         $role = $user->roles()->first()?->name ?? 'teacher';
         $limits = self::IMPORT_LIMITS[$role] ?? self::IMPORT_LIMITS['teacher'];
-        
+
         $maxSizeBytes = $limits['max_file_size_mb'] * 1024 * 1024;
-        
+
         if ($fileSizeBytes > $maxSizeBytes) {
             return [
                 'valid' => false,
-                'reason' => "Fayl ölçüsü çox böyükdür. Maksimum: {$limits['max_file_size_mb']}MB"
+                'reason' => "Fayl ölçüsü çox böyükdür. Maksimum: {$limits['max_file_size_mb']}MB",
             ];
         }
-        
+
         return ['valid' => true];
     }
 
@@ -163,14 +162,14 @@ class InstitutionImportPermissionService
     {
         $role = $user->roles()->first()?->name ?? 'teacher';
         $limits = self::IMPORT_LIMITS[$role] ?? self::IMPORT_LIMITS['teacher'];
-        
+
         if ($rowCount > $limits['max_rows_per_import']) {
             return [
                 'valid' => false,
-                'reason' => "Çox sayda sətir var. Maksimum: {$limits['max_rows_per_import']} sətir"
+                'reason' => "Çox sayda sətir var. Maksimum: {$limits['max_rows_per_import']} sətir",
             ];
         }
-        
+
         return ['valid' => true];
     }
 
@@ -181,31 +180,31 @@ class InstitutionImportPermissionService
     {
         $role = $user->roles()->first()?->name ?? 'teacher';
         $limits = self::IMPORT_LIMITS[$role] ?? self::IMPORT_LIMITS['teacher'];
-        
+
         // Get daily usage
         $todayImports = InstitutionImportHistory::byUser($user->id)
             ->whereDate('created_at', today())
             ->count();
-            
+
         $thisMonthImports = InstitutionImportHistory::byUser($user->id)
             ->whereMonth('created_at', now()->month)
             ->whereYear('created_at', now()->year)
             ->count();
-            
+
         return [
             'role' => $role,
             'limits' => $limits,
             'usage' => [
                 'today' => $todayImports,
                 'this_month' => $thisMonthImports,
-                'remaining_today' => max(0, $limits['max_daily_imports'] - $todayImports)
+                'remaining_today' => max(0, $limits['max_daily_imports'] - $todayImports),
             ],
             'permissions' => [
                 'can_import' => $limits['max_rows_per_import'] > 0,
                 'can_skip_duplicate_detection' => $limits['can_skip_duplicate_detection'] ?? false,
                 'can_auto_resolve_duplicates' => $limits['can_auto_resolve_duplicates'] ?? false,
-                'can_bulk_import' => $limits['can_bulk_import'] ?? false
-            ]
+                'can_bulk_import' => $limits['can_bulk_import'] ?? false,
+            ],
         ];
     }
 
@@ -216,13 +215,15 @@ class InstitutionImportPermissionService
     {
         // For RegionAdmin, check if they can manage institutions of this type in their region
         $userInstitution = $user->institution;
-        if (!$userInstitution) return false;
-        
+        if (! $userInstitution) {
+            return false;
+        }
+
         // RegionAdmin should be at level 2, and can manage levels 3 and 4
         if ($userInstitution->level === 2) {
             return in_array($institutionType->default_level, [3, 4]);
         }
-        
+
         return false;
     }
 
@@ -233,13 +234,15 @@ class InstitutionImportPermissionService
     {
         // For SektorAdmin, check if they can manage institutions of this type in their sector
         $userInstitution = $user->institution;
-        if (!$userInstitution) return false;
-        
+        if (! $userInstitution) {
+            return false;
+        }
+
         // SektorAdmin should be at level 3, and can manage level 4
         if ($userInstitution->level === 3) {
             return $institutionType->default_level === 4;
         }
-        
+
         return false;
     }
 
@@ -250,17 +253,17 @@ class InstitutionImportPermissionService
     {
         $role = $user->roles()->first()?->name ?? 'teacher';
         $limits = self::IMPORT_LIMITS[$role] ?? self::IMPORT_LIMITS['teacher'];
-        
+
         return [
             'skip_duplicate_detection' => false, // Always detect duplicates unless superadmin explicitly skips
             'duplicate_handling' => [
                 'high_severity' => $limits['can_auto_resolve_duplicates'] ? 'auto_resolve' : 'skip',
                 'medium_severity' => 'warn',
                 'name_conflict' => $limits['can_auto_resolve_duplicates'] ? 'auto_rename' : 'skip',
-                'code_conflict' => $limits['can_auto_resolve_duplicates'] ? 'auto_generate' : 'skip'
+                'code_conflict' => $limits['can_auto_resolve_duplicates'] ? 'auto_generate' : 'skip',
             ],
             'validation_level' => $role === 'superadmin' ? 'lenient' : 'strict',
-            'max_errors_before_abort' => $role === 'superadmin' ? 1000 : 100
+            'max_errors_before_abort' => $role === 'superadmin' ? 1000 : 100,
         ];
     }
 }

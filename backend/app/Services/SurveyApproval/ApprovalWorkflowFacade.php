@@ -2,21 +2,21 @@
 
 namespace App\Services\SurveyApproval;
 
+use App\Models\DataApprovalRequest;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Models\DataApprovalRequest;
 use App\Models\User;
-use App\Services\SurveyApproval\Domains\Security\ApprovalSecurityService;
 use App\Services\SurveyApproval\Domains\Action\ApprovalActionService;
-use App\Services\SurveyApproval\Domains\Query\ApprovalQueryService;
 use App\Services\SurveyApproval\Domains\Bulk\BulkApprovalService;
 use App\Services\SurveyApproval\Domains\Notification\ApprovalNotificationService;
+use App\Services\SurveyApproval\Domains\Query\ApprovalQueryService;
+use App\Services\SurveyApproval\Domains\Security\ApprovalSecurityService;
 use App\Services\SurveyApproval\Utilities\SurveyApprovalWorkflowResolver;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Approval Workflow Facade
@@ -47,16 +47,19 @@ use Carbon\Carbon;
  * - Cleaner code organization
  *
  * REFACTOR DATE: 2025-11-14
- *
- * @package App\Services\SurveyApproval
  */
 class ApprovalWorkflowFacade
 {
     protected ApprovalSecurityService $securityService;
+
     protected ApprovalActionService $actionService;
+
     protected ApprovalQueryService $queryService;
+
     protected BulkApprovalService $bulkService;
+
     protected ApprovalNotificationService $notificationService;
+
     protected SurveyApprovalWorkflowResolver $workflowResolver;
 
     public function __construct(
@@ -83,11 +86,6 @@ class ApprovalWorkflowFacade
      * Get survey responses that need approval
      *
      * DELEGATION: QueryService::getResponsesForApproval()
-     *
-     * @param Survey $survey
-     * @param Request $request
-     * @param User $user
-     * @return array
      */
     public function getResponsesForApproval(Survey $survey, Request $request, User $user): array
     {
@@ -98,10 +96,6 @@ class ApprovalWorkflowFacade
      * Get approval statistics
      *
      * DELEGATION: QueryService::getApprovalStats()
-     *
-     * @param Survey $survey
-     * @param User $user
-     * @return array
      */
     public function getApprovalStats(Survey $survey, User $user): array
     {
@@ -112,10 +106,6 @@ class ApprovalWorkflowFacade
      * Get pending approvals for user
      *
      * DELEGATION: QueryService::getPendingApprovals()
-     *
-     * @param User $user
-     * @param int $limit
-     * @return array
      */
     public function getPendingApprovals(User $user, int $limit = 50): array
     {
@@ -126,9 +116,6 @@ class ApprovalWorkflowFacade
      * Get approval history
      *
      * DELEGATION: QueryService::getApprovalHistory()
-     *
-     * @param SurveyResponse $response
-     * @return array
      */
     public function getApprovalHistory(SurveyResponse $response): array
     {
@@ -139,10 +126,6 @@ class ApprovalWorkflowFacade
      * Check if user can approve response
      *
      * DELEGATION: QueryService::canUserApprove()
-     *
-     * @param SurveyResponse $response
-     * @param User $user
-     * @return bool
      */
     public function canUserApprove(SurveyResponse $response, User $user): bool
     {
@@ -153,11 +136,6 @@ class ApprovalWorkflowFacade
      * Get responses for table view
      *
      * DELEGATION: QueryService::getResponsesForTableView()
-     *
-     * @param Survey $survey
-     * @param Request $request
-     * @param User $user
-     * @return array
      */
     public function getResponsesForTableView(Survey $survey, Request $request, User $user): array
     {
@@ -171,9 +149,6 @@ class ApprovalWorkflowFacade
     /**
      * Create approval request for survey response
      *
-     * @param SurveyResponse $response
-     * @param array $data
-     * @return DataApprovalRequest
      * @throws \Exception
      */
     public function createApprovalRequest(SurveyResponse $response, array $data = []): DataApprovalRequest
@@ -226,10 +201,6 @@ class ApprovalWorkflowFacade
      *
      * DELEGATION: ActionService::approveResponse()
      *
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @param array $data
-     * @return array
      * @throws \Exception
      */
     public function approveResponse(SurveyResponse $response, User $approver, array $data = []): array
@@ -242,10 +213,6 @@ class ApprovalWorkflowFacade
      *
      * DELEGATION: ActionService::rejectResponse()
      *
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @param array $data
-     * @return array
      * @throws \Exception
      */
     public function rejectResponse(SurveyResponse $response, User $approver, array $data = []): array
@@ -258,10 +225,6 @@ class ApprovalWorkflowFacade
      *
      * DELEGATION: ActionService::returnForRevision()
      *
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @param array $data
-     * @return array
      * @throws \Exception
      */
     public function returnForRevision(SurveyResponse $response, User $approver, array $data = []): array
@@ -278,11 +241,6 @@ class ApprovalWorkflowFacade
      *
      * DELEGATION: BulkService::bulkApprovalOperation()
      *
-     * @param array $responseIds
-     * @param string $action
-     * @param User $approver
-     * @param array $data
-     * @return array
      * @throws \Exception
      */
     public function bulkApprovalOperation(array $responseIds, string $action, User $approver, array $data = []): array
@@ -294,12 +252,6 @@ class ApprovalWorkflowFacade
      * Process bulk approval synchronously
      *
      * DELEGATION: BulkService::processBulkApprovalSync()
-     *
-     * @param array $responseIds
-     * @param string $action
-     * @param User $approver
-     * @param string|null $comments
-     * @return array
      */
     public function processBulkApprovalSync(array $responseIds, string $action, User $approver, ?string $comments = null): array
     {
@@ -311,11 +263,6 @@ class ApprovalWorkflowFacade
      *
      * DELEGATION: BulkService::processIndividualApproval()
      *
-     * @param int $responseId
-     * @param string $action
-     * @param User $approver
-     * @param string|null $comments
-     * @return bool
      * @throws \Exception
      */
     public function processIndividualApproval(int $responseId, string $action, User $approver, ?string $comments = null): bool
@@ -328,9 +275,6 @@ class ApprovalWorkflowFacade
      *
      * DELEGATION: BulkService::batchUpdateResponses()
      *
-     * @param array $updates
-     * @param User $user
-     * @return array
      * @throws \Exception
      */
     public function batchUpdateResponses(array $updates, User $user): array
@@ -346,12 +290,6 @@ class ApprovalWorkflowFacade
      * Notify submitter about rejection
      *
      * DELEGATION: NotificationService::notifySubmitterAboutRejection()
-     *
-     * @param DataApprovalRequest $approvalRequest
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @param string|null $reason
-     * @return void
      */
     public function notifySubmitterAboutRejection(
         DataApprovalRequest $approvalRequest,
@@ -373,9 +311,6 @@ class ApprovalWorkflowFacade
 
     /**
      * Generate response summary for metadata
-     *
-     * @param SurveyResponse $response
-     * @return array
      */
     protected function generateResponseSummary(SurveyResponse $response): array
     {
@@ -391,9 +326,6 @@ class ApprovalWorkflowFacade
 
     /**
      * Clear approval cache
-     *
-     * @param int $surveyId
-     * @return void
      */
     protected function clearApprovalCache(int $surveyId): void
     {
@@ -403,9 +335,6 @@ class ApprovalWorkflowFacade
 
     /**
      * Refresh cache for survey (static method for external calls)
-     *
-     * @param int $surveyId
-     * @return void
      */
     public static function refreshCacheForSurvey(int $surveyId): void
     {
@@ -421,10 +350,6 @@ class ApprovalWorkflowFacade
      * Update response data
      *
      * BACKWARD COMPATIBILITY: Maintains original method signature
-     *
-     * @param SurveyResponse $response
-     * @param array $responseData
-     * @return SurveyResponse
      */
     public function updateResponseData(SurveyResponse $response, array $responseData): SurveyResponse
     {
@@ -443,15 +368,11 @@ class ApprovalWorkflowFacade
      * Export survey responses
      *
      * DELEGATION: SurveyExportService (external)
-     *
-     * @param Survey $survey
-     * @param Request $request
-     * @param User $user
-     * @return array
      */
     public function exportSurveyResponses(Survey $survey, Request $request, User $user): array
     {
         $exportService = app(\App\Services\SurveyExportService::class);
+
         return $exportService->exportSurveyResponses($survey, $request, $user);
     }
 }

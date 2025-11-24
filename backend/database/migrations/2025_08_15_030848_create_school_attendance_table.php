@@ -25,7 +25,7 @@ return new class extends Migration
 
             // Unique constraint to prevent duplicate entries for same day/class/school
             $table->unique(['school_id', 'class_name', 'date'], 'unique_school_class_date');
-            
+
             // Indexes for better performance
             $table->index(['school_id', 'date']);
             $table->index(['school_id', 'class_name']);

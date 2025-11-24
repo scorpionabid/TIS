@@ -3,19 +3,20 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\BaseController;
-use App\Services\ApprovalWorkflowService;
-use App\Services\ApprovalAnalyticsService;
+use App\Models\Institution;
 use App\Models\SchoolEvent;
 use App\Models\Task;
-use App\Models\Institution;
-use Illuminate\Http\Request;
+use App\Services\ApprovalAnalyticsService;
+use App\Services\ApprovalWorkflowService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
 class ApprovalApiControllerRefactored extends BaseController
 {
     protected $approvalWorkflowService;
+
     protected $approvalAnalyticsService;
 
     public function __construct(
@@ -43,12 +44,12 @@ class ApprovalApiControllerRefactored extends BaseController
                 'search' => 'nullable|string|max:255',
                 'sort' => 'nullable|string|in:created_at,updated_at,priority,request_title',
                 'direction' => 'nullable|string|in:asc,desc',
-                'per_page' => 'nullable|integer|min:1|max:100'
+                'per_page' => 'nullable|integer|min:1|max:100',
             ]);
 
             $user = Auth::user();
             $result = $this->approvalWorkflowService->getApprovalRequests($request, $user);
-            
+
             return $this->successResponse($result, 'Təsdiq tələbləri uğurla alındı');
         }, 'approval.index');
     }
@@ -60,12 +61,12 @@ class ApprovalApiControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request, $id) {
             $request->validate([
-                'include_history' => 'boolean'
+                'include_history' => 'boolean',
             ]);
 
             $user = Auth::user();
             $approval = $this->approvalWorkflowService->getApprovalRequest($id, $user);
-            
+
             return $this->successResponse($approval, 'Təsdiq tələbi məlumatları alındı');
         }, 'approval.show');
     }
@@ -79,12 +80,12 @@ class ApprovalApiControllerRefactored extends BaseController
             $validated = $request->validate([
                 'comments' => 'nullable|string|max:1000',
                 'approval_level' => 'nullable|integer|min:1|max:5',
-                'additional_data' => 'nullable|array'
+                'additional_data' => 'nullable|array',
             ]);
 
             $user = Auth::user();
             $approval = $this->approvalWorkflowService->approveRequest($id, $validated, $user);
-            
+
             return $this->successResponse($approval, 'Təsdiq tələbi uğurla təsdiqləndi');
         }, 'approval.approve');
     }
@@ -98,12 +99,12 @@ class ApprovalApiControllerRefactored extends BaseController
             $validated = $request->validate([
                 'comments' => 'required|string|max:1000',
                 'rejection_reason' => 'nullable|string|in:incomplete_data,policy_violation,insufficient_justification,other',
-                'suggest_revision' => 'boolean'
+                'suggest_revision' => 'boolean',
             ]);
 
             $user = Auth::user();
             $approval = $this->approvalWorkflowService->rejectRequest($id, $validated, $user);
-            
+
             return $this->successResponse($approval, 'Təsdiq tələbi rədd edildi');
         }, 'approval.reject');
     }
@@ -118,12 +119,12 @@ class ApprovalApiControllerRefactored extends BaseController
                 'comments' => 'required|string|max:1000',
                 'revision_notes' => 'nullable|string|max:2000',
                 'required_changes' => 'nullable|array',
-                'priority_level' => 'nullable|string|in:low,normal,high'
+                'priority_level' => 'nullable|string|in:low,normal,high',
             ]);
 
             $user = Auth::user();
             $approval = $this->approvalWorkflowService->returnForRevision($id, $validated, $user);
-            
+
             return $this->successResponse($approval, 'Təsdiq tələbi düzəliş üçün göndərildi');
         }, 'approval.return_for_revision');
     }
@@ -137,15 +138,15 @@ class ApprovalApiControllerRefactored extends BaseController
             $request->validate([
                 'priority' => 'nullable|string|in:low,normal,high,urgent',
                 'workflow_type' => 'nullable|string',
-                'per_page' => 'nullable|integer|min:1|max:100'
+                'per_page' => 'nullable|integer|min:1|max:100',
             ]);
 
             $user = Auth::user();
             $pendingApprovals = $this->approvalWorkflowService->getPendingApprovals($request, $user);
-            
+
             return $this->successResponse([
                 'pending_approvals' => $pendingApprovals,
-                'count' => $pendingApprovals->total()
+                'count' => $pendingApprovals->total(),
             ], 'Gözləyən təsdiqlər alındı');
         }, 'approval.pending');
     }
@@ -160,12 +161,12 @@ class ApprovalApiControllerRefactored extends BaseController
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
                 'action_type' => 'nullable|string|in:approved,rejected,returned_for_revision',
-                'per_page' => 'nullable|integer|min:1|max:100'
+                'per_page' => 'nullable|integer|min:1|max:100',
             ]);
 
             $user = Auth::user();
             $myApprovals = $this->approvalWorkflowService->getMyApprovals($request, $user);
-            
+
             return $this->successResponse($myApprovals, 'Təsdiq tarixçəsi alındı');
         }, 'approval.my_approvals');
     }
@@ -180,12 +181,12 @@ class ApprovalApiControllerRefactored extends BaseController
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
                 'include_trends' => 'boolean',
-                'include_bottlenecks' => 'boolean'
+                'include_bottlenecks' => 'boolean',
             ]);
 
             $user = Auth::user();
             $analytics = $this->approvalAnalyticsService->getApprovalStats($request, $user);
-            
+
             return $this->successResponse($analytics, 'Təsdiq statistikaları alındı');
         }, 'approval.analytics');
     }
@@ -199,17 +200,17 @@ class ApprovalApiControllerRefactored extends BaseController
             $request->validate([
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
-                'group_by' => 'nullable|string|in:day,week,month,workflow_type,status'
+                'group_by' => 'nullable|string|in:day,week,month,workflow_type,status',
             ]);
 
             $user = Auth::user();
             $stats = $this->approvalAnalyticsService->getApprovalStats($request, $user);
-            
+
             // Return simplified stats for quick overview
             return $this->successResponse([
                 'overview' => $stats['overview'],
                 'status_breakdown' => $stats['status_breakdown'],
-                'processing_times' => $stats['processing_times']
+                'processing_times' => $stats['processing_times'],
             ], 'Təsdiq statistikaları alındı');
         }, 'approval.stats');
     }
@@ -221,7 +222,7 @@ class ApprovalApiControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $workflows = $this->approvalAnalyticsService->getWorkflows($request);
-            
+
             return $this->successResponse($workflows, 'İş axınları alındı');
         }, 'approval.workflows');
     }
@@ -240,12 +241,12 @@ class ApprovalApiControllerRefactored extends BaseController
                 'request_data' => 'nullable|array',
                 'priority' => 'nullable|string|in:low,normal,high,urgent',
                 'attachments' => 'nullable|array',
-                'deadline' => 'nullable|date|after:today'
+                'deadline' => 'nullable|date|after:today',
             ]);
 
             $user = Auth::user();
             $approval = $this->approvalWorkflowService->createApprovalRequest($validated, $user);
-            
+
             return $this->successResponse($approval, 'Təsdiq tələbi yaradıldı', 201);
         }, 'approval.create');
     }
@@ -260,7 +261,7 @@ class ApprovalApiControllerRefactored extends BaseController
                 'request_ids' => 'required|array|min:1|max:50',
                 'request_ids.*' => 'integer|exists:data_approval_requests,id',
                 'comments' => 'nullable|string|max:1000',
-                'approval_level' => 'nullable|integer|min:1|max:5'
+                'approval_level' => 'nullable|integer|min:1|max:5',
             ]);
 
             $user = Auth::user();
@@ -268,16 +269,16 @@ class ApprovalApiControllerRefactored extends BaseController
                 $validated['request_ids'],
                 [
                     'comments' => $validated['comments'] ?? null,
-                    'approval_level' => $validated['approval_level'] ?? 1
+                    'approval_level' => $validated['approval_level'] ?? 1,
                 ],
                 $user
             );
-            
+
             $message = "Kütləvi təsdiq tamamlandı: {$results['approved']} təsdiqləndi";
             if ($results['failed'] > 0) {
                 $message .= ", {$results['failed']} uğursuz";
             }
-            
+
             return $this->successResponse($results, $message);
         }, 'approval.bulk_approve');
     }
@@ -292,12 +293,12 @@ class ApprovalApiControllerRefactored extends BaseController
                 'survey_id' => 'nullable|exists:surveys,id',
                 'status' => 'nullable|string|in:submitted,approved,rejected',
                 'institution_id' => 'nullable|exists:institutions,id',
-                'per_page' => 'nullable|integer|min:1|max:100'
+                'per_page' => 'nullable|integer|min:1|max:100',
             ]);
 
             $user = Auth::user();
             $result = $this->approvalAnalyticsService->getSurveyResponsesForApproval($request, $user);
-            
+
             return $this->successResponse($result, 'Survey cavabları alındı');
         }, 'approval.survey_responses');
     }
@@ -312,12 +313,12 @@ class ApprovalApiControllerRefactored extends BaseController
                 'priority' => 'nullable|string|in:low,normal,high,urgent',
                 'survey_type' => 'nullable|string',
                 'institution_id' => 'nullable|exists:institutions,id',
-                'per_page' => 'nullable|integer|min:1|max:100'
+                'per_page' => 'nullable|integer|min:1|max:100',
             ]);
 
             $user = Auth::user();
             $result = $this->approvalAnalyticsService->getSurveysForApproval($request, $user);
-            
+
             return $this->successResponse($result, 'Təsdiq gözləyən sorğular alındı');
         }, 'approval.surveys_for_approval');
     }
@@ -339,7 +340,7 @@ class ApprovalApiControllerRefactored extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canApproveEvent($user, $event)) {
+            if (! $this->canApproveEvent($user, $event)) {
                 return $this->errorResponse('Bu tədbiri təsdiqləmək üçün icazəniz yoxdur', 403);
             }
 
@@ -350,9 +351,9 @@ class ApprovalApiControllerRefactored extends BaseController
 
             // Validate event details before approval
             $validationResult = $this->validateEventForApproval($event);
-            if (!$validationResult['valid']) {
+            if (! $validationResult['valid']) {
                 return $this->errorResponse('Tədbir təsdiq üçün uyğun deyil', 422, [
-                    'validation_errors' => $validationResult['errors']
+                    'validation_errors' => $validationResult['errors'],
                 ]);
             }
 
@@ -376,7 +377,7 @@ class ApprovalApiControllerRefactored extends BaseController
             $event->load([
                 'institution:id,name,type',
                 'organizer:id,name,email',
-                'approver:id,name,email'
+                'approver:id,name,email',
             ]);
 
             return $this->successResponse([
@@ -391,7 +392,7 @@ class ApprovalApiControllerRefactored extends BaseController
                         'name' => $event->approver->name,
                         'email' => $event->approver->email,
                     ] : null,
-                ]
+                ],
             ], 'Tədbir uğurla təsdiqləndi');
         }, 'approval.approve_event');
     }
@@ -408,7 +409,7 @@ class ApprovalApiControllerRefactored extends BaseController
 
             $user = Auth::user();
 
-            if (!$this->canApproveEvent($user, $event)) {
+            if (! $this->canApproveEvent($user, $event)) {
                 return $this->errorResponse('Bu tədbiri rədd etmək üçün icazəniz yoxdur', 403);
             }
 
@@ -436,7 +437,7 @@ class ApprovalApiControllerRefactored extends BaseController
                     'status' => $event->status,
                     'rejected_at' => $event->rejected_at,
                     'rejection_reason' => $event->rejection_reason,
-                ]
+                ],
             ], 'Tədbir uğurla rədd edildi');
         }, 'approval.reject_event');
     }
@@ -453,12 +454,12 @@ class ApprovalApiControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $request->validate([
                 'category' => 'nullable|string|in:events,tasks,surveys,documents,general',
-                'active_only' => 'boolean'
+                'active_only' => 'boolean',
             ]);
 
             $user = Auth::user();
             $templates = $this->approvalWorkflowService->getWorkflowTemplates($request, $user);
-            
+
             return $this->successResponse($templates, 'İş axını şablonları alındı');
         }, 'approval.workflow_templates');
     }
@@ -482,16 +483,16 @@ class ApprovalApiControllerRefactored extends BaseController
                 'auto_approval_rules' => 'nullable|array',
                 'escalation_rules' => 'nullable|array',
                 'notification_settings' => 'nullable|array',
-                'is_active' => 'boolean'
+                'is_active' => 'boolean',
             ]);
 
             $user = Auth::user();
-            if (!$user->can('approvals.template_manage')) {
+            if (! $user->can('approvals.template_manage')) {
                 return $this->errorResponse('İş axını şablonu yaratmaq üçün icazəniz yoxdur', 403);
             }
 
             $template = $this->approvalWorkflowService->createWorkflowTemplate($validated, $user);
-            
+
             return $this->successResponse($template, 'İş axını şablonu yaradıldı', 201);
         }, 'approval.create_template');
     }
@@ -514,16 +515,16 @@ class ApprovalApiControllerRefactored extends BaseController
                 'auto_approval_rules' => 'nullable|array',
                 'escalation_rules' => 'nullable|array',
                 'notification_settings' => 'nullable|array',
-                'is_active' => 'boolean'
+                'is_active' => 'boolean',
             ]);
 
             $user = Auth::user();
-            if (!$user->can('approvals.template_manage')) {
+            if (! $user->can('approvals.template_manage')) {
                 return $this->errorResponse('İş axını şablonu dəyişdirmək üçün icazəniz yoxdur', 403);
             }
 
             $template = $this->approvalWorkflowService->updateWorkflowTemplate($templateId, $validated, $user);
-            
+
             return $this->successResponse($template, 'İş axını şablonu yeniləndi');
         }, 'approval.update_template');
     }
@@ -538,12 +539,12 @@ class ApprovalApiControllerRefactored extends BaseController
                 'delegate_to' => 'required|exists:users,id',
                 'delegation_reason' => 'required|string|max:500',
                 'delegation_expires_at' => 'nullable|date|after:now',
-                'include_comment' => 'nullable|string|max:1000'
+                'include_comment' => 'nullable|string|max:1000',
             ]);
 
             $user = Auth::user();
             $result = $this->approvalWorkflowService->delegateApproval($approvalId, $validated, $user);
-            
+
             return $this->successResponse($result, 'Təsdiq səlahiyyəti həvalə edildi');
         }, 'approval.delegate');
     }
@@ -556,12 +557,12 @@ class ApprovalApiControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $request->validate([
                 'status' => 'nullable|string|in:pending,active,expired',
-                'per_page' => 'nullable|integer|min:1|max:100'
+                'per_page' => 'nullable|integer|min:1|max:100',
             ]);
 
             $user = Auth::user();
             $delegatedApprovals = $this->approvalWorkflowService->getDelegatedApprovals($request, $user);
-            
+
             return $this->successResponse($delegatedApprovals, 'Həvalə edilmiş təsdiqlər alındı');
         }, 'approval.delegated');
     }
@@ -573,12 +574,12 @@ class ApprovalApiControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request, $delegationId) {
             $validated = $request->validate([
-                'comments' => 'nullable|string|max:500'
+                'comments' => 'nullable|string|max:500',
             ]);
 
             $user = Auth::user();
             $result = $this->approvalWorkflowService->acceptDelegation($delegationId, $validated, $user);
-            
+
             return $this->successResponse($result, 'Həvalə qəbul edildi');
         }, 'approval.accept_delegation');
     }
@@ -590,12 +591,12 @@ class ApprovalApiControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request, $delegationId) {
             $validated = $request->validate([
-                'decline_reason' => 'required|string|max:500'
+                'decline_reason' => 'required|string|max:500',
             ]);
 
             $user = Auth::user();
             $result = $this->approvalWorkflowService->declineDelegation($delegationId, $validated, $user);
-            
+
             return $this->successResponse($result, 'Həvalə rədd edildi');
         }, 'approval.decline_delegation');
     }
@@ -609,20 +610,20 @@ class ApprovalApiControllerRefactored extends BaseController
             $request->validate([
                 'workflow_type' => 'nullable|string',
                 'institution_id' => 'nullable|exists:institutions,id',
-                'dry_run' => 'boolean'
+                'dry_run' => 'boolean',
             ]);
 
             $user = Auth::user();
-            if (!$user->can('approvals.workflow_manage')) {
+            if (! $user->can('approvals.workflow_manage')) {
                 return $this->errorResponse('Avtomatik təsdiq işlətmək üçün icazəniz yoxdur', 403);
             }
 
             $result = $this->approvalWorkflowService->runAutoApproval($request, $user);
-            
-            $message = $request->dry_run 
+
+            $message = $request->dry_run
                 ? "Avtomatik təsdiq simulyasiyası: {$result['eligible_count']} təsdiq tələbi uyğundur"
                 : "Avtomatik təsdiq tamamlandı: {$result['approved_count']} təsdiqləndi";
-            
+
             return $this->successResponse($result, $message);
         }, 'approval.auto_approve');
     }
@@ -636,20 +637,20 @@ class ApprovalApiControllerRefactored extends BaseController
             $request->validate([
                 'workflow_type' => 'nullable|string',
                 'overdue_days' => 'nullable|integer|min:1',
-                'dry_run' => 'boolean'
+                'dry_run' => 'boolean',
             ]);
 
             $user = Auth::user();
-            if (!$user->can('approvals.workflow_manage')) {
+            if (! $user->can('approvals.workflow_manage')) {
                 return $this->errorResponse('Təsdiq escalation üçün icazəniz yoxdur', 403);
             }
 
             $result = $this->approvalWorkflowService->escalateOverdueApprovals($request, $user);
-            
-            $message = $request->dry_run 
+
+            $message = $request->dry_run
                 ? "Escalation simulyasiyası: {$result['eligible_count']} vaxtı keçmiş təsdiq"
                 : "Escalation tamamlandı: {$result['escalated_count']} escalate edildi";
-            
+
             return $this->successResponse($result, $message);
         }, 'approval.escalate');
     }
@@ -662,12 +663,12 @@ class ApprovalApiControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request, $approvalId) {
             $request->validate([
                 'include_delegations' => 'boolean',
-                'include_notifications' => 'boolean'
+                'include_notifications' => 'boolean',
             ]);
 
             $user = Auth::user();
             $auditTrail = $this->approvalWorkflowService->getAuditTrail($approvalId, $request, $user);
-            
+
             return $this->successResponse($auditTrail, 'Təsdiq audit izi alındı');
         }, 'approval.audit_trail');
     }
@@ -685,14 +686,14 @@ class ApprovalApiControllerRefactored extends BaseController
             $user = Auth::user();
             $institution = $user->institution;
 
-            if (!$institution) {
+            if (! $institution) {
                 return $this->errorResponse('İstifadəçi heç bir müəssisə ilə əlaqəli deyil', 400);
             }
 
             $query = Task::with([
                 'assignedInstitution:id,name,type',
                 'assignedBy:id,name,email',
-                'completedBy:id,name,email'
+                'completedBy:id,name,email',
             ])->where('approval_status', 'pending');
 
             // Filter based on user role and institution hierarchy
@@ -707,8 +708,8 @@ class ApprovalApiControllerRefactored extends BaseController
             }
 
             $tasks = $query->where('status', 'completed')
-                          ->orderBy('completed_at', 'desc')
-                          ->paginate($request->per_page ?? 15);
+                ->orderBy('completed_at', 'desc')
+                ->paginate($request->per_page ?? 15);
 
             return $this->successResponse($tasks, 'Təsdiq gözləyən tapşırıqlar alındı');
         }, 'approval.pending_tasks');
@@ -722,7 +723,7 @@ class ApprovalApiControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request, $task) {
             $user = Auth::user();
 
-            if (!$this->canApproveTask($user, $task)) {
+            if (! $this->canApproveTask($user, $task)) {
                 return $this->errorResponse('Bu tapşırığı təsdiqləmək üçün icazəniz yoxdur', 403);
             }
 
@@ -744,7 +745,7 @@ class ApprovalApiControllerRefactored extends BaseController
             $task->load(['assignedInstitution:id,name', 'assignedBy:id,name', 'approver:id,name']);
 
             return $this->successResponse([
-                'task' => $task
+                'task' => $task,
             ], 'Tapşırıq uğurla təsdiqləndi');
         }, 'approval.approve_task');
     }
@@ -761,7 +762,7 @@ class ApprovalApiControllerRefactored extends BaseController
 
             $user = Auth::user();
 
-            if (!$this->canApproveTask($user, $task)) {
+            if (! $this->canApproveTask($user, $task)) {
                 return $this->errorResponse('Bu tapşırığı rədd etmək üçün icazəniz yoxdur', 403);
             }
 
@@ -781,7 +782,7 @@ class ApprovalApiControllerRefactored extends BaseController
             DB::commit();
 
             return $this->successResponse([
-                'task' => $task
+                'task' => $task,
             ], 'Tapşırıq uğurla rədd edildi');
         }, 'approval.reject_task');
     }
@@ -808,6 +809,7 @@ class ApprovalApiControllerRefactored extends BaseController
         // SektorAdmin can approve events from schools in their sector
         if ($user->hasRole('sektoradmin')) {
             $schoolIds = Institution::where('parent_id', $user->institution_id)->pluck('id');
+
             return $schoolIds->contains($event->institution_id);
         }
 
@@ -832,6 +834,7 @@ class ApprovalApiControllerRefactored extends BaseController
         // SektorAdmin can approve tasks from schools under their sector
         if ($user->hasRole('sektoradmin')) {
             $schoolIds = Institution::where('parent_id', $user->institution_id)->pluck('id');
+
             return $schoolIds->contains($task->assigned_institution_id);
         }
 
@@ -845,15 +848,15 @@ class ApprovalApiControllerRefactored extends BaseController
     {
         $errors = [];
 
-        if (!$event->title) {
+        if (! $event->title) {
             $errors[] = 'Tədbir başlığı tələb olunur';
         }
 
-        if (!$event->start_date) {
+        if (! $event->start_date) {
             $errors[] = 'Başlama tarixi tələb olunur';
         }
 
-        if (!$event->location) {
+        if (! $event->location) {
             $errors[] = 'Məkan məlumatı tələb olunur';
         }
 
@@ -863,7 +866,7 @@ class ApprovalApiControllerRefactored extends BaseController
 
         return [
             'valid' => empty($errors),
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
@@ -873,12 +876,13 @@ class ApprovalApiControllerRefactored extends BaseController
     private function isInUserHierarchy($user, $institutionId): bool
     {
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
         // Get all institutions under user's hierarchy
         $hierarchyIds = $this->getHierarchicalInstitutionIds($user, $userInstitution);
+
         return in_array($institutionId, $hierarchyIds);
     }
 

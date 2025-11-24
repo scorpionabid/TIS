@@ -61,7 +61,7 @@ class ReportResult extends Model
      */
     public function getGenerationDurationHumanAttribute(): string
     {
-        if (!$this->generation_duration) {
+        if (! $this->generation_duration) {
             return 'N/A';
         }
 
@@ -77,7 +77,7 @@ class ReportResult extends Model
      */
     public function getFileSizeAttribute(): ?int
     {
-        if (!$this->file_path || !file_exists($this->file_path)) {
+        if (! $this->file_path || ! file_exists($this->file_path)) {
             return null;
         }
 
@@ -90,12 +90,13 @@ class ReportResult extends Model
     public function getFileSizeHumanAttribute(): ?string
     {
         $size = $this->file_size;
-        if (!$size) {
+        if (! $size) {
             return null;
         }
 
         $units = ['B', 'KB', 'MB', 'GB'];
         $power = $size > 0 ? floor(log($size, 1024)) : 0;
+
         return number_format($size / pow(1024, $power), 2) . ' ' . $units[$power];
     }
 

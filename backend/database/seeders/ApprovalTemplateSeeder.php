@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\ApprovalTemplate;
+use Illuminate\Database\Seeder;
 
 class ApprovalTemplateSeeder extends Seeder
 {
@@ -17,14 +16,14 @@ class ApprovalTemplateSeeder extends Seeder
                 'template_type' => 'survey',
                 'default_approval_chain' => [
                     ['level' => 1, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sektor Təsdiqi'],
-                    ['level' => 2, 'role' => 'regionadmin', 'required' => false, 'title' => 'Regional Təsdiq']
+                    ['level' => 2, 'role' => 'regionadmin', 'required' => false, 'title' => 'Regional Təsdiq'],
                 ],
                 'template_config' => [
                     'auto_approve_after' => null,
                     'require_all_levels' => false,
                     'allow_delegation' => true,
                     'estimated_hours' => 24,
-                    'priority' => 'medium'
+                    'priority' => 'medium',
                 ],
                 'description' => 'Məktəb sorğularının adi təsdiq prosesi',
                 'is_system_template' => true,
@@ -34,34 +33,34 @@ class ApprovalTemplateSeeder extends Seeder
                 'name' => 'Təcili Sorğu Təsdiqi',
                 'template_type' => 'survey',
                 'default_approval_chain' => [
-                    ['level' => 1, 'role' => 'regionadmin', 'required' => true, 'title' => 'Təcili Regional Təsdiq']
+                    ['level' => 1, 'role' => 'regionadmin', 'required' => true, 'title' => 'Təcili Regional Təsdiq'],
                 ],
                 'template_config' => [
                     'auto_approve_after' => '4_hours',
                     'require_all_levels' => true,
                     'allow_delegation' => true,
                     'estimated_hours' => 4,
-                    'priority' => 'high'
+                    'priority' => 'high',
                 ],
                 'description' => 'Təcili sorğuların sürətli təsdiq prosesi',
                 'is_system_template' => true,
                 'is_active' => true,
             ],
 
-            // Document Templates  
+            // Document Templates
             [
                 'name' => 'Sənəd Təsdiqi',
                 'template_type' => 'document',
                 'default_approval_chain' => [
                     ['level' => 1, 'role' => 'schooladmin', 'required' => true, 'title' => 'Məktəb Təsdiqi'],
-                    ['level' => 2, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sektor Təsdiqi']
+                    ['level' => 2, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sektor Təsdiqi'],
                 ],
                 'template_config' => [
                     'auto_approve_after' => '72_hours',
                     'require_all_levels' => true,
                     'allow_delegation' => true,
                     'estimated_hours' => 48,
-                    'priority' => 'medium'
+                    'priority' => 'medium',
                 ],
                 'description' => 'Rəsmi sənədlərin təsdiq prosesi',
                 'is_system_template' => true,
@@ -74,14 +73,14 @@ class ApprovalTemplateSeeder extends Seeder
                 'template_type' => 'task',
                 'default_approval_chain' => [
                     ['level' => 1, 'role' => 'schooladmin', 'required' => true, 'title' => 'Məktəb Təsdiqi'],
-                    ['level' => 2, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sektor Yoxlaması']
+                    ['level' => 2, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sektor Yoxlaması'],
                 ],
                 'template_config' => [
                     'auto_approve_after' => '48_hours',
                     'require_all_levels' => true,
                     'allow_delegation' => false,
                     'estimated_hours' => 24,
-                    'priority' => 'medium'
+                    'priority' => 'medium',
                 ],
                 'description' => 'Tapşırıq tamamlanmasının təsdiq prosesi',
                 'is_system_template' => true,
@@ -95,14 +94,14 @@ class ApprovalTemplateSeeder extends Seeder
                 'default_approval_chain' => [
                     ['level' => 1, 'role' => 'schooladmin', 'required' => true, 'title' => 'Məktəb Yoxlaması'],
                     ['level' => 2, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sektor Təsdiqi'],
-                    ['level' => 3, 'role' => 'regionadmin', 'required' => false, 'title' => 'Regional Təsdiq']
+                    ['level' => 3, 'role' => 'regionadmin', 'required' => false, 'title' => 'Regional Təsdiq'],
                 ],
                 'template_config' => [
                     'auto_approve_after' => '96_hours',
                     'require_all_levels' => false,
                     'allow_delegation' => true,
                     'estimated_hours' => 72,
-                    'priority' => 'high'
+                    'priority' => 'high',
                 ],
                 'description' => 'Qiymətləndirmə nəticələrinin təsdiq prosesi',
                 'is_system_template' => true,
@@ -115,14 +114,14 @@ class ApprovalTemplateSeeder extends Seeder
                 'template_type' => 'schedule',
                 'default_approval_chain' => [
                     ['level' => 1, 'role' => 'schooladmin', 'required' => true, 'title' => 'Məktəb Təsdiqi'],
-                    ['level' => 2, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sektor Təsdiqi']
+                    ['level' => 2, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sektor Təsdiqi'],
                 ],
                 'template_config' => [
                     'auto_approve_after' => '48_hours',
                     'require_all_levels' => true,
                     'allow_delegation' => true,
                     'estimated_hours' => 24,
-                    'priority' => 'medium'
+                    'priority' => 'medium',
                 ],
                 'description' => 'Dərs cədvəllərinin təsdiq prosesi',
                 'is_system_template' => true,
@@ -136,14 +135,14 @@ class ApprovalTemplateSeeder extends Seeder
                 'default_approval_chain' => [
                     ['level' => 1, 'role' => 'schooladmin', 'required' => true, 'title' => 'Məktəb Yoxlaması'],
                     ['level' => 2, 'role' => 'sektoradmin', 'required' => true, 'title' => 'Sektor Təsdiqi'],
-                    ['level' => 3, 'role' => 'regionadmin', 'required' => true, 'title' => 'Regional Final Təsdiq']
+                    ['level' => 3, 'role' => 'regionadmin', 'required' => true, 'title' => 'Regional Final Təsdiq'],
                 ],
                 'template_config' => [
                     'auto_approve_after' => '120_hours',
                     'require_all_levels' => true,
                     'allow_delegation' => false,
                     'estimated_hours' => 96,
-                    'priority' => 'high'
+                    'priority' => 'high',
                 ],
                 'description' => 'Aylıq hesabatların təsdiq prosesi',
                 'is_system_template' => true,
@@ -155,14 +154,14 @@ class ApprovalTemplateSeeder extends Seeder
                 'name' => 'Davamiyyət Təsdiqi',
                 'template_type' => 'attendance',
                 'default_approval_chain' => [
-                    ['level' => 1, 'role' => 'schooladmin', 'required' => true, 'title' => 'Məktəb Təsdiqi']
+                    ['level' => 1, 'role' => 'schooladmin', 'required' => true, 'title' => 'Məktəb Təsdiqi'],
                 ],
                 'template_config' => [
                     'auto_approve_after' => '24_hours',
                     'require_all_levels' => true,
                     'allow_delegation' => true,
                     'estimated_hours' => 12,
-                    'priority' => 'low'
+                    'priority' => 'low',
                 ],
                 'description' => 'Davamiyyət məlumatlarının təsdiq prosesi',
                 'is_system_template' => true,
@@ -174,7 +173,7 @@ class ApprovalTemplateSeeder extends Seeder
             ApprovalTemplate::firstOrCreate(
                 [
                     'name' => $template['name'],
-                    'template_type' => $template['template_type']
+                    'template_type' => $template['template_type'],
                 ],
                 $template
             );

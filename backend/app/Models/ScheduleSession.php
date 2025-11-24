@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class ScheduleSession extends Model
 {
@@ -257,7 +257,7 @@ class ScheduleSession extends Model
     {
         return $query->where(function ($q) use ($teacherId) {
             $q->where('teacher_id', $teacherId)
-              ->orWhere('substitute_teacher_id', $teacherId);
+                ->orWhere('substitute_teacher_id', $teacherId);
         });
     }
 
@@ -388,8 +388,8 @@ class ScheduleSession extends Model
      */
     public function canBeMoved(): bool
     {
-        return in_array($this->status, ['scheduled', 'confirmed']) && 
-               !$this->isCurrentlyActive();
+        return in_array($this->status, ['scheduled', 'confirmed']) &&
+               ! $this->isCurrentlyActive();
     }
 
     /**
@@ -397,8 +397,8 @@ class ScheduleSession extends Model
      */
     public function canAssignSubstitute(): bool
     {
-        return in_array($this->status, ['scheduled', 'confirmed']) && 
-               !$this->substitute_teacher_id;
+        return in_array($this->status, ['scheduled', 'confirmed']) &&
+               ! $this->substitute_teacher_id;
     }
 
     /**
@@ -431,7 +431,7 @@ class ScheduleSession extends Model
         ], $completionData);
 
         // Calculate actual duration if not provided
-        if ($this->session_started_at && !isset($completionData['actual_duration_minutes'])) {
+        if ($this->session_started_at && ! isset($completionData['actual_duration_minutes'])) {
             $updateData['actual_duration_minutes'] = $this->session_started_at->diffInMinutes(now());
         }
 
@@ -443,7 +443,7 @@ class ScheduleSession extends Model
      */
     public function cancelSession(string $reason): bool
     {
-        if (!$this->canBeCancelled()) {
+        if (! $this->canBeCancelled()) {
             throw new \Exception('Session cannot be cancelled in current status');
         }
 
@@ -460,7 +460,7 @@ class ScheduleSession extends Model
      */
     public function assignSubstitute(int $substituteTeacherId, string $reason): bool
     {
-        if (!$this->canAssignSubstitute()) {
+        if (! $this->canAssignSubstitute()) {
             throw new \Exception('Substitute cannot be assigned to this session');
         }
 
@@ -479,7 +479,7 @@ class ScheduleSession extends Model
      */
     public function moveSession(array $newScheduleData): bool
     {
-        if (!$this->canBeMoved()) {
+        if (! $this->canBeMoved()) {
             throw new \Exception('Session cannot be moved in current status');
         }
 
@@ -551,12 +551,12 @@ class ScheduleSession extends Model
 
         // Teacher conflicts
         $teacherConflicts = self::where('schedule_id', $this->schedule_id)
-                               ->where('id', '!=', $this->id)
-                               ->where('teacher_id', $this->teacher_id)
-                               ->where('day_of_week', $this->day_of_week)
-                               ->where('time_slot_id', $this->time_slot_id)
-                               ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
-                               ->get();
+            ->where('id', '!=', $this->id)
+            ->where('teacher_id', $this->teacher_id)
+            ->where('day_of_week', $this->day_of_week)
+            ->where('time_slot_id', $this->time_slot_id)
+            ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
+            ->get();
 
         foreach ($teacherConflicts as $conflictSession) {
             $conflicts[] = [
@@ -575,12 +575,12 @@ class ScheduleSession extends Model
         // Room conflicts
         if ($this->room_id) {
             $roomConflicts = self::where('schedule_id', $this->schedule_id)
-                                ->where('id', '!=', $this->id)
-                                ->where('room_id', $this->room_id)
-                                ->where('day_of_week', $this->day_of_week)
-                                ->where('time_slot_id', $this->time_slot_id)
-                                ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
-                                ->get();
+                ->where('id', '!=', $this->id)
+                ->where('room_id', $this->room_id)
+                ->where('day_of_week', $this->day_of_week)
+                ->where('time_slot_id', $this->time_slot_id)
+                ->whereIn('status', ['scheduled', 'confirmed', 'in_progress'])
+                ->get();
 
             foreach ($roomConflicts as $conflictSession) {
                 $conflicts[] = [
@@ -598,8 +598,8 @@ class ScheduleSession extends Model
         }
 
         // Update conflict status
-        $hasConflicts = !empty($conflicts);
-        $conflictSeverity = $hasConflicts ? 
+        $hasConflicts = ! empty($conflicts);
+        $conflictSeverity = $hasConflicts ?
             ($conflicts[0]['severity'] ?? 'none') : 'none';
 
         $this->update([
@@ -626,13 +626,15 @@ class ScheduleSession extends Model
 
         switch ($this->recurrence_pattern) {
             case 'weekly':
-                $daysToAdd = $dayIndex >= $currentDayIndex ? 
-                    $dayIndex - $currentDayIndex : 
+                $daysToAdd = $dayIndex >= $currentDayIndex ?
+                    $dayIndex - $currentDayIndex :
                     7 - $currentDayIndex + $dayIndex;
+
                 return $today->addDays($daysToAdd);
 
             case 'bi_weekly':
                 $nextWeek = $today->addWeeks(2)->startOfWeek();
+
                 return $nextWeek->addDays($dayIndex);
 
             case 'monthly':
@@ -641,11 +643,13 @@ class ScheduleSession extends Model
                 while ($nextMonth->dayOfWeek !== ($dayIndex + 1) % 7) {
                     $nextMonth->addDay();
                 }
+
                 return $nextMonth;
 
             case 'custom':
                 // Handle custom recurrence based on recurrence_config
                 $config = $this->recurrence_config ?? [];
+
                 // Implementation depends on custom configuration structure
                 return null;
 
@@ -662,9 +666,9 @@ class ScheduleSession extends Model
         $notes = $this->administrative_notes ?? '';
         $timestamp = now()->format('Y-m-d H:i:s');
         $newNote = "[{$timestamp}] {$note}";
-        
+
         $this->update([
-            'administrative_notes' => $notes ? "{$notes}\n{$newNote}" : $newNote
+            'administrative_notes' => $notes ? "{$notes}\n{$newNote}" : $newNote,
         ]);
     }
 
@@ -675,13 +679,13 @@ class ScheduleSession extends Model
     {
         return [
             'planned_duration' => $this->duration_minutes,
-            'actual_duration' => $this->session_started_at && $this->session_ended_at ? 
+            'actual_duration' => $this->session_started_at && $this->session_ended_at ?
                 $this->session_started_at->diffInMinutes($this->session_ended_at) : null,
             'expected_attendance' => $this->expected_student_count,
             'actual_attendance' => $this->actual_student_count,
             'attendance_rate' => $this->attendance_percentage,
             'rating' => $this->session_rating,
-            'has_feedback' => !empty($this->teacher_feedback) || !empty($this->student_feedback),
+            'has_feedback' => ! empty($this->teacher_feedback) || ! empty($this->student_feedback),
             'resource_requirements' => array_filter([
                 'projector' => $this->requires_projector,
                 'computer' => $this->requires_computer,
@@ -722,7 +726,7 @@ class ScheduleSession extends Model
         $warnings = [];
 
         // Check basic requirements
-        if (!$this->schedule_id || !$this->subject_id || !$this->teacher_id) {
+        if (! $this->schedule_id || ! $this->subject_id || ! $this->teacher_id) {
             $errors[] = 'Schedule, subject, and teacher are required';
         }
 
@@ -733,8 +737,8 @@ class ScheduleSession extends Model
 
         // Check conflicts
         $conflicts = $this->detectConflicts();
-        if (!empty($conflicts)) {
-            $errors[] = "Session has " . count($conflicts) . " conflicts";
+        if (! empty($conflicts)) {
+            $errors[] = 'Session has ' . count($conflicts) . ' conflicts';
         }
 
         // Check room capacity if room is assigned
@@ -749,10 +753,10 @@ class ScheduleSession extends Model
         if ($this->room_id) {
             $room = $this->room;
             if ($room) {
-                if ($this->requires_projector && !$room->hasFacility('projector')) {
+                if ($this->requires_projector && ! $room->hasFacility('projector')) {
                     $warnings[] = 'Session requires projector but room does not have one';
                 }
-                if ($this->requires_computer && !$room->hasFacility('computer')) {
+                if ($this->requires_computer && ! $room->hasFacility('computer')) {
                     $warnings[] = 'Session requires computer but room does not have one';
                 }
             }

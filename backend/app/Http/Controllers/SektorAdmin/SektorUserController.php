@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\SektorAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Institution;
-use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
@@ -19,13 +19,13 @@ class SektorUserController extends Controller
     public function getSectorUsers(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('sektoradmin')) {
+
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -45,7 +45,7 @@ class SektorUserController extends Controller
 
             // Apply filters
             if ($request->filled('role')) {
-                $query->whereHas('roles', function($q) use ($request) {
+                $query->whereHas('roles', function ($q) use ($request) {
                     $q->where('name', $request->role);
                 });
             }
@@ -56,17 +56,17 @@ class SektorUserController extends Controller
 
             if ($request->filled('search')) {
                 $search = $request->search;
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('name', 'LIKE', "%{$search}%")
-                      ->orWhere('username', 'LIKE', "%{$search}%")
-                      ->orWhere('email', 'LIKE', "%{$search}%");
+                        ->orWhere('username', 'LIKE', "%{$search}%")
+                        ->orWhere('email', 'LIKE', "%{$search}%");
                 });
             }
 
             $users = $query->orderBy('created_at', 'desc')
                 ->paginate($request->get('per_page', 15));
 
-            $transformedUsers = $users->getCollection()->map(function($user) {
+            $transformedUsers = $users->getCollection()->map(function ($user) {
                 return [
                     'id' => $user->id,
                     'name' => $user->name,
@@ -77,11 +77,11 @@ class SektorUserController extends Controller
                     'institution' => [
                         'id' => $user->institution?->id,
                         'name' => $user->institution?->name,
-                        'type' => $user->institution?->type
+                        'type' => $user->institution?->type,
                     ],
                     'is_active' => $user->is_active,
                     'last_login_at' => $user->last_login_at,
-                    'created_at' => $user->created_at->format('Y-m-d H:i')
+                    'created_at' => $user->created_at->format('Y-m-d H:i'),
                 ];
             });
 
@@ -100,7 +100,7 @@ class SektorUserController extends Controller
                     ->join('institutions', 'users.institution_id', '=', 'institutions.id')
                     ->selectRaw('institutions.id, institutions.name, COUNT(*) as count')
                     ->groupBy('institutions.id', 'institutions.name')
-                    ->get()
+                    ->get(),
             ];
 
             return response()->json([
@@ -111,20 +111,19 @@ class SektorUserController extends Controller
                     'per_page' => $users->perPage(),
                     'total' => $users->total(),
                     'from' => $users->firstItem(),
-                    'to' => $users->lastItem()
+                    'to' => $users->lastItem(),
                 ],
                 'statistics' => $statistics,
                 'sector' => [
                     'id' => $sector->id,
                     'name' => $sector->name,
-                    'region' => $sector->parent?->name ?? 'Bilinmir'
-                ]
+                    'region' => $sector->parent?->name ?? 'Bilinmir',
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'İstifadəçi məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -135,13 +134,13 @@ class SektorUserController extends Controller
     public function getSectorTeachers(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('sektoradmin')) {
+
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -153,7 +152,7 @@ class SektorUserController extends Controller
                 ->toArray();
 
             $query = User::whereIn('institution_id', $schoolIds)
-                ->whereHas('roles', function($q) {
+                ->whereHas('roles', function ($q) {
                     $q->where('name', 'müəllim');
                 })
                 ->with(['roles', 'institution', 'profile'])
@@ -166,23 +165,23 @@ class SektorUserController extends Controller
 
             if ($request->filled('subject')) {
                 // Add subject filter when available
-                $query->whereHas('profile', function($q) use ($request) {
+                $query->whereHas('profile', function ($q) use ($request) {
                     $q->where('subjects', 'LIKE', '%' . $request->subject . '%');
                 });
             }
 
             if ($request->filled('search')) {
                 $search = $request->search;
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('name', 'LIKE', "%{$search}%")
-                      ->orWhere('email', 'LIKE', "%{$search}%");
+                        ->orWhere('email', 'LIKE', "%{$search}%");
                 });
             }
 
             $teachers = $query->orderBy('name', 'asc')
                 ->paginate($request->get('per_page', 20));
 
-            $transformedTeachers = $teachers->getCollection()->map(function($teacher) {
+            $transformedTeachers = $teachers->getCollection()->map(function ($teacher) {
                 return [
                     'id' => $teacher->id,
                     'name' => $teacher->name,
@@ -190,14 +189,14 @@ class SektorUserController extends Controller
                     'school' => [
                         'id' => $teacher->institution?->id,
                         'name' => $teacher->institution?->name,
-                        'type' => $teacher->institution?->type
+                        'type' => $teacher->institution?->type,
                     ],
                     'subjects' => $teacher->profile?->subjects ?? [],
                     'phone' => $teacher->profile?->phone ?? 'Qeyd edilməyib',
                     'experience_years' => $teacher->profile?->experience_years ?? 0,
                     'is_active' => $teacher->is_active,
                     'last_login_at' => $teacher->last_login_at,
-                    'created_at' => $teacher->created_at->format('Y-m-d')
+                    'created_at' => $teacher->created_at->format('Y-m-d'),
                 ];
             });
 
@@ -205,7 +204,7 @@ class SektorUserController extends Controller
             $statistics = [
                 'total_teachers' => $teachers->total(),
                 'by_school' => User::whereIn('institution_id', $schoolIds)
-                    ->whereHas('roles', function($q) {
+                    ->whereHas('roles', function ($q) {
                         $q->where('name', 'müəllim');
                     })
                     ->where('users.is_active', true)
@@ -215,11 +214,11 @@ class SektorUserController extends Controller
                     ->get(),
                 'active_teachers' => $teachers->total(),
                 'average_experience' => User::whereIn('institution_id', $schoolIds)
-                    ->whereHas('roles', function($q) {
+                    ->whereHas('roles', function ($q) {
                         $q->where('name', 'müəllim');
                     })
                     ->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
-                    ->avg('experience_years') ?? 0
+                    ->avg('experience_years') ?? 0,
             ];
 
             return response()->json([
@@ -230,19 +229,18 @@ class SektorUserController extends Controller
                     'per_page' => $teachers->perPage(),
                     'total' => $teachers->total(),
                     'from' => $teachers->firstItem(),
-                    'to' => $teachers->lastItem()
+                    'to' => $teachers->lastItem(),
                 ],
                 'statistics' => $statistics,
                 'sector' => [
                     'id' => $sector->id,
-                    'name' => $sector->name
-                ]
+                    'name' => $sector->name,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Müəllim məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -253,13 +251,13 @@ class SektorUserController extends Controller
     public function createSchoolUser(Request $request): JsonResponse
     {
         $currentUser = $request->user();
-        
-        if (!$currentUser->hasRole('sektoradmin')) {
+
+        if (! $currentUser->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $currentUser->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -272,13 +270,13 @@ class SektorUserController extends Controller
             'institution_id' => 'required|exists:institutions,id',
             'phone' => 'nullable|string|max:20',
             'subjects' => 'nullable|array',
-            'subjects.*' => 'string|max:100'
+            'subjects.*' => 'string|max:100',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -287,9 +285,9 @@ class SektorUserController extends Controller
             ->where('parent_id', $sector->id)
             ->first();
 
-        if (!$institution) {
+        if (! $institution) {
             return response()->json([
-                'message' => 'Seçilən müəssisə sizin sektora aid deyil'
+                'message' => 'Seçilən müəssisə sizin sektora aid deyil',
             ], 400);
         }
 
@@ -301,7 +299,7 @@ class SektorUserController extends Controller
                 'password' => Hash::make($request->password),
                 'institution_id' => $request->institution_id,
                 'is_active' => true,
-                'created_by' => $currentUser->id
+                'created_by' => $currentUser->id,
             ]);
 
             // Assign role
@@ -314,7 +312,7 @@ class SektorUserController extends Controller
             if ($request->filled('phone') || $request->filled('subjects')) {
                 $user->profile()->create([
                     'phone' => $request->phone,
-                    'subjects' => $request->subjects ?? []
+                    'subjects' => $request->subjects ?? [],
                 ]);
             }
 
@@ -326,14 +324,13 @@ class SektorUserController extends Controller
                     'username' => $user->username,
                     'email' => $user->email,
                     'role' => $request->role,
-                    'institution' => $institution->name
-                ]
+                    'institution' => $institution->name,
+                ],
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'İstifadəçi yaradıla bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -344,13 +341,13 @@ class SektorUserController extends Controller
     public function getAvailableSchools(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('sektoradmin')) {
+
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -365,8 +362,8 @@ class SektorUserController extends Controller
             'schools' => $schools,
             'sector' => [
                 'id' => $sector->id,
-                'name' => $sector->name
-            ]
+                'name' => $sector->name,
+            ],
         ]);
     }
 }

@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Student extends Model
 {
@@ -46,7 +46,7 @@ class Student extends Model
 
     protected $appends = [
         'name',
-        'age'
+        'age',
     ];
 
     /**
@@ -62,10 +62,10 @@ class Student extends Model
      */
     public function getAgeAttribute(): ?int
     {
-        if (!$this->birth_date) {
+        if (! $this->birth_date) {
             return null;
         }
-        
+
         return $this->birth_date->diffInYears(now());
     }
 
@@ -132,8 +132,8 @@ class Student extends Model
     {
         return $query->where(function ($q) use ($search) {
             $q->where('first_name', 'like', "%{$search}%")
-              ->orWhere('last_name', 'like', "%{$search}%")
-              ->orWhere('student_number', 'like', "%{$search}%");
+                ->orWhere('last_name', 'like', "%{$search}%")
+                ->orWhere('student_number', 'like', "%{$search}%");
         });
     }
 }

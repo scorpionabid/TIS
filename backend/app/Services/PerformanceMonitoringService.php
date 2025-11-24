@@ -2,14 +2,15 @@
 
 namespace App\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class PerformanceMonitoringService
 {
     protected array $metrics = [];
+
     protected array $thresholds = [
         'slow_query' => 500, // ms
         'high_query_count' => 50,
@@ -55,7 +56,7 @@ class PerformanceMonitoringService
     public function getRealTimeMetrics(): array
     {
         $cacheKey = 'realtime_metrics';
-        
+
         return Cache::remember($cacheKey, 60, function () {
             $currentHour = now()->format('Y-m-d H:00:00');
             $lastHour = now()->subHour()->format('Y-m-d H:00:00');
@@ -76,7 +77,7 @@ class PerformanceMonitoringService
     public function getPerformanceTrends(): array
     {
         $trends = [];
-        
+
         for ($i = 23; $i >= 0; $i--) {
             $hour = now()->subHours($i)->format('Y-m-d H:00:00');
             $trends[] = [
@@ -93,9 +94,9 @@ class PerformanceMonitoringService
      */
     protected function getHourlyMetrics(string $hour): array
     {
-        $metricsKey = "hourly_metrics_" . str_replace([' ', ':'], '_', $hour);
-        
-        return Cache::remember($metricsKey, 3600, function () use ($hour) {
+        $metricsKey = 'hourly_metrics_' . str_replace([' ', ':'], '_', $hour);
+
+        return Cache::remember($metricsKey, 3600, function () {
             // In a real implementation, this would query from a metrics store
             // For now, return sample data
             return [
@@ -166,12 +167,12 @@ class PerformanceMonitoringService
         $key = "metrics_{$type}_" . now()->format('Y_m_d_H');
         $metrics = Cache::get($key, []);
         $metrics[] = $data;
-        
+
         // Keep only last 100 entries per hour
         if (count($metrics) > 100) {
             $metrics = array_slice($metrics, -100);
         }
-        
+
         Cache::put($key, $metrics, 3600);
     }
 
@@ -181,6 +182,7 @@ class PerformanceMonitoringService
     protected function getRecentSlowQueries(): array
     {
         $key = 'metrics_slow_queries_' . now()->format('Y_m_d_H');
+
         return Cache::get($key, []);
     }
 
@@ -190,6 +192,7 @@ class PerformanceMonitoringService
     protected function getHighMemoryRequests(): array
     {
         $key = 'metrics_high_memory_' . now()->format('Y_m_d_H');
+
         return Cache::get($key, []);
     }
 
@@ -200,9 +203,11 @@ class PerformanceMonitoringService
     {
         try {
             DB::select('SELECT 1');
+
             return 'healthy';
         } catch (\Exception $e) {
             Log::error('Database health check failed', ['error' => $e->getMessage()]);
+
             return 'unhealthy';
         }
     }
@@ -215,9 +220,11 @@ class PerformanceMonitoringService
         try {
             Cache::put('health_check', 'test', 10);
             $value = Cache::get('health_check');
+
             return $value === 'test' ? 'healthy' : 'unhealthy';
         } catch (\Exception $e) {
             Log::error('Cache health check failed', ['error' => $e->getMessage()]);
+
             return 'unhealthy';
         }
     }
@@ -252,11 +259,11 @@ class PerformanceMonitoringService
     public function clearOldMetrics(): void
     {
         $cutoff = now()->subDays(7);
-        
+
         // This would typically be handled by a scheduled job
         // Clear metrics older than 7 days
         Log::info('Performance metrics cleanup completed', [
-            'cutoff_date' => $cutoff->toDateTimeString()
+            'cutoff_date' => $cutoff->toDateTimeString(),
         ]);
     }
 

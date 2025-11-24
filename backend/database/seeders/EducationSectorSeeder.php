@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\EducationSector;
 use App\Models\Institution;
+use Illuminate\Database\Seeder;
 
 class EducationSectorSeeder extends Seeder
 {
@@ -16,6 +15,7 @@ class EducationSectorSeeder extends Seeder
 
         if ($regions->isEmpty()) {
             $this->command->warn('Regional institutions not found. Please run InstitutionHierarchySeeder first.');
+
             return;
         }
 
@@ -29,7 +29,7 @@ class EducationSectorSeeder extends Seeder
                 'address' => 'Bakı, Yasamal rayonu, Atatürk prospekti 123',
                 'phone' => '+994 12 555-0123',
                 'email' => 'orta.tehsil.baki@edu.az',
-                'region_name_like' => 'Bakı'
+                'region_name_like' => 'Bakı',
             ],
             [
                 'name' => 'İbtidai təhsil sektoru',
@@ -39,7 +39,7 @@ class EducationSectorSeeder extends Seeder
                 'address' => 'Bakı, Nəsimi rayonu, Zərifə Əliyeva küçəsi 45',
                 'phone' => '+994 12 555-0124',
                 'email' => 'ibtidai.tehsil.baki@edu.az',
-                'region_name_like' => 'Bakı'
+                'region_name_like' => 'Bakı',
             ],
             [
                 'name' => 'Məktəbəqədər sektoru',
@@ -49,7 +49,7 @@ class EducationSectorSeeder extends Seeder
                 'address' => 'Bakı, Səbail rayonu, Nizami küçəsi 78',
                 'phone' => '+994 12 555-0125',
                 'email' => 'mektebeqeder.baki@edu.az',
-                'region_name_like' => 'Bakı'
+                'region_name_like' => 'Bakı',
             ],
 
             // Gəncə regionu sektorları
@@ -61,7 +61,7 @@ class EducationSectorSeeder extends Seeder
                 'address' => 'Gəncə, Kəpəz rayonu, Heydər Əliyev prospekti 45',
                 'phone' => '+994 22 444-0234',
                 'email' => 'orta.tehsil.gence@edu.az',
-                'region_name_like' => 'Gəncə'
+                'region_name_like' => 'Gəncə',
             ],
             [
                 'name' => 'Gəncə məktəbəqədər sektoru',
@@ -71,7 +71,7 @@ class EducationSectorSeeder extends Seeder
                 'address' => 'Gəncə, Nizami rayonu, Cavadxan küçəsi 23',
                 'phone' => '+994 22 444-0235',
                 'email' => 'mektebeqeder.gence@edu.az',
-                'region_name_like' => 'Gəncə'
+                'region_name_like' => 'Gəncə',
             ],
 
             // Sumqayıt regionu sektorları
@@ -83,7 +83,7 @@ class EducationSectorSeeder extends Seeder
                 'address' => 'Sumqayıt, 1-ci mikrorayon, Vətən küçəsi 78',
                 'phone' => '+994 18 333-0345',
                 'email' => 'pese.tehsil.sumqayit@edu.az',
-                'region_name_like' => 'Sumqayıt'
+                'region_name_like' => 'Sumqayıt',
             ],
             [
                 'name' => 'Sumqayıt orta təhsil sektoru',
@@ -93,7 +93,7 @@ class EducationSectorSeeder extends Seeder
                 'address' => 'Sumqayıt, 2-ci mikrorayon, Azadlıq prospekti 156',
                 'phone' => '+994 18 333-0346',
                 'email' => 'orta.tehsil.sumqayit@edu.az',
-                'region_name_like' => 'Sumqayıt'
+                'region_name_like' => 'Sumqayıt',
             ],
 
             // Mingəçevir regionu sektorları
@@ -106,7 +106,7 @@ class EducationSectorSeeder extends Seeder
                 'phone' => '+994 25 222-0456',
                 'email' => 'xususi.tehsil.mingecevir@edu.az',
                 'region_name_like' => 'Mingəçevir',
-                'is_active' => false
+                'is_active' => false,
             ],
             [
                 'name' => 'Mingəçevir qarışıq təhsil sektoru',
@@ -116,7 +116,7 @@ class EducationSectorSeeder extends Seeder
                 'address' => 'Mingəçevir, Şəhər mərkəzi, Mərkəz küçəsi 67',
                 'phone' => '+994 25 222-0457',
                 'email' => 'qarısıq.tehsil.mingecevir@edu.az',
-                'region_name_like' => 'Mingəçevir'
+                'region_name_like' => 'Mingəçevir',
             ],
         ];
 
@@ -126,8 +126,9 @@ class EducationSectorSeeder extends Seeder
                 return str_contains($r->name, $sectorData['region_name_like']);
             });
 
-            if (!$region) {
+            if (! $region) {
                 $this->command->warn("Region not found for: {$sectorData['region_name_like']}");
+
                 continue;
             }
 
@@ -141,7 +142,7 @@ class EducationSectorSeeder extends Seeder
             $sectorData['is_active'] = $sectorData['is_active'] ?? true;
 
             EducationSector::create($sectorData);
-            
+
             $this->command->info("Created sector: {$sectorData['name']}");
         }
 

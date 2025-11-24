@@ -3,19 +3,18 @@
 namespace App\Services;
 
 use App\Models\Grade;
-use App\Models\User;
-use App\Models\Room;
 use App\Models\Institution;
-use App\Models\AcademicYear;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Collection;
-use Illuminate\Validation\ValidationException;
+use App\Models\Room;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Grade Management Service
- * 
+ *
  * Centralizes all business logic for grade/class management.
  * Handles permissions, validation, caching, and data transformation.
  */
@@ -27,24 +26,24 @@ class GradeManagementService
     public function getGradesForUser(User $user, array $filters = [], array $options = []): array
     {
         $query = Grade::query();
-        
+
         // Apply role-based filtering
         $this->applyRoleBasedFiltering($query, $user);
-        
+
         // Apply additional filters
         $this->applyFilters($query, $filters);
-        
+
         // Apply sorting
         $this->applySorting($query, $options);
-        
+
         // Get includes
         $includes = $this->parseIncludes($options['include'] ?? '');
         $query->with($includes);
-        
+
         // Paginate results
         $perPage = $options['per_page'] ?? 20;
         $grades = $query->paginate($perPage);
-        
+
         return [
             'data' => $grades->map(function ($grade) use ($options) {
                 return $this->formatGradeResponse($grade, $options);
@@ -61,7 +60,7 @@ class GradeManagementService
             'meta' => [
                 'filters_applied' => array_filter($filters),
                 'total_before_filter' => $this->getTotalGradesForUser($user),
-            ]
+            ],
         ];
     }
 
@@ -71,9 +70,9 @@ class GradeManagementService
     public function createGrade(User $user, array $data): Grade
     {
         // Validate user permissions
-        if (!$this->canUserCreateGrade($user, $data['institution_id'] ?? null)) {
+        if (! $this->canUserCreateGrade($user, $data['institution_id'] ?? null)) {
             throw ValidationException::withMessages([
-                'permission' => ['Bu təşkilatda sinif yaratmaq icazəniz yoxdur']
+                'permission' => ['Bu təşkilatda sinif yaratmaq icazəniz yoxdur'],
             ]);
         }
 
@@ -95,7 +94,7 @@ class GradeManagementService
                 $calculatedTotal = $data['male_student_count'] + $data['female_student_count'];
                 if (isset($data['student_count']) && $data['student_count'] !== $calculatedTotal) {
                     throw ValidationException::withMessages([
-                        'student_count' => ['Ümumi şagird sayı qız və oğlan sayının cəminə bərabər olmalıdır']
+                        'student_count' => ['Ümumi şagird sayı qız və oğlan sayının cəminə bərabər olmalıdır'],
                     ]);
                 }
                 $data['student_count'] = $calculatedTotal;
@@ -109,7 +108,7 @@ class GradeManagementService
             $grade = Grade::create($data);
 
             // Attach tags if provided
-            if (!empty($tagIds)) {
+            if (! empty($tagIds)) {
                 $grade->tags()->attach($tagIds);
             }
 
@@ -126,7 +125,6 @@ class GradeManagementService
             $this->clearGradeCaches($grade->institution_id);
 
             return $grade->load(['institution', 'academicYear', 'room', 'homeroomTeacher', 'tags']);
-
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -139,9 +137,9 @@ class GradeManagementService
     public function updateGrade(User $user, Grade $grade, array $data): Grade
     {
         // Validate user permissions
-        if (!$this->canUserModifyGrade($user, $grade)) {
+        if (! $this->canUserModifyGrade($user, $grade)) {
             throw ValidationException::withMessages([
-                'permission' => ['Bu sinifi yeniləmək icazəniz yoxdur']
+                'permission' => ['Bu sinifi yeniləmək icazəniz yoxdur'],
             ]);
         }
 
@@ -158,7 +156,7 @@ class GradeManagementService
                 $calculatedTotal = $data['male_student_count'] + $data['female_student_count'];
                 if (isset($data['student_count']) && $data['student_count'] !== $calculatedTotal) {
                     throw ValidationException::withMessages([
-                        'student_count' => ['Ümumi şagird sayı qız və oğlan sayının cəminə bərabər olmalıdır']
+                        'student_count' => ['Ümumi şagird sayı qız və oğlan sayının cəminə bərabər olmalıdır'],
                     ]);
                 }
                 $data['student_count'] = $calculatedTotal;
@@ -185,7 +183,6 @@ class GradeManagementService
             $this->clearGradeCaches($grade->institution_id);
 
             return $grade->fresh(['institution', 'academicYear', 'room', 'homeroomTeacher', 'tags']);
-
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -198,9 +195,9 @@ class GradeManagementService
     public function deactivateGrade(User $user, Grade $grade): bool
     {
         // Validate user permissions
-        if (!$this->canUserDeleteGrade($user, $grade)) {
+        if (! $this->canUserDeleteGrade($user, $grade)) {
             throw ValidationException::withMessages([
-                'permission' => ['Bu sinifi silmək icazəniz yoxdur']
+                'permission' => ['Bu sinifi silmək icazəniz yoxdur'],
             ]);
         }
 
@@ -208,7 +205,7 @@ class GradeManagementService
         $activeStudentCount = $grade->activeStudentEnrollments()->count();
         if ($activeStudentCount > 0) {
             throw ValidationException::withMessages([
-                'students' => ["Bu sinifdə {$activeStudentCount} aktiv şagird var. Əvvəlcə onları başqa sinifə köçürün"]
+                'students' => ["Bu sinifdə {$activeStudentCount} aktiv şagird var. Əvvəlcə onları başqa sinifə köçürün"],
             ]);
         }
 
@@ -234,7 +231,6 @@ class GradeManagementService
             $this->clearGradeCaches($grade->institution_id);
 
             return true;
-
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -245,17 +241,17 @@ class GradeManagementService
      * Assign homeroom teacher to a grade
      */
     public function assignHomeroomTeacher(
-        User $user, 
-        Grade $grade, 
-        int $teacherId, 
-        Carbon $effectiveDate = null, 
-        string $notes = null
+        User $user,
+        Grade $grade,
+        int $teacherId,
+        ?Carbon $effectiveDate = null,
+        ?string $notes = null
     ): bool {
         // Validate teacher exists and is eligible
         $teacher = User::find($teacherId);
-        if (!$teacher || !$teacher->hasRole(['müəllim', 'müavin'])) {
+        if (! $teacher || ! $teacher->hasRole(['müəllim', 'müavin'])) {
             throw ValidationException::withMessages([
-                'teacher' => ['Seçilən istifadəçi müəllim deyil']
+                'teacher' => ['Seçilən istifadəçi müəllim deyil'],
             ]);
         }
 
@@ -268,14 +264,14 @@ class GradeManagementService
 
         if ($existingAssignment) {
             throw ValidationException::withMessages([
-                'teacher' => ["Bu müəllim artıq {$existingAssignment->name} sinifinin rəhbəridir"]
+                'teacher' => ["Bu müəllim artıq {$existingAssignment->name} sinifinin rəhbəridir"],
             ]);
         }
 
         // Check teacher belongs to same institution
         if ($teacher->institution_id !== $grade->institution_id) {
             throw ValidationException::withMessages([
-                'teacher' => ['Müəllim eyni təşkilata aid olmalıdır']
+                'teacher' => ['Müəllim eyni təşkilata aid olmalıdır'],
             ]);
         }
 
@@ -308,7 +304,6 @@ class GradeManagementService
             $this->clearGradeCaches($grade->institution_id);
 
             return true;
-
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -319,14 +314,14 @@ class GradeManagementService
      * Remove homeroom teacher from a grade
      */
     public function removeHomeroomTeacher(
-        User $user, 
-        Grade $grade, 
-        Carbon $effectiveDate = null, 
-        string $reason = null
+        User $user,
+        Grade $grade,
+        ?Carbon $effectiveDate = null,
+        ?string $reason = null
     ): bool {
-        if (!$grade->homeroom_teacher_id) {
+        if (! $grade->homeroom_teacher_id) {
             throw ValidationException::withMessages([
-                'teacher' => ['Bu sinifin hazırda rəhbəri yoxdur']
+                'teacher' => ['Bu sinifin hazırda rəhbəri yoxdur'],
             ]);
         }
 
@@ -342,7 +337,7 @@ class GradeManagementService
             ]);
 
             // Log the removal
-            // TODO: Install spatie/laravel-activitylog package for activity logging  
+            // TODO: Install spatie/laravel-activitylog package for activity logging
             // activity()
             //     ->performedOn($grade)
             //     ->causedBy($user)
@@ -360,7 +355,6 @@ class GradeManagementService
             $this->clearGradeCaches($grade->institution_id);
 
             return true;
-
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -413,14 +407,16 @@ class GradeManagementService
                 'grades_without_rooms' => $grades->whereNull('room_id')->count(),
             ],
             'capacity' => [
-                'total_capacity' => $grades->sum(function($grade) { return $grade->room?->capacity ?? 0; }),
+                'total_capacity' => $grades->sum(function ($grade) {
+                    return $grade->room?->capacity ?? 0;
+                }),
                 'total_enrolled' => $grades->sum('student_count'),
-                'available_spots' => $grades->sum(function($grade) { 
-                    return max(0, ($grade->room?->capacity ?? 0) - $grade->student_count); 
+                'available_spots' => $grades->sum(function ($grade) {
+                    return max(0, ($grade->room?->capacity ?? 0) - $grade->student_count);
                 }),
                 'utilization_rate' => $this->calculateOverallUtilizationRate($grades),
-                'overcrowded_grades' => $grades->filter(function($grade) { 
-                    return $grade->room && $grade->student_count > $grade->room->capacity; 
+                'overcrowded_grades' => $grades->filter(function ($grade) {
+                    return $grade->room && $grade->student_count > $grade->room->capacity;
                 })->count(),
             ],
             'by_level' => $this->getStatisticsByLevel($grades),
@@ -449,7 +445,9 @@ class GradeManagementService
 
         $report = [
             'summary' => [
-                'total_capacity' => $grades->sum(function($grade) { return $grade->room?->capacity ?? 0; }),
+                'total_capacity' => $grades->sum(function ($grade) {
+                    return $grade->room?->capacity ?? 0;
+                }),
                 'total_enrolled' => $grades->sum('student_count'),
                 'overall_utilization' => $this->calculateOverallUtilizationRate($grades),
                 'grades_analyzed' => $grades->count(),
@@ -475,7 +473,7 @@ class GradeManagementService
                 'available_spots' => max(0, ($grade->room?->capacity ?? 0) - $grade->student_count),
             ];
 
-            if (!$grade->room) {
+            if (! $grade->room) {
                 $report['capacity_categories']['no_room_assigned'][] = $gradeData;
             } elseif ($gradeData['utilization_rate'] > 100) {
                 $report['capacity_categories']['over_capacity'][] = $gradeData;
@@ -558,7 +556,7 @@ class GradeManagementService
                 'id' => $teacher->id,
                 'name' => $teacher->name,
                 'email' => $teacher->email,
-                'full_name' => $teacher->profile 
+                'full_name' => $teacher->profile
                     ? "{$teacher->profile->first_name} {$teacher->profile->last_name}"
                     : $teacher->name,
             ];
@@ -568,7 +566,7 @@ class GradeManagementService
         if ($isDetailed) {
             $response['metadata'] = $grade->metadata ?? [];
             $response['description'] = $grade->description;
-            
+
             if ($grade->relationLoaded('students')) {
                 $response['students'] = $grade->students->map(function ($student) {
                     return [
@@ -609,6 +607,7 @@ class GradeManagementService
             if ($institutionId) {
                 return in_array($institutionId, $this->getUserAccessibleInstitutions($user));
             }
+
             return $user->can('grades.create');
         }
 
@@ -639,7 +638,9 @@ class GradeManagementService
     private function applyFilters($query, array $filters): void
     {
         foreach ($filters as $key => $value) {
-            if ($value === null || $value === '') continue;
+            if ($value === null || $value === '') {
+                continue;
+            }
 
             switch ($key) {
                 case 'institution_id':
@@ -667,7 +668,7 @@ class GradeManagementService
                     $query->where('education_program', $value);
                     break;
                 case 'tag_ids':
-                    if (is_array($value) && !empty($value)) {
+                    if (is_array($value) && ! empty($value)) {
                         $query->whereHas('tags', function ($q) use ($value) {
                             $q->whereIn('grade_tags.id', $value);
                         });
@@ -696,8 +697,8 @@ class GradeManagementService
                 case 'search':
                     $query->where(function ($q) use ($value) {
                         $q->where('name', 'ILIKE', "%{$value}%")
-                          ->orWhere('specialty', 'ILIKE', "%{$value}%")
-                          ->orWhere('description', 'ILIKE', "%{$value}%");
+                            ->orWhere('specialty', 'ILIKE', "%{$value}%")
+                            ->orWhere('description', 'ILIKE', "%{$value}%");
                     });
                     break;
             }
@@ -715,11 +716,11 @@ class GradeManagementService
                 break;
             case 'class_level':
                 $query->orderBy('class_level', $sortDirection)
-                      ->orderBy('name', 'asc');
+                    ->orderBy('name', 'asc');
                 break;
             case 'capacity':
                 $query->leftJoin('rooms', 'grades.room_id', '=', 'rooms.id')
-                      ->orderBy('rooms.capacity', $sortDirection);
+                    ->orderBy('rooms.capacity', $sortDirection);
                 break;
             case 'student_count':
                 $query->orderBy('student_count', $sortDirection);
@@ -729,7 +730,7 @@ class GradeManagementService
                 break;
             default:
                 $query->orderBy('class_level', 'asc')
-                      ->orderBy('name', 'asc');
+                    ->orderBy('name', 'asc');
         }
     }
 
@@ -767,7 +768,7 @@ class GradeManagementService
         }
 
         $institutions = [];
-        
+
         if ($user->hasRole('regionadmin')) {
             $institutions = Institution::where('parent_id', $user->institution_id)
                 ->orWhere('id', $user->institution_id)
@@ -796,7 +797,7 @@ class GradeManagementService
 
         if ($existingGrade) {
             throw ValidationException::withMessages([
-                'name' => ['Bu təhsil ili və təşkilatda həmin səviyyədə və adlı sinif mövcuddur']
+                'name' => ['Bu təhsil ili və təşkilatda həmin səviyyədə və adlı sinif mövcuddur'],
             ]);
         }
 
@@ -825,7 +826,7 @@ class GradeManagementService
 
             if ($existingGrade) {
                 throw ValidationException::withMessages([
-                    'name' => ['Bu təhsil ili və təşkilatda həmin səviyyədə və adlı sinif mövcuddur']
+                    'name' => ['Bu təhsil ili və təşkilatda həmin səviyyədə və adlı sinif mövcuddur'],
                 ]);
             }
         }
@@ -858,7 +859,7 @@ class GradeManagementService
         $roomInUse = $query->first();
         if ($roomInUse) {
             throw ValidationException::withMessages([
-                'room_id' => ["Bu otaq artıq {$roomInUse->name} sinifi tərəfindən istifadə olunur"]
+                'room_id' => ["Bu otaq artıq {$roomInUse->name} sinifi tərəfindən istifadə olunur"],
             ]);
         }
     }
@@ -866,9 +867,9 @@ class GradeManagementService
     private function validateTeacherAvailability(int $teacherId, int $academicYearId, ?int $excludeGradeId = null): void
     {
         $teacher = User::find($teacherId);
-        if (!$teacher || !$teacher->hasRole(['müəllim', 'müavin'])) {
+        if (! $teacher || ! $teacher->hasRole(['müəllim', 'müavin'])) {
             throw ValidationException::withMessages([
-                'homeroom_teacher_id' => ['Seçilən istifadəçi müəllim deyil']
+                'homeroom_teacher_id' => ['Seçilən istifadəçi müəllim deyil'],
             ]);
         }
 
@@ -883,33 +884,33 @@ class GradeManagementService
         $teacherAssigned = $query->first();
         if ($teacherAssigned) {
             throw ValidationException::withMessages([
-                'homeroom_teacher_id' => ["Bu müəllim artıq {$teacherAssigned->name} sinifinin rəhbəridir"]
+                'homeroom_teacher_id' => ["Bu müəllim artıq {$teacherAssigned->name} sinifinin rəhbəridir"],
             ]);
         }
     }
 
     private function getCapacityStatus(Grade $grade): string
     {
-        if (!$grade->room) {
+        if (! $grade->room) {
             return 'no_room';
         }
 
         $utilization = $this->getUtilizationRate($grade);
-        
+
         if ($utilization > 100) {
             return 'over_capacity';
         } elseif ($utilization >= 95) {
             return 'full';
         } elseif ($utilization >= 80) {
             return 'near_capacity';
-        } else {
-            return 'available';
         }
+
+        return 'available';
     }
 
     private function getUtilizationRate(Grade $grade): float
     {
-        if (!$grade->room || $grade->room->capacity === 0) {
+        if (! $grade->room || $grade->room->capacity === 0) {
             return 0;
         }
 
@@ -934,6 +935,7 @@ class GradeManagementService
     {
         $query = Grade::query();
         $this->applyRoleBasedFiltering($query, $user);
+
         return $query->count();
     }
 
@@ -946,9 +948,11 @@ class GradeManagementService
     // Additional helper methods for statistics and analysis would go here...
     private function calculateOverallUtilizationRate(Collection $grades): float
     {
-        $totalCapacity = $grades->sum(function($grade) { return $grade->room?->capacity ?? 0; });
+        $totalCapacity = $grades->sum(function ($grade) {
+            return $grade->room?->capacity ?? 0;
+        });
         $totalEnrolled = $grades->sum('student_count');
-        
+
         return $totalCapacity > 0 ? round(($totalEnrolled / $totalCapacity) * 100, 2) : 0;
     }
 
@@ -958,7 +962,9 @@ class GradeManagementService
             ->map(function ($levelGrades) {
                 return [
                     'count' => $levelGrades->count(),
-                    'total_capacity' => $levelGrades->sum(function($grade) { return $grade->room?->capacity ?? 0; }),
+                    'total_capacity' => $levelGrades->sum(function ($grade) {
+                        return $grade->room?->capacity ?? 0;
+                    }),
                     'total_enrolled' => $levelGrades->sum('student_count'),
                     'with_teachers' => $levelGrades->whereNotNull('homeroom_teacher_id')->count(),
                 ];
@@ -971,10 +977,13 @@ class GradeManagementService
         return $grades->groupBy('institution_id')
             ->map(function ($institutionGrades) {
                 $institution = $institutionGrades->first()->institution;
+
                 return [
                     'institution_name' => $institution->name,
                     'count' => $institutionGrades->count(),
-                    'total_capacity' => $institutionGrades->sum(function($grade) { return $grade->room?->capacity ?? 0; }),
+                    'total_capacity' => $institutionGrades->sum(function ($grade) {
+                        return $grade->room?->capacity ?? 0;
+                    }),
                     'total_enrolled' => $institutionGrades->sum('student_count'),
                     'active_count' => $institutionGrades->where('is_active', true)->count(),
                 ];
@@ -1049,7 +1058,7 @@ class GradeManagementService
             case 'full':
                 $query->whereHas('room', function ($q) {
                     $q->whereRaw('grades.student_count >= rooms.capacity * 0.8')
-                      ->whereRaw('grades.student_count <= rooms.capacity');
+                        ->whereRaw('grades.student_count <= rooms.capacity');
                 });
                 break;
             case 'over_capacity':

@@ -2,7 +2,6 @@
 
 namespace App\Services\Import;
 
-use App\Models\InstitutionType;
 use App\Services\BaseService;
 
 class AdminTemplateExtensionService extends BaseService
@@ -14,12 +13,12 @@ class AdminTemplateExtensionService extends BaseService
     {
         return [
             'Admin Email *',
-            'Admin Username', 
+            'Admin Username',
             'Admin Ad',
             'Admin Soyad',
             'Admin Parol (boş buraxsanız avtomatik yaradılacaq)',
             'Admin Telefon',
-            'Admin Qeydlər'
+            'Admin Qeydlər',
         ];
     }
 
@@ -29,13 +28,13 @@ class AdminTemplateExtensionService extends BaseService
     public function getExtendedHeaders($institutionType, array $baseHeaders): array
     {
         $adminHeaders = $this->getAdminHeaders();
-        
+
         // Insert admin headers after institution data but before status
         $statusIndex = count($baseHeaders) - 1; // Status is usually last
-        
+
         // Insert admin columns before status
         array_splice($baseHeaders, $statusIndex, 0, $adminHeaders);
-        
+
         return $baseHeaders;
     }
 
@@ -51,12 +50,12 @@ class AdminTemplateExtensionService extends BaseService
             case 'gymnasium':
                 return [
                     'direktor@numuneschool.edu.az',
-                    'direktor001', 
+                    'direktor001',
                     'Müdir',
                     'Məmmədov',
                     'Direktor123!',
                     '+994551234567',
-                    'Məktəb direktoru'
+                    'Məktəb direktoru',
                 ];
 
             case 'kindergarten':
@@ -67,7 +66,7 @@ class AdminTemplateExtensionService extends BaseService
                     'Həsənova',
                     'Bagca456!',
                     '+994552345678',
-                    'Uşaq bağçası müdiri'
+                    'Uşaq bağçası müdiri',
                 ];
 
             case 'sector_education_office':
@@ -77,8 +76,8 @@ class AdminTemplateExtensionService extends BaseService
                     'Sektor',
                     'Rəhbəri',
                     'Sektor789!',
-                    '+994553456789', 
-                    'Sektor təhsil idarəsi rəhbəri'
+                    '+994553456789',
+                    'Sektor təhsil idarəsi rəhbəri',
                 ];
 
             case 'regional_education_department':
@@ -89,7 +88,7 @@ class AdminTemplateExtensionService extends BaseService
                     'İdarəçi',
                     'Region012!',
                     '+994554567890',
-                    'Regional təhsil idarəsi rəhbəri'
+                    'Regional təhsil idarəsi rəhbəri',
                 ];
 
             default:
@@ -100,7 +99,7 @@ class AdminTemplateExtensionService extends BaseService
                     'İstifadəçi',
                     'Admin345!',
                     '+994555678901',
-                    'Müəssisə administratoru'
+                    'Müəssisə administratoru',
                 ];
         }
     }
@@ -111,19 +110,19 @@ class AdminTemplateExtensionService extends BaseService
     public function getExtendedSampleData($institutionType, array $baseSampleData): array
     {
         $adminSample = $this->getAdminSampleData($institutionType);
-        
+
         $extendedData = [];
         foreach ($baseSampleData as $row) {
             $extendedRow = $row;
-            
+
             // Insert admin data before status (last element)
             $statusData = array_pop($extendedRow); // Remove status
             $extendedRow = array_merge($extendedRow, $adminSample); // Add admin data
             $extendedRow[] = $statusData; // Add status back
-            
+
             $extendedData[] = $extendedRow;
         }
-        
+
         return $extendedData;
     }
 
@@ -135,7 +134,7 @@ class AdminTemplateExtensionService extends BaseService
         return [
             'secondary_school' => 'schooladmin',
             'primary_school' => 'schooladmin',
-            'lyceum' => 'schooladmin', 
+            'lyceum' => 'schooladmin',
             'gymnasium' => 'schooladmin',
             'kindergarten' => 'schooladmin',
             'sector_education_office' => 'sektoradmin',
@@ -143,7 +142,7 @@ class AdminTemplateExtensionService extends BaseService
             'vocational_school' => 'schooladmin',
             'special_education_school' => 'schooladmin',
             'art_school' => 'schooladmin',
-            'sports_school' => 'schooladmin'
+            'sports_school' => 'schooladmin',
         ];
     }
 
@@ -153,6 +152,7 @@ class AdminTemplateExtensionService extends BaseService
     public function getAdminRoleForType(string $institutionTypeKey): string
     {
         $mapping = $this->getRoleMapping();
+
         return $mapping[$institutionTypeKey] ?? 'schooladmin';
     }
 
@@ -174,7 +174,7 @@ class AdminTemplateExtensionService extends BaseService
             'last_name' => trim($row[$adminStartIndex + 3] ?? '') ?: 'İstifadəçi',
             'password' => trim($row[$adminStartIndex + 4] ?? ''), // New password field
             'phone' => trim($row[$adminStartIndex + 5] ?? ''),
-            'notes' => trim($row[$adminStartIndex + 6] ?? '')
+            'notes' => trim($row[$adminStartIndex + 6] ?? ''),
         ];
     }
 
@@ -185,10 +185,10 @@ class AdminTemplateExtensionService extends BaseService
     {
         $parts = explode('@', $email);
         $username = $parts[0];
-        
+
         // Clean username - only alphanumeric and underscore
         $username = preg_replace('/[^a-zA-Z0-9_]/', '', $username);
-        
+
         return strtolower($username);
     }
 
@@ -199,62 +199,78 @@ class AdminTemplateExtensionService extends BaseService
     {
         $errors = [];
         $warnings = [];
-        
+
         if (empty($password)) {
             return [
                 'valid' => false,
                 'strength' => 'empty',
                 'errors' => [],
                 'warnings' => [],
-                'message' => 'Parol boş - avtomatik güclü parol yaradılacaq'
+                'message' => 'Parol boş - avtomatik güclü parol yaradılacaq',
             ];
         }
-        
+
         // Minimum length check
         if (strlen($password) < 8) {
             $errors[] = 'Parol ən azı 8 simvol olmalıdır';
         }
-        
+
         // Character requirements
         $hasUppercase = preg_match('/[A-Z]/', $password);
         $hasLowercase = preg_match('/[a-z]/', $password);
         $hasNumbers = preg_match('/[0-9]/', $password);
         $hasSymbols = preg_match('/[!@#$%^&*\-_+=]/', $password);
-        
-        if (!$hasUppercase) {
+
+        if (! $hasUppercase) {
             $warnings[] = 'Böyük hərf əlavə edin (A-Z)';
         }
-        if (!$hasLowercase) {
+        if (! $hasLowercase) {
             $warnings[] = 'Kiçik hərf əlavə edin (a-z)';
         }
-        if (!$hasNumbers) {
+        if (! $hasNumbers) {
             $warnings[] = 'Rəqəm əlavə edin (0-9)';
         }
-        if (!$hasSymbols) {
+        if (! $hasSymbols) {
             $warnings[] = 'Xüsusi simvol əlavə edin (!@#$%^&*-_+=)';
         }
-        
+
         // Strength calculation
         $strengthScore = 0;
-        if ($hasUppercase) $strengthScore++;
-        if ($hasLowercase) $strengthScore++;
-        if ($hasNumbers) $strengthScore++;
-        if ($hasSymbols) $strengthScore++;
-        if (strlen($password) >= 10) $strengthScore++;
-        if (strlen($password) >= 12) $strengthScore++;
-        
+        if ($hasUppercase) {
+            $strengthScore++;
+        }
+        if ($hasLowercase) {
+            $strengthScore++;
+        }
+        if ($hasNumbers) {
+            $strengthScore++;
+        }
+        if ($hasSymbols) {
+            $strengthScore++;
+        }
+        if (strlen($password) >= 10) {
+            $strengthScore++;
+        }
+        if (strlen($password) >= 12) {
+            $strengthScore++;
+        }
+
         $strength = 'weak';
-        if ($strengthScore >= 3) $strength = 'medium';
-        if ($strengthScore >= 5) $strength = 'strong';
-        
+        if ($strengthScore >= 3) {
+            $strength = 'medium';
+        }
+        if ($strengthScore >= 5) {
+            $strength = 'strong';
+        }
+
         $isValid = empty($errors) && $hasUppercase && $hasLowercase && $hasNumbers;
-        
+
         return [
             'valid' => $isValid,
             'strength' => $strength,
             'errors' => $errors,
             'warnings' => $warnings,
-            'message' => $isValid ? "Parol qəbul edildi ({$strength})" : 'Parol tələbləri qarşılamır - avtomatik güclü parol yaradılacaq'
+            'message' => $isValid ? "Parol qəbul edildi ({$strength})" : 'Parol tələbləri qarşılamır - avtomatik güclü parol yaradılacaq',
         ];
     }
 
@@ -265,36 +281,36 @@ class AdminTemplateExtensionService extends BaseService
     {
         $errors = [];
         $warnings = [];
-        
-        if (!$adminData) {
+
+        if (! $adminData) {
             return [
                 'valid' => true,
                 'errors' => $errors,
-                'warnings' => ['Admin məlumatları verilməyib, avtomatik yaradılmayacaq']
+                'warnings' => ['Admin məlumatları verilməyib, avtomatik yaradılmayacaq'],
             ];
         }
 
         // Validate email
         if (empty($adminData['email'])) {
             $errors[] = "Sətir {$rowNum}: Admin email məcburidir";
-        } elseif (!filter_var($adminData['email'], FILTER_VALIDATE_EMAIL)) {
+        } elseif (! filter_var($adminData['email'], FILTER_VALIDATE_EMAIL)) {
             $errors[] = "Sətir {$rowNum}: Admin email format düzgün deyil: {$adminData['email']}";
         }
 
         // Check if email already exists
-        if (!empty($adminData['email']) && \App\Models\User::where('email', $adminData['email'])->exists()) {
+        if (! empty($adminData['email']) && \App\Models\User::where('email', $adminData['email'])->exists()) {
             $warnings[] = "Sətir {$rowNum}: Bu email ilə admin artıq mövcuddur: {$adminData['email']}";
         }
 
         // Validate username
-        if (!empty($adminData['username']) && \App\Models\User::where('username', $adminData['username'])->exists()) {
+        if (! empty($adminData['username']) && \App\Models\User::where('username', $adminData['username'])->exists()) {
             $warnings[] = "Sətir {$rowNum}: Bu username artıq mövcuddur, avtomatik dəyişdiriləcək: {$adminData['username']}";
         }
 
         return [
             'valid' => empty($errors),
             'errors' => $errors,
-            'warnings' => $warnings
+            'warnings' => $warnings,
         ];
     }
 
@@ -306,7 +322,7 @@ class AdminTemplateExtensionService extends BaseService
         // Calculate based on base headers count
         switch ($institutionType->key) {
             case 'secondary_school':
-            case 'primary_school': 
+            case 'primary_school':
             case 'lyceum':
             case 'gymnasium':
                 // Base headers: ID, Ad, Qısa Ad, Valideyn ID, Səviyyə, Region Kodu, Qurum Kodu
@@ -320,7 +336,7 @@ class AdminTemplateExtensionService extends BaseService
                     'last_name' => 17,
                     'phone' => 18,
                     'notes' => 19,
-                    'status' => 20
+                    'status' => 20,
                 ];
 
             case 'kindergarten':
@@ -333,7 +349,7 @@ class AdminTemplateExtensionService extends BaseService
                     'last_name' => 17,
                     'phone' => 18,
                     'notes' => 19,
-                    'status' => 20
+                    'status' => 20,
                 ];
 
             case 'regional_education_department':
@@ -347,7 +363,7 @@ class AdminTemplateExtensionService extends BaseService
                     'last_name' => 14,
                     'phone' => 15,
                     'notes' => 16,
-                    'status' => 17
+                    'status' => 17,
                 ];
 
             default:
@@ -360,7 +376,7 @@ class AdminTemplateExtensionService extends BaseService
                     'last_name' => 15,
                     'phone' => 16,
                     'notes' => 17,
-                    'status' => 18
+                    'status' => 18,
                 ];
         }
     }

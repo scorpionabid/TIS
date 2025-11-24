@@ -83,7 +83,8 @@ class AcademicYear extends Model
     public function isCurrent(): bool
     {
         $today = now()->toDateString();
-        return $today >= $this->start_date->toDateString() 
+
+        return $today >= $this->start_date->toDateString()
             && $today <= $this->end_date->toDateString();
     }
 
@@ -125,8 +126,9 @@ class AcademicYear extends Model
     public function scopeCurrent($query)
     {
         $today = now()->toDateString();
+
         return $query->where('start_date', '<=', $today)
-                    ->where('end_date', '>=', $today);
+            ->where('end_date', '>=', $today);
     }
 
     /**
@@ -136,11 +138,11 @@ class AcademicYear extends Model
     {
         return $query->where(function ($q) use ($startDate, $endDate) {
             $q->whereBetween('start_date', [$startDate, $endDate])
-              ->orWhereBetween('end_date', [$startDate, $endDate])
-              ->orWhere(function ($qq) use ($startDate, $endDate) {
-                  $qq->where('start_date', '<=', $startDate)
-                     ->where('end_date', '>=', $endDate);
-              });
+                ->orWhereBetween('end_date', [$startDate, $endDate])
+                ->orWhere(function ($qq) use ($startDate, $endDate) {
+                    $qq->where('start_date', '<=', $startDate)
+                        ->where('end_date', '>=', $endDate);
+                });
         });
     }
 }

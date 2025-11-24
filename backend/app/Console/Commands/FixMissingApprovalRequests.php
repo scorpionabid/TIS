@@ -2,10 +2,9 @@
 
 namespace App\Console\Commands;
 
-use Illuminate\Console\Command;
 use App\Models\SurveyResponse;
-use App\Models\DataApprovalRequest;
 use App\Services\SurveyApprovalBridge;
+use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
 class FixMissingApprovalRequests extends Command
@@ -50,6 +49,7 @@ class FixMissingApprovalRequests extends Command
 
         if ($responsesWithoutApproval->isEmpty()) {
             $this->info('✅ No missing approval requests found. All good!');
+
             return 0;
         }
 
@@ -62,18 +62,20 @@ class FixMissingApprovalRequests extends Command
                     $response->survey->title ?? 'N/A',
                     $response->institution->name ?? 'N/A',
                     $response->submitted_at ? $response->submitted_at->format('Y-m-d H:i') : 'N/A',
-                    $response->status
+                    $response->status,
                 ];
             })->toArray()
         );
 
         if ($dryRun) {
             $this->warn('🏃 DRY RUN MODE: No changes will be made');
+
             return 0;
         }
 
-        if (!$this->confirm('Do you want to create approval requests for these responses?')) {
+        if (! $this->confirm('Do you want to create approval requests for these responses?')) {
             $this->info('Operation cancelled.');
+
             return 0;
         }
 
@@ -97,13 +99,12 @@ class FixMissingApprovalRequests extends Command
                             'auto_created' => true,
                             'created_reason' => 'fix_missing_approval_requests_command',
                             'original_submitted_at' => $response->submitted_at?->toISOString(),
-                        ]
+                        ],
                     ]);
                 });
 
                 $created++;
                 $this->info("\n✅ Created approval request for response #{$response->id}");
-
             } catch (\Exception $e) {
                 $failed++;
                 $this->error("\n❌ Failed to create approval request for response #{$response->id}: {$e->getMessage()}");
@@ -115,7 +116,7 @@ class FixMissingApprovalRequests extends Command
         $progressBar->finish();
         $this->newLine(2);
 
-        $this->info("📊 Summary:");
+        $this->info('📊 Summary:');
         $this->info("  • Created: {$created} approval requests");
         if ($failed > 0) {
             $this->error("  • Failed: {$failed} approval requests");
@@ -128,7 +129,7 @@ class FixMissingApprovalRequests extends Command
             ->count();
 
         if ($remainingIssues === 0) {
-            $this->info("✅ All submitted responses now have approval requests!");
+            $this->info('✅ All submitted responses now have approval requests!');
         } else {
             $this->warn("⚠️  Still {$remainingIssues} responses without approval requests");
         }

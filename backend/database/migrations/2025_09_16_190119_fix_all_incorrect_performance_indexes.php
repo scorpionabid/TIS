@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -29,20 +29,20 @@ return new class extends Migration
         }
 
         // Re-create the correct indexes using the actual schema
-        if (!$this->indexExists('surveys', 'surveys_creator_status_idx')) {
+        if (! $this->indexExists('surveys', 'surveys_creator_status_idx')) {
             Schema::table('surveys', function (Blueprint $table) {
                 $table->index(['creator_id', 'status'], 'surveys_creator_status_idx');
             });
         }
 
-        if (!$this->indexExists('surveys', 'surveys_type_status_idx')) {
+        if (! $this->indexExists('surveys', 'surveys_type_status_idx')) {
             Schema::table('surveys', function (Blueprint $table) {
                 $table->index(['survey_type', 'status'], 'surveys_type_status_idx');
             });
         }
 
         // Re-create the correct creator index
-        if (!$this->indexExists('surveys', 'surveys_creator_idx')) {
+        if (! $this->indexExists('surveys', 'surveys_creator_idx')) {
             Schema::table('surveys', function (Blueprint $table) {
                 $table->index(['creator_id'], 'surveys_creator_idx');
             });
@@ -86,11 +86,13 @@ return new class extends Migration
                     return true;
                 }
             }
+
             return false;
         }
 
         // For PostgreSQL and MySQL
         $indexes = DB::select("SHOW INDEX FROM $table WHERE Key_name = ?", [$indexName]);
+
         return count($indexes) > 0;
     }
 };

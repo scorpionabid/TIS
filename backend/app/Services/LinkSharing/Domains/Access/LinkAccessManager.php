@@ -2,13 +2,13 @@
 
 namespace App\Services\LinkSharing\Domains\Access;
 
-use App\Models\LinkShare;
 use App\Models\LinkAccessLog;
+use App\Models\LinkShare;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Link Access Manager
@@ -29,7 +29,7 @@ class LinkAccessManager
     public function accessLink($linkShare, $request, $user = null)
     {
         // Check if link is active and not expired
-        if (!$linkShare->is_active) {
+        if (! $linkShare->is_active) {
             throw new Exception('Bu link artıq aktiv deyil', 403);
         }
 
@@ -38,7 +38,7 @@ class LinkAccessManager
         }
 
         // Check access permissions
-        if (!$this->permissionService->canAccessLink($user, $linkShare)) {
+        if (! $this->permissionService->canAccessLink($user, $linkShare)) {
             throw new Exception('Bu linkə giriş icazəniz yoxdur', 403);
         }
 
@@ -51,7 +51,7 @@ class LinkAccessManager
         return [
             'link' => $linkShare,
             'redirect_url' => $linkShare->link_url,
-            'access_logged' => true
+            'access_logged' => true,
         ];
     }
 
@@ -73,7 +73,7 @@ class LinkAccessManager
             return [
                 'success' => true,
                 'total_clicks' => $linkShare->fresh()->access_count,
-                'redirect_url' => $linkShare->link_url
+                'redirect_url' => $linkShare->link_url,
             ];
         });
     }
@@ -88,7 +88,7 @@ class LinkAccessManager
         $linkShare = LinkShare::findOrFail($id);
 
         // Check if link can be accessed by user
-        if (!$linkShare->canBeAccessedBy($user)) {
+        if (! $linkShare->canBeAccessedBy($user)) {
             throw new Exception('Bu linkə giriş icazəniz yoxdur', 403);
         }
 
@@ -98,7 +98,7 @@ class LinkAccessManager
         return [
             'redirect_url' => $linkShare->url,
             'link' => $linkShare,
-            'access_logged' => true
+            'access_logged' => true,
         ];
     }
 
@@ -115,7 +115,7 @@ class LinkAccessManager
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
             'referer' => $request->header('referer'),
-            'accessed_at' => now()
+            'accessed_at' => now(),
         ]);
     }
 }

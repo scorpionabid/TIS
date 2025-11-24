@@ -2,11 +2,10 @@
 
 namespace App\Http\Middleware;
 
-use Closure;
-use Illuminate\Http\Request;
-use Illuminate\Http\Response;
 use App\Models\Institution;
 use App\Models\User;
+use Closure;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class RegionalDataAccessMiddleware
@@ -14,12 +13,10 @@ class RegionalDataAccessMiddleware
     /**
      * Handle an incoming request to ensure regional data access control
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
-     * @param  string  $resourceType
+     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse) $next
      * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
-    public function handle(Request $request, Closure $next, string $resourceType = null)
+    public function handle(Request $request, Closure $next, ?string $resourceType = null)
     {
         // DEBUG: Log middleware entry
         Log::info('🔍 RegionalDataAccessMiddleware - ENTRY', [
@@ -31,10 +28,11 @@ class RegionalDataAccessMiddleware
 
         $user = $request->user();
 
-        if (!$user) {
+        if (! $user) {
             Log::warning('❌ RegionalDataAccessMiddleware - No authenticated user', [
                 'url' => $request->url(),
             ]);
+
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
@@ -47,15 +45,17 @@ class RegionalDataAccessMiddleware
         // SuperAdmin has access to everything
         if ($user->hasRole('superadmin')) {
             Log::info('🔑 RegionalDataAccessMiddleware - SuperAdmin bypass');
+
             return $next($request);
         }
 
         // Get user's primary role
         $primaryRole = $user->roles->first();
-        if (!$primaryRole) {
+        if (! $primaryRole) {
             Log::warning('❌ RegionalDataAccessMiddleware - No role assigned', [
                 'user_id' => $user->id,
             ]);
+
             return response()->json(['message' => 'İstifadəçinin rolu müəyyən edilməyib'], 403);
         }
 
@@ -75,15 +75,16 @@ class RegionalDataAccessMiddleware
             'scope' => $accessValidation['scope'] ?? null,
         ]);
 
-        if (!$accessValidation['allowed']) {
+        if (! $accessValidation['allowed']) {
             Log::warning('❌ RegionalDataAccessMiddleware - Access DENIED', [
                 'user_id' => $user->id,
                 'role' => $primaryRole->name,
                 'message' => $accessValidation['message'],
             ]);
+
             return response()->json([
                 'message' => $accessValidation['message'],
-                'error_code' => 'REGIONAL_ACCESS_DENIED'
+                'error_code' => 'REGIONAL_ACCESS_DENIED',
             ], 403);
         }
 
@@ -91,7 +92,7 @@ class RegionalDataAccessMiddleware
         $request->merge([
             'regional_scope' => $accessValidation['scope'],
             'allowed_institutions' => $accessValidation['allowed_institutions'] ?? [],
-            'allowed_departments' => $accessValidation['allowed_departments'] ?? []
+            'allowed_departments' => $accessValidation['allowed_departments'] ?? [],
         ]);
 
         Log::info('✅ RegionalDataAccessMiddleware - Access GRANTED, proceeding to controller');
@@ -107,23 +108,23 @@ class RegionalDataAccessMiddleware
         switch ($roleName) {
             case 'regionadmin':
                 return $this->validateRegionAdminAccess($user, $resourceType, $request);
-                
+
             case 'regionoperator':
                 return $this->validateRegionOperatorAccess($user, $resourceType, $request);
-                
+
             case 'sektoradmin':
                 return $this->validateSektorAdminAccess($user, $resourceType, $request);
-                
+
             case 'schooladmin':
                 return $this->validateMektebAdminAccess($user, $resourceType, $request);
-                
+
             case 'müəllim':
                 return $this->validateMuellimAccess($user, $resourceType, $request);
-                
+
             default:
                 return [
                     'allowed' => false,
-                    'message' => 'Bilinməyən rol üçün giriş qadağandır'
+                    'message' => 'Bilinməyən rol üçün giriş qadağandır',
                 ];
         }
     }
@@ -150,26 +151,27 @@ class RegionalDataAccessMiddleware
             'level_is_2' => $userRegion?->level === 2,
         ]);
 
-        if (!$userRegion || $userRegion->level !== 2) {
+        if (! $userRegion || $userRegion->level !== 2) {
             Log::warning('❌ validateRegionAdminAccess - Institution validation FAILED', [
                 'user_id' => $user->id,
                 'has_institution' => $userRegion !== null,
                 'level' => $userRegion?->level ?? 'NULL',
                 'expected_level' => 2,
             ]);
+
             return [
                 'allowed' => false,
-                'message' => 'RegionAdmin regional idarəyə təyin edilməlidir'
+                'message' => 'RegionAdmin regional idarəyə təyin edilməlidir',
             ];
         }
 
         // Get all institutions under this region
-        $allowedInstitutions = Institution::where(function($query) use ($userRegion) {
+        $allowedInstitutions = Institution::where(function ($query) use ($userRegion) {
             $query->where('id', $userRegion->id)
-                  ->orWhere('parent_id', $userRegion->id)
-                  ->orWhereHas('parent', function($q) use ($userRegion) {
-                      $q->where('parent_id', $userRegion->id);
-                  });
+                ->orWhere('parent_id', $userRegion->id)
+                ->orWhereHas('parent', function ($q) use ($userRegion) {
+                    $q->where('parent_id', $userRegion->id);
+                });
         })->pluck('id')->toArray();
 
         Log::info('🏫 validateRegionAdminAccess - Allowed institutions loaded', [
@@ -190,15 +192,16 @@ class RegionalDataAccessMiddleware
         ]);
 
         if ($hasInstitutionId) {
-            if (!in_array($requestedInstitutionId, $allowedInstitutions)) {
+            if (! in_array($requestedInstitutionId, $allowedInstitutions)) {
                 Log::warning('❌ validateRegionAdminAccess - Institution access DENIED', [
                     'user_id' => $user->id,
                     'requested_id' => $requestedInstitutionId,
                     'allowed_ids' => $allowedInstitutions,
                 ]);
+
                 return [
                     'allowed' => false,
-                    'message' => 'Bu təşkilata giriş səlahiyyətiniz yoxdur'
+                    'message' => 'Bu təşkilata giriş səlahiyyətiniz yoxdur',
                 ];
             }
         }
@@ -213,7 +216,7 @@ class RegionalDataAccessMiddleware
             'allowed' => true,
             'scope' => 'regional',
             'allowed_institutions' => $allowedInstitutions,
-            'region_id' => $userRegion->id
+            'region_id' => $userRegion->id,
         ];
     }
 
@@ -224,11 +227,11 @@ class RegionalDataAccessMiddleware
     {
         $userDepartment = $user->department;
         $userInstitution = $user->institution;
-        
-        if (!$userDepartment || !$userInstitution) {
+
+        if (! $userDepartment || ! $userInstitution) {
             return [
                 'allowed' => false,
-                'message' => 'RegionOperator departament və təşkilata təyin edilməlidir'
+                'message' => 'RegionOperator departament və təşkilata təyin edilməlidir',
             ];
         }
 
@@ -242,7 +245,7 @@ class RegionalDataAccessMiddleware
             if ($requestedDepartmentId !== $userDepartment->id) {
                 return [
                     'allowed' => false,
-                    'message' => 'Bu departamenta giriş səlahiyyətiniz yoxdur'
+                    'message' => 'Bu departamenta giriş səlahiyyətiniz yoxdur',
                 ];
             }
         }
@@ -252,7 +255,7 @@ class RegionalDataAccessMiddleware
             'scope' => 'department',
             'allowed_institutions' => $allowedInstitutions,
             'allowed_departments' => $allowedDepartments,
-            'department_id' => $userDepartment->id
+            'department_id' => $userDepartment->id,
         ];
     }
 
@@ -262,11 +265,11 @@ class RegionalDataAccessMiddleware
     private function validateSektorAdminAccess($user, $resourceType, $request): array
     {
         $userSector = $user->institution;
-        
-        if (!$userSector || $userSector->type !== 'sector_education_office') {
+
+        if (! $userSector || $userSector->type !== 'sector_education_office') {
             return [
                 'allowed' => false,
-                'message' => 'SektorAdmin sektora təyin edilməlidir'
+                'message' => 'SektorAdmin sektora təyin edilməlidir',
             ];
         }
 
@@ -280,10 +283,10 @@ class RegionalDataAccessMiddleware
         // Check if requested resource is within sector scope
         if ($this->hasInstitutionIdInRequest($request)) {
             $requestedInstitutionId = $this->getInstitutionIdFromRequest($request);
-            if (!in_array($requestedInstitutionId, $allowedInstitutions)) {
+            if (! in_array($requestedInstitutionId, $allowedInstitutions)) {
                 return [
                     'allowed' => false,
-                    'message' => 'Bu təşkilata giriş səlahiyyətiniz yoxdur'
+                    'message' => 'Bu təşkilata giriş səlahiyyətiniz yoxdur',
                 ];
             }
         }
@@ -292,7 +295,7 @@ class RegionalDataAccessMiddleware
             'allowed' => true,
             'scope' => 'sector',
             'allowed_institutions' => $allowedInstitutions,
-            'sector_id' => $userSector->id
+            'sector_id' => $userSector->id,
         ];
     }
 
@@ -302,11 +305,11 @@ class RegionalDataAccessMiddleware
     private function validateMektebAdminAccess($user, $resourceType, $request): array
     {
         $userSchool = $user->institution;
-        
-        if (!$userSchool || !in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational'])) {
+
+        if (! $userSchool || ! in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational'])) {
             return [
                 'allowed' => false,
-                'message' => 'MəktəbAdmin məktəbə təyin edilməlidir'
+                'message' => 'MəktəbAdmin məktəbə təyin edilməlidir',
             ];
         }
 
@@ -319,7 +322,7 @@ class RegionalDataAccessMiddleware
             if ($requestedInstitutionId !== $userSchool->id) {
                 return [
                     'allowed' => false,
-                    'message' => 'Bu məktəbə giriş səlahiyyətiniz yoxdur'
+                    'message' => 'Bu məktəbə giriş səlahiyyətiniz yoxdur',
                 ];
             }
         }
@@ -328,7 +331,7 @@ class RegionalDataAccessMiddleware
             'allowed' => true,
             'scope' => 'school',
             'allowed_institutions' => $allowedInstitutions,
-            'school_id' => $userSchool->id
+            'school_id' => $userSchool->id,
         ];
     }
 
@@ -339,11 +342,11 @@ class RegionalDataAccessMiddleware
     {
         $userSchool = $user->institution;
         $userDepartment = $user->department;
-        
-        if (!$userSchool) {
+
+        if (! $userSchool) {
             return [
                 'allowed' => false,
-                'message' => 'Müəllim məktəbə təyin edilməlidir'
+                'message' => 'Müəllim məktəbə təyin edilməlidir',
             ];
         }
 
@@ -356,7 +359,7 @@ class RegionalDataAccessMiddleware
         if (in_array($resourceType, $restrictedResources)) {
             return [
                 'allowed' => false,
-                'message' => 'Bu resursa giriş səlahiyyətiniz yoxdur'
+                'message' => 'Bu resursa giriş səlahiyyətiniz yoxdur',
             ];
         }
 
@@ -365,7 +368,7 @@ class RegionalDataAccessMiddleware
             'scope' => 'teacher',
             'allowed_institutions' => $allowedInstitutions,
             'allowed_departments' => $allowedDepartments,
-            'school_id' => $userSchool->id
+            'school_id' => $userSchool->id,
         ];
     }
 
@@ -374,7 +377,7 @@ class RegionalDataAccessMiddleware
      */
     private function hasInstitutionIdInRequest($request): bool
     {
-        return ($request->has('institution_id') && $request->input('institution_id') !== null) || 
+        return ($request->has('institution_id') && $request->input('institution_id') !== null) ||
                $request->route('institution') ||
                $request->route('institutionId');
     }
@@ -387,15 +390,15 @@ class RegionalDataAccessMiddleware
         if ($request->has('institution_id') && $request->input('institution_id') !== null) {
             return (int) $request->input('institution_id');
         }
-        
+
         if ($request->route('institution')) {
             return (int) $request->route('institution');
         }
-        
+
         if ($request->route('institutionId')) {
             return (int) $request->route('institutionId');
         }
-        
+
         return null;
     }
 
@@ -404,7 +407,7 @@ class RegionalDataAccessMiddleware
      */
     private function hasDepartmentIdInRequest($request): bool
     {
-        return $request->has('department_id') || 
+        return $request->has('department_id') ||
                $request->route('department') ||
                $request->route('departmentId');
     }
@@ -417,15 +420,15 @@ class RegionalDataAccessMiddleware
         if ($request->has('department_id')) {
             return (int) $request->input('department_id');
         }
-        
+
         if ($request->route('department')) {
             return (int) $request->route('department');
         }
-        
+
         if ($request->route('departmentId')) {
             return (int) $request->route('departmentId');
         }
-        
+
         return null;
     }
 }

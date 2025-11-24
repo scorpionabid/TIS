@@ -3,14 +3,13 @@
 namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
+use App\Models\Department;
 use App\Models\User;
 use App\Models\UserProfile;
-use App\Models\Department;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
 
 class SchoolTeacherController extends Controller
@@ -32,18 +31,18 @@ class SchoolTeacherController extends Controller
         $school = $user->institution;
 
         // SuperAdmin can access all schools
-        if (!$school && !$user->hasRole('superadmin')) {
+        if (! $school && ! $user->hasRole('superadmin')) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
         // Get users with teacher roles in this school with their profiles
         $query = User::query();
-        
+
         // If school is provided, filter by school, otherwise get all (for SuperAdmin)
         if ($school) {
             $query->where('institution_id', $school->id);
         }
-        
+
         $teachers = $query
             ->whereHas('roles', function ($query) {
                 $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
@@ -54,7 +53,7 @@ class SchoolTeacherController extends Controller
             ->map(function ($teacher) {
                 // Get profile if exists
                 $profile = UserProfile::where('user_id', $teacher->id)->first();
-                
+
                 return [
                     'id' => $teacher->id,
                     'employee_id' => $teacher->username, // Using username as employee_id
@@ -82,7 +81,7 @@ class SchoolTeacherController extends Controller
         return response()->json([
             'success' => true,
             'data' => $teachers,
-            'message' => count($teachers) . ' müəllim tapıldı'
+            'message' => count($teachers) . ' müəllim tapıldı',
         ]);
     }
 
@@ -95,7 +94,7 @@ class SchoolTeacherController extends Controller
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school) {
+            if (! $school) {
                 return response()->json(['error' => 'User is not associated with a school'], 400);
             }
 
@@ -157,12 +156,11 @@ class SchoolTeacherController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $teacherData
+                'data' => $teacherData,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Müəllim məlumatları əldə edilərkən səhv baş verdi: ' . $e->getMessage()
+                'error' => 'Müəllim məlumatları əldə edilərkən səhv baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -185,7 +183,7 @@ class SchoolTeacherController extends Controller
 
             $school = $user->institution;
 
-            if (!$school) {
+            if (! $school) {
                 return response()->json(['error' => 'User is not associated with a school'], 400);
             }
 
@@ -244,7 +242,7 @@ class SchoolTeacherController extends Controller
                     ->where('institution_id', $school->id)
                     ->first();
 
-                if (!$department) {
+                if (! $department) {
                     return response()->json(['error' => 'Şöbə sizin məktəbə aid deyil'], 400);
                 }
             }
@@ -331,7 +329,7 @@ class SchoolTeacherController extends Controller
                 ], $profileData);
 
                 // Remove null values
-                $finalProfileData = array_filter($finalProfileData, function($value) {
+                $finalProfileData = array_filter($finalProfileData, function ($value) {
                     return $value !== null && $value !== '';
                 });
 
@@ -377,12 +375,11 @@ class SchoolTeacherController extends Controller
                     'username' => $teacher->username,
                     'role' => $teacher->roles->first()?->name,
                     'department' => $teacher->department?->name,
-                ]
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Müəllim yaradılarkən səhv baş verdi: ' . $e->getMessage()
+                'error' => 'Müəllim yaradılarkən səhv baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -396,7 +393,7 @@ class SchoolTeacherController extends Controller
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school) {
+            if (! $school) {
                 return response()->json(['error' => 'User is not associated with a school'], 400);
             }
 
@@ -446,8 +443,8 @@ class SchoolTeacherController extends Controller
                 $department = Department::where('id', $request->department_id)
                     ->where('institution_id', $school->id)
                     ->first();
-                
-                if (!$department) {
+
+                if (! $department) {
                     return response()->json(['error' => 'Şöbə sizin məktəbə aid deyil'], 400);
                 }
             }
@@ -516,12 +513,11 @@ class SchoolTeacherController extends Controller
                     'role' => $teacher->roles->first()?->name,
                     'department' => $teacher->department?->name,
                     'is_active' => $teacher->is_active,
-                ]
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Müəllim yenilənərkən səhv baş verdi: ' . $e->getMessage()
+                'error' => 'Müəllim yenilənərkən səhv baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -543,7 +539,7 @@ class SchoolTeacherController extends Controller
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school && !$user->hasRole('superadmin')) {
+            if (! $school && ! $user->hasRole('superadmin')) {
                 return response()->json(['error' => 'İcazə yoxdur'], 403);
             }
 
@@ -554,7 +550,7 @@ class SchoolTeacherController extends Controller
                 });
 
             // SchoolAdmin can only delete from their institution
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $query->where('institution_id', $school->id);
             }
 
@@ -565,16 +561,15 @@ class SchoolTeacherController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Müəllim uğurla silindi'
+                'message' => 'Müəllim uğurla silindi',
             ]);
-
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return response()->json([
-                'error' => 'Müəllim tapılmadı və ya sizə aid deyil'
+                'error' => 'Müəllim tapılmadı və ya sizə aid deyil',
             ], 404);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Müəllim silinərkən səhv baş verdi: ' . $e->getMessage()
+                'error' => 'Müəllim silinərkən səhv baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -591,11 +586,11 @@ class SchoolTeacherController extends Controller
             $excludeGradeId = $request->get('exclude_grade_id');
 
             // If user is not superadmin, use their institution
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $institutionId = $user->institution_id;
             }
 
-            if (!$institutionId) {
+            if (! $institutionId) {
                 return response()->json(['error' => 'Institution ID is required'], 400);
             }
 
@@ -629,11 +624,10 @@ class SchoolTeacherController extends Controller
                 'success' => true,
                 'data' => $teachers->toArray(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'error' => 'Available teachers yüklənərkən səhv baş verdi: ' . $e->getMessage()
+                'error' => 'Available teachers yüklənərkən səhv baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -647,7 +641,7 @@ class SchoolTeacherController extends Controller
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school && !$user->hasRole('superadmin')) {
+            if (! $school && ! $user->hasRole('superadmin')) {
                 return response()->json(['error' => 'İcazə yoxdur'], 403);
             }
 
@@ -657,7 +651,7 @@ class SchoolTeacherController extends Controller
                     $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
                 });
 
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $query->where('institution_id', $school->id);
             }
 
@@ -666,6 +660,7 @@ class SchoolTeacherController extends Controller
             // Prepare export data
             $exportData = $teachers->map(function ($teacher) {
                 $profile = $teacher->profile;
+
                 return [
                     'ID' => $teacher->id,
                     'Ad' => $profile->first_name ?? '',
@@ -691,10 +686,9 @@ class SchoolTeacherController extends Controller
                 'data' => $exportData,
                 'count' => $exportData->count(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'İxrac zamanı səhv baş verdi: ' . $e->getMessage()
+                'error' => 'İxrac zamanı səhv baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -717,7 +711,7 @@ class SchoolTeacherController extends Controller
                 'İş Statusu' => 'full_time',
                 'İxtisas' => 'Riyaziyyat müəllimi',
                 'Təcrübə (il)' => '5',
-            ]
+            ],
         ];
 
         return response()->json([
@@ -736,7 +730,7 @@ class SchoolTeacherController extends Controller
             $user = Auth::user();
             $school = $user->institution;
 
-            if (!$school && !$user->hasRole('superadmin')) {
+            if (! $school && ! $user->hasRole('superadmin')) {
                 return response()->json(['error' => 'İcazə yoxdur'], 403);
             }
 
@@ -799,9 +793,8 @@ class SchoolTeacherController extends Controller
                     UserProfile::create($profileData);
 
                     $imported++;
-
                 } catch (\Exception $e) {
-                    $errors[] = "Sətir " . ($index + 1) . ": " . $e->getMessage();
+                    $errors[] = 'Sətir ' . ($index + 1) . ': ' . $e->getMessage();
                 }
             }
 
@@ -811,7 +804,6 @@ class SchoolTeacherController extends Controller
                 'imported' => $imported,
                 'errors' => $errors,
             ]);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             return response()->json([
                 'error' => 'Validasiya xətası',
@@ -819,7 +811,7 @@ class SchoolTeacherController extends Controller
             ], 422);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'İdxal zamanı səhv baş verdi: ' . $e->getMessage()
+                'error' => 'İdxal zamanı səhv baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }

@@ -17,6 +17,7 @@ use Carbon\Carbon;
 class SurveyNotificationService
 {
     protected NotificationService $notificationService;
+
     protected InstitutionNotificationHelper $institutionNotificationHelper;
 
     public function __construct(
@@ -26,6 +27,7 @@ class SurveyNotificationService
         $this->notificationService = $notificationService;
         $this->institutionNotificationHelper = $institutionNotificationHelper;
     }
+
     /**
      * İstifadəçinin survey assignment notification-larını əldə et
      * Real notification table-dan survey-related notification-ları oxuyur
@@ -78,13 +80,13 @@ class SurveyNotificationService
                     'questions_count' => $survey?->questions()->count() ?? 0,
                     'action_url' => $surveyIdFromNotification ? "/survey-response/{$surveyIdFromNotification}" : null,
                     'related_entity_type' => $notification->related_type,
-                    'related_entity_id' => $notification->related_id
+                    'related_entity_id' => $notification->related_id,
                 ],
                 'read_at' => $notification->read_at?->toISOString(),
                 'created_at' => $notification->created_at->toISOString(),
                 'is_read' => $notification->is_read,
                 'priority' => $notification->priority ?? 'normal',
-                'category' => 'survey'
+                'category' => 'survey',
             ];
         }
 
@@ -108,7 +110,7 @@ class SurveyNotificationService
      */
     protected function getSurveyPriority(Survey $survey): string
     {
-        if (!$survey->end_date) {
+        if (! $survey->end_date) {
             return 'normal';
         }
 
@@ -143,24 +145,24 @@ class SurveyNotificationService
     public function getSurveyAssignmentStats(User $user): array
     {
         $userInstitutionId = $user->institution_id;
-        
+
         $totalAssigned = Survey::where('status', 'published')
             ->whereJsonContains('target_institutions', $userInstitutionId)
             ->count();
 
         $completed = Survey::where('status', 'published')
             ->whereJsonContains('target_institutions', $userInstitutionId)
-            ->whereHas('responses', function($query) use ($user) {
+            ->whereHas('responses', function ($query) use ($user) {
                 $query->where('user_id', $user->id)
-                      ->where('status', 'completed');
+                    ->where('status', 'completed');
             })
             ->count();
 
         $inProgress = Survey::where('status', 'published')
             ->whereJsonContains('target_institutions', $userInstitutionId)
-            ->whereHas('responses', function($query) use ($user) {
+            ->whereHas('responses', function ($query) use ($user) {
                 $query->where('user_id', $user->id)
-                      ->where('status', 'draft');
+                    ->where('status', 'draft');
             })
             ->count();
 
@@ -169,7 +171,7 @@ class SurveyNotificationService
         $overdue = Survey::where('status', 'published')
             ->whereJsonContains('target_institutions', $userInstitutionId)
             ->where('end_date', '<', now())
-            ->whereDoesntHave('responses', function($query) use ($user) {
+            ->whereDoesntHave('responses', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
             })
             ->count();
@@ -180,7 +182,7 @@ class SurveyNotificationService
             'in_progress' => $inProgress,
             'pending' => $pending,
             'overdue' => $overdue,
-            'unread_notifications' => $this->getUserUnreadSurveyCount($user)
+            'unread_notifications' => $this->getUserUnreadSurveyCount($user),
         ];
     }
 
@@ -267,7 +269,7 @@ class SurveyNotificationService
 
         $recipient = $approvalRequest->submitter ?? $response->respondent;
 
-        if (!$recipient instanceof User) {
+        if (! $recipient instanceof User) {
             return;
         }
 
@@ -353,7 +355,7 @@ class SurveyNotificationService
     ): void {
         $submitter = $approvalRequest->submitter;
 
-        if (!$submitter instanceof User) {
+        if (! $submitter instanceof User) {
             return;
         }
 
@@ -394,7 +396,7 @@ class SurveyNotificationService
     ): void {
         $submitter = $approvalRequest->submitter;
 
-        if (!$submitter instanceof User) {
+        if (! $submitter instanceof User) {
             return;
         }
 
@@ -435,7 +437,7 @@ class SurveyNotificationService
         }
 
         $targetRoles = config('notification_roles.survey_notification_roles', [
-            'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+            'schooladmin', 'məktəbadmin', 'müəllim', 'teacher',
         ]);
 
         return $this->institutionNotificationHelper->doExpandInstitutionsToUsers(

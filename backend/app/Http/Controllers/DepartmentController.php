@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Department;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class DepartmentController extends Controller
 {
@@ -26,18 +26,18 @@ class DepartmentController extends Controller
             'include_deleted' => 'nullable|boolean',
             'only_deleted' => 'nullable|boolean',
             'sort_by' => 'nullable|string|in:name,short_name,department_type,created_at',
-            'sort_direction' => 'nullable|string|in:asc,desc'
+            'sort_direction' => 'nullable|string|in:asc,desc',
         ]);
 
         $user = Auth::user();
         $query = Department::with(['institution', 'parent', 'children'])
-                          ->accessibleBy($user);
+            ->accessibleBy($user);
 
         // Apply filters
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'LIKE', "%{$request->search}%")
-                  ->orWhere('short_name', 'LIKE', "%{$request->search}%");
+                    ->orWhere('short_name', 'LIKE', "%{$request->search}%");
             });
         }
 
@@ -73,15 +73,15 @@ class DepartmentController extends Controller
         }
 
         // Return as hierarchy or paginated list
-        if ($request->boolean('hierarchy') && !$request->filled('parent_id')) {
+        if ($request->boolean('hierarchy') && ! $request->filled('parent_id')) {
             $departments = $query->roots()->get();
             $this->loadDepartmentHierarchy($departments);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $departments->map(function ($department) {
                     return $this->formatDepartmentWithChildren($department);
-                })
+                }),
             ]);
         } else {
             $departments = $query->paginate($request->per_page ?? 15);
@@ -98,7 +98,7 @@ class DepartmentController extends Controller
                 'per_page' => $departments->perPage(),
                 'total' => $departments->total(),
                 'from' => $departments->firstItem(),
-                'to' => $departments->lastItem()
+                'to' => $departments->lastItem(),
             ],
         ]);
     }
@@ -109,9 +109,9 @@ class DepartmentController extends Controller
     public function show(Department $department): JsonResponse
     {
         $user = Auth::user();
-        
+
         // Check if user can access this department based on regional permissions
-        if (!$this->canUserAccessDepartment($user, $department)) {
+        if (! $this->canUserAccessDepartment($user, $department)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu departamentə giriş icazəniz yoxdur.',
@@ -138,18 +138,18 @@ class DepartmentController extends Controller
                 'institution' => $department->institution ? [
                     'id' => $department->institution->id,
                     'name' => $department->institution->name,
-                    'type' => $department->institution->type
+                    'type' => $department->institution->type,
                 ] : null,
                 'parent' => $department->parent ? [
                     'id' => $department->parent->id,
-                    'name' => $department->parent->name
+                    'name' => $department->parent->name,
                 ] : null,
                 'children' => $department->children->map(function ($child) {
                     return [
                         'id' => $child->id,
                         'name' => $child->name,
                         'short_name' => $child->short_name,
-                        'is_active' => $child->is_active
+                        'is_active' => $child->is_active,
                     ];
                 }),
                 'users_count' => $department->users->count(),
@@ -177,13 +177,13 @@ class DepartmentController extends Controller
             'capacity' => 'nullable|integer|min:1|max:1000',
             'budget_allocation' => 'nullable|numeric|min:0',
             'functional_scope' => 'nullable|string|max:1000',
-            'is_active' => 'nullable|boolean'
+            'is_active' => 'nullable|boolean',
         ]);
 
         $user = Auth::user();
-        
+
         // Check regional permissions for department creation
-        if (!$this->canUserCreateDepartment($user, $validatedData)) {
+        if (! $this->canUserCreateDepartment($user, $validatedData)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyatı həyata keçirmək üçün icazəniz yoxdur.',
@@ -193,27 +193,27 @@ class DepartmentController extends Controller
         // Validate department type against institution type
         $institution = \App\Models\Institution::find($request->institution_id);
         $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
-        
-        if (!in_array($request->department_type, $allowedTypes)) {
+
+        if (! in_array($request->department_type, $allowedTypes)) {
             return response()->json([
                 'message' => 'The given data was invalid.',
                 'errors' => [
-                    'department_type' => ['Department type not allowed for this institution type.']
-                ]
+                    'department_type' => ['Department type not allowed for this institution type.'],
+                ],
             ], 422);
         }
 
         // Check institution access for non-superadmin users
-        if (!auth()->user()->hasRole('superadmin')) {
+        if (! auth()->user()->hasRole('superadmin')) {
             $userInstitution = auth()->user()->institution;
-            if (!$userInstitution) {
+            if (! $userInstitution) {
                 return response()->json(['message' => 'User not assigned to any institution'], 403);
             }
 
             // Get all accessible institution IDs (user's institution and its children)
             $accessibleInstitutions = $userInstitution->getAllChildrenIds();
-            
-            if (!in_array($request->institution_id, $accessibleInstitutions)) {
+
+            if (! in_array($request->institution_id, $accessibleInstitutions)) {
                 return response()->json(['message' => 'Access denied to this institution'], 403);
             }
         }
@@ -229,7 +229,7 @@ class DepartmentController extends Controller
             'capacity' => $validatedData['capacity'] ?? null,
             'budget_allocation' => $validatedData['budget_allocation'] ?? null,
             'functional_scope' => $validatedData['functional_scope'] ?? null,
-            'is_active' => $validatedData['is_active'] ?? true
+            'is_active' => $validatedData['is_active'] ?? true,
         ]);
 
         $department->load(['institution', 'parent']);
@@ -237,7 +237,7 @@ class DepartmentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Department created successfully',
-            'data' => $this->formatDepartment($department)
+            'data' => $this->formatDepartment($department),
         ], 201);
     }
 
@@ -256,13 +256,13 @@ class DepartmentController extends Controller
             'capacity' => 'nullable|integer|min:1|max:1000',
             'budget_allocation' => 'nullable|numeric|min:0',
             'functional_scope' => 'nullable|string|max:1000',
-            'is_active' => 'sometimes|boolean'
+            'is_active' => 'sometimes|boolean',
         ]);
 
         $user = Auth::user();
-        
+
         // Check if user can access this department based on regional permissions
-        if (!$this->canUserModifyDepartment($user, $department)) {
+        if (! $this->canUserModifyDepartment($user, $department)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu departamenti dəyişdirmək icazəniz yoxdur.',
@@ -272,17 +272,17 @@ class DepartmentController extends Controller
         // Prevent self-parenting
         if ($request->parent_department_id && $request->parent_department_id == $department->id) {
             return response()->json([
-                'message' => 'Department cannot be its own parent'
+                'message' => 'Department cannot be its own parent',
             ], 422);
         }
 
         // Validate department type if provided
         if ($request->has('department_type')) {
             $allowedTypes = Department::getAllowedTypesForInstitution($department->institution->type);
-            if (!in_array($request->department_type, $allowedTypes)) {
+            if (! in_array($request->department_type, $allowedTypes)) {
                 return response()->json([
                     'message' => 'Department type not allowed for this institution type',
-                    'allowed_types' => $allowedTypes
+                    'allowed_types' => $allowedTypes,
                 ], 422);
             }
         }
@@ -294,7 +294,7 @@ class DepartmentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Department updated successfully',
-            'data' => $this->formatDepartment($department)
+            'data' => $this->formatDepartment($department),
         ]);
     }
 
@@ -304,9 +304,9 @@ class DepartmentController extends Controller
     public function destroy(Request $request, Department $department): JsonResponse
     {
         $user = Auth::user();
-        
+
         // Check if user can delete this department based on regional permissions
-        if (!$this->canUserDeleteDepartment($user, $department)) {
+        if (! $this->canUserDeleteDepartment($user, $department)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu departamenti silmək icazəniz yoxdur.',
@@ -324,7 +324,7 @@ class DepartmentController extends Controller
                 $childrenCount = $department->children()->count();
                 if ($childrenCount > 0) {
                     return response()->json([
-                        'message' => "Cannot permanently delete department with {$childrenCount} child departments"
+                        'message' => "Cannot permanently delete department with {$childrenCount} child departments",
                     ], 422);
                 }
 
@@ -347,7 +347,7 @@ class DepartmentController extends Controller
                 $activeChildren = $department->children()->where('is_active', true)->count();
                 if ($activeChildren > 0) {
                     return response()->json([
-                        'message' => "Cannot deactivate department with {$activeChildren} active child departments"
+                        'message' => "Cannot deactivate department with {$activeChildren} active child departments",
                     ], 422);
                 }
 
@@ -364,7 +364,7 @@ class DepartmentController extends Controller
                     'is_active' => false,
                 ]);
 
-                if (!$department->trashed()) {
+                if (! $department->trashed()) {
                     $department->delete();
                 }
 
@@ -381,14 +381,13 @@ class DepartmentController extends Controller
                     'delete_type' => $deleteType,
                 ],
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Department deletion failed',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -402,7 +401,7 @@ class DepartmentController extends Controller
             return [
                 'key' => $key,
                 'label' => $label,
-                'description' => null
+                'description' => null,
             ];
         })->values();
 
@@ -418,24 +417,24 @@ class DepartmentController extends Controller
     public function getTypesForInstitution(Request $request): JsonResponse
     {
         $request->validate([
-            'institution_id' => 'required|exists:institutions,id'
+            'institution_id' => 'required|exists:institutions,id',
         ]);
 
         $institution = \App\Models\Institution::find($request->institution_id);
         $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
-        
+
         $typesList = collect($allowedTypes)->map(function ($type) {
             return [
                 'key' => $type,
                 'label' => Department::TYPES[$type] ?? $type,
-                'description' => null
+                'description' => null,
             ];
         })->values();
 
         return response()->json([
             'success' => true,
             'data' => $typesList,
-            'institution_type' => $institution->type
+            'institution_type' => $institution->type,
         ]);
     }
 
@@ -448,7 +447,7 @@ class DepartmentController extends Controller
             $department->load(['children' => function ($query) {
                 $query->with('children');
             }]);
-            
+
             if ($department->children->isNotEmpty()) {
                 $this->loadDepartmentHierarchy($department->children);
             }
@@ -464,6 +463,7 @@ class DepartmentController extends Controller
         $formatted['children'] = $department->children->map(function ($child) {
             return $this->formatDepartmentWithChildren($child);
         });
+
         return $formatted;
     }
 
@@ -488,12 +488,12 @@ class DepartmentController extends Controller
             'institution' => $department->institution ? [
                 'id' => $department->institution->id,
                 'name' => $department->institution->name,
-                'type' => $department->institution->type
+                'type' => $department->institution->type,
             ] : null,
             'parent' => $department->parent ? [
                 'id' => $department->parent->id,
                 'name' => $department->parent->name,
-                'department_type' => $department->parent->department_type
+                'department_type' => $department->parent->department_type,
             ] : null,
             'children_count' => $department->children ? $department->children->count() : 0,
             'created_at' => $department->created_at,
@@ -515,7 +515,7 @@ class DepartmentController extends Controller
         $userInstitutionId = $user->institution_id;
         $targetInstitutionId = $departmentData['institution_id'] ?? null;
 
-        if (!$targetInstitutionId) {
+        if (! $targetInstitutionId) {
             return false;
         }
 
@@ -524,17 +524,19 @@ class DepartmentController extends Controller
             case 'regionoperator':
                 // Regional admins can create departments for their region and sub-institutions
                 $allowedInstitutions = $this->getRegionalInstitutions($userInstitutionId);
+
                 return $allowedInstitutions->contains($targetInstitutionId);
-                
+
             case 'sektoradmin':
                 // Sector admins can create departments for their sector and schools
                 $allowedInstitutions = $this->getSectorInstitutions($userInstitutionId);
+
                 return $allowedInstitutions->contains($targetInstitutionId);
-                
+
             case 'məktəbadmin':
                 // School admins can only create departments in their institution
                 return $targetInstitutionId === $userInstitutionId;
-                
+
             default:
                 return false;
         }
@@ -556,13 +558,13 @@ class DepartmentController extends Controller
             case 'regionadmin':
             case 'regionoperator':
                 return $this->isDepartmentInUserRegion($department, $userInstitutionId);
-                
+
             case 'sektoradmin':
                 return $this->isDepartmentInUserSector($department, $userInstitutionId);
-                
+
             case 'məktəbadmin':
                 return $department->institution_id === $userInstitutionId;
-                
+
             default:
                 return false;
         }
@@ -603,14 +605,14 @@ class DepartmentController extends Controller
             case 'regionadmin':
             case 'regionoperator':
                 return $this->isDepartmentInUserRegion($department, $userInstitutionId);
-                
+
             case 'sektoradmin':
                 return $this->isDepartmentInUserSector($department, $userInstitutionId);
-                
+
             case 'məktəbadmin':
             case 'müəllim':
                 return $department->institution_id === $userInstitutionId;
-                
+
             default:
                 return false;
         }
@@ -621,15 +623,15 @@ class DepartmentController extends Controller
      */
     private function getRegionalInstitutions($regionId)
     {
-        return \App\Models\Institution::where(function($q) use ($regionId) {
+        return \App\Models\Institution::where(function ($q) use ($regionId) {
             $q->where('id', $regionId) // The region itself
-              ->orWhere('parent_id', $regionId); // Sectors
+                ->orWhere('parent_id', $regionId); // Sectors
         })->get()->pluck('id')
-        ->merge(
-            \App\Models\Institution::whereIn('parent_id', 
-                \App\Models\Institution::where('parent_id', $regionId)->pluck('id')
-            )->pluck('id') // Schools
-        );
+            ->merge(
+                \App\Models\Institution::whereIn('parent_id',
+                    \App\Models\Institution::where('parent_id', $regionId)->pluck('id')
+                )->pluck('id') // Schools
+            );
     }
 
     /**
@@ -638,7 +640,7 @@ class DepartmentController extends Controller
     private function getSectorInstitutions($sektorId)
     {
         return \App\Models\Institution::where('parent_id', $sektorId)->pluck('id')
-               ->push($sektorId);
+            ->push($sektorId);
     }
 
     /**
@@ -647,6 +649,7 @@ class DepartmentController extends Controller
     private function isDepartmentInUserRegion($department, $userRegionId): bool
     {
         $allowedInstitutions = $this->getRegionalInstitutions($userRegionId);
+
         return $allowedInstitutions->contains($department->institution_id);
     }
 
@@ -656,6 +659,7 @@ class DepartmentController extends Controller
     private function isDepartmentInUserSector($department, $userSektorId): bool
     {
         $allowedInstitutions = $this->getSectorInstitutions($userSektorId);
+
         return $allowedInstitutions->contains($department->institution_id);
     }
 }

@@ -58,10 +58,10 @@ class DocumentAuthorityMatrix extends Model
      */
     public function isFileTypeAllowed(string $fileType): bool
     {
-        if (!$this->allowed_file_types) {
+        if (! $this->allowed_file_types) {
             return true; // No restrictions
         }
-        
+
         return in_array($fileType, $this->allowed_file_types);
     }
 
@@ -71,6 +71,7 @@ class DocumentAuthorityMatrix extends Model
     public function isFileSizeAllowed(int $fileSizeBytes): bool
     {
         $maxBytes = $this->max_file_size_mb * 1024 * 1024;
+
         return $fileSizeBytes <= $maxBytes;
     }
 

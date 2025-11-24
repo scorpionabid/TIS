@@ -2,25 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\UserBulkService;
-use App\Services\InstitutionAssignmentService;
-use App\Http\Traits\ValidationRules;
-use App\Http\Traits\ResponseHelpers;
-use App\Imports\TeachersImport;
-use App\Imports\StudentsImport;
-use App\Exports\TeacherTemplateExport;
-use App\Exports\StudentTemplateExport;
 use App\Exports\StaffTemplateExport;
-use App\Models\User;
+use App\Exports\StudentTemplateExport;
+use App\Exports\TeacherTemplateExport;
+use App\Http\Traits\ResponseHelpers;
+use App\Http\Traits\ValidationRules;
+use App\Imports\StudentsImport;
+use App\Imports\TeachersImport;
 use App\Models\Student;
-use Illuminate\Http\Request;
+use App\Models\User;
+use App\Services\InstitutionAssignmentService;
+use App\Services\UserBulkService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Maatwebsite\Excel\Facades\Excel;
 
 class UserBulkController extends BaseController
 {
-    use ValidationRules, ResponseHelpers;
+    use ResponseHelpers, ValidationRules;
 
     public function __construct(
         protected UserBulkService $bulkService,
@@ -34,10 +34,10 @@ class UserBulkController extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate($this->getBulkOperationRules('user'));
-            
+
             $this->bulkService->validateBulkOperation($validated['user_ids'], 'activate');
             $result = $this->bulkService->activate($validated['user_ids']);
-            
+
             return $this->success($result);
         }, 'user.bulk.activate');
     }
@@ -49,10 +49,10 @@ class UserBulkController extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate($this->getBulkOperationRules('user'));
-            
+
             $this->bulkService->validateBulkOperation($validated['user_ids'], 'deactivate');
             $result = $this->bulkService->deactivate($validated['user_ids']);
-            
+
             return $this->success($result);
         }, 'user.bulk.deactivate');
     }
@@ -67,10 +67,10 @@ class UserBulkController extends BaseController
                 $this->getBulkOperationRules('user'),
                 ['role_id' => 'required|integer|exists:roles,id']
             ));
-            
+
             $this->bulkService->validateBulkOperation($validated['user_ids'], 'assign_role');
             $result = $this->bulkService->assignRole($validated['user_ids'], $validated['role_id']);
-            
+
             return $this->success($result);
         }, 'user.bulk.assign_role');
     }
@@ -85,10 +85,10 @@ class UserBulkController extends BaseController
                 $this->getBulkOperationRules('user'),
                 ['institution_id' => 'required|integer|exists:institutions,id']
             ));
-            
+
             $this->bulkService->validateBulkOperation($validated['user_ids'], 'assign_institution');
             $result = $this->bulkService->assignInstitution($validated['user_ids'], $validated['institution_id']);
-            
+
             return $this->success($result);
         }, 'user.bulk.assign_institution');
     }
@@ -103,10 +103,10 @@ class UserBulkController extends BaseController
                 $this->getBulkOperationRules('user', 50), // Smaller limit for safety
                 ['confirm' => 'required|boolean|accepted'] // Extra confirmation required
             ));
-            
+
             $this->bulkService->validateBulkOperation($validated['user_ids'], 'delete');
             $result = $this->bulkService->delete($validated['user_ids'], $validated['confirm']);
-            
+
             return $this->success($result);
         }, 'user.bulk.delete');
     }
@@ -116,8 +116,9 @@ class UserBulkController extends BaseController
      */
     public function statistics(Request $request): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request) {
+        return $this->executeWithErrorHandling(function () {
             $stats = $this->bulkService->getStatistics();
+
             return $this->success($stats, 'Bulk statistics retrieved successfully');
         }, 'user.bulk.statistics');
     }
@@ -132,15 +133,15 @@ class UserBulkController extends BaseController
                 'user_ids' => 'required|array|min:1|max:100',
                 'user_ids.*' => 'integer|exists:users,id',
                 'operation' => 'required|string|in:activate,deactivate,assign_role,assign_institution,delete',
-                'target_id' => 'nullable|integer' // For role_id or institution_id
+                'target_id' => 'nullable|integer', // For role_id or institution_id
             ]);
-            
+
             $preview = $this->bulkService->getOperationPreview(
-                $validated['user_ids'], 
+                $validated['user_ids'],
                 $validated['operation'],
                 $validated['target_id'] ?? null
             );
-            
+
             return $this->success($preview, 'Operation preview generated successfully');
         }, 'user.bulk.preview');
     }
@@ -152,23 +153,23 @@ class UserBulkController extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $user = Auth::user();
-            
+
             // Check permissions (high privilege operation)
-            if (!$user->hasAnyRole(['superadmin', 'regionadmin'])) {
+            if (! $user->hasAnyRole(['superadmin', 'regionadmin'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'İstifadəçiləri bərpa etmək icazəniz yoxdur.'
+                    'message' => 'İstifadəçiləri bərpa etmək icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $validated = $request->validate([
                 'user_ids' => 'required|array|min:1|max:50',
                 'user_ids.*' => 'integer|exists:users,id',
-                'confirm' => 'required|boolean|accepted'
+                'confirm' => 'required|boolean|accepted',
             ]);
-            
+
             $result = $this->bulkService->bulkRestore($validated['user_ids'], $validated['confirm']);
-            
+
             return $this->success($result, 'İstifadəçilər uğurla bərpa edildi');
         }, 'user.bulk.restore');
     }
@@ -180,24 +181,24 @@ class UserBulkController extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $user = Auth::user();
-            
+
             // Only SuperAdmin can force delete
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'İstifadəçiləri həmişəlik silmək icazəniz yoxdur.'
+                    'message' => 'İstifadəçiləri həmişəlik silmək icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $validated = $request->validate([
                 'user_ids' => 'required|array|min:1|max:20', // Smaller limit for safety
                 'user_ids.*' => 'integer|exists:users,id',
                 'confirm' => 'required|boolean|accepted',
-                'double_confirm' => 'required|boolean|accepted' // Double confirmation for permanent deletion
+                'double_confirm' => 'required|boolean|accepted', // Double confirmation for permanent deletion
             ]);
-            
+
             $result = $this->bulkService->bulkForceDelete($validated['user_ids'], $validated['confirm']);
-            
+
             return $this->success($result, 'İstifadəçilər həmişəlik silindi');
         }, 'user.bulk.force_delete');
     }
@@ -210,13 +211,13 @@ class UserBulkController extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
                 'user_type' => 'nullable|string|in:teachers,students,staff',
-                'role_id' => 'nullable|string|exists:roles,name'
+                'role_id' => 'nullable|string|exists:roles,name',
             ]);
 
             $user = Auth::user();
-            
+
             // Determine template type from role_id or user_type
-            if (!empty($validated['role_id'])) {
+            if (! empty($validated['role_id'])) {
                 $roleName = $validated['role_id'];
                 $templateType = $this->mapRoleToTemplateType($roleName);
                 $fileName = "template_{$roleName}_" . date('Y-m-d_H-i-s') . '.xlsx';
@@ -224,15 +225,15 @@ class UserBulkController extends BaseController
                 $templateType = $validated['user_type'];
                 $fileName = "template_{$templateType}_" . date('Y-m-d_H-i-s') . '.xlsx';
             }
-            
+
             if ($templateType === 'teachers' || $this->isTeacherRole($templateType)) {
-                return Excel::download(new TeacherTemplateExport(), $fileName);
+                return Excel::download(new TeacherTemplateExport, $fileName);
             } elseif ($templateType === 'students' || $this->isStudentRole($templateType)) {
-                return Excel::download(new StudentTemplateExport(), $fileName);
-            } else {
-                // Staff/Admin template
-                return Excel::download(new StaffTemplateExport(), $fileName);
+                return Excel::download(new StudentTemplateExport, $fileName);
             }
+
+            // Staff/Admin template
+            return Excel::download(new StaffTemplateExport, $fileName);
         }, 'user.bulk.download_template');
     }
 
@@ -244,7 +245,7 @@ class UserBulkController extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
                 'file' => 'required|file|mimes:xlsx,xls|max:10240',
-                'user_type' => 'required|string|in:teachers,students,staff'
+                'user_type' => 'required|string|in:teachers,students,staff',
             ]);
 
             $file = $validated['file'];
@@ -252,7 +253,7 @@ class UserBulkController extends BaseController
             $user = Auth::user();
             $institution = $user->institution;
 
-            if (!$institution && !$user->hasRole('superadmin')) {
+            if (! $institution && ! $user->hasRole('superadmin')) {
                 return $this->error('User must be associated with an institution', 403);
             }
 
@@ -261,20 +262,20 @@ class UserBulkController extends BaseController
             if ($userType === 'teachers') {
                 $import = new TeachersImport($institution);
                 Excel::import($import, $file);
-                
+
                 $results = [
                     'created' => $import->getSuccessCount(),
                     'errors' => $import->getErrors(),
-                    'type' => 'teachers'
+                    'type' => 'teachers',
                 ];
             } elseif ($userType === 'students') {
                 $import = new StudentsImport($institution);
                 Excel::import($import, $file);
-                
+
                 $results = [
-                    'created' => $import->getSuccessCount(), 
+                    'created' => $import->getSuccessCount(),
                     'errors' => $import->getErrors(),
-                    'type' => 'students'
+                    'type' => 'students',
                 ];
             } else {
                 // Staff import
@@ -282,8 +283,8 @@ class UserBulkController extends BaseController
             }
 
             $message = "İdxal tamamlandı: {$results['created']} {$userType} əlavə edildi";
-            if (!empty($results['errors'])) {
-                $message .= ", " . count($results['errors']) . " xəta baş verdi";
+            if (! empty($results['errors'])) {
+                $message .= ', ' . count($results['errors']) . ' xəta baş verdi';
             }
 
             return $this->success($results, $message);
@@ -298,7 +299,7 @@ class UserBulkController extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
                 'user_type' => 'required|string|in:teachers,students,staff',
-                'filters' => 'nullable|array'
+                'filters' => 'nullable|array',
             ]);
 
             $userType = $validated['user_type'];
@@ -323,28 +324,27 @@ class UserBulkController extends BaseController
         }, 'user.bulk.export');
     }
 
-
     /**
      * Get teachers for export
      */
     private function getTeachersForExport($institution, $filters)
     {
         $query = User::query();
-        
+
         if ($institution) {
             $query->where('institution_id', $institution->id);
         }
-        
+
         $query->whereHas('roles', function ($q) {
             $q->whereIn('name', ['müəllim', 'muavin', 'ubr']);
         });
 
         // Apply filters
-        if (!empty($filters['department'])) {
+        if (! empty($filters['department'])) {
             $query->where('department_id', $filters['department']);
         }
-        
-        if (!empty($filters['is_active'])) {
+
+        if (! empty($filters['is_active'])) {
             $query->where('is_active', $filters['is_active'] === 'true');
         }
 
@@ -357,23 +357,23 @@ class UserBulkController extends BaseController
     private function getStudentsForExport($institution, $filters)
     {
         $query = User::query();
-        
+
         if ($institution) {
             $query->where('institution_id', $institution->id);
         }
-        
+
         $query->whereHas('roles', function ($q) {
             $q->where('name', 'şagird');
         });
 
         // Apply filters
-        if (!empty($filters['grade'])) {
+        if (! empty($filters['grade'])) {
             $query->whereHas('studentEnrollments', function ($q) use ($filters) {
                 $q->where('grade_id', $filters['grade']);
             });
         }
-        
-        if (!empty($filters['is_active'])) {
+
+        if (! empty($filters['is_active'])) {
             $query->where('is_active', $filters['is_active'] === 'true');
         }
 
@@ -386,21 +386,21 @@ class UserBulkController extends BaseController
     private function getStaffForExport($institution, $filters)
     {
         $query = User::query();
-        
+
         if ($institution) {
             $query->where('institution_id', $institution->id);
         }
-        
+
         $query->whereHas('roles', function ($q) {
             $q->whereIn('name', ['psixoloq', 'tesarrufat', 'katib']);
         });
 
         // Apply filters
-        if (!empty($filters['department'])) {
+        if (! empty($filters['department'])) {
             $query->where('department_id', $filters['department']);
         }
-        
-        if (!empty($filters['is_active'])) {
+
+        if (! empty($filters['is_active'])) {
             $query->where('is_active', $filters['is_active'] === 'true');
         }
 
@@ -412,14 +412,14 @@ class UserBulkController extends BaseController
      */
     private function generateTeachersExport($teachers, $fileName)
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         // Headers
         $headers = [
-            'ID', 'Ad', 'Soyad', 'Email', 'Telefon', 'Doğum tarixi', 
-            'Cins', 'Vəzifə', 'Şöbə', 'İşə qəbul tarixi', 'Ünvan', 
-            'Fəaliyyət statusu', 'Son giriş'
+            'ID', 'Ad', 'Soyad', 'Email', 'Telefon', 'Doğum tarixi',
+            'Cins', 'Vəzifə', 'Şöbə', 'İşə qəbul tarixi', 'Ünvan',
+            'Fəaliyyət statusu', 'Son giriş',
         ];
 
         foreach ($headers as $index => $header) {
@@ -430,7 +430,7 @@ class UserBulkController extends BaseController
         foreach ($teachers as $index => $teacher) {
             $profile = $teacher->profile;
             $row = $index + 2;
-            
+
             $sheet->setCellValue('A' . $row, $teacher->id);
             $sheet->setCellValue('B' . $row, $profile->first_name ?? '');
             $sheet->setCellValue('C' . $row, $profile->last_name ?? '');
@@ -458,14 +458,14 @@ class UserBulkController extends BaseController
      */
     private function generateStudentsExport($students, $fileName)
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         // Headers
         $headers = [
-            'ID', 'Ad', 'Soyad', 'Email', 'Doğum tarixi', 'Cins', 
-            'Sinif', 'Şagird nömrəsi', 'Qeydiyyat tarixi', 'Ünvan', 
-            'Vəsi adı', 'Vəsi telefonu', 'Fəaliyyət statusu'
+            'ID', 'Ad', 'Soyad', 'Email', 'Doğum tarixi', 'Cins',
+            'Sinif', 'Şagird nömrəsi', 'Qeydiyyat tarixi', 'Ünvan',
+            'Vəsi adı', 'Vəsi telefonu', 'Fəaliyyət statusu',
         ];
 
         foreach ($headers as $index => $header) {
@@ -478,7 +478,7 @@ class UserBulkController extends BaseController
             $enrollment = $student->studentEnrollments->first();
             $emergencyContact = json_decode($profile->emergency_contact ?? '{}', true);
             $row = $index + 2;
-            
+
             $sheet->setCellValue('A' . $row, $student->id);
             $sheet->setCellValue('B' . $row, $profile->first_name ?? '');
             $sheet->setCellValue('C' . $row, $profile->last_name ?? '');
@@ -506,14 +506,14 @@ class UserBulkController extends BaseController
      */
     private function generateStaffExport($staff, $fileName)
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         // Headers
         $headers = [
-            'ID', 'Ad', 'Soyad', 'Email', 'Telefon', 'Doğum tarixi', 
-            'Cins', 'Vəzifə', 'Şöbə', 'İşə qəbul tarixi', 'Ünvan', 
-            'Təcili əlaqə', 'Qeydlər', 'Fəaliyyət statusu'
+            'ID', 'Ad', 'Soyad', 'Email', 'Telefon', 'Doğum tarixi',
+            'Cins', 'Vəzifə', 'Şöbə', 'İşə qəbul tarixi', 'Ünvan',
+            'Təcili əlaqə', 'Qeydlər', 'Fəaliyyət statusu',
         ];
 
         foreach ($headers as $index => $header) {
@@ -525,7 +525,7 @@ class UserBulkController extends BaseController
             $profile = $user->profile;
             $emergencyContact = json_decode($profile->emergency_contact ?? '{}', true);
             $row = $index + 2;
-            
+
             $sheet->setCellValue('A' . $row, $user->id);
             $sheet->setCellValue('B' . $row, $profile->first_name ?? '');
             $sheet->setCellValue('C' . $row, $profile->last_name ?? '');
@@ -556,17 +556,19 @@ class UserBulkController extends BaseController
     {
         $data = Excel::toArray([], $file)[0];
         $headers = array_shift($data); // Remove header row
-        
+
         $created = 0;
         $errors = [];
 
         foreach ($data as $rowIndex => $row) {
             try {
-                if (empty($row[0]) || empty($row[1])) continue; // Skip empty rows
-                
+                if (empty($row[0]) || empty($row[1])) {
+                    continue;
+                } // Skip empty rows
+
                 $username = $this->generateUniqueUsername(strtolower($row[0] . '_' . $row[1]));
-                $email = !empty($row[2]) ? $row[2] : $username . '@staff.local';
-                
+                $email = ! empty($row[2]) ? $row[2] : $username . '@staff.local';
+
                 // Check email uniqueness
                 if (User::where('email', $email)->exists()) {
                     $email = $username . '_' . time() . '@staff.local';
@@ -588,7 +590,7 @@ class UserBulkController extends BaseController
                     'tesarrufat', 'təsərrüfat' => 'tesarrufat',
                     default => 'katib'
                 };
-                
+
                 $user->assignRole($role);
 
                 // Create profile
@@ -609,16 +611,15 @@ class UserBulkController extends BaseController
                 ]);
 
                 $created++;
-                
             } catch (\Exception $e) {
-                $errors[] = "Sətir " . ($rowIndex + 2) . ": " . $e->getMessage();
+                $errors[] = 'Sətir ' . ($rowIndex + 2) . ': ' . $e->getMessage();
             }
         }
 
         return [
             'created' => $created,
             'errors' => $errors,
-            'type' => 'staff'
+            'type' => 'staff',
         ];
     }
 
@@ -647,12 +648,12 @@ class UserBulkController extends BaseController
         if ($this->isTeacherRole($roleName)) {
             return 'teachers';
         }
-        
-        // Common student role names  
+
+        // Common student role names
         if ($this->isStudentRole($roleName)) {
             return 'students';
         }
-        
+
         // Everything else is staff/admin
         return 'staff';
     }
@@ -664,13 +665,13 @@ class UserBulkController extends BaseController
     {
         $teacherRoles = ['teacher', 'müəllim', 'muellim', 'educator'];
         $lowerRoleName = strtolower($roleName);
-        
+
         foreach ($teacherRoles as $teacherRole) {
             if (strpos($lowerRoleName, $teacherRole) !== false) {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -681,13 +682,13 @@ class UserBulkController extends BaseController
     {
         $studentRoles = ['student', 'şagird', 'sagird', 'pupil'];
         $lowerRoleName = strtolower($roleName);
-        
+
         foreach ($studentRoles as $studentRole) {
             if (strpos($lowerRoleName, $studentRole) !== false) {
                 return true;
             }
         }
-        
+
         return false;
     }
 }

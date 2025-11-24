@@ -1,28 +1,26 @@
 <?php
 
-use App\Http\Controllers\ClassAttendanceController;
-use App\Http\Controllers\ScheduleControllerRefactored as ScheduleController;
 use App\Http\Controllers\API\ClassAttendanceApiController;
-use App\Http\Controllers\API\TeachingLoadApiController;
-use App\Http\Controllers\API\ScheduleApiController;
+use App\Http\Controllers\API\RegionalScheduleController;
+use App\Http\Controllers\API\RegionAssessmentController;
 use App\Http\Controllers\API\ScheduleGenerationController;
-use App\Http\Controllers\RoomControllerRefactored as RoomController;
-use App\Http\Controllers\ClassesControllerRefactored as ClassesController;
-use App\Http\Controllers\Grade\GradeUnifiedController;
-use App\Http\Controllers\Grade\GradeTagController;
-use App\Http\Controllers\GradeSubjectController;
-use App\Http\Controllers\StudentControllerRefactored as StudentController;
-use App\Http\Controllers\SchoolEventController;
-use App\Http\Controllers\TeacherPerformanceController;
+use App\Http\Controllers\API\TeachingLoadApiController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\AssessmentResultFieldController;
 use App\Http\Controllers\AssessmentStageController;
 use App\Http\Controllers\AssessmentTypeController;
+use App\Http\Controllers\ClassAttendanceController;
+use App\Http\Controllers\Grade\GradeTagController;
+use App\Http\Controllers\Grade\GradeUnifiedController;
+use App\Http\Controllers\GradeSubjectController;
+use App\Http\Controllers\RoomControllerRefactored as RoomController;
+use App\Http\Controllers\ScheduleControllerRefactored as ScheduleController;
 use App\Http\Controllers\SchoolAssessmentController;
 use App\Http\Controllers\SchoolAssessmentReportController;
+use App\Http\Controllers\SchoolEventController;
+use App\Http\Controllers\StudentControllerRefactored as StudentController;
+use App\Http\Controllers\TeacherPerformanceController;
 use App\Http\Controllers\UnifiedAssessmentController;
-use App\Http\Controllers\API\RegionAssessmentController;
-use App\Http\Controllers\API\RegionalScheduleController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -49,14 +47,13 @@ Route::prefix('attendance-records')->group(function () {
     Route::get('/{attendanceRecord}', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'show'])->middleware('permission:attendance.read');
     Route::put('/{attendanceRecord}', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'update'])->middleware('permission:attendance.write');
     Route::delete('/{attendanceRecord}', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'destroy'])->middleware('permission:attendance.write');
-    
+
     // Bulk operations
     Route::post('/bulk', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'bulkStore'])->middleware('permission:attendance.bulk');
-    
+
     // Statistics
     Route::get('/statistics/class', [App\Http\Controllers\API\AttendanceRecordApiController::class, 'getClassStatistics'])->middleware('permission:attendance.read');
 });
-
 
 // Teaching Load API Routes
 // Note: Using role-based access instead of permission middleware due to guard incompatibility
@@ -96,20 +93,20 @@ Route::prefix('school-attendance')->group(function () {
     Route::get('/{schoolAttendance}', [App\Http\Controllers\SchoolAttendanceController::class, 'show'])->middleware('permission:school_attendance.read');
     Route::put('/{schoolAttendance}', [App\Http\Controllers\SchoolAttendanceController::class, 'update'])->middleware('permission:school_attendance.write');
     Route::delete('/{schoolAttendance}', [App\Http\Controllers\SchoolAttendanceController::class, 'destroy'])->middleware('permission:school_attendance.write');
-    
+
     // Statistics and filtering
     Route::get('/stats', [App\Http\Controllers\SchoolAttendanceController::class, 'stats'])->middleware('permission:school_attendance.read');
     Route::get('/schools/{school}/classes', [App\Http\Controllers\SchoolAttendanceController::class, 'getSchoolClasses'])->middleware('permission:school_attendance.read');
-    
+
     // Bulk operations
     Route::post('/bulk', [App\Http\Controllers\SchoolAttendanceController::class, 'bulkStore'])->middleware('permission:school_attendance.bulk');
     Route::get('/export', [App\Http\Controllers\SchoolAttendanceController::class, 'export'])->middleware('permission:school_attendance.export');
-    
+
     // Reporting endpoints
     Route::get('/daily-report', [App\Http\Controllers\SchoolAttendanceController::class, 'getDailyReport'])->middleware('permission:school_attendance.read');
     Route::get('/weekly-summary', [App\Http\Controllers\SchoolAttendanceController::class, 'getWeeklySummary'])->middleware('permission:school_attendance.read');
     Route::get('/monthly-statistics', [App\Http\Controllers\SchoolAttendanceController::class, 'getMonthlyStatistics'])->middleware('permission:school_attendance.read');
-    
+
     // TODO: These methods need to be implemented
     // Route::post('/mark-absent', [App\Http\Controllers\SchoolAttendanceController::class, 'markAbsent'])->middleware('permission:school_attendance.write');
     // Route::post('/mark-present', [App\Http\Controllers\SchoolAttendanceController::class, 'markPresent'])->middleware('permission:school_attendance.write');
@@ -121,7 +118,7 @@ Route::prefix('school-attendance')->group(function () {
 // Schedule Management Routes
 Route::prefix('schedules')->group(function () {
     Route::get('/', [ScheduleController::class, 'index'])->middleware('permission:schedules.read');
-    
+
     // Specific routes MUST come before parameterized routes
     Route::get('/weekly', [ScheduleController::class, 'getWeeklySchedule'])->middleware('permission:schedules.read');
     Route::get('/statistics', [ScheduleController::class, 'getStatistics'])->middleware('permission:schedules.read');
@@ -130,13 +127,13 @@ Route::prefix('schedules')->group(function () {
     Route::get('/class/{class}', [ScheduleController::class, 'getClassSchedule'])->middleware('permission:schedules.read');
     Route::get('/teacher/{teacher}', [ScheduleController::class, 'getTeacherSchedule'])->middleware('permission:schedules.read');
     Route::get('/room/{room}', [ScheduleController::class, 'getRoomSchedule'])->middleware('permission:schedules.read');
-    
+
     // CRUD routes with parameters come after specific routes
     Route::post('/', [ScheduleController::class, 'store'])->middleware('permission:schedules.write');
     Route::get('/{schedule}', [ScheduleController::class, 'show'])->middleware('permission:schedules.read');
     Route::put('/{schedule}', [ScheduleController::class, 'update'])->middleware('permission:schedules.write');
     Route::delete('/{schedule}', [ScheduleController::class, 'destroy'])->middleware('permission:schedules.write');
-    
+
     // POST routes
     Route::post('/conflicts/check', [ScheduleController::class, 'checkConflicts'])->middleware('permission:schedules.read');
     Route::post('/bulk-create', [ScheduleController::class, 'bulkCreate'])->middleware('permission:schedules.bulk');
@@ -165,13 +162,13 @@ Route::prefix('students')->middleware('auth:sanctum')->group(function () {
     Route::get('/reports/demographics', [StudentController::class, 'getDemographicsReport'])->middleware('permission:students.reports');
     Route::post('/import', [StudentController::class, 'import'])->middleware('permission:students.import');
     Route::get('/export', [StudentController::class, 'export'])->middleware('permission:students.export');
-    
+
     // New bulk import/export endpoints
     Route::get('/bulk/download-template', [StudentController::class, 'downloadTemplate'])->middleware('permission:students.import');
     Route::post('/bulk/import', [StudentController::class, 'importStudents'])->middleware('permission:students.import');
     Route::post('/bulk/export', [StudentController::class, 'exportStudents'])->middleware('permission:students.export');
     Route::get('/bulk/statistics', [StudentController::class, 'getExportStats'])->middleware('permission:students.read');
-    
+
     // Available students for grade enrollment
     Route::get('/available-for-grade/{grade}', [App\Http\Controllers\School\SchoolStudentController::class, 'getAvailableForGrade'])->middleware('permission:students.read');
 });
@@ -261,20 +258,20 @@ Route::prefix('grades')->group(function () {
     Route::get('/{grade}', [GradeUnifiedController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
     Route::put('/{grade}', [GradeUnifiedController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     Route::delete('/{grade}', [GradeUnifiedController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    
+
     // Student management within grades
     Route::get('/{grade}/students', [GradeUnifiedController::class, 'students'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    
+
     // Teacher assignment
     Route::post('/{grade}/assign-teacher', [GradeUnifiedController::class, 'assignTeacher'])->middleware('permission:grades.assign_teacher');
     Route::delete('/{grade}/remove-teacher', [GradeUnifiedController::class, 'removeTeacher'])->middleware('permission:grades.assign_teacher');
-    
+
     // Student enrollment management
     Route::post('/{grade}/students/enroll', [GradeUnifiedController::class, 'enrollStudent'])->middleware('permission:grades.manage_students');
     Route::post('/{grade}/students/enroll-multiple', [GradeUnifiedController::class, 'enrollMultipleStudents'])->middleware('permission:grades.manage_students');
     Route::delete('/{grade}/students/{student}', [GradeUnifiedController::class, 'unenrollStudent'])->middleware('permission:grades.manage_students');
     Route::put('/{grade}/students/{student}/status', [GradeUnifiedController::class, 'updateStudentStatus'])->middleware('permission:grades.manage_students');
-    
+
     // Analytics
     Route::get('/{grade}/analytics', [GradeUnifiedController::class, 'getAnalytics'])->middleware('permission:grades.analytics');
 
@@ -318,8 +315,7 @@ Route::prefix('rooms')->group(function () {
     Route::post('/maintenance/request', [RoomController::class, 'requestMaintenance'])->middleware('permission:rooms.maintenance');
 });
 
-
-// School Event Management Routes  
+// School Event Management Routes
 Route::prefix('events')->group(function () {
     Route::get('/', [SchoolEventController::class, 'index'])->middleware('permission:events.read');
     Route::post('/', [SchoolEventController::class, 'store'])->middleware('permission:events.write');
@@ -359,7 +355,7 @@ Route::prefix('assessments')->middleware('permission:assessments.read')->group(f
     Route::get('/{assessment}', [AssessmentController::class, 'show']);
     Route::put('/{assessment}', [AssessmentController::class, 'update'])->middleware('permission:assessments.write');
     Route::delete('/{assessment}', [AssessmentController::class, 'destroy'])->middleware('permission:assessments.write');
-    
+
     // KSQ Assessment Routes - TODO: Implement KSQAssessmentController
     Route::prefix('ksq')->group(function () {
         // Route::get('/', [App\Http\Controllers\KSQAssessmentController::class, 'index']);
@@ -368,7 +364,7 @@ Route::prefix('assessments')->middleware('permission:assessments.read')->group(f
         // Route::put('/{assessment}', [App\Http\Controllers\KSQAssessmentController::class, 'update'])->middleware('permission:assessments.write');
         // Route::delete('/{assessment}', [App\Http\Controllers\KSQAssessmentController::class, 'destroy'])->middleware('permission:assessments.write');
     });
-    
+
     // BSQ Assessment Routes - TODO: Implement BSQAssessmentController
     Route::prefix('bsq')->group(function () {
         // Route::get('/', [App\Http\Controllers\BSQAssessmentController::class, 'index']);
@@ -383,13 +379,13 @@ Route::prefix('assessments')->middleware('permission:assessments.read')->group(f
 Route::prefix('unified-assessments')->middleware('permission:assessments.read')->group(function () {
     // Dashboard data endpoint for SchoolAssessments.tsx
     Route::get('/dashboard', [UnifiedAssessmentController::class, 'getDashboardData']);
-    
+
     // Assessment overview data (KSQ, BSQ, regular assessments)
     Route::get('/overview', [UnifiedAssessmentController::class, 'getAssessmentOverview']);
-    
+
     // Gradebook data with filtering
     Route::get('/gradebook', [UnifiedAssessmentController::class, 'getGradebookData']);
-    
+
     // Comprehensive analytics for reports
     Route::get('/analytics', [UnifiedAssessmentController::class, 'getAnalyticsData']);
 });
@@ -458,7 +454,7 @@ Route::prefix('assessment-entries')->middleware('auth:sanctum')->group(function 
     Route::get('/by-assessment/{assessment}', [App\Http\Controllers\AssessmentEntryController::class, 'getByAssessment'])->middleware('permission:assessments.entries.read');
 });
 
-// Region Assessment Management  
+// Region Assessment Management
 Route::prefix('region-assessments')->middleware(['auth:sanctum', 'role_or_permission:superadmin|regionadmin'])->group(function () {
     Route::get('/', [RegionAssessmentController::class, 'index']);
     Route::post('/', [RegionAssessmentController::class, 'store']);
@@ -474,96 +470,96 @@ Route::prefix('schedule-generation')->middleware(['auth:sanctum'])->group(functi
     // Workload integration
     Route::get('/workload-ready-data', [ScheduleGenerationController::class, 'getWorkloadReadyData'])
         ->middleware('permission:schedules.read');
-    
+
     Route::get('/integration-status', [ScheduleGenerationController::class, 'getSchedulingIntegrationStatus'])
         ->middleware('permission:schedules.read');
-    
+
     // Generation settings
     Route::get('/settings', [ScheduleGenerationController::class, 'getGenerationSettings'])
         ->middleware('permission:schedules.settings');
-    
+
     Route::put('/settings', [ScheduleGenerationController::class, 'updateGenerationSettings'])
         ->middleware('permission:schedules.settings');
-    
+
     Route::post('/settings/validate', [ScheduleGenerationController::class, 'validateGenerationSettings'])
         ->middleware('permission:schedules.settings');
-    
+
     // Schedule generation
     Route::post('/generate-from-workload', [ScheduleGenerationController::class, 'generateFromWorkload'])
         ->middleware('permission:schedules.create');
-    
+
     // Teaching load management
     Route::post('/teaching-loads/mark-ready', [ScheduleGenerationController::class, 'markTeachingLoadsAsReady'])
         ->middleware('permission:teaching_loads.update');
-    
+
     Route::post('/teaching-loads/reset-status', [ScheduleGenerationController::class, 'resetSchedulingStatus'])
         ->middleware('permission:teaching_loads.update');
-    
+
     // Real-time generation tracking
     Route::get('/progress', [ScheduleGenerationController::class, 'getGenerationProgress'])
         ->middleware('permission:schedules.read');
-    
+
     Route::post('/cancel', [ScheduleGenerationController::class, 'cancelGeneration'])
         ->middleware('permission:schedules.create');
-        
+
     // Validation and analytics
     Route::post('/validate-workload', [ScheduleGenerationController::class, 'validateWorkloadData'])
         ->middleware('permission:schedules.read');
-        
+
     Route::get('/time-slots', [ScheduleGenerationController::class, 'getTimeSlots'])
         ->middleware('permission:schedules.read');
-        
+
     Route::post('/preview-generation', [ScheduleGenerationController::class, 'previewGeneration'])
         ->middleware('permission:schedules.read');
-        
+
     // Conflict management
     Route::get('/conflicts/{schedule}', [ScheduleGenerationController::class, 'getScheduleConflicts'])
         ->middleware('permission:schedules.read');
-        
+
     Route::post('/resolve-conflict', [ScheduleGenerationController::class, 'resolveConflict'])
         ->middleware('permission:schedules.manage');
-        
+
     Route::get('/analytics/{schedule}', [ScheduleGenerationController::class, 'getScheduleAnalytics'])
         ->middleware('permission:schedules.analytics');
-        
+
     // Export functionality
     Route::get('/export/{schedule}', [ScheduleGenerationController::class, 'exportSchedule'])
         ->middleware('permission:schedules.export');
-        
+
     // Template management
     Route::get('/templates', [ScheduleGenerationController::class, 'getScheduleTemplates'])
         ->middleware('permission:schedules.templates');
-        
+
     Route::post('/templates', [ScheduleGenerationController::class, 'createScheduleTemplate'])
         ->middleware('permission:schedules.templates');
-        
+
     Route::post('/templates/{template}/apply', [ScheduleGenerationController::class, 'applyScheduleTemplate'])
         ->middleware('permission:schedules.templates');
-        
+
     // Optimization features
     Route::post('/optimization-suggestions', [ScheduleGenerationController::class, 'getOptimizationSuggestions'])
         ->middleware('permission:schedules.analytics');
-        
+
     Route::post('/simulate-scenarios', [ScheduleGenerationController::class, 'simulateScenarios'])
         ->middleware('permission:schedules.analytics');
-        
+
     Route::get('/generation-progress/{generationId}', [ScheduleGenerationController::class, 'getGenerationProgress'])
         ->middleware('permission:schedules.read');
-        
+
     Route::post('/cancel-generation/{generationId}', [ScheduleGenerationController::class, 'cancelGeneration'])
         ->middleware('permission:schedules.manage');
-        
+
     // Workload distribution
     Route::get('/workload-distribution-suggestions/{teachingLoad}', [ScheduleGenerationController::class, 'getWorkloadDistributionSuggestions'])
         ->middleware('permission:teaching_loads.analytics');
-        
+
     Route::put('/apply-workload-distribution/{teachingLoad}', [ScheduleGenerationController::class, 'applyWorkloadDistribution'])
         ->middleware('permission:teaching_loads.update');
-        
+
     // Schedule comparison
     Route::post('/compare-schedules', [ScheduleGenerationController::class, 'compareSchedules'])
         ->middleware('permission:schedules.analytics');
-        
+
     Route::get('/schedule-history', [ScheduleGenerationController::class, 'getScheduleHistory'])
         ->middleware('permission:schedules.read');
 });
@@ -572,19 +568,19 @@ Route::prefix('schedule-generation')->middleware(['auth:sanctum'])->group(functi
 Route::prefix('regional-schedules')->middleware(['auth:sanctum', 'role_or_permission:superadmin|regionadmin|regionoperator'])->group(function () {
     // Dashboard overview
     Route::get('/dashboard-overview', [RegionalScheduleController::class, 'getDashboardOverview']);
-    
+
     // Institution schedules management
     Route::get('/institution-schedules', [RegionalScheduleController::class, 'getInstitutionSchedules']);
-    
+
     // Institution analytics
     Route::get('/institution-analytics/{institution}', [RegionalScheduleController::class, 'getInstitutionAnalytics']);
-    
+
     // Multi-institution comparison
     Route::post('/compare-institutions', [RegionalScheduleController::class, 'compareInstitutions']);
-    
+
     // Regional performance trends
     Route::get('/regional-trends', [RegionalScheduleController::class, 'getRegionalTrends']);
-    
+
     // Reporting and export
     Route::post('/export-report', [RegionalScheduleController::class, 'exportRegionalReport']);
 });

@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -21,7 +20,7 @@ return new class extends Migration
             $table->boolean('is_latest')->default(true);
             $table->json('metadata')->default('{}');
             $table->timestamp('generated_at')->useCurrent();
-            
+
             $table->index('report_id');
             $table->index(['report_id', 'is_latest']);
             $table->index('generated_at');

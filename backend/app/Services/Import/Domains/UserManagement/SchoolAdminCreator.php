@@ -25,10 +25,7 @@ class SchoolAdminCreator
      * 4. Create user record
      * 5. Assign 'schooladmin' role
      *
-     * @param array $schoolAdminData
-     * @param Institution $institution
      * @param BatchOptimizer|null $batchOptimizer Optional for batch processing
-     * @return User
      */
     public function createSchoolAdmin(
         array $schoolAdminData,
@@ -65,10 +62,6 @@ class SchoolAdminCreator
      * 2. Check database (for concurrent imports)
      * 3. Append counter (username → username1, username2, etc.)
      * 4. Add to cache to prevent duplicates in same batch
-     *
-     * @param string $username
-     * @param BatchOptimizer|null $batchOptimizer
-     * @return string
      */
     protected function ensureUniqueUsername(string $username, ?BatchOptimizer $batchOptimizer = null): string
     {
@@ -106,10 +99,6 @@ class SchoolAdminCreator
      * 3. Check database
      * 4. Append counter (name@domain → name1@domain, name2@domain, etc.)
      * 5. Add to cache
-     *
-     * @param string $email
-     * @param BatchOptimizer|null $batchOptimizer
-     * @return string
      */
     protected function ensureUniqueEmail(string $email, ?BatchOptimizer $batchOptimizer = null): string
     {

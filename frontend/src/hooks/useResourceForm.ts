@@ -112,7 +112,7 @@ export function useResourceForm({
   // Update resolver when mode changes
   useEffect(() => {
     form.resolver = zodResolver(getResourceSchema(mode));
-  }, [mode]);
+  }, [mode, form]);
 
   // Load institutions for targeting with optimized pagination
   // SchoolAdmin & SektorAdmin see only superior institutions
@@ -150,7 +150,7 @@ export function useResourceForm({
     if (newType !== form.getValues('type')) {
       form.setValue('type', newType as any);
     }
-  }, [activeTab]);
+  }, [activeTab, form]);
 
   // Populate form when editing
   useEffect(() => {
@@ -179,7 +179,7 @@ export function useResourceForm({
         }),
       });
     }
-  }, [resource, mode, isOpen]);
+  }, [resource, mode, isOpen, form]);
 
   // Set default target institutions for schooladmin/sektoradmin when creating new resource
   const hasDefaultedInstitutionsRef = React.useRef(false);
@@ -215,7 +215,7 @@ export function useResourceForm({
       console.log('[useResourceForm] attempting to set default institutions');
       maybeDefaultInstitutions();
     }
-  }, [isOpen, maybeDefaultInstitutions]);
+  }, [isOpen, maybeDefaultInstitutions, form]);
 
   // Reset form when modal closes
   useEffect(() => {

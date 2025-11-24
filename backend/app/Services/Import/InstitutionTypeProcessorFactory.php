@@ -7,6 +7,7 @@ use App\Models\InstitutionType;
 class InstitutionTypeProcessorFactory
 {
     private array $processors = [];
+
     private ?GenericTypeProcessor $genericProcessor = null;
 
     public function __construct()
@@ -20,12 +21,12 @@ class InstitutionTypeProcessorFactory
     private function initializeProcessors(): void
     {
         $this->processors = [
-            new SchoolTypeProcessor(),
-            new KindergartenTypeProcessor(),
-            new AdministrativeTypeProcessor(),
+            new SchoolTypeProcessor,
+            new KindergartenTypeProcessor,
+            new AdministrativeTypeProcessor,
         ];
 
-        $this->genericProcessor = new GenericTypeProcessor();
+        $this->genericProcessor = new GenericTypeProcessor;
     }
 
     /**
@@ -66,14 +67,14 @@ class InstitutionTypeProcessorFactory
     public function getAllHandledTypes(): array
     {
         $allTypes = [];
-        
+
         foreach ($this->processors as $processor) {
             $allTypes = array_merge($allTypes, $processor->getHandledTypes());
         }
-        
+
         // Add generic types
         $allTypes = array_merge($allTypes, $this->genericProcessor->getHandledTypes());
-        
+
         return array_unique($allTypes);
     }
 
@@ -87,7 +88,7 @@ class InstitutionTypeProcessorFactory
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -97,6 +98,7 @@ class InstitutionTypeProcessorFactory
     public function getProcessorName(string $institutionTypeKey): string
     {
         $processor = $this->getProcessor($institutionTypeKey);
+
         return get_class($processor);
     }
 
@@ -114,6 +116,7 @@ class InstitutionTypeProcessorFactory
     public function getHeadersForType(string $institutionTypeKey): array
     {
         $processor = $this->getProcessor($institutionTypeKey);
+
         return $processor->getHeaders();
     }
 
@@ -123,6 +126,7 @@ class InstitutionTypeProcessorFactory
     public function getSampleDataForType(string $institutionTypeKey): array
     {
         $processor = $this->getProcessor($institutionTypeKey);
+
         return $processor->getSampleData();
     }
 
@@ -132,12 +136,12 @@ class InstitutionTypeProcessorFactory
     public function processRowForType(array $row, string $institutionTypeKey, int $rowNum): array
     {
         $processor = $this->getProcessor($institutionTypeKey);
-        
+
         // Special handling for generic processor with explicit type
-        if ($processor instanceof GenericTypeProcessor && !$this->hasSpecificProcessor($institutionTypeKey)) {
+        if ($processor instanceof GenericTypeProcessor && ! $this->hasSpecificProcessor($institutionTypeKey)) {
             return $processor->processRowDataWithType($row, $institutionTypeKey, $rowNum);
         }
-        
+
         return $processor->processRowData($row, $rowNum);
     }
 }

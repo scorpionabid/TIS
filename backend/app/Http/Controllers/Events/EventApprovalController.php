@@ -4,11 +4,11 @@ namespace App\Http\Controllers\Events;
 
 use App\Http\Controllers\Controller;
 use App\Models\SchoolEvent;
-use Illuminate\Http\Request;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Carbon\Carbon;
 
 class EventApprovalController extends Controller
 {
@@ -20,7 +20,7 @@ class EventApprovalController extends Controller
         $user = $request->user();
 
         // Check permissions
-        if (!$this->canApproveEvent($user, $event)) {
+        if (! $this->canApproveEvent($user, $event)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tədbiri təsdiqləmək üçün icazəniz yoxdur',
@@ -28,7 +28,7 @@ class EventApprovalController extends Controller
         }
 
         // Validate current status
-        if (!in_array($event->status, ['draft', 'pending'])) {
+        if (! in_array($event->status, ['draft', 'pending'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Yalnız hazırlıq və ya gözləmə vəziyyətindəki tədbirlər təsdiqlənə bilər',
@@ -53,7 +53,7 @@ class EventApprovalController extends Controller
 
             // Validate event details before approval
             $validationResult = $this->validateEventForApproval($event);
-            if (!$validationResult['valid']) {
+            if (! $validationResult['valid']) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Tədbir təsdiq üçün uyğun deyil',
@@ -79,7 +79,7 @@ class EventApprovalController extends Controller
             $event->load([
                 'institution:id,name,type',
                 'organizer:id,name,email',
-                'approver:id,name,email'
+                'approver:id,name,email',
             ]);
 
             return response()->json([
@@ -101,9 +101,9 @@ class EventApprovalController extends Controller
                 ],
                 'message' => 'Tədbir uğurla təsdiqləndi',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Tədbir təsdiqlənərkən xəta baş verdi',
@@ -120,7 +120,7 @@ class EventApprovalController extends Controller
         $user = $request->user();
 
         // Check permissions
-        if (!$this->canCancelEvent($user, $event)) {
+        if (! $this->canCancelEvent($user, $event)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tədbiri ləğv etmək üçün icazəniz yoxdur',
@@ -194,7 +194,7 @@ class EventApprovalController extends Controller
             $event->load([
                 'institution:id,name,type',
                 'organizer:id,name,email',
-                'canceller:id,name,email'
+                'canceller:id,name,email',
             ]);
 
             return response()->json([
@@ -216,9 +216,9 @@ class EventApprovalController extends Controller
                 ],
                 'message' => 'Tədbir uğurla ləğv edildi',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Tədbir ləğv edilərkən xəta baş verdi',
@@ -235,7 +235,7 @@ class EventApprovalController extends Controller
         $user = $request->user();
 
         // Check permissions - only organizer or hierarchy managers can submit
-        if (!$this->canSubmitForApproval($user, $event)) {
+        if (! $this->canSubmitForApproval($user, $event)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tədbiri təsdiqə göndərmək üçün icazəniz yoxdur',
@@ -254,7 +254,7 @@ class EventApprovalController extends Controller
         try {
             // Validate event completeness
             $validationResult = $this->validateEventForSubmission($event);
-            if (!$validationResult['valid']) {
+            if (! $validationResult['valid']) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Tədbir təsdiqə göndərilmək üçün tam doldurulmalıdır',
@@ -281,7 +281,6 @@ class EventApprovalController extends Controller
                 ],
                 'message' => 'Tədbir təsdiqə göndərildi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -306,13 +305,14 @@ class EventApprovalController extends Controller
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
         // Region admin can approve sector and school events in their region
         if ($user->hasRole(['regionadmin', 'regionoperator']) && $userInstitution->level <= 2) {
             $eventInstitution = $event->institution;
+
             return str_starts_with($eventInstitution->path, $userInstitution->path);
         }
 
@@ -363,7 +363,7 @@ class EventApprovalController extends Controller
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
@@ -426,7 +426,7 @@ class EventApprovalController extends Controller
         if ($event->start_time && $event->end_time) {
             $startDateTime = Carbon::parse($event->start_date . ' ' . $event->start_time);
             $endDateTime = Carbon::parse($event->end_date . ' ' . $event->end_time);
-            
+
             if ($startDateTime >= $endDateTime) {
                 $errors[] = 'Bitiş vaxtı başlama vaxtından sonra olmalıdır';
             }

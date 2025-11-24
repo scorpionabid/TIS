@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Events;
 
 use App\Http\Controllers\Controller;
-use App\Models\SchoolEvent;
 use App\Models\Institution;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use App\Models\SchoolEvent;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class EventStatisticsController extends Controller
 {
@@ -21,7 +21,7 @@ class EventStatisticsController extends Controller
         $query = SchoolEvent::query();
 
         // Apply regional access control
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
             $query->whereIn('institution_id', $accessibleInstitutions);
         }
@@ -130,7 +130,6 @@ class EventStatisticsController extends Controller
                 ],
                 'message' => 'Event statistics retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -186,7 +185,7 @@ class EventStatisticsController extends Controller
         $query = SchoolEvent::query();
 
         // Apply access control
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
             $query->whereIn('institution_id', $accessibleInstitutions);
         }
@@ -399,8 +398,8 @@ class EventStatisticsController extends Controller
         foreach ($events as $event) {
             $organizer = $event->organizer;
             $organizerId = $organizer->id;
-            
-            if (!isset($organizerCount[$organizerId])) {
+
+            if (! isset($organizerCount[$organizerId])) {
                 $organizerCount[$organizerId] = [
                     'organizer' => [
                         'id' => $organizer->id,
@@ -430,8 +429,8 @@ class EventStatisticsController extends Controller
         foreach ($events as $event) {
             $institution = $event->institution;
             $institutionId = $institution->id;
-            
-            if (!isset($institutionCount[$institutionId])) {
+
+            if (! isset($institutionCount[$institutionId])) {
                 $institutionCount[$institutionId] = [
                     'institution' => [
                         'id' => $institution->id,
@@ -461,7 +460,7 @@ class EventStatisticsController extends Controller
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return [];
         }
 

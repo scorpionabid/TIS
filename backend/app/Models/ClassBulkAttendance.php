@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class ClassBulkAttendance extends Model
 {
@@ -15,7 +14,7 @@ class ClassBulkAttendance extends Model
 
     protected $fillable = [
         'grade_id',
-        'institution_id', 
+        'institution_id',
         'academic_year_id',
         'recorded_by',
         'attendance_date',

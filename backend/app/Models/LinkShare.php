@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
 
 class LinkShare extends Model
 {
@@ -83,10 +83,10 @@ class LinkShare extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active')
-                    ->where(function($q) {
-                        $q->whereNull('expires_at')
-                          ->orWhere('expires_at', '>', now());
-                    });
+            ->where(function ($q) {
+                $q->whereNull('expires_at')
+                    ->orWhere('expires_at', '>', now());
+            });
     }
 
     /**
@@ -110,10 +110,10 @@ class LinkShare extends Model
      */
     public function scopeForInstitution(Builder $query, int $institutionId): Builder
     {
-        return $query->where(function($q) use ($institutionId) {
+        return $query->where(function ($q) use ($institutionId) {
             $q->where('institution_id', $institutionId)
-              ->orWhere('share_scope', 'public')
-              ->orWhereJsonContains('target_institutions', $institutionId);
+                ->orWhere('share_scope', 'public')
+                ->orWhereJsonContains('target_institutions', $institutionId);
         });
     }
 
@@ -123,12 +123,12 @@ class LinkShare extends Model
     public function canBeAccessedBy(User $user): bool
     {
         // Check if link is active
-        if (!$this->isActive()) {
+        if (! $this->isActive()) {
             return false;
         }
 
         // Check access time restrictions
-        if (!$this->isAccessTimeValid()) {
+        if (! $this->isAccessTimeValid()) {
             return false;
         }
 
@@ -138,7 +138,7 @@ class LinkShare extends Model
         }
 
         // Check if login is required
-        if ($this->requires_login && !$user) {
+        if ($this->requires_login && ! $user) {
             return false;
         }
 
@@ -153,7 +153,7 @@ class LinkShare extends Model
         }
 
         // Check specific user-based access (highest priority after creator)
-        if ($user && $this->target_users && !empty($this->target_users)) {
+        if ($user && $this->target_users && ! empty($this->target_users)) {
             if (in_array($user->id, $this->target_users)) {
                 return true;
             }
@@ -215,16 +215,16 @@ class LinkShare extends Model
     public function isAccessTimeValid(): bool
     {
         // No time restrictions
-        if (!$this->access_start_time && !$this->access_end_time && !$this->access_days_of_week) {
+        if (! $this->access_start_time && ! $this->access_end_time && ! $this->access_days_of_week) {
             return true;
         }
 
         $now = now();
-        
+
         // Check day of week restrictions
         if ($this->access_days_of_week) {
             $currentDayOfWeek = $now->dayOfWeek; // 0 = Sunday, 1 = Monday, etc.
-            if (!in_array($currentDayOfWeek, $this->access_days_of_week)) {
+            if (! in_array($currentDayOfWeek, $this->access_days_of_week)) {
                 return false;
             }
         }
@@ -234,7 +234,7 @@ class LinkShare extends Model
             $currentTime = $now->format('H:i');
             $startTime = $this->access_start_time;
             $endTime = $this->access_end_time;
-            
+
             if ($currentTime < $startTime || $currentTime > $endTime) {
                 return false;
             }
@@ -270,17 +270,17 @@ class LinkShare extends Model
      */
     private function isSameSector(User $user): bool
     {
-        if (!$user->institution || !$this->institution) {
+        if (! $user->institution || ! $this->institution) {
             return false;
         }
 
         // Get sector for both institutions
-        $userSector = $user->institution->type === 'sektor' ? 
-                     $user->institution : 
+        $userSector = $user->institution->type === 'sektor' ?
+                     $user->institution :
                      $user->institution->parent;
-        
-        $linkSector = $this->institution->type === 'sektor' ? 
-                     $this->institution : 
+
+        $linkSector = $this->institution->type === 'sektor' ?
+                     $this->institution :
                      $this->institution->parent;
 
         return $userSector && $linkSector && $userSector->id === $linkSector->id;
@@ -291,7 +291,7 @@ class LinkShare extends Model
      */
     private function isSameRegion(User $user): bool
     {
-        if (!$user->institution || !$this->institution) {
+        if (! $user->institution || ! $this->institution) {
             return false;
         }
 

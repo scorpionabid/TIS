@@ -2,26 +2,28 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Institution\InstitutionCRUDController;
 use App\Http\Controllers\Institution\InstitutionBulkController;
+use App\Http\Controllers\Institution\InstitutionCRUDController;
 use App\Models\Institution;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * InstitutionController - Legacy Controller
- * 
+ *
  * This controller has been refactored and split into specialized controllers:
  * - InstitutionCRUDController: Basic CRUD operations (index, show, store, update, destroy)
  * - InstitutionBulkController: Bulk operations, utilities, statistics, types
  * - InstitutionHierarchyController: Hierarchy management, tree structures, paths
- * 
+ *
  * This file acts as a proxy to maintain backward compatibility.
  */
 class InstitutionController extends Controller
 {
     protected InstitutionCRUDController $crudController;
+
     protected InstitutionBulkController $bulkController;
+
     protected \App\Http\Controllers\InstitutionHierarchyController $hierarchyController;
 
     public function __construct(
@@ -259,21 +261,21 @@ class InstitutionController extends Controller
             fn (int $id) => $id !== $institution->id
         ));
 
-        $countsByLevel = !empty($descendantIds)
+        $countsByLevel = ! empty($descendantIds)
             ? Institution::whereIn('id', $descendantIds)
                 ->selectRaw('level, COUNT(*) as total')
                 ->groupBy('level')
                 ->pluck('total', 'level')
             : collect();
 
-        $countsByType = !empty($descendantIds)
+        $countsByType = ! empty($descendantIds)
             ? Institution::whereIn('id', $descendantIds)
                 ->selectRaw('type, COUNT(*) as total')
                 ->groupBy('type')
                 ->pluck('total', 'type')
             : collect();
 
-        $userAggregate = !empty($descendantIds)
+        $userAggregate = ! empty($descendantIds)
             ? \App\Models\User::whereIn('institution_id', $descendantIds)
                 ->selectRaw('COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active')
                 ->first()
@@ -309,11 +311,11 @@ class InstitutionController extends Controller
             $type = $request->query('type');
             $parentId = $request->query('parent_id');
 
-            if (!$name || strlen($name) < 3) {
+            if (! $name || strlen($name) < 3) {
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Name must be at least 3 characters'
+                    'message' => 'Name must be at least 3 characters',
                 ]);
             }
 
@@ -341,13 +343,12 @@ class InstitutionController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $similar,
-                'message' => 'Similar institutions found'
+                'message' => 'Similar institutions found',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error finding similar institutions: ' . $e->getMessage()
+                'message' => 'Error finding similar institutions: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -361,10 +362,10 @@ class InstitutionController extends Controller
             $code = $request->query('code');
             $excludeId = $request->query('exclude_id');
 
-            if (!$code) {
+            if (! $code) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Code parameter is required'
+                    'message' => 'Code parameter is required',
                 ], 422);
             }
 
@@ -379,13 +380,12 @@ class InstitutionController extends Controller
             return response()->json([
                 'success' => true,
                 'exists' => $exists,
-                'message' => $exists ? 'Code already exists' : 'Code is available'
+                'message' => $exists ? 'Code already exists' : 'Code is available',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error checking code: ' . $e->getMessage()
+                'message' => 'Error checking code: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -399,10 +399,10 @@ class InstitutionController extends Controller
             $utisCode = $request->query('utis_code');
             $excludeId = $request->query('exclude_id');
 
-            if (!$utisCode) {
+            if (! $utisCode) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'UTIS code parameter is required'
+                    'message' => 'UTIS code parameter is required',
                 ], 422);
             }
 
@@ -417,13 +417,12 @@ class InstitutionController extends Controller
             return response()->json([
                 'success' => true,
                 'exists' => $exists,
-                'message' => $exists ? 'UTIS code already exists' : 'UTIS code is available'
+                'message' => $exists ? 'UTIS code already exists' : 'UTIS code is available',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error checking UTIS code: ' . $e->getMessage()
+                'message' => 'Error checking UTIS code: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -438,15 +437,15 @@ class InstitutionController extends Controller
             $name = $request->input('name');
             $parentId = $request->input('parent_id');
 
-            if (!$type || !$name) {
+            if (! $type || ! $name) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Type and name are required'
+                    'message' => 'Type and name are required',
                 ], 422);
             }
 
             // Generate code based on type
-            $prefix = match($type) {
+            $prefix = match ($type) {
                 'ministry' => 'M',
                 'regional_education_department' => 'REG',
                 'sector_education_office' => 'SEC',
@@ -483,13 +482,12 @@ class InstitutionController extends Controller
             return response()->json([
                 'success' => true,
                 'code' => $generatedCode,
-                'message' => 'Code generated successfully'
+                'message' => 'Code generated successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error generating code: ' . $e->getMessage()
+                'message' => 'Error generating code: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -528,12 +526,12 @@ class InstitutionController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $users,
-                'message' => 'Users retrieved successfully'
+                'message' => 'Users retrieved successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving users: ' . $e->getMessage()
+                'message' => 'Error retrieving users: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -606,18 +604,18 @@ class InstitutionController extends Controller
                 'InstitutionCRUDController' => [
                     'methods' => ['index', 'show', 'store', 'update', 'destroy'],
                     'size' => '~400 lines',
-                    'description' => 'Basic CRUD operations with permissions and validation'
+                    'description' => 'Basic CRUD operations with permissions and validation',
                 ],
                 'InstitutionBulkController' => [
                     'methods' => ['getTypes', 'getStatistics', 'trashed', 'restore', 'forceDelete', 'bulk*'],
-                    'size' => '~300 lines', 
-                    'description' => 'Bulk operations, utilities and statistics'
+                    'size' => '~300 lines',
+                    'description' => 'Bulk operations, utilities and statistics',
                 ],
                 'InstitutionHierarchyController' => [
                     'methods' => ['hierarchy', 'children', 'path'],
                     'size' => '~350 lines',
-                    'description' => 'Hierarchy management and tree structures'
-                ]
+                    'description' => 'Hierarchy management and tree structures',
+                ],
             ],
             'refactored_at' => '2025-08-19T13:30:00Z',
             'size_reduction' => '97.2%', // 1144 -> 32 lines in this proxy

@@ -3,19 +3,14 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Institution;
-use App\Models\Survey;
-use App\Models\Task;
-use App\Models\Document;
 use App\Models\ActivityLog;
-use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\File;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class DashboardSystemController extends Controller
 {
@@ -26,18 +21,18 @@ class DashboardSystemController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             // Check if user has permission to view system status
-            if (!$user || !$user->hasAnyRole(['SuperAdmin', 'RegionAdmin'])) {
+            if (! $user || ! $user->hasAnyRole(['SuperAdmin', 'RegionAdmin'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Sistem statusuna baxmaq üçün icazəniz yoxdur'
+                    'message' => 'Sistem statusuna baxmaq üçün icazəniz yoxdur',
                 ], 403);
             }
 
             // Cache system status for 2 minutes for performance
             $cacheKey = 'system_status_' . ($user->hasRole('SuperAdmin') ? 'global' : 'regional_' . $user->institution_id);
-            
+
             $systemStatus = Cache::remember($cacheKey, 120, function () use ($user) {
                 return [
                     'database' => $this->getDatabaseStatus(),
@@ -57,11 +52,10 @@ class DashboardSystemController extends Controller
                 'timestamp' => now(),
                 'cache_duration' => 120,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Sistem statusu alınarkən səhv: ' . $e->getMessage()
+                'message' => 'Sistem statusu alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -73,11 +67,11 @@ class DashboardSystemController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$user) {
+
+            if (! $user) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Giriş tələb olunur'
+                    'message' => 'Giriş tələb olunur',
                 ], 401);
             }
 
@@ -98,7 +92,7 @@ class DashboardSystemController extends Controller
                 ->orderBy('created_at', 'desc');
 
             // Apply user-based filtering
-            if (!$user->hasRole('SuperAdmin')) {
+            if (! $user->hasRole('SuperAdmin')) {
                 $query = $this->applyUserActivityFilter($query, $user);
             }
 
@@ -150,15 +144,14 @@ class DashboardSystemController extends Controller
                         'level' => $level,
                         'since' => $since,
                         'limit' => $limit,
-                    ]
+                    ],
                 ],
-                'message' => 'Son aktivitələr alındı'
+                'message' => 'Son aktivitələr alındı',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Aktivitələr alınarkən səhv: ' . $e->getMessage()
+                'message' => 'Aktivitələr alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -170,11 +163,11 @@ class DashboardSystemController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$user || !$user->hasRole('SuperAdmin')) {
+
+            if (! $user || ! $user->hasRole('SuperAdmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu məlumatlara giriş icazəniz yoxdur'
+                    'message' => 'Bu məlumatlara giriş icazəniz yoxdur',
                 ], 403);
             }
 
@@ -195,11 +188,10 @@ class DashboardSystemController extends Controller
                 'data' => $metrics,
                 'timestamp' => now(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Monitoring metrics alınarkən səhv: ' . $e->getMessage()
+                'message' => 'Monitoring metrics alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -214,8 +206,8 @@ class DashboardSystemController extends Controller
             DB::connection()->getPdo();
             $connectionTime = (microtime(true) - $startTime) * 1000;
 
-            $tableCount = DB::select("SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = DATABASE()")[0]->count ?? 0;
-            
+            $tableCount = DB::select('SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = DATABASE()')[0]->count ?? 0;
+
             return [
                 'status' => 'healthy',
                 'connection_time' => round($connectionTime, 2) . 'ms',
@@ -356,21 +348,22 @@ class DashboardSystemController extends Controller
     {
         if ($user->hasRole('RegionAdmin')) {
             $regionId = $user->institution_id;
-            return $query->where(function($q) use ($regionId) {
+
+            return $query->where(function ($q) use ($regionId) {
                 $q->where('institution_id', $regionId)
-                  ->orWhereHas('institution', function($iq) use ($regionId) {
-                      $iq->where('parent_id', $regionId)
-                        ->orWhereHas('parent', function($pq) use ($regionId) {
-                            $pq->where('parent_id', $regionId);
-                        });
-                  });
+                    ->orWhereHas('institution', function ($iq) use ($regionId) {
+                        $iq->where('parent_id', $regionId)
+                            ->orWhereHas('parent', function ($pq) use ($regionId) {
+                                $pq->where('parent_id', $regionId);
+                            });
+                    });
             });
         } elseif ($user->hasRole('SektorAdmin')) {
-            return $query->where(function($q) use ($user) {
+            return $query->where(function ($q) use ($user) {
                 $q->where('institution_id', $user->institution_id)
-                  ->orWhereHas('institution', function($iq) use ($user) {
-                      $iq->where('parent_id', $user->institution_id);
-                  });
+                    ->orWhereHas('institution', function ($iq) use ($user) {
+                        $iq->where('parent_id', $user->institution_id);
+                    });
             });
         } elseif ($user->hasRole('SchoolAdmin')) {
             return $query->where('institution_id', $user->institution_id);
@@ -385,8 +378,8 @@ class DashboardSystemController extends Controller
     private function getActivitySummary($user, $since): array
     {
         $query = ActivityLog::where('created_at', '>=', $since);
-        
-        if (!$user->hasRole('SuperAdmin')) {
+
+        if (! $user->hasRole('SuperAdmin')) {
             $query = $this->applyUserActivityFilter($query, $user);
         }
 
@@ -403,30 +396,118 @@ class DashboardSystemController extends Controller
     {
         $base = log($size, 1024);
         $suffixes = ['B', 'KB', 'MB', 'GB', 'TB'];
-        return round(pow(1024, $base - floor($base)), $precision) .' '. $suffixes[floor($base)];
+
+        return round(pow(1024, $base - floor($base)), $precision) . ' ' . $suffixes[floor($base)];
     }
 
     // Placeholder methods for complex system metrics
-    private function getLastBackupTime(): string { return now()->subHours(6)->toDateTimeString(); }
-    private function getQueueWorkerStatus(): array { return ['status' => 'healthy']; }
-    private function getSchedulerStatus(): array { return ['status' => 'healthy']; }
-    private function getMailServiceStatus(): array { return ['status' => 'healthy']; }
-    private function getCurrentMemoryUsage(): string { return '45%'; }
-    private function getCurrentCpuUsage(): string { return '23%'; }
-    private function getRecentFailedLogins(): int { return 3; }
-    private function getSuspiciousActivity(): int { return 0; }
-    private function getSSLStatus(): array { return ['status' => 'valid', 'expires' => '2025-12-31']; }
-    private function getScheduledMaintenance(): array { return ['next' => null]; }
-    private function getLastSystemUpdate(): string { return now()->subDays(3)->toDateString(); }
-    private function getBackupStatus(): array { return ['status' => 'completed', 'last_run' => now()->subHours(6)]; }
-    private function getLogCleanupStatus(): array { return ['status' => 'scheduled']; }
-    private function getGlobalSystemAlerts(): array { return []; }
-    private function getRegionalSystemAlerts($regionId): array { return []; }
-    private function getSystemLoad(): array { return []; }
-    private function getMemoryUsage(): array { return []; }
-    private function getDiskUsage(): array { return []; }
-    private function getResponseTimes(): array { return []; }
-    private function getErrorRates(): array { return []; }
-    private function getActiveConnections(): int { return 150; }
-    private function getQueueStatus(): array { return ['pending' => 0, 'failed' => 0]; }
+    private function getLastBackupTime(): string
+    {
+        return now()->subHours(6)->toDateTimeString();
+    }
+
+    private function getQueueWorkerStatus(): array
+    {
+        return ['status' => 'healthy'];
+    }
+
+    private function getSchedulerStatus(): array
+    {
+        return ['status' => 'healthy'];
+    }
+
+    private function getMailServiceStatus(): array
+    {
+        return ['status' => 'healthy'];
+    }
+
+    private function getCurrentMemoryUsage(): string
+    {
+        return '45%';
+    }
+
+    private function getCurrentCpuUsage(): string
+    {
+        return '23%';
+    }
+
+    private function getRecentFailedLogins(): int
+    {
+        return 3;
+    }
+
+    private function getSuspiciousActivity(): int
+    {
+        return 0;
+    }
+
+    private function getSSLStatus(): array
+    {
+        return ['status' => 'valid', 'expires' => '2025-12-31'];
+    }
+
+    private function getScheduledMaintenance(): array
+    {
+        return ['next' => null];
+    }
+
+    private function getLastSystemUpdate(): string
+    {
+        return now()->subDays(3)->toDateString();
+    }
+
+    private function getBackupStatus(): array
+    {
+        return ['status' => 'completed', 'last_run' => now()->subHours(6)];
+    }
+
+    private function getLogCleanupStatus(): array
+    {
+        return ['status' => 'scheduled'];
+    }
+
+    private function getGlobalSystemAlerts(): array
+    {
+        return [];
+    }
+
+    private function getRegionalSystemAlerts($regionId): array
+    {
+        return [];
+    }
+
+    private function getSystemLoad(): array
+    {
+        return [];
+    }
+
+    private function getMemoryUsage(): array
+    {
+        return [];
+    }
+
+    private function getDiskUsage(): array
+    {
+        return [];
+    }
+
+    private function getResponseTimes(): array
+    {
+        return [];
+    }
+
+    private function getErrorRates(): array
+    {
+        return [];
+    }
+
+    private function getActiveConnections(): int
+    {
+        return 150;
+    }
+
+    private function getQueueStatus(): array
+    {
+        return ['pending' => 0, 'failed' => 0];
+    }
 }

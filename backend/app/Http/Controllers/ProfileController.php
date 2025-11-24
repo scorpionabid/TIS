@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 use App\Models\User;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\Rule;
 
 class ProfileController extends BaseController
 {
@@ -18,7 +18,7 @@ class ProfileController extends BaseController
     public function show(): JsonResponse
     {
         $user = Auth::user()->load(['role', 'institution', 'profile', 'department']);
-        
+
         return $this->successResponse([
             'user' => $user,
             'permissions' => $user->getAllPermissions()->pluck('name'),
@@ -32,7 +32,7 @@ class ProfileController extends BaseController
     public function update(Request $request): JsonResponse
     {
         $user = Auth::user();
-        
+
         $validated = $request->validate([
             'username' => ['sometimes', 'string', 'max:255', Rule::unique('users')->ignore($user->id)],
             'email' => ['sometimes', 'email', Rule::unique('users')->ignore($user->id)],
@@ -91,7 +91,7 @@ class ProfileController extends BaseController
         if (isset($validated['preferences'])) {
             $currentPreferences = $user->preferences ?? [];
             $user->update([
-                'preferences' => array_merge($currentPreferences, $validated['preferences'])
+                'preferences' => array_merge($currentPreferences, $validated['preferences']),
             ]);
         }
 
@@ -107,11 +107,11 @@ class ProfileController extends BaseController
     public function uploadAvatar(Request $request): JsonResponse
     {
         $request->validate([
-            'avatar' => 'required|image|mimes:jpg,jpeg,png,gif|max:2048'
+            'avatar' => 'required|image|mimes:jpg,jpeg,png,gif|max:2048',
         ]);
 
         $user = Auth::user();
-        
+
         // Delete old avatar if exists
         if ($user->profile?->avatar_path) {
             Storage::delete($user->profile->avatar_path);
@@ -119,7 +119,7 @@ class ProfileController extends BaseController
 
         // Store new avatar
         $path = $request->file('avatar')->store('avatars', 'public');
-        
+
         // Update profile
         if ($user->profile) {
             $user->profile->update(['avatar_path' => $path]);
@@ -139,7 +139,7 @@ class ProfileController extends BaseController
     public function removeAvatar(): JsonResponse
     {
         $user = Auth::user();
-        
+
         if ($user->profile?->avatar_path) {
             Storage::delete($user->profile->avatar_path);
             $user->profile->update(['avatar_path' => null]);
@@ -155,7 +155,7 @@ class ProfileController extends BaseController
     {
         $user = Auth::user();
         $perPage = $request->get('per_page', 15);
-        
+
         $activities = $user->activities()
             ->with('subject')
             ->latest()
@@ -175,8 +175,8 @@ class ProfileController extends BaseController
         ]);
 
         $user = Auth::user();
-        
-        if (!Hash::check($validated['current_password'], $user->password)) {
+
+        if (! Hash::check($validated['current_password'], $user->password)) {
             return $this->errorResponse('Mövcud parol yanlışdır', 422);
         }
 

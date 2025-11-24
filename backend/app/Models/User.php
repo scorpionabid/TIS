@@ -2,10 +2,8 @@
 
 namespace App\Models;
 
-use App\Models\RegionOperatorPermission;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -16,7 +14,7 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, HasRoles, SoftDeletes;
+    use HasApiTokens, HasFactory, HasRoles, Notifiable, SoftDeletes;
 
     /**
      * Default guard for role & permission resolution
@@ -226,7 +224,7 @@ class User extends Authenticatable
     public function activeSessions(): HasMany
     {
         return $this->sessions()->where('status', 'active')
-                                ->where('expires_at', '>', now());
+            ->where('expires_at', '>', now());
     }
 
     /**
@@ -349,7 +347,6 @@ class User extends Authenticatable
         return $this->locked_until && $this->locked_until->isFuture();
     }
 
-
     /**
      * Scope to get users by role.
      */
@@ -376,7 +373,7 @@ class User extends Authenticatable
         $firstName = trim($this->first_name ?? '');
         $lastName = trim($this->last_name ?? '');
 
-        if (!$firstName && !$lastName) {
+        if (! $firstName && ! $lastName) {
             $profileFirst = trim($this->profile?->first_name ?? '');
             $profileLast = trim($this->profile?->last_name ?? '');
 
@@ -454,7 +451,7 @@ class User extends Authenticatable
      */
     public function isSuspended(): bool
     {
-        return !$this->is_active && !$this->trashed();
+        return ! $this->is_active && ! $this->trashed();
     }
 
     /**
@@ -462,7 +459,7 @@ class User extends Authenticatable
      */
     public function isFullyActive(): bool
     {
-        return $this->is_active && !$this->trashed();
+        return $this->is_active && ! $this->trashed();
     }
 
     // ========================================
@@ -484,12 +481,12 @@ class User extends Authenticatable
     public function addDepartment(int $departmentId): void
     {
         $departments = $this->departments ?? [];
-        if (!in_array($departmentId, $departments)) {
+        if (! in_array($departmentId, $departments)) {
             $departments[] = $departmentId;
             $this->departments = $departments;
-            
+
             // Set as primary if no primary department
-            if (!$this->department_id) {
+            if (! $this->department_id) {
                 $this->department_id = $departmentId;
             }
         }
@@ -500,9 +497,9 @@ class User extends Authenticatable
      */
     public function removeDepartment(int $departmentId): void
     {
-        $departments = array_filter($this->departments ?? [], fn($id) => $id !== $departmentId);
+        $departments = array_filter($this->departments ?? [], fn ($id) => $id !== $departmentId);
         $this->departments = array_values($departments);
-        
+
         // Update primary if it was removed
         if ($this->department_id === $departmentId) {
             $this->department_id = $departments[0] ?? null;
@@ -515,9 +512,9 @@ class User extends Authenticatable
     public function setPrimaryDepartment(int $departmentId): void
     {
         $this->department_id = $departmentId;
-        
+
         // Ensure it's in departments array
-        if (!$this->inDepartment((string)$departmentId)) {
+        if (! $this->inDepartment((string) $departmentId)) {
             $this->addDepartment($departmentId);
         }
     }

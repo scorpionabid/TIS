@@ -6,14 +6,12 @@ use App\Http\Controllers\BaseController;
 use App\Models\AttendanceRecord;
 use App\Models\DailyAttendanceSummary;
 use App\Models\User;
-use App\Models\Subject;
-use App\Models\Grade;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Validator;
 
 class AttendanceRecordApiController extends BaseController
 {
@@ -33,7 +31,7 @@ class AttendanceRecordApiController extends BaseController
                 'subject:id,name,code',
                 'teacher:id,first_name,last_name',
                 'academicYear:id,name,start_date,end_date',
-                'academicTerm:id,name'
+                'academicTerm:id,name',
             ]);
 
             // Apply filters
@@ -51,7 +49,7 @@ class AttendanceRecordApiController extends BaseController
 
             if ($request->has('class_id')) {
                 // Get students in the class and filter by them
-                $students = User::whereHas('grades', function($q) use ($request) {
+                $students = User::whereHas('grades', function ($q) use ($request) {
                     $q->where('id', $request->class_id);
                 })->pluck('id');
                 $query->whereIn('student_id', $students);
@@ -94,15 +92,14 @@ class AttendanceRecordApiController extends BaseController
                     'per_page' => $records->perPage(),
                     'total' => $records->total(),
                     'from' => $records->firstItem(),
-                    'to' => $records->lastItem()
-                ]
+                    'to' => $records->lastItem(),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydləri alınarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -127,14 +124,14 @@ class AttendanceRecordApiController extends BaseController
             'departure_time' => 'nullable|date_format:H:i|after:arrival_time',
             'recording_method' => 'nullable|in:manual,rfid_card,biometric,qr_code,mobile_app,automated',
             'absence_reason' => 'nullable|string|max:1000',
-            'notes' => 'nullable|string|max:1000'
+            'notes' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -144,13 +141,13 @@ class AttendanceRecordApiController extends BaseController
                 'student_id' => $request->student_id,
                 'subject_id' => $request->subject_id,
                 'attendance_date' => $request->attendance_date,
-                'period_number' => $request->period_number ?? 1
+                'period_number' => $request->period_number ?? 1,
             ])->first();
 
             if ($existing) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu şagird və dərs üçün artıq davamiyyət qeydi mövcuddur'
+                    'message' => 'Bu şagird və dərs üçün artıq davamiyyət qeydi mövcuddur',
                 ], 409);
             }
 
@@ -171,7 +168,7 @@ class AttendanceRecordApiController extends BaseController
             $record->load([
                 'student:id,first_name,last_name,student_number',
                 'subject:id,name,code',
-                'teacher:id,first_name,last_name'
+                'teacher:id,first_name,last_name',
             ]);
 
             // Trigger daily summary update
@@ -180,14 +177,13 @@ class AttendanceRecordApiController extends BaseController
             return response()->json([
                 'success' => true,
                 'message' => 'Davamiyyət qeydi yaradıldı',
-                'data' => $record
+                'data' => $record,
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi yaradılarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -212,14 +208,14 @@ class AttendanceRecordApiController extends BaseController
             'attendance_records.*.status' => 'required|in:present,absent,late,excused,medical,authorized,suspended,early_dismissal',
             'attendance_records.*.arrival_time' => 'nullable|date_format:H:i',
             'attendance_records.*.departure_time' => 'nullable|date_format:H:i',
-            'attendance_records.*.notes' => 'nullable|string|max:500'
+            'attendance_records.*.notes' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -227,7 +223,7 @@ class AttendanceRecordApiController extends BaseController
             $created = 0;
             $updated = 0;
             $errors = [];
-            
+
             DB::transaction(function () use ($request, &$created, &$updated, &$errors) {
                 foreach ($request->attendance_records as $index => $attendanceData) {
                     try {
@@ -246,7 +242,7 @@ class AttendanceRecordApiController extends BaseController
                             'departure_time' => $attendanceData['departure_time'] ?? null,
                             'notes' => $attendanceData['notes'] ?? null,
                             'recorded_by' => Auth::id(),
-                            'recording_method' => 'manual'
+                            'recording_method' => 'manual',
                         ];
 
                         // Calculate timing
@@ -263,7 +259,7 @@ class AttendanceRecordApiController extends BaseController
                             'student_id' => $attendanceData['student_id'],
                             'subject_id' => $request->subject_id,
                             'attendance_date' => $request->attendance_date,
-                            'period_number' => $request->period_number ?? 1
+                            'period_number' => $request->period_number ?? 1,
                         ])->first();
 
                         if ($existing) {
@@ -276,11 +272,10 @@ class AttendanceRecordApiController extends BaseController
 
                         // Update daily summary for this student
                         $this->updateDailySummary($attendanceData['student_id'], $request->attendance_date);
-
                     } catch (\Exception $e) {
                         $errors[] = [
                             'student_id' => $attendanceData['student_id'],
-                            'error' => $e->getMessage()
+                            'error' => $e->getMessage(),
                         ];
                     }
                 }
@@ -293,15 +288,14 @@ class AttendanceRecordApiController extends BaseController
                     'created_count' => $created,
                     'updated_count' => $updated,
                     'error_count' => count($errors),
-                    'errors' => $errors
-                ]
+                    'errors' => $errors,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Toplu davamiyyət qeydi yaradılarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -320,19 +314,18 @@ class AttendanceRecordApiController extends BaseController
                 'academicYear:id,name,start_date,end_date',
                 'academicTerm:id,name',
                 'recordedBy:id,first_name,last_name',
-                'approvedBy:id,first_name,last_name'
+                'approvedBy:id,first_name,last_name',
             ]);
 
             return response()->json([
                 'success' => true,
-                'data' => $attendanceRecord
+                'data' => $attendanceRecord,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -346,7 +339,7 @@ class AttendanceRecordApiController extends BaseController
         if ($attendanceRecord->isApproved()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Təsdiqlənmiş davamiyyət qeydini dəyişmək olmaz'
+                'message' => 'Təsdiqlənmiş davamiyyət qeydini dəyişmək olmaz',
             ], 403);
         }
 
@@ -355,14 +348,14 @@ class AttendanceRecordApiController extends BaseController
             'arrival_time' => 'nullable|date_format:H:i',
             'departure_time' => 'nullable|date_format:H:i|after:arrival_time',
             'absence_reason' => 'nullable|string|max:1000',
-            'notes' => 'nullable|string|max:1000'
+            'notes' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -391,15 +384,14 @@ class AttendanceRecordApiController extends BaseController
                 'data' => $attendanceRecord->fresh([
                     'student:id,first_name,last_name',
                     'subject:id,name,code',
-                    'teacher:id,first_name,last_name'
-                ])
+                    'teacher:id,first_name,last_name',
+                ]),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi yenilənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -413,7 +405,7 @@ class AttendanceRecordApiController extends BaseController
             if ($attendanceRecord->isApproved()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Təsdiqlənmiş davamiyyət qeydini silmək olmaz'
+                    'message' => 'Təsdiqlənmiş davamiyyət qeydini silmək olmaz',
                 ], 403);
             }
 
@@ -427,14 +419,13 @@ class AttendanceRecordApiController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'message' => 'Davamiyyət qeydi silindi'
+                'message' => 'Davamiyyət qeydi silindi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi silinərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -449,18 +440,18 @@ class AttendanceRecordApiController extends BaseController
                 'class_id' => 'required|exists:grades,id',
                 'start_date' => 'required|date',
                 'end_date' => 'required|date|after_or_equal:start_date',
-                'subject_id' => 'nullable|exists:subjects,id'
+                'subject_id' => 'nullable|exists:subjects,id',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             // Get students in class
-            $students = User::whereHas('grades', function($q) use ($request) {
+            $students = User::whereHas('grades', function ($q) use ($request) {
                 $q->where('id', $request->class_id);
             })->pluck('id');
 
@@ -480,7 +471,7 @@ class AttendanceRecordApiController extends BaseController
                 'absent_count' => $records->where('status', 'absent')->count(),
                 'late_count' => $records->where('status', 'late')->count(),
                 'excused_count' => $records->whereIn('status', ['excused', 'medical', 'authorized'])->count(),
-                'attendance_rate' => 0
+                'attendance_rate' => 0,
             ];
 
             if ($statistics['total_records'] > 0) {
@@ -491,14 +482,13 @@ class AttendanceRecordApiController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'data' => $statistics
+                'data' => $statistics,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Statistikalar alınarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -514,7 +504,7 @@ class AttendanceRecordApiController extends BaseController
             case 'superadmin':
                 // SuperAdmin sees all
                 break;
-                
+
             case 'regionadmin':
             case 'sektoradmin':
                 // Filter by institution hierarchy
@@ -525,13 +515,13 @@ class AttendanceRecordApiController extends BaseController
                     $childInstitutions = \App\Models\Institution::where('parent_id', $userInstitution->id)
                         ->pluck('id')->toArray();
                     $institutionIds = array_merge($institutionIds, $childInstitutions);
-                    
+
                     // Filter by students in these institutions
                     $studentIds = User::whereIn('institution_id', $institutionIds)->pluck('id');
                     $query->whereIn('student_id', $studentIds);
                 }
                 break;
-                
+
             case 'schooladmin':
             case 'müəllim':
                 // Filter by school
@@ -539,13 +529,13 @@ class AttendanceRecordApiController extends BaseController
                     $studentIds = User::where('institution_id', $user->institution_id)->pluck('id');
                     $query->whereIn('student_id', $studentIds);
                 }
-                
+
                 // Teachers see only their subjects
                 if ($userRole === 'müəllim') {
                     $query->where('teacher_id', $user->id);
                 }
                 break;
-                
+
             default:
                 $query->where('id', -1); // No access
                 break;

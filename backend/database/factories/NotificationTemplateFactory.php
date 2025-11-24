@@ -26,7 +26,7 @@ class NotificationTemplateFactory extends Factory
             'type' => $this->faker->randomElement([
                 'task_assigned', 'task_updated', 'task_deadline',
                 'survey_published', 'survey_deadline', 'survey_approved',
-                'survey_rejected', 'system_alert', 'maintenance', 'security_alert'
+                'survey_rejected', 'system_alert', 'maintenance', 'security_alert',
             ]),
             'subject_template' => '{{subject}}',
             'title_template' => '{{title}}',
@@ -40,7 +40,7 @@ class NotificationTemplateFactory extends Factory
                 'name' => 'User\'s full name',
                 'message' => 'The main message content',
                 'subject' => 'Email subject',
-                'title' => 'Notification title'
+                'title' => 'Notification title',
             ],
         ];
     }
@@ -48,7 +48,6 @@ class NotificationTemplateFactory extends Factory
     /**
      * Indicate that the template is for a specific type.
      *
-     * @param  string  $type
      * @return \Database\Factories\NotificationTemplateFactory
      */
     public function type(string $type)

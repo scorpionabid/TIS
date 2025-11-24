@@ -2,9 +2,9 @@
 
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Contracts\Validation\Validator;
 
 class InstitutionDeleteRequest extends FormRequest
 {
@@ -26,22 +26,22 @@ class InstitutionDeleteRequest extends FormRequest
             'type' => [
                 'required',
                 'string',
-                'in:soft,hard'
+                'in:soft,hard',
             ],
             'confirmation' => [
                 'required',
                 'boolean',
-                'accepted'
+                'accepted',
             ],
             'reason' => [
                 'nullable',
                 'string',
-                'max:500'
+                'max:500',
             ],
             'force' => [
                 'sometimes',
-                'boolean'
-            ]
+                'boolean',
+            ],
         ];
     }
 
@@ -56,7 +56,7 @@ class InstitutionDeleteRequest extends FormRequest
             'confirmation.required' => 'Əməliyyatı təsdiq etməlisiniz.',
             'confirmation.accepted' => 'Əməliyyatı təsdiq etməlisiniz.',
             'reason.max' => 'Səbəb 500 simvoldan çox ola bilməz.',
-            'force.boolean' => 'Məcburi silmə parametri düzgün deyil.'
+            'force.boolean' => 'Məcburi silmə parametri düzgün deyil.',
         ];
     }
 
@@ -69,7 +69,7 @@ class InstitutionDeleteRequest extends FormRequest
             'type' => 'silmə növü',
             'confirmation' => 'təsdiq',
             'reason' => 'səbəb',
-            'force' => 'məcburi silmə'
+            'force' => 'məcburi silmə',
         ];
     }
 
@@ -83,7 +83,7 @@ class InstitutionDeleteRequest extends FormRequest
                 'success' => false,
                 'message' => 'Doğrulama xətası',
                 'errors' => $validator->errors()->all(),
-                'details' => $validator->errors()
+                'details' => $validator->errors(),
             ], 422)
         );
     }
@@ -109,7 +109,7 @@ class InstitutionDeleteRequest extends FormRequest
         $force = $this->boolean('force', false);
 
         // Hard delete requires explicit confirmation
-        if ($deleteType === 'hard' && !$force) {
+        if ($deleteType === 'hard' && ! $force) {
             $reason = $this->input('reason');
             if (empty($reason)) {
                 $validator->errors()->add(
@@ -151,7 +151,7 @@ class InstitutionDeleteRequest extends FormRequest
             'force' => $validated['force'] ?? false,
             'requested_at' => now(),
             'user_agent' => $this->userAgent(),
-            'ip_address' => $this->ip()
+            'ip_address' => $this->ip(),
         ];
     }
 }

@@ -122,7 +122,7 @@ class DataApprovalRequest extends Model
     public function scopeOverdue($query)
     {
         return $query->where('deadline', '<', now())
-                    ->whereIn('current_status', ['pending', 'in_progress']);
+            ->whereIn('current_status', ['pending', 'in_progress']);
     }
 
     /**
@@ -130,8 +130,8 @@ class DataApprovalRequest extends Model
      */
     public function isOverdue(): bool
     {
-        return $this->deadline && 
-               $this->deadline->isPast() && 
+        return $this->deadline &&
+               $this->deadline->isPast() &&
                in_array($this->current_status, ['pending', 'in_progress']);
     }
 
@@ -144,7 +144,7 @@ class DataApprovalRequest extends Model
         $currentStep = collect($workflow->approval_chain)
             ->firstWhere('level', $this->current_approval_level);
 
-        if (!$currentStep) {
+        if (! $currentStep) {
             return false;
         }
 
@@ -167,11 +167,11 @@ class DataApprovalRequest extends Model
     public function getProgressPercentage(): int
     {
         $totalLevels = count($this->workflow->approval_chain);
-        
+
         if ($this->current_status === 'approved') {
             return 100;
         }
-        
+
         if ($this->current_status === 'rejected') {
             return 0;
         }
@@ -184,7 +184,7 @@ class DataApprovalRequest extends Model
      */
     public function getFormattedStatus(): string
     {
-        return match($this->current_status) {
+        return match ($this->current_status) {
             'pending' => 'Gözləmədə',
             'in_progress' => 'İcra olunur',
             'approved' => 'Təsdiqləndi',

@@ -3,23 +3,25 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
-use App\Models\TaskAssignment;
 use App\Models\User;
-use App\Services\TaskPermissionService;
-use App\Services\TaskAssignmentService;
-use App\Services\TaskStatisticsService;
 use App\Services\NotificationService;
-use Illuminate\Http\Request;
+use App\Services\TaskAssignmentService;
+use App\Services\TaskPermissionService;
+use App\Services\TaskStatisticsService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class TaskControllerRefactored extends Controller
 {
     protected TaskPermissionService $permissionService;
+
     protected TaskAssignmentService $assignmentService;
+
     protected TaskStatisticsService $statisticsService;
+
     protected NotificationService $notificationService;
 
     public function __construct(
@@ -50,14 +52,14 @@ class TaskControllerRefactored extends Controller
             'deadline_filter' => 'nullable|string|in:approaching,overdue,all',
             'sort_by' => 'nullable|string|in:created_at,deadline,priority,status',
             'sort_direction' => 'nullable|string|in:asc,desc',
-            'origin_scope' => 'nullable|string|in:region,sector'
+            'origin_scope' => 'nullable|string|in:region,sector',
         ]);
 
         $user = Auth::user();
 
         try {
             $query = Task::with(['creator', 'assignee', 'assignedInstitution', 'approver']);
-            
+
             $this->permissionService->applyTaskAccessControl($query, $user);
 
             $this->applyFilters($query, $request);
@@ -79,7 +81,7 @@ class TaskControllerRefactored extends Controller
                     'per_page' => $tasks->perPage(),
                     'to' => $tasks->lastItem(),
                     'total' => $tasks->total(),
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Error retrieving tasks');
@@ -100,7 +102,7 @@ class TaskControllerRefactored extends Controller
             'deadline_filter' => 'nullable|string|in:approaching,overdue,all',
             'sort_by' => 'nullable|string|in:created_at,deadline,priority,status',
             'sort_direction' => 'nullable|string|in:asc,desc',
-            'origin_scope' => 'nullable|string|in:region,sector'
+            'origin_scope' => 'nullable|string|in:region,sector',
         ]);
 
         $user = Auth::user();
@@ -147,7 +149,7 @@ class TaskControllerRefactored extends Controller
                     'per_page' => $tasks->perPage(),
                     'to' => $tasks->lastItem(),
                     'total' => $tasks->total(),
-                ]
+                ],
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Təyin edilmiş tapşırıqlar alınarkən xəta baş verdi.');
@@ -161,10 +163,10 @@ class TaskControllerRefactored extends Controller
     {
         $user = Auth::user();
 
-        if (!$this->permissionService->canCreateHierarchicalTask($user)) {
+        if (! $this->permissionService->canCreateHierarchicalTask($user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Tapşırıq yaratmaq səlahiyyətiniz yoxdur.'
+                'message' => 'Tapşırıq yaratmaq səlahiyyətiniz yoxdur.',
             ], 403);
         }
 
@@ -173,17 +175,17 @@ class TaskControllerRefactored extends Controller
             'description' => 'required|string',
             'category' => [
                 'required',
-                Rule::in(array_keys(Task::CATEGORIES))
+                Rule::in(array_keys(Task::CATEGORIES)),
             ],
             'priority' => [
                 'required',
-                Rule::in(array_keys(Task::PRIORITIES))
+                Rule::in(array_keys(Task::PRIORITIES)),
             ],
             'deadline' => 'nullable|date|after:now',
             'target_institution_id' => 'required|integer|exists:institutions,id',
             'target_scope' => [
                 'nullable',
-                Rule::in(array_keys(Task::TARGET_SCOPES))
+                Rule::in(array_keys(Task::TARGET_SCOPES)),
             ],
             'target_departments' => 'nullable|array',
             'target_departments.*' => 'integer|exists:departments,id',
@@ -196,7 +198,7 @@ class TaskControllerRefactored extends Controller
             'specific_institutions' => 'nullable|array',
             'specific_institutions.*' => 'integer|exists:institutions,id',
             'task_data' => 'nullable|array',
-            'assignment_data' => 'nullable|array'
+            'assignment_data' => 'nullable|array',
         ]);
 
         try {
@@ -208,7 +210,7 @@ class TaskControllerRefactored extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Tapşırıq uğurla yaradıldı.',
-                'data' => $result
+                'data' => $result,
             ], 201);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Tapşırıq yaradılarkən xəta baş verdi.');
@@ -222,25 +224,25 @@ class TaskControllerRefactored extends Controller
     {
         $user = Auth::user();
 
-        if (!$this->permissionService->canUserAccessTask($task, $user)) {
+        if (! $this->permissionService->canUserAccessTask($task, $user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu tapşırığı görməyə icazəniz yoxdur.'
+                'message' => 'Bu tapşırığı görməyə icazəniz yoxdur.',
             ], 403);
         }
 
         $task->load([
-            'creator', 
-            'assignee', 
-            'assignedInstitution', 
+            'creator',
+            'assignee',
+            'assignedInstitution',
             'approver',
             'assignments.assignedUser',
-            'assignments.institution'
+            'assignments.institution',
         ]);
 
         return response()->json([
             'success' => true,
-            'data' => $task
+            'data' => $task,
         ]);
     }
 
@@ -251,10 +253,10 @@ class TaskControllerRefactored extends Controller
     {
         $user = Auth::user();
 
-        if (!$this->permissionService->canUserUpdateTask($task, $user)) {
+        if (! $this->permissionService->canUserUpdateTask($task, $user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu tapşırığı yeniləməyə icazəniz yoxdur.'
+                'message' => 'Bu tapşırığı yeniləməyə icazəniz yoxdur.',
             ], 403);
         }
 
@@ -263,15 +265,15 @@ class TaskControllerRefactored extends Controller
             'description' => 'sometimes|string',
             'category' => [
                 'sometimes',
-                Rule::in(array_keys(Task::CATEGORIES))
+                Rule::in(array_keys(Task::CATEGORIES)),
             ],
             'priority' => [
                 'sometimes',
-                Rule::in(array_keys(Task::PRIORITIES))
+                Rule::in(array_keys(Task::PRIORITIES)),
             ],
             'status' => [
                 'sometimes',
-                Rule::in(array_keys(Task::STATUSES))
+                Rule::in(array_keys(Task::STATUSES)),
             ],
             'progress' => 'sometimes|integer|min:0|max:100',
             'deadline' => 'nullable|date|after:now',
@@ -281,7 +283,7 @@ class TaskControllerRefactored extends Controller
         try {
             $task->update($request->only([
                 'title', 'description', 'category', 'priority',
-                'status', 'progress', 'deadline', 'notes'
+                'status', 'progress', 'deadline', 'notes',
             ]));
 
             $task->load(['creator', 'assignee', 'assignedInstitution']);
@@ -289,7 +291,7 @@ class TaskControllerRefactored extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Tapşırıq uğurla yeniləndi.',
-                'data' => $task
+                'data' => $task,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Tapşırıq yenilənərkən xəta baş verdi.');
@@ -303,10 +305,10 @@ class TaskControllerRefactored extends Controller
     {
         $user = Auth::user();
 
-        if (!$this->permissionService->canUserDeleteTask($task, $user)) {
+        if (! $this->permissionService->canUserDeleteTask($task, $user)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu tapşırığı silməyə icazəniz yoxdur.'
+                'message' => 'Bu tapşırığı silməyə icazəniz yoxdur.',
             ], 403);
         }
 
@@ -320,10 +322,11 @@ class TaskControllerRefactored extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "Tapşırıq '{$taskTitle}' uğurla silindi."
+                'message' => "Tapşırıq '{$taskTitle}' uğurla silindi.",
             ]);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return $this->handleError($e, 'Tapşırıq silinərkən xəta baş verdi.');
         }
     }
@@ -339,7 +342,7 @@ class TaskControllerRefactored extends Controller
             'status' => 'nullable|string|in:pending,in_progress,completed,cancelled',
             'institution_id' => 'nullable|integer|exists:institutions,id',
             'assigned_to' => 'nullable|integer|exists:users,id',
-            'priority' => 'nullable|string|in:low,medium,high,urgent'
+            'priority' => 'nullable|string|in:low,medium,high,urgent',
         ]);
 
         try {
@@ -347,7 +350,7 @@ class TaskControllerRefactored extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $result
+                'data' => $result,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Tapşırıq təyinatları alınarkən xəta baş verdi.');
@@ -365,7 +368,7 @@ class TaskControllerRefactored extends Controller
             'status' => 'required|string|in:pending,in_progress,completed,cancelled',
             'progress' => 'nullable|integer|min:0|max:100',
             'completion_notes' => 'nullable|string',
-            'completion_data' => 'nullable|array'
+            'completion_data' => 'nullable|array',
         ]);
 
         try {
@@ -374,7 +377,7 @@ class TaskControllerRefactored extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Təyinat statusu uğurla yeniləndi.',
-                'data' => $assignment
+                'data' => $assignment,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Təyinat statusu yenilənərkən xəta baş verdi.');
@@ -404,7 +407,7 @@ class TaskControllerRefactored extends Controller
                 ($institutionId && $assignment->institution_id === $institutionId);
         });
 
-        if (!$assignment) {
+        if (! $assignment) {
             return null;
         }
 
@@ -437,7 +440,7 @@ class TaskControllerRefactored extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $progress
+                'data' => $progress,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Tapşırıq irəliləyişi alınarkən xəta baş verdi.');
@@ -455,20 +458,20 @@ class TaskControllerRefactored extends Controller
             'assignment_ids' => 'required|array|min:1',
             'assignment_ids.*' => 'integer|exists:task_assignments,id',
             'status' => 'required|string|in:pending,in_progress,completed,cancelled',
-            'progress' => 'nullable|integer|min:0|max:100'
+            'progress' => 'nullable|integer|min:0|max:100',
         ]);
 
         try {
             $results = $this->assignmentService->bulkUpdateAssignments(
-                $request->assignment_ids, 
-                $request->only(['status', 'progress']), 
+                $request->assignment_ids,
+                $request->only(['status', 'progress']),
                 $user
             );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Kütləvi yenilənmə tamamlandı.',
-                'data' => $results
+                'data' => $results,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Kütləvi yenilənmə zamanı xəta baş verdi.');
@@ -487,7 +490,7 @@ class TaskControllerRefactored extends Controller
             'date_to' => 'nullable|date|after_or_equal:date_from',
             'institution_id' => 'nullable|integer|exists:institutions,id',
             'priority' => 'nullable|string|in:low,medium,high,urgent',
-            'category' => 'nullable|string|in:report,maintenance,event,audit,instruction,other'
+            'category' => 'nullable|string|in:report,maintenance,event,audit,instruction,other',
         ]);
 
         try {
@@ -495,7 +498,7 @@ class TaskControllerRefactored extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $statistics
+                'data' => $statistics,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Statistika alınarkən xəta baş verdi.');
@@ -512,7 +515,7 @@ class TaskControllerRefactored extends Controller
         $request->validate([
             'date_from' => 'nullable|date',
             'date_to' => 'nullable|date|after_or_equal:date_from',
-            'group_by' => 'nullable|string|in:institution,user,category,priority'
+            'group_by' => 'nullable|string|in:institution,user,category,priority',
         ]);
 
         try {
@@ -520,7 +523,7 @@ class TaskControllerRefactored extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $analytics
+                'data' => $analytics,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Performans analitikası alınarkən xəta baş verdi.');
@@ -536,7 +539,7 @@ class TaskControllerRefactored extends Controller
 
         $request->validate([
             'period' => 'nullable|string|in:day,week,month,quarter,year',
-            'metric' => 'nullable|string|in:completion_rate,average_completion_time,task_count'
+            'metric' => 'nullable|string|in:completion_rate,average_completion_time,task_count',
         ]);
 
         try {
@@ -544,7 +547,7 @@ class TaskControllerRefactored extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $trends
+                'data' => $trends,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Trend analizi alınarkən xəta baş verdi.');
@@ -563,7 +566,7 @@ class TaskControllerRefactored extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $institutions
+                'data' => $institutions,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Targetable institutions alınarkən xəta baş verdi.');
@@ -582,7 +585,7 @@ class TaskControllerRefactored extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $roles
+                'data' => $roles,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'İcazə verilən rollar alınarkən xəta baş verdi.');
@@ -601,7 +604,7 @@ class TaskControllerRefactored extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $context
+                'data' => $context,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Tapşırıq yaradılma konteksti alınarkən xəta baş verdi.');
@@ -634,25 +637,25 @@ class TaskControllerRefactored extends Controller
             if (empty($allowedRoles)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Tapşırıq üçün məsul şəxs təyin etmək icazəniz yoxdur.'
+                    'message' => 'Tapşırıq üçün məsul şəxs təyin etmək icazəniz yoxdur.',
                 ], 403);
             }
 
             $roleFilter = $request->role;
-            if ($roleFilter && !in_array($roleFilter, $allowedRoles, true)) {
+            if ($roleFilter && ! in_array($roleFilter, $allowedRoles, true)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Seçilmiş rola istifadəçi təyin etmək icazəniz yoxdur.'
+                    'message' => 'Seçilmiş rola istifadəçi təyin etmək icazəniz yoxdur.',
                 ], 403);
             }
 
             $institutionScope = $this->permissionService->getUserInstitutionScope($user, $originScope);
             $institutionFilter = $request->institution_id;
 
-            if ($institutionFilter && !in_array((int) $institutionFilter, $institutionScope, true)) {
+            if ($institutionFilter && ! in_array((int) $institutionFilter, $institutionScope, true)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu müəssisədən istifadəçi seçmək icazəniz yoxdur.'
+                    'message' => 'Bu müəssisədən istifadəçi seçmək icazəniz yoxdur.',
                 ], 403);
             }
 
@@ -675,7 +678,7 @@ class TaskControllerRefactored extends Controller
                     }
                 });
 
-            if (!empty($institutionScope)) {
+            if (! empty($institutionScope)) {
                 $query->where(function ($institutionQuery) use ($institutionScope) {
                     $institutionQuery->whereIn('institution_id', $institutionScope)
                         ->orWhereNull('institution_id');
@@ -782,14 +785,14 @@ class TaskControllerRefactored extends Controller
                 if ($originScope === 'region') {
                     $q->orWhere(function ($subQ) {
                         $subQ->whereNull('origin_scope')
-                             ->where('target_scope', 'regional');
+                            ->where('target_scope', 'regional');
                     });
                 }
 
                 if ($originScope === 'sector') {
                     $q->orWhere(function ($subQ) {
                         $subQ->whereNull('origin_scope')
-                             ->whereIn('target_scope', ['sector', 'sectoral']);
+                            ->whereIn('target_scope', ['sector', 'sectoral']);
                     });
                 }
             });
@@ -798,7 +801,7 @@ class TaskControllerRefactored extends Controller
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('title', 'like', '%' . $request->search . '%')
-                  ->orWhere('description', 'like', '%' . $request->search . '%');
+                    ->orWhere('description', 'like', '%' . $request->search . '%');
             });
         }
 
@@ -829,7 +832,7 @@ class TaskControllerRefactored extends Controller
                 }
             }
 
-            if (!empty($assignedUserIds)) {
+            if (! empty($assignedUserIds)) {
                 // Prepare notification data
                 $notificationData = [
                     'creator_name' => $creator->name,
@@ -854,7 +857,7 @@ class TaskControllerRefactored extends Controller
             \Log::error('Failed to send task assignment notification', [
                 'task_id' => $task->id ?? null,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
         }
     }
@@ -867,7 +870,7 @@ class TaskControllerRefactored extends Controller
         return response()->json([
             'success' => false,
             'message' => $defaultMessage,
-            'error' => config('app.debug') ? $e->getMessage() : null
+            'error' => config('app.debug') ? $e->getMessage() : null,
         ], 500);
     }
 }

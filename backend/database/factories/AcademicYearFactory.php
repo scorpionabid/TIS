@@ -26,7 +26,7 @@ class AcademicYearFactory extends Factory
     {
         $startYear = $this->faker->unique()->numberBetween(2010, 2050);
         $endYear = $startYear + 1;
-        
+
         $startDate = \Carbon\Carbon::create($startYear, 9, 1); // September 1st
         $endDate = \Carbon\Carbon::create($endYear, 6, 30); // June 30th
 

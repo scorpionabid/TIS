@@ -22,7 +22,7 @@ class ScheduleGenerationSetting extends Model
         'break_duration',
         'lunch_duration',
         'generation_preferences',
-        'is_active'
+        'is_active',
     ];
 
     protected $casts = [
@@ -35,7 +35,7 @@ class ScheduleGenerationSetting extends Model
         'lunch_break_period' => 'integer',
         'break_duration' => 'integer',
         'lunch_duration' => 'integer',
-        'first_period_start' => 'datetime:H:i'
+        'first_period_start' => 'datetime:H:i',
     ];
 
     /**
@@ -60,6 +60,7 @@ class ScheduleGenerationSetting extends Model
     public function getWorkingDaysAttribute($value): array
     {
         $decoded = json_decode($value, true);
+
         return $decoded ?? [1, 2, 3, 4, 5]; // Default Monday to Friday
     }
 
@@ -69,6 +70,7 @@ class ScheduleGenerationSetting extends Model
     public function getBreakPeriodsAttribute($value): array
     {
         $decoded = json_decode($value, true);
+
         return $decoded ?? [3, 6]; // Default after 3rd and 6th period
     }
 
@@ -81,20 +83,20 @@ class ScheduleGenerationSetting extends Model
         $currentTime = $this->first_period_start instanceof Carbon
             ? $this->first_period_start->copy()
             : Carbon::createFromFormat('H:i', $this->first_period_start);
-        
+
         for ($period = 1; $period <= $this->daily_periods; $period++) {
             $startTime = $currentTime->copy();
             $endTime = $currentTime->copy()->addMinutes($this->period_duration);
-            
+
             $timeSlots[] = [
                 'period_number' => $period,
                 'start_time' => $startTime->format('H:i'),
                 'end_time' => $endTime->format('H:i'),
                 'duration' => $this->period_duration,
                 'is_break' => false,
-                'slot_type' => 'lesson'
+                'slot_type' => 'lesson',
             ];
-            
+
             // Add break after this period if it's in break_periods
             $isScheduledBreak = in_array($period, $this->break_periods);
             $isLunchBreak = $this->lunch_break_period && (int) $period === (int) $this->lunch_break_period;
@@ -103,25 +105,25 @@ class ScheduleGenerationSetting extends Model
                 $breakDuration = $isLunchBreak
                     ? $this->lunch_duration
                     : $this->break_duration;
-                
+
                 $breakStart = $endTime->copy();
                 $breakEnd = $breakStart->copy()->addMinutes($breakDuration);
-                
+
                 $timeSlots[] = [
                     'period_number' => $period . '_break',
                     'start_time' => $breakStart->format('H:i'),
                     'end_time' => $breakEnd->format('H:i'),
                     'duration' => $breakDuration,
                     'is_break' => true,
-                    'slot_type' => $isLunchBreak ? 'lunch' : 'break'
+                    'slot_type' => $isLunchBreak ? 'lunch' : 'break',
                 ];
-                
+
                 $currentTime = $breakEnd;
             } else {
                 $currentTime = $endTime;
             }
         }
-        
+
         return $timeSlots;
     }
 
@@ -133,7 +135,7 @@ class ScheduleGenerationSetting extends Model
         $lessonTime = $this->daily_periods * $this->period_duration;
         $breakTime = count($this->break_periods) * $this->break_duration;
         $lunchTime = $this->lunch_break_period ? $this->lunch_duration : 0;
-        
+
         return $lessonTime + $breakTime + $lunchTime;
     }
 
@@ -143,6 +145,7 @@ class ScheduleGenerationSetting extends Model
     public function getSchoolEndTime(): string
     {
         $totalMinutes = $this->getTotalDailyDuration();
+
         return date('H:i', strtotime($this->first_period_start . ' +' . $totalMinutes . ' minutes'));
     }
 
@@ -152,27 +155,27 @@ class ScheduleGenerationSetting extends Model
     public function validateForGeneration(): array
     {
         $errors = [];
-        
+
         if (empty($this->working_days)) {
             $errors[] = 'Working days must be specified';
         }
-        
+
         if ($this->daily_periods < 1 || $this->daily_periods > 12) {
             $errors[] = 'Daily periods must be between 1 and 12';
         }
-        
+
         if ($this->period_duration < 30 || $this->period_duration > 120) {
             $errors[] = 'Period duration must be between 30 and 120 minutes';
         }
-        
-        if (!empty($this->break_periods)) {
+
+        if (! empty($this->break_periods)) {
             foreach ($this->break_periods as $breakPeriod) {
                 if ($breakPeriod > $this->daily_periods) {
                     $errors[] = "Break period {$breakPeriod} exceeds daily periods";
                 }
             }
         }
-        
+
         return $errors;
     }
 
@@ -190,7 +193,7 @@ class ScheduleGenerationSetting extends Model
             'max_consecutive_same_subject' => 2,
             'min_break_between_same_subject' => 1,
             'room_optimization' => true,
-            'conflict_resolution_strategy' => 'balanced' // 'teacher_priority', 'class_priority', 'balanced'
+            'conflict_resolution_strategy' => 'balanced', // 'teacher_priority', 'class_priority', 'balanced'
         ];
     }
 
@@ -201,7 +204,7 @@ class ScheduleGenerationSetting extends Model
     {
         $defaults = self::getDefaultPreferences();
         $custom = $this->generation_preferences ?? [];
-        
+
         return array_merge($defaults, $custom);
     }
 }

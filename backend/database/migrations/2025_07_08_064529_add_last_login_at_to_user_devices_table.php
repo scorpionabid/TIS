@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::table('user_devices', function (Blueprint $table) {
             $table->timestamp('last_login_at')
-                  ->nullable()
-                  ->after('last_seen_at')
-                  ->comment('The last time the user logged in with this device');
+                ->nullable()
+                ->after('last_seen_at')
+                ->comment('The last time the user logged in with this device');
         });
     }
 

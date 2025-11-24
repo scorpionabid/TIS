@@ -4,10 +4,10 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AssessmentType extends Model
 {
@@ -121,8 +121,8 @@ class AssessmentType extends Model
     public function assignedInstitutions(): BelongsToMany
     {
         return $this->belongsToMany(Institution::class, 'assessment_type_institutions')
-                    ->withPivot(['assigned_date', 'due_date', 'is_active', 'notification_settings', 'assigned_by', 'notes'])
-                    ->withTimestamps();
+            ->withPivot(['assigned_date', 'due_date', 'is_active', 'notification_settings', 'assigned_by', 'notes'])
+            ->withTimestamps();
     }
 
     /**
@@ -196,10 +196,10 @@ class AssessmentType extends Model
     {
         return $query->where(function ($q) use ($institutionId) {
             $q->where('institution_id', $institutionId)
-              ->orWhereNull('institution_id') // Global types
-              ->orWhereHas('assignedInstitutions', function ($assignments) use ($institutionId) {
-                  $assignments->where('institutions.id', $institutionId);
-              });
+                ->orWhereNull('institution_id') // Global types
+                ->orWhereHas('assignedInstitutions', function ($assignments) use ($institutionId) {
+                    $assignments->where('institutions.id', $institutionId);
+                });
         });
     }
 
@@ -208,7 +208,7 @@ class AssessmentType extends Model
      */
     public function getCategoryLabelAttribute(): string
     {
-        return match($this->category) {
+        return match ($this->category) {
             'ksq' => 'Kiçik Summativ Qiymətləndirmə',
             'bsq' => 'Böyük Summativ Qiymətləndirmə',
             'monitoring' => 'Monitoring',
@@ -223,7 +223,7 @@ class AssessmentType extends Model
      */
     public function getScoringMethodLabelAttribute(): string
     {
-        return match($this->scoring_method) {
+        return match ($this->scoring_method) {
             'percentage' => 'Faiz (%)',
             'points' => 'Bal',
             'grades' => 'Qiymət (A, B, C...)',
@@ -248,7 +248,7 @@ class AssessmentType extends Model
                 'updated_at' => now(),
             ];
         }
-        
+
         $this->assignedInstitutions()->sync($assignments);
     }
 
@@ -264,7 +264,10 @@ class AssessmentType extends Model
 
         // RegionAdmin can edit in their region
         if ($user->hasRole('regionadmin')) {
-            if ($this->institution_id === null) return false; // Global types only for SuperAdmin
+            if ($this->institution_id === null) {
+                return false;
+            } // Global types only for SuperAdmin
+
             return $this->institution?->region_id === $user->institution?->region_id;
         }
 
@@ -318,7 +321,7 @@ class AssessmentType extends Model
     public function getNotificationSettingsAttribute($value): array
     {
         $settings = $value ? json_decode($value, true) : [];
-        
+
         return array_merge([
             'days_before_due' => 7,
             'enabled' => true,

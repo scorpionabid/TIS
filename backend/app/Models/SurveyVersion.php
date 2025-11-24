@@ -74,7 +74,7 @@ class SurveyVersion extends Model
     public function scopeLatestForSurvey($query, int $surveyId)
     {
         return $query->where('survey_id', $surveyId)
-                    ->orderBy('version_number', 'desc')
-                    ->limit(1);
+            ->orderBy('version_number', 'desc')
+            ->limit(1);
     }
 }

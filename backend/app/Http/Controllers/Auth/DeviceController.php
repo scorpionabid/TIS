@@ -22,9 +22,9 @@ class DeviceController extends Controller
     public function index(Request $request): JsonResponse
     {
         $devices = $this->deviceService->getUserDevices($request->user());
-        
+
         return response()->json([
-            'devices' => $devices
+            'devices' => $devices,
         ]);
     }
 
@@ -49,7 +49,7 @@ class DeviceController extends Controller
 
         return response()->json([
             'message' => 'Device registered successfully',
-            'device' => $device
+            'device' => $device,
         ]);
     }
 
@@ -72,15 +72,15 @@ class DeviceController extends Controller
             $request->only(['device_name', 'device_type', 'device_model', 'os_version', 'app_version'])
         );
 
-        if (!$device) {
+        if (! $device) {
             return response()->json([
-                'message' => 'Device not found'
+                'message' => 'Device not found',
             ], 404);
         }
 
         return response()->json([
             'message' => 'Device updated successfully',
-            'device' => $device
+            'device' => $device,
         ]);
     }
 
@@ -91,14 +91,14 @@ class DeviceController extends Controller
     {
         $removed = $this->deviceService->removeDevice($request->user(), $deviceId);
 
-        if (!$removed) {
+        if (! $removed) {
             return response()->json([
-                'message' => 'Device not found'
+                'message' => 'Device not found',
             ], 404);
         }
 
         return response()->json([
-            'message' => 'Device removed successfully'
+            'message' => 'Device removed successfully',
         ]);
     }
 
@@ -108,9 +108,9 @@ class DeviceController extends Controller
     public function stats(Request $request): JsonResponse
     {
         $stats = $this->deviceService->getDeviceStats($request->user());
-        
+
         return response()->json([
-            'stats' => $stats
+            'stats' => $stats,
         ]);
     }
 }

@@ -2,8 +2,8 @@
 
 namespace App\Services\Survey\Domains\Query;
 
-use App\Models\Survey;
 use App\Models\Institution;
+use App\Models\Survey;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
@@ -18,9 +18,6 @@ class SurveyQueryBuilder
 {
     /**
      * Get paginated surveys list with filtering
-     *
-     * @param array $params
-     * @return LengthAwarePaginator
      */
     public function getPaginatedList(array $params): LengthAwarePaginator
     {
@@ -33,7 +30,7 @@ class SurveyQueryBuilder
         $this->applySurveyVisibilityFiltering($query, auth()->user());
 
         // Apply search
-        if (!empty($params['search'])) {
+        if (! empty($params['search'])) {
             $query->searchByTitle($params['search']);
         }
 
@@ -47,37 +44,35 @@ class SurveyQueryBuilder
      * Apply filters to query
      *
      * @param Builder $query
-     * @param array $params
-     * @return void
      */
     public function applyFilters($query, array $params): void
     {
-        if (!empty($params['status'])) {
+        if (! empty($params['status'])) {
             $query->byStatus($params['status']);
         }
 
-        if (!empty($params['survey_type'])) {
+        if (! empty($params['survey_type'])) {
             $query->byType($params['survey_type']);
         }
 
-        if (!empty($params['creator_id'])) {
+        if (! empty($params['creator_id'])) {
             $query->createdBy($params['creator_id']);
         }
 
-        if (!empty($params['institution_id'])) {
+        if (! empty($params['institution_id'])) {
             $query->forInstitution($params['institution_id']);
         }
 
-        if (!empty($params['start_date'])) {
+        if (! empty($params['start_date'])) {
             $query->where('start_date', '>=', $params['start_date']);
         }
 
-        if (!empty($params['end_date'])) {
+        if (! empty($params['end_date'])) {
             $query->where('end_date', '<=', $params['end_date']);
         }
 
         // Filter for surveys user can respond to
-        if (!empty($params['my_surveys'])) {
+        if (! empty($params['my_surveys'])) {
             $userInstitutionId = Auth::user()->institution_id;
             if ($userInstitutionId) {
                 $query->forInstitution($userInstitutionId);
@@ -85,10 +80,10 @@ class SurveyQueryBuilder
         }
 
         // Date range filters
-        if (!empty($params['created_from'])) {
+        if (! empty($params['created_from'])) {
             $query->whereDate('created_at', '>=', $params['created_from']);
         }
-        if (!empty($params['created_to'])) {
+        if (! empty($params['created_to'])) {
             $query->whereDate('created_at', '<=', $params['created_to']);
         }
     }
@@ -97,8 +92,6 @@ class SurveyQueryBuilder
      * Apply sorting to query
      *
      * @param Builder $query
-     * @param array $params
-     * @return void
      */
     public function applySorting($query, array $params): void
     {
@@ -120,7 +113,6 @@ class SurveyQueryBuilder
      * Returns array of institution IDs user has access to based on role.
      *
      * @param mixed $user
-     * @return array
      */
     public function getHierarchicalInstitutionIds($user): array
     {
@@ -130,20 +122,22 @@ class SurveyQueryBuilder
 
         if ($user->hasRole('regionadmin')) {
             $userRegionId = $user->institution_id;
-            return Institution::where(function($query) use ($userRegionId) {
+
+            return Institution::where(function ($query) use ($userRegionId) {
                 $query->where('id', $userRegionId)
-                      ->orWhere('parent_id', $userRegionId)
-                      ->orWhereHas('parent', function($q) use ($userRegionId) {
-                          $q->where('parent_id', $userRegionId);
-                      });
+                    ->orWhere('parent_id', $userRegionId)
+                    ->orWhereHas('parent', function ($q) use ($userRegionId) {
+                        $q->where('parent_id', $userRegionId);
+                    });
             })->pluck('id')->toArray();
         }
 
         if ($user->hasRole('sektoradmin')) {
             $userSectorId = $user->institution_id;
-            return Institution::where(function($query) use ($userSectorId) {
+
+            return Institution::where(function ($query) use ($userSectorId) {
                 $query->where('id', $userSectorId)
-                      ->orWhere('parent_id', $userSectorId);
+                    ->orWhere('parent_id', $userSectorId);
             })->pluck('id')->toArray();
         }
 
@@ -155,8 +149,7 @@ class SurveyQueryBuilder
      * Apply hierarchical access control to survey query
      *
      * @param Builder $query
-     * @param mixed $user
-     * @return void
+     * @param mixed   $user
      */
     public function applyHierarchicalFiltering($query, $user): void
     {
@@ -166,7 +159,7 @@ class SurveyQueryBuilder
 
         $allowedInstitutionIds = $this->getHierarchicalInstitutionIds($user);
 
-        $query->whereHas('creator', function($q) use ($allowedInstitutionIds) {
+        $query->whereHas('creator', function ($q) use ($allowedInstitutionIds) {
             $q->whereIn('institution_id', $allowedInstitutionIds);
         });
     }
@@ -177,8 +170,7 @@ class SurveyQueryBuilder
      * Users see surveys they created OR surveys targeted to them.
      *
      * @param Builder $query
-     * @param mixed $user
-     * @return void
+     * @param mixed   $user
      */
     public function applySurveyVisibilityFiltering($query, $user): void
     {
@@ -189,23 +181,23 @@ class SurveyQueryBuilder
         $userInstitutionId = $user->institution_id;
         $allowedInstitutionIds = $this->getHierarchicalInstitutionIds($user);
 
-        $query->where(function($q) use ($allowedInstitutionIds, $userInstitutionId) {
+        $query->where(function ($q) use ($allowedInstitutionIds, $userInstitutionId) {
             // See surveys created by users from allowed institutions (hierarchy)
-            $q->whereHas('creator', function($creatorQuery) use ($allowedInstitutionIds) {
+            $q->whereHas('creator', function ($creatorQuery) use ($allowedInstitutionIds) {
                 $creatorQuery->whereIn('institution_id', $allowedInstitutionIds);
             })
             // OR see surveys targeted to this user's institution or hierarchy
-            ->orWhere(function($targetQuery) use ($userInstitutionId, $allowedInstitutionIds) {
-                $targetQuery->where(function($q1) use ($userInstitutionId) {
-                    // Surveys targeted to user's own institution
-                    $q1->whereJsonContains('target_institutions', $userInstitutionId);
-                })->orWhere(function($q2) use ($allowedInstitutionIds) {
-                    // Surveys targeted to any institution in user's hierarchy
-                    foreach ($allowedInstitutionIds as $instId) {
-                        $q2->orWhereJsonContains('target_institutions', $instId);
-                    }
+                ->orWhere(function ($targetQuery) use ($userInstitutionId, $allowedInstitutionIds) {
+                    $targetQuery->where(function ($q1) use ($userInstitutionId) {
+                        // Surveys targeted to user's own institution
+                        $q1->whereJsonContains('target_institutions', $userInstitutionId);
+                    })->orWhere(function ($q2) use ($allowedInstitutionIds) {
+                        // Surveys targeted to any institution in user's hierarchy
+                        foreach ($allowedInstitutionIds as $instId) {
+                            $q2->orWhereJsonContains('target_institutions', $instId);
+                        }
+                    });
                 });
-            });
         });
     }
 }

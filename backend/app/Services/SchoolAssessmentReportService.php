@@ -22,26 +22,26 @@ class SchoolAssessmentReportService
             $q->where('assessment_type_id', $assessmentTypeId)
                 ->where('assessment_stage_id', $assessmentStageId);
 
-            if (!empty($filters['institution_id'])) {
+            if (! empty($filters['institution_id'])) {
                 $q->where('institution_id', $filters['institution_id']);
             }
 
-            if (!empty($filters['region_id'])) {
+            if (! empty($filters['region_id'])) {
                 $q->whereHas('institution', function ($sub) use ($filters) {
                     $sub->where('region_id', $filters['region_id']);
                 });
             }
 
-            if (!empty($filters['status'])) {
+            if (! empty($filters['status'])) {
                 $q->where('status', $filters['status']);
             }
         });
 
-        if (!empty($filters['class_label'])) {
+        if (! empty($filters['class_label'])) {
             $query->where('class_label', $filters['class_label']);
         }
 
-        if (!empty($filters['subject'])) {
+        if (! empty($filters['subject'])) {
             $query->where('subject', $filters['subject']);
         }
 
@@ -123,6 +123,7 @@ class SchoolAssessmentReportService
 
             if ($values->isEmpty()) {
                 $summary['fields'][$field->field_key] = null;
+
                 continue;
             }
 

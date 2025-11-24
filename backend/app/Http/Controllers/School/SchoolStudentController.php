@@ -4,11 +4,11 @@ namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
 use App\Models\Student;
-use App\Models\User;
 use App\Models\StudentEnrollment;
+use App\Models\User;
 use App\Services\SchoolStudentService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
@@ -30,7 +30,7 @@ class SchoolStudentController extends Controller
         $school = $user->institution;
 
         // SuperAdmin can access all schools
-        if (!$school && !$user->hasRole('superadmin')) {
+        if (! $school && ! $user->hasRole('superadmin')) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -38,7 +38,7 @@ class SchoolStudentController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $students
+            'data' => $students,
         ]);
     }
 
@@ -50,7 +50,7 @@ class SchoolStudentController extends Controller
         $user = Auth::user();
         $school = $user->institution;
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -77,7 +77,7 @@ class SchoolStudentController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -87,12 +87,12 @@ class SchoolStudentController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $student,
-                'message' => 'Student created successfully'
+                'message' => 'Student created successfully',
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create student: ' . $e->getMessage()
+                'message' => 'Failed to create student: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -103,7 +103,7 @@ class SchoolStudentController extends Controller
     public function show(Student $student): JsonResponse
     {
         $user = Auth::user();
-        
+
         // Check if student belongs to user's school
         if ($student->institution_id !== $user->institution_id) {
             return response()->json(['error' => 'Unauthorized'], 403);
@@ -113,7 +113,7 @@ class SchoolStudentController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $student
+            'data' => $student,
         ]);
     }
 
@@ -123,7 +123,7 @@ class SchoolStudentController extends Controller
     public function update(Request $request, Student $student): JsonResponse
     {
         $user = Auth::user();
-        
+
         // Check if student belongs to user's school
         if ($student->institution_id !== $user->institution_id) {
             return response()->json(['error' => 'Unauthorized'], 403);
@@ -151,7 +151,7 @@ class SchoolStudentController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -161,12 +161,12 @@ class SchoolStudentController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $updatedStudent,
-                'message' => 'Student updated successfully'
+                'message' => 'Student updated successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update student: ' . $e->getMessage()
+                'message' => 'Failed to update student: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -177,7 +177,7 @@ class SchoolStudentController extends Controller
     public function destroy(Student $student): JsonResponse
     {
         $user = Auth::user();
-        
+
         // Check if student belongs to user's school
         if ($student->institution_id !== $user->institution_id) {
             return response()->json(['error' => 'Unauthorized'], 403);
@@ -188,12 +188,12 @@ class SchoolStudentController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'Student deleted successfully'
+                'message' => 'Student deleted successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to delete student: ' . $e->getMessage()
+                'message' => 'Failed to delete student: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -206,7 +206,7 @@ class SchoolStudentController extends Controller
         $user = Auth::user();
         $school = $user->institution;
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -220,7 +220,7 @@ class SchoolStudentController extends Controller
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -230,12 +230,12 @@ class SchoolStudentController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $result,
-                'message' => "Successfully imported {$result['imported']} students"
+                'message' => "Successfully imported {$result['imported']} students",
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to import students: ' . $e->getMessage()
+                'message' => 'Failed to import students: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -248,7 +248,7 @@ class SchoolStudentController extends Controller
         $user = Auth::user();
         $school = $user->institution;
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -256,7 +256,7 @@ class SchoolStudentController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $grades
+            'data' => $grades,
         ]);
     }
 
@@ -272,12 +272,12 @@ class SchoolStudentController extends Controller
             ]);
 
             $student = User::findOrFail($request->student_id);
-            
+
             // Verify student belongs to this school
             $user = Auth::user();
             if ($student->institution_id !== $user->institution_id) {
                 return response()->json([
-                    'error' => 'Student does not belong to your school'
+                    'error' => 'Student does not belong to your school',
                 ], 403);
             }
 
@@ -294,12 +294,11 @@ class SchoolStudentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'Student enrolled successfully',
-                'data' => $enrollment
+                'data' => $enrollment,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to enroll student: ' . $e->getMessage()
+                'error' => 'Failed to enroll student: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -315,12 +314,12 @@ class SchoolStudentController extends Controller
             ]);
 
             $student = User::findOrFail($request->student_id);
-            
+
             // Verify student belongs to this school
             $user = Auth::user();
             if ($student->institution_id !== $user->institution_id) {
                 return response()->json([
-                    'error' => 'Student does not belong to your school'
+                    'error' => 'Student does not belong to your school',
                 ], 403);
             }
 
@@ -336,17 +335,16 @@ class SchoolStudentController extends Controller
 
                 return response()->json([
                     'success' => true,
-                    'message' => 'Student unenrolled successfully'
+                    'message' => 'Student unenrolled successfully',
                 ]);
-            } else {
-                return response()->json([
-                    'error' => 'Student enrollment not found'
-                ], 404);
             }
 
+            return response()->json([
+                'error' => 'Student enrollment not found',
+            ], 404);
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to unenroll student: ' . $e->getMessage()
+                'error' => 'Failed to unenroll student: ' . $e->getMessage(),
             ], 500);
         }
     }

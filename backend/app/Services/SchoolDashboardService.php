@@ -2,15 +2,15 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
+use App\Models\AssessmentEntry;
 use App\Models\Institution;
+use App\Models\Student;
 use App\Models\Survey;
 use App\Models\Task;
-use App\Models\Student;
-use App\Models\AssessmentEntry;
-use App\Models\ActivityLog;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class SchoolDashboardService
 {
@@ -210,6 +210,7 @@ class SchoolDashboardService
             ->get()
             ->map(function ($survey) {
                 $hoursRemaining = Carbon::parse($survey->end_date)->diffInHours(Carbon::now(), false);
+
                 return [
                     'id' => $survey->id,
                     'type' => 'survey',
@@ -229,6 +230,7 @@ class SchoolDashboardService
             ->get()
             ->map(function ($task) {
                 $hoursRemaining = Carbon::parse($task->due_date)->diffInHours(Carbon::now(), false);
+
                 return [
                     'id' => $task->id,
                     'type' => 'task',

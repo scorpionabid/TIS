@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Survey;
 use App\Models\SurveyTemplate;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SurveyTemplateController extends Controller
 {
@@ -60,7 +60,7 @@ class SurveyTemplateController extends Controller
 
         return response()->json([
             'message' => 'Template yaradıldı',
-            'template' => $template
+            'template' => $template,
         ], 201);
     }
 
@@ -70,7 +70,7 @@ class SurveyTemplateController extends Controller
     public function show(SurveyTemplate $template): JsonResponse
     {
         return response()->json([
-            'data' => $template
+            'data' => $template,
         ]);
     }
 
@@ -90,7 +90,7 @@ class SurveyTemplateController extends Controller
 
         return response()->json([
             'message' => 'Template yeniləndi',
-            'template' => $template
+            'template' => $template,
         ]);
     }
 
@@ -102,7 +102,7 @@ class SurveyTemplateController extends Controller
         $template->delete();
 
         return response()->json([
-            'message' => 'Template silindi'
+            'message' => 'Template silindi',
         ]);
     }
 
@@ -144,7 +144,7 @@ class SurveyTemplateController extends Controller
 
         return response()->json([
             'message' => 'Template yaradıldı',
-            'template' => $template
+            'template' => $template,
         ], 201);
     }
 
@@ -160,7 +160,7 @@ class SurveyTemplateController extends Controller
             'featured_templates' => 0, // Default for now
             'my_templates' => $totalTemplates, // Default for now
             'categories' => [
-                ['name' => 'general', 'count' => $totalTemplates]
+                ['name' => 'general', 'count' => $totalTemplates],
             ],
             'most_popular' => [],
             'recent_templates' => SurveyTemplate::latest()->take(5)->get(),

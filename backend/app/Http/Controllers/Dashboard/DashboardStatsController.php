@@ -31,11 +31,10 @@ class DashboardStatsController extends Controller
                 'cached' => true,
                 'user_role' => $user?->getRoleNames()->first(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Dashboard statistikaları alınarkən səhv baş verdi: ' . $e->getMessage()
+                'message' => 'Dashboard statistikaları alınarkən səhv baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -47,11 +46,11 @@ class DashboardStatsController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$user || !$user->hasAnyRole(['SuperAdmin', 'RegionAdmin', 'SektorAdmin'])) {
+
+            if (! $user || ! $user->hasAnyRole(['SuperAdmin', 'RegionAdmin', 'SektorAdmin'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu məlumatlara giriş icazəniz yoxdur'
+                    'message' => 'Bu məlumatlara giriş icazəniz yoxdur',
                 ], 403);
             }
 
@@ -62,11 +61,10 @@ class DashboardStatsController extends Controller
                 'data' => $analytics,
                 'generated_at' => now(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Ətraflı statistikalar alınarkən səhv: ' . $e->getMessage()
+                'message' => 'Ətraflı statistikalar alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }

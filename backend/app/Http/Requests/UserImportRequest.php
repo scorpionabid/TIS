@@ -44,12 +44,12 @@ class UserImportRequest extends FormRequest
                     if ($institutionValue) {
                         $institutionService = app(InstitutionAssignmentService::class);
                         $institutionId = $institutionService->parseInstitutionId($institutionValue);
-                        
-                        if ($institutionId && !$institutionService->validateAssignment($value, $institutionId)) {
+
+                        if ($institutionId && ! $institutionService->validateAssignment($value, $institutionId)) {
                             $fail("Bu rol ($value) seçilmiş quruma təyin oluna bilməz.");
                         }
                     }
-                }
+                },
             ],
             'institution_id' => [
                 'required',
@@ -57,17 +57,18 @@ class UserImportRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     $institutionService = app(InstitutionAssignmentService::class);
                     $institutionId = $institutionService->parseInstitutionId($value);
-                    
-                    if (!$institutionId) {
+
+                    if (! $institutionId) {
                         $fail("Qurum ID formatı düzgün deyil. '32' və ya '32 (Ad)' formatında olmalıdır.");
+
                         return;
                     }
-                    
+
                     // Check if institution exists
-                    if (!\App\Models\Institution::where('id', $institutionId)->exists()) {
+                    if (! \App\Models\Institution::where('id', $institutionId)->exists()) {
                         $fail("Qurum ID {$institutionId} mövcud deyil.");
                     }
-                }
+                },
             ],
             'department' => 'nullable|string|max:255',
             'address' => 'nullable|string|max:500',
@@ -77,7 +78,7 @@ class UserImportRequest extends FormRequest
             'utis_code' => 'nullable|string|max:50',
             'notes' => 'nullable|string|max:1000',
             'status' => 'nullable|in:active,inactive',
-            
+
             // Teacher-specific fields
             'specialty' => 'nullable|string|max:255',
             'subjects' => 'nullable|string', // Comma-separated subject IDs
@@ -89,7 +90,7 @@ class UserImportRequest extends FormRequest
             'graduation_university' => 'nullable|string|max:255',
             'graduation_year' => 'nullable|integer|min:1950|max:2030',
             'university_gpa' => 'nullable|numeric|between:0,4',
-            
+
             // Student-specific fields
             'student_miq_score' => 'nullable|numeric|between:0,100',
             'previous_school' => 'nullable|string|max:255',

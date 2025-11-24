@@ -2,16 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\KSQResult;
 use App\Models\BSQResult;
 use App\Models\Institution;
-use App\Models\AcademicYear;
+use App\Models\KSQResult;
 use App\Services\PerformanceAnalyticsService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class AssessmentController extends Controller
 {
@@ -31,7 +29,7 @@ class AssessmentController extends Controller
             'institution_id' => 'nullable|integer|exists:institutions,id',
             'academic_year_id' => 'nullable|integer|exists:academic_years,id',
             'assessment_type' => 'nullable|string|in:ksq,bsq,all',
-            'per_page' => 'nullable|integer|min:1|max:100'
+            'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
         $user = Auth::user();
@@ -40,7 +38,7 @@ class AssessmentController extends Controller
             'user_email' => $user->email,
             'user_institution_id' => $user->institution_id,
             'request_institution_id' => $request->institution_id,
-            'request_params' => $request->all()
+            'request_params' => $request->all(),
         ]);
 
         $institutionId = $request->institution_id ?? $user->institution_id;
@@ -52,7 +50,7 @@ class AssessmentController extends Controller
             'final_institution_id' => $institutionId,
             'institution_id_is_empty' => empty($institutionId),
             'institution_exists' => $institutionId ? Institution::where('id', $institutionId)->exists() : false,
-            'user_roles' => $user->roles->pluck('name')->toArray()
+            'user_roles' => $user->roles->pluck('name')->toArray(),
         ]);
 
         // Handle case where no valid institution_id is available
@@ -63,28 +61,30 @@ class AssessmentController extends Controller
                 'request_institution_id' => $request->institution_id,
                 'user_institution_id' => $user->institution_id,
                 'institution_id_value' => $institutionId,
-                'institution_id_type' => gettype($institutionId)
+                'institution_id_type' => gettype($institutionId),
             ]);
-            
+
             // For SuperAdmin without specific institution, return aggregate data
             if ($user->hasRole('superadmin')) {
                 \Log::info('Returning aggregate data for SuperAdmin');
+
                 return response()->json([
                     'success' => true,
-                    'data' => $this->getAggregateAssessmentData($academicYearId, $request->assessment_type, $request->per_page)
+                    'data' => $this->getAggregateAssessmentData($academicYearId, $request->assessment_type, $request->per_page),
                 ]);
             }
-            
+
             return response()->json(['error' => 'Qiymətləndirmə məlumatlarına giriş üçün müəssisə təyin edilməlidir'], 400);
         }
 
         // Authorization check
-        if (!$this->canAccessInstitution($user, $institutionId)) {
+        if (! $this->canAccessInstitution($user, $institutionId)) {
             \Log::warning('Assessment API access denied', [
                 'user_id' => $user->id,
                 'institution_id' => $institutionId,
-                'reason' => 'canAccessInstitution returned false'
+                'reason' => 'canAccessInstitution returned false',
             ]);
+
             return response()->json(['error' => 'Bu müəssisəyə giriş icazəniz yoxdur'], 403);
         }
 
@@ -101,17 +101,17 @@ class AssessmentController extends Controller
 
         // Get summary analytics only if we have a valid institution
         // For SuperAdmin aggregate data, we already have analytics in getAggregateAssessmentData
-        if (!empty($institutionId)) {
+        if (! empty($institutionId)) {
             try {
                 $data['analytics'] = $this->analyticsService->getInstitutionPerformanceAnalytics(
-                    $institutionId, 
+                    $institutionId,
                     $academicYearId
                 );
             } catch (\Exception $e) {
                 \Log::error('Analytics service error', [
                     'institution_id' => $institutionId,
                     'academic_year_id' => $academicYearId,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
                 // Continue without analytics if there's an error
                 $data['analytics'] = null;
@@ -123,7 +123,7 @@ class AssessmentController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $data
+            'data' => $data,
         ]);
     }
 
@@ -150,13 +150,13 @@ class AssessmentController extends Controller
             'notes' => 'nullable|string|max:1000',
             'follow_up_required' => 'boolean',
             'follow_up_date' => 'nullable|date|after:assessment_date',
-            'previous_assessment_id' => 'nullable|integer|exists:ksq_results,id'
+            'previous_assessment_id' => 'nullable|integer|exists:ksq_results,id',
         ]);
 
         $user = Auth::user();
 
         // Authorization check
-        if (!$this->canAccessInstitution($user, $request->institution_id)) {
+        if (! $this->canAccessInstitution($user, $request->institution_id)) {
             return response()->json(['error' => 'Bu müəssisəyə qiymətləndirmə əlavə etmək icazəniz yoxdur'], 403);
         }
 
@@ -184,7 +184,7 @@ class AssessmentController extends Controller
                 'notes' => $request->notes,
                 'follow_up_required' => $request->follow_up_required ?? false,
                 'follow_up_date' => $request->follow_up_date,
-                'previous_assessment_id' => $request->previous_assessment_id
+                'previous_assessment_id' => $request->previous_assessment_id,
             ]);
 
             // Calculate improvement if previous assessment exists
@@ -194,7 +194,7 @@ class AssessmentController extends Controller
 
             // Generate automatic recommendations
             $autoRecommendations = $ksqResult->generateRecommendations();
-            if (!empty($autoRecommendations)) {
+            if (! empty($autoRecommendations)) {
                 $existingRecommendations = $ksqResult->recommendations ?? [];
                 $ksqResult->recommendations = array_merge($existingRecommendations, $autoRecommendations);
                 $ksqResult->save();
@@ -205,15 +205,15 @@ class AssessmentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'KSQ qiymətləndirmə nəticəsi uğurla əlavə edildi',
-                'data' => $ksqResult->load(['institution', 'academicYear', 'assessor', 'subject'])
+                'data' => $ksqResult->load(['institution', 'academicYear', 'assessor', 'subject']),
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'KSQ nəticəsi əlavə edilərkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -244,13 +244,13 @@ class AssessmentController extends Controller
             'action_items' => 'nullable|array',
             'external_report_url' => 'nullable|url',
             'compliance_score' => 'nullable|numeric|min:0|max:100',
-            'accreditation_status' => 'nullable|string|in:full_accreditation,conditional_accreditation,provisional_accreditation,denied,not_applicable'
+            'accreditation_status' => 'nullable|string|in:full_accreditation,conditional_accreditation,provisional_accreditation,denied,not_applicable',
         ]);
 
         $user = Auth::user();
 
         // Authorization check
-        if (!$this->canAccessInstitution($user, $request->institution_id)) {
+        if (! $this->canAccessInstitution($user, $request->institution_id)) {
             return response()->json(['error' => 'Bu müəssisəyə qiymətləndirmə əlavə etmək icazəniz yoxdur'], 403);
         }
 
@@ -281,7 +281,7 @@ class AssessmentController extends Controller
                 'status' => 'draft',
                 'external_report_url' => $request->external_report_url,
                 'compliance_score' => $request->compliance_score,
-                'accreditation_status' => $request->accreditation_status ?? 'not_applicable'
+                'accreditation_status' => $request->accreditation_status ?? 'not_applicable',
             ]);
 
             DB::commit();
@@ -289,15 +289,15 @@ class AssessmentController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'BSQ qiymətləndirmə nəticəsi uğurla əlavə edildi',
-                'data' => $bsqResult->load(['institution', 'academicYear', 'assessor'])
+                'data' => $bsqResult->load(['institution', 'academicYear', 'assessor']),
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'BSQ nəticəsi əlavə edilərkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -312,13 +312,13 @@ class AssessmentController extends Controller
             'academic_year_id' => 'nullable|integer|exists:academic_years,id',
             'include_trends' => 'boolean',
             'include_rankings' => 'boolean',
-            'include_recommendations' => 'boolean'
+            'include_recommendations' => 'boolean',
         ]);
 
         $user = Auth::user();
 
         // Authorization check
-        if (!$this->canAccessInstitution($user, $request->institution_id)) {
+        if (! $this->canAccessInstitution($user, $request->institution_id)) {
             return response()->json(['error' => 'Bu müəssisəyə analitik məlumat almaq icazəniz yoxdur'], 403);
         }
 
@@ -328,13 +328,13 @@ class AssessmentController extends Controller
             [
                 'include_trends' => $request->include_trends ?? true,
                 'include_rankings' => $request->include_rankings ?? true,
-                'include_recommendations' => $request->include_recommendations ?? true
+                'include_recommendations' => $request->include_recommendations ?? true,
             ]
         );
 
         return response()->json([
             'success' => true,
-            'data' => $analytics
+            'data' => $analytics,
         ]);
     }
 
@@ -344,13 +344,13 @@ class AssessmentController extends Controller
     public function approve(Request $request, $type, $id): JsonResponse
     {
         $request->validate([
-            'comments' => 'nullable|string|max:500'
+            'comments' => 'nullable|string|max:500',
         ]);
 
         $user = Auth::user();
 
         // Only certain roles can approve assessments
-        if (!$user->hasAnyRole(['superadmin', 'regionadmin', 'schooladmin'])) {
+        if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'schooladmin'])) {
             return response()->json(['error' => 'Qiymətləndirmə nəticələrini təsdiqləmək icazəniz yoxdur'], 403);
         }
 
@@ -358,20 +358,20 @@ class AssessmentController extends Controller
         $result = $model::findOrFail($id);
 
         // Authorization check
-        if (!$this->canAccessInstitution($user, $result->institution_id)) {
+        if (! $this->canAccessInstitution($user, $result->institution_id)) {
             return response()->json(['error' => 'Bu qiymətləndirmə nəticəsini təsdiqləmək icazəniz yoxdur'], 403);
         }
 
         $result->update([
             'status' => 'approved',
             'approved_by' => $user->id,
-            'approved_at' => now()
+            'approved_at' => now(),
         ]);
 
         return response()->json([
             'success' => true,
             'message' => ucfirst($type) . ' qiymətləndirmə nəticəsi təsdiqləndi',
-            'data' => $result->load(['approver'])
+            'data' => $result->load(['approver']),
         ]);
     }
 
@@ -384,7 +384,7 @@ class AssessmentController extends Controller
             'ranking_type' => 'required|string|in:regional,national,international',
             'academic_year_id' => 'nullable|integer|exists:academic_years,id',
             'institution_type' => 'nullable|string',
-            'limit' => 'nullable|integer|min:1|max:100'
+            'limit' => 'nullable|integer|min:1|max:100',
         ]);
 
         $academicYearId = $request->academic_year_id;
@@ -399,8 +399,8 @@ class AssessmentController extends Controller
                 'ranking_type' => $rankingType,
                 'academic_year_id' => $academicYearId,
                 'rankings' => $rankings,
-                'generated_at' => now()
-            ]
+                'generated_at' => now(),
+            ],
         ]);
     }
 
@@ -413,13 +413,13 @@ class AssessmentController extends Controller
             'institution_id' => 'required|integer|exists:institutions,id',
             'academic_year_id' => 'nullable|integer|exists:academic_years,id',
             'assessment_type' => 'required|string|in:ksq,bsq,both',
-            'format' => 'required|string|in:excel,pdf,csv'
+            'format' => 'required|string|in:excel,pdf,csv',
         ]);
 
         $user = Auth::user();
 
         // Authorization check
-        if (!$this->canAccessInstitution($user, $request->institution_id)) {
+        if (! $this->canAccessInstitution($user, $request->institution_id)) {
             return response()->json(['error' => 'Bu müəssisənin məlumatlarını ixrac etmək icazəniz yoxdur'], 403);
         }
 
@@ -427,7 +427,7 @@ class AssessmentController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'İxrac əməliyyatı başladı. Hazır olduqda bildiriş alacaqsınız.',
-            'export_id' => 'exp_' . uniqid()
+            'export_id' => 'exp_' . uniqid(),
         ]);
     }
 
@@ -437,48 +437,53 @@ class AssessmentController extends Controller
     private function canAccessInstitution($user, $institutionId): bool
     {
         // SuperAdmin can access all institutions
-        if ($user->hasRole('superadmin')) return true;
-        
+        if ($user->hasRole('superadmin')) {
+            return true;
+        }
+
         // If no institution ID provided, deny access for non-superadmin users
-        if (empty($institutionId) || !$institutionId) {
+        if (empty($institutionId) || ! $institutionId) {
             \Log::warning('canAccessInstitution: Empty institution ID', [
                 'user_id' => $user->id,
                 'institution_id' => $institutionId,
                 'institution_id_type' => gettype($institutionId),
-                'user_roles' => $user->roles->pluck('name')->toArray()
+                'user_roles' => $user->roles->pluck('name')->toArray(),
             ]);
+
             return false;
         }
-        
+
         // Check if institution exists
         $institution = Institution::find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             \Log::warning('canAccessInstitution: Institution not found', [
                 'user_id' => $user->id,
                 'institution_id' => $institutionId,
-                'existing_institutions' => Institution::pluck('id')->toArray()
+                'existing_institutions' => Institution::pluck('id')->toArray(),
             ]);
+
             return false;
         }
-        
+
         // RegionAdmin can access institutions in their region
         if ($user->hasRole('regionadmin')) {
             $userInstitution = Institution::find($user->institution_id);
-            if (!$userInstitution) {
+            if (! $userInstitution) {
                 \Log::warning('canAccessInstitution: RegionAdmin user institution not found', [
                     'user_id' => $user->id,
-                    'user_institution_id' => $user->institution_id
+                    'user_institution_id' => $user->institution_id,
                 ]);
+
                 return false;
             }
-            
+
             // Both should be in same region (level 2 or have same level 2 parent)
             $userRegionId = $userInstitution->level === 2 ? $userInstitution->id : $userInstitution->parent_id;
             $institutionRegionId = $institution->level === 2 ? $institution->id : $institution->parent_id;
-            
+
             return $userRegionId === $institutionRegionId;
         }
-        
+
         // Other users can only access their own institution
         return $user->institution_id === $institutionId;
     }
@@ -512,28 +517,28 @@ class AssessmentController extends Controller
     private function getAggregateAssessmentData($academicYearId, $assessmentType, $perPage)
     {
         $data = [];
-        
-        if (!$assessmentType || $assessmentType === 'all' || $assessmentType === 'ksq') {
+
+        if (! $assessmentType || $assessmentType === 'all' || $assessmentType === 'ksq') {
             // Get all KSQ results across all institutions
             $ksqQuery = KSQResult::with(['institution', 'assessor', 'approver', 'subject', 'academicYear'])
                 ->orderBy('assessment_date', 'desc');
-            
+
             if ($academicYearId) {
                 $ksqQuery->where('academic_year_id', $academicYearId);
             }
-            
+
             $data['ksq_results'] = $perPage ? $ksqQuery->paginate($perPage) : $ksqQuery->get();
         }
 
-        if (!$assessmentType || $assessmentType === 'all' || $assessmentType === 'bsq') {
+        if (! $assessmentType || $assessmentType === 'all' || $assessmentType === 'bsq') {
             // Get all BSQ results across all institutions
             $bsqQuery = BSQResult::with(['institution', 'assessor', 'approver', 'academicYear'])
                 ->orderBy('assessment_date', 'desc');
-            
+
             if ($academicYearId) {
                 $bsqQuery->where('academic_year_id', $academicYearId);
             }
-            
+
             $data['bsq_results'] = $perPage ? $bsqQuery->paginate($perPage) : $bsqQuery->get();
         }
 
@@ -545,8 +550,8 @@ class AssessmentController extends Controller
                 'improvement_percentage' => 0,
                 'recommendations' => ['Müəssisə seçin daha detallı analitik üçün'],
                 'risk_areas' => [],
-                'success_factors' => []
-            ]
+                'success_factors' => [],
+            ],
         ];
 
         return $data;
@@ -556,7 +561,7 @@ class AssessmentController extends Controller
     {
         // Implementation placeholder for ranking calculation
         // This would calculate institution rankings based on assessment scores
-        
+
         $query = Institution::select('institutions.*')
             ->with(['ksqResults', 'bsqResults'])
             ->where('is_active', true);
@@ -567,14 +572,14 @@ class AssessmentController extends Controller
 
         // Add ranking logic based on performance scores
         // This is a simplified version - real implementation would be more complex
-        
+
         return $query->limit($limit)->get()->map(function ($institution) {
             return [
                 'institution' => $institution,
                 'overall_score' => 0, // Calculate from analytics service
                 'ksq_score' => 0,
                 'bsq_score' => 0,
-                'rank_position' => 0
+                'rank_position' => 0,
             ];
         });
     }

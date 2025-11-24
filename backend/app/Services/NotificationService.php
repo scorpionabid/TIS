@@ -2,15 +2,14 @@
 
 namespace App\Services;
 
+use App\Events\NotificationSent;
 use App\Models\Notification;
 use App\Models\NotificationTemplate;
-use App\Models\User;
-use App\Models\Task;
 use App\Models\Survey;
-use App\Events\NotificationSent;
-use App\Services\InstitutionNotificationHelper;
-use Illuminate\Support\Facades\Mail;
+use App\Models\Task;
+use App\Models\User;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class NotificationService
 {
@@ -23,11 +22,11 @@ class NotificationService
             // Ensure required fields are present
             $required = ['title', 'message', 'type', 'channel', 'user_id'];
             foreach ($required as $field) {
-                if (!isset($data[$field])) {
+                if (! isset($data[$field])) {
                     throw new \InvalidArgumentException("Missing required field: {$field}");
                 }
             }
-            
+
             // Set default values for optional fields
             $data = array_merge([
                 'priority' => 'normal',
@@ -40,7 +39,7 @@ class NotificationService
             if (isset($data['related_type']) && $data['related_type']) {
                 // Normalize model class names to prevent duplicates
                 $data['related_type'] = str_replace('App\\Models\\', 'App\Models\\', $data['related_type']);
-                if (!str_starts_with($data['related_type'], 'App\Models\\') && $data['related_type'] !== '') {
+                if (! str_starts_with($data['related_type'], 'App\Models\\') && $data['related_type'] !== '') {
                     $data['related_type'] = 'App\Models\\' . $data['related_type'];
                 }
             }
@@ -54,14 +53,14 @@ class NotificationService
             if (isset($data['type']) && str_starts_with($data['type'], 'survey') &&
                 isset($data['related_type']) && isset($data['related_id'])) {
                 $duplicateQuery->where('related_type', $data['related_type'])
-                              ->where('related_id', $data['related_id'])
-                              ->where('type', 'LIKE', 'survey%'); // Any survey notification type
+                    ->where('related_id', $data['related_id'])
+                    ->where('type', 'LIKE', 'survey%'); // Any survey notification type
             } else {
                 // Standard duplicate check for non-survey notifications
                 $duplicateQuery->where('type', $data['type'])
-                              ->where('related_type', $data['related_type'] ?? null)
-                              ->where('related_id', $data['related_id'] ?? null)
-                              ->where('title', $data['title']);
+                    ->where('related_type', $data['related_type'] ?? null)
+                    ->where('related_id', $data['related_id'] ?? null)
+                    ->where('title', $data['title']);
             }
 
             $existingNotification = $duplicateQuery->first();
@@ -75,35 +74,36 @@ class NotificationService
                         'user_id' => $data['user_id'],
                         'related_type' => $data['related_type'] ?? null,
                         'related_id' => $data['related_id'] ?? null,
-                        'title' => $data['title']
-                    ]
+                        'title' => $data['title'],
+                    ],
                 ]);
+
                 return $existingNotification; // Return existing notification instead
             }
 
             // Create the notification
             $notification = Notification::create($data);
-            
+
             // Log the creation
             Log::info('Notification created', [
                 'id' => $notification->id,
                 'type' => $notification->type,
                 'user_id' => $notification->user_id,
             ]);
-            
+
             // Send immediately if not scheduled
-            if (!($data['scheduled_at'] ?? null)) {
+            if (! ($data['scheduled_at'] ?? null)) {
                 $this->deliver($notification);
             }
-            
+
             return $notification;
-            
         } catch (\Exception $e) {
             Log::error('Failed to create notification', [
                 'error' => $e->getMessage(),
                 'data' => $data,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return null;
         }
     }
@@ -112,31 +112,32 @@ class NotificationService
      * Send notification using template
      */
     public function sendFromTemplate(
-        string $templateKey, 
-        array $recipients, 
-        array $variables = [], 
+        string $templateKey,
+        array $recipients,
+        array $variables = [],
         array $options = []
     ): array {
         Log::debug('Looking for notification template', [
             'key' => $templateKey,
             'recipients' => array_keys($recipients),
             'variables' => array_keys($variables),
-            'options' => $options
+            'options' => $options,
         ]);
-        
+
         $template = NotificationTemplate::where('key', $templateKey)
-                                       ->where('is_active', true)
-                                       ->first();
-        
-        if (!$template) {
+            ->where('is_active', true)
+            ->first();
+
+        if (! $template) {
             Log::error("Notification template not found: {$templateKey}");
+
             return [];
         }
-        
+
         Log::debug('Found template', [
             'id' => $template->id,
             'channels' => $template->channels,
-            'type' => $template->type
+            'type' => $template->type,
         ]);
 
         $notifications = [];
@@ -144,7 +145,7 @@ class NotificationService
         $channels = $options['channels'] ?? $template->channels;
 
         foreach ($channels as $channel) {
-            if (!$template->hasChannel($channel)) {
+            if (! $template->hasChannel($channel)) {
                 continue;
             }
 
@@ -169,7 +170,7 @@ class NotificationService
             // Handle different recipient types
             if (isset($recipients['users'])) {
                 $notificationData['target_users'] = $recipients['users'];
-                
+
                 // Create individual notifications for better tracking
                 foreach ($recipients['users'] as $userId) {
                     $individualData = $notificationData;
@@ -201,7 +202,7 @@ class NotificationService
                     'template_key' => $templateKey,
                     'institutions' => $recipients['institutions'],
                     'target_roles' => $targetRoles,
-                    'expanded_users' => count($institutionUserIds)
+                    'expanded_users' => count($institutionUserIds),
                 ]);
 
                 // Create individual notifications for each user
@@ -264,6 +265,7 @@ class NotificationService
                     break;
                 default:
                     Log::warning("Unknown notification channel: {$notification->channel}");
+
                     return false;
             }
 
@@ -276,6 +278,7 @@ class NotificationService
         } catch (\Exception $e) {
             Log::error("Failed to deliver notification {$notification->id}: " . $e->getMessage());
             $notification->markAsFailed($e->getMessage());
+
             return false;
         }
     }
@@ -285,30 +288,32 @@ class NotificationService
      */
     private function sendEmail(Notification $notification): bool
     {
-        if (!$notification->user_id) {
+        if (! $notification->user_id) {
             Log::warning("No user ID for email notification {$notification->id}");
+
             return false;
         }
 
         $user = User::find($notification->user_id);
-        if (!$user || !$user->email) {
+        if (! $user || ! $user->email) {
             Log::warning("User not found or no email for notification {$notification->id}");
+
             return false;
         }
 
         try {
             // Get email template if available
             $template = NotificationTemplate::where('type', $notification->type)
-                                           ->where('is_active', true)
-                                           ->first();
+                ->where('is_active', true)
+                ->first();
 
             $subject = $notification->getTranslatedTitle($notification->language);
             $body = $notification->getTranslatedMessage($notification->language);
-            
+
             if ($template) {
                 $variables = $this->getTemplateVariables($notification);
                 $subject = $template->render('subject_template', $variables, $notification->language);
-                
+
                 if ($template->email_template) {
                     $body = $template->render('email_template', $variables, $notification->language);
                 }
@@ -323,10 +328,12 @@ class NotificationService
                 ], $subject));
 
             $notification->markAsSent('delivered');
+
             return true;
         } catch (\Exception $e) {
             Log::error("Failed to send email notification {$notification->id}: " . $e->getMessage());
-            $notification->markAsFailed("Email failed: " . $e->getMessage());
+            $notification->markAsFailed('Email failed: ' . $e->getMessage());
+
             return false;
         }
     }
@@ -336,25 +343,27 @@ class NotificationService
      */
     private function sendSMS(Notification $notification): bool
     {
-        if (!$notification->user_id) {
+        if (! $notification->user_id) {
             Log::warning("No user ID for SMS notification {$notification->id}");
+
             return false;
         }
 
         $user = User::find($notification->user_id);
-        if (!$user || !$user->phone) {
+        if (! $user || ! $user->phone) {
             Log::warning("User not found or no phone for notification {$notification->id}");
+
             return false;
         }
 
         try {
             // Get SMS template if available
             $template = NotificationTemplate::where('type', $notification->type)
-                                           ->where('is_active', true)
-                                           ->first();
+                ->where('is_active', true)
+                ->first();
 
             $message = $notification->getTranslatedMessage($notification->language);
-            
+
             if ($template && $template->sms_template) {
                 $variables = $this->getTemplateVariables($notification);
                 $message = $template->render('sms_template', $variables, $notification->language);
@@ -365,10 +374,12 @@ class NotificationService
             Log::info("SMS to {$user->phone}: {$message}");
 
             $notification->markAsSent('delivered');
+
             return true;
         } catch (\Exception $e) {
             Log::error("Failed to send SMS notification {$notification->id}: " . $e->getMessage());
-            $notification->markAsFailed("SMS failed: " . $e->getMessage());
+            $notification->markAsFailed('SMS failed: ' . $e->getMessage());
+
             return false;
         }
     }
@@ -379,6 +390,7 @@ class NotificationService
     private function sendInApp(Notification $notification): bool
     {
         $notification->markAsSent('delivered');
+
         return true;
     }
 
@@ -390,6 +402,7 @@ class NotificationService
         // TODO: Implement push notification service
         Log::info("Push notification {$notification->id} - not implemented yet");
         $notification->markAsSent('pending');
+
         return true;
     }
 
@@ -421,7 +434,7 @@ class NotificationService
                     $variables['task_priority'] = $task->priority_label;
                     $variables['task_deadline'] = $task->deadline ? $task->deadline->format('d.m.Y H:i') : '';
                     break;
-                    
+
                 case Survey::class:
                     $survey = $notification->related;
                     $variables['survey_title'] = $survey->title;
@@ -462,11 +475,11 @@ class NotificationService
     public function markAsRead(int $notificationId, int $userId): bool
     {
         $notification = Notification::where('id', $notificationId)
-                                   ->where(function ($q) use ($userId) {
-                                       $q->where('user_id', $userId)
-                                         ->orWhereJsonContains('target_users', $userId);
-                                   })
-                                   ->first();
+            ->where(function ($q) use ($userId) {
+                $q->where('user_id', $userId)
+                    ->orWhereJsonContains('target_users', $userId);
+            })
+            ->first();
 
         if ($notification) {
             return $notification->markAsRead();
@@ -481,11 +494,11 @@ class NotificationService
     public function markAllAsRead(int $userId): int
     {
         return Notification::forUser($userId)
-                          ->unread()
-                          ->update([
-                              'is_read' => true,
-                              'read_at' => now(),
-                          ]);
+            ->unread()
+            ->update([
+                'is_read' => true,
+                'read_at' => now(),
+            ]);
     }
 
     /**
@@ -508,14 +521,14 @@ class NotificationService
             ->where('is_read', false)
             ->update([
                 'is_read' => true,
-                'read_at' => now()
+                'read_at' => now(),
             ]);
 
         if ($markedCount > 0) {
             Log::info('Auto-marked survey notifications as read', [
                 'user_id' => $userId,
                 'survey_id' => $surveyId,
-                'marked_count' => $markedCount
+                'marked_count' => $markedCount,
             ]);
         }
 
@@ -523,7 +536,6 @@ class NotificationService
     }
 
     // Unified notification methods for common scenarios
-
 
     /**
      * Send survey notification with action
@@ -534,8 +546,7 @@ class NotificationService
         array $users,
         array $extraData = [],
         array $extraOptions = []
-    ): array
-    {
+    ): array {
         $templateKey = "survey_{$action}"; // survey_assigned, survey_published, survey_approved, etc.
 
         // Default variables for all survey notifications
@@ -648,8 +659,7 @@ class NotificationService
         array $users,
         array $extraData = [],
         array $extraOptions = []
-    ): array
-    {
+    ): array {
         $templateKey = "task_{$action}"; // task_assigned, task_completed, task_deadline, etc.
 
         // Default variables for all task notifications
@@ -716,6 +726,7 @@ class NotificationService
         } elseif ($bytes >= 1024) {
             return round($bytes / 1024, 2) . ' KB';
         }
+
         return $bytes . ' B';
     }
 

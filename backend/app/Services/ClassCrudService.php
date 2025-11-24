@@ -4,8 +4,6 @@ namespace App\Services;
 
 use App\Models\Grade;
 use App\Models\User;
-use App\Models\StudentEnrollment;
-use Illuminate\Support\Facades\DB;
 
 class ClassCrudService extends BaseService
 {
@@ -17,23 +15,23 @@ class ClassCrudService extends BaseService
         $query = Grade::with(['academicYear', 'institution', 'room', 'homeroomTeacher.profile']);
 
         // Apply filters
-        if (!empty($filters['institution_id'])) {
+        if (! empty($filters['institution_id'])) {
             $query->where('institution_id', $filters['institution_id']);
         }
 
-        if (!empty($filters['grade_level'])) {
+        if (! empty($filters['grade_level'])) {
             $query->where('class_level', $filters['grade_level']);
         }
 
-        if (!empty($filters['academic_year_id'])) {
+        if (! empty($filters['academic_year_id'])) {
             $query->where('academic_year_id', $filters['academic_year_id']);
         }
 
-        if (!empty($filters['specialty'])) {
+        if (! empty($filters['specialty'])) {
             $query->where('specialty', 'ILIKE', "%{$filters['specialty']}%");
         }
 
-        if (!empty($filters['homeroom_teacher_id'])) {
+        if (! empty($filters['homeroom_teacher_id'])) {
             $query->where('homeroom_teacher_id', $filters['homeroom_teacher_id']);
         }
 
@@ -42,17 +40,17 @@ class ClassCrudService extends BaseService
             $query->where('is_active', $isActive);
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ILIKE', "%{$search}%")
-                  ->orWhere('specialty', 'ILIKE', "%{$search}%")
-                  ->orWhereRaw("CONCAT(class_level, '-', name) ILIKE ?", ["%{$search}%"]);
+                    ->orWhere('specialty', 'ILIKE', "%{$search}%")
+                    ->orWhereRaw("CONCAT(class_level, '-', name) ILIKE ?", ["%{$search}%"]);
             });
         }
 
         // Handle includes
-        if (!empty($filters['include'])) {
+        if (! empty($filters['include'])) {
             $includes = $filters['include'];
             if (str_contains($includes, 'students')) {
                 $query->with(['activeStudents.student.profile']);
@@ -75,7 +73,7 @@ class ClassCrudService extends BaseService
                 'total_pages' => $classes->lastPage(),
                 'from' => $classes->firstItem(),
                 'to' => $classes->lastItem(),
-            ]
+            ],
         ];
     }
 
@@ -96,12 +94,12 @@ class ClassCrudService extends BaseService
         }
 
         // Validate homeroom teacher if provided
-        if (!empty($data['homeroom_teacher_id'])) {
+        if (! empty($data['homeroom_teacher_id'])) {
             $this->validateHomeroomTeacher($data['homeroom_teacher_id']);
         }
 
         // Validate room availability if provided
-        if (!empty($data['room_id'])) {
+        if (! empty($data['room_id'])) {
             $this->validateRoomAvailability($data['room_id'], $data['academic_year_id']);
         }
 
@@ -128,7 +126,7 @@ class ClassCrudService extends BaseService
         if (isset($data['name']) || isset($data['class_level'])) {
             $name = $data['name'] ?? $class->name;
             $level = $data['class_level'] ?? $class->class_level;
-            
+
             $existingClass = Grade::where('name', $name)
                 ->where('class_level', $level)
                 ->where('academic_year_id', $class->academic_year_id)
@@ -152,8 +150,8 @@ class ClassCrudService extends BaseService
         }
 
         $updateData = collect($data)->only([
-            'name', 'class_level', 'room_id', 'homeroom_teacher_id', 
-            'specialty', 'is_active', 'metadata'
+            'name', 'class_level', 'room_id', 'homeroom_teacher_id',
+            'specialty', 'is_active', 'metadata',
         ])->filter()->toArray();
 
         $class->update($updateData);
@@ -193,7 +191,7 @@ class ClassCrudService extends BaseService
             return [
                 'id' => $enrollment->student->id,
                 'student_number' => $enrollment->student_number,
-                'full_name' => $enrollment->student->profile 
+                'full_name' => $enrollment->student->profile
                     ? "{$enrollment->student->profile->first_name} {$enrollment->student->profile->last_name}"
                     : $enrollment->student->username,
                 'email' => $enrollment->student->email,
@@ -209,7 +207,7 @@ class ClassCrudService extends BaseService
                 'code' => $teacherSubject->subject->code,
                 'teacher' => $teacherSubject->teacher ? [
                     'id' => $teacherSubject->teacher->id,
-                    'full_name' => $teacherSubject->teacher->profile 
+                    'full_name' => $teacherSubject->teacher->profile
                         ? "{$teacherSubject->teacher->profile->first_name} {$teacherSubject->teacher->profile->last_name}"
                         : $teacherSubject->teacher->username,
                 ] : null,
@@ -253,7 +251,7 @@ class ClassCrudService extends BaseService
             ] : null,
             'homeroom_teacher' => $class->homeroomTeacher ? [
                 'id' => $class->homeroomTeacher->id,
-                'full_name' => $class->homeroomTeacher->profile 
+                'full_name' => $class->homeroomTeacher->profile
                     ? "{$class->homeroomTeacher->profile->first_name} {$class->homeroomTeacher->profile->last_name}"
                     : $class->homeroomTeacher->username,
                 'email' => $class->homeroomTeacher->email,
@@ -289,7 +287,7 @@ class ClassCrudService extends BaseService
     private function validateHomeroomTeacher(int $teacherId): void
     {
         $teacher = User::find($teacherId);
-        if (!$teacher || !$teacher->hasRole(['müəllim', 'müavin'])) {
+        if (! $teacher || ! $teacher->hasRole(['müəllim', 'müavin'])) {
             throw new \InvalidArgumentException('Sinif rəhbəri müəllim olmalıdır');
         }
     }
@@ -347,7 +345,7 @@ class ClassCrudService extends BaseService
             ] : null,
             'homeroom_teacher' => $class->homeroomTeacher ? [
                 'id' => $class->homeroomTeacher->id,
-                'full_name' => $class->homeroomTeacher->profile 
+                'full_name' => $class->homeroomTeacher->profile
                     ? "{$class->homeroomTeacher->profile->first_name} {$class->homeroomTeacher->profile->last_name}"
                     : $class->homeroomTeacher->username,
                 'email' => $class->homeroomTeacher->email,

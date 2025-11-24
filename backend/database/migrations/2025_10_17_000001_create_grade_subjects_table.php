@@ -19,11 +19,11 @@ return new class extends Migration
 
             // Foreign keys
             $table->foreignId('grade_id')
-                  ->constrained('grades')
-                  ->onDelete('cascade');
+                ->constrained('grades')
+                ->onDelete('cascade');
             $table->foreignId('subject_id')
-                  ->constrained('subjects')
-                  ->onDelete('cascade');
+                ->constrained('subjects')
+                ->onDelete('cascade');
 
             // Həftəlik dərs yükü (weekly teaching load)
             $table->integer('weekly_hours')->default(1); // 1-10 saat
@@ -40,9 +40,9 @@ return new class extends Migration
 
             // Əlavə məlumat (Additional info)
             $table->foreignId('teacher_id')
-                  ->nullable()
-                  ->constrained('users')
-                  ->onDelete('set null'); // Təyin edilmiş müəllim
+                ->nullable()
+                ->constrained('users')
+                ->onDelete('set null'); // Təyin edilmiş müəllim
             $table->text('notes')->nullable(); // Qeydlər
 
             $table->timestamps();

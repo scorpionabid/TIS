@@ -20,7 +20,7 @@ class SubjectResource extends JsonResource
             'code' => $this->code ?? null,
             'weekly_hours' => $this->when(
                 isset($this->pivot),
-                fn() => $this->pivot->weekly_hours ?? null
+                fn () => $this->pivot->weekly_hours ?? null
             ),
             'teacher' => $this->whenLoaded('teacher', function () {
                 return [

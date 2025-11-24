@@ -138,7 +138,7 @@ class TeacherWorkplace extends Model
      */
     public function getPositionTypeLabelAttribute(): string
     {
-        return match($this->position_type) {
+        return match ($this->position_type) {
             'direktor' => 'Direktor',
             'direktor_muavini_tedris' => 'Direktor müavini (Təhsil)',
             'direktor_muavini_inzibati' => 'Direktor müavini (İnzibati)',
@@ -157,7 +157,7 @@ class TeacherWorkplace extends Model
 
     public function getEmploymentTypeLabelAttribute(): string
     {
-        return match($this->employment_type) {
+        return match ($this->employment_type) {
             'full_time' => 'Tam ştat',
             'part_time' => 'Yarım ştat',
             'contract' => 'Müqavilə',
@@ -168,7 +168,7 @@ class TeacherWorkplace extends Model
 
     public function getWorkplacePriorityLabelAttribute(): string
     {
-        return match($this->workplace_priority) {
+        return match ($this->workplace_priority) {
             'primary' => 'Əsas iş yeri',
             'secondary' => '2-ci iş yeri',
             'tertiary' => '3-cü iş yeri',
@@ -179,7 +179,7 @@ class TeacherWorkplace extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'active' => 'Aktiv',
             'inactive' => 'Qeyri-aktiv',
             'suspended' => 'Dayandırılıb',
@@ -208,7 +208,7 @@ class TeacherWorkplace extends Model
 
     public function isContractExpired(): bool
     {
-        if (!$this->end_date) {
+        if (! $this->end_date) {
             return false;
         }
 
@@ -217,7 +217,7 @@ class TeacherWorkplace extends Model
 
     public function getDaysUntilExpiry(): ?int
     {
-        if (!$this->end_date) {
+        if (! $this->end_date) {
             return null;
         }
 
@@ -257,7 +257,7 @@ class TeacherWorkplace extends Model
      */
     public function getFormattedWorkDaysAttribute(): string
     {
-        if (!$this->work_days || empty($this->work_days)) {
+        if (! $this->work_days || empty($this->work_days)) {
             return 'Müəyyən edilməyib';
         }
 
@@ -272,7 +272,7 @@ class TeacherWorkplace extends Model
         ];
 
         $days = array_map(
-            fn($day) => $dayLabels[$day] ?? $day,
+            fn ($day) => $dayLabels[$day] ?? $day,
             $this->work_days
         );
 
@@ -284,7 +284,7 @@ class TeacherWorkplace extends Model
      */
     public function getFormattedSubjectsAttribute(): string
     {
-        if (!$this->subjects || empty($this->subjects)) {
+        if (! $this->subjects || empty($this->subjects)) {
             return 'Fənn müəyyən edilməyib';
         }
 
@@ -296,7 +296,7 @@ class TeacherWorkplace extends Model
      */
     public function getEstimatedMonthlySalaryAttribute(): ?float
     {
-        if (!$this->weekly_hours || !$this->salary_amount) {
+        if (! $this->weekly_hours || ! $this->salary_amount) {
             return null;
         }
 

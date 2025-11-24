@@ -28,7 +28,7 @@ return new class extends Migration
             $table->enum('status', ['active', 'paused', 'disabled'])->default('active');
             $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
             $table->timestamps();
-            
+
             $table->index(['status', 'next_run']);
             $table->index('created_by');
         });

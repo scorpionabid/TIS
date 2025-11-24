@@ -2,10 +2,10 @@
 
 namespace Database\Factories;
 
-use App\Models\SurveyResponse;
-use App\Models\Survey;
-use App\Models\User;
 use App\Models\Institution;
+use App\Models\Survey;
+use App\Models\SurveyResponse;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -32,7 +32,7 @@ class SurveyResponseFactory extends Factory
                     $this->faker->uuid() => $this->faker->text(100),
                     $this->faker->uuid() => $this->faker->randomElement(['Option 1', 'Option 2', 'Option 3']),
                     $this->faker->uuid() => $this->faker->numberBetween(1, 10),
-                ]
+                ],
             ],
             'is_complete' => $this->faker->boolean(80), // 80% chance of being complete
             'progress_percentage' => $this->faker->numberBetween(50, 100),
@@ -44,7 +44,7 @@ class SurveyResponseFactory extends Factory
             'submission_metadata' => [
                 'ip_address' => $this->faker->ipv4(),
                 'user_agent' => $this->faker->userAgent(),
-                'submitted_from' => $this->faker->randomElement(['web', 'mobile', 'tablet'])
+                'submitted_from' => $this->faker->randomElement(['web', 'mobile', 'tablet']),
             ],
         ];
     }

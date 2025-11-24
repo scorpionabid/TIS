@@ -18,10 +18,6 @@ class ResponseBuilder
 
     /**
      * Build success response with detailed statistics
-     *
-     * @param int $importedCount
-     * @param array $importResults
-     * @return array
      */
     public function buildSuccessResponse(int $importedCount, array $importResults): array
     {
@@ -34,16 +30,12 @@ class ResponseBuilder
             'message' => $summaryMessage,
             'imported_count' => $importedCount,
             'statistics' => $statistics,
-            'details' => $importResults
+            'details' => $importResults,
         ];
     }
 
     /**
      * Build comprehensive summary message
-     *
-     * @param int $importedCount
-     * @param array $statistics
-     * @return string
      */
     public function buildSummaryMessage(int $importedCount, array $statistics): string
     {
@@ -80,17 +72,12 @@ class ResponseBuilder
      * Build error response
      *
      * Flattens nested validation errors for frontend consumption.
-     *
-     * @param string $message
-     * @param array $errors
-     * @param array $importResults
-     * @return array
      */
     public function buildErrorResponse(string $message, array $errors = [], array $importResults = []): array
     {
         // Convert associative validation errors to simple array for frontend
         $simpleErrors = [];
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             foreach ($errors as $key => $errorList) {
                 if (is_array($errorList)) {
                     // Nested validation errors (like from Validator)
@@ -112,7 +99,7 @@ class ResponseBuilder
             'success' => false,
             'message' => $message,
             'errors' => $simpleErrors,
-            'details' => $importResults
+            'details' => $importResults,
         ];
     }
 }

@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\Grade;
 
 use App\Http\Controllers\Controller;
+use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\Institution;
-use App\Models\AcademicYear;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class GradeStatsController extends Controller
@@ -21,7 +21,7 @@ class GradeStatsController extends Controller
         $query = Grade::query();
 
         // Apply regional access control
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
             $query->whereIn('institution_id', $accessibleInstitutions);
         }
@@ -98,19 +98,19 @@ class GradeStatsController extends Controller
                     'grades_without_teachers' => $gradesWithoutTeachers,
                 ],
                 'students' => [
-                    'total_students' => (int)$studentStats->total_students,
+                    'total_students' => (int) $studentStats->total_students,
                     'average_per_grade' => round($studentStats->average_students, 1),
-                    'min_per_grade' => (int)$studentStats->min_students,
-                    'max_per_grade' => (int)$studentStats->max_students,
+                    'min_per_grade' => (int) $studentStats->min_students,
+                    'max_per_grade' => (int) $studentStats->max_students,
                 ],
                 'class_level_distribution' => $levelDistribution,
                 'specialty_distribution' => $specialtyStats,
                 'resource_utilization' => [
-                    'room_assignment_rate' => $activeGrades > 0 
-                        ? round(($gradesWithRooms / $activeGrades) * 100, 2) 
+                    'room_assignment_rate' => $activeGrades > 0
+                        ? round(($gradesWithRooms / $activeGrades) * 100, 2)
                         : 0,
-                    'teacher_assignment_rate' => $activeGrades > 0 
-                        ? round(($gradesWithTeachers / $activeGrades) * 100, 2) 
+                    'teacher_assignment_rate' => $activeGrades > 0
+                        ? round(($gradesWithTeachers / $activeGrades) * 100, 2)
                         : 0,
                 ],
             ],
@@ -127,7 +127,7 @@ class GradeStatsController extends Controller
         $query = Grade::with('room');
 
         // Apply regional access control
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
             $query->whereIn('institution_id', $accessibleInstitutions);
         }
@@ -167,7 +167,7 @@ class GradeStatsController extends Controller
         ];
 
         foreach ($grades as $grade) {
-            if (!$grade->room) {
+            if (! $grade->room) {
                 $capacityData['no_room_grades']++;
                 $capacityData['capacity_breakdown']['no_room'][] = [
                     'id' => $grade->id,
@@ -175,6 +175,7 @@ class GradeStatsController extends Controller
                     'student_count' => $grade->student_count,
                     'class_level' => $grade->class_level,
                 ];
+
                 continue;
             }
 
@@ -207,7 +208,7 @@ class GradeStatsController extends Controller
             }
         }
 
-        $capacityData['utilization_percentage'] = $capacityData['total_capacity'] > 0 
+        $capacityData['utilization_percentage'] = $capacityData['total_capacity'] > 0
             ? round(($capacityData['total_students'] / $capacityData['total_capacity']) * 100, 2)
             : 0;
 
@@ -224,10 +225,10 @@ class GradeStatsController extends Controller
     public function performanceTrends(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         // Get accessible institutions
         $accessibleInstitutions = [];
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
         }
 
@@ -240,8 +241,8 @@ class GradeStatsController extends Controller
 
         foreach ($academicYears as $year) {
             $query = Grade::where('academic_year_id', $year->id);
-            
-            if (!empty($accessibleInstitutions)) {
+
+            if (! empty($accessibleInstitutions)) {
                 $query->whereIn('institution_id', $accessibleInstitutions);
             }
 
@@ -286,7 +287,7 @@ class GradeStatsController extends Controller
         }
 
         $institutions = [];
-        
+
         if ($user->hasRole('regionadmin')) {
             $institutions = Institution::where('parent_id', $user->institution_id)->pluck('id')->toArray();
             $institutions[] = $user->institution_id;
@@ -313,8 +314,8 @@ class GradeStatsController extends Controller
             return 'increasing';
         } elseif ($latest < $previous) {
             return 'decreasing';
-        } else {
-            return 'stable';
         }
+
+        return 'stable';
     }
 }

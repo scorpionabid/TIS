@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
-use Illuminate\Database\Eloquent\Builder;
 
 class Notification extends Model
 {
@@ -133,7 +133,7 @@ class Notification extends Model
     {
         // Get user with roles and institution
         $user = User::with(['institution', 'roles'])->find($userId);
-        if (!$user) {
+        if (! $user) {
             return $query->whereRaw('1 = 0'); // No access if user not found
         }
 
@@ -146,13 +146,13 @@ class Notification extends Model
         return $query->where(function ($q) use ($userId, $user) {
             // Basic user targeting (direct notifications)
             $q->where('user_id', $userId)
-              ->orWhereJsonContains('target_users', $userId);
+                ->orWhereJsonContains('target_users', $userId);
 
             // Add institutional scope filtering
             $userInstitutionId = $user->institution_id;
             $userRoles = $user->roles->pluck('name')->toArray();
 
-            if (!$userInstitutionId) {
+            if (! $userInstitutionId) {
                 // No institutional filtering if user has no institution
                 return $q;
             }
@@ -183,10 +183,10 @@ class Notification extends Model
         if ($regionId) {
             $query->whereHas('user.institution', function ($instQ) use ($regionId) {
                 $instQ->where('id', $regionId)
-                      ->orWhere('parent_id', $regionId)
-                      ->orWhereHas('parent', function ($parentQ) use ($regionId) {
-                          $parentQ->where('parent_id', $regionId);
-                      });
+                    ->orWhere('parent_id', $regionId)
+                    ->orWhereHas('parent', function ($parentQ) use ($regionId) {
+                        $parentQ->where('parent_id', $regionId);
+                    });
             });
         }
     }
@@ -202,7 +202,7 @@ class Notification extends Model
         if ($sektorId) {
             $query->whereHas('user.institution', function ($instQ) use ($sektorId) {
                 $instQ->where('id', $sektorId)
-                      ->orWhere('parent_id', $sektorId);
+                    ->orWhere('parent_id', $sektorId);
             });
         }
     }
@@ -272,10 +272,10 @@ class Notification extends Model
     public function scopeReadyToSend(Builder $query): Builder
     {
         return $query->where('is_sent', false)
-                    ->where(function ($q) {
-                        $q->whereNull('scheduled_at')
-                          ->orWhere('scheduled_at', '<=', now());
-                    });
+            ->where(function ($q) {
+                $q->whereNull('scheduled_at')
+                    ->orWhere('scheduled_at', '<=', now());
+            });
     }
 
     /**
@@ -299,19 +299,20 @@ class Notification extends Model
      */
     public function markAsRead(): bool
     {
-        if (!$this->is_read) {
+        if (! $this->is_read) {
             return $this->update([
                 'is_read' => true,
                 'read_at' => now(),
             ]);
         }
+
         return true;
     }
 
     /**
      * Mark notification as sent
      */
-    public function markAsSent(string $status = null): bool
+    public function markAsSent(?string $status = null): bool
     {
         $data = [
             'is_sent' => true,
@@ -348,28 +349,28 @@ class Notification extends Model
     /**
      * Get translated title
      */
-    public function getTranslatedTitle(string $language = null): string
+    public function getTranslatedTitle(?string $language = null): string
     {
         $language = $language ?? $this->language ?? 'az';
-        
+
         if ($this->translations && isset($this->translations[$language]['title'])) {
             return $this->translations[$language]['title'];
         }
-        
+
         return $this->title;
     }
 
     /**
      * Get translated message
      */
-    public function getTranslatedMessage(string $language = null): string
+    public function getTranslatedMessage(?string $language = null): string
     {
         $language = $language ?? $this->language ?? 'az';
-        
+
         if ($this->translations && isset($this->translations[$language]['message'])) {
             return $this->translations[$language]['message'];
         }
-        
+
         return $this->message;
     }
 

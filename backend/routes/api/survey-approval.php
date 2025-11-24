@@ -14,20 +14,18 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware(['auth:sanctum'])->group(function () {
-    
     // Survey Management
     Route::prefix('survey-approval')->name('survey-approval.')->group(function () {
-        
         // Get published surveys for approval dashboard
         Route::get('surveys/published', [SurveyApprovalController::class, 'getPublishedSurveys'])
             ->middleware('permission:survey_responses.read')
             ->name('published-surveys');
-            
+
         // Get survey responses for approval with advanced filtering
         Route::get('surveys/{survey}/responses', [SurveyApprovalController::class, 'getResponsesForApproval'])
             ->middleware('permission:survey_responses.read')
             ->name('responses');
-            
+
         // Get approval statistics for dashboard
         Route::get('surveys/{survey}/stats', [SurveyApprovalController::class, 'getApprovalStats'])
             ->middleware('permission:survey_responses.read')
@@ -43,36 +41,35 @@ Route::middleware(['auth:sanctum'])->group(function () {
             ->middleware('permission:survey_responses.read')
             ->name('export');
     });
-    
+
     // Response Operations
     Route::prefix('responses')->name('responses.')->group(function () {
-        
         // Response detail and management
         Route::get('{response}/detail', [SurveyApprovalController::class, 'getResponseDetail'])
             ->middleware('permission:survey_responses.read')
             ->name('detail');
-            
+
         Route::put('{response}/update', [SurveyApprovalController::class, 'updateResponseData'])
             ->middleware('permission:survey_responses.write')
             ->name('update');
-            
+
         // Approval workflow operations
         Route::post('{response}/submit-approval', [SurveyApprovalController::class, 'createApprovalRequest'])
             ->middleware('permission:survey_responses.write')
             ->name('submit-approval');
-            
+
         Route::post('{response}/approve', [SurveyApprovalController::class, 'approveResponse'])
             ->middleware('permission:survey_responses.approve')
             ->name('approve');
-            
+
         Route::post('{response}/reject', [SurveyApprovalController::class, 'rejectResponse'])
             ->middleware('permission:survey_responses.approve')
             ->name('reject');
-            
+
         Route::post('{response}/return', [SurveyApprovalController::class, 'returnForRevision'])
             ->middleware('permission:survey_responses.approve')
             ->name('return');
-            
+
         // Bulk operations for enterprise scalability
         Route::post('bulk-approval', [SurveyApprovalController::class, 'bulkApprovalOperation'])
             ->middleware(['permission:survey_responses.approve', 'permission:survey_responses.bulk_approve'])
@@ -98,11 +95,11 @@ Route::middleware(['auth:sanctum'])->group(function () {
 |
 | 2. GET /api/survey-approval/surveys/{survey}/responses
 |    - Get paginated survey responses with advanced filtering
-|    - Filters: status, approval_status, institution_id, institution_type, 
+|    - Filters: status, approval_status, institution_id, institution_type,
 |              date_from, date_to, search, per_page
 |    - Returns: {success, data: {responses, pagination, stats}, message}
 |
-| 3. GET /api/survey-approval/surveys/{survey}/stats  
+| 3. GET /api/survey-approval/surveys/{survey}/stats
 |    - Get approval statistics for dashboard
 |    - Returns: {success, data: {total, pending, approved, rejected, draft, completion_rate}, message}
 |

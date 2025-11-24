@@ -3,15 +3,15 @@
 namespace App\Exports;
 
 use App\Models\Institution;
+use Illuminate\Database\Eloquent\Builder;
 use Maatwebsite\Excel\Concerns\FromQuery;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use Illuminate\Database\Eloquent\Builder;
 
-class InstitutionExport implements FromQuery, WithHeadings, WithMapping, WithStyles, WithColumnWidths
+class InstitutionExport implements FromQuery, WithColumnWidths, WithHeadings, WithMapping, WithStyles
 {
     protected $filters;
 
@@ -24,38 +24,38 @@ class InstitutionExport implements FromQuery, WithHeadings, WithMapping, WithSty
     {
         $query = Institution::with(['institutionType', 'parent'])
             ->select([
-                'id', 'name', 'short_name', 'type', 'level', 'parent_id', 
-                'region_code', 'institution_code', 'contact_info', 'location', 
-                'metadata', 'utis_code', 'is_active', 'established_date', 'created_at'
+                'id', 'name', 'short_name', 'type', 'level', 'parent_id',
+                'region_code', 'institution_code', 'contact_info', 'location',
+                'metadata', 'utis_code', 'is_active', 'established_date', 'created_at',
             ]);
 
         // Apply filters
-        if (!empty($this->filters['type'])) {
+        if (! empty($this->filters['type'])) {
             $query->where('type', $this->filters['type']);
         }
 
-        if (!empty($this->filters['level'])) {
+        if (! empty($this->filters['level'])) {
             $query->where('level', $this->filters['level']);
         }
 
-        if (!empty($this->filters['parent_id'])) {
+        if (! empty($this->filters['parent_id'])) {
             $query->where('parent_id', $this->filters['parent_id']);
         }
 
-        if (!empty($this->filters['region_code'])) {
+        if (! empty($this->filters['region_code'])) {
             $query->where('region_code', $this->filters['region_code']);
         }
 
-        if (!empty($this->filters['is_active'])) {
+        if (! empty($this->filters['is_active'])) {
             $query->where('is_active', $this->filters['is_active'] === 'true');
         }
 
-        if (!empty($this->filters['search'])) {
+        if (! empty($this->filters['search'])) {
             $search = $this->filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'ilike', "%{$search}%")
-                  ->orWhere('institution_code', 'ilike', "%{$search}%")
-                  ->orWhere('utis_code', 'ilike', "%{$search}%");
+                    ->orWhere('institution_code', 'ilike', "%{$search}%")
+                    ->orWhere('utis_code', 'ilike', "%{$search}%");
             });
         }
 
@@ -112,7 +112,7 @@ class InstitutionExport implements FromQuery, WithHeadings, WithMapping, WithSty
             'Təsis Tarixi',
             'UTIS Kodu',
             'Status',
-            'Yaradılma Tarixi'
+            'Yaradılma Tarixi',
         ];
     }
 
@@ -123,9 +123,9 @@ class InstitutionExport implements FromQuery, WithHeadings, WithMapping, WithSty
                 'font' => ['bold' => true, 'size' => 12],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['argb' => 'FF4472C4']
+                    'startColor' => ['argb' => 'FF4472C4'],
                 ],
-                'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true]
+                'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true],
             ],
         ];
     }

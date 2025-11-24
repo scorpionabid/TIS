@@ -4,7 +4,6 @@ namespace Database\Factories;
 
 use App\Models\Role;
 use Illuminate\Database\Eloquent\Factories\Factory;
-use Illuminate\Support\Str;
 
 class RoleFactory extends Factory
 {
@@ -23,7 +22,7 @@ class RoleFactory extends Factory
     public function definition()
     {
         $name = $this->faker->unique()->word;
-        
+
         return [
             'name' => $name,
             'display_name' => ucfirst($name) . ' Role',
@@ -70,7 +69,6 @@ class RoleFactory extends Factory
     /**
      * Set the department access for the role.
      *
-     * @param  array  $departments
      * @return \Illuminate\Database\Eloquent\Factories\Factory
      */
     public function withDepartments(array $departments)

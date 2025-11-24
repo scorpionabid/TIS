@@ -2,31 +2,31 @@
 
 namespace App\Services;
 
+use App\Jobs\BulkApprovalJob;
+use App\Models\ApprovalAction;
+use App\Models\ApprovalWorkflow;
+use App\Models\DataApprovalRequest;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Models\DataApprovalRequest;
-use App\Models\ApprovalWorkflow;
-use App\Models\ApprovalAction;
 use App\Models\User;
-use App\Jobs\BulkApprovalJob;
-use App\Notifications\SurveyApprovalNotification;
-use Illuminate\Support\Facades\Notification;
-use App\Services\LoggingService;
-use App\Services\NotificationService;
 use App\Services\SurveyApproval\Domains\Security\ApprovalSecurityService;
 use App\Services\SurveyApproval\Utilities\SurveyApprovalWorkflowResolver;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class SurveyApprovalService extends BaseService
 {
     protected string $modelClass = SurveyResponse::class;
+
     protected array $relationships = ['institution', 'department', 'respondent', 'approvalRequest'];
+
     protected int $cacheMinutes = 3; // Short cache for approval data
+
     protected ApprovalSecurityService $securityService;
+
     protected SurveyApprovalWorkflowResolver $workflowResolver;
 
     public function __construct()
@@ -35,6 +35,7 @@ class SurveyApprovalService extends BaseService
         $this->securityService = app(ApprovalSecurityService::class);
         $this->workflowResolver = app(SurveyApprovalWorkflowResolver::class);
     }
+
     /**
      * Get survey responses that need approval for a specific survey
      */
@@ -44,12 +45,12 @@ class SurveyApprovalService extends BaseService
             ->with([
                 'institution:id,name,type,parent_id',
                 'department:id,name',
-                'respondent' => function($query) {
+                'respondent' => function ($query) {
                     $query->select('id', 'username', 'email')
-                          ->with('profile:user_id,first_name,last_name');
+                        ->with('profile:user_id,first_name,last_name');
                 },
                 'approvalRequest:id,approvalable_id,current_status,current_approval_level,submitted_at,completed_at',
-                'approvalRequest.approvalActions:id,approval_request_id,approver_id,action,comments,action_taken_at'
+                'approvalRequest.approvalActions:id,approval_request_id,approver_id,action,comments,action_taken_at',
             ])
             ->select(['id', 'survey_id', 'institution_id', 'department_id', 'respondent_id', 'status', 'responses', 'submitted_at', 'approved_at', 'progress_percentage']);
 
@@ -66,7 +67,7 @@ class SurveyApprovalService extends BaseService
         }
 
         if ($request->filled('institution_type')) {
-            $query->whereHas('institution', function($q) use ($request) {
+            $query->whereHas('institution', function ($q) use ($request) {
                 $q->where('type', $request->get('institution_type'));
             });
         }
@@ -81,7 +82,7 @@ class SurveyApprovalService extends BaseService
 
         if ($request->filled('search')) {
             $search = $request->get('search');
-            $query->whereHas('institution', function($q) use ($search) {
+            $query->whereHas('institution', function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%");
             });
         }
@@ -89,7 +90,7 @@ class SurveyApprovalService extends BaseService
         // Apply approval status filter
         if ($request->filled('approval_status')) {
             $approvalStatus = $request->get('approval_status');
-            $query->whereHas('approvalRequest', function($q) use ($approvalStatus) {
+            $query->whereHas('approvalRequest', function ($q) use ($approvalStatus) {
                 $q->where('current_status', $approvalStatus);
             });
         }
@@ -173,7 +174,7 @@ class SurveyApprovalService extends BaseService
         return DB::transaction(function () use ($response, $approver, $data) {
             $approvalRequest = $response->approvalRequest;
 
-            if (!$approvalRequest) {
+            if (! $approvalRequest) {
                 throw new \Exception('No approval request found for this response');
             }
 
@@ -212,41 +213,40 @@ class SurveyApprovalService extends BaseService
                     'approved_by' => $approver->id,
                     'approved_at' => now(),
                 ]);
-                
+
                 // Clear cache for approval stats
                 $this->clearApprovalCache($response->survey_id);
 
                 return ['status' => 'completed', 'message' => 'Response fully approved'];
-            } else {
-                $nextLevel = $this->getNextRequiredApprovalLevel($workflow, $currentLevel);
+            }
+            $nextLevel = $this->getNextRequiredApprovalLevel($workflow, $currentLevel);
 
-                if ($nextLevel === null) {
-                    // No further required levels, treat as fully approved
-                    $approvalRequest->update([
-                        'current_status' => 'approved',
-                        'current_approval_level' => $currentLevel,
-                        'completed_at' => now(),
-                    ]);
-
-                    $response->update([
-                        'status' => 'approved',
-                        'approved_by' => $approver->id,
-                        'approved_at' => now(),
-                    ]);
-
-                    $this->clearApprovalCache($response->survey_id);
-
-                    return ['status' => 'completed', 'message' => 'Response fully approved'];
-                }
-
-                // Move to next level
+            if ($nextLevel === null) {
+                // No further required levels, treat as fully approved
                 $approvalRequest->update([
-                    'current_approval_level' => $nextLevel,
-                    'current_status' => 'in_progress',
+                    'current_status' => 'approved',
+                    'current_approval_level' => $currentLevel,
+                    'completed_at' => now(),
                 ]);
 
-                return ['status' => 'in_progress', 'message' => 'Moved to next approval level'];
+                $response->update([
+                    'status' => 'approved',
+                    'approved_by' => $approver->id,
+                    'approved_at' => now(),
+                ]);
+
+                $this->clearApprovalCache($response->survey_id);
+
+                return ['status' => 'completed', 'message' => 'Response fully approved'];
             }
+
+            // Move to next level
+            $approvalRequest->update([
+                'current_approval_level' => $nextLevel,
+                'current_status' => 'in_progress',
+            ]);
+
+            return ['status' => 'in_progress', 'message' => 'Moved to next approval level'];
         });
     }
 
@@ -257,8 +257,8 @@ class SurveyApprovalService extends BaseService
     {
         $transactionResult = DB::transaction(function () use ($response, $approver, $data) {
             $approvalRequest = $response->approvalRequest;
-            
-            if (!$approvalRequest) {
+
+            if (! $approvalRequest) {
                 throw new \Exception('No approval request found for this response');
             }
 
@@ -287,7 +287,7 @@ class SurveyApprovalService extends BaseService
                 'status' => 'rejected',
                 'rejection_reason' => $data['comments'] ?? 'Response rejected',
             ]);
-            
+
             // Clear cache for approval stats
             $this->clearApprovalCache($response->survey_id);
 
@@ -298,7 +298,7 @@ class SurveyApprovalService extends BaseService
                     'respondent',
                     'approvalRequest.submitter',
                     'approvalRequest.institution',
-                    'approvalRequest.workflow'
+                    'approvalRequest.workflow',
                 ]),
             ];
         });
@@ -325,8 +325,8 @@ class SurveyApprovalService extends BaseService
     {
         return DB::transaction(function () use ($response, $approver, $data) {
             $approvalRequest = $response->approvalRequest;
-            
-            if (!$approvalRequest) {
+
+            if (! $approvalRequest) {
                 throw new \Exception('No approval request found for this response');
             }
 
@@ -351,7 +351,7 @@ class SurveyApprovalService extends BaseService
             ]);
 
             $response->update(['status' => 'draft']);
-            
+
             // Clear cache for approval stats
             $this->clearApprovalCache($response->survey_id);
 
@@ -366,21 +366,21 @@ class SurveyApprovalService extends BaseService
     {
         $jobId = uniqid('bulk_approval_', true);
         $comments = $data['comments'] ?? null;
-        
+
         // For small batches (<=20), process synchronously
         if (count($responseIds) <= 20) {
             return $this->processBulkApprovalSync($responseIds, $action, $approver, $comments);
         }
-        
+
         // For larger batches, dispatch to background job
         BulkApprovalJob::dispatch($responseIds, $action, $approver->id, $comments, $jobId);
-        
+
         return [
             'job_id' => $jobId,
             'status' => 'queued',
             'total' => count($responseIds),
             'message' => 'Bulk approval operation has been queued for background processing',
-            'estimated_completion' => now()->addMinutes(ceil(count($responseIds) / 50))->toISOString()
+            'estimated_completion' => now()->addMinutes(ceil(count($responseIds) / 50))->toISOString(),
         ];
     }
 
@@ -392,20 +392,20 @@ class SurveyApprovalService extends BaseService
         $results = [];
         $errors = [];
 
-        \Log::info("🚀 [BulkApproval] Starting sync processing", [
+        \Log::info('🚀 [BulkApproval] Starting sync processing', [
             'response_count' => count($responseIds),
             'response_ids' => $responseIds,
             'action' => $action,
             'approver_id' => $approver->id,
-            'approver_role' => $approver->role
+            'approver_role' => $approver->role,
         ]);
 
         DB::transaction(function () use ($responseIds, $action, $approver, $comments, &$results, &$errors) {
             foreach ($responseIds as $responseId) {
                 try {
-                    \Log::info("📋 [BulkApproval] Processing response", [
+                    \Log::info('📋 [BulkApproval] Processing response', [
                         'response_id' => $responseId,
-                        'action' => $action
+                        'action' => $action,
                     ]);
 
                     $result = $this->processIndividualApproval($responseId, $action, $approver, $comments);
@@ -416,21 +416,20 @@ class SurveyApprovalService extends BaseService
                         'result' => $result,
                     ];
 
-                    \Log::info("✅ [BulkApproval] Response processed successfully", [
+                    \Log::info('✅ [BulkApproval] Response processed successfully', [
                         'response_id' => $responseId,
-                        'result' => $result
+                        'result' => $result,
                     ]);
-
                 } catch (\Exception $e) {
                     $errors[] = [
                         'response_id' => $responseId,
                         'error' => $e->getMessage(),
                     ];
 
-                    \Log::error("❌ [BulkApproval] Response processing failed", [
+                    \Log::error('❌ [BulkApproval] Response processing failed', [
                         'response_id' => $responseId,
                         'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'trace' => $e->getTraceAsString(),
                     ]);
                 }
             }
@@ -443,7 +442,7 @@ class SurveyApprovalService extends BaseService
             'errors' => $errors,
         ];
 
-        \Log::info("🏁 [BulkApproval] Sync processing completed", $finalResult);
+        \Log::info('🏁 [BulkApproval] Sync processing completed', $finalResult);
 
         return $finalResult;
     }
@@ -456,7 +455,7 @@ class SurveyApprovalService extends BaseService
         $response = SurveyResponse::findOrFail($responseId);
 
         // Check if user has permission to approve this specific response
-        if (!$this->canUserApproveResponse($response, $approver)) {
+        if (! $this->canUserApproveResponse($response, $approver)) {
             throw new \Exception("User does not have permission to approve this response (ID: {$responseId})");
         }
 
@@ -468,7 +467,7 @@ class SurveyApprovalService extends BaseService
         };
 
         // Since approval methods return arrays with status info, check if they succeeded
-        return is_array($result) && !empty($result);
+        return is_array($result) && ! empty($result);
     }
 
     /**
@@ -478,7 +477,7 @@ class SurveyApprovalService extends BaseService
     {
         $approvalRequest = $response->approvalRequest;
 
-        if (!$approvalRequest) {
+        if (! $approvalRequest) {
             return false;
         }
 
@@ -498,12 +497,12 @@ class SurveyApprovalService extends BaseService
         // SektorAdmin can approve responses from schools in their sector
         if ($approver->hasRole('sektoradmin')) {
             $responseInstitution = $response->institution;
-            if (!$responseInstitution) {
+            if (! $responseInstitution) {
                 return false;
             }
 
             $approverInstitution = $approver->institution;
-            if (!$approverInstitution) {
+            if (! $approverInstitution) {
                 return false;
             }
 
@@ -520,7 +519,7 @@ class SurveyApprovalService extends BaseService
         if ($approver->hasRole('regionadmin')) {
             // Check if response institution is within RegionAdmin's region
             $responseInstitution = $response->institution;
-            if (!$responseInstitution) {
+            if (! $responseInstitution) {
                 return false;
             }
 
@@ -582,13 +581,13 @@ class SurveyApprovalService extends BaseService
         $cacheKey = $this->getCacheKey('approval_stats', [
             'survey_id' => $survey->id,
             'user_id' => $user->id,
-            'user_role' => $user->role?->name ?? 'unknown'
+            'user_role' => $user->role?->name ?? 'unknown',
         ]);
-        
+
         return $this->cacheQuery($cacheKey, function () use ($survey, $user) {
             $baseQuery = SurveyResponse::where('survey_id', $survey->id);
             $this->applyUserAccessControl($baseQuery, $user);
-            
+
             // Single query to get all stats with aggregation
             $stats = $baseQuery->select(
                 DB::raw('COUNT(*) as total'),
@@ -597,11 +596,11 @@ class SurveyApprovalService extends BaseService
                 DB::raw('COUNT(CASE WHEN status = "rejected" THEN 1 END) as rejected'),
                 DB::raw('COUNT(CASE WHEN status = "draft" THEN 1 END) as draft')
             )->first();
-            
+
             $total = $stats->total ?? 0;
             $approved = $stats->approved ?? 0;
             $rejected = $stats->rejected ?? 0;
-            
+
             return [
                 'total' => $total,
                 'pending' => $stats->pending ?? 0,
@@ -660,7 +659,7 @@ class SurveyApprovalService extends BaseService
 
         foreach ($chain as $step) {
             $level = isset($step['level']) ? (int) $step['level'] : null;
-            if (!$level || $level <= $currentLevel) {
+            if (! $level || $level <= $currentLevel) {
                 continue;
             }
 
@@ -679,7 +678,7 @@ class SurveyApprovalService extends BaseService
      */
     public static function refreshCacheForSurvey(int $surveyId): void
     {
-        (new self())->clearApprovalCache($surveyId);
+        (new self)->clearApprovalCache($surveyId);
     }
 
     /**
@@ -688,7 +687,7 @@ class SurveyApprovalService extends BaseService
     private function generateResponseSummary(SurveyResponse $response): array
     {
         $responses = $response->responses ?? [];
-        
+
         return [
             'total_questions' => count($responses),
             'completion_percentage' => $response->progress_percentage,
@@ -696,7 +695,7 @@ class SurveyApprovalService extends BaseService
             'institution_name' => $response->institution?->name,
         ];
     }
-    
+
     /**
      * Get responses organized for table editing interface
      * EXTEND existing getResponsesForApproval method
@@ -717,26 +716,28 @@ class SurveyApprovalService extends BaseService
         $institutionMatrix = [];
         foreach ($institutionGroups as $institutionId => $institutionResponses) {
             $institution = $institutionResponses->first()->institution ?? null;
-            if (!$institution) continue;
+            if (! $institution) {
+                continue;
+            }
 
             $institutionMatrix[$institutionId] = [
                 'institution' => [
                     'id' => $institution->id,
                     'name' => $institution->name,
                     'type' => $institution->type,
-                    'code' => $institution->code ?? 'N/A'
+                    'code' => $institution->code ?? 'N/A',
                 ],
                 'responses' => $this->buildResponseMatrix($institutionResponses, $questions),
                 'respondents_count' => $institutionResponses->count(),
                 'can_edit' => $this->canUserEditInstitutionResponse($user, $institution),
-                'can_approve' => $this->canUserApproveInstitutionResponse($user, $institution)
+                'can_approve' => $this->canUserApproveInstitutionResponse($user, $institution),
             ];
         }
 
         return [
             'institutions' => $institutionMatrix,
             'questions' => $questions,
-            'stats' => $baseData['stats'] ?? []
+            'stats' => $baseData['stats'] ?? [],
         ];
     }
 
@@ -756,8 +757,9 @@ class SurveyApprovalService extends BaseService
                     $response = SurveyResponse::findOrFail($update['response_id']);
 
                     // Check permissions
-                    if (!$this->canUserEditInstitutionResponse($user, $response->institution)) {
+                    if (! $this->canUserEditInstitutionResponse($user, $response->institution)) {
                         $errors[] = "No permission to edit institution: {$response->institution->name}";
+
                         continue;
                     }
 
@@ -767,7 +769,7 @@ class SurveyApprovalService extends BaseService
                     $results[] = [
                         'response_id' => $response->id,
                         'institution' => $response->institution->name,
-                        'status' => 'updated'
+                        'status' => 'updated',
                     ];
                 } catch (\Exception $e) {
                     $errors[] = "Error updating response {$update['response_id']}: " . $e->getMessage();
@@ -779,7 +781,6 @@ class SurveyApprovalService extends BaseService
             } else {
                 DB::rollback();
             }
-
         } catch (\Exception $e) {
             DB::rollback();
             throw $e;
@@ -789,7 +790,7 @@ class SurveyApprovalService extends BaseService
             'successful' => count($results),
             'failed' => count($errors),
             'results' => $results,
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
@@ -804,7 +805,7 @@ class SurveyApprovalService extends BaseService
             $questionResponses = [];
 
             foreach ($questions as $question) {
-                $questionId = (string)$question->id;
+                $questionId = (string) $question->id;
                 $responseValue = $response->responses[$questionId] ?? null;
 
                 $questionResponses[$questionId] = [
@@ -813,10 +814,10 @@ class SurveyApprovalService extends BaseService
                         'title' => $question->title,
                         'type' => $question->type,
                         'is_required' => $question->is_required,
-                        'options' => $question->options
+                        'options' => $question->options,
                     ],
                     'value' => $responseValue,
-                    'is_editable' => true
+                    'is_editable' => true,
                 ];
             }
 
@@ -831,11 +832,11 @@ class SurveyApprovalService extends BaseService
                 'respondent' => [
                     'id' => $response->respondent->id,
                     'name' => $response->respondent->name,
-                    'email' => $response->respondent->email
+                    'email' => $response->respondent->email,
                 ],
                 'questions' => $questionResponses,
                 'submitted_at' => $response->submitted_at,
-                'status' => $response->status
+                'status' => $response->status,
             ];
         }
 
@@ -884,6 +885,7 @@ class SurveyApprovalService extends BaseService
     public function exportSurveyResponses(Survey $survey, Request $request, User $user): array
     {
         $exportService = app(\App\Services\SurveyExportService::class);
+
         return $exportService->exportSurveyResponses($survey, $request, $user);
     }
 

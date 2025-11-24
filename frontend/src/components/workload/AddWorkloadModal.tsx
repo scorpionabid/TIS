@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -59,7 +59,10 @@ export default function AddWorkloadModal({
   });
 
   const grades = gradesResponse?.data || [];
-  const gradeSubjects = gradeSubjectsResponse?.data || [];
+  const gradeSubjects = useMemo(
+    () => gradeSubjectsResponse?.data ?? [],
+    [gradeSubjectsResponse?.data]
+  );
 
   // Auto-select subject and hours when class is selected
   useEffect(() => {
@@ -92,7 +95,7 @@ export default function AddWorkloadModal({
         setAutoSelectedInfo('Bu sinifdə müəllimin fənni tapılmadı. Manuel olaraq seçin.');
       }
     }
-  }, [selectedClass, teacherSubjects, gradeSubjects]);
+  }, [selectedClass, teacherSubjects, gradeSubjects, toast]);
 
   // Reset form when modal closes
   useEffect(() => {

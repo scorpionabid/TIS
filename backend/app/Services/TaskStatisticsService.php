@@ -2,13 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\Institution;
 use App\Models\Task;
 use App\Models\TaskAssignment;
-use App\Models\Institution;
 use App\Models\User;
-use App\Services\BaseService;
-use App\Services\TaskPermissionService;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 
 class TaskStatisticsService extends BaseService
@@ -37,7 +34,7 @@ class TaskStatisticsService extends BaseService
             'user_performance' => $this->getUserPerformance($user, $filters),
             'overdue_analysis' => $this->getOverdueAnalysis($user),
             'type_distribution' => $this->getTaskTypeDistribution($user, $dateFrom, $dateTo),
-            'assignment_metrics' => $this->getAssignmentMetrics($user, $dateFrom, $dateTo)
+            'assignment_metrics' => $this->getAssignmentMetrics($user, $dateFrom, $dateTo),
         ];
     }
 
@@ -80,9 +77,9 @@ class TaskStatisticsService extends BaseService
                 'tasks_change' => $this->calculatePercentageChange($totalTasks, $prevTotal),
                 'period_comparison' => [
                     'current_period' => $totalTasks,
-                    'previous_period' => $prevTotal
-                ]
-            ]
+                    'previous_period' => $prevTotal,
+                ],
+            ],
         ];
     }
 
@@ -108,7 +105,7 @@ class TaskStatisticsService extends BaseService
             $count = $statusCounts[$status] ?? 0;
             $breakdown[$status] = [
                 'count' => $count,
-                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0
+                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0,
             ];
         }
 
@@ -120,7 +117,7 @@ class TaskStatisticsService extends BaseService
 
         $breakdown['overdue'] = [
             'count' => $overdueCount,
-            'percentage' => $total > 0 ? round(($overdueCount / $total) * 100, 2) : 0
+            'percentage' => $total > 0 ? round(($overdueCount / $total) * 100, 2) : 0,
         ];
 
         return $breakdown;
@@ -142,19 +139,19 @@ class TaskStatisticsService extends BaseService
                 THEN TIMESTAMPDIFF(DAY, created_at, completed_at) 
                 ELSE NULL END) as avg_completion_days
         ')
-        ->groupBy('priority')
-        ->get()
-        ->map(function ($item) {
-            return [
-                'priority' => $item->priority,
-                'total' => $item->total,
-                'completed' => $item->completed,
-                'completion_rate' => $item->total > 0 ? round(($item->completed / $item->total) * 100, 2) : 0,
-                'avg_completion_days' => round($item->avg_completion_days ?? 0, 1)
-            ];
-        })
-        ->keyBy('priority')
-        ->toArray();
+            ->groupBy('priority')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'priority' => $item->priority,
+                    'total' => $item->total,
+                    'completed' => $item->completed,
+                    'completion_rate' => $item->total > 0 ? round(($item->completed / $item->total) * 100, 2) : 0,
+                    'avg_completion_days' => round($item->avg_completion_days ?? 0, 1),
+                ];
+            })
+            ->keyBy('priority')
+            ->toArray();
     }
 
     /**
@@ -173,10 +170,10 @@ class TaskStatisticsService extends BaseService
             DATE_FORMAT(created_at, '{$dateFormat}') as period,
             COUNT(*) as created
         ")
-        ->groupBy('period')
-        ->orderBy('period')
-        ->pluck('created', 'period')
-        ->toArray();
+            ->groupBy('period')
+            ->orderBy('period')
+            ->pluck('created', 'period')
+            ->toArray();
 
         $completionQuery = Task::whereBetween('completed_at', [$dateFrom, $dateTo])
             ->where('status', 'completed');
@@ -186,16 +183,16 @@ class TaskStatisticsService extends BaseService
             DATE_FORMAT(completed_at, '{$dateFormat}') as period,
             COUNT(*) as completed
         ")
-        ->groupBy('period')
-        ->orderBy('period')
-        ->pluck('completed', 'period')
-        ->toArray();
+            ->groupBy('period')
+            ->orderBy('period')
+            ->pluck('completed', 'period')
+            ->toArray();
 
         return [
             'period_type' => $groupBy,
             'creation_trends' => $creationTrends,
             'completion_trends' => $completionTrends,
-            'combined_trends' => $this->combineTimelineData([$creationTrends, $completionTrends])
+            'combined_trends' => $this->combineTimelineData([$creationTrends, $completionTrends]),
         ];
     }
 
@@ -214,10 +211,10 @@ class TaskStatisticsService extends BaseService
         $query = Task::whereIn('assigned_institution_id', $institutionIds);
 
         // Apply date filter if provided
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
 
@@ -229,34 +226,34 @@ class TaskStatisticsService extends BaseService
             SUM(CASE WHEN deadline < NOW() AND status NOT IN ("completed", "cancelled") THEN 1 ELSE 0 END) as overdue_tasks,
             AVG(progress) as avg_progress
         ')
-        ->groupBy('assigned_institution_id')
-        ->get();
+            ->groupBy('assigned_institution_id')
+            ->get();
 
         return $institutionalStats->map(function ($stat) use ($targetableInstitutions) {
             $institution = collect($targetableInstitutions)->firstWhere('id', $stat->assigned_institution_id);
-            
+
             return [
                 'institution' => [
                     'id' => $stat->assigned_institution_id,
                     'name' => $institution['name'] ?? 'N/A',
                     'type' => $institution['type'] ?? 'N/A',
-                    'level' => $institution['level'] ?? 0
+                    'level' => $institution['level'] ?? 0,
                 ],
                 'metrics' => [
                     'total_tasks' => $stat->total_tasks,
                     'completed_tasks' => $stat->completed_tasks,
                     'in_progress_tasks' => $stat->in_progress_tasks,
                     'overdue_tasks' => $stat->overdue_tasks,
-                    'completion_rate' => $stat->total_tasks > 0 ? 
+                    'completion_rate' => $stat->total_tasks > 0 ?
                         round(($stat->completed_tasks / $stat->total_tasks) * 100, 2) : 0,
                     'average_progress' => round($stat->avg_progress ?? 0, 2),
-                    'performance_score' => $this->calculateInstitutionPerformanceScore($stat)
-                ]
+                    'performance_score' => $this->calculateInstitutionPerformanceScore($stat),
+                ],
             ];
         })
-        ->sortByDesc('metrics.performance_score')
-        ->values()
-        ->toArray();
+            ->sortByDesc('metrics.performance_score')
+            ->values()
+            ->toArray();
     }
 
     /**
@@ -264,22 +261,22 @@ class TaskStatisticsService extends BaseService
      */
     private function getUserPerformance($user, array $filters): array
     {
-        if (!$user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin'])) {
+        if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin'])) {
             return [];
         }
 
         $scopeIds = $this->permissionService->getUserInstitutionScope($user);
-        
-        $query = TaskAssignment::whereHas('task', function($q) use ($scopeIds) {
+
+        $query = TaskAssignment::whereHas('task', function ($q) use ($scopeIds) {
             $q->whereIn('assigned_institution_id', $scopeIds);
         })
-        ->whereNotNull('assigned_user_id');
+            ->whereNotNull('assigned_user_id');
 
         // Apply date filter
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('created_at', '>=', $filters['date_from']);
         }
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('created_at', '<=', $filters['date_to']);
         }
 
@@ -290,35 +287,35 @@ class TaskStatisticsService extends BaseService
             SUM(CASE WHEN due_date < NOW() AND assignment_status NOT IN ("completed", "cancelled") THEN 1 ELSE 0 END) as overdue_assignments,
             AVG(progress) as avg_progress
         ')
-        ->groupBy('assigned_user_id')
-        ->having('total_assignments', '>', 0)
-        ->get();
+            ->groupBy('assigned_user_id')
+            ->having('total_assignments', '>', 0)
+            ->get();
 
         return $userStats->map(function ($stat) {
             $assignedUser = User::find($stat->assigned_user_id);
-            
+
             return [
                 'user' => [
                     'id' => $stat->assigned_user_id,
                     'name' => $assignedUser->name ?? 'N/A',
                     'email' => $assignedUser->email ?? 'N/A',
-                    'institution' => $assignedUser->institution?->name ?? 'N/A'
+                    'institution' => $assignedUser->institution?->name ?? 'N/A',
                 ],
                 'metrics' => [
                     'total_assignments' => $stat->total_assignments,
                     'completed_assignments' => $stat->completed_assignments,
                     'overdue_assignments' => $stat->overdue_assignments,
-                    'completion_rate' => $stat->total_assignments > 0 ? 
+                    'completion_rate' => $stat->total_assignments > 0 ?
                         round(($stat->completed_assignments / $stat->total_assignments) * 100, 2) : 0,
                     'average_progress' => round($stat->avg_progress ?? 0, 2),
-                    'reliability_score' => $this->calculateUserReliabilityScore($stat)
-                ]
+                    'reliability_score' => $this->calculateUserReliabilityScore($stat),
+                ],
             ];
         })
-        ->sortByDesc('metrics.reliability_score')
-        ->values()
-        ->take(20)
-        ->toArray();
+            ->sortByDesc('metrics.reliability_score')
+            ->values()
+            ->take(20)
+            ->toArray();
     }
 
     /**
@@ -331,7 +328,7 @@ class TaskStatisticsService extends BaseService
         $this->permissionService->applyTaskAccessControl($overdueQuery, $user);
 
         $overdueCount = $overdueQuery->count();
-        
+
         $overdueByPriority = $overdueQuery->selectRaw('priority, COUNT(*) as count')
             ->groupBy('priority')
             ->pluck('count', 'priority')
@@ -346,15 +343,15 @@ class TaskStatisticsService extends BaseService
             END as overdue_period,
             COUNT(*) as count
         ')
-        ->groupBy('overdue_period')
-        ->pluck('count', 'overdue_period')
-        ->toArray();
+            ->groupBy('overdue_period')
+            ->pluck('count', 'overdue_period')
+            ->toArray();
 
         return [
             'total_overdue' => $overdueCount,
             'by_priority' => $overdueByPriority,
             'by_overdue_period' => $overdueByDays,
-            'critical_overdue' => $overdueQuery->where('priority', 'high')->count()
+            'critical_overdue' => $overdueQuery->where('priority', 'high')->count(),
         ];
     }
 
@@ -372,19 +369,19 @@ class TaskStatisticsService extends BaseService
             SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed,
             AVG(progress) as avg_progress
         ')
-        ->groupBy('category')
-        ->get()
-        ->map(function ($item) {
-            return [
-                'type' => $item->category,
-                'count' => $item->count,
-                'completed' => $item->completed,
-                'completion_rate' => $item->count > 0 ? round(($item->completed / $item->count) * 100, 2) : 0,
-                'avg_progress' => round($item->avg_progress ?? 0, 2)
-            ];
-        })
-        ->keyBy('type')
-        ->toArray();
+            ->groupBy('category')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'type' => $item->category,
+                    'count' => $item->count,
+                    'completed' => $item->completed,
+                    'completion_rate' => $item->count > 0 ? round(($item->completed / $item->count) * 100, 2) : 0,
+                    'avg_progress' => round($item->avg_progress ?? 0, 2),
+                ];
+            })
+            ->keyBy('type')
+            ->toArray();
     }
 
     /**
@@ -405,9 +402,9 @@ class TaskStatisticsService extends BaseService
             'total_assignments' => $totalAssignments,
             'completed_assignments' => $completedAssignments,
             'overdue_assignments' => $overdueAssignments,
-            'completion_rate' => $totalAssignments > 0 ? 
+            'completion_rate' => $totalAssignments > 0 ?
                 round(($completedAssignments / $totalAssignments) * 100, 2) : 0,
-            'average_assignments_per_task' => $this->calculateAverageAssignmentsPerTask($user, $dateFrom, $dateTo)
+            'average_assignments_per_task' => $this->calculateAverageAssignmentsPerTask($user, $dateFrom, $dateTo),
         ];
     }
 
@@ -419,7 +416,7 @@ class TaskStatisticsService extends BaseService
         $completedQuery = Task::whereBetween('completed_at', [$dateFrom, $dateTo])
             ->where('status', 'completed')
             ->whereNotNull('completed_at');
-        
+
         $this->permissionService->applyTaskAccessControl($completedQuery, $user);
 
         $avgDays = $completedQuery->selectRaw('AVG(TIMESTAMPDIFF(DAY, created_at, completed_at)) as avg_days')
@@ -436,7 +433,7 @@ class TaskStatisticsService extends BaseService
         if ($previous == 0) {
             return $current > 0 ? 100.0 : 0.0;
         }
-        
+
         return round((($current - $previous) / $previous) * 100, 2);
     }
 
@@ -446,13 +443,13 @@ class TaskStatisticsService extends BaseService
     private function combineTimelineData(array $timelines): array
     {
         $combined = [];
-        
+
         foreach ($timelines as $timeline) {
             foreach ($timeline as $period => $value) {
                 $combined[$period] = ($combined[$period] ?? 0) + $value;
             }
         }
-        
+
         return $combined;
     }
 
@@ -503,13 +500,13 @@ class TaskStatisticsService extends BaseService
         $this->permissionService->applyTaskAccessControl($taskQuery, $user);
 
         $taskIds = $taskQuery->pluck('id');
-        
+
         if ($taskIds->isEmpty()) {
             return 0;
         }
 
         $totalAssignments = TaskAssignment::whereIn('task_id', $taskIds)->count();
-        
+
         return round($totalAssignments / $taskIds->count(), 2);
     }
 }

@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class DocumentShare extends Model
 {
@@ -93,7 +93,7 @@ class DocumentShare extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true)
-                    ->where('expires_at', '>', now());
+            ->where('expires_at', '>', now());
     }
 
     /**
@@ -129,9 +129,9 @@ class DocumentShare extends Model
      */
     public function isValid(): bool
     {
-        return $this->is_active && 
-               $this->expires_at->isFuture() && 
-               (!$this->max_downloads || $this->download_count < $this->max_downloads);
+        return $this->is_active &&
+               $this->expires_at->isFuture() &&
+               (! $this->max_downloads || $this->download_count < $this->max_downloads);
     }
 
     /**
@@ -155,7 +155,7 @@ class DocumentShare extends Model
      */
     public function checkPassword(string $password): bool
     {
-        if (!$this->requires_password) {
+        if (! $this->requires_password) {
             return true;
         }
 
@@ -178,7 +178,7 @@ class DocumentShare extends Model
      */
     public function isIpAllowed(string $ip): bool
     {
-        if (!$this->allowed_ips) {
+        if (! $this->allowed_ips) {
             return true;
         }
 
@@ -206,7 +206,7 @@ class DocumentShare extends Model
     /**
      * Deactivate share
      */
-    public function deactivate(string $reason = null): bool
+    public function deactivate(?string $reason = null): bool
     {
         return $this->update([
             'is_active' => false,
@@ -233,9 +233,9 @@ class DocumentShare extends Model
             return 'Sabah saat ' . $this->expires_at->format('H:i');
         } elseif ($this->expires_at->diffInDays() <= 7) {
             return $this->expires_at->diffForHumans();
-        } else {
-            return $this->expires_at->format('d.m.Y H:i');
         }
+
+        return $this->expires_at->format('d.m.Y H:i');
     }
 
     /**
@@ -243,7 +243,7 @@ class DocumentShare extends Model
      */
     public function getRemainingDownloadsAttribute(): ?int
     {
-        if (!$this->max_downloads) {
+        if (! $this->max_downloads) {
             return null;
         }
 
@@ -262,7 +262,7 @@ class DocumentShare extends Model
             'remaining_downloads' => $this->remaining_downloads,
             'days_until_expiry' => $this->expires_at->diffInDays(now()),
             'is_valid' => $this->isValid(),
-            'usage_percentage' => $this->max_downloads ? 
+            'usage_percentage' => $this->max_downloads ?
                 round(($this->download_count / $this->max_downloads) * 100, 2) : null,
         ];
     }
@@ -271,12 +271,12 @@ class DocumentShare extends Model
      * Create share link with default settings
      */
     public static function createShareLink(
-        Document $document, 
-        User $user, 
+        Document $document,
+        User $user,
         array $options = []
     ): self {
         $defaultExpiration = now()->addDays(7); // PRD-2: 7-30 gün arası
-        
+
         return self::create([
             'document_id' => $document->id,
             'shared_by' => $user->id,
@@ -299,7 +299,7 @@ class DocumentShare extends Model
     public static function cleanupExpired(): int
     {
         return self::where('expires_at', '<=', now())
-                  ->where('is_active', true)
-                  ->update(['is_active' => false]);
+            ->where('is_active', true)
+            ->update(['is_active' => false]);
     }
 }

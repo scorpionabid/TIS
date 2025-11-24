@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\AssessmentType;
 use App\Models\User;
+use Illuminate\Database\Seeder;
 
 class AssessmentTypeSeeder extends Seeder
 {
@@ -16,9 +15,10 @@ class AssessmentTypeSeeder extends Seeder
     {
         // Get SuperAdmin user for created_by field
         $superAdmin = User::where('username', 'superadmin')->first();
-        
-        if (!$superAdmin) {
+
+        if (! $superAdmin) {
             $this->command->error('SuperAdmin user not found. Please run UserSeeder first.');
+
             return;
         }
 
@@ -33,7 +33,7 @@ class AssessmentTypeSeeder extends Seeder
                     'Bilik və anlayış' => 40,
                     'Tətbiq etmə bacarığı' => 30,
                     'Təhlil və sintez' => 20,
-                    'Qiymətləndirmə' => 10
+                    'Qiymətləndirmə' => 10,
                 ],
                 'max_score' => 100,
                 'scoring_method' => 'percentage',
@@ -50,7 +50,7 @@ class AssessmentTypeSeeder extends Seeder
                 'criteria' => [
                     'Bilik və anlayış' => 50,
                     'Tətbiq etmə' => 30,
-                    'Yaradıcı düşüncə' => 20
+                    'Yaradıcı düşüncə' => 20,
                 ],
                 'max_score' => 50,
                 'scoring_method' => 'points',
@@ -68,7 +68,7 @@ class AssessmentTypeSeeder extends Seeder
                     'Nəzəri bilik' => 35,
                     'Praktik bacarıqlar' => 35,
                     'Problemlərin həlli' => 20,
-                    'Ünsiyyət bacarıqları' => 10
+                    'Ünsiyyət bacarıqları' => 10,
                 ],
                 'max_score' => 100,
                 'scoring_method' => 'percentage',
@@ -89,7 +89,7 @@ class AssessmentTypeSeeder extends Seeder
                     'Praktik tətbiq' => 25,
                     'Təhlil və mühakimə' => 20,
                     'Sintez və yaradıcılıq' => 15,
-                    'Qiymətləndirmə və tənqidi düşüncə' => 10
+                    'Qiymətləndirmə və tənqidi düşüncə' => 10,
                 ],
                 'max_score' => 100,
                 'scoring_method' => 'percentage',
@@ -107,7 +107,7 @@ class AssessmentTypeSeeder extends Seeder
                     'Kursun tam mənimsənilməsi' => 40,
                     'Bilik transferi' => 25,
                     'Yaradıcı və tənqidi düşüncə' => 20,
-                    'Kommunikasiya bacarıqları' => 15
+                    'Kommunikasiya bacarıqları' => 15,
                 ],
                 'max_score' => 100,
                 'scoring_method' => 'grades',
@@ -126,7 +126,7 @@ class AssessmentTypeSeeder extends Seeder
                     'Praktik tətbiq bacarıqları' => 25,
                     'Tənqidi təhlil' => 20,
                     'İnnovasiya və yaradıcılıq' => 10,
-                    'Təqdimat bacarıqları' => 10
+                    'Təqdimat bacarıqları' => 10,
                 ],
                 'max_score' => 100,
                 'scoring_method' => 'percentage',
@@ -148,7 +148,7 @@ class AssessmentTypeSeeder extends Seeder
                     'Təqdimat bacarıqları' => 20,
                     'Araşdırma dərinliyi' => 15,
                     'Vaxtında təhvil' => 10,
-                    'Komanda işi' => 5
+                    'Komanda işi' => 5,
                 ],
                 'max_score' => 100,
                 'scoring_method' => 'points',
@@ -166,7 +166,7 @@ class AssessmentTypeSeeder extends Seeder
                     'Mövzu bilgisi' => 40,
                     'İfadə qabiliyyəti' => 25,
                     'Sual-cavab bacarığı' => 20,
-                    'Özgüvən və təqdimat' => 15
+                    'Özgüvən və təqdimat' => 15,
                 ],
                 'max_score' => 100,
                 'scoring_method' => 'percentage',
@@ -185,7 +185,7 @@ class AssessmentTypeSeeder extends Seeder
                     'Nəticələrin dəqiqliyi' => 25,
                     'Hesabat yazma bacarığı' => 20,
                     'Təhlükəsizlik qaydalarına riayət' => 15,
-                    'Komanda işi' => 10
+                    'Komanda işi' => 10,
                 ],
                 'max_score' => 50,
                 'scoring_method' => 'points',
@@ -203,7 +203,7 @@ class AssessmentTypeSeeder extends Seeder
                     'Yaradıcılıq və orijinallıq' => 35,
                     'Texniki bacarıq' => 25,
                     'Konsept və mesaj' => 20,
-                    'Təqdimat və müdafiə' => 20
+                    'Təqdimat və müdafiə' => 20,
                 ],
                 'max_score' => 100,
                 'scoring_method' => 'grades',
@@ -211,7 +211,7 @@ class AssessmentTypeSeeder extends Seeder
                 'subjects' => ['İncəsənət', 'Musiqi', 'Ədəbiyyat', 'Azərbaycan dili'],
                 'created_by' => $superAdmin->id,
                 'institution_id' => null,
-            ]
+            ],
         ];
 
         foreach ($assessmentTypes as $assessmentType) {

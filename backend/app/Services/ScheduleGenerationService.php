@@ -5,13 +5,8 @@ namespace App\Services;
 use App\Models\Schedule;
 use App\Models\ScheduleSession;
 use App\Models\TeachingLoad;
-use App\Models\Classes;
-use App\Models\User;
-use App\Models\Subject;
-use App\Services\BaseService;
-use App\Services\ScheduleValidationService;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ScheduleGenerationService extends BaseService
 {
@@ -51,7 +46,7 @@ class ScheduleGenerationService extends BaseService
                 'schedule' => $schedule->fresh(['sessions', 'institution']),
                 'generation_stats' => $generationResult['stats'],
                 'conflicts' => $generationResult['conflicts'],
-                'warnings' => $generationResult['warnings']
+                'warnings' => $generationResult['warnings'],
             ];
         });
     }
@@ -65,7 +60,7 @@ class ScheduleGenerationService extends BaseService
             'total_loads' => 0,
             'sessions_created' => 0,
             'failed_assignments' => 0,
-            'conflicts_detected' => 0
+            'conflicts_detected' => 0,
         ];
 
         $conflicts = [];
@@ -85,22 +80,21 @@ class ScheduleGenerationService extends BaseService
         foreach ($teachingLoads as $load) {
             try {
                 $sessionResult = $this->createSessionsFromLoad($schedule, $load, $options);
-                
+
                 $stats['sessions_created'] += $sessionResult['sessions_created'];
                 $stats['conflicts_detected'] += $sessionResult['conflicts'];
-                
-                if (!empty($sessionResult['conflicts_detail'])) {
+
+                if (! empty($sessionResult['conflicts_detail'])) {
                     $conflicts = array_merge($conflicts, $sessionResult['conflicts_detail']);
                 }
-                
-                if (!empty($sessionResult['warnings'])) {
+
+                if (! empty($sessionResult['warnings'])) {
                     $warnings = array_merge($warnings, $sessionResult['warnings']);
                 }
-                
+
                 if ($sessionResult['sessions_created'] == 0) {
                     $stats['failed_assignments']++;
                 }
-                
             } catch (\Exception $e) {
                 $stats['failed_assignments']++;
                 $warnings[] = "Dərs yükü ID {$load->id} üçün sesiyalar yaradıla bilmədi: {$e->getMessage()}";
@@ -110,7 +104,7 @@ class ScheduleGenerationService extends BaseService
         return [
             'stats' => $stats,
             'conflicts' => $conflicts,
-            'warnings' => $warnings
+            'warnings' => $warnings,
         ];
     }
 
@@ -123,7 +117,7 @@ class ScheduleGenerationService extends BaseService
             'sessions_created' => 0,
             'conflicts' => 0,
             'conflicts_detail' => [],
-            'warnings' => []
+            'warnings' => [],
         ];
 
         // Distribute weekly hours across working days
@@ -146,7 +140,7 @@ class ScheduleGenerationService extends BaseService
 
                 // Find available period
                 $availablePeriod = $this->findAvailablePeriod($schedule, $sessionData);
-                
+
                 if ($availablePeriod) {
                     $sessionData['period'] = $availablePeriod['period'];
                     $sessionData['start_time'] = $availablePeriod['start_time'];
@@ -154,7 +148,7 @@ class ScheduleGenerationService extends BaseService
 
                     // Validate for conflicts before creating
                     $validationResult = $this->scheduleValidationService->validateSession($sessionData);
-                    
+
                     if ($validationResult['is_valid']) {
                         ScheduleSession::create($sessionData);
                         $result['sessions_created']++;
@@ -162,9 +156,9 @@ class ScheduleGenerationService extends BaseService
                         $result['conflicts']++;
                         $result['conflicts_detail'][] = [
                             'type' => 'creation_conflict',
-                            'message' => "Seziyanı yaratmaq mümkün deyil: " . implode(', ', $validationResult['errors']),
+                            'message' => 'Seziyanı yaratmaq mümkün deyil: ' . implode(', ', $validationResult['errors']),
                             'session_data' => $sessionData,
-                            'validation_errors' => $validationResult['errors']
+                            'validation_errors' => $validationResult['errors'],
                         ];
                     }
                 } else {
@@ -183,7 +177,7 @@ class ScheduleGenerationService extends BaseService
     {
         $maxSessionsPerDay = $options['max_sessions_per_day'] ?? 2;
         $preferredDistribution = $options['distribution_preference'] ?? 'even';
-        
+
         $daysCount = count($workingDays);
         $distribution = [];
 
@@ -197,14 +191,14 @@ class ScheduleGenerationService extends BaseService
                 if ($index < $remainder) {
                     $sessions++; // Distribute remainder across first days
                 }
-                
+
                 // Respect max sessions per day limit
                 $sessions = min($sessions, $maxSessionsPerDay);
-                
+
                 if ($sessions > 0) {
                     $distribution[] = [
                         'day' => $day,
-                        'sessions' => $sessions
+                        'sessions' => $sessions,
                     ];
                 }
             }
@@ -235,7 +229,7 @@ class ScheduleGenerationService extends BaseService
             $sessionCheck = array_merge($sessionData, [
                 'period' => $period,
                 'start_time' => $periodStart->format('H:i'),
-                'end_time' => $periodEnd->format('H:i')
+                'end_time' => $periodEnd->format('H:i'),
             ]);
 
             // Check if this period is available (no conflicts)
@@ -243,7 +237,7 @@ class ScheduleGenerationService extends BaseService
                 return [
                     'period' => $period,
                     'start_time' => $periodStart->format('H:i'),
-                    'end_time' => $periodEnd->format('H:i')
+                    'end_time' => $periodEnd->format('H:i'),
                 ];
             }
         }
@@ -268,7 +262,7 @@ class ScheduleGenerationService extends BaseService
         }
 
         // Check room availability (if room is specified)
-        if (!empty($sessionData['room_id'])) {
+        if (! empty($sessionData['room_id'])) {
             $roomConflict = ScheduleSession::where('schedule_id', $schedule->id)
                 ->where('room_id', $sessionData['room_id'])
                 ->where('day_of_week', $sessionData['day_of_week'])
@@ -312,7 +306,7 @@ class ScheduleGenerationService extends BaseService
                 $sessions = min($remainingHours, $maxSessionsPerDay);
                 $distribution[] = [
                     'day' => $day,
-                    'sessions' => $sessions
+                    'sessions' => $sessions,
                 ];
                 $remainingHours -= $sessions;
             }
@@ -321,13 +315,15 @@ class ScheduleGenerationService extends BaseService
         // Then distribute remaining hours to other days
         $nonPriorityDays = array_diff($workingDays, $priorityDays);
         foreach ($nonPriorityDays as $day) {
-            if ($remainingHours <= 0) break;
-            
+            if ($remainingHours <= 0) {
+                break;
+            }
+
             $sessions = min($remainingHours, $maxSessionsPerDay);
             if ($sessions > 0) {
                 $distribution[] = [
                     'day' => $day,
-                    'sessions' => $sessions
+                    'sessions' => $sessions,
                 ];
                 $remainingHours -= $sessions;
             }
@@ -346,7 +342,7 @@ class ScheduleGenerationService extends BaseService
             $schedule->sessions()->delete();
 
             // Update schedule parameters if provided
-            if (!empty($options['schedule_updates'])) {
+            if (! empty($options['schedule_updates'])) {
                 $schedule->update($options['schedule_updates']);
             }
 
@@ -357,7 +353,7 @@ class ScheduleGenerationService extends BaseService
             if ($user) {
                 $schedule->update([
                     'status' => 'draft',
-                    'updated_by' => $user->id
+                    'updated_by' => $user->id,
                 ]);
             }
 
@@ -365,7 +361,7 @@ class ScheduleGenerationService extends BaseService
                 'schedule' => $schedule->fresh(['sessions', 'institution']),
                 'generation_stats' => $generationResult['stats'],
                 'conflicts' => $generationResult['conflicts'],
-                'warnings' => $generationResult['warnings']
+                'warnings' => $generationResult['warnings'],
             ];
         });
     }
@@ -378,13 +374,13 @@ class ScheduleGenerationService extends BaseService
         $optimizationResult = [
             'optimizations_applied' => 0,
             'conflicts_resolved' => 0,
-            'improvements' => []
+            'improvements' => [],
         ];
 
         // Get current conflicts
         $conflicts = $this->scheduleValidationService->validateCompleteSchedule($schedule);
 
-        if (!empty($conflicts)) {
+        if (! empty($conflicts)) {
             // Attempt to resolve conflicts by reassigning periods
             foreach ($conflicts as $conflict) {
                 $resolved = $this->resolveConflict($schedule, $conflict);
@@ -400,7 +396,7 @@ class ScheduleGenerationService extends BaseService
             $balanceResult = $this->balanceTeacherDailyLoad($schedule);
             $optimizationResult['optimizations_applied'] += $balanceResult['changes_made'];
             $optimizationResult['improvements'] = array_merge(
-                $optimizationResult['improvements'], 
+                $optimizationResult['improvements'],
                 $balanceResult['improvements']
             );
         }
@@ -409,7 +405,7 @@ class ScheduleGenerationService extends BaseService
             $roomResult = $this->optimizeRoomUsage($schedule);
             $optimizationResult['optimizations_applied'] += $roomResult['changes_made'];
             $optimizationResult['improvements'] = array_merge(
-                $optimizationResult['improvements'], 
+                $optimizationResult['improvements'],
                 $roomResult['improvements']
             );
         }
@@ -424,7 +420,7 @@ class ScheduleGenerationService extends BaseService
     {
         // Implementation depends on conflict type
         // This is a simplified version
-        
+
         if ($conflict['type'] === 'teacher_conflict') {
             return $this->resolveTeacherConflict($schedule, $conflict);
         }
@@ -442,7 +438,9 @@ class ScheduleGenerationService extends BaseService
     private function resolveTeacherConflict(Schedule $schedule, array $conflict): bool
     {
         $conflictedSession = ScheduleSession::find($conflict['session_id']);
-        if (!$conflictedSession) return false;
+        if (! $conflictedSession) {
+            return false;
+        }
 
         // Find alternative period
         $originalPeriod = $conflictedSession->period;
@@ -459,13 +457,15 @@ class ScheduleGenerationService extends BaseService
             $conflictedSession->update([
                 'period' => $alternativePeriod['period'],
                 'start_time' => $alternativePeriod['start_time'],
-                'end_time' => $alternativePeriod['end_time']
+                'end_time' => $alternativePeriod['end_time'],
             ]);
+
             return true;
         }
 
         // Restore original period if no alternative found
         $conflictedSession->period = $originalPeriod;
+
         return false;
     }
 
@@ -487,7 +487,7 @@ class ScheduleGenerationService extends BaseService
         // Implementation for balancing teacher workload across days
         return [
             'changes_made' => 0,
-            'improvements' => []
+            'improvements' => [],
         ];
     }
 
@@ -499,7 +499,7 @@ class ScheduleGenerationService extends BaseService
         // Implementation for optimizing room assignments
         return [
             'changes_made' => 0,
-            'improvements' => []
+            'improvements' => [],
         ];
     }
 
@@ -509,7 +509,7 @@ class ScheduleGenerationService extends BaseService
     public function getGenerationStats(Schedule $schedule): array
     {
         $sessions = $schedule->sessions();
-        
+
         return [
             'total_sessions' => $sessions->count(),
             'sessions_by_day' => $sessions->selectRaw('day_of_week, COUNT(*) as count')
@@ -523,7 +523,7 @@ class ScheduleGenerationService extends BaseService
             'teachers_count' => $sessions->distinct('teacher_id')->count(),
             'classes_count' => $sessions->distinct('class_id')->count(),
             'subjects_count' => $sessions->distinct('subject_id')->count(),
-            'utilization_rate' => $this->calculateUtilizationRate($schedule)
+            'utilization_rate' => $this->calculateUtilizationRate($schedule),
         ];
     }
 
@@ -534,7 +534,7 @@ class ScheduleGenerationService extends BaseService
     {
         $totalPossibleSlots = count($schedule->working_days) * $schedule->periods_per_day;
         $usedSlots = $schedule->sessions()->count();
-        
+
         return $totalPossibleSlots > 0 ? round(($usedSlots / $totalPossibleSlots) * 100, 2) : 0;
     }
 }

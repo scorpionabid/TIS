@@ -13,10 +13,10 @@ return new class extends Migration
     {
         Schema::table('notifications', function (Blueprint $table) {
             // Add Laravel notification system columns
-            if (!Schema::hasColumn('notifications', 'notifiable_type')) {
+            if (! Schema::hasColumn('notifications', 'notifiable_type')) {
                 $table->string('notifiable_type')->nullable();
             }
-            if (!Schema::hasColumn('notifications', 'notifiable_id')) {
+            if (! Schema::hasColumn('notifications', 'notifiable_id')) {
                 $table->unsignedBigInteger('notifiable_id')->nullable();
             }
         });

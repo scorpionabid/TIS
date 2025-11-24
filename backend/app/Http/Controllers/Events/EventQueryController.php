@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Events;
 
 use App\Http\Controllers\Controller;
 use App\Models\SchoolEvent;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class EventQueryController extends Controller
@@ -48,7 +48,7 @@ class EventQueryController extends Controller
 
         // Apply regional access control
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
             $query->whereIn('institution_id', $accessibleInstitutions);
         }
@@ -70,7 +70,7 @@ class EventQueryController extends Controller
 
         // Sorting
         $query->orderBy('start_date', 'asc')
-              ->orderBy('created_at', 'desc');
+            ->orderBy('created_at', 'desc');
 
         // Pagination
         $perPage = min($request->get('per_page', 15), 100);
@@ -139,9 +139,9 @@ class EventQueryController extends Controller
     {
         // Check access permissions
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-            if (!in_array($event->institution_id, $accessibleInstitutions)) {
+            if (! in_array($event->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu tədbiri görmək üçün icazəniz yoxdur',
@@ -156,7 +156,7 @@ class EventQueryController extends Controller
             'organizer.profile:user_id,first_name,last_name,phone,department',
             'registrations' => function ($query) {
                 $query->with(['user:id,name,email', 'user.profile:user_id,first_name,last_name,phone'])
-                      ->orderBy('created_at', 'desc');
+                    ->orderBy('created_at', 'desc');
             },
             'resources' => function ($query) {
                 $query->orderBy('created_at', 'desc');
@@ -248,7 +248,7 @@ class EventQueryController extends Controller
                     'is_today' => $event->is_today,
                     'can_register' => $event->can_register,
                     'days_until_event' => $event->days_until_event,
-                    'capacity_filled_percentage' => $event->max_participants ? 
+                    'capacity_filled_percentage' => $event->max_participants ?
                         round(($registrationStats['confirmed'] / $event->max_participants) * 100, 1) : 0,
                 ],
             ],
@@ -307,13 +307,13 @@ class EventQueryController extends Controller
                 case 'this_week':
                     $query->whereBetween('start_date', [
                         now()->startOfWeek(),
-                        now()->endOfWeek()
+                        now()->endOfWeek(),
                     ]);
                     break;
                 case 'this_month':
                     $query->whereBetween('start_date', [
                         now()->startOfMonth(),
-                        now()->endOfMonth()
+                        now()->endOfMonth(),
                     ]);
                     break;
             }
@@ -356,7 +356,7 @@ class EventQueryController extends Controller
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return [];
         }
 

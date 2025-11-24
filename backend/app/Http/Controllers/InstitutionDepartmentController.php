@@ -4,10 +4,10 @@ namespace App\Http\Controllers;
 
 use App\Models\Department;
 use App\Models\Institution;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class InstitutionDepartmentController extends Controller
 {
@@ -22,12 +22,12 @@ class InstitutionDepartmentController extends Controller
                 'include_deleted' => 'nullable|boolean',
                 'only_deleted' => 'nullable|boolean',
                 'sort_by' => 'nullable|string|in:name,department_type,created_at',
-                'sort_direction' => 'nullable|string|in:asc,desc'
+                'sort_direction' => 'nullable|string|in:asc,desc',
             ]);
 
             $query = $institution->departments()->with(['parent', 'institution']);
 
-            if (!$request->boolean('include_inactive', false)) {
+            if (! $request->boolean('include_inactive', false)) {
                 $query->where('is_active', true);
             }
 
@@ -52,7 +52,6 @@ class InstitutionDepartmentController extends Controller
                     'type' => $institution->type,
                 ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -68,8 +67,8 @@ class InstitutionDepartmentController extends Controller
     public function store(Institution $institution, Request $request): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
@@ -102,12 +101,12 @@ class InstitutionDepartmentController extends Controller
             $departmentData['institution_id'] = $institution->id;
 
             // Ensure parent department belongs to the same institution
-            if (!empty($departmentData['parent_department_id'])) {
+            if (! empty($departmentData['parent_department_id'])) {
                 $parent = Department::where('id', $departmentData['parent_department_id'])
                     ->where('institution_id', $institution->id)
                     ->first();
 
-                if (!$parent) {
+                if (! $parent) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Seçilmiş ana şöbə bu təşkilata aid deyil.',
@@ -117,7 +116,7 @@ class InstitutionDepartmentController extends Controller
 
             // Validate department type compatibility
             $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
-            if (!in_array($departmentData['department_type'], $allowedTypes)) {
+            if (! in_array($departmentData['department_type'], $allowedTypes)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Departament növü bu təşkilat üçün uyğun deyil.',
@@ -133,7 +132,6 @@ class InstitutionDepartmentController extends Controller
                 'message' => 'Şöbə uğurla yaradıldı.',
                 'data' => $this->formatDepartment($department),
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -165,7 +163,6 @@ class InstitutionDepartmentController extends Controller
                 'success' => true,
                 'data' => $department,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -181,8 +178,8 @@ class InstitutionDepartmentController extends Controller
     public function update(Institution $institution, Department $department, Request $request): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
@@ -221,12 +218,12 @@ class InstitutionDepartmentController extends Controller
         try {
             $updateData = $validator->validated();
 
-            if (!empty($updateData['parent_department_id'])) {
+            if (! empty($updateData['parent_department_id'])) {
                 $parent = Department::where('id', $updateData['parent_department_id'])
                     ->where('institution_id', $institution->id)
                     ->first();
 
-                if (!$parent) {
+                if (! $parent) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Seçilmiş ana şöbə bu təşkilata aid deyil.',
@@ -234,9 +231,9 @@ class InstitutionDepartmentController extends Controller
                 }
             }
 
-            if (!empty($updateData['department_type'])) {
+            if (! empty($updateData['department_type'])) {
                 $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
-                if (!in_array($updateData['department_type'], $allowedTypes)) {
+                if (! in_array($updateData['department_type'], $allowedTypes)) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Departament növü bu təşkilat üçün uyğun deyil.',
@@ -252,7 +249,6 @@ class InstitutionDepartmentController extends Controller
                 'message' => 'Şöbə məlumatları yeniləndi.',
                 'data' => $this->formatDepartment($department->fresh(['institution', 'parent'])),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -268,8 +264,8 @@ class InstitutionDepartmentController extends Controller
     public function destroy(Institution $institution, Department $department): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
@@ -299,7 +295,6 @@ class InstitutionDepartmentController extends Controller
                 'success' => true,
                 'message' => 'Şöbə silindi.',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -319,25 +314,24 @@ class InstitutionDepartmentController extends Controller
                 'total_departments' => $institution->departments()->count(),
                 'active_departments' => $institution->departments()->where('is_active', true)->count(),
                 'by_type' => $institution->departments()
-                                       ->select('type', DB::raw('count(*) as count'))
-                                       ->groupBy('type')
-                                       ->pluck('count', 'type'),
+                    ->select('type', DB::raw('count(*) as count'))
+                    ->groupBy('type')
+                    ->pluck('count', 'type'),
                 'with_head' => $institution->departments()->whereNotNull('head_name')->count(),
                 'user_distribution' => DB::table('users')
-                                        ->join('departments', 'users.department_id', '=', 'departments.id')
-                                        ->where('departments.institution_id', $institution->id)
-                                        ->select('departments.name as department_name', 
-                                               DB::raw('count(users.id) as user_count'))
-                                        ->groupBy('departments.id', 'departments.name')
-                                        ->get()
-                                        ->pluck('user_count', 'department_name'),
+                    ->join('departments', 'users.department_id', '=', 'departments.id')
+                    ->where('departments.institution_id', $institution->id)
+                    ->select('departments.name as department_name',
+                        DB::raw('count(users.id) as user_count'))
+                    ->groupBy('departments.id', 'departments.name')
+                    ->get()
+                    ->pluck('user_count', 'department_name'),
             ];
 
             return response()->json([
                 'success' => true,
                 'data' => $stats,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -353,8 +347,8 @@ class InstitutionDepartmentController extends Controller
     public function moveUsers(Institution $institution, Department $department, Request $request): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
@@ -385,7 +379,7 @@ class InstitutionDepartmentController extends Controller
 
         try {
             $targetDepartment = Department::find($request->target_department_id);
-            
+
             // Ensure target department belongs to same institution
             if ($targetDepartment->institution_id !== $institution->id) {
                 return response()->json([
@@ -397,9 +391,9 @@ class InstitutionDepartmentController extends Controller
             DB::beginTransaction();
 
             $movedCount = DB::table('users')
-                           ->whereIn('id', $request->user_ids)
-                           ->where('department_id', $department->id)
-                           ->update(['department_id' => $targetDepartment->id]);
+                ->whereIn('id', $request->user_ids)
+                ->where('department_id', $department->id)
+                ->update(['department_id' => $targetDepartment->id]);
 
             DB::commit();
 
@@ -412,9 +406,9 @@ class InstitutionDepartmentController extends Controller
                     'target_department' => $targetDepartment->name,
                 ],
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'İstifadəçi köçürülməsində xəta baş verdi.',
@@ -433,7 +427,7 @@ class InstitutionDepartmentController extends Controller
             return [
                 'key' => $key,
                 'label' => $label,
-                'description' => null
+                'description' => null,
             ];
         })->values();
 

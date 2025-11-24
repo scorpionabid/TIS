@@ -2,7 +2,6 @@
 
 namespace App\Services\LinkSharing\Domains\Permission;
 
-use App\Models\LinkShare;
 use App\Models\Institution;
 
 /**
@@ -22,6 +21,7 @@ class LinkPermissionService
     public function canCreateLinkWithScope($user, $scope): bool
     {
         $availableScopes = $this->getAvailableScopesForRole($user->role->name);
+
         return in_array($scope, array_keys($availableScopes));
     }
 
@@ -37,26 +37,26 @@ class LinkPermissionService
                 'sectoral' => 'Sektor',
                 'institutional' => 'Qurum',
                 'specific_users' => 'Xüsusi istifadəçilər',
-                'public' => 'Açıq'
+                'public' => 'Açıq',
             ],
             'regionadmin' => [
                 'regional' => 'Regional',
                 'sectoral' => 'Sektor',
                 'institutional' => 'Qurum',
                 'specific_users' => 'Xüsusi istifadəçilər',
-                'public' => 'Açıq'
+                'public' => 'Açıq',
             ],
             'sektoradmin' => [
                 'sectoral' => 'Sektor',
                 'institutional' => 'Qurum',
                 'specific_users' => 'Xüsusi istifadəçilər',
-                'public' => 'Açıq'
+                'public' => 'Açıq',
             ],
             'schooladmin' => [
                 'institutional' => 'Qurum',
                 'specific_users' => 'Xüsusi istifadəçilər',
-                'public' => 'Açıq'
-            ]
+                'public' => 'Açıq',
+            ],
         ];
 
         return $scopes[$roleName] ?? ['public' => 'Açıq'];
@@ -71,7 +71,7 @@ class LinkPermissionService
             'superadmin' => ['all', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim', 'şagird'],
             'regionadmin' => ['sektoradmin', 'schooladmin', 'müəllim', 'şagird'],
             'sektoradmin' => ['schooladmin', 'müəllim', 'şagird'],
-            'schooladmin' => ['müəllim', 'şagird']
+            'schooladmin' => ['müəllim', 'şagird'],
         ];
 
         return $roles[$roleName] ?? [];
@@ -83,7 +83,7 @@ class LinkPermissionService
     public function getUserTargetableInstitutions($user): array
     {
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return [];
         }
 
@@ -93,11 +93,13 @@ class LinkPermissionService
 
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return Institution::whereIn('id', $childIds)->pluck('name', 'id')->toArray();
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return Institution::whereIn('id', $childIds)->pluck('name', 'id')->toArray();
         }
 
@@ -124,17 +126,19 @@ class LinkPermissionService
 
         // Higher level administrators can modify links from their hierarchy
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($linkShare->institution_id, $childIds);
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($linkShare->institution_id, $childIds);
         }
 
@@ -156,7 +160,7 @@ class LinkPermissionService
             return true;
         }
 
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 
@@ -173,14 +177,14 @@ class LinkPermissionService
         // Check target roles if specified
         if ($linkShare->target_roles) {
             $targetRoles = is_array($linkShare->target_roles) ? $linkShare->target_roles : json_decode($linkShare->target_roles, true);
-            if (!in_array($user->role->name, $targetRoles) && !in_array('all', $targetRoles)) {
+            if (! in_array($user->role->name, $targetRoles) && ! in_array('all', $targetRoles)) {
                 return false;
             }
         }
 
         // Check institutional hierarchy
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
@@ -191,11 +195,13 @@ class LinkPermissionService
             case 'regional':
                 $ancestors = $userInstitution->getAncestors();
                 $regionInstitution = $ancestors->firstWhere('level', 2) ?? ($userInstitution->level == 2 ? $userInstitution : null);
+
                 return $regionInstitution && ($regionInstitution->id === $linkShare->institution_id ||
                     in_array($linkShare->institution_id, $regionInstitution->getAllChildrenIds()));
             case 'sectoral':
                 $ancestors = $userInstitution->getAncestors();
                 $sectorInstitution = $ancestors->firstWhere('level', 3) ?? ($userInstitution->level == 3 ? $userInstitution : null);
+
                 return $sectorInstitution && ($sectorInstitution->id === $linkShare->institution_id ||
                     in_array($linkShare->institution_id, $sectorInstitution->getAllChildrenIds()));
             case 'institutional':

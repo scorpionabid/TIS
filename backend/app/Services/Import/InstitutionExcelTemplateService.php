@@ -3,11 +3,10 @@
 namespace App\Services\Import;
 
 use App\Models\Institution;
-use App\Models\InstitutionType;
+use App\Services\BaseService;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
-use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
-use App\Services\BaseService;
 
 class InstitutionExcelTemplateService extends BaseService
 {
@@ -18,22 +17,22 @@ class InstitutionExcelTemplateService extends BaseService
     {
         $institutionType = \App\Models\InstitutionType::where('key', $institutionTypeKey)->firstOrFail();
         $fileName = "muessise_idxal_sablonu_{$institutionTypeKey}_" . date('Y-m-d_H-i-s') . '.xlsx';
-        
+
         return $this->generateTypeSpecificTemplate($institutionType, $fileName);
     }
-    
+
     /**
      * Generate basic import template for institutions (legacy)
      */
     public function generateBasicTemplate($institutions, string $fileName): string
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
         $headers = [
-            'ID', 'Ad', 'Qısa Ad', 'Növ', 'Valideyn ID', 'Səviyyə', 
-            'Region Kodu', 'Qurum Kodu', 'UTIS Kodu', 'Əlaqə Məlumatları', 
-            'Ünvan', 'Qurulma Tarixi', 'Açıqlama', 'Status'
+            'ID', 'Ad', 'Qısa Ad', 'Növ', 'Valideyn ID', 'Səviyyə',
+            'Region Kodu', 'Qurum Kodu', 'UTIS Kodu', 'Əlaqə Məlumatları',
+            'Ünvan', 'Qurulma Tarixi', 'Açıqlama', 'Status',
         ];
 
         $this->setTemplateHeaders($sheet, $headers);
@@ -48,20 +47,20 @@ class InstitutionExcelTemplateService extends BaseService
      */
     public function generateTypeSpecificTemplate($institutionType, string $fileName): string
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Müəssisə İdxal Şablonu');
 
         // Get institution level for processing
         $institutionLevel = $institutionType->level ?? $institutionType->default_level;
-        
+
         // Add enhanced headers with color coding
         $headers = $this->getEnhancedHeaders($institutionType, $institutionLevel);
         $this->setEnhancedHeaders($sheet, $headers);
-        
+
         // Add enhanced sample data with real parent IDs
         $this->addEnhancedSampleData($sheet, $institutionType, $institutionLevel);
-        
+
         // Add instructions sheet
         $this->addInstructionsSheet($spreadsheet, $institutionType);
 
@@ -70,7 +69,7 @@ class InstitutionExcelTemplateService extends BaseService
 
         // Add color legend
         $this->addColorLegend($sheet);
-        
+
         // Style the template
         $this->styleEnhancedTemplate($sheet);
 
@@ -95,64 +94,64 @@ class InstitutionExcelTemplateService extends BaseService
     private function addInstructions($sheet, $institutionType): int
     {
         $instructions = [
-            strtoupper($institutionType->label_az) . " İDXAL TEMPLATE-i",
-            "",
-            "TƏLİMATLAR:",
-            "1. * ilə işarələnmiş sahələr məcburidir",
-            "2. ID sütunu boş buraxın - avtomatik yaradılacaq",
-            "3. Valideyn ID = Üst təşkilat kodu (məsələn: 4=Balakən, 5=Zaqatala)",
+            strtoupper($institutionType->label_az) . ' İDXAL TEMPLATE-i',
+            '',
+            'TƏLİMATLAR:',
+            '1. * ilə işarələnmiş sahələr məcburidir',
+            '2. ID sütunu boş buraxın - avtomatik yaradılacaq',
+            '3. Valideyn ID = Üst təşkilat kodu (məsələn: 4=Balakən, 5=Zaqatala)',
             "4. Status boş buraxsanız avtomatik 'aktiv' olacaq",
-            "5. Bu sətirlər və təlimatları silə bilərsiniz",
-            "",
-            "ADMIN YARADILMASI:",
-            "• Admin Email doldurulduqda avtomatik admin istifadəçi yaradılır",
-            "• Admin Parol boş buraxsanız güclü parol avtomatik yaradılır",
-            "• Parol tələbləri: ən azı 8 simvol, böyük/kiçik hərf, rəqəm",
-            "• Zəif parollar avtomatik güclü parollarla əvəz olunur",
-            "• Admin sütunları tamamilə boş buraxıla bilər",
-            "",
-            "MÖVCUD ÜSDƏRƏ KODLARI:"
+            '5. Bu sətirlər və təlimatları silə bilərsiniz',
+            '',
+            'ADMIN YARADILMASI:',
+            '• Admin Email doldurulduqda avtomatik admin istifadəçi yaradılır',
+            '• Admin Parol boş buraxsanız güclü parol avtomatik yaradılır',
+            '• Parol tələbləri: ən azı 8 simvol, böyük/kiçik hərf, rəqəm',
+            '• Zəif parollar avtomatik güclü parollarla əvəz olunur',
+            '• Admin sütunları tamamilə boş buraxıla bilər',
+            '',
+            'MÖVCUD ÜSDƏRƏ KODLARI:',
         ];
-        
+
         $parentOrgs = $this->getParentOrganizations($institutionType);
-        
+
         $row = 1;
         foreach ($instructions as $instruction) {
             $sheet->setCellValue('A' . $row, $instruction);
             $this->styleInstructionRow($sheet, $row, $instruction);
             $row++;
         }
-        
+
         foreach ($parentOrgs as $org) {
             $sheet->setCellValue('A' . $row, "ID {$org->id}: {$org->name} (Səviyyə {$org->level})");
             $row++;
         }
-        
+
         // Add password examples
-        $sheet->setCellValue('A' . $row, "");
+        $sheet->setCellValue('A' . $row, '');
         $row++;
-        $sheet->setCellValue('A' . $row, "GÜCLÜ PAROL NÜMUNƏLƏRİ:");
+        $sheet->setCellValue('A' . $row, 'GÜCLÜ PAROL NÜMUNƏLƏRİ:');
         $sheet->getStyle('A' . $row)->getFont()->setBold(true);
         $row++;
-        
+
         $passwordExamples = [
-            "• Direktor123! (məktəb direktorları üçün)",
-            "• Mudir456! (bağça müdirləri üçün)", 
-            "• Region789! (regional idarələr üçün)",
-            "• Sektor012! (sektor idarələri üçün)",
-            "• Admin345! (ümumi admin istifadəçiləri üçün)"
+            '• Direktor123! (məktəb direktorları üçün)',
+            '• Mudir456! (bağça müdirləri üçün)',
+            '• Region789! (regional idarələr üçün)',
+            '• Sektor012! (sektor idarələri üçün)',
+            '• Admin345! (ümumi admin istifadəçiləri üçün)',
         ];
-        
+
         foreach ($passwordExamples as $example) {
             $sheet->setCellValue('A' . $row, $example);
             $row++;
         }
-        
-        $sheet->setCellValue('A' . $row, "");
+
+        $sheet->setCellValue('A' . $row, '');
         $row++;
-        $sheet->setCellValue('A' . $row, "DATA BAŞLANĞICI (Bu sətirlər altına məlumatları yazın)");
+        $sheet->setCellValue('A' . $row, 'DATA BAŞLANĞICI (Bu sətirlər altına məlumatları yazın)');
         $sheet->getStyle('A' . $row)->getFont()->setBold(true);
-        
+
         return $row + 2; // Return row where headers should start
     }
 
@@ -162,13 +161,13 @@ class InstitutionExcelTemplateService extends BaseService
     private function addTypeSpecificHeaders($sheet, $institutionType, int $startRow): int
     {
         $headers = $this->getTypeSpecificHeaders($institutionType);
-        
+
         foreach ($headers as $index => $header) {
             $column = chr(65 + $index);
             $sheet->setCellValue($column . $startRow, $header);
             $headerStyle = $sheet->getStyle($column . $startRow);
             $headerStyle->getFont()->setBold(true);
-            
+
             // Highlight required fields in red
             if (strpos($header, '*') !== false) {
                 $headerStyle->getFont()->getColor()->setARGB('FFFF0000');
@@ -184,7 +183,7 @@ class InstitutionExcelTemplateService extends BaseService
     private function addTypeSpecificSampleData($sheet, $institutionType, int $headerRow): void
     {
         $sampleData = $this->getTypeSpecificSampleData($institutionType);
-        
+
         $dataStartRow = $headerRow + 1;
         foreach ($sampleData as $rowIndex => $data) {
             foreach ($data as $colIndex => $value) {
@@ -205,7 +204,7 @@ class InstitutionExcelTemplateService extends BaseService
 
         $parentOrgs = $this->getParentOrganizations($institutionType);
         $parentIds = $parentOrgs->where('level', '<', $institutionType->default_level)->pluck('id')->toArray();
-        
+
         if (empty($parentIds)) {
             return;
         }
@@ -226,9 +225,9 @@ class InstitutionExcelTemplateService extends BaseService
     private function getParentOrganizations($institutionType)
     {
         return Institution::where('level', '<', $institutionType->default_level)
-                         ->orderBy('level')
-                         ->orderBy('name')
-                         ->get(['id', 'name', 'level']);
+            ->orderBy('level')
+            ->orderBy('name')
+            ->get(['id', 'name', 'level']);
     }
 
     /**
@@ -243,13 +242,13 @@ class InstitutionExcelTemplateService extends BaseService
             'Valideyn ID * (Sektor Kodu)' . ($institutionType->default_level == 4 ? ' - 4=Balakən, 5=Zaqatala' : ''),
             'Səviyyə * (' . $institutionType->default_level . ')',
             'Region Kodu',
-            'Qurum Kodu'
+            'Qurum Kodu',
         ];
 
         // Get admin headers
-        $adminExtension = new AdminTemplateExtensionService();
+        $adminExtension = new AdminTemplateExtensionService;
         $adminHeaders = $adminExtension->getAdminHeaders();
-        
+
         switch ($institutionType->key) {
             case 'secondary_school':
             case 'lyceum':
@@ -257,29 +256,31 @@ class InstitutionExcelTemplateService extends BaseService
             case 'primary_school':
                 $institutionSpecificHeaders = [
                     'Şagird Sayı',
-                    'Müəllim Sayı', 
+                    'Müəllim Sayı',
                     'Sinif Sayı',
                     'Direktor Adı',
                     'Telefon',
                     'Email',
-                    'Ünvan'
+                    'Ünvan',
                 ];
+
                 return array_merge($baseHeaders, $institutionSpecificHeaders, $adminHeaders, [
-                    'Status (boş buraxsanız avtomatik aktiv olacaq)'
+                    'Status (boş buraxsanız avtomatik aktiv olacaq)',
                 ]);
 
             case 'kindergarten':
                 $institutionSpecificHeaders = [
                     'Uşaq Sayı',
                     'Tərbiyəçi Sayı',
-                    'Qrup Sayı', 
+                    'Qrup Sayı',
                     'Müdir Adı',
                     'Telefon',
                     'Email',
-                    'Ünvan'
+                    'Ünvan',
                 ];
+
                 return array_merge($baseHeaders, $institutionSpecificHeaders, $adminHeaders, [
-                    'Status (boş buraxsanız avtomatik aktiv olacaq)'
+                    'Status (boş buraxsanız avtomatik aktiv olacaq)',
                 ]);
 
             case 'regional_education_department':
@@ -288,21 +289,23 @@ class InstitutionExcelTemplateService extends BaseService
                     'Telefon *',
                     'Email',
                     'Ünvan *',
-                    'Açıqlama'
+                    'Açıqlama',
                 ];
+
                 return array_merge($baseHeaders, $institutionSpecificHeaders, $adminHeaders, [
-                    'Status (boş buraxsanız avtomatik aktiv olacaq)'
+                    'Status (boş buraxsanız avtomatik aktiv olacaq)',
                 ]);
 
             default:
                 $institutionSpecificHeaders = [
                     'Telefon',
-                    'Email', 
+                    'Email',
                     'Ünvan',
-                    'Açıqlama'
+                    'Açıqlama',
                 ];
+
                 return array_merge($baseHeaders, $institutionSpecificHeaders, $adminHeaders, [
-                    'Status (boş buraxsanız avtomatik aktiv olacaq)'
+                    'Status (boş buraxsanız avtomatik aktiv olacaq)',
                 ]);
         }
     }
@@ -313,54 +316,59 @@ class InstitutionExcelTemplateService extends BaseService
     private function getTypeSpecificSampleData($institutionType): array
     {
         // Get admin sample data
-        $adminExtension = new AdminTemplateExtensionService();
+        $adminExtension = new AdminTemplateExtensionService;
         $adminSampleData = $adminExtension->getAdminSampleData($institutionType);
-        
+
         switch ($institutionType->key) {
             case 'secondary_school':
             case 'lyceum':
             case 'gymnasium':
                 $baseSampleData = [
                     ['', 'Nümunə Orta Məktəb 1', 'NOM1', '4', '4', 'ZQ', 'NOM001', '450', '28', '18', 'Müdir Adı', '+994551234567', 'nom1@example.az', 'Zaqatala rayonu'],
-                    ['', 'Nümunə Lisey 2', 'NL2', '5', '4', 'BL', 'NL002', '380', '25', '16', 'Direktor Adı', '+994552345678', 'lisey2@example.az', 'Balakən rayonu']
+                    ['', 'Nümunə Lisey 2', 'NL2', '5', '4', 'BL', 'NL002', '380', '25', '16', 'Direktor Adı', '+994552345678', 'lisey2@example.az', 'Balakən rayonu'],
                 ];
+
                 return [
                     array_merge($baseSampleData[0], $adminSampleData, ['']),
-                    array_merge($baseSampleData[1], $adminSampleData, ['active'])
+                    array_merge($baseSampleData[1], $adminSampleData, ['active']),
                 ];
 
             case 'kindergarten':
                 $baseSampleData = [
                     ['', 'Nümunə Uşaq Bağçası 1', 'NUB1', '4', '4', 'ZQ', 'NUB001', '85', '12', '5', 'Müdir Adı', '+994553456789', 'bagca1@example.az', 'Zaqatala rayonu'],
-                    ['', 'Nümunə Bağça 2', 'NB2', '5', '4', 'BL', 'NB002', '65', '9', '4', 'Rəis Adı', '+994554567890', 'bagca2@example.az', 'Balakən rayonu']
+                    ['', 'Nümunə Bağça 2', 'NB2', '5', '4', 'BL', 'NB002', '65', '9', '4', 'Rəis Adı', '+994554567890', 'bagca2@example.az', 'Balakən rayonu'],
                 ];
+
                 return [
                     array_merge($baseSampleData[0], $adminSampleData, ['']),
-                    array_merge($baseSampleData[1], $adminSampleData, ['active'])
+                    array_merge($baseSampleData[1], $adminSampleData, ['active']),
                 ];
 
             case 'sector_education_office':
                 $baseSampleData = [
-                    ['', 'Nümunə Sektor', 'NS', '2', '3', 'RTI', 'NS001', '+994555678901', 'sektor@example.az', 'Zaqatala şəhəri, Mərkəz', 'Təhsil sektoru']
+                    ['', 'Nümunə Sektor', 'NS', '2', '3', 'RTI', 'NS001', '+994555678901', 'sektor@example.az', 'Zaqatala şəhəri, Mərkəz', 'Təhsil sektoru'],
                 ];
+
                 return [
-                    array_merge($baseSampleData[0], $adminSampleData, [''])
+                    array_merge($baseSampleData[0], $adminSampleData, ['']),
                 ];
 
             case 'regional_education_department':
                 $baseSampleData = [
-                    ['', 'Nümunə Regional İdarə', 'NRI', '1', '2', 'MN', 'NRI001', '+994556789012', 'region@example.az', 'Regional mərkəz', 'Regional təhsil idarəsi']
+                    ['', 'Nümunə Regional İdarə', 'NRI', '1', '2', 'MN', 'NRI001', '+994556789012', 'region@example.az', 'Regional mərkəz', 'Regional təhsil idarəsi'],
                 ];
+
                 return [
-                    array_merge($baseSampleData[0], $adminSampleData, [''])
+                    array_merge($baseSampleData[0], $adminSampleData, ['']),
                 ];
 
             default:
                 $baseSampleData = [
-                    ['', 'Nümunə Qurum', 'NQ', '', $institutionType->default_level, '', 'NQ001', '+994557890123', 'info@example.az', 'Ünvan', 'Açıqlama']
+                    ['', 'Nümunə Qurum', 'NQ', '', $institutionType->default_level, '', 'NQ001', '+994557890123', 'info@example.az', 'Ünvan', 'Açıqlama'],
                 ];
+
                 return [
-                    array_merge($baseSampleData[0], $adminSampleData, [''])
+                    array_merge($baseSampleData[0], $adminSampleData, ['']),
                 ];
         }
     }
@@ -372,8 +380,8 @@ class InstitutionExcelTemplateService extends BaseService
     {
         $sampleData = [
             ['', 'Nümunə Məktəb', 'NM', 'secondary_school', '26', '4',
-             'BA', 'NM001', '', 'phone:+994501234567;email:info@sample.edu.az',
-             'Bakı şəhəri, Nəsimi rayonu', '2020-01-01', 'Nümunə məktəb', 'active']
+                'BA', 'NM001', '', 'phone:+994501234567;email:info@sample.edu.az',
+                'Bakı şəhəri, Nəsimi rayonu', '2020-01-01', 'Nümunə məktəb', 'active'],
         ];
 
         foreach ($sampleData as $rowIndex => $data) {
@@ -388,10 +396,10 @@ class InstitutionExcelTemplateService extends BaseService
      */
     private function styleInstructionRow($sheet, int $row, string $instruction): void
     {
-        $isBold = strpos($instruction, 'TEMPLATE') !== false || 
-                  strpos($instruction, 'TƏLİMATLAR:') !== false || 
+        $isBold = strpos($instruction, 'TEMPLATE') !== false ||
+                  strpos($instruction, 'TƏLİMATLAR:') !== false ||
                   strpos($instruction, 'KODLARI:') !== false;
-        
+
         if ($isBold) {
             $sheet->getStyle('A' . $row)->getFont()->setBold(true);
         }
@@ -411,12 +419,12 @@ class InstitutionExcelTemplateService extends BaseService
     }
 
     /**
-     * Style type-specific template  
+     * Style type-specific template
      */
     private function styleTypeSpecificTemplate($sheet, $institutionType): void
     {
         $headers = $this->getTypeSpecificHeaders($institutionType);
-        
+
         // Auto-size columns for better readability
         foreach (range('A', chr(64 + count($headers))) as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
@@ -474,7 +482,7 @@ class InstitutionExcelTemplateService extends BaseService
         foreach ($headers as $cell => $value) {
             $sheet->setCellValue($cell, $value);
             $sheet->getStyle($cell)->getFont()->setBold(true);
-            
+
             // Check if field is mandatory (contains *)
             if (strpos($value, '*') !== false) {
                 // Mandatory fields: Red background
@@ -515,7 +523,7 @@ class InstitutionExcelTemplateService extends BaseService
                 // For schools (level 4), use a real sector ID (level 3)
                 $sampleParentId = \App\Models\Institution::where('level', 3)->first()?->id ?? '73';
                 $sampleData['J' . $sampleRow] = $sampleParentId . ' // Sektor ID (örnek: Zaqatala)';
-            } else if ($institutionLevel == 3) {
+            } elseif ($institutionLevel == 3) {
                 // For sectors (level 3), use a real regional department ID (level 2)
                 $sampleParentId = \App\Models\Institution::where('level', 2)->first()?->id ?? '71';
                 $sampleData['J' . $sampleRow] = $sampleParentId . ' // Regional İdarə ID';
@@ -559,7 +567,7 @@ class InstitutionExcelTemplateService extends BaseService
     {
         $instructionSheet = $spreadsheet->createSheet();
         $instructionSheet->setTitle('Təlimatlar');
-        
+
         $institutionLevel = $institutionType->level ?? $institutionType->default_level;
         $instructions = [
             'A1' => 'İDXAL ŞABLONUnda İSTİFADƏ TƏLİMATLARI',
@@ -621,13 +629,13 @@ class InstitutionExcelTemplateService extends BaseService
         $legendRow = 5;
         $sheet->setCellValue('A' . $legendRow, 'RƏNG LEGENDİ:');
         $sheet->getStyle('A' . $legendRow)->getFont()->setBold(true);
-        
+
         $sheet->setCellValue('A' . ($legendRow + 1), 'Qırmızı rəng = Məcburi sahələr (*)');
         $sheet->getStyle('A' . ($legendRow + 1))->getFill()
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
             ->getStartColor()->setARGB('FFFFE6E6');
         $sheet->getStyle('A' . ($legendRow + 1))->getFont()->getColor()->setARGB('FFCC0000');
-        
+
         $sheet->setCellValue('A' . ($legendRow + 2), 'Bənövşəyi rəng = İsteğe bağlı sahələr');
         $sheet->getStyle('A' . ($legendRow + 2))->getFill()
             ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
@@ -761,9 +769,9 @@ class InstitutionExcelTemplateService extends BaseService
     private function saveTemplate(Spreadsheet $spreadsheet, string $fileName): string
     {
         $filePath = storage_path('app/temp/' . $fileName);
-        
+
         // Ensure temp directory exists
-        if (!is_dir(dirname($filePath))) {
+        if (! is_dir(dirname($filePath))) {
             mkdir(dirname($filePath), 0755, true);
         }
 

@@ -3,13 +3,10 @@
 namespace App\Http\Controllers\SektorAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Student;
 use App\Models\Institution;
-use App\Models\Grade;
-use Illuminate\Http\Request;
+use App\Models\Student;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Http\Request;
 
 class SektorStudentController extends Controller
 {
@@ -19,13 +16,13 @@ class SektorStudentController extends Controller
     public function getSectorStudents(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('sektoradmin')) {
+
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -46,7 +43,7 @@ class SektorStudentController extends Controller
             }
 
             if ($request->filled('grade_level')) {
-                $query->whereHas('grade', function($q) use ($request) {
+                $query->whereHas('grade', function ($q) use ($request) {
                     $q->where('level', $request->grade_level);
                 });
             }
@@ -61,18 +58,18 @@ class SektorStudentController extends Controller
 
             if ($request->filled('search')) {
                 $search = $request->search;
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('first_name', 'LIKE', "%{$search}%")
-                      ->orWhere('last_name', 'LIKE', "%{$search}%")
-                      ->orWhere('student_id', 'LIKE', "%{$search}%")
-                      ->orWhere('national_id', 'LIKE', "%{$search}%");
+                        ->orWhere('last_name', 'LIKE', "%{$search}%")
+                        ->orWhere('student_id', 'LIKE', "%{$search}%")
+                        ->orWhere('national_id', 'LIKE', "%{$search}%");
                 });
             }
 
             $students = $query->orderBy('first_name')
                 ->paginate($request->get('per_page', 25));
 
-            $transformedStudents = $students->getCollection()->map(function($student) {
+            $transformedStudents = $students->getCollection()->map(function ($student) {
                 return [
                     'id' => $student->id,
                     'student_id' => $student->student_id,
@@ -85,12 +82,12 @@ class SektorStudentController extends Controller
                     'school' => [
                         'id' => $student->institution?->id,
                         'name' => $student->institution?->name,
-                        'type' => $student->institution?->type
+                        'type' => $student->institution?->type,
                     ],
                     'grade' => [
                         'id' => $student->grade?->id,
                         'name' => $student->grade?->name,
-                        'level' => $student->grade?->level
+                        'level' => $student->grade?->level,
                     ],
                     'enrollment_date' => $student->enrollment_date,
                     'status' => $student->status,
@@ -98,10 +95,10 @@ class SektorStudentController extends Controller
                         'father_name' => $student->father_name,
                         'mother_name' => $student->mother_name,
                         'contact_phone' => $student->contact_phone,
-                        'address' => $student->address
+                        'address' => $student->address,
                     ],
                     'academic_year' => $student->academic_year,
-                    'created_at' => $student->created_at->format('Y-m-d')
+                    'created_at' => $student->created_at->format('Y-m-d'),
                 ];
             });
 
@@ -126,7 +123,7 @@ class SektorStudentController extends Controller
                     ->selectRaw('gender, COUNT(*) as count')
                     ->groupBy('gender')
                     ->get(),
-                'enrollment_trend' => $this->getEnrollmentTrend($schoolIds)
+                'enrollment_trend' => $this->getEnrollmentTrend($schoolIds),
             ];
 
             return response()->json([
@@ -137,19 +134,18 @@ class SektorStudentController extends Controller
                     'per_page' => $students->perPage(),
                     'total' => $students->total(),
                     'from' => $students->firstItem(),
-                    'to' => $students->lastItem()
+                    'to' => $students->lastItem(),
                 ],
                 'statistics' => $statistics,
                 'sector' => [
                     'id' => $sector->id,
-                    'name' => $sector->name
-                ]
+                    'name' => $sector->name,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Şagird məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -160,13 +156,13 @@ class SektorStudentController extends Controller
     public function getStudentsBySchool(Request $request, int $schoolId): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('sektoradmin')) {
+
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -175,9 +171,9 @@ class SektorStudentController extends Controller
             ->where('parent_id', $sector->id)
             ->first();
 
-        if (!$school) {
+        if (! $school) {
             return response()->json([
-                'message' => 'Seçilən məktəb sizin sektora aid deyil'
+                'message' => 'Seçilən məktəb sizin sektora aid deyil',
             ], 404);
         }
 
@@ -188,7 +184,7 @@ class SektorStudentController extends Controller
                 ->orderBy('first_name')
                 ->get();
 
-            $transformedStudents = $students->map(function($student) use ($school) {
+            $transformedStudents = $students->map(function ($student) {
                 return [
                     'id' => $student->id,
                     'student_id' => $student->student_id,
@@ -196,45 +192,44 @@ class SektorStudentController extends Controller
                     'grade' => [
                         'id' => $student->grade?->id,
                         'name' => $student->grade?->name,
-                        'level' => $student->grade?->level
+                        'level' => $student->grade?->level,
                     ],
                     'gender' => $student->gender,
                     'date_of_birth' => $student->date_of_birth,
                     'enrollment_date' => $student->enrollment_date,
-                    'status' => $student->status
+                    'status' => $student->status,
                 ];
             });
 
             // Get school-specific statistics
             $schoolStats = [
                 'total_students' => $students->count(),
-                'by_grade' => $students->groupBy('grade.level')->map(function($group) {
+                'by_grade' => $students->groupBy('grade.level')->map(function ($group) {
                     return $group->count();
                 }),
-                'by_gender' => $students->groupBy('gender')->map(function($group) {
+                'by_gender' => $students->groupBy('gender')->map(function ($group) {
                     return $group->count();
                 }),
-                'enrollment_this_year' => $students->where('created_at', '>=', now()->startOfYear())->count()
+                'enrollment_this_year' => $students->where('created_at', '>=', now()->startOfYear())->count(),
             ];
 
             return response()->json([
                 'school' => [
                     'id' => $school->id,
                     'name' => $school->name,
-                    'type' => $school->type
+                    'type' => $school->type,
                 ],
                 'students' => $transformedStudents,
                 'statistics' => $schoolStats,
                 'sector' => [
                     'id' => $sector->id,
-                    'name' => $sector->name
-                ]
+                    'name' => $sector->name,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Məktəb şagird məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -245,13 +240,13 @@ class SektorStudentController extends Controller
     public function getStudentStatistics(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('sektoradmin')) {
+
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -265,9 +260,9 @@ class SektorStudentController extends Controller
                 'overview' => [
                     'total_students' => Student::whereIn('institution_id', $schoolIds)->where('is_active', true)->count(),
                     'total_schools' => count($schoolIds),
-                    'average_students_per_school' => count($schoolIds) > 0 
+                    'average_students_per_school' => count($schoolIds) > 0
                         ? round(Student::whereIn('institution_id', $schoolIds)->where('is_active', true)->count() / count($schoolIds), 1)
-                        : 0
+                        : 0,
                 ],
                 'by_school' => Student::whereIn('institution_id', $schoolIds)
                     ->where('is_active', true)
@@ -289,7 +284,7 @@ class SektorStudentController extends Controller
                     ->groupBy('gender')
                     ->get(),
                 'enrollment_trend' => $this->getEnrollmentTrend($schoolIds),
-                'age_distribution' => $this->getAgeDistribution($schoolIds)
+                'age_distribution' => $this->getAgeDistribution($schoolIds),
             ];
 
             return response()->json([
@@ -297,15 +292,14 @@ class SektorStudentController extends Controller
                 'sector' => [
                     'id' => $sector->id,
                     'name' => $sector->name,
-                    'region' => $sector->parent?->name ?? 'Bilinmir'
+                    'region' => $sector->parent?->name ?? 'Bilinmir',
                 ],
-                'generated_at' => now()->format('Y-m-d H:i:s')
+                'generated_at' => now()->format('Y-m-d H:i:s'),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Statistik məlumatlar yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -316,13 +310,13 @@ class SektorStudentController extends Controller
     public function exportStudentData(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('sektoradmin')) {
+
+        if (! $user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (!$sector) {
+        if (! $sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -339,7 +333,7 @@ class SektorStudentController extends Controller
                 ->orderBy('first_name')
                 ->get();
 
-            $exportData = $students->map(function($student) {
+            $exportData = $students->map(function ($student) {
                 return [
                     'Şagird ID' => $student->student_id,
                     'Ad' => $student->first_name,
@@ -365,13 +359,12 @@ class SektorStudentController extends Controller
                 'data' => $exportData,
                 'total_records' => $exportData->count(),
                 'export_date' => now()->format('Y-m-d H:i:s'),
-                'sector' => $sector->name
+                'sector' => $sector->name,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Məlumatlar ixrac edilə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

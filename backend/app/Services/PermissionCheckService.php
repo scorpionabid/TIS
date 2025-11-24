@@ -17,7 +17,7 @@ class PermissionCheckService extends BaseService
         }
 
         if ($user->hasRole('regionadmin')) {
-            return $evaluation->institution && 
+            return $evaluation->institution &&
                    $evaluation->institution->region_id === $user->region_id;
         }
 
@@ -41,7 +41,7 @@ class PermissionCheckService extends BaseService
         }
 
         if ($user->hasRole('regionadmin')) {
-            return $evaluation->institution && 
+            return $evaluation->institution &&
                    $evaluation->institution->region_id === $user->region_id;
         }
 
@@ -65,7 +65,7 @@ class PermissionCheckService extends BaseService
         }
 
         if ($user->hasRole('regionadmin')) {
-            return $evaluation->institution && 
+            return $evaluation->institution &&
                    $evaluation->institution->region_id === $user->region_id;
         }
 
@@ -117,7 +117,7 @@ class PermissionCheckService extends BaseService
         }
 
         $teacher = User::find($teacherId);
-        if (!$teacher) {
+        if (! $teacher) {
             return false;
         }
 
@@ -142,6 +142,7 @@ class PermissionCheckService extends BaseService
 
         if ($user->hasRole('regionadmin')) {
             $institution = \App\Models\Institution::find($institutionId);
+
             return $institution && $institution->region_id === $user->region_id;
         }
 
@@ -182,7 +183,7 @@ class PermissionCheckService extends BaseService
         }
 
         if ($user->hasRole('regionadmin')) {
-            return $query->whereHas('institution', function($q) use ($user) {
+            return $query->whereHas('institution', function ($q) use ($user) {
                 $q->where('region_id', $user->region_id);
             });
         }
@@ -192,9 +193,9 @@ class PermissionCheckService extends BaseService
         }
 
         if ($user->hasRole('mudur')) {
-            return $query->where(function($q) use ($user) {
+            return $query->where(function ($q) use ($user) {
                 $q->where('teacher_id', $user->id)
-                  ->orWhere('evaluator_id', $user->id);
+                    ->orWhere('evaluator_id', $user->id);
             });
         }
 

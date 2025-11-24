@@ -1,9 +1,7 @@
 <?php
 
-use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use App\Models\Permission;
+use Illuminate\Database\Migrations\Migration;
 
 return new class extends Migration
 {
@@ -59,6 +57,7 @@ return new class extends Migration
             $result['action'] = $parts[0];
             $result['resource'] = $parts[1] ?? null;
             $result['category'] = $this->getCategoryFromResource($parts[1] ?? '');
+
             return $result;
         }
 
@@ -68,6 +67,7 @@ return new class extends Migration
             $result['resource'] = $parts[0];
             $result['action'] = $parts[1] ?? null;
             $result['category'] = $this->getCategoryFromResource($parts[0]);
+
             return $result;
         }
 

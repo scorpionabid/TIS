@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\JsonResponse;
-use App\Models\Role;
 use App\Models\Permission;
-use App\Models\Task;
+use App\Models\Role;
 use App\Models\Survey;
 use App\Models\SurveyQuestion;
+use App\Models\Task;
+use Illuminate\Http\JsonResponse;
 
 class ConfigController extends BaseController
 {
@@ -48,7 +48,7 @@ class ConfigController extends BaseController
                 'date_format' => 'Y-m-d',
                 'datetime_format' => 'Y-m-d H:i:s',
                 'currency' => 'AZN',
-            ]
+            ],
         ];
 
         return $this->successResponse($config, 'Application configuration');
@@ -63,7 +63,7 @@ class ConfigController extends BaseController
             'roles' => Role::select('id', 'name', 'display_name', 'description')->get(),
             'permissions' => Permission::select('id', 'name', 'display_name', 'description')->get(),
             'task_categories' => Task::CATEGORIES,
-            'task_priorities' => Task::PRIORITIES, 
+            'task_priorities' => Task::PRIORITIES,
             'task_statuses' => Task::STATUSES,
             'task_target_scopes' => Task::TARGET_SCOPES,
             'survey_categories' => Survey::CATEGORIES,
@@ -77,13 +77,13 @@ class ConfigController extends BaseController
             ],
             'institution_types' => [
                 'ministry' => 'Nazirlik',
-                'region' => 'Regional İdarə', 
+                'region' => 'Regional İdarə',
                 'sektor' => 'Sektor İdarəsi',
                 'school' => 'Məktəb',
             ],
             'document_types' => [
                 'pdf' => 'PDF Document',
-                'doc' => 'Word Document', 
+                'doc' => 'Word Document',
                 'docx' => 'Word Document',
                 'xls' => 'Excel Spreadsheet',
                 'xlsx' => 'Excel Spreadsheet',
@@ -91,7 +91,7 @@ class ConfigController extends BaseController
                 'jpg' => 'JPEG Image',
                 'jpeg' => 'JPEG Image',
                 'gif' => 'GIF Image',
-            ]
+            ],
         ];
 
         return $this->successResponse($constants, 'System constants');
@@ -103,7 +103,7 @@ class ConfigController extends BaseController
     public function getNavigation(): JsonResponse
     {
         $user = auth()->user();
-        if (!$user) {
+        if (! $user) {
             return $this->errorResponse('Unauthorized', 401);
         }
 
@@ -124,7 +124,7 @@ class ConfigController extends BaseController
                 'label' => 'Ana Səhifə',
                 'icon' => 'dashboard',
                 'route' => '/dashboard',
-                'roles' => ['all']
+                'roles' => ['all'],
             ],
         ];
 
@@ -155,7 +155,7 @@ class ConfigController extends BaseController
                 ['id' => 'classes', 'label' => 'Siniflərim', 'icon' => 'collection', 'route' => '/my-classes'],
                 ['id' => 'students', 'label' => 'Şagirdlər', 'icon' => 'academic-cap', 'route' => '/students'],
                 ['id' => 'schedule', 'label' => 'Cədvəlim', 'icon' => 'calendar', 'route' => '/my-schedule'],
-            ]
+            ],
         ];
 
         // Common navigation for all roles

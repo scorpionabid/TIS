@@ -3,9 +3,9 @@
 namespace App\Http\Middleware;
 
 use Closure;
-use Illuminate\Http\Request;
 use Illuminate\Cache\RateLimiter;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 class InventoryRateLimiter
@@ -45,13 +45,13 @@ class InventoryRateLimiter
      */
     protected function getLimitsForType(string $type): array
     {
-        return match($type) {
+        return match ($type) {
             'analytics' => [
                 'maxAttempts' => 30,     // 30 requests
                 'decayMinutes' => 60,    // per hour
             ],
             'bulk' => [
-                'maxAttempts' => 10,     // 10 requests  
+                'maxAttempts' => 10,     // 10 requests
                 'decayMinutes' => 60,    // per hour
             ],
             'export' => [
@@ -136,7 +136,7 @@ class InventoryRateLimiter
     /**
      * Get the limit headers
      */
-    protected function getHeaders(int $maxAttempts, int $remainingAttempts, int $retryAfter = null): array
+    protected function getHeaders(int $maxAttempts, int $remainingAttempts, ?int $retryAfter = null): array
     {
         $headers = [
             'X-RateLimit-Limit' => $maxAttempts,

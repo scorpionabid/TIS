@@ -18,11 +18,6 @@ class SurveyExportService
     /**
      * Export survey responses with comprehensive data
      * Supports Excel (XLSX/CSV) export using Maatwebsite Excel
-     *
-     * @param Survey $survey
-     * @param Request $request
-     * @param User $user
-     * @return array
      */
     public function exportSurveyResponses(Survey $survey, Request $request, User $user): array
     {
@@ -31,7 +26,7 @@ class SurveyExportService
             'survey_title' => $survey->title,
             'user_id' => $user->id,
             'request_params' => $request->all(),
-            'format' => $request->input('format', 'xlsx')
+            'format' => $request->input('format', 'xlsx'),
         ]);
 
         try {
@@ -49,7 +44,7 @@ class SurveyExportService
             $filePath = storage_path("app/exports/{$filename}");
 
             // Ensure directory exists
-            if (!file_exists(dirname($filePath))) {
+            if (! file_exists(dirname($filePath))) {
                 mkdir(dirname($filePath), 0755, true);
             }
 
@@ -72,9 +67,8 @@ class SurveyExportService
                 'format' => $format,
                 'survey_id' => $survey->id,
                 'exported_at' => now(),
-                'user_id' => $user->id
+                'user_id' => $user->id,
             ];
-
         } catch (\Exception $e) {
             // Log error
             Log::error('Survey response export failed', [
@@ -82,7 +76,7 @@ class SurveyExportService
                 'user_id' => $user->id,
                 'filters' => $request->all(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             throw new \Exception('Export failed: ' . $e->getMessage());
@@ -100,7 +94,7 @@ class SurveyExportService
             'user_id' => $user->id,
             'user_name' => $user->name,
             'filters' => $filters,
-            'timestamp' => now()->toDateTimeString()
+            'timestamp' => now()->toDateTimeString(),
         ]);
     }
 
@@ -143,6 +137,7 @@ class SurveyExportService
             // RegionAdmin can see their region
             $institutionIds = $this->getRegionInstitutionIds($user);
             $query->whereIn('institution_id', $institutionIds);
+
             return;
         }
 
@@ -150,6 +145,7 @@ class SurveyExportService
             // SektorAdmin can see their sector
             $institutionIds = $this->getSectorInstitutionIds($user);
             $query->whereIn('institution_id', $institutionIds);
+
             return;
         }
 

@@ -25,9 +25,9 @@ trait SeedsDefaultRolesAndPermissions
     /**
      * Create a test user with the given role and optional permissions.
      *
-     * @param string|null $role        Role name to assign (null skips assignment).
-     * @param array<string> $permissions Additional permissions to grant.
-     * @param array<string, mixed> $attributes Extra user attributes to override defaults.
+     * @param string|null          $role        Role name to assign (null skips assignment).
+     * @param array<string>        $permissions Additional permissions to grant.
+     * @param array<string, mixed> $attributes  Extra user attributes to override defaults.
      */
     protected function createUserWithRole(?string $role = 'superadmin', array $permissions = [], array $attributes = []): User
     {
@@ -44,7 +44,7 @@ trait SeedsDefaultRolesAndPermissions
         $user = User::factory()->create(array_merge($baseAttributes, $attributes));
 
         // Force fill any attributes that are guarded or appended after factory creation
-        if (!empty($attributes)) {
+        if (! empty($attributes)) {
             $user->forceFill($attributes);
             $user->save();
         }
@@ -53,7 +53,7 @@ trait SeedsDefaultRolesAndPermissions
             $user->assignRole($role);
         }
 
-        if (!empty($permissions)) {
+        if (! empty($permissions)) {
             $user->givePermissionTo($permissions);
         }
 

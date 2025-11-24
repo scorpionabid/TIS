@@ -14,8 +14,6 @@ class DuplicateDetector
 {
     /**
      * Batch cache for existing institutions by UTIS code
-     *
-     * @var array
      */
     protected array $existingInstitutionsByUtis = [];
 
@@ -23,9 +21,6 @@ class DuplicateDetector
      * Check if UTIS code already exists in database
      *
      * Used for small dataset imports (<50 rows).
-     *
-     * @param string $utisCode
-     * @return bool
      */
     public function isDuplicateUtisCode(string $utisCode): bool
     {
@@ -38,9 +33,6 @@ class DuplicateDetector
 
     /**
      * Get institution by UTIS code from database
-     *
-     * @param string $utisCode
-     * @return Institution|null
      */
     public function getInstitutionByUtisCode(string $utisCode): ?Institution
     {
@@ -51,9 +43,6 @@ class DuplicateDetector
      * Batch check for duplicate UTIS codes using pre-loaded cache
      *
      * Used for large dataset imports (>50 rows) to avoid N+1 queries.
-     *
-     * @param string $utisCode
-     * @return bool
      */
     public function isDuplicateUtisCodeBatch(string $utisCode): bool
     {
@@ -66,19 +55,17 @@ class DuplicateDetector
 
     /**
      * Get institution by UTIS code from batch cache
-     *
-     * @param string $utisCode
-     * @return Institution|null
      */
     public function getInstitutionByUtisCodeBatch(string $utisCode): ?Institution
     {
-        if (empty($utisCode) || !isset($this->existingInstitutionsByUtis[$utisCode])) {
+        if (empty($utisCode) || ! isset($this->existingInstitutionsByUtis[$utisCode])) {
             return null;
         }
 
         $data = $this->existingInstitutionsByUtis[$utisCode];
-        $institution = new Institution();
+        $institution = new Institution;
         $institution->fill($data);
+
         return $institution;
     }
 
@@ -86,9 +73,6 @@ class DuplicateDetector
      * Preload institutions by UTIS codes for batch processing
      *
      * Loads institutions in bulk using whereIn() to prevent N+1 queries.
-     *
-     * @param array $utisCodes
-     * @return void
      */
     public function preloadInstitutionsByUtis(array $utisCodes): void
     {
@@ -104,8 +88,6 @@ class DuplicateDetector
 
     /**
      * Reset batch cache
-     *
-     * @return void
      */
     public function resetBatchCache(): void
     {
@@ -114,8 +96,6 @@ class DuplicateDetector
 
     /**
      * Get batch cache
-     *
-     * @return array
      */
     public function getBatchCache(): array
     {

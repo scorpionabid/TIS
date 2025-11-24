@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class AcademicTerm extends Model
 {
@@ -44,7 +44,7 @@ class AcademicTerm extends Model
         $formattedDate = $date->toDateString();
 
         return $query->where('start_date', '<=', $formattedDate)
-                     ->where('end_date', '>=', $formattedDate);
+            ->where('end_date', '>=', $formattedDate);
     }
 
     /**

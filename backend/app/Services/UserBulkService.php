@@ -2,12 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\User;
 use App\Models\ActivityLog;
 use App\Models\SecurityEvent;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 use Exception;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class UserBulkService
 {
@@ -21,7 +21,7 @@ class UserBulkService
             $updatedCount = 0;
 
             foreach ($users as $user) {
-                if (!$user->is_active) {
+                if (! $user->is_active) {
                     $user->update(['is_active' => true, 'locked_until' => null]);
                     $updatedCount++;
 
@@ -34,25 +34,25 @@ class UserBulkService
                         'description' => 'User activated via bulk operation',
                         'event_data' => [
                             'target_username' => $user->username,
-                            'bulk_operation' => true
-                        ]
+                            'bulk_operation' => true,
+                        ],
                     ]);
                 }
             }
 
             // Log bulk activity
             $this->logBulkActivity('bulk_user_activate', $updatedCount, count($userIds), [
-                'user_ids' => $userIds
+                'user_ids' => $userIds,
             ]);
 
             return [
                 'updated_count' => $updatedCount,
                 'total_requested' => count($userIds),
-                'message' => "{$updatedCount} istifadəçi uğurla aktivləşdirildi"
+                'message' => "{$updatedCount} istifadəçi uğurla aktivləşdirildi",
             ];
         });
     }
-    
+
     /**
      * Bulk deactivate users
      */
@@ -71,12 +71,12 @@ class UserBulkService
                 if ($user->is_active) {
                     $user->update([
                         'is_active' => false,
-                        'locked_until' => now()->addYears(10)
+                        'locked_until' => now()->addYears(10),
                     ]);
-                    
+
                     // Revoke all tokens
                     $user->tokens()->delete();
-                    
+
                     $updatedCount++;
 
                     // Log security event
@@ -88,25 +88,25 @@ class UserBulkService
                         'description' => 'User deactivated via bulk operation',
                         'event_data' => [
                             'target_username' => $user->username,
-                            'bulk_operation' => true
-                        ]
+                            'bulk_operation' => true,
+                        ],
                     ]);
                 }
             }
 
             // Log bulk activity
             $this->logBulkActivity('bulk_user_deactivate', $updatedCount, count($userIds), [
-                'user_ids' => $userIds
+                'user_ids' => $userIds,
             ]);
 
             return [
                 'updated_count' => $updatedCount,
                 'total_requested' => count($userIds),
-                'message' => "{$updatedCount} istifadəçi uğurla deaktiv edildi"
+                'message' => "{$updatedCount} istifadəçi uğurla deaktiv edildi",
             ];
         });
     }
-    
+
     /**
      * Bulk assign role to users
      */
@@ -134,8 +134,8 @@ class UserBulkService
                             'target_username' => $user->username,
                             'old_role' => $oldRole,
                             'new_role' => $newRole,
-                            'bulk_operation' => true
-                        ]
+                            'bulk_operation' => true,
+                        ],
                     ]);
                 }
             }
@@ -143,17 +143,17 @@ class UserBulkService
             // Log bulk activity
             $this->logBulkActivity('bulk_role_assign', $updatedCount, count($userIds), [
                 'user_ids' => $userIds,
-                'role_id' => $roleId
+                'role_id' => $roleId,
             ]);
 
             return [
                 'updated_count' => $updatedCount,
                 'total_requested' => count($userIds),
-                'message' => "{$updatedCount} istifadəçiyə rol təyin edildi"
+                'message' => "{$updatedCount} istifadəçiyə rol təyin edildi",
             ];
         });
     }
-    
+
     /**
      * Bulk assign institution to users
      */
@@ -178,8 +178,8 @@ class UserBulkService
                         'event_data' => [
                             'target_username' => $user->username,
                             'new_institution_id' => $institutionId,
-                            'bulk_operation' => true
-                        ]
+                            'bulk_operation' => true,
+                        ],
                     ]);
                 }
             }
@@ -187,17 +187,17 @@ class UserBulkService
             // Log bulk activity
             $this->logBulkActivity('bulk_institution_assign', $updatedCount, count($userIds), [
                 'user_ids' => $userIds,
-                'institution_id' => $institutionId
+                'institution_id' => $institutionId,
             ]);
 
             return [
                 'updated_count' => $updatedCount,
                 'total_requested' => count($userIds),
-                'message' => "{$updatedCount} istifadəçiyə təşkilat təyin edildi"
+                'message' => "{$updatedCount} istifadəçiyə təşkilat təyin edildi",
             ];
         });
     }
-    
+
     /**
      * Bulk delete users
      */
@@ -233,18 +233,18 @@ class UserBulkService
                     'event_data' => [
                         'target_username' => $user->username,
                         'target_email' => $user->email,
-                        'bulk_operation' => true
-                    ]
+                        'bulk_operation' => true,
+                    ],
                 ]);
 
                 // Delete profile if exists
                 if ($user->profile) {
                     $user->profile->delete();
                 }
-                
+
                 // Delete user tokens
                 $user->tokens()->delete();
-                
+
                 // Delete user
                 $user->delete();
                 $deletedCount++;
@@ -252,13 +252,13 @@ class UserBulkService
 
             // Log bulk activity
             $this->logBulkActivity('bulk_user_delete', $deletedCount, count($userIds), [
-                'user_ids' => $userIds
+                'user_ids' => $userIds,
             ]);
 
             return [
                 'deleted_count' => $deletedCount,
                 'total_requested' => count($userIds),
-                'message' => "{$deletedCount} istifadəçi uğurla silindi"
+                'message' => "{$deletedCount} istifadəçi uğurla silindi",
             ];
         });
     }
@@ -275,11 +275,11 @@ class UserBulkService
             foreach ($users as $user) {
                 // Restore user
                 $user->restore();
-                
+
                 // Reactivate user
                 $user->update([
                     'is_active' => true,
-                    'locked_until' => null
+                    'locked_until' => null,
                 ]);
 
                 // Log security event
@@ -292,8 +292,8 @@ class UserBulkService
                     'event_data' => [
                         'target_username' => $user->username,
                         'target_email' => $user->email,
-                        'bulk_operation' => true
-                    ]
+                        'bulk_operation' => true,
+                    ],
                 ]);
 
                 $restoredCount++;
@@ -301,13 +301,13 @@ class UserBulkService
 
             // Log bulk activity
             $this->logBulkActivity('bulk_user_restore', $restoredCount, count($userIds), [
-                'user_ids' => $userIds
+                'user_ids' => $userIds,
             ]);
 
             return [
                 'restored_count' => $restoredCount,
                 'total_requested' => count($userIds),
-                'message' => "{$restoredCount} istifadəçi uğurla bərpa edildi"
+                'message' => "{$restoredCount} istifadəçi uğurla bərpa edildi",
             ];
         });
     }
@@ -337,13 +337,13 @@ class UserBulkService
                     'event_data' => [
                         'target_username' => $user->username,
                         'target_email' => $user->email,
-                        'bulk_operation' => true
-                    ]
+                        'bulk_operation' => true,
+                    ],
                 ]);
 
                 // Remove associated data
                 $user->tokens()->delete();
-                
+
                 if ($user->profile) {
                     $user->profile->forceDelete();
                 }
@@ -356,17 +356,17 @@ class UserBulkService
 
             // Log bulk activity
             $this->logBulkActivity('bulk_user_force_delete', $deletedCount, count($userIds), [
-                'user_ids' => $userIds
+                'user_ids' => $userIds,
             ]);
 
             return [
                 'deleted_count' => $deletedCount,
                 'total_requested' => count($userIds),
-                'message' => "{$deletedCount} istifadəçi həmişəlik silindi"
+                'message' => "{$deletedCount} istifadəçi həmişəlik silindi",
             ];
         });
     }
-    
+
     /**
      * Get bulk operation statistics
      */
@@ -378,10 +378,10 @@ class UserBulkService
             'inactive_users' => User::where('is_active', false)->count(),
             'by_role' => $this->getUserCountsByRole(),
             'by_institution' => $this->getUserCountsByInstitution(),
-            'recent_activity' => $this->getRecentActivity()
+            'recent_activity' => $this->getRecentActivity(),
         ];
     }
-    
+
     /**
      * Validate bulk operation limits
      */
@@ -392,26 +392,26 @@ class UserBulkService
             'deactivate' => 100,
             'assign_role' => 100,
             'assign_institution' => 100,
-            'delete' => 50  // Smaller limit for safety
+            'delete' => 50,  // Smaller limit for safety
         ];
-        
+
         $limit = $maxLimits[$operation] ?? 50;
-        
+
         if (count($userIds) > $limit) {
             throw new Exception("Bulk {$operation} operation limited to {$limit} users at once");
         }
-        
+
         if (empty($userIds)) {
             throw new Exception('No users selected for bulk operation');
         }
-        
+
         // Validate all user IDs exist
         $existingCount = User::whereIn('id', $userIds)->count();
         if ($existingCount !== count($userIds)) {
             throw new Exception('Some user IDs do not exist');
         }
     }
-    
+
     /**
      * Get preview of bulk operation
      */
@@ -420,7 +420,7 @@ class UserBulkService
         $users = User::whereIn('id', $userIds)
             ->with(['role', 'institution'])
             ->get(['id', 'username', 'email', 'is_active', 'role_id', 'institution_id']);
-            
+
         $preview = [
             'total_users' => count($userIds),
             'users' => $users->map(function ($user) {
@@ -430,13 +430,13 @@ class UserBulkService
                     'email' => $user->email,
                     'current_status' => $user->is_active ? 'active' : 'inactive',
                     'current_role' => $user->role?->name,
-                    'current_institution' => $user->institution?->name
+                    'current_institution' => $user->institution?->name,
                 ];
             }),
             'operation' => $operation,
-            'warnings' => []
+            'warnings' => [],
         ];
-        
+
         // Add operation-specific warnings
         switch ($operation) {
             case 'deactivate':
@@ -444,25 +444,25 @@ class UserBulkService
                     $preview['warnings'][] = 'Cannot deactivate your own account - will be skipped';
                 }
                 break;
-                
+
             case 'delete':
                 if (in_array(Auth::id(), $userIds)) {
                     $preview['warnings'][] = 'Cannot delete your own account - will be skipped';
                 }
-                
+
                 $superAdminCount = $users->filter(function ($user) {
                     return $user->role?->name === 'superadmin';
                 })->count();
-                
+
                 if ($superAdminCount > 0) {
                     $preview['warnings'][] = "Cannot delete {$superAdminCount} SuperAdmin account(s) - will be skipped";
                 }
                 break;
         }
-        
+
         return $preview;
     }
-    
+
     /**
      * Get user counts by role
      */
@@ -474,7 +474,7 @@ class UserBulkService
             ->pluck('count', 'role')
             ->toArray();
     }
-    
+
     /**
      * Get user counts by institution
      */
@@ -488,7 +488,7 @@ class UserBulkService
             ->pluck('count', 'institution')
             ->toArray();
     }
-    
+
     /**
      * Get recent activity statistics
      */
@@ -497,10 +497,10 @@ class UserBulkService
         return [
             'today' => User::whereDate('created_at', today())->count(),
             'this_week' => User::where('created_at', '>=', now()->startOfWeek())->count(),
-            'this_month' => User::where('created_at', '>=', now()->startOfMonth())->count()
+            'this_month' => User::where('created_at', '>=', now()->startOfMonth())->count(),
         ];
     }
-    
+
     /**
      * Log bulk activity
      */
@@ -514,10 +514,10 @@ class UserBulkService
             'event_data' => [
                 'updated_count' => $updatedCount,
                 'total_requested' => $totalRequested,
-                'success_rate' => round(($updatedCount / $totalRequested) * 100, 2) . '%'
-            ]
+                'success_rate' => round(($updatedCount / $totalRequested) * 100, 2) . '%',
+            ],
         ], $additionalData);
-        
+
         ActivityLog::logActivity($data);
     }
 }

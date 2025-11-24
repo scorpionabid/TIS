@@ -21,7 +21,7 @@ class GradeNamingConstants
         'A', 'B', 'C', 'Ç', 'D', 'E', 'Ə', 'F',
         'G', 'Ğ', 'H', 'X', 'I', 'İ', 'J', 'K',
         'Q', 'L', 'M', 'N', 'O', 'Ö', 'P', 'R',
-        'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z'
+        'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z',
     ];
 
     /**
@@ -32,7 +32,7 @@ class GradeNamingConstants
         'A', 'B', 'C', 'Ç', 'D', 'E', 'Ə', 'F',
         'G', 'Ğ', 'H', 'X', 'I', 'İ', 'J', 'K',
         'Q', 'L', 'M', 'N', 'O', 'Ö', 'P', 'R',
-        'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z'
+        'S', 'Ş', 'T', 'U', 'Ü', 'V', 'Y', 'Z',
     ];
 
     /**
@@ -41,7 +41,7 @@ class GradeNamingConstants
      */
     public const EXTENDED_GRADE_LETTERS = [
         'A', 'B', 'C', 'Ç', 'D', 'E', 'Ə', 'F',
-        'G', 'Ğ', 'H', 'İ', 'J', 'K', 'L', 'M'
+        'G', 'Ğ', 'H', 'İ', 'J', 'K', 'L', 'M',
     ];
 
     /**
@@ -54,7 +54,7 @@ class GradeNamingConstants
     public const CLASS_LEVELS = [
         1, 2, 3, 4,      // Primary
         5, 6, 7, 8, 9,   // General Secondary
-        10, 11, 12       // Complete Secondary
+        10, 11, 12,       // Complete Secondary
     ];
 
     /**
@@ -119,9 +119,6 @@ class GradeNamingConstants
 
     /**
      * Get grade level education stage
-     *
-     * @param int $classLevel
-     * @return string
      */
     public static function getEducationStage(int $classLevel): string
     {
@@ -140,12 +137,6 @@ class GradeNamingConstants
 
     /**
      * Get formatted grade name
-     *
-     * @param int $classLevel
-     * @param string $letter
-     * @param string|null $specialty
-     * @param string $pattern
-     * @return string
      */
     public static function formatGradeName(
         int $classLevel,
@@ -162,7 +153,7 @@ class GradeNamingConstants
         );
 
         // Clean up if no specialty
-        if (!$specialty) {
+        if (! $specialty) {
             $name = str_replace(' ()', '', $name);
         }
 
@@ -171,9 +162,6 @@ class GradeNamingConstants
 
     /**
      * Validate if letter is in Azerbaijani alphabet
-     *
-     * @param string $letter
-     * @return bool
      */
     public static function isValidLetter(string $letter): bool
     {
@@ -182,9 +170,6 @@ class GradeNamingConstants
 
     /**
      * Validate if class level is valid
-     *
-     * @param int $classLevel
-     * @return bool
      */
     public static function isValidClassLevel(int $classLevel): bool
     {
@@ -193,15 +178,12 @@ class GradeNamingConstants
 
     /**
      * Get available letters for dropdown
-     *
-     * @param bool $extended
-     * @return array
      */
     public static function getAvailableLetters(bool $extended = false): array
     {
         $letters = $extended ? self::EXTENDED_GRADE_LETTERS : self::COMMON_GRADE_LETTERS;
 
-        return array_map(function($letter) {
+        return array_map(function ($letter) {
             return [
                 'value' => $letter,
                 'label' => $letter,
@@ -211,15 +193,12 @@ class GradeNamingConstants
 
     /**
      * Get available class levels for dropdown
-     *
-     * @param bool $includePreschool
-     * @return array
      */
     public static function getAvailableClassLevels(bool $includePreschool = false): array
     {
         $levels = $includePreschool ? self::ALL_LEVELS : self::CLASS_LEVELS;
 
-        return array_map(function($level) {
+        return array_map(function ($level) {
             $label = $level === 0
                 ? 'Məktəbəqədər qrup'
                 : $level . '-ci sinif';
@@ -234,8 +213,6 @@ class GradeNamingConstants
 
     /**
      * Get available specialties for dropdown
-     *
-     * @return array
      */
     public static function getAvailableSpecialties(): array
     {
@@ -258,9 +235,6 @@ class GradeNamingConstants
 
     /**
      * Check if specialty is typically used for high school
-     *
-     * @param int $classLevel
-     * @return bool
      */
     public static function shouldShowSpecialty(int $classLevel): bool
     {
@@ -269,9 +243,6 @@ class GradeNamingConstants
 
     /**
      * Get grade capacity recommendation based on level
-     *
-     * @param int $classLevel
-     * @return array
      */
     public static function getCapacityRecommendation(int $classLevel): array
     {

@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\SurveyNotificationService;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Http\Traits\ResponseHelpers;
+use App\Services\SurveyNotificationService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Survey Notification Controller
- * 
+ *
  * Survey assignment notification-larını idarə etmək üçün controller
  */
 class SurveyNotificationController extends BaseController
@@ -28,10 +28,9 @@ class SurveyNotificationController extends BaseController
      */
     public function index(Request $request): JsonResponse
     {
-
         $validated = $request->validate([
             'limit' => 'nullable|integer|min:1|max:100',
-            'only_unread' => 'nullable|boolean'
+            'only_unread' => 'nullable|boolean',
         ]);
 
         try {
@@ -41,11 +40,12 @@ class SurveyNotificationController extends BaseController
                 'user_id' => $user?->id,
                 'user_name' => $user?->name,
                 'user_roles' => $user?->roles->pluck('name')->toArray(),
-                'validated' => $validated
+                'validated' => $validated,
             ]);
 
-            if (!$user) {
+            if (! $user) {
                 \Log::warning('SurveyNotificationController: No authenticated user');
+
                 return $this->errorResponse('Unauthenticated', 401);
             }
 
@@ -56,15 +56,16 @@ class SurveyNotificationController extends BaseController
 
             \Log::info('SurveyNotificationController: Notifications retrieved', [
                 'user_id' => $user->id,
-                'count' => count($notifications)
+                'count' => count($notifications),
             ]);
 
             return $this->successResponse($notifications, 'Survey notifications retrieved successfully');
         } catch (\Exception $e) {
             \Log::error('SurveyNotificationController: Exception in index', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -79,11 +80,12 @@ class SurveyNotificationController extends BaseController
 
             \Log::info('SurveyNotificationController: unreadCount called', [
                 'user_id' => $user?->id,
-                'user_name' => $user?->name
+                'user_name' => $user?->name,
             ]);
 
-            if (!$user) {
+            if (! $user) {
                 \Log::warning('SurveyNotificationController: No authenticated user for unreadCount');
+
                 return $this->errorResponse('Unauthenticated', 401);
             }
 
@@ -91,17 +93,18 @@ class SurveyNotificationController extends BaseController
 
             \Log::info('SurveyNotificationController: Unread count retrieved', [
                 'user_id' => $user->id,
-                'unread_count' => $count
+                'unread_count' => $count,
             ]);
 
             return $this->successResponse([
-                'unread_count' => $count
+                'unread_count' => $count,
             ], 'Unread count retrieved successfully');
         } catch (\Exception $e) {
             \Log::error('SurveyNotificationController: Exception in unreadCount', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->errorResponse($e->getMessage(), 500);
         }
     }
@@ -135,19 +138,19 @@ class SurveyNotificationController extends BaseController
                 ->where('type', 'LIKE', 'survey%')
                 ->first();
 
-            if (!$notification) {
+            if (! $notification) {
                 return $this->errorResponse('Notification not found', 404);
             }
 
             // Notification-u read olaraq işarələ
             $notification->update([
                 'is_read' => true,
-                'read_at' => now()
+                'read_at' => now(),
             ]);
 
             return $this->successResponse([
                 'is_read' => true,
-                'notification_id' => $notificationId
+                'notification_id' => $notificationId,
             ], 'Notification marked as read');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);

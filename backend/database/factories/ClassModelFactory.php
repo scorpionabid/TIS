@@ -2,9 +2,9 @@
 
 namespace Database\Factories;
 
+use App\Models\AcademicYear;
 use App\Models\ClassModel;
 use App\Models\Institution;
-use App\Models\AcademicYear;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -35,4 +35,3 @@ class ClassModelFactory extends Factory
         ];
     }
 }
-

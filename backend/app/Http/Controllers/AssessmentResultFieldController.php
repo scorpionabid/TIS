@@ -15,26 +15,26 @@ class AssessmentResultFieldController extends Controller
     public function index(AssessmentType $assessmentType): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canManageType($user, $assessmentType)) {
+        if (! $this->canManageType($user, $assessmentType)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə növü üçün nəticə sahələrinə baxmaq icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə növü üçün nəticə sahələrinə baxmaq icazəniz yoxdur',
             ], 403);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $assessmentType->resultFields()->get()
+            'data' => $assessmentType->resultFields()->get(),
         ]);
     }
 
     public function store(Request $request, AssessmentType $assessmentType): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canManageType($user, $assessmentType)) {
+        if (! $this->canManageType($user, $assessmentType)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə növü üçün nəticə sahəsi yaratmaq icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə növü üçün nəticə sahəsi yaratmaq icazəniz yoxdur',
             ], 403);
         }
 
@@ -44,7 +44,7 @@ class AssessmentResultFieldController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -60,24 +60,24 @@ class AssessmentResultFieldController extends Controller
         return response()->json([
             'success' => true,
             'data' => $field,
-            'message' => 'Nəticə sahəsi uğurla yaradıldı'
+            'message' => 'Nəticə sahəsi uğurla yaradıldı',
         ], 201);
     }
 
     public function update(Request $request, AssessmentType $assessmentType, AssessmentResultField $assessmentResultField): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canManageType($user, $assessmentType)) {
+        if (! $this->canManageType($user, $assessmentType)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu nəticə sahəsini redaktə etmək icazəniz yoxdur'
+                'message' => 'Bu nəticə sahəsini redaktə etmək icazəniz yoxdur',
             ], 403);
         }
 
         if ($assessmentResultField->assessment_type_id !== $assessmentType->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Nəticə sahəsi bu qiymətləndirmə növünə aid deyil'
+                'message' => 'Nəticə sahəsi bu qiymətləndirmə növünə aid deyil',
             ], 400);
         }
 
@@ -87,7 +87,7 @@ class AssessmentResultFieldController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -102,31 +102,31 @@ class AssessmentResultFieldController extends Controller
         return response()->json([
             'success' => true,
             'data' => $assessmentResultField,
-            'message' => 'Nəticə sahəsi uğurla yeniləndi'
+            'message' => 'Nəticə sahəsi uğurla yeniləndi',
         ]);
     }
 
     public function destroy(AssessmentType $assessmentType, AssessmentResultField $assessmentResultField): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canManageType($user, $assessmentType)) {
+        if (! $this->canManageType($user, $assessmentType)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu nəticə sahəsini silmək icazəniz yoxdur'
+                'message' => 'Bu nəticə sahəsini silmək icazəniz yoxdur',
             ], 403);
         }
 
         if ($assessmentResultField->assessment_type_id !== $assessmentType->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Nəticə sahəsi bu qiymətləndirmə növünə aid deyil'
+                'message' => 'Nəticə sahəsi bu qiymətləndirmə növünə aid deyil',
             ], 400);
         }
 
         if ($assessmentType->schoolAssessments()->exists()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu sahə ilə bağlı qiymətləndirmələr mövcuddur, silinə bilməz'
+                'message' => 'Bu sahə ilə bağlı qiymətləndirmələr mövcuddur, silinə bilməz',
             ], 409);
         }
 
@@ -134,7 +134,7 @@ class AssessmentResultFieldController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Nəticə sahəsi uğurla silindi'
+            'message' => 'Nəticə sahəsi uğurla silindi',
         ]);
     }
 

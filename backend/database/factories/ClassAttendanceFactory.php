@@ -52,7 +52,7 @@ class ClassAttendanceFactory extends Factory
                 'created_by_ip' => $this->faker->ipv4(),
                 'created_by_user_agent' => $this->faker->userAgent(),
                 'total_accounted' => $presentStudents + $absentExcused + $absentUnexcused,
-                'attendance_percentage' => $totalStudents > 0 ? round(($presentStudents / $totalStudents) * 100, 2) : 0
+                'attendance_percentage' => $totalStudents > 0 ? round(($presentStudents / $totalStudents) * 100, 2) : 0,
             ],
             'created_at' => now(),
             'updated_at' => now(),
@@ -136,7 +136,7 @@ class ClassAttendanceFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             $totalStudents = $attributes['total_students_registered'] ?? 25;
-            
+
             return [
                 'students_present' => $totalStudents,
                 'students_absent_excused' => 0,
@@ -147,7 +147,7 @@ class ClassAttendanceFactory extends Factory
                     'created_by_ip' => $this->faker->ipv4(),
                     'created_by_user_agent' => $this->faker->userAgent(),
                     'total_accounted' => $totalStudents,
-                    'attendance_percentage' => 100.0
+                    'attendance_percentage' => 100.0,
                 ]),
             ];
         });

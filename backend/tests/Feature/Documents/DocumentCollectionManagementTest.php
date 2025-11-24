@@ -4,10 +4,8 @@ namespace Tests\Feature\Documents;
 
 use App\Models\Document;
 use App\Models\DocumentCollection;
-use App\Models\FolderAuditLog;
 use App\Models\Institution;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\DB;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 

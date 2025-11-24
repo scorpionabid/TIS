@@ -4,10 +4,8 @@ namespace App\Services;
 
 use App\Models\Institution;
 use App\Models\User;
-use App\Services\BaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 class SectorCrudService extends BaseService
 {
@@ -38,8 +36,8 @@ class SectorCrudService extends BaseService
             $searchTerm = $request->search;
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('name', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('code', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('description', 'LIKE', "%{$searchTerm}%");
+                    ->orWhere('code', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('description', 'LIKE', "%{$searchTerm}%");
             });
         }
 
@@ -56,7 +54,7 @@ class SectorCrudService extends BaseService
 
         return [
             'sectors' => $sectors,
-            'summary' => $summary
+            'summary' => $summary,
         ];
     }
 
@@ -70,9 +68,9 @@ class SectorCrudService extends BaseService
             ->where('level', 3);
 
         $this->applySectorAccessControl($query, $user);
-        
+
         $sector = $query->findOrFail($id);
-        
+
         return $this->transformSectorWithCompleteDetails($sector);
     }
 
@@ -100,11 +98,11 @@ class SectorCrudService extends BaseService
                 'email' => $data['email'] ?? null,
                 'description' => $data['description'] ?? null,
                 'is_active' => $data['is_active'] ?? true,
-                'created_by' => $user->id
+                'created_by' => $user->id,
             ]);
 
             // Assign manager if provided
-            if (!empty($data['manager_id'])) {
+            if (! empty($data['manager_id'])) {
                 $this->assignSectorManager($sector, $data['manager_id']);
             }
 
@@ -120,7 +118,7 @@ class SectorCrudService extends BaseService
         return DB::transaction(function () use ($id, $data, $user) {
             $query = Institution::where('type', 'sector_education_office')->where('level', 3);
             $this->applySectorAccessControl($query, $user);
-            
+
             $sector = $query->findOrFail($id);
 
             // Update basic information
@@ -132,7 +130,7 @@ class SectorCrudService extends BaseService
                 'email' => $data['email'] ?? $sector->email,
                 'description' => $data['description'] ?? $sector->description,
                 'is_active' => $data['is_active'] ?? $sector->is_active,
-                'updated_by' => $user->id
+                'updated_by' => $user->id,
             ]);
 
             // Update manager if provided
@@ -152,7 +150,7 @@ class SectorCrudService extends BaseService
         DB::transaction(function () use ($id, $user) {
             $query = Institution::where('type', 'sector_education_office')->where('level', 3);
             $this->applySectorAccessControl($query, $user);
-            
+
             $sector = $query->findOrFail($id);
 
             // Check if sector has active child institutions
@@ -178,12 +176,12 @@ class SectorCrudService extends BaseService
     {
         $query = Institution::where('type', 'sector_education_office')->where('level', 3);
         $this->applySectorAccessControl($query, $user);
-        
+
         $sector = $query->findOrFail($id);
-        
+
         $sector->update([
-            'is_active' => !$sector->is_active,
-            'updated_by' => $user->id
+            'is_active' => ! $sector->is_active,
+            'updated_by' => $user->id,
         ]);
 
         return $sector->fresh();
@@ -231,7 +229,7 @@ class SectorCrudService extends BaseService
             'manager' => $sector->manager ? [
                 'id' => $sector->manager->id,
                 'name' => $sector->manager->name,
-                'email' => $sector->manager->email
+                'email' => $sector->manager->email,
             ] : null,
             'statistics' => [
                 'total_institutions' => $sector->children()->withTrashed()->count(),
@@ -241,7 +239,7 @@ class SectorCrudService extends BaseService
                 'total_users' => $sector->users()->count(),
                 'active_users' => $sector->users()->where('is_active', true)->count(),
                 'total_students' => 0, // Will be calculated if student relationships exist
-                'total_teachers' => $sector->users()->whereHas('roles', function($q) {
+                'total_teachers' => $sector->users()->whereHas('roles', function ($q) {
                     $q->where('name', 'müəllim');
                 })->count(),
                 'total_staff' => $sector->users()->count(),
@@ -255,7 +253,7 @@ class SectorCrudService extends BaseService
                 'document_compliance' => 67.3,
             ],
             'created_at' => $sector->created_at,
-            'updated_at' => $sector->updated_at
+            'updated_at' => $sector->updated_at,
         ];
     }
 
@@ -265,7 +263,7 @@ class SectorCrudService extends BaseService
     private function transformSectorWithCompleteDetails(Institution $sector): array
     {
         $basicData = $this->transformSectorWithStats($sector);
-        
+
         // Add detailed children information
         $basicData['children'] = $sector->children->map(function ($child) {
             return [
@@ -276,15 +274,15 @@ class SectorCrudService extends BaseService
                 'institution_type' => $child->institutionType?->name,
                 'is_active' => $child->is_active,
                 'student_count' => $child->students()->count(),
-                'teacher_count' => $child->users()->whereHas('roles', function($q) {
+                'teacher_count' => $child->users()->whereHas('roles', function ($q) {
                     $q->where('name', 'teacher');
-                })->count()
+                })->count(),
             ];
         });
 
         // Add sector specialization
         $basicData['sector_type'] = $this->getSectorType($sector->name);
-        
+
         return $basicData;
     }
 
@@ -303,8 +301,8 @@ class SectorCrudService extends BaseService
 
         $total = $baseQuery->count();
         $active = $baseQuery->where('is_active', true)->count();
-        $withManagers = $baseQuery->whereHas('users', function($q) {
-            $q->whereHas('roles', function($r) {
+        $withManagers = $baseQuery->whereHas('users', function ($q) {
+            $q->whereHas('roles', function ($r) {
                 $r->where('name', 'sektoradmin');
             });
         })->count();
@@ -315,7 +313,7 @@ class SectorCrudService extends BaseService
             'inactive_sectors' => $total - $active,
             'with_managers' => $withManagers,
             'without_managers' => $total - $withManagers,
-            'management_coverage' => $total > 0 ? round(($withManagers / $total) * 100, 2) : 0
+            'management_coverage' => $total > 0 ? round(($withManagers / $total) * 100, 2) : 0,
         ];
     }
 
@@ -325,7 +323,7 @@ class SectorCrudService extends BaseService
     private function getSectorType(string $sectorName): string
     {
         $name = strtolower($sectorName);
-        
+
         if (strpos($name, 'texniki') !== false || strpos($name, 'peşə') !== false) {
             return 'technical_vocational';
         } elseif (strpos($name, 'incəsənət') !== false || strpos($name, 'musiqi') !== false) {
@@ -335,7 +333,7 @@ class SectorCrudService extends BaseService
         } elseif (strpos($name, 'xüsusi') !== false) {
             return 'special_education';
         }
-        
+
         return 'general_education';
     }
 
@@ -345,7 +343,7 @@ class SectorCrudService extends BaseService
     private function assignSectorManager(Institution $sector, int $managerId): void
     {
         // Remove current manager if exists
-        $currentManager = $sector->users()->whereHas('roles', function($q) {
+        $currentManager = $sector->users()->whereHas('roles', function ($q) {
             $q->where('name', 'sektoradmin');
         })->first();
 
@@ -358,7 +356,7 @@ class SectorCrudService extends BaseService
         $newManager->update(['institution_id' => $sector->id]);
 
         // Ensure user has sektoradmin role
-        if (!$newManager->hasRole('sektoradmin')) {
+        if (! $newManager->hasRole('sektoradmin')) {
             $newManager->assignRole('sektoradmin');
         }
     }

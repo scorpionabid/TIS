@@ -74,7 +74,7 @@ class AssessmentTypeInstitution extends Model
     public function getNotificationSettingsAttribute($value): array
     {
         $settings = $value ? json_decode($value, true) : [];
-        
+
         return array_merge([
             'days_before_due' => 7,
             'enabled' => true,

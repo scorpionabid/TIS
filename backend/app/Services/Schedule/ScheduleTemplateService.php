@@ -2,17 +2,16 @@
 
 namespace App\Services\Schedule;
 
+use App\Models\Schedule;
 use App\Models\ScheduleTemplate;
 use App\Models\ScheduleTemplateUsage;
-use App\Models\Schedule;
 use App\Models\User;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 
 class ScheduleTemplateService
 {
     protected MachineLearningScheduleAnalyzer $mlAnalyzer;
+
     protected AdvancedScheduleOptimizer $optimizer;
 
     public function __construct(
@@ -29,7 +28,7 @@ class ScheduleTemplateService
     public function getRecommendedTemplates(array $workloadData, User $user): Collection
     {
         $institutionId = $user->institution_id;
-        
+
         $recommendations = ScheduleTemplate::getRecommendedTemplates($workloadData, $institutionId);
 
         return $recommendations->map(function ($template) use ($workloadData) {
@@ -43,11 +42,11 @@ class ScheduleTemplateService
     public function createTemplateFromSchedule(Schedule $schedule, array $metadata, User $user): ScheduleTemplate
     {
         $templateData = ScheduleTemplate::generateFromSchedule($schedule, $metadata);
-        
+
         $template = ScheduleTemplate::create(array_merge($templateData, [
             'institution_id' => $user->institution_id,
             'created_by' => $user->id,
-            'success_rate' => $schedule->performance_rating ?? 0.7
+            'success_rate' => $schedule->performance_rating ?? 0.7,
         ]));
 
         $this->recordTemplateCreation($template, $schedule, $user);
@@ -78,7 +77,7 @@ class ScheduleTemplateService
             'template_id' => $template->id,
             'usage_id' => $usage->id,
             'modifications_applied' => $this->getAppliedModifications($template, $workloadData),
-            'expected_improvements' => $this->predictTemplateImprovements($template, $workloadData)
+            'expected_improvements' => $this->predictTemplateImprovements($template, $workloadData),
         ];
     }
 
@@ -124,7 +123,7 @@ class ScheduleTemplateService
             'user_feedback_analysis' => $this->analyzeUserFeedback($usages),
             'success_factors' => $this->identifySuccessFactors($usages),
             'improvement_suggestions' => $this->generateImprovementSuggestions($template, $usages),
-            'comparative_analysis' => $this->compareSimilarTemplates($template)
+            'comparative_analysis' => $this->compareSimilarTemplates($template),
         ];
 
         return $analysis;
@@ -136,7 +135,7 @@ class ScheduleTemplateService
     public function autoGenerateTemplates(User $user): Collection
     {
         $institutionId = $user->institution_id;
-        
+
         // Get successful schedules from the institution
         $successfulSchedules = Schedule::where('institution_id', $institutionId)
             ->where('performance_rating', '>', 0.8)
@@ -149,11 +148,11 @@ class ScheduleTemplateService
 
         foreach ($successfulSchedules as $schedule) {
             // Check if similar template already exists
-            if (!$this->similarTemplateExists($schedule)) {
+            if (! $this->similarTemplateExists($schedule)) {
                 $metadata = [
                     'name' => "Auto-Template {$schedule->name}",
-                    'description' => "Auto-generated from high-performing schedule",
-                    'type' => 'generated'
+                    'description' => 'Auto-generated from high-performing schedule',
+                    'type' => 'generated',
                 ];
 
                 $template = $this->createTemplateFromSchedule($schedule, $metadata, $user);
@@ -170,7 +169,7 @@ class ScheduleTemplateService
     public function optimizeTemplate(ScheduleTemplate $template, array $performanceData = []): ScheduleTemplate
     {
         $currentData = $template->template_data;
-        
+
         // Analyze current performance
         $performance = $this->analyzeTemplatePerformance($template);
 
@@ -185,7 +184,7 @@ class ScheduleTemplateService
 
         $template->update([
             'template_data' => $optimizedData,
-            'success_rate' => $this->calculateOptimizedSuccessRate($template, $optimizations)
+            'success_rate' => $this->calculateOptimizedSuccessRate($template, $optimizations),
         ]);
 
         return $template->fresh();
@@ -197,13 +196,13 @@ class ScheduleTemplateService
     public function getMLTemplateRecommendations(array $workloadData, User $user): array
     {
         $patterns = $this->mlAnalyzer->analyzeSchedulePatterns($workloadData, $user->institution_id);
-        
+
         $recommendations = [
             'primary_recommendations' => $this->getPrimaryRecommendations($patterns, $user),
             'alternative_recommendations' => $this->getAlternativeRecommendations($patterns, $user),
             'custom_template_suggestion' => $this->suggestCustomTemplate($patterns, $workloadData),
             'risk_assessment' => $patterns['risk_factors'],
-            'success_prediction' => $patterns['success_probability']
+            'success_prediction' => $patterns['success_probability'],
         ];
 
         return $recommendations;
@@ -214,11 +213,11 @@ class ScheduleTemplateService
     protected function enhanceTemplateWithMLAnalysis(ScheduleTemplate $template, array $workloadData): ScheduleTemplate
     {
         $analysis = $this->mlAnalyzer->analyzeSchedulePatterns($workloadData);
-        
+
         $template->ml_compatibility_score = $analysis['success_probability'];
         $template->predicted_conflicts = $analysis['conflict_likelihood']['overall_likelihood'];
         $template->optimization_potential = $this->calculateOptimizationPotential($template, $analysis);
-        
+
         return $template;
     }
 
@@ -232,16 +231,16 @@ class ScheduleTemplateService
             'usage_context' => [
                 'action' => $schedule ? 'schedule_creation' : 'template_application',
                 'timestamp' => now(),
-                'user_role' => $user->roles->first()?->name
+                'user_role' => $user->roles->first()?->name,
             ],
-            'used_at' => now()
+            'used_at' => now(),
         ]);
     }
 
     protected function applyTemplateOptimizations(array $workloadData, ScheduleTemplate $template): array
     {
         $templateData = $template->template_data;
-        
+
         // Apply optimization preferences
         if (isset($templateData['optimization_preferences'])) {
             $workloadData['optimization_preferences'] = array_merge(
@@ -254,7 +253,7 @@ class ScheduleTemplateService
         if (isset($templateData['distribution_patterns'])) {
             foreach ($workloadData['teaching_loads'] as &$load) {
                 $subjectCategory = $template->categorizeSubject($load['subject']['name']);
-                
+
                 if (isset($templateData['distribution_patterns'][$subjectCategory])) {
                     $pattern = $templateData['distribution_patterns'][$subjectCategory];
                     $load['template_distribution'] = $pattern;
@@ -279,29 +278,29 @@ class ScheduleTemplateService
                     'daily_periods' => 7,
                     'period_duration' => 45,
                     'break_periods' => [3, 6],
-                    'lunch_break_period' => 4
+                    'lunch_break_period' => 4,
                 ],
                 'distribution_patterns' => [
                     'core' => ['preferred_periods' => [1, 2, 3], 'max_consecutive' => 2],
                     'social' => ['preferred_periods' => [4, 5], 'max_consecutive' => 2],
-                    'practical' => ['preferred_periods' => [6, 7], 'max_consecutive' => 1]
+                    'practical' => ['preferred_periods' => [6, 7], 'max_consecutive' => 1],
                 ],
                 'optimization_preferences' => [
                     'prefer_morning_core_subjects' => true,
                     'minimize_gaps' => true,
-                    'balance_daily_load' => true
-                ]
+                    'balance_daily_load' => true,
+                ],
             ],
             'constraints' => [
                 'working_days' => [1, 2, 3, 4, 5],
                 'daily_periods' => 7,
                 'max_teachers' => 50,
-                'max_classes' => 30
+                'max_classes' => 30,
             ],
             'tags' => ['standard', 'general', 'school', 'core'],
             'difficulty_level' => 'medium',
             'estimated_generation_time' => 90,
-            'created_by' => 1 // System user
+            'created_by' => 1, // System user
         ]);
     }
 
@@ -318,22 +317,22 @@ class ScheduleTemplateService
                     'daily_periods' => 5,
                     'period_duration' => 40,
                     'break_periods' => [2, 4],
-                    'lunch_break_period' => 3
+                    'lunch_break_period' => 3,
                 ],
                 'distribution_patterns' => [
                     'core' => ['preferred_periods' => [1, 2], 'max_consecutive' => 2],
-                    'practical' => ['preferred_periods' => [4, 5], 'max_consecutive' => 1]
+                    'practical' => ['preferred_periods' => [4, 5], 'max_consecutive' => 1],
                 ],
                 'optimization_preferences' => [
                     'prefer_morning_core_subjects' => true,
                     'avoid_late_periods' => true,
-                    'minimize_teacher_changes' => true
-                ]
+                    'minimize_teacher_changes' => true,
+                ],
             ],
             'tags' => ['primary', 'elementary', 'young_students'],
             'difficulty_level' => 'easy',
             'estimated_generation_time' => 45,
-            'created_by' => 1
+            'created_by' => 1,
         ]);
     }
 
@@ -350,23 +349,23 @@ class ScheduleTemplateService
                     'daily_periods' => 8,
                     'period_duration' => 45,
                     'break_periods' => [3, 6],
-                    'lunch_break_period' => 4
+                    'lunch_break_period' => 4,
                 ],
                 'distribution_patterns' => [
                     'core' => ['preferred_periods' => [1, 2, 3, 5], 'max_consecutive' => 3],
                     'social' => ['preferred_periods' => [4, 6, 7], 'max_consecutive' => 2],
-                    'practical' => ['preferred_periods' => [7, 8], 'max_consecutive' => 2]
+                    'practical' => ['preferred_periods' => [7, 8], 'max_consecutive' => 2],
                 ],
                 'optimization_preferences' => [
                     'prefer_morning_core_subjects' => true,
                     'balance_daily_load' => true,
-                    'room_optimization' => true
-                ]
+                    'room_optimization' => true,
+                ],
             ],
             'tags' => ['high_school', 'advanced', 'complex'],
             'difficulty_level' => 'hard',
             'estimated_generation_time' => 120,
-            'created_by' => 1
+            'created_by' => 1,
         ]);
     }
 
@@ -382,18 +381,18 @@ class ScheduleTemplateService
                     'working_days' => [1, 2, 3, 4, 5],
                     'daily_periods' => 7,
                     'period_duration' => 45,
-                    'flexible_breaks' => true
+                    'flexible_breaks' => true,
                 ],
                 'optimization_preferences' => [
                     'prioritize_teacher_preferences' => true,
                     'minimize_gaps' => true,
-                    'conflict_resolution_strategy' => 'balanced'
-                ]
+                    'conflict_resolution_strategy' => 'balanced',
+                ],
             ],
             'tags' => ['flexible', 'adaptable', 'customizable'],
             'difficulty_level' => 'expert',
             'estimated_generation_time' => 150,
-            'created_by' => 1
+            'created_by' => 1,
         ]);
     }
 

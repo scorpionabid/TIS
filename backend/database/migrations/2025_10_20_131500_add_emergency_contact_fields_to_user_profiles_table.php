@@ -12,19 +12,19 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('user_profiles', function (Blueprint $table) {
-            if (!Schema::hasColumn('user_profiles', 'emergency_contact_name')) {
+            if (! Schema::hasColumn('user_profiles', 'emergency_contact_name')) {
                 $table->string('emergency_contact_name', 150)->nullable()->after('emergency_contact');
             }
 
-            if (!Schema::hasColumn('user_profiles', 'emergency_contact_phone')) {
+            if (! Schema::hasColumn('user_profiles', 'emergency_contact_phone')) {
                 $table->string('emergency_contact_phone', 50)->nullable()->after('emergency_contact_name');
             }
 
-            if (!Schema::hasColumn('user_profiles', 'emergency_contact_email')) {
+            if (! Schema::hasColumn('user_profiles', 'emergency_contact_email')) {
                 $table->string('emergency_contact_email', 150)->nullable()->after('emergency_contact_phone');
             }
 
-            if (!Schema::hasColumn('user_profiles', 'notes')) {
+            if (! Schema::hasColumn('user_profiles', 'notes')) {
                 $table->text('notes')->nullable()->after('special_needs');
             }
         });

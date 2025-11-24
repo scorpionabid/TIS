@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class Schedule extends Model
 {
@@ -301,11 +301,12 @@ class Schedule extends Model
     public function scopeCurrent(Builder $query): Builder
     {
         $today = today();
+
         return $query->where('effective_date', '<=', $today)
-                    ->where(function ($q) use ($today) {
-                        $q->whereNull('end_date')
-                          ->orWhere('end_date', '>=', $today);
-                    });
+            ->where(function ($q) use ($today) {
+                $q->whereNull('end_date')
+                    ->orWhere('end_date', '>=', $today);
+            });
     }
 
     /**
@@ -358,8 +359,9 @@ class Schedule extends Model
         }
 
         $today = today();
-        return $this->effective_date <= $today && 
-               (!$this->end_date || $this->end_date >= $today);
+
+        return $this->effective_date <= $today &&
+               (! $this->end_date || $this->end_date >= $today);
     }
 
     /**
@@ -383,13 +385,13 @@ class Schedule extends Model
      */
     public function submitForReview(): bool
     {
-        if (!$this->canBeEdited()) {
+        if (! $this->canBeEdited()) {
             throw new \Exception('Schedule cannot be submitted in current status');
         }
 
         // Validate schedule before submission
         $validation = $this->validateSchedule();
-        if (!$validation['is_valid']) {
+        if (! $validation['is_valid']) {
             throw new \Exception('Schedule validation failed: ' . implode(', ', $validation['errors']));
         }
 
@@ -420,7 +422,7 @@ class Schedule extends Model
      */
     public function approve(User $approver): bool
     {
-        if (!$this->canBeApproved()) {
+        if (! $this->canBeApproved()) {
             throw new \Exception('Schedule cannot be approved in current status');
         }
 
@@ -436,7 +438,7 @@ class Schedule extends Model
      */
     public function reject(User $reviewer, string $reason): bool
     {
-        if (!$this->canBeApproved()) {
+        if (! $this->canBeApproved()) {
             throw new \Exception('Schedule cannot be rejected in current status');
         }
 
@@ -459,10 +461,10 @@ class Schedule extends Model
 
         // Deactivate other active schedules for same grade/type
         self::where('grade_id', $this->grade_id)
-           ->where('schedule_type', $this->schedule_type)
-           ->where('id', '!=', $this->id)
-           ->where('status', 'active')
-           ->update(['status' => 'suspended']);
+            ->where('schedule_type', $this->schedule_type)
+            ->where('id', '!=', $this->id)
+            ->where('status', 'active')
+            ->update(['status' => 'suspended']);
 
         return $this->update([
             'status' => 'active',
@@ -492,7 +494,7 @@ class Schedule extends Model
      */
     public function archive(): bool
     {
-        if (!in_array($this->status, ['active', 'suspended', 'approved'])) {
+        if (! in_array($this->status, ['active', 'suspended', 'approved'])) {
             throw new \Exception('Schedule cannot be archived in current status');
         }
 
@@ -570,9 +572,9 @@ class Schedule extends Model
         foreach ($sessions as $session) {
             // Teacher conflicts
             $teacherConflicts = $sessions->where('id', '!=', $session->id)
-                                       ->where('teacher_id', $session->teacher_id)
-                                       ->where('day_of_week', $session->day_of_week)
-                                       ->where('time_slot_id', $session->time_slot_id);
+                ->where('teacher_id', $session->teacher_id)
+                ->where('day_of_week', $session->day_of_week)
+                ->where('time_slot_id', $session->time_slot_id);
 
             foreach ($teacherConflicts as $conflictSession) {
                 $conflicts[] = [
@@ -588,9 +590,9 @@ class Schedule extends Model
             // Room conflicts
             if ($session->room_id) {
                 $roomConflicts = $sessions->where('id', '!=', $session->id)
-                                        ->where('room_id', $session->room_id)
-                                        ->where('day_of_week', $session->day_of_week)
-                                        ->where('time_slot_id', $session->time_slot_id);
+                    ->where('room_id', $session->room_id)
+                    ->where('day_of_week', $session->day_of_week)
+                    ->where('time_slot_id', $session->time_slot_id);
 
                 foreach ($roomConflicts as $conflictSession) {
                     $conflicts[] = [
@@ -656,8 +658,8 @@ class Schedule extends Model
 
         foreach ($sessions as $session) {
             $teacherSubject = TeacherSubject::where('teacher_id', $session->teacher_id)
-                                          ->where('subject_id', $session->subject_id)
-                                          ->first();
+                ->where('subject_id', $session->subject_id)
+                ->first();
 
             if ($teacherSubject) {
                 $sessionScore = 50; // Base score
@@ -691,7 +693,7 @@ class Schedule extends Model
 
         foreach ($teacherSessions as $teacherId => $sessions) {
             $dailySessions = $sessions->groupBy('day_of_week');
-            
+
             foreach ($dailySessions as $day => $daySessions) {
                 $sortedSessions = $daySessions->sortBy('start_time');
                 $previousEndTime = null;
@@ -699,7 +701,7 @@ class Schedule extends Model
                 foreach ($sortedSessions as $session) {
                     if ($previousEndTime) {
                         $gap = Carbon::parse($session->start_time)->diffInMinutes(Carbon::parse($previousEndTime));
-                        
+
                         // Penalty for gaps longer than 1 hour
                         if ($gap > 60) {
                             $penalty += ($gap - 60) / 60; // 1 point per hour of gap
@@ -721,7 +723,7 @@ class Schedule extends Model
         $errors = [];
 
         // Check basic data integrity
-        if (!$this->academic_year_id || !$this->institution_id) {
+        if (! $this->academic_year_id || ! $this->institution_id) {
             $errors[] = 'Academic year and institution are required';
         }
 
@@ -731,8 +733,8 @@ class Schedule extends Model
 
         // Check session conflicts
         $conflicts = $this->detectConflicts();
-        if (!empty($conflicts)) {
-            $errors[] = "Schedule has " . count($conflicts) . " conflicts";
+        if (! empty($conflicts)) {
+            $errors[] = 'Schedule has ' . count($conflicts) . ' conflicts';
         }
 
         // Check minimum session requirements
@@ -744,7 +746,7 @@ class Schedule extends Model
         // Check working days consistency
         $scheduledDays = $sessions->pluck('day_of_week')->unique();
         $workingDays = $this->working_days ?? ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
-        
+
         $invalidDays = $scheduledDays->diff($workingDays);
         if ($invalidDays->isNotEmpty()) {
             $errors[] = 'Sessions scheduled on non-working days: ' . $invalidDays->implode(', ');
@@ -771,12 +773,12 @@ class Schedule extends Model
 
         // Check teacher workload balance
         $teacherWorkloads = $this->sessions->groupBy('teacher_id')
-                                         ->map->count();
-        
+            ->map->count();
+
         if ($teacherWorkloads->count() > 1) {
             $maxWorkload = $teacherWorkloads->max();
             $minWorkload = $teacherWorkloads->min();
-            
+
             if ($maxWorkload - $minWorkload > 5) {
                 $warnings[] = 'Uneven teacher workload distribution';
             }
@@ -791,7 +793,7 @@ class Schedule extends Model
     public function addToChangeLog(string $action, array $data = []): void
     {
         $changeLog = $this->change_log ?? [];
-        
+
         $changeLog[] = [
             'action' => $action,
             'timestamp' => now()->toISOString(),

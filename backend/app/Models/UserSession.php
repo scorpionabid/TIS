@@ -2,13 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
 
 class UserSession extends Model
 {
@@ -48,7 +46,9 @@ class UserSession extends Model
     ];
 
     const SESSION_TIMEOUT_HOURS = 8; // PRD requirement: 8-hour session timeout
+
     const ACTIVITY_TIMEOUT_MINUTES = 30; // Inactivity timeout
+
     const HIJACKING_DETECTION_THRESHOLD = 50; // Security score threshold
 
     /**
@@ -89,7 +89,7 @@ class UserSession extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active')
-                    ->where('expires_at', '>', now());
+            ->where('expires_at', '>', now());
     }
 
     /**
@@ -98,7 +98,7 @@ class UserSession extends Model
     public function scopeExpired(Builder $query): Builder
     {
         return $query->where('expires_at', '<=', now())
-                    ->where('status', 'active');
+            ->where('status', 'active');
     }
 
     /**
@@ -107,7 +107,7 @@ class UserSession extends Model
     public function scopeSuspicious(Builder $query): Builder
     {
         return $query->where('is_suspicious', true)
-                    ->orWhere('security_score', '<', self::HIJACKING_DETECTION_THRESHOLD);
+            ->orWhere('security_score', '<', self::HIJACKING_DETECTION_THRESHOLD);
     }
 
     /**
@@ -123,7 +123,7 @@ class UserSession extends Model
      */
     public function isActive(): bool
     {
-        return $this->status === 'active' && 
+        return $this->status === 'active' &&
                $this->expires_at->isFuture() &&
                $this->isWithinActivityTimeout();
     }
@@ -141,8 +141,8 @@ class UserSession extends Model
      */
     public function isExpired(): bool
     {
-        return $this->expires_at->isPast() || 
-               !$this->isWithinActivityTimeout();
+        return $this->expires_at->isPast() ||
+               ! $this->isWithinActivityTimeout();
     }
 
     /**
@@ -150,7 +150,7 @@ class UserSession extends Model
      */
     public function isHijacked(): bool
     {
-        return $this->status === 'hijacked' || 
+        return $this->status === 'hijacked' ||
                $this->security_score < self::HIJACKING_DETECTION_THRESHOLD;
     }
 
@@ -172,7 +172,7 @@ class UserSession extends Model
         }
 
         // Update security context
-        if (!empty($context)) {
+        if (! empty($context)) {
             $currentContext = $this->security_context ?? [];
             $updates['security_context'] = array_merge($currentContext, $context);
         }
@@ -234,7 +234,7 @@ class UserSession extends Model
     public function extend(?int $hours = null): void
     {
         $hours = $hours ?? self::SESSION_TIMEOUT_HOURS;
-        
+
         $this->update([
             'expires_at' => now()->addHours($hours),
         ]);
@@ -261,9 +261,9 @@ class UserSession extends Model
      * Create new session
      */
     public static function createSession(
-        User $user, 
-        UserDevice $device, 
-        string $token, 
+        User $user,
+        UserDevice $device,
+        string $token,
         array $context = []
     ): self {
         $ipAddress = $context['ip_address'] ?? '127.0.0.1';
@@ -317,7 +317,7 @@ class UserSession extends Model
         $score = 100;
 
         // Device trust factor
-        if (!$device->is_trusted) {
+        if (! $device->is_trusted) {
             $score -= 20;
         }
 
@@ -332,7 +332,7 @@ class UserSession extends Model
         }
 
         // Geographic location (if available)
-        if (isset($context['country']) && $device->last_location_country && 
+        if (isset($context['country']) && $device->last_location_country &&
             $context['country'] !== $device->last_location_country) {
             $score -= 25;
         }
@@ -357,7 +357,7 @@ class UserSession extends Model
      */
     public function getDurationAttribute(): ?int
     {
-        if (!$this->terminated_at) {
+        if (! $this->terminated_at) {
             return null;
         }
 
@@ -369,7 +369,7 @@ class UserSession extends Model
      */
     public function getFormattedDurationAttribute(): string
     {
-        if (!$this->duration) {
+        if (! $this->duration) {
             return 'Active';
         }
 
@@ -409,9 +409,16 @@ class UserSession extends Model
      */
     public function getTrustLevel(): string
     {
-        if ($this->security_score >= 80) return 'high';
-        if ($this->security_score >= 60) return 'medium';
-        if ($this->security_score >= 40) return 'low';
+        if ($this->security_score >= 80) {
+            return 'high';
+        }
+        if ($this->security_score >= 60) {
+            return 'medium';
+        }
+        if ($this->security_score >= 40) {
+            return 'low';
+        }
+
         return 'very_low';
     }
 
@@ -433,7 +440,7 @@ class UserSession extends Model
     public static function getConcurrentSessions(User $user): int
     {
         return self::where('user_id', $user->id)
-                  ->active()
-                  ->count();
+            ->active()
+            ->count();
     }
 }

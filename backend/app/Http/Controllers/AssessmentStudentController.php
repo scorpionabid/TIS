@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Student;
 use App\Models\Institution;
-use Illuminate\Http\Request;
+use App\Models\Student;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
@@ -20,18 +20,18 @@ class AssessmentStudentController extends Controller
 
         // Validate institution access
         $institution = Institution::find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return response()->json([
                 'success' => false,
-                'message' => 'Təşkilat tapılmadı'
+                'message' => 'Təşkilat tapılmadı',
             ], 404);
         }
 
         // Check if user can access this institution's students
-        if (!$this->canAccessInstitutionStudents($user, $institution)) {
+        if (! $this->canAccessInstitutionStudents($user, $institution)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu təşkilatın şagirdlərinə giriş icazəniz yoxdur'
+                'message' => 'Bu təşkilatın şagirdlərinə giriş icazəniz yoxdur',
             ], 403);
         }
 
@@ -40,14 +40,14 @@ class AssessmentStudentController extends Controller
             'grade_level' => 'sometimes|string|max:10',
             'class_name' => 'sometimes|string|max:50',
             'search' => 'sometimes|string|max:255',
-            'per_page' => 'sometimes|integer|min:1|max:500'
+            'per_page' => 'sometimes|integer|min:1|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -98,9 +98,9 @@ class AssessmentStudentController extends Controller
                     'last_page' => $students->lastPage(),
                     'from' => $students->firstItem(),
                     'to' => $students->lastItem(),
-                ]
+                ],
             ],
-            'message' => 'Şagirdlər uğurla yükləndi'
+            'message' => 'Şagirdlər uğurla yükləndi',
         ]);
     }
 
@@ -113,17 +113,17 @@ class AssessmentStudentController extends Controller
 
         // Validate institution access
         $institution = Institution::find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return response()->json([
                 'success' => false,
-                'message' => 'Təşkilat tapılmadı'
+                'message' => 'Təşkilat tapılmadı',
             ], 404);
         }
 
-        if (!$this->canAccessInstitutionStudents($user, $institution)) {
+        if (! $this->canAccessInstitutionStudents($user, $institution)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu təşkilata giriş icazəniz yoxdur'
+                'message' => 'Bu təşkilata giriş icazəniz yoxdur',
             ], 403);
         }
 
@@ -139,7 +139,7 @@ class AssessmentStudentController extends Controller
         return response()->json([
             'success' => true,
             'data' => $gradeLevels,
-            'message' => 'Sinif səviyyələri alındı'
+            'message' => 'Sinif səviyyələri alındı',
         ]);
     }
 
@@ -152,17 +152,17 @@ class AssessmentStudentController extends Controller
 
         // Validate institution access
         $institution = Institution::find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return response()->json([
                 'success' => false,
-                'message' => 'Təşkilat tapılmadı'
+                'message' => 'Təşkilat tapılmadı',
             ], 404);
         }
 
-        if (!$this->canAccessInstitutionStudents($user, $institution)) {
+        if (! $this->canAccessInstitutionStudents($user, $institution)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu təşkilata giriş icazəniz yoxdur'
+                'message' => 'Bu təşkilata giriş icazəniz yoxdur',
             ], 403);
         }
 
@@ -183,7 +183,7 @@ class AssessmentStudentController extends Controller
             ->map(function ($classes, $gradeLevel) {
                 return [
                     'grade_level' => $gradeLevel,
-                    'classes' => $classes->pluck('class_name')->unique()->values()
+                    'classes' => $classes->pluck('class_name')->unique()->values(),
                 ];
             })
             ->values();
@@ -191,7 +191,7 @@ class AssessmentStudentController extends Controller
         return response()->json([
             'success' => true,
             'data' => $classes,
-            'message' => 'Siniflər alındı'
+            'message' => 'Siniflər alındı',
         ]);
     }
 
@@ -204,17 +204,17 @@ class AssessmentStudentController extends Controller
 
         // Validate institution access
         $institution = Institution::find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return response()->json([
                 'success' => false,
-                'message' => 'Təşkilat tapılmadı'
+                'message' => 'Təşkilat tapılmadı',
             ], 404);
         }
 
-        if (!$this->canAccessInstitutionStudents($user, $institution)) {
+        if (! $this->canAccessInstitutionStudents($user, $institution)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu təşkilata giriş icazəniz yoxdur'
+                'message' => 'Bu təşkilata giriş icazəniz yoxdur',
             ], 403);
         }
 
@@ -236,9 +236,9 @@ class AssessmentStudentController extends Controller
             'data' => [
                 'count' => $count,
                 'institution_id' => $institutionId,
-                'institution_name' => $institution->name
+                'institution_name' => $institution->name,
             ],
-            'message' => 'Şagird sayı alındı'
+            'message' => 'Şagird sayı alındı',
         ]);
     }
 

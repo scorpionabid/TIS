@@ -3,19 +3,22 @@
 namespace App\Http\Controllers;
 
 use App\Models\Room;
-use App\Services\RoomCrudService;
-use App\Services\RoomScheduleService;
-use App\Services\RoomMaintenanceService;
 use App\Services\ClassPermissionService;
-use Illuminate\Http\Request;
+use App\Services\RoomCrudService;
+use App\Services\RoomMaintenanceService;
+use App\Services\RoomScheduleService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class RoomControllerRefactored extends Controller
 {
     protected RoomCrudService $crudService;
+
     protected RoomScheduleService $scheduleService;
+
     protected RoomMaintenanceService $maintenanceService;
+
     protected ClassPermissionService $permissionService;
 
     public function __construct(
@@ -64,11 +67,11 @@ class RoomControllerRefactored extends Controller
             $filters = $request->only([
                 'institution_id', 'room_type', 'building', 'floor',
                 'min_capacity', 'max_capacity', 'facility', 'is_active',
-                'availability', 'search', 'include'
+                'availability', 'search', 'include',
             ]);
 
             // Apply regional filtering
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $accessibleInstitutions = $this->permissionService->getAccessibleInstitutions($user);
                 $filters['accessible_institutions'] = collect($accessibleInstitutions)->pluck('id')->toArray();
             }
@@ -81,7 +84,6 @@ class RoomControllerRefactored extends Controller
                 'data' => $result,
                 'message' => 'Otaq siyahısı uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Otaq siyahısı alınarkən xəta baş verdi');
         }
@@ -114,9 +116,9 @@ class RoomControllerRefactored extends Controller
 
         // Check regional access
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = collect($this->permissionService->getAccessibleInstitutions($user))->pluck('id')->toArray();
-            if (!in_array($request->institution_id, $accessibleInstitutions)) {
+            if (! in_array($request->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu təşkilat üçün icazəniz yoxdur',
@@ -141,7 +143,6 @@ class RoomControllerRefactored extends Controller
                 ],
                 'message' => 'Otaq uğurla yaradıldı',
             ], 201);
-
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
@@ -159,9 +160,9 @@ class RoomControllerRefactored extends Controller
     {
         // Check regional access
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = collect($this->permissionService->getAccessibleInstitutions($user))->pluck('id')->toArray();
-            if (!in_array($room->institution_id, $accessibleInstitutions)) {
+            if (! in_array($room->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu otaq üçün icazəniz yoxdur',
@@ -177,7 +178,6 @@ class RoomControllerRefactored extends Controller
                 'data' => $data,
                 'message' => 'Otaq məlumatları uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Otaq məlumatları alınarkən xəta baş verdi');
         }
@@ -190,9 +190,9 @@ class RoomControllerRefactored extends Controller
     {
         // Check regional access
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = collect($this->permissionService->getAccessibleInstitutions($user))->pluck('id')->toArray();
-            if (!in_array($room->institution_id, $accessibleInstitutions)) {
+            if (! in_array($room->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu otaq üçün icazəniz yoxdur',
@@ -237,7 +237,6 @@ class RoomControllerRefactored extends Controller
                 ],
                 'message' => 'Otaq məlumatları uğurla yeniləndi',
             ]);
-
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
@@ -255,9 +254,9 @@ class RoomControllerRefactored extends Controller
     {
         // Check regional access
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = collect($this->permissionService->getAccessibleInstitutions($user))->pluck('id')->toArray();
-            if (!in_array($room->institution_id, $accessibleInstitutions)) {
+            if (! in_array($room->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu otaq üçün icazəniz yoxdur',
@@ -272,7 +271,6 @@ class RoomControllerRefactored extends Controller
                 'success' => true,
                 'message' => 'Otaq uğurla deaktiv edildi',
             ]);
-
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
@@ -293,7 +291,7 @@ class RoomControllerRefactored extends Controller
             $roomIds = [];
 
             // Apply regional filtering
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $accessibleInstitutions = collect($this->permissionService->getAccessibleInstitutions($user))->pluck('id')->toArray();
                 $roomIds = Room::whereIn('institution_id', $accessibleInstitutions)->pluck('id')->toArray();
             }
@@ -305,7 +303,6 @@ class RoomControllerRefactored extends Controller
                 'data' => $data,
                 'message' => 'Otaq statistikaları uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Statistikalar alınarkən xəta baş verdi');
         }
@@ -318,9 +315,9 @@ class RoomControllerRefactored extends Controller
     {
         // Check regional access
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = collect($this->permissionService->getAccessibleInstitutions($user))->pluck('id')->toArray();
-            if (!in_array($room->institution_id, $accessibleInstitutions)) {
+            if (! in_array($room->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu otaq üçün icazəniz yoxdur',
@@ -354,7 +351,6 @@ class RoomControllerRefactored extends Controller
                 'data' => $result,
                 'message' => 'Otaq imkanları uğurla yeniləndi',
             ]);
-
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
@@ -389,11 +385,11 @@ class RoomControllerRefactored extends Controller
         try {
             $user = $request->user();
             $filters = $request->only([
-                'institution_id', 'min_capacity', 'room_type', 'required_facilities'
+                'institution_id', 'min_capacity', 'room_type', 'required_facilities',
             ]);
 
             // Apply regional filtering
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $accessibleInstitutions = collect($this->permissionService->getAccessibleInstitutions($user))->pluck('id')->toArray();
                 $filters['accessible_institutions'] = $accessibleInstitutions;
             }
@@ -405,7 +401,6 @@ class RoomControllerRefactored extends Controller
                 'data' => $result,
                 'message' => 'Boş otaqlar uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Boş otaqlar alınarkən xəta baş verdi');
         }
@@ -431,9 +426,9 @@ class RoomControllerRefactored extends Controller
 
         // Check regional access
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = collect($this->permissionService->getAccessibleInstitutions($user))->pluck('id')->toArray();
-            if (!in_array($room->institution_id, $accessibleInstitutions)) {
+            if (! in_array($room->institution_id, $accessibleInstitutions)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu otaq üçün icazəniz yoxdur',
@@ -443,7 +438,7 @@ class RoomControllerRefactored extends Controller
 
         try {
             $type = $request->get('type', 'daily');
-            
+
             if ($type === 'weekly') {
                 $data = $this->scheduleService->getRoomWeeklySchedule($room->id, $request->date);
             } else {
@@ -455,7 +450,6 @@ class RoomControllerRefactored extends Controller
                 'data' => $data,
                 'message' => 'Otaq cədvəli uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Cədvəl alınarkən xəta baş verdi');
         }
@@ -471,7 +465,7 @@ class RoomControllerRefactored extends Controller
             $roomIds = [];
 
             // Apply regional filtering
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $accessibleInstitutions = collect($this->permissionService->getAccessibleInstitutions($user))->pluck('id')->toArray();
                 $roomIds = Room::whereIn('institution_id', $accessibleInstitutions)->pluck('id')->toArray();
             }
@@ -483,7 +477,6 @@ class RoomControllerRefactored extends Controller
                 'data' => $data,
                 'message' => 'Bakım tövsiyələri uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Tövsiyələr alınarkən xəta baş verdi');
         }

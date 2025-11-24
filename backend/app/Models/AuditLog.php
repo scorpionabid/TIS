@@ -82,7 +82,7 @@ class AuditLog extends Model
      */
     public function getChangesAttribute(): array
     {
-        if (!$this->old_values || !$this->new_values) {
+        if (! $this->old_values || ! $this->new_values) {
             return [];
         }
 
@@ -91,7 +91,7 @@ class AuditLog extends Model
         $new = $this->new_values;
 
         foreach ($new as $key => $value) {
-            if (!isset($old[$key]) || $old[$key] !== $value) {
+            if (! isset($old[$key]) || $old[$key] !== $value) {
                 $changes[$key] = [
                     'old' => $old[$key] ?? null,
                     'new' => $value,
@@ -124,7 +124,7 @@ class AuditLog extends Model
     public function addTag(string $tag): void
     {
         $tags = $this->tags ?? [];
-        if (!in_array($tag, $tags)) {
+        if (! in_array($tag, $tags)) {
             $tags[] = $tag;
             $this->tags = $tags;
             $this->save();
@@ -137,16 +137,16 @@ class AuditLog extends Model
     public static function createAudit(array $attributes): self
     {
         $attributes['created_at'] = now();
-        
-        if (!isset($attributes['ip_address'])) {
+
+        if (! isset($attributes['ip_address'])) {
             $attributes['ip_address'] = request()->ip();
         }
 
-        if (!isset($attributes['user_agent'])) {
+        if (! isset($attributes['user_agent'])) {
             $attributes['user_agent'] = request()->userAgent();
         }
 
-        if (!isset($attributes['url'])) {
+        if (! isset($attributes['url'])) {
             $attributes['url'] = request()->fullUrl();
         }
 
@@ -172,10 +172,10 @@ class AuditLog extends Model
     /**
      * Scope to get audits by auditable entity.
      */
-    public function scopeByAuditable($query, string $auditableType, int $auditableId = null)
+    public function scopeByAuditable($query, string $auditableType, ?int $auditableId = null)
     {
         $query = $query->where('auditable_type', $auditableType);
-        
+
         if ($auditableId) {
             $query->where('auditable_id', $auditableId);
         }

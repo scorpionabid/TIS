@@ -20,10 +20,10 @@ return new class extends Migration
             $table->json('notification_settings')->nullable();
             $table->foreignId('assigned_by')->constrained('users')->onDelete('cascade');
             $table->text('notes')->nullable();
-            
+
             // Unique constraint
             $table->unique(['assessment_type_id', 'institution_id'], 'unique_assessment_institution');
-            
+
             // Indexes
             $table->index(['institution_id', 'is_active']);
             $table->index(['assessment_type_id', 'due_date']);
@@ -45,14 +45,14 @@ return new class extends Migration
             $table->dropIndex(['assessment_type_id', 'due_date']);
             $table->dropIndex(['assigned_date']);
             $table->dropColumn([
-                'assessment_type_id', 
-                'institution_id', 
-                'assigned_date', 
-                'due_date', 
-                'is_active', 
-                'notification_settings', 
-                'assigned_by', 
-                'notes'
+                'assessment_type_id',
+                'institution_id',
+                'assigned_date',
+                'due_date',
+                'is_active',
+                'notification_settings',
+                'assigned_by',
+                'notes',
             ]);
         });
     }

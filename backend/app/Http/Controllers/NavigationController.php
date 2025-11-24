@@ -2,9 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use App\Models\User;
 
 class NavigationController extends Controller
 {
@@ -14,7 +14,7 @@ class NavigationController extends Controller
     public function getMenuItems(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         // Base menu structure with permissions
         $menuItems = $this->getMenuStructure();
 
@@ -24,7 +24,7 @@ class NavigationController extends Controller
         return response()->json([
             'menu_items' => $filteredMenuItems,
             'user_permissions' => $user->getAllPermissions()->pluck('name'),
-            'user_roles' => $user->getRoleNames()
+            'user_roles' => $user->getRoleNames(),
         ]);
     }
 
@@ -50,7 +50,7 @@ class NavigationController extends Controller
                     }
 
                     // Only include parent if it has accessible children or no children
-                    if (!empty($filteredChildren) || is_null($item['children'])) {
+                    if (! empty($filteredChildren) || is_null($item['children'])) {
                         $filteredItem['children'] = $filteredChildren;
                         $filteredItems[] = $filteredItem;
                     }
@@ -71,14 +71,14 @@ class NavigationController extends Controller
         // Check role-based access
         if (isset($item['roles']) && is_array($item['roles'])) {
             $userRoles = $user->getRoleNames()->toArray();
-            $hasRequiredRole = !empty(array_intersect($userRoles, $item['roles']));
-            if (!$hasRequiredRole) {
+            $hasRequiredRole = ! empty(array_intersect($userRoles, $item['roles']));
+            if (! $hasRequiredRole) {
                 return false;
             }
         }
 
         // Check permission-based access
-        if (isset($item['permission']) && !is_null($item['permission'])) {
+        if (isset($item['permission']) && ! is_null($item['permission'])) {
             return $user->hasPermissionTo($item['permission']);
         }
 
@@ -92,25 +92,25 @@ class NavigationController extends Controller
     public function getNavigationStats(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         // Get all permissions
         $allPermissions = \Spatie\Permission\Models\Permission::where('guard_name', 'sanctum')->count();
         $userPermissions = $user->getAllPermissions()->count();
-        
+
         // Get role information
         $userRoles = $user->getRoleNames();
         $roleLevel = $this->getUserRoleLevel($user);
-        
+
         return response()->json([
             'permissions' => [
                 'total' => $allPermissions,
                 'granted' => $userPermissions,
-                'percentage' => $allPermissions > 0 ? round(($userPermissions / $allPermissions) * 100, 2) : 0
+                'percentage' => $allPermissions > 0 ? round(($userPermissions / $allPermissions) * 100, 2) : 0,
             ],
             'roles' => [
                 'assigned' => $userRoles,
                 'level' => $roleLevel,
-                'display_name' => $this->getRoleDisplayName($userRoles->first())
+                'display_name' => $this->getRoleDisplayName($userRoles->first()),
             ],
             'access_level' => [
                 'is_superadmin' => $user->hasRole('superadmin'),
@@ -118,8 +118,8 @@ class NavigationController extends Controller
                 'can_manage_users' => $user->hasPermissionTo('users.create'),
                 'can_manage_institutions' => $user->hasPermissionTo('institutions.create'),
                 'can_manage_surveys' => $user->hasPermissionTo('surveys.create'),
-                'can_view_reports' => $user->hasPermissionTo('reports.read')
-            ]
+                'can_view_reports' => $user->hasPermissionTo('reports.read'),
+            ],
         ]);
     }
 
@@ -134,11 +134,11 @@ class NavigationController extends Controller
             'sektoradmin' => 4,
             'schooladmin' => 3,
             'müəllim' => 2,
-            'şagird' => 1
+            'şagird' => 1,
         ];
 
         $userRoles = $user->getRoleNames()->toArray();
-        $levels = array_map(function($role) use ($roleHierarchy) {
+        $levels = array_map(function ($role) use ($roleHierarchy) {
             return $roleHierarchy[$role] ?? 0;
         }, $userRoles);
 
@@ -156,7 +156,7 @@ class NavigationController extends Controller
             'sektoradmin' => 'Sector Administrator',
             'schooladmin' => 'School Administrator',
             'müəllim' => 'Teacher',
-            'şagird' => 'Student'
+            'şagird' => 'Student',
         ];
 
         return $roleDisplayNames[$role] ?? ($role ?: 'User');
@@ -175,7 +175,7 @@ class NavigationController extends Controller
                 'icon' => 'FiHome',
                 'permission' => null, // Always visible
                 'roles' => null,
-                'children' => null
+                'children' => null,
             ],
             [
                 'id' => 'users',
@@ -184,7 +184,7 @@ class NavigationController extends Controller
                 'icon' => 'FiUsers',
                 'permission' => 'users.read',
                 'roles' => null,
-                'children' => null // Remove CRUD actions from sidebar
+                'children' => null, // Remove CRUD actions from sidebar
             ],
             [
                 'id' => 'institutions',
@@ -199,9 +199,9 @@ class NavigationController extends Controller
                         'title' => 'İerarxiya',
                         'path' => '/institutions/hierarchy',
                         'icon' => 'FiGitBranch',
-                        'permission' => 'institutions.read'
-                    ]
-                ]
+                        'permission' => 'institutions.read',
+                    ],
+                ],
             ],
             [
                 'id' => 'surveys',
@@ -210,7 +210,7 @@ class NavigationController extends Controller
                 'icon' => 'FiFileText',
                 'permission' => 'surveys.read',
                 'roles' => null,
-                'children' => null // Remove CRUD actions from sidebar
+                'children' => null, // Remove CRUD actions from sidebar
             ],
             [
                 'id' => 'roles',
@@ -219,7 +219,7 @@ class NavigationController extends Controller
                 'icon' => 'FiShield',
                 'permission' => 'roles.read',
                 'roles' => ['superadmin'],
-                'children' => null
+                'children' => null,
             ],
             [
                 'id' => 'reports',
@@ -234,23 +234,23 @@ class NavigationController extends Controller
                         'title' => 'Ümumi Hesabat',
                         'path' => '/reports',
                         'icon' => 'FiEye',
-                        'permission' => 'reports.read'
+                        'permission' => 'reports.read',
                     ],
                     [
                         'id' => 'reports-institutions',
                         'title' => 'Müəssisə Hesabatları',
                         'path' => '/reports/institutions',
                         'icon' => 'FiGrid',
-                        'permission' => 'reports.read'
+                        'permission' => 'reports.read',
                     ],
                     [
                         'id' => 'reports-surveys',
                         'title' => 'Anket Hesabatları',
                         'path' => '/reports/surveys',
                         'icon' => 'FiTrendingUp',
-                        'permission' => 'reports.read'
-                    ]
-                ]
+                        'permission' => 'reports.read',
+                    ],
+                ],
             ],
             [
                 'id' => 'settings',
@@ -259,8 +259,8 @@ class NavigationController extends Controller
                 'icon' => 'FiSettings',
                 'permission' => null,
                 'roles' => ['superadmin', 'regionadmin'],
-                'children' => null
-            ]
+                'children' => null,
+            ],
         ];
     }
 }

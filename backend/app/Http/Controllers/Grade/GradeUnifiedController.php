@@ -4,14 +4,11 @@ namespace App\Http\Controllers\Grade;
 
 use App\Http\Controllers\Controller;
 use App\Models\Grade;
-use App\Models\User;
-use App\Models\Room;
-use App\Models\AcademicYear;
 use App\Services\GradeManagementService;
-use App\Services\StudentEnrollmentService;
 use App\Services\GradeNamingEngine;
-use Illuminate\Http\Request;
+use App\Services\StudentEnrollmentService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
@@ -19,17 +16,19 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Unified Grade Controller
- * 
+ *
  * This controller consolidates all grade/class management functionality
  * from the previous fragmented controllers into a unified, efficient API.
- * 
+ *
  * It provides a clean, RESTful API with consistent response formats
  * and proper role-based access control.
  */
 class GradeUnifiedController extends Controller
 {
     protected GradeManagementService $gradeService;
+
     protected StudentEnrollmentService $enrollmentService;
+
     protected GradeNamingEngine $namingEngine;
 
     public function __construct(
@@ -50,6 +49,7 @@ class GradeUnifiedController extends Controller
     public function index(Request $request): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
+
         return $controller->index($request);
     }
 
@@ -61,6 +61,7 @@ class GradeUnifiedController extends Controller
     public function store(Request $request): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
+
         return $controller->store($request);
     }
 
@@ -72,6 +73,7 @@ class GradeUnifiedController extends Controller
     public function show(Request $request, Grade $grade): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
+
         return $controller->show($request, $grade);
     }
 
@@ -83,6 +85,7 @@ class GradeUnifiedController extends Controller
     public function update(Request $request, Grade $grade): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
+
         return $controller->update($request, $grade);
     }
 
@@ -94,6 +97,7 @@ class GradeUnifiedController extends Controller
     public function destroy(Request $request, Grade $grade): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
+
         return $controller->destroy($request, $grade);
     }
 
@@ -105,6 +109,7 @@ class GradeUnifiedController extends Controller
     public function students(Request $request, Grade $grade): JsonResponse
     {
         $controller = app(GradeStudentController::class);
+
         return $controller->getStudents($request, $grade);
     }
 
@@ -115,8 +120,8 @@ class GradeUnifiedController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$this->gradeService->canUserModifyGrade($user, $grade)) {
+
+            if (! $this->gradeService->canUserModifyGrade($user, $grade)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sinifə müəllim təyin etmək icazəniz yoxdur',
@@ -155,14 +160,13 @@ class GradeUnifiedController extends Controller
                         'id' => $grade->homeroomTeacher->id,
                         'name' => $grade->homeroomTeacher->name,
                         'email' => $grade->homeroomTeacher->email,
-                        'full_name' => $grade->homeroomTeacher->profile 
+                        'full_name' => $grade->homeroomTeacher->profile
                             ? "{$grade->homeroomTeacher->profile->first_name} {$grade->homeroomTeacher->profile->last_name}"
                             : $grade->homeroomTeacher->name,
                     ] : null,
                 ],
                 'message' => 'Sinif rəhbəri uğurla təyin edildi',
             ]);
-
         } catch (ValidationException $e) {
             return response()->json([
                 'success' => false,
@@ -174,7 +178,7 @@ class GradeUnifiedController extends Controller
                 'user_id' => Auth::id(),
                 'grade_id' => $grade->id,
                 'teacher_id' => $request->get('teacher_id'),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -192,8 +196,8 @@ class GradeUnifiedController extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$this->gradeService->canUserModifyGrade($user, $grade)) {
+
+            if (! $this->gradeService->canUserModifyGrade($user, $grade)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sinifin müəllimini dəyişmək icazəniz yoxdur',
@@ -222,12 +226,11 @@ class GradeUnifiedController extends Controller
                 'success' => true,
                 'message' => 'Sinif rəhbəri uğurla götürüldü',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Teacher removal error: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'grade_id' => $grade->id,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -249,6 +252,7 @@ class GradeUnifiedController extends Controller
     public function statistics(Request $request): JsonResponse
     {
         $controller = app(GradeStatsController::class);
+
         return $controller->statistics($request);
     }
 
@@ -263,6 +267,7 @@ class GradeUnifiedController extends Controller
     public function capacityReport(Request $request): JsonResponse
     {
         $controller = app(GradeStatsController::class);
+
         return $controller->capacityAnalysis($request);
     }
 
@@ -274,6 +279,7 @@ class GradeUnifiedController extends Controller
     public function enrollStudent(Request $request, Grade $grade): JsonResponse
     {
         $controller = app(GradeStudentController::class);
+
         return $controller->assignStudents($request, $grade);
     }
 
@@ -285,6 +291,7 @@ class GradeUnifiedController extends Controller
     public function enrollMultipleStudents(Request $request, Grade $grade): JsonResponse
     {
         $controller = app(GradeStudentController::class);
+
         return $controller->bulkUpdateEnrollments($request);
     }
 
@@ -296,6 +303,7 @@ class GradeUnifiedController extends Controller
     public function unenrollStudent(Request $request, Grade $grade, $studentId): JsonResponse
     {
         $controller = app(GradeStudentController::class);
+
         return $controller->removeStudent($request, $grade, $studentId);
     }
 
@@ -307,6 +315,7 @@ class GradeUnifiedController extends Controller
     public function updateStudentStatus(Request $request, Grade $grade, $studentId): JsonResponse
     {
         $controller = app(GradeStudentController::class);
+
         return $controller->updateStudentStatus($request, $grade, $studentId);
     }
 
@@ -347,7 +356,7 @@ class GradeUnifiedController extends Controller
                 'institution_id' => $institutionId,
                 'class_level' => $classLevel,
                 'academic_year_id' => $academicYearId,
-                'pattern' => $suggestions['pattern'] ?? 'unknown'
+                'pattern' => $suggestions['pattern'] ?? 'unknown',
             ]);
 
             return response()->json([
@@ -355,12 +364,11 @@ class GradeUnifiedController extends Controller
                 'data' => $suggestions,
                 'message' => 'Sinif adlandırma tövsiyələri uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Grade naming suggestions error: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -420,11 +428,11 @@ class GradeUnifiedController extends Controller
             $existingNames = $existingGradesQuery->pluck('name')->toArray();
 
             // Mark used letters
-            $lettersWithAvailability = array_map(function($letter) use ($existingNames) {
+            $lettersWithAvailability = array_map(function ($letter) use ($existingNames) {
                 return [
                     'value' => $letter['value'],
                     'label' => $letter['label'],
-                    'available' => !in_array($letter['value'], $existingNames),
+                    'available' => ! in_array($letter['value'], $existingNames),
                     'used' => in_array($letter['value'], $existingNames),
                 ];
             }, $availableLetters);
@@ -459,12 +467,11 @@ class GradeUnifiedController extends Controller
                 ],
                 'message' => 'Adlandırma seçimləri uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Grade naming options error: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
                 'request' => $request->all(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -484,7 +491,7 @@ class GradeUnifiedController extends Controller
             $user = Auth::user();
 
             // Check permissions
-            if (!$user->can('grades.read')) {
+            if (! $user->can('grades.read')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu məlumatlara baxmaq üçün icazəniz yoxdur',
@@ -498,11 +505,10 @@ class GradeUnifiedController extends Controller
                 'data' => $stats,
                 'message' => 'Adlandırma sistemi statistikaları uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Naming system stats error: ' . $e->getMessage(), [
                 'user_id' => Auth::id(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -528,7 +534,7 @@ class GradeUnifiedController extends Controller
             $user = Auth::user();
 
             // Check permissions
-            if (!$user->can('grades.analytics')) {
+            if (! $user->can('grades.analytics')) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Analitika məlumatlarına baxmaq üçün icazəniz yoxdur',
@@ -548,9 +554,9 @@ class GradeUnifiedController extends Controller
 
             // Resource allocation
             $resourceAllocation = [
-                'has_room' => !is_null($grade->room_id),
+                'has_room' => ! is_null($grade->room_id),
                 'room_capacity' => $grade->room ? $grade->room->capacity : null,
-                'has_teacher' => !is_null($grade->homeroom_teacher_id),
+                'has_teacher' => ! is_null($grade->homeroom_teacher_id),
             ];
 
             $analytics = [
@@ -562,13 +568,12 @@ class GradeUnifiedController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $analytics,
-                'message' => 'Sinif analitikası uğurla alındı'
+                'message' => 'Sinif analitikası uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             Log::error('Grade analytics error: ' . $e->getMessage(), [
                 'grade_id' => $grade->id,
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
@@ -591,6 +596,7 @@ class GradeUnifiedController extends Controller
     public function duplicate(Request $request, Grade $grade): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
+
         return $controller->duplicate($request, $grade);
     }
 }

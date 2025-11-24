@@ -5,16 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
 use App\Services\SurveyApprovalService;
-use Illuminate\Http\Request;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
-use App\Http\Controllers\Controller;
-use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 
 class SurveyApprovalController extends Controller
 {
     use AuthorizesRequests;
+
     protected function getApprovalService()
     {
         // Use container resolution to support feature flags
@@ -43,27 +43,26 @@ class SurveyApprovalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             $result = $this->getApprovalService()->getResponsesForApproval(
-                $survey, 
-                $request, 
+                $survey,
+                $request,
                 Auth::user()
             );
 
             return response()->json([
                 'success' => true,
                 'data' => $result,
-                'message' => 'Survey responses retrieved successfully'
+                'message' => 'Survey responses retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error retrieving survey responses',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -76,22 +75,22 @@ class SurveyApprovalController extends Controller
     {
         try {
             // Simple permission check
-            if (!Auth::user()->can('survey_responses.read')) {
+            if (! Auth::user()->can('survey_responses.read')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
             $response->load([
-                'survey.questions' => function($query) {
+                'survey.questions' => function ($query) {
                     $query->where('is_active', true)->orderBy('order_index');
                 },
                 'institution',
                 'department',
                 'respondent',
                 'approvalRequest.approvalActions.approver',
-                'approvalRequest.workflow'
+                'approvalRequest.workflow',
             ]);
 
             return response()->json([
@@ -102,14 +101,13 @@ class SurveyApprovalController extends Controller
                     'can_edit' => $response->status === 'draft',
                     'can_approve' => $response->status === 'submitted',
                 ],
-                'message' => 'Response details retrieved successfully'
+                'message' => 'Response details retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error retrieving response details',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -122,10 +120,10 @@ class SurveyApprovalController extends Controller
     {
         try {
             // Simple permission check
-            if (!Auth::user()->can('survey_responses.write')) {
+            if (! Auth::user()->can('survey_responses.write')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
@@ -138,7 +136,7 @@ class SurveyApprovalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -150,14 +148,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $updatedResponse,
-                'message' => 'Response updated successfully'
+                'message' => 'Response updated successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error updating response',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -169,10 +166,10 @@ class SurveyApprovalController extends Controller
     public function createApprovalRequest(SurveyResponse $response, Request $request): JsonResponse
     {
         try {
-            if (!Auth::user()->can('survey_responses.write')) {
+            if (! Auth::user()->can('survey_responses.write')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
@@ -185,7 +182,7 @@ class SurveyApprovalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -197,14 +194,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $approvalRequest,
-                'message' => 'Approval request created successfully'
+                'message' => 'Approval request created successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error creating approval request',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -216,10 +212,10 @@ class SurveyApprovalController extends Controller
     public function approveResponse(SurveyResponse $response, Request $request): JsonResponse
     {
         try {
-            if (!Auth::user()->can('survey_responses.approve')) {
+            if (! Auth::user()->can('survey_responses.approve')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
@@ -232,7 +228,7 @@ class SurveyApprovalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -245,14 +241,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $result,
-                'message' => 'Response approved successfully'
+                'message' => 'Response approved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error approving response',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -264,10 +259,10 @@ class SurveyApprovalController extends Controller
     public function rejectResponse(SurveyResponse $response, Request $request): JsonResponse
     {
         try {
-            if (!Auth::user()->can('survey_responses.approve')) {
+            if (! Auth::user()->can('survey_responses.approve')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
@@ -280,7 +275,7 @@ class SurveyApprovalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -293,14 +288,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $result,
-                'message' => 'Response rejected successfully'
+                'message' => 'Response rejected successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error rejecting response',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -312,10 +306,10 @@ class SurveyApprovalController extends Controller
     public function returnForRevision(SurveyResponse $response, Request $request): JsonResponse
     {
         try {
-            if (!Auth::user()->can('survey_responses.approve')) {
+            if (! Auth::user()->can('survey_responses.approve')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions'
+                    'message' => 'Insufficient permissions',
                 ], 403);
             }
 
@@ -328,7 +322,7 @@ class SurveyApprovalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -341,14 +335,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $result,
-                'message' => 'Response returned for revision'
+                'message' => 'Response returned for revision',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error returning response',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -372,15 +365,15 @@ class SurveyApprovalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
             // Check user has permission for bulk operations
-            if (!Auth::user()->can('survey_responses.bulk_approve')) {
+            if (! Auth::user()->can('survey_responses.bulk_approve')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions for bulk operations'
+                    'message' => 'Insufficient permissions for bulk operations',
                 ], 403);
             }
 
@@ -394,14 +387,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $result,
-                'message' => "Bulk {$request->input('action')} operation completed"
+                'message' => "Bulk {$request->input('action')} operation completed",
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error performing bulk operation',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -422,14 +414,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $result['stats'],
-                'message' => 'Approval statistics retrieved successfully'
+                'message' => 'Approval statistics retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error retrieving statistics',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -443,9 +434,9 @@ class SurveyApprovalController extends Controller
         try {
             $surveys = Survey::with('questions')
                 ->where('status', 'published')
-                ->where(function($query) {
+                ->where(function ($query) {
                     $query->whereNull('end_date')
-                          ->orWhere('end_date', '>=', now());
+                        ->orWhere('end_date', '>=', now());
                 })
                 ->select(['id', 'title', 'description', 'start_date', 'end_date', 'target_institutions', 'current_questions_count'])
                 ->orderBy('created_at', 'desc')
@@ -454,14 +445,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $surveys,
-                'message' => 'Published surveys retrieved successfully'
+                'message' => 'Published surveys retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error retrieving published surveys',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -485,7 +475,7 @@ class SurveyApprovalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -498,14 +488,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $result,
-                'message' => 'Table editing view retrieved successfully'
+                'message' => 'Table editing view retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error retrieving table editing view',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -521,14 +510,14 @@ class SurveyApprovalController extends Controller
             $validator = Validator::make($request->all(), [
                 'updates' => 'required|array|min:1',
                 'updates.*.response_id' => 'required|integer|exists:survey_responses,id',
-                'updates.*.responses' => 'required|array'
+                'updates.*.responses' => 'required|array',
             ]);
 
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -548,14 +537,13 @@ class SurveyApprovalController extends Controller
             return response()->json([
                 'success' => $results['successful'] > 0,
                 'data' => $results,
-                'message' => $message
+                'message' => $message,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error performing batch update',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -572,7 +560,7 @@ class SurveyApprovalController extends Controller
             'user_authenticated' => Auth::check(),
             'user_id' => Auth::id(),
             'request_method' => $request->method(),
-            'request_url' => $request->fullUrl()
+            'request_url' => $request->fullUrl(),
         ]);
 
         try {
@@ -584,7 +572,7 @@ class SurveyApprovalController extends Controller
                 'survey_id' => $survey->id,
                 'memory_limit' => ini_get('memory_limit'),
                 'max_execution_time' => ini_get('max_execution_time'),
-                'current_memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2)
+                'current_memory_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
             ]);
 
             $validator = Validator::make($request->all(), [
@@ -604,7 +592,7 @@ class SurveyApprovalController extends Controller
                 return response()->json([
                     'success' => false,
                     'message' => 'Validation error',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -616,13 +604,13 @@ class SurveyApprovalController extends Controller
                 'user_role' => $user->role,
                 'user_institution_id' => $user->institution_id,
                 'user_institution_name' => $user->institution?->name,
-                'has_read_permission' => $user->can('survey_responses.read')
+                'has_read_permission' => $user->can('survey_responses.read'),
             ]);
 
-            if (!$user->can('survey_responses.read')) {
+            if (! $user->can('survey_responses.read')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Insufficient permissions for survey response access'
+                    'message' => 'Insufficient permissions for survey response access',
                 ], 403);
             }
 
@@ -642,7 +630,7 @@ class SurveyApprovalController extends Controller
             \Log::info('📊 [EXPORT] Processing completed', [
                 'processing_time_ms' => $processingTime,
                 'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-                'peak_memory_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2)
+                'peak_memory_mb' => round(memory_get_peak_usage(true) / 1024 / 1024, 2),
             ]);
 
             // Return Excel file for download
@@ -650,14 +638,12 @@ class SurveyApprovalController extends Controller
             $filename = "survey_{$survey->id}_responses_" . date('Y-m-d_H-i-s') . ".{$format}";
 
             return response()->download($result['file_path'], $filename)->deleteFileAfterSend();
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error exporting survey responses',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-
 }

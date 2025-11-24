@@ -2,20 +2,25 @@
 
 namespace App\Services;
 
-use Illuminate\Database\Eloquent\Model;
+use Exception;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
-use Exception;
 
 abstract class BaseService
 {
     protected string $modelClass;
+
     protected array $searchableFields = [];
+
     protected array $filterableFields = [];
+
     protected array $relationships = [];
+
     protected int $cacheMinutes = 5; // Default cache duration
+
     protected bool $enableCache = true;
 
     /**
@@ -32,8 +37,8 @@ abstract class BaseService
     protected function getQuery(): Builder
     {
         return $this->getModel()
-                   ->newQuery()
-                   ->with($this->relationships);
+            ->newQuery()
+            ->with($this->relationships);
     }
 
     /**
@@ -43,22 +48,24 @@ abstract class BaseService
     {
         $modelName = class_basename($this->modelClass);
         $paramHash = md5(serialize($params));
+
         return "service_{$modelName}_{$method}_{$paramHash}";
     }
 
     /**
      * Cache query result
      */
-    protected function cacheQuery(string $cacheKey, callable $callback, int $minutes = null)
+    protected function cacheQuery(string $cacheKey, callable $callback, ?int $minutes = null)
     {
-        if (!$this->enableCache) {
+        if (! $this->enableCache) {
             return $callback();
         }
 
         $minutes = $minutes ?? $this->cacheMinutes;
-        
+
         return Cache::remember($cacheKey, now()->addMinutes($minutes), function () use ($callback, $cacheKey) {
             Log::info("🔄 Cache miss: {$cacheKey}");
+
             return $callback();
         });
     }
@@ -70,7 +77,7 @@ abstract class BaseService
     {
         $modelName = class_basename($this->modelClass);
         $pattern = "service_{$modelName}_*";
-        
+
         // This would need Redis or custom cache implementation for pattern deletion
         // For now, we'll just flush all cache when needed
         if (config('cache.default') === 'redis') {
@@ -83,13 +90,13 @@ abstract class BaseService
      */
     public function getAll(array $filters = [], array $relationships = [], bool $useCache = true): \Illuminate\Database\Eloquent\Collection
     {
-        if (!$useCache) {
+        if (! $useCache) {
             return $this->executeGetAllQuery($filters, $relationships);
         }
 
         $cacheKey = $this->getCacheKey('getAll', [
             'filters' => $filters,
-            'relationships' => $relationships
+            'relationships' => $relationships,
         ]);
 
         return $this->cacheQuery($cacheKey, function () use ($filters, $relationships) {
@@ -103,13 +110,13 @@ abstract class BaseService
     protected function executeGetAllQuery(array $filters, array $relationships): \Illuminate\Database\Eloquent\Collection
     {
         $query = $this->getQuery();
-        
-        if (!empty($relationships)) {
+
+        if (! empty($relationships)) {
             $query->with($relationships);
         }
 
         $this->applyFilters($query, $filters);
-        
+
         return $query->get();
     }
 
@@ -119,13 +126,13 @@ abstract class BaseService
     public function getPaginated(array $filters = [], int $perPage = 15, array $relationships = [])
     {
         $query = $this->getQuery();
-        
-        if (!empty($relationships)) {
+
+        if (! empty($relationships)) {
             $query->with($relationships);
         }
 
         $this->applyFilters($query, $filters);
-        
+
         return $query->paginate($perPage);
     }
 
@@ -135,8 +142,8 @@ abstract class BaseService
     public function findById(int $id, array $relationships = []): ?Model
     {
         $query = $this->getQuery();
-        
-        if (!empty($relationships)) {
+
+        if (! empty($relationships)) {
             $query->with($relationships);
         }
 
@@ -149,8 +156,8 @@ abstract class BaseService
     public function findByIdOrFail(int $id, array $relationships = []): Model
     {
         $query = $this->getQuery();
-        
-        if (!empty($relationships)) {
+
+        if (! empty($relationships)) {
             $query->with($relationships);
         }
 
@@ -163,23 +170,23 @@ abstract class BaseService
     public function create(array $data): Model
     {
         DB::beginTransaction();
-        
+
         try {
             $model = $this->getModel()->create($data);
-            
+
             $this->afterCreate($model, $data);
-            
+
             DB::commit();
-            
+
             return $model->fresh($this->relationships);
         } catch (Exception $e) {
             DB::rollback();
-            
+
             Log::error('Error creating ' . class_basename($this->modelClass), [
                 'data' => $data,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             throw $e;
         }
     }
@@ -190,27 +197,27 @@ abstract class BaseService
     public function update(int $id, array $data): Model
     {
         DB::beginTransaction();
-        
+
         try {
             $model = $this->findByIdOrFail($id);
             $originalData = $model->toArray();
-            
+
             $model->update($data);
-            
+
             $this->afterUpdate($model, $data, $originalData);
-            
+
             DB::commit();
-            
+
             return $model->fresh($this->relationships);
         } catch (Exception $e) {
             DB::rollback();
-            
+
             Log::error('Error updating ' . class_basename($this->modelClass), [
                 'id' => $id,
                 'data' => $data,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             throw $e;
         }
     }
@@ -221,28 +228,28 @@ abstract class BaseService
     public function delete(int $id): bool
     {
         DB::beginTransaction();
-        
+
         try {
             $model = $this->findByIdOrFail($id);
             $modelData = $model->toArray();
-            
+
             $this->beforeDelete($model);
-            
+
             $result = $model->delete();
-            
+
             $this->afterDelete($modelData);
-            
+
             DB::commit();
-            
+
             return $result;
         } catch (Exception $e) {
             DB::rollback();
-            
+
             Log::error('Error deleting ' . class_basename($this->modelClass), [
                 'id' => $id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             throw $e;
         }
     }
@@ -253,26 +260,26 @@ abstract class BaseService
     public function bulkUpdate(array $ids, array $data): int
     {
         DB::beginTransaction();
-        
+
         try {
             $count = $this->getModel()
-                         ->whereIn('id', $ids)
-                         ->update($data);
-            
+                ->whereIn('id', $ids)
+                ->update($data);
+
             $this->afterBulkUpdate($ids, $data);
-            
+
             DB::commit();
-            
+
             return $count;
         } catch (Exception $e) {
             DB::rollback();
-            
+
             Log::error('Error bulk updating ' . class_basename($this->modelClass), [
                 'ids' => $ids,
                 'data' => $data,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             throw $e;
         }
     }
@@ -283,29 +290,29 @@ abstract class BaseService
     public function bulkDelete(array $ids): int
     {
         DB::beginTransaction();
-        
+
         try {
             $models = $this->getModel()->whereIn('id', $ids)->get();
-            
+
             foreach ($models as $model) {
                 $this->beforeDelete($model);
             }
-            
+
             $count = $this->getModel()->whereIn('id', $ids)->delete();
-            
+
             $this->afterBulkDelete($ids);
-            
+
             DB::commit();
-            
+
             return $count;
         } catch (Exception $e) {
             DB::rollback();
-            
+
             Log::error('Error bulk deleting ' . class_basename($this->modelClass), [
                 'ids' => $ids,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            
+
             throw $e;
         }
     }
@@ -316,8 +323,8 @@ abstract class BaseService
     public function search(string $term, array $filters = [], int $perPage = 15)
     {
         $query = $this->getQuery();
-        
-        if (!empty($this->searchableFields)) {
+
+        if (! empty($this->searchableFields)) {
             $query->where(function ($q) use ($term) {
                 foreach ($this->searchableFields as $field) {
                     if (strpos($field, '.') !== false) {
@@ -332,9 +339,9 @@ abstract class BaseService
                 }
             });
         }
-        
+
         $this->applyFilters($query, $filters);
-        
+
         return $query->paginate($perPage);
     }
 
@@ -344,7 +351,7 @@ abstract class BaseService
     public function getStatistics(): array
     {
         $model = $this->getModel();
-        
+
         return [
             'total_count' => $model->count(),
             'active_count' => $model->where('is_active', true)->count(),
@@ -361,13 +368,13 @@ abstract class BaseService
     protected function applyFilters(Builder $query, array $filters): void
     {
         foreach ($filters as $key => $value) {
-            if (!in_array($key, $this->filterableFields) || $value === null) {
+            if (! in_array($key, $this->filterableFields) || $value === null) {
                 continue;
             }
 
             switch ($key) {
                 case 'search':
-                    if (!empty($this->searchableFields)) {
+                    if (! empty($this->searchableFields)) {
                         $query->where(function ($q) use ($value) {
                             foreach ($this->searchableFields as $field) {
                                 if (strpos($field, '.') !== false) {

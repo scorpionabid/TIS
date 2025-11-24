@@ -2,21 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
+use App\Models\Role;
+use App\Models\SecurityEvent;
 use App\Models\User;
 use App\Models\UserProfile;
-use App\Models\ActivityLog;
-use App\Models\SecurityEvent;
-use App\Models\Role;
-use App\Services\RegionOperatorPermissionService;
-use App\Services\RegionOperatorPermissionMappingService;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Builder;
 use Exception;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class UserCrudService
 {
@@ -26,29 +24,29 @@ class UserCrudService
     public function getPaginatedList(array $params): LengthAwarePaginator
     {
         $query = User::with(['roles', 'institution', 'profile', 'regionOperatorPermissions']);
-        
+
         // Apply filters
         $this->applyFilters($query, $params);
-        
+
         // Apply search
-        if (!empty($params['search'])) {
+        if (! empty($params['search'])) {
             $this->applySearch($query, $params['search']);
         }
-        
+
         // Apply sorting
         $this->applySorting($query, $params);
-        
+
         $users = $query->paginate($params['per_page'] ?? 15);
-        
+
         // Log activity
         $this->logActivity('users_list', 'Accessed users list', [
             'filters' => array_intersect_key($params, array_flip(['search', 'role', 'institution_id', 'department', 'is_active'])),
             'pagination' => [
                 'per_page' => $params['per_page'] ?? 15,
-                'page' => $params['page'] ?? 1
-            ]
+                'page' => $params['page'] ?? 1,
+            ],
         ]);
-        
+
         return $users;
     }
 
@@ -59,26 +57,26 @@ class UserCrudService
     {
         $this->applyFilters($query, $params);
 
-        if (!empty($params['search'])) {
+        if (! empty($params['search'])) {
             $this->applySearch($query, $params['search']);
         }
 
         $this->applySorting($query, $params);
     }
-    
+
     /**
      * Get user with all relations
      */
     public function getWithRelations(User $user): User
     {
         $user->load(['roles.permissions', 'institution', 'department', 'profile', 'regionOperatorPermissions']);
-        
+
         // Log activity
         $this->logActivity('user_view', "Viewed user: {$user->username}", [
             'entity_type' => 'User',
-            'entity_id' => $user->id
+            'entity_id' => $user->id,
         ]);
-        
+
         return $user;
     }
 
@@ -88,29 +86,30 @@ class UserCrudService
     public function getTrashed(array $params): LengthAwarePaginator
     {
         $query = User::onlyTrashed()->with(['roles', 'institution', 'profile']);
-        
+
         // Apply filters (similar to active users but for trashed)
-        if (!empty($params['search'])) {
+        if (! empty($params['search'])) {
             $this->applySearch($query, $params['search']);
         }
-        
-        if (!empty($params['role'])) {
+
+        if (! empty($params['role'])) {
             $query->whereHas('roles', function ($q) use ($params) {
                 $q->where('name', $params['role']);
             });
         }
-        
-        if (!empty($params['institution_id'])) {
+
+        if (! empty($params['institution_id'])) {
             $query->where('institution_id', $params['institution_id']);
         }
-        
+
         // Sort by deletion date (most recent first)
         $query->orderBy('deleted_at', 'desc');
-        
+
         $perPage = $params['per_page'] ?? 15;
+
         return $query->paginate($perPage);
     }
-    
+
     /**
      * Create new user with profile
      */
@@ -137,7 +136,7 @@ class UserCrudService
                 Log::info("Assigned role {$role->name} to user {$user->id}");
 
                 // Handle RegionOperator permissions
-                if ($role->name === 'regionoperator' && !empty($data['region_operator_permissions'])) {
+                if ($role->name === 'regionoperator' && ! empty($data['region_operator_permissions'])) {
                     $this->syncRegionOperatorPermissions($user, $data['region_operator_permissions']);
                 }
             }
@@ -145,8 +144,8 @@ class UserCrudService
             // Create profile if data provided
             $profileFields = ['first_name', 'last_name', 'patronymic', 'birth_date', 'gender', 'national_id', 'contact_phone', 'emergency_contact', 'address'];
             $profileData = array_intersect_key($data, array_flip($profileFields));
-            
-            if (!empty($profileData)) {
+
+            if (! empty($profileData)) {
                 UserProfile::create(array_merge(['user_id' => $user->id], $profileData));
             }
 
@@ -156,9 +155,9 @@ class UserCrudService
             $this->logActivity('user_create', "Created user: {$user->username} with role: " . ($role->name ?? 'none'), [
                 'entity_type' => 'User',
                 'entity_id' => $user->id,
-                'after_state' => $user->toArray()
+                'after_state' => $user->toArray(),
             ]);
-            
+
             // Log security event
             SecurityEvent::logEvent([
                 'event_type' => 'user_created',
@@ -169,14 +168,14 @@ class UserCrudService
                 'event_data' => [
                     'created_username' => $user->username,
                     'role' => $user->role?->name,
-                    'institution_id' => $user->institution_id
-                ]
+                    'institution_id' => $user->institution_id,
+                ],
             ]);
 
             return $user;
         });
     }
-    
+
     /**
      * Update user with profile
      */
@@ -187,11 +186,11 @@ class UserCrudService
 
             $updateData = array_intersect_key($data, array_flip([
                 'username', 'email', 'role_id', 'institution_id', 'department_id',
-                'departments', 'is_active'
+                'departments', 'is_active',
             ]));
 
             // Handle password update
-            if (!empty($data['password'])) {
+            if (! empty($data['password'])) {
                 $updateData['password'] = Hash::make($data['password']);
                 $updateData['password_changed_at'] = now();
             }
@@ -205,9 +204,9 @@ class UserCrudService
 
             // Update or create profile
             $profileFields = ['first_name', 'last_name', 'patronymic', 'birth_date', 'gender', 'national_id', 'contact_phone', 'emergency_contact', 'address'];
-            $profileData = array_filter(array_intersect_key($data, array_flip($profileFields)), fn($value) => $value !== null);
+            $profileData = array_filter(array_intersect_key($data, array_flip($profileFields)), fn ($value) => $value !== null);
 
-            if (!empty($profileData)) {
+            if (! empty($profileData)) {
                 if ($user->profile) {
                     $user->profile->update($profileData);
                 } else {
@@ -222,7 +221,7 @@ class UserCrudService
                 'entity_type' => 'User',
                 'entity_id' => $user->id,
                 'before_state' => $oldData,
-                'after_state' => $user->toArray()
+                'after_state' => $user->toArray(),
             ]);
 
             // Log role change if applicable
@@ -236,15 +235,15 @@ class UserCrudService
                     'event_data' => [
                         'username' => $user->username,
                         'old_role_id' => $oldData['role_id'],
-                        'new_role_id' => $user->role_id
-                    ]
+                        'new_role_id' => $user->role_id,
+                    ],
                 ]);
             }
 
             return $user;
         });
     }
-    
+
     /**
      * Delete user (soft or hard delete)
      */
@@ -261,17 +260,17 @@ class UserCrudService
             if ($type === 'hard') {
                 // Hard delete - permanently remove user
                 $user->tokens()->delete();
-                
+
                 if ($user->profile) {
                     $user->profile->delete();
                 }
-                
+
                 $user->delete();
-                
+
                 $this->logActivity('user_hard_delete', "Permanently deleted user: {$username}", [
                     'entity_type' => 'User',
                     'entity_id' => $user->id,
-                    'before_state' => $oldData
+                    'before_state' => $oldData,
                 ]);
 
                 SecurityEvent::logEvent([
@@ -280,13 +279,13 @@ class UserCrudService
                     'user_id' => Auth::id(),
                     'target_user_id' => $user->id,
                     'description' => 'User account permanently deleted',
-                    'event_data' => ['deleted_username' => $username]
+                    'event_data' => ['deleted_username' => $username],
                 ]);
             } else {
                 // Soft delete - use Laravel's soft delete functionality
                 $user->tokens()->delete();
                 $user->delete(); // This will set deleted_at timestamp
-                
+
                 // Also set is_active to false for additional business logic
                 $user->withTrashed()->where('id', $user->id)->update(['is_active' => false]);
 
@@ -294,7 +293,7 @@ class UserCrudService
                     'entity_type' => 'User',
                     'entity_id' => $user->id,
                     'before_state' => $oldData,
-                    'after_state' => $user->withTrashed()->find($user->id)->toArray()
+                    'after_state' => $user->withTrashed()->find($user->id)->toArray(),
                 ]);
 
                 SecurityEvent::logEvent([
@@ -303,7 +302,7 @@ class UserCrudService
                     'user_id' => Auth::id(),
                     'target_user_id' => $user->id,
                     'description' => 'User account soft deleted',
-                    'event_data' => ['deleted_username' => $username]
+                    'event_data' => ['deleted_username' => $username],
                 ]);
             }
 
@@ -316,7 +315,7 @@ class UserCrudService
      */
     public function restore(User $user): bool
     {
-        if (!$user->trashed()) {
+        if (! $user->trashed()) {
             throw new Exception('User is not deleted and cannot be restored');
         }
 
@@ -326,11 +325,11 @@ class UserCrudService
 
             // Restore the user (removes deleted_at timestamp)
             $user->restore();
-            
+
             // Optionally reactivate the user
             $user->update([
                 'is_active' => true,
-                'locked_until' => null
+                'locked_until' => null,
             ]);
 
             $user->load(['role', 'institution', 'department', 'profile']);
@@ -339,7 +338,7 @@ class UserCrudService
                 'entity_type' => 'User',
                 'entity_id' => $user->id,
                 'before_state' => $oldData,
-                'after_state' => $user->toArray()
+                'after_state' => $user->toArray(),
             ]);
 
             SecurityEvent::logEvent([
@@ -348,7 +347,7 @@ class UserCrudService
                 'user_id' => Auth::id(),
                 'target_user_id' => $user->id,
                 'description' => 'User account restored from soft delete',
-                'event_data' => ['restored_username' => $username]
+                'event_data' => ['restored_username' => $username],
             ]);
 
             return true;
@@ -360,7 +359,7 @@ class UserCrudService
      */
     public function forceDelete(User $user): bool
     {
-        if (!$user->trashed()) {
+        if (! $user->trashed()) {
             throw new Exception('User must be soft deleted first before permanent deletion');
         }
 
@@ -370,7 +369,7 @@ class UserCrudService
 
             // Remove associated data
             $user->tokens()->delete();
-            
+
             if ($user->profile) {
                 $user->profile->forceDelete();
             }
@@ -381,7 +380,7 @@ class UserCrudService
             $this->logActivity('user_force_delete', "Permanently deleted user: {$username}", [
                 'entity_type' => 'User',
                 'entity_id' => $user->id,
-                'before_state' => $oldData
+                'before_state' => $oldData,
             ]);
 
             SecurityEvent::logEvent([
@@ -390,19 +389,19 @@ class UserCrudService
                 'user_id' => Auth::id(),
                 'target_user_id' => $user->id,
                 'description' => 'User account permanently deleted',
-                'event_data' => ['deleted_username' => $username]
+                'event_data' => ['deleted_username' => $username],
             ]);
 
             return true;
         });
     }
-    
+
     /**
      * Apply filters to query
      */
     protected function applyFilters($query, array $params): void
     {
-        if (!empty($params['role'])) {
+        if (! empty($params['role'])) {
             $query->whereHas('roles', function ($q) use ($params) {
                 $q->where('name', $params['role']);
             });
@@ -415,35 +414,35 @@ class UserCrudService
                 $query->where('is_active', false);
             }
         }
-        
+
         if (isset($params['is_active'])) {
             $query->where('is_active', $params['is_active']);
         }
 
-        if (!empty($params['institution']) || !empty($params['institution_id'])) {
+        if (! empty($params['institution']) || ! empty($params['institution_id'])) {
             $institutionId = $params['institution'] ?? $params['institution_id'];
             $query->where('institution_id', $institutionId);
         }
 
-        if (!empty($params['department'])) {
+        if (! empty($params['department'])) {
             $query->whereJsonContains('departments', $params['department']);
         }
 
         // Date range filters
-        if (!empty($params['created_from'])) {
+        if (! empty($params['created_from'])) {
             $query->whereDate('created_at', '>=', $params['created_from']);
         }
-        if (!empty($params['created_to'])) {
+        if (! empty($params['created_to'])) {
             $query->whereDate('created_at', '<=', $params['created_to']);
         }
-        if (!empty($params['last_login_from'])) {
+        if (! empty($params['last_login_from'])) {
             $query->whereDate('last_login_at', '>=', $params['last_login_from']);
         }
-        if (!empty($params['last_login_to'])) {
+        if (! empty($params['last_login_to'])) {
             $query->whereDate('last_login_at', '<=', $params['last_login_to']);
         }
     }
-    
+
     /**
      * Apply search to query
      */
@@ -457,28 +456,28 @@ class UserCrudService
                 $like = '%' . Str::lower($search) . '%';
 
                 $q->whereRaw('LOWER(username) LIKE ?', [$like])
-                  ->orWhereRaw('LOWER(email) LIKE ?', [$like])
-                  ->orWhereHas('profile', function ($pq) use ($like) {
-                      $pq->whereRaw('LOWER(first_name) LIKE ?', [$like])
-                         ->orWhereRaw('LOWER(last_name) LIKE ?', [$like]);
-                  })
-                  ->orWhereHas('institution', function ($iq) use ($like) {
-                      $iq->whereRaw('LOWER(name) LIKE ?', [$like]);
-                  });
+                    ->orWhereRaw('LOWER(email) LIKE ?', [$like])
+                    ->orWhereHas('profile', function ($pq) use ($like) {
+                        $pq->whereRaw('LOWER(first_name) LIKE ?', [$like])
+                            ->orWhereRaw('LOWER(last_name) LIKE ?', [$like]);
+                    })
+                    ->orWhereHas('institution', function ($iq) use ($like) {
+                        $iq->whereRaw('LOWER(name) LIKE ?', [$like]);
+                    });
             } else {
                 $q->where('username', 'ILIKE', $searchPattern)
-                  ->orWhere('email', 'ILIKE', $searchPattern)
-                  ->orWhereHas('profile', function ($pq) use ($searchPattern) {
-                      $pq->where('first_name', 'ILIKE', $searchPattern)
-                         ->orWhere('last_name', 'ILIKE', $searchPattern);
-                  })
-                  ->orWhereHas('institution', function ($iq) use ($searchPattern) {
-                      $iq->where('name', 'ILIKE', $searchPattern);
-                  });
+                    ->orWhere('email', 'ILIKE', $searchPattern)
+                    ->orWhereHas('profile', function ($pq) use ($searchPattern) {
+                        $pq->where('first_name', 'ILIKE', $searchPattern)
+                            ->orWhere('last_name', 'ILIKE', $searchPattern);
+                    })
+                    ->orWhereHas('institution', function ($iq) use ($searchPattern) {
+                        $iq->where('name', 'ILIKE', $searchPattern);
+                    });
             }
         });
     }
-    
+
     /**
      * Apply sorting to query
      */
@@ -486,36 +485,36 @@ class UserCrudService
     {
         $sortBy = $params['sort_by'] ?? $params['sort'] ?? 'username';
         $sortDirection = $params['sort_direction'] ?? $params['order'] ?? 'asc';
-        
+
         $allowedSorts = ['username', 'email', 'created_at', 'last_login_at'];
-        
+
         if (in_array($sortBy, $allowedSorts)) {
             $query->orderBy($sortBy, $sortDirection);
         } else {
             $query->orderBy('username', 'asc');
         }
     }
-    
+
     /**
      * Format user for API response
      */
     public function formatForResponse(User $user): array
     {
         // Ensure roles are loaded
-        if (!$user->relationLoaded('roles')) {
+        if (! $user->relationLoaded('roles')) {
             $user->load('roles');
         }
-        
+
         // Get first role from Spatie roles relationship
         $firstRole = $user->roles->first();
-        
+
         $roleData = null;
         if ($firstRole) {
             $roleData = [
                 'id' => $firstRole->id,
                 'name' => $firstRole->name,
                 'display_name' => $firstRole->display_name,
-                'level' => $firstRole->level
+                'level' => $firstRole->level,
             ];
         } else {
             // Fallback to old role relationship if Spatie roles not found
@@ -523,10 +522,10 @@ class UserCrudService
                 'id' => $user->role?->id,
                 'name' => $user->role?->name,
                 'display_name' => $user->role?->display_name,
-                'level' => $user->role?->level
+                'level' => $user->role?->level,
             ];
         }
-        
+
         return [
             'id' => $user->id,
             'username' => $user->username,
@@ -535,12 +534,12 @@ class UserCrudService
             'institution' => [
                 'id' => $user->institution?->id,
                 'name' => $user->institution?->name,
-                'type' => $user->institution?->type
+                'type' => $user->institution?->type,
             ],
             'department' => [
                 'id' => $user->department?->id,
                 'name' => $user->department?->name,
-                'department_type' => $user->department?->department_type
+                'department_type' => $user->department?->department_type,
             ],
             'departments' => $user->departments,
             'is_active' => $user->is_active,
@@ -550,12 +549,12 @@ class UserCrudService
                 'first_name' => $user->profile->first_name,
                 'last_name' => $user->profile->last_name,
                 'full_name' => $user->profile->full_name,
-                'contact_phone' => $user->profile->contact_phone
+                'contact_phone' => $user->profile->contact_phone,
             ] : null,
             'region_operator_permissions' => $this->serializeRegionOperatorPermissions($user),
         ];
     }
-    
+
     /**
      * Format detailed user for API response
      */
@@ -563,7 +562,7 @@ class UserCrudService
     {
         // Get first role from Spatie roles relationship
         $firstRole = $user->roles->first();
-        
+
         return [
             'id' => $user->id,
             'username' => $user->username,
@@ -591,33 +590,29 @@ class UserCrudService
                 'name' => $firstRole?->name,
                 'display_name' => $firstRole?->display_name,
                 'level' => $firstRole?->level,
-                'department_access' => $firstRole?->department_access
+                'department_access' => $firstRole?->department_access,
             ],
             'institution' => [
                 'id' => $user->institution?->id,
                 'name' => $user->institution?->name,
                 'type' => $user->institution?->type,
-                'level' => $user->institution?->level
+                'level' => $user->institution?->level,
             ],
             'department' => [
                 'id' => $user->department?->id,
                 'name' => $user->department?->name,
-                'department_type' => $user->department?->department_type
+                'department_type' => $user->department?->department_type,
             ],
             'profile' => $user->profile,
             'permissions' => $user->role?->permissions->pluck('name') ?? [],
             'region_operator_permissions' => $this->serializeRegionOperatorPermissions($user),
         ];
     }
-    
+
     /**
      * Sync RegionOperator permissions to both custom table and Spatie permissions
      *
      * This ensures RegionOperator granular permissions work with route middleware
-     *
-     * @param User $user
-     * @param array $roPermissions
-     * @return void
      */
     protected function syncRegionOperatorPermissions(User $user, array $roPermissions): void
     {
@@ -625,7 +620,7 @@ class UserCrudService
         app(RegionOperatorPermissionService::class)->syncPermissions($user, $roPermissions);
 
         // 2. Map to Spatie permissions and sync (NEW functionality)
-        $mappingService = new RegionOperatorPermissionMappingService();
+        $mappingService = new RegionOperatorPermissionMappingService;
         $spatiePermissions = $mappingService->toSpatiePermissions($roPermissions);
 
         // Grant only the permissions selected by RegionAdmin
@@ -650,7 +645,7 @@ class UserCrudService
             'user_id' => Auth::id(),
             'activity_type' => $activityType,
             'description' => $description,
-            'institution_id' => Auth::user()?->institution_id
+            'institution_id' => Auth::user()?->institution_id,
         ], $additionalData);
 
         ActivityLog::logActivity($data);
@@ -658,7 +653,7 @@ class UserCrudService
 
     protected function serializeRegionOperatorPermissions(User $user): ?array
     {
-        if (!$user->relationLoaded('regionOperatorPermissions')) {
+        if (! $user->relationLoaded('regionOperatorPermissions')) {
             $user->load('regionOperatorPermissions');
         }
 
@@ -689,7 +684,7 @@ class UserCrudService
                 'is_active' => $userData['is_active'] ?? true,
             ]);
 
-            if (!empty($profileData)) {
+            if (! empty($profileData)) {
                 UserProfile::create(array_merge($profileData, ['user_id' => $user->id]));
             }
 
@@ -708,7 +703,7 @@ class UserCrudService
                 'password' => Hash::make($newPassword),
                 'password_changed_at' => now(),
                 'failed_login_attempts' => 0,
-                'locked_until' => null
+                'locked_until' => null,
             ]);
 
             return $user->fresh(['roles', 'institution', 'profile']);
@@ -720,7 +715,7 @@ class UserCrudService
      */
     public function toggleUserStatus(int $userId, bool $isActive): User
     {
-        if (!$isActive && $userId === Auth::id()) {
+        if (! $isActive && $userId === Auth::id()) {
             throw new Exception('Cannot deactivate your own account');
         }
 

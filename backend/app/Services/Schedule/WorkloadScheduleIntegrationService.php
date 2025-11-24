@@ -14,6 +14,7 @@ use InvalidArgumentException;
 class WorkloadScheduleIntegrationService
 {
     private const MAX_WEEKLY_HOURS = 25;
+
     private const HIGH_LOAD_WARNING_THRESHOLD = 20;
 
     /**
@@ -24,7 +25,7 @@ class WorkloadScheduleIntegrationService
         $institution = $this->resolveInstitutionFromUser($user);
         $academicYear = $this->resolveAcademicYear($academicYearId);
 
-        if ($academicYearId && !$academicYear) {
+        if ($academicYearId && ! $academicYear) {
             return $this->emptyWorkloadResponse($institution, 'Akademik il tapılmadı');
         }
 
@@ -54,7 +55,7 @@ class WorkloadScheduleIntegrationService
         $institution = Institution::findOrFail($institutionId);
         $academicYear = $this->resolveAcademicYear($academicYearId);
 
-        if ($academicYearId && !$academicYear) {
+        if ($academicYearId && ! $academicYear) {
             return $this->emptyWorkloadResponse($institution, 'Akademik il tapılmadı');
         }
 
@@ -96,7 +97,7 @@ class WorkloadScheduleIntegrationService
         if ($academicYearId) {
             $academicYear = AcademicYear::find($academicYearId);
 
-            if (!$academicYear) {
+            if (! $academicYear) {
                 return [
                     'is_valid' => false,
                     'errors' => ['Akademik il tapılmadı'],
@@ -222,10 +223,10 @@ class WorkloadScheduleIntegrationService
         $statusCounts = TeachingLoad::whereHas('class', function ($query) use ($institutionId) {
             $query->where('institution_id', $institutionId);
         })
-        ->selectRaw('schedule_generation_status, COUNT(*) as count')
-        ->groupBy('schedule_generation_status')
-        ->pluck('count', 'schedule_generation_status')
-        ->toArray();
+            ->selectRaw('schedule_generation_status, COUNT(*) as count')
+            ->groupBy('schedule_generation_status')
+            ->pluck('count', 'schedule_generation_status')
+            ->toArray();
 
         $scheduledCount = TeachingLoad::whereHas('class', function ($query) use ($institutionId) {
             $query->where('institution_id', $institutionId);
@@ -298,18 +299,21 @@ class WorkloadScheduleIntegrationService
         $teacherHours = [];
 
         foreach ($teachingLoads as $load) {
-            if (!$load->teacher) {
+            if (! $load->teacher) {
                 $errors[] = "Dərs yükü #{$load->id} üçün müəllim tapılmadı";
+
                 continue;
             }
 
-            if (!$load->subject) {
+            if (! $load->subject) {
                 $errors[] = "Dərs yükü #{$load->id} üçün fənn tapılmadı";
+
                 continue;
             }
 
-            if (!$load->class) {
+            if (! $load->class) {
                 $errors[] = "Dərs yükü #{$load->id} üçün sinif məlumatı tapılmadı";
+
                 continue;
             }
 
@@ -327,7 +331,7 @@ class WorkloadScheduleIntegrationService
             $teacherId = $load->teacher_id;
             $teacherName = trim(($load->teacher->first_name ?? '') . ' ' . ($load->teacher->last_name ?? '')) ?: 'Naməlum müəllim';
 
-            if (!isset($teacherHours[$teacherId])) {
+            if (! isset($teacherHours[$teacherId])) {
                 $teacherHours[$teacherId] = [
                     'teacher_id' => $teacherId,
                     'teacher_name' => $teacherName,
@@ -349,6 +353,7 @@ class WorkloadScheduleIntegrationService
 
             if ($hours > self::MAX_WEEKLY_HOURS) {
                 $errors[] = "Müəllim {$data['teacher_name']} maksimum həftəlik saat həddini aşır ({$hours} > " . self::MAX_WEEKLY_HOURS . ')';
+
                 continue;
             }
 

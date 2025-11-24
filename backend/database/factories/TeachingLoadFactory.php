@@ -2,11 +2,11 @@
 
 namespace Database\Factories;
 
-use App\Models\TeachingLoad;
-use App\Models\User;
+use App\Models\AcademicYear;
 use App\Models\ClassModel;
 use App\Models\Subject;
-use App\Models\AcademicYear;
+use App\Models\TeachingLoad;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -29,7 +29,7 @@ class TeachingLoadFactory extends Factory
     public function definition(): array
     {
         $weeklyHours = $this->faker->numberBetween(2, 6);
-        
+
         return [
             'teacher_id' => User::factory(),
             'class_id' => ClassModel::factory(),
@@ -173,7 +173,7 @@ class TeachingLoadFactory extends Factory
                     'assessment_frequency' => 'weekly',
                     'required_resources' => ['projector', 'computer', 'lab_equipment', 'textbooks'],
                     'intensity' => 'high',
-                    'preparation_time' => 'extensive'
+                    'preparation_time' => 'extensive',
                 ]),
             ];
         });
@@ -196,7 +196,7 @@ class TeachingLoadFactory extends Factory
                     'assessment_frequency' => 'monthly',
                     'required_resources' => ['textbooks'],
                     'intensity' => 'low',
-                    'preparation_time' => 'minimal'
+                    'preparation_time' => 'minimal',
                 ]),
             ];
         });

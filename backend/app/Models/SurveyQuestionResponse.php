@@ -72,7 +72,7 @@ class SurveyQuestionResponse extends Model
             case 'file_upload':
                 return $this->file_response;
             default:
-                return null;
+                return;
         }
     }
 
@@ -134,19 +134,22 @@ class SurveyQuestionResponse extends Model
         switch ($question->type) {
             case 'text':
                 return (string) $value;
-                
+
             case 'number':
                 return number_format($value, 2);
-                
+
             case 'date':
                 return $value->format('d.m.Y');
-                
+
             case 'single_choice':
                 $option = collect($question->options)->firstWhere('id', $value);
+
                 return $option['label'] ?? 'Naməlum seçim';
-                
+
             case 'multiple_choice':
-                if (!is_array($value)) return 'Naməlum seçim';
+                if (! is_array($value)) {
+                    return 'Naməlum seçim';
+                }
                 $labels = [];
                 foreach ($value as $choiceId) {
                     $option = collect($question->options)->firstWhere('id', $choiceId);
@@ -154,30 +157,38 @@ class SurveyQuestionResponse extends Model
                         $labels[] = $option['label'];
                     }
                 }
+
                 return implode(', ', $labels);
-                
+
             case 'rating':
                 $min_label = $question->rating_min_label ?? '';
                 $max_label = $question->rating_max_label ?? '';
-                return "{$value} / {$question->rating_max}" . 
+
+                return "{$value} / {$question->rating_max}" .
                        ($min_label || $max_label ? " ({$min_label} - {$max_label})" : '');
-                
+
             case 'table_matrix':
-                if (!is_array($value)) return 'Cədvəl məlumatı';
+                if (! is_array($value)) {
+                    return 'Cədvəl məlumatı';
+                }
                 $formatted = '';
                 foreach ($value as $rowIndex => $row) {
-                    $rowLabel = $question->table_rows[$rowIndex]['label'] ?? "Sətir " . ($rowIndex + 1);
+                    $rowLabel = $question->table_rows[$rowIndex]['label'] ?? 'Sətir ' . ($rowIndex + 1);
                     $formatted .= "{$rowLabel}: " . implode(', ', array_values($row)) . "\n";
                 }
+
                 return trim($formatted);
-                
+
             case 'file_upload':
-                if (!is_array($value)) return 'Fayl yüklənməyib';
-                $fileNames = array_map(function($file) {
+                if (! is_array($value)) {
+                    return 'Fayl yüklənməyib';
+                }
+                $fileNames = array_map(function ($file) {
                     return basename($file['path'] ?? $file);
                 }, $value);
+
                 return implode(', ', $fileNames);
-                
+
             default:
                 return 'Naməlum cavab növü';
         }
@@ -190,8 +201,9 @@ class SurveyQuestionResponse extends Model
     {
         $question = $this->surveyQuestion;
         $value = $this->getResponseValue();
-        
+
         $errors = $question->validateResponse($value);
+
         return empty($errors);
     }
 
@@ -202,7 +214,7 @@ class SurveyQuestionResponse extends Model
     {
         $question = $this->surveyQuestion;
         $value = $this->getResponseValue();
-        
+
         return $question->validateResponse($value);
     }
 }

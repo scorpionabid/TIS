@@ -3,13 +3,12 @@
 namespace App\Http\Controllers\RegionAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Task;
 use App\Models\Institution;
-use App\Models\User;
+use App\Models\Task;
 use App\Models\TaskProgressLog;
 use App\Services\TaskNotificationService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
@@ -23,7 +22,7 @@ class RegionAdminTaskController extends Controller
         $user = Auth::user();
         $region = $user->institution;
 
-        if (!$region) {
+        if (! $region) {
             return response()->json(['error' => 'User is not associated with a region'], 400);
         }
 
@@ -50,7 +49,7 @@ class RegionAdminTaskController extends Controller
                 'assignedInstitution:id,name',
                 'progressLogs' => function ($q) {
                     $q->latest()->limit(1);
-                }
+                },
             ])
             ->orderBy('created_at', 'desc');
 
@@ -70,7 +69,7 @@ class RegionAdminTaskController extends Controller
         if ($request->search) {
             $query->where(function ($q) use ($request) {
                 $q->where('title', 'like', '%' . $request->search . '%')
-                  ->orWhere('description', 'like', '%' . $request->search . '%');
+                    ->orWhere('description', 'like', '%' . $request->search . '%');
             });
         }
 
@@ -80,7 +79,7 @@ class RegionAdminTaskController extends Controller
         // Add calculated fields
         $tasks->getCollection()->transform(function ($task) {
             $latestLog = $task->progressLogs->first();
-            
+
             return [
                 'id' => $task->id,
                 'title' => $task->title,
@@ -128,7 +127,7 @@ class RegionAdminTaskController extends Controller
         $user = Auth::user();
         $region = $user->institution;
 
-        if (!$region) {
+        if (! $region) {
             return response()->json(['error' => 'User is not associated with a region'], 400);
         }
 
@@ -137,11 +136,11 @@ class RegionAdminTaskController extends Controller
             'description' => 'required|string',
             'category' => [
                 'required',
-                Rule::in(['report', 'maintenance', 'event', 'audit', 'instruction', 'other'])
+                Rule::in(['report', 'maintenance', 'event', 'audit', 'instruction', 'other']),
             ],
             'priority' => [
                 'required',
-                Rule::in(['low', 'medium', 'high', 'urgent'])
+                Rule::in(['low', 'medium', 'high', 'urgent']),
             ],
             'deadline' => 'nullable|date|after:now',
             'target_institutions' => 'required|array|min:1',
@@ -154,11 +153,11 @@ class RegionAdminTaskController extends Controller
         $validInstitutions = Institution::whereIn('id', $request->target_institutions)
             ->where(function ($query) use ($region) {
                 $query->where('parent_id', $region->id) // Direct children (sectors)
-                      ->orWhere(function ($q) use ($region) {
-                          $q->whereHas('parent', function ($subQ) use ($region) {
-                              $subQ->where('parent_id', $region->id); // Schools under sectors
-                          });
-                      });
+                    ->orWhere(function ($q) use ($region) {
+                        $q->whereHas('parent', function ($subQ) use ($region) {
+                            $subQ->where('parent_id', $region->id); // Schools under sectors
+                        });
+                    });
             })
             ->pluck('id');
 
@@ -166,7 +165,7 @@ class RegionAdminTaskController extends Controller
         if ($invalidInstitutions->isNotEmpty()) {
             return response()->json([
                 'error' => 'Some target institutions are not under your authority',
-                'invalid_institutions' => $invalidInstitutions->values()
+                'invalid_institutions' => $invalidInstitutions->values(),
             ], 403);
         }
 
@@ -214,16 +213,16 @@ class RegionAdminTaskController extends Controller
     public function show(Request $request, int $taskId): JsonResponse
     {
         $user = Auth::user();
-        
+
         $task = Task::where('created_by', $user->id)
             ->with([
                 'creator:id,name,email',
                 'progressLogs.updatedBy:id,name,email,institution_id',
-                'progressLogs.updatedBy.institution:id,name'
+                'progressLogs.updatedBy.institution:id,name',
             ])
             ->find($taskId);
 
-        if (!$task) {
+        if (! $task) {
             return response()->json(['error' => 'Task not found or not accessible'], 404);
         }
 
@@ -240,7 +239,7 @@ class RegionAdminTaskController extends Controller
                         })
                         ->latest()
                         ->first();
-                    
+
                     return [
                         'id' => $institution->id,
                         'name' => $institution->name,
@@ -296,10 +295,10 @@ class RegionAdminTaskController extends Controller
     public function update(Request $request, int $taskId): JsonResponse
     {
         $user = Auth::user();
-        
+
         $task = Task::where('created_by', $user->id)->find($taskId);
 
-        if (!$task) {
+        if (! $task) {
             return response()->json(['error' => 'Task not found or not accessible'], 404);
         }
 
@@ -308,11 +307,11 @@ class RegionAdminTaskController extends Controller
             'description' => 'sometimes|string',
             'category' => [
                 'sometimes',
-                Rule::in(['report', 'maintenance', 'event', 'audit', 'instruction', 'other'])
+                Rule::in(['report', 'maintenance', 'event', 'audit', 'instruction', 'other']),
             ],
             'priority' => [
                 'sometimes',
-                Rule::in(['low', 'medium', 'high', 'urgent'])
+                Rule::in(['low', 'medium', 'high', 'urgent']),
             ],
             'deadline' => 'nullable|date|after:now',
             'notes' => 'nullable|string',
@@ -320,25 +319,25 @@ class RegionAdminTaskController extends Controller
         ]);
 
         $oldData = $task->only(['title', 'priority', 'deadline']);
-        
+
         $task->update($request->only([
-            'title', 'description', 'category', 'priority', 
-            'deadline', 'notes', 'requires_approval'
+            'title', 'description', 'category', 'priority',
+            'deadline', 'notes', 'requires_approval',
         ]));
 
         // Log significant changes
         $changes = [];
         if ($request->has('title') && $task->title !== $oldData['title']) {
-            $changes[] = "Title updated";
+            $changes[] = 'Title updated';
         }
         if ($request->has('priority') && $task->priority !== $oldData['priority']) {
             $changes[] = "Priority changed to {$task->priority}";
         }
         if ($request->has('deadline') && $task->deadline !== $oldData['deadline']) {
-            $changes[] = "Deadline updated";
+            $changes[] = 'Deadline updated';
         }
 
-        if (!empty($changes)) {
+        if (! empty($changes)) {
             TaskProgressLog::create([
                 'task_id' => $task->id,
                 'updated_by' => $user->id,
@@ -363,7 +362,7 @@ class RegionAdminTaskController extends Controller
         $user = Auth::user();
         $region = $user->institution;
 
-        if (!$region) {
+        if (! $region) {
             return response()->json(['error' => 'User is not associated with a region'], 400);
         }
 

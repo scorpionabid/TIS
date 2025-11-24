@@ -2,19 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ReportSchedule;
 use App\Models\ActivityLog;
+use App\Models\ReportSchedule;
+use App\Services\ScheduledReportService;
 use App\Services\SystemConfigService;
 use App\Services\SystemHealthService;
-use App\Services\ScheduledReportService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
 class SystemConfigControllerRefactored extends Controller
 {
     protected SystemConfigService $configService;
+
     protected SystemHealthService $healthService;
+
     protected ScheduledReportService $reportService;
 
     public function __construct(
@@ -38,9 +40,8 @@ class SystemConfigControllerRefactored extends Controller
             return response()->json([
                 'status' => 'success',
                 'data' => $config,
-                'last_updated' => Cache::get('system_config_last_updated', now())
+                'last_updated' => Cache::get('system_config_last_updated', now()),
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Sistem konfiqurasiyası yüklənərkən xəta baş verdi');
         }
@@ -53,7 +54,7 @@ class SystemConfigControllerRefactored extends Controller
     {
         $request->validate([
             'category' => 'required|string|in:general,security,notifications,maintenance,performance,audit,integrations',
-            'settings' => 'required|array'
+            'settings' => 'required|array',
         ]);
 
         try {
@@ -66,9 +67,8 @@ class SystemConfigControllerRefactored extends Controller
             return response()->json([
                 'message' => 'Sistem konfiqurasiyası uğurla yeniləndi',
                 'category' => $result['category'],
-                'updated_settings' => $result['updated_settings']
+                'updated_settings' => $result['updated_settings'],
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Konfiqurasiya yenilənərkən xəta baş verdi');
         }
@@ -86,7 +86,6 @@ class SystemConfigControllerRefactored extends Controller
             $result = $this->reportService->getScheduledReports($filters, $perPage);
 
             return response()->json($result);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Planlanmış hesabatlar yüklənərkən xəta baş verdi');
         }
@@ -107,7 +106,7 @@ class SystemConfigControllerRefactored extends Controller
             'filters' => 'nullable|array',
             'time' => 'required|string|regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/',
             'day_of_week' => 'nullable|integer|between:0,6',
-            'day_of_month' => 'nullable|integer|between:1,31'
+            'day_of_month' => 'nullable|integer|between:1,31',
         ]);
 
         try {
@@ -118,9 +117,8 @@ class SystemConfigControllerRefactored extends Controller
 
             return response()->json([
                 'message' => 'Planlanmış hesabat uğurla yaradıldı',
-                'schedule' => $schedule
+                'schedule' => $schedule,
             ], 201);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Planlanmış hesabat yaradılarkən xəta baş verdi');
         }
@@ -141,7 +139,7 @@ class SystemConfigControllerRefactored extends Controller
             'status' => 'sometimes|string|in:active,paused,disabled',
             'time' => 'sometimes|string|regex:/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/',
             'day_of_week' => 'nullable|integer|between:0,6',
-            'day_of_month' => 'nullable|integer|between:1,31'
+            'day_of_month' => 'nullable|integer|between:1,31',
         ]);
 
         try {
@@ -153,9 +151,8 @@ class SystemConfigControllerRefactored extends Controller
 
             return response()->json([
                 'message' => 'Planlanmış hesabat uğurla yeniləndi',
-                'schedule' => $result
+                'schedule' => $result,
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Planlanmış hesabat yenilənərkən xəta baş verdi');
         }
@@ -170,9 +167,8 @@ class SystemConfigControllerRefactored extends Controller
             $this->reportService->deleteScheduledReport($schedule, $request->user());
 
             return response()->json([
-                'message' => 'Planlanmış hesabat uğurla silindi'
+                'message' => 'Planlanmış hesabat uğurla silindi',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Planlanmış hesabat silinərkən xəta baş verdi');
         }
@@ -193,9 +189,8 @@ class SystemConfigControllerRefactored extends Controller
                 'overall_health' => $overallStatus,
                 'components' => $health,
                 'last_check' => now()->toISOString(),
-                'recommendations' => $recommendations
+                'recommendations' => $recommendations,
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Sistem sağlamlığı yoxlanılarkən xəta baş verdi');
         }
@@ -208,7 +203,7 @@ class SystemConfigControllerRefactored extends Controller
     {
         $request->validate([
             'tasks' => 'required|array|min:1',
-            'tasks.*' => 'string|in:clear_cache,optimize_db,cleanup_logs,backup_db,update_stats'
+            'tasks.*' => 'string|in:clear_cache,optimize_db,cleanup_logs,backup_db,update_stats',
         ]);
 
         try {
@@ -222,9 +217,8 @@ class SystemConfigControllerRefactored extends Controller
                 'message' => 'Sistem bakımı tamamlandı',
                 'results' => $result['results'],
                 'errors' => $result['errors'],
-                'completed_at' => now()->toISOString()
+                'completed_at' => now()->toISOString(),
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Sistem bakımı zamanı xəta baş verdi');
         }
@@ -242,12 +236,12 @@ class SystemConfigControllerRefactored extends Controller
             'activity_type' => 'nullable|string',
             'entity_type' => 'nullable|string',
             'severity' => 'nullable|string|in:info,warning,error,critical',
-            'per_page' => 'nullable|integer|min:1|max:100'
+            'per_page' => 'nullable|integer|min:1|max:100',
         ]);
 
         try {
             $filters = $request->only([
-                'start_date', 'end_date', 'user_id', 'activity_type', 'entity_type', 'severity'
+                'start_date', 'end_date', 'user_id', 'activity_type', 'entity_type', 'severity',
             ]);
             $perPage = $request->get('per_page', 50);
 
@@ -283,17 +277,16 @@ class SystemConfigControllerRefactored extends Controller
                         'ip_address' => $log->ip_address,
                         'user_agent' => $log->user_agent,
                         'created_at' => $log->created_at,
-                        'properties' => $log->properties
+                        'properties' => $log->properties,
                     ];
                 }),
                 'meta' => [
                     'current_page' => $logs->currentPage(),
                     'last_page' => $logs->lastPage(),
                     'per_page' => $logs->perPage(),
-                    'total' => $logs->total()
-                ]
+                    'total' => $logs->total(),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Audit logları yüklənərkən xəta baş verdi');
         }
@@ -305,7 +298,7 @@ class SystemConfigControllerRefactored extends Controller
     public function getConfigValue(Request $request): JsonResponse
     {
         $request->validate([
-            'key' => 'required|string'
+            'key' => 'required|string',
         ]);
 
         try {
@@ -313,9 +306,8 @@ class SystemConfigControllerRefactored extends Controller
 
             return response()->json([
                 'key' => $request->key,
-                'value' => $value
+                'value' => $value,
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Konfiqurasiya dəyəri yüklənərkən xəta baş verdi');
         }
@@ -328,7 +320,7 @@ class SystemConfigControllerRefactored extends Controller
     {
         $request->validate([
             'key' => 'required|string',
-            'value' => 'required'
+            'value' => 'required',
         ]);
 
         try {
@@ -340,9 +332,8 @@ class SystemConfigControllerRefactored extends Controller
 
             return response()->json([
                 'message' => 'Konfiqurasiya dəyəri uğurla təyin edildi',
-                'key' => $request->key
+                'key' => $request->key,
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Konfiqurasiya dəyəri təyin edilərkən xəta baş verdi');
         }
@@ -354,7 +345,7 @@ class SystemConfigControllerRefactored extends Controller
     public function resetConfigToDefaults(Request $request): JsonResponse
     {
         $request->validate([
-            'category' => 'required|string|in:general,security,notifications,maintenance,performance,audit,integrations'
+            'category' => 'required|string|in:general,security,notifications,maintenance,performance,audit,integrations',
         ]);
 
         try {
@@ -366,9 +357,8 @@ class SystemConfigControllerRefactored extends Controller
             return response()->json([
                 'message' => 'Konfiqurasiya uğurla sıfırlandı',
                 'category' => $result['category'],
-                'reset_settings' => $result['reset_settings']
+                'reset_settings' => $result['reset_settings'],
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Konfiqurasiya sıfırlanarkən xəta baş verdi');
         }
@@ -381,7 +371,7 @@ class SystemConfigControllerRefactored extends Controller
     {
         return response()->json([
             'message' => $defaultMessage,
-            'error' => config('app.debug') ? $e->getMessage() : 'Server error'
+            'error' => config('app.debug') ? $e->getMessage() : 'Server error',
         ], 500);
     }
 }

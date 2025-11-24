@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\SurveyTargetingService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SurveyTargetingController extends Controller
 {
@@ -24,13 +24,12 @@ class SurveyTargetingController extends Controller
             $options = $this->targetingService->getTargetingOptions($request->user());
 
             return response()->json([
-                'targeting_options' => $options
+                'targeting_options' => $options,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error fetching targeting options',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -44,13 +43,12 @@ class SurveyTargetingController extends Controller
             $hierarchy = $this->targetingService->getInstitutionHierarchy($request->user());
 
             return response()->json([
-                'hierarchy' => $hierarchy
+                'hierarchy' => $hierarchy,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error fetching institution hierarchy',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -68,27 +66,26 @@ class SurveyTargetingController extends Controller
             'target_user_types' => 'nullable|array',
             'target_user_types.*' => 'string',
             'institution_levels' => 'nullable|array',
-            'institution_levels.*' => 'integer|between:1,5'
+            'institution_levels.*' => 'integer|between:1,5',
         ]);
 
         try {
             $criteria = $request->only([
                 'target_institutions',
-                'target_departments', 
+                'target_departments',
                 'target_user_types',
-                'institution_levels'
+                'institution_levels',
             ]);
 
             $estimation = $this->targetingService->estimateRecipients($criteria, $request->user());
 
             return response()->json([
-                'estimation' => $estimation
+                'estimation' => $estimation,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error estimating recipients',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -99,7 +96,7 @@ class SurveyTargetingController extends Controller
     public function applyPreset(Request $request): JsonResponse
     {
         $request->validate([
-            'preset_key' => 'required|string'
+            'preset_key' => 'required|string',
         ]);
 
         try {
@@ -109,17 +106,16 @@ class SurveyTargetingController extends Controller
             );
 
             return response()->json([
-                'targeting' => $targeting
+                'targeting' => $targeting,
             ]);
-
         } catch (\InvalidArgumentException $e) {
             return response()->json([
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error applying preset',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -137,27 +133,26 @@ class SurveyTargetingController extends Controller
             'target_user_types' => 'nullable|array',
             'target_user_types.*' => 'string',
             'institution_levels' => 'nullable|array',
-            'institution_levels.*' => 'integer|between:1,5'
+            'institution_levels.*' => 'integer|between:1,5',
         ]);
 
         try {
             $criteria = $request->only([
                 'target_institutions',
                 'target_departments',
-                'target_user_types', 
-                'institution_levels'
+                'target_user_types',
+                'institution_levels',
             ]);
 
             $validation = $this->targetingService->validateTargeting($criteria, $request->user());
 
             return response()->json([
-                'validation' => $validation
+                'validation' => $validation,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error validating targeting',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -178,15 +173,14 @@ class SurveyTargetingController extends Controller
                         'code' => $institution->code,
                         'type' => $institution->type,
                         'level' => $institution->level,
-                        'parent_id' => $institution->parent_id
+                        'parent_id' => $institution->parent_id,
                     ];
-                })
+                }),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error fetching accessible institutions',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -198,7 +192,7 @@ class SurveyTargetingController extends Controller
     {
         $request->validate([
             'institution_ids' => 'nullable|array',
-            'institution_ids.*' => 'integer|exists:institutions,id'
+            'institution_ids.*' => 'integer|exists:institutions,id',
         ]);
 
         try {
@@ -216,15 +210,14 @@ class SurveyTargetingController extends Controller
                         'name' => $department->name,
                         'code' => $department->code,
                         'type' => $department->type,
-                        'institution_id' => $department->institution_id
+                        'institution_id' => $department->institution_id,
                     ];
-                })
+                }),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error fetching accessible departments',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -235,13 +228,13 @@ class SurveyTargetingController extends Controller
     public function getBulkSelectionOptions(Request $request): JsonResponse
     {
         $request->validate([
-            'selection_type' => 'required|string|in:by_level,by_type,by_region'
+            'selection_type' => 'required|string|in:by_level,by_type,by_region',
         ]);
 
         try {
             $user = $request->user();
             $accessibleInstitutions = $this->targetingService->getAccessibleInstitutions($user);
-            
+
             $options = [];
 
             switch ($request->selection_type) {
@@ -252,10 +245,10 @@ class SurveyTargetingController extends Controller
                             return [
                                 'level' => $level,
                                 'count' => $institutions->count(),
-                                'institutions' => $institutions->pluck('id')->toArray()
+                                'institutions' => $institutions->pluck('id')->toArray(),
                             ];
                         });
-                    
+
                     $options = $levelCounts->sortBy('level')->values()->toArray();
                     break;
 
@@ -266,26 +259,26 @@ class SurveyTargetingController extends Controller
                             return [
                                 'type' => $type,
                                 'count' => $institutions->count(),
-                                'institutions' => $institutions->pluck('id')->toArray()
+                                'institutions' => $institutions->pluck('id')->toArray(),
                             ];
                         });
-                    
+
                     $options = $typeCounts->values()->toArray();
                     break;
 
                 case 'by_region':
                     // Get regional grouping (institutions with parent_id = regional institution)
                     $regionalInstitutions = $accessibleInstitutions->where('level', 2);
-                    
+
                     foreach ($regionalInstitutions as $region) {
                         $childInstitutions = $accessibleInstitutions
                             ->where('parent_id', $region->id);
-                        
+
                         $options[] = [
                             'region_id' => $region->id,
                             'region_name' => $region->name,
                             'count' => $childInstitutions->count(),
-                            'institutions' => $childInstitutions->pluck('id')->toArray()
+                            'institutions' => $childInstitutions->pluck('id')->toArray(),
                         ];
                     }
                     break;
@@ -293,13 +286,12 @@ class SurveyTargetingController extends Controller
 
             return response()->json([
                 'selection_type' => $request->selection_type,
-                'options' => $options
+                'options' => $options,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Error fetching bulk selection options',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

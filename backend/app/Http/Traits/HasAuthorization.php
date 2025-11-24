@@ -2,8 +2,8 @@
 
 namespace App\Http\Traits;
 
-use App\Models\User;
 use App\Models\Institution;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,11 +15,11 @@ trait HasAuthorization
     protected function requireRole(string|array $roles): JsonResponse|bool
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole($roles)) {
+
+        if (! $user->hasRole($roles)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu əməliyyatı yerinə yetirmək səlahiyyətiniz yoxdur.'
+                'message' => 'Bu əməliyyatı yerinə yetirmək səlahiyyətiniz yoxdur.',
             ], 403);
         }
 
@@ -32,11 +32,11 @@ trait HasAuthorization
     protected function requirePermission(string|array $permissions): JsonResponse|bool
     {
         $user = Auth::user();
-        
-        if (!$user->hasPermissionTo($permissions)) {
+
+        if (! $user->hasPermissionTo($permissions)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu əməliyyatı yerinə yetirmək səlahiyyətiniz yoxdur.'
+                'message' => 'Bu əməliyyatı yerinə yetirmək səlahiyyətiniz yoxdur.',
             ], 403);
         }
 
@@ -46,7 +46,7 @@ trait HasAuthorization
     /**
      * Check if user can access specific institution
      */
-    protected function canAccessInstitution(int $institutionId, User $user = null): bool
+    protected function canAccessInstitution(int $institutionId, ?User $user = null): bool
     {
         $user = $user ?? Auth::user();
 
@@ -58,12 +58,14 @@ trait HasAuthorization
         // RegionAdmin can access institutions in their region
         if ($user->hasRole('regionadmin')) {
             $userInstitutions = $this->getUserInstitutionScope($user);
+
             return in_array($institutionId, $userInstitutions);
         }
 
         // SektorAdmin can access institutions in their sector
         if ($user->hasRole('sektoradmin')) {
             $userInstitutions = $this->getUserInstitutionScope($user);
+
             return in_array($institutionId, $userInstitutions);
         }
 
@@ -74,7 +76,7 @@ trait HasAuthorization
     /**
      * Get user's accessible institution IDs based on role
      */
-    protected function getUserInstitutionScope(User $user = null): array
+    protected function getUserInstitutionScope(?User $user = null): array
     {
         $user = $user ?? Auth::user();
 
@@ -82,12 +84,12 @@ trait HasAuthorization
             return Institution::pluck('id')->toArray();
         }
 
-        if (!$user->institution_id) {
+        if (! $user->institution_id) {
             return [];
         }
 
         $institution = Institution::find($user->institution_id);
-        if (!$institution) {
+        if (! $institution) {
             return [];
         }
 
@@ -108,34 +110,34 @@ trait HasAuthorization
     /**
      * Filter query by user's institution scope
      */
-    protected function scopeByUserInstitutions($query, string $institutionColumn = 'institution_id', User $user = null)
+    protected function scopeByUserInstitutions($query, string $institutionColumn = 'institution_id', ?User $user = null)
     {
         $user = $user ?? Auth::user();
-        
+
         // SuperAdmin can see all
         if ($user->hasRole('superadmin')) {
             return $query;
         }
 
         $accessibleInstitutions = $this->getUserInstitutionScope($user);
-        
+
         return $query->whereIn($institutionColumn, $accessibleInstitutions);
     }
 
     /**
      * Check if user owns resource
      */
-    protected function isResourceOwner($resource, string $ownerField = 'user_id', User $user = null): bool
+    protected function isResourceOwner($resource, string $ownerField = 'user_id', ?User $user = null): bool
     {
         $user = $user ?? Auth::user();
-        
+
         return $resource->{$ownerField} === $user->id;
     }
 
     /**
      * Check if user can manage another user
      */
-    protected function canManageUser(User $targetUser, User $currentUser = null): bool
+    protected function canManageUser(User $targetUser, ?User $currentUser = null): bool
     {
         $currentUser = $currentUser ?? Auth::user();
 
@@ -145,7 +147,7 @@ trait HasAuthorization
         }
 
         // Users cannot manage users with higher or equal roles
-        if (!$this->hasHigherRole($currentUser, $targetUser)) {
+        if (! $this->hasHigherRole($currentUser, $targetUser)) {
             return false;
         }
 
@@ -184,10 +186,10 @@ trait HasAuthorization
      */
     protected function authorizeOrFail(bool $condition, string $message = 'Səlahiyyətiniz yoxdur.'): JsonResponse|bool
     {
-        if (!$condition) {
+        if (! $condition) {
             return response()->json([
                 'success' => false,
-                'message' => $message
+                'message' => $message,
             ], 403);
         }
 
@@ -200,10 +202,10 @@ trait HasAuthorization
     protected function authorizeMultiple(array $conditions): JsonResponse|bool
     {
         foreach ($conditions as $condition => $message) {
-            if (!$condition) {
+            if (! $condition) {
                 return response()->json([
                     'success' => false,
-                    'message' => $message
+                    'message' => $message,
                 ], 403);
             }
         }
@@ -218,19 +220,19 @@ trait HasAuthorization
     {
         return response()->json([
             'success' => false,
-            'message' => $message
+            'message' => $message,
         ], 403);
     }
 
     /**
      * Check if user can perform CRUD operations on resource type
      */
-    protected function canPerformCrud(string $resourceType, string $operation, User $user = null): bool
+    protected function canPerformCrud(string $resourceType, string $operation, ?User $user = null): bool
     {
         $user = $user ?? Auth::user();
-        
+
         $permission = "{$operation}_{$resourceType}";
-        
+
         return $user->hasPermissionTo($permission);
     }
 }

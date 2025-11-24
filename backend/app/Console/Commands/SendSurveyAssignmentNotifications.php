@@ -41,6 +41,7 @@ class SendSurveyAssignmentNotifications extends Command
 
         if ($surveys->isEmpty()) {
             $this->warn('No published surveys found with target institutions');
+
             return;
         }
 
@@ -50,26 +51,28 @@ class SendSurveyAssignmentNotifications extends Command
 
         foreach ($surveys as $survey) {
             $this->info("\n📋 Processing Survey: {$survey->title} (ID: {$survey->id})");
-            
+
             $targetInstitutions = $survey->target_institutions ?? [];
-            
+
             if (empty($targetInstitutions)) {
-                $this->warn("  ⚠️  No target institutions found");
+                $this->warn('  ⚠️  No target institutions found');
+
                 continue;
             }
 
-            $this->info("  🎯 Target institutions: " . implode(', ', $targetInstitutions));
+            $this->info('  🎯 Target institutions: ' . implode(', ', $targetInstitutions));
 
             // Get users from target institutions
             $usersToNotify = User::whereIn('institution_id', $targetInstitutions)
-                ->whereHas('roles', function($query) {
-                    $query->whereIn('name', ['schooladmin', 'teacher', 'sektoradmin']); 
+                ->whereHas('roles', function ($query) {
+                    $query->whereIn('name', ['schooladmin', 'teacher', 'sektoradmin']);
                 })
                 ->with(['institution', 'roles'])
                 ->get();
 
             if ($usersToNotify->isEmpty()) {
-                $this->warn("  ⚠️  No users found in target institutions");
+                $this->warn('  ⚠️  No users found in target institutions');
+
                 continue;
             }
 
@@ -77,7 +80,7 @@ class SendSurveyAssignmentNotifications extends Command
 
             foreach ($usersToNotify as $user) {
                 $roles = $user->roles->pluck('name')->join(', ');
-                
+
                 if ($dryRun) {
                     $institutionName = $user->institution ? $user->institution->name : 'N/A';
                     $this->line("    📧 Would notify: {$user->name} ({$user->email}) - {$roles} - {$institutionName}");
@@ -95,7 +98,7 @@ class SendSurveyAssignmentNotifications extends Command
                         $institutionName = $user->institution ? $user->institution->name : '';
                         $creatorName = $survey->creator ? $survey->creator->name : 'Sistem';
                         $deadline = $survey->end_date ? $survey->end_date->toISOString() : null;
-                        
+
                         $additionalData = [
                             'survey_id' => $survey->id,
                             'survey_title' => $survey->title,
@@ -108,11 +111,10 @@ class SendSurveyAssignmentNotifications extends Command
 
                         // Send notification
                         $user->notify(new SurveyApprovalNotification($mockApprovalRequest, 'survey_assigned', $additionalData));
-                        
+
                         $institutionDisplayName = $user->institution ? $user->institution->name : 'N/A';
                         $this->info("    ✅ Notified: {$user->name} ({$user->email}) - {$roles} - {$institutionDisplayName}");
                         $totalNotificationsSent++;
-                        
                     } catch (\Exception $e) {
                         $this->error("    ❌ Failed to notify {$user->name}: " . $e->getMessage());
                     }
@@ -134,14 +136,15 @@ class SendSurveyAssignmentNotifications extends Command
         $count = 0;
         foreach ($surveys as $survey) {
             $targetInstitutions = $survey->target_institutions ?? [];
-            if (!empty($targetInstitutions)) {
+            if (! empty($targetInstitutions)) {
                 $count += User::whereIn('institution_id', $targetInstitutions)
-                    ->whereHas('roles', function($query) {
-                        $query->whereIn('name', ['schooladmin', 'teacher', 'sektoradmin']); 
+                    ->whereHas('roles', function ($query) {
+                        $query->whereIn('name', ['schooladmin', 'teacher', 'sektoradmin']);
                     })
                     ->count();
             }
         }
+
         return $count;
     }
 }

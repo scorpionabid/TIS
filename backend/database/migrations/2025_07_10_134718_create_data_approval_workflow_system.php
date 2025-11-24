@@ -22,7 +22,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
             $table->timestamps();
-            
+
             $table->index(['workflow_type', 'status']);
             $table->index('status');
         });
@@ -43,7 +43,7 @@ return new class extends Migration
             $table->timestamp('deadline')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
-            
+
             $table->unique(['approvalable_type', 'approvalable_id']);
             $table->index(['institution_id', 'current_status']);
             $table->index(['workflow_id', 'current_status']);
@@ -63,7 +63,7 @@ return new class extends Migration
             $table->timestamp('action_taken_at');
             $table->foreignId('delegated_to')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
-            
+
             $table->index(['approval_request_id', 'approval_level']);
             $table->index(['approver_id', 'action_taken_at']);
             $table->index(['action', 'action_taken_at']);
@@ -80,7 +80,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->text('notes')->nullable();
             $table->timestamps();
-            
+
             $table->unique(['data_type', 'institution_id']);
             $table->index(['data_type', 'is_active']);
             $table->index(['institution_id', 'is_active']);
@@ -100,7 +100,7 @@ return new class extends Migration
             $table->timestamp('sent_at')->nullable();
             $table->timestamp('read_at')->nullable();
             $table->timestamps();
-            
+
             $table->index(['recipient_id', 'status']);
             $table->index(['approval_request_id', 'notification_type']);
             $table->index(['status', 'scheduled_for']);
@@ -119,7 +119,7 @@ return new class extends Migration
             $table->text('delegation_reason')->nullable(); // "Annual leave", "Medical absence", "Training"
             $table->json('limitations')->nullable(); // {"max_amount": 50000, "approval_types": ["attendance", "schedule"]}
             $table->timestamps();
-            
+
             $table->index(['delegate_id', 'status', 'valid_from', 'valid_until']);
             $table->index(['delegator_id', 'status']);
             $table->index(['institution_id', 'status']);
@@ -137,7 +137,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->foreignId('created_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
-            
+
             $table->index(['template_type', 'is_active']);
             $table->index(['is_system_template', 'is_active']);
         });
@@ -157,7 +157,7 @@ return new class extends Migration
             $table->json('level_breakdown'); // {"level_1": {"approved": 10, "avg_time": 2.5}, "level_2": {"approved": 8, "avg_time": 12.3}}
             $table->json('bottlenecks')->nullable(); // {"slow_approvers": [{"user_id": 123, "avg_time": 48}]}
             $table->timestamps();
-            
+
             $table->unique(['institution_id', 'data_type', 'analytics_date']);
             $table->index(['institution_id', 'analytics_date']);
             $table->index(['data_type', 'analytics_date']);

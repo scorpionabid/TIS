@@ -22,9 +22,9 @@ class SessionController extends Controller
     public function index(Request $request): JsonResponse
     {
         $sessions = $this->sessionService->getActiveSessions($request->user());
-        
+
         return response()->json([
-            'sessions' => $sessions
+            'sessions' => $sessions,
         ]);
     }
 
@@ -34,15 +34,15 @@ class SessionController extends Controller
     public function revoke(Request $request, string $sessionId): JsonResponse
     {
         $revoked = $this->sessionService->revokeSession($request->user(), $sessionId);
-        
-        if (!$revoked) {
+
+        if (! $revoked) {
             return response()->json([
-                'message' => 'Sessiya tapılmadı'
+                'message' => 'Sessiya tapılmadı',
             ], 404);
         }
-        
+
         return response()->json([
-            'message' => 'Sessiya uğurla ləğv edildi'
+            'message' => 'Sessiya uğurla ləğv edildi',
         ]);
     }
 
@@ -53,14 +53,14 @@ class SessionController extends Controller
     {
         $revoked = $this->sessionService->revokeCurrentSession($request->user());
 
-        if (!$revoked) {
+        if (! $revoked) {
             return response()->json([
-                'message' => 'Cari sessiya tapılmadı'
+                'message' => 'Cari sessiya tapılmadı',
             ], 404);
         }
 
         return response()->json([
-            'message' => 'Cari sessiya uğurla ləğv edildi'
+            'message' => 'Cari sessiya uğurla ləğv edildi',
         ]);
     }
 
@@ -71,9 +71,9 @@ class SessionController extends Controller
     {
         $currentToken = $request->user()->currentAccessToken();
 
-        if (!$currentToken) {
+        if (! $currentToken) {
             return response()->json([
-                'message' => 'Cari sessiya tapılmadı'
+                'message' => 'Cari sessiya tapılmadı',
             ], 404);
         }
 
@@ -81,7 +81,7 @@ class SessionController extends Controller
 
         return response()->json([
             'message' => 'Other sessions revoked successfully',
-            'revoked_count' => $count
+            'revoked_count' => $count,
         ]);
     }
 
@@ -94,7 +94,7 @@ class SessionController extends Controller
 
         return response()->json([
             'message' => 'All sessions revoked successfully',
-            'revoked_count' => $count
+            'revoked_count' => $count,
         ]);
     }
 
@@ -104,7 +104,7 @@ class SessionController extends Controller
     public function stats(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         $stats = [
             'total_sessions' => $user->tokens()->count(),
             'active_sessions' => $user->tokens()->where('last_used_at', '>', now()->subMinutes(30))->count(),
@@ -113,7 +113,7 @@ class SessionController extends Controller
         ];
 
         return response()->json([
-            'stats' => $stats
+            'stats' => $stats,
         ]);
     }
 }

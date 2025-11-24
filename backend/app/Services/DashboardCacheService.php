@@ -2,26 +2,27 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\DB;
-use App\Models\User;
+use App\Models\Document;
 use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\Task;
-use App\Models\Document;
+use App\Models\User;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class DashboardCacheService
 {
     protected int $defaultCacheDuration = 300; // 5 minutes
+
     protected int $analyticsCacheDuration = 900; // 15 minutes
-    
+
     /**
      * Get cached dashboard statistics
      */
     public function getDashboardStats(?User $user = null): array
     {
         $cacheKey = 'dashboard_stats_' . ($user ? $user->id . '_' . $user->getRoleNames()->implode('_') : 'guest');
-        
+
         return Cache::remember($cacheKey, $this->defaultCacheDuration, function () use ($user) {
             // Single optimized query for all basic counts
             $basicStats = DB::select("
@@ -40,52 +41,52 @@ class DashboardCacheService
                     (SELECT COUNT(*) FROM tasks WHERE status = 'pending') as pendingTasks,
                     (SELECT COUNT(*) FROM documents) as totalDocuments
             ")[0];
-            
+
             $stats = (array) $basicStats;
-            
+
             // Add role-based filtering if user is provided
             if ($user) {
                 $stats = array_merge($stats, $this->getRoleBasedStats($user));
             }
-            
+
             return $stats;
         });
     }
-    
+
     /**
      * Get cached analytics data
      */
     public function getAnalyticsData(?User $user = null): array
     {
         $cacheKey = 'analytics_data_' . ($user ? $user->id . '_' . $user->getRoleNames()->implode('_') : 'guest');
-        
+
         return Cache::remember($cacheKey, $this->analyticsCacheDuration, function () use ($user) {
             $analytics = [
                 'user_trends' => $this->getUserTrends(),
                 'activity_summary' => $this->getActivitySummary(),
                 'performance_metrics' => $this->getPerformanceMetrics(),
             ];
-            
+
             if ($user && $user->hasRole('SuperAdmin')) {
                 $analytics['system_health'] = $this->getSystemHealthMetrics();
                 $analytics['institution_distribution'] = $this->getInstitutionDistribution();
             }
-            
+
             return $analytics;
         });
     }
-    
+
     /**
      * Get role-based statistics
      */
     protected function getRoleBasedStats(User $user): array
     {
         $institutionId = $user->institution_id;
-        
-        if (!$institutionId) {
+
+        if (! $institutionId) {
             return [];
         }
-        
+
         return [
             'institution_users' => User::where('institution_id', $institutionId)->count(),
             'institution_surveys' => Survey::where('institution_id', $institutionId)->count(),
@@ -93,7 +94,7 @@ class DashboardCacheService
             'institution_documents' => Document::where('institution_id', $institutionId)->count(),
         ];
     }
-    
+
     /**
      * Get user registration trends
      */
@@ -111,7 +112,7 @@ class DashboardCacheService
             LIMIT 30
         ");
     }
-    
+
     /**
      * Get activity summary
      */
@@ -126,7 +127,7 @@ class DashboardCacheService
                 (SELECT COUNT(*) FROM users WHERE last_login_at >= datetime('now', '-7 days')) as active_users_this_week
         ")[0];
     }
-    
+
     /**
      * Get performance metrics
      */
@@ -138,7 +139,7 @@ class DashboardCacheService
             'cache_hit_rate' => $this->getCacheHitRate(),
         ];
     }
-    
+
     /**
      * Get system health metrics (SuperAdmin only)
      */
@@ -150,7 +151,7 @@ class DashboardCacheService
             'error_rate' => $this->getErrorRate(),
         ];
     }
-    
+
     /**
      * Get institution distribution
      */
@@ -163,7 +164,7 @@ class DashboardCacheService
             ->pluck('count', 'type')
             ->toArray();
     }
-    
+
     /**
      * Clear dashboard cache for user
      */
@@ -173,12 +174,12 @@ class DashboardCacheService
             'dashboard_stats_' . $user->id . '_*',
             'analytics_data_' . $user->id . '_*',
         ];
-        
+
         foreach ($patterns as $pattern) {
             Cache::forget($pattern);
         }
     }
-    
+
     /**
      * Clear all dashboard caches
      */
@@ -189,43 +190,43 @@ class DashboardCacheService
             'analytics_data_*',
             'superadmin_analytics',
         ];
-        
+
         foreach ($keys as $key) {
             Cache::forget($key);
         }
     }
-    
+
     // Performance metric helper methods
     protected function getAverageResponseTime(): float
     {
         // This would integrate with performance logging
         return 0.0;
     }
-    
+
     protected function getAverageQueryCount(): int
     {
         // This would integrate with query monitoring
         return 0;
     }
-    
+
     protected function getCacheHitRate(): float
     {
         // This would integrate with cache monitoring
         return 0.0;
     }
-    
+
     protected function getDatabaseSize(): string
     {
         // This would get actual database size
         return '0 MB';
     }
-    
+
     protected function getStorageUsage(): string
     {
         // This would get actual storage usage
         return '0 MB';
     }
-    
+
     protected function getErrorRate(): float
     {
         // This would integrate with error tracking

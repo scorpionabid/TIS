@@ -21,15 +21,15 @@ class ScheduleTemplateUsage extends Model
         'conflicts_resolved',
         'user_feedback',
         'success_metrics',
-        'used_at'
+        'used_at',
     ];
 
     protected $casts = [
         'usage_context' => 'array',
-        'user_feedback' => 'array', 
+        'user_feedback' => 'array',
         'success_metrics' => 'array',
         'performance_rating' => 'decimal:2',
-        'used_at' => 'datetime'
+        'used_at' => 'datetime',
     ];
 
     /**

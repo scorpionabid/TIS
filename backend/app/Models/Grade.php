@@ -102,7 +102,7 @@ class Grade extends Model
     public function tags()
     {
         return $this->belongsToMany(GradeTag::class, 'grade_grade_tag')
-                    ->withTimestamps();
+            ->withTimestamps();
     }
 
     /**
@@ -137,8 +137,9 @@ class Grade extends Model
         $parts = array_filter([
             "{$this->class_level} sinif",
             $this->name,
-            $this->specialty
+            $this->specialty,
         ]);
+
         return implode(' - ', $parts);
     }
 
@@ -172,8 +173,8 @@ class Grade extends Model
     public function students()
     {
         return $this->belongsToMany(User::class, 'student_enrollments', 'grade_id', 'student_id')
-                    ->withPivot(['enrollment_date', 'enrollment_status', 'enrollment_notes'])
-                    ->withTimestamps();
+            ->withPivot(['enrollment_date', 'enrollment_status', 'enrollment_notes'])
+            ->withTimestamps();
     }
 
     /**
@@ -206,8 +207,8 @@ class Grade extends Model
     public function subjects()
     {
         return $this->belongsToMany(Subject::class, 'grade_subjects', 'grade_id', 'subject_id')
-                    ->withPivot(['teacher_id', 'weekly_hours', 'is_teaching_activity', 'is_extracurricular', 'is_club', 'is_split_groups', 'group_count', 'calculated_hours', 'notes'])
-                    ->withTimestamps();
+            ->withPivot(['teacher_id', 'weekly_hours', 'is_teaching_activity', 'is_extracurricular', 'is_club', 'is_split_groups', 'group_count', 'calculated_hours', 'notes'])
+            ->withTimestamps();
     }
 
     /**
@@ -279,10 +280,10 @@ class Grade extends Model
      */
     public function hasCapacity(): bool
     {
-        if (!$this->room) {
+        if (! $this->room) {
             return true; // No room limit set
         }
-        
+
         return $this->getCurrentStudentCount() < $this->room->capacity;
     }
 
@@ -291,10 +292,10 @@ class Grade extends Model
      */
     public function getRemainingCapacity(): int
     {
-        if (!$this->room) {
+        if (! $this->room) {
             return 999; // No limit
         }
-        
+
         return max(0, $this->room->capacity - $this->getCurrentStudentCount());
     }
 
@@ -383,21 +384,21 @@ class Grade extends Model
      */
     public function getCapacityStatusAttribute(): string
     {
-        if (!$this->room) {
+        if (! $this->room) {
             return 'no_room';
         }
 
         $utilization = $this->getUtilizationRateAttribute();
-        
+
         if ($utilization > 100) {
             return 'over_capacity';
         } elseif ($utilization >= 95) {
             return 'full';
         } elseif ($utilization >= 80) {
             return 'near_capacity';
-        } else {
-            return 'available';
         }
+
+        return 'available';
     }
 
     /**
@@ -405,7 +406,7 @@ class Grade extends Model
      */
     public function getUtilizationRateAttribute(): float
     {
-        if (!$this->room || $this->room->capacity === 0) {
+        if (! $this->room || $this->room->capacity === 0) {
             return 0;
         }
 
@@ -447,7 +448,7 @@ class Grade extends Model
      */
     public function needsAttention(): bool
     {
-        return !$this->homeroom_teacher_id || !$this->room_id;
+        return ! $this->homeroom_teacher_id || ! $this->room_id;
     }
 
     /**
@@ -465,8 +466,8 @@ class Grade extends Model
             'capacity' => $this->room?->capacity ?? 0,
             'utilization_rate' => $this->utilization_rate,
             'capacity_status' => $this->capacity_status,
-            'has_teacher' => !is_null($this->homeroom_teacher_id),
-            'has_room' => !is_null($this->room_id),
+            'has_teacher' => ! is_null($this->homeroom_teacher_id),
+            'has_room' => ! is_null($this->room_id),
             'needs_attention' => $this->needsAttention(),
             'is_active' => $this->is_active,
         ];
@@ -479,7 +480,7 @@ class Grade extends Model
     {
         return $query->where(function ($q) {
             $q->whereNull('homeroom_teacher_id')
-              ->orWhereNull('room_id');
+                ->orWhereNull('room_id');
         })->where('is_active', true);
     }
 
@@ -516,12 +517,12 @@ class Grade extends Model
             case 'near_capacity':
                 return $query->whereHas('room', function ($q) {
                     $q->whereRaw('grades.student_count >= (rooms.capacity * 0.8)')
-                      ->whereRaw('grades.student_count < (rooms.capacity * 0.95)');
+                        ->whereRaw('grades.student_count < (rooms.capacity * 0.95)');
                 });
             case 'full':
                 return $query->whereHas('room', function ($q) {
                     $q->whereRaw('grades.student_count >= (rooms.capacity * 0.95)')
-                      ->whereRaw('grades.student_count <= rooms.capacity');
+                        ->whereRaw('grades.student_count <= rooms.capacity');
                 });
             case 'over_capacity':
                 return $query->whereHas('room', function ($q) {
@@ -565,7 +566,7 @@ class Grade extends Model
      */
     public function getOptimalStudentCount(): int
     {
-        if (!$this->room) {
+        if (! $this->room) {
             return 25; // Default suggestion
         }
 
@@ -637,7 +638,7 @@ class Grade extends Model
 
         // Add tags
         $tagNames = $this->activeTags()->pluck('name')->toArray();
-        if (!empty($tagNames)) {
+        if (! empty($tagNames)) {
             $parts[] = implode(', ', $tagNames);
         }
 

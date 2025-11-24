@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Surveys;
 
-use App\Models\DataApprovalRequest;
 use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\SurveyResponse;

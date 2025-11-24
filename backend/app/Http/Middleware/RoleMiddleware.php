@@ -4,20 +4,19 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpFoundation\Response;
 
 class RoleMiddleware
 {
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     * @param  string|array  $roles
+     * @param \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response) $next
      */
     public function handle(Request $request, Closure $next, string|array $roles): Response
     {
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
@@ -37,7 +36,7 @@ class RoleMiddleware
         }
 
         return response()->json([
-            'message' => 'Forbidden. Required roles: ' . implode(', ', $roles)
+            'message' => 'Forbidden. Required roles: ' . implode(', ', $roles),
         ], 403);
     }
 }

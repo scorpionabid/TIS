@@ -2,15 +2,14 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
+use App\Models\ActivityLog;
 use App\Models\Institution;
 use App\Models\Survey;
-use App\Models\SurveyResponse;
-use App\Models\ActivityLog;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ReportsController extends Controller
 {
@@ -21,27 +20,26 @@ class ReportsController extends Controller
     {
         try {
             $dateRange = $this->getDateRange($request);
-            
+
             $stats = [
                 'user_statistics' => $this->getUserStatistics($dateRange),
                 'institution_statistics' => $this->getInstitutionStatistics($dateRange),
                 'survey_statistics' => $this->getSurveyStatistics($dateRange),
                 'system_activity' => $this->getSystemActivity($dateRange),
                 'performance_metrics' => $this->getPerformanceMetrics($dateRange),
-                'growth_trends' => $this->getGrowthTrends($dateRange)
+                'growth_trends' => $this->getGrowthTrends($dateRange),
             ];
 
             return response()->json([
                 'status' => 'success',
                 'data' => $stats,
                 'date_range' => $dateRange,
-                'generated_at' => now()->toISOString()
+                'generated_at' => now()->toISOString(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Ümumi hesabat məlumatları yüklənərkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -56,18 +54,18 @@ class ReportsController extends Controller
             'level' => 'nullable|integer|between:1,5',
             'type' => 'nullable|string',
             'region_code' => 'nullable|string',
-            'include_children' => 'nullable|boolean'
+            'include_children' => 'nullable|boolean',
         ]);
 
         try {
             $dateRange = $this->getDateRange($request);
-            
+
             $performance = [
                 'institution_rankings' => $this->getInstitutionRankings($request, $dateRange),
                 'user_engagement' => $this->getInstitutionUserEngagement($request, $dateRange),
                 'survey_participation' => $this->getInstitutionSurveyParticipation($request, $dateRange),
                 'activity_levels' => $this->getInstitutionActivityLevels($request, $dateRange),
-                'comparative_analysis' => $this->getComparativeAnalysis($request, $dateRange)
+                'comparative_analysis' => $this->getComparativeAnalysis($request, $dateRange),
             ];
 
             return response()->json([
@@ -75,13 +73,12 @@ class ReportsController extends Controller
                 'data' => $performance,
                 'filters' => $request->only(['institution_id', 'level', 'type', 'region_code']),
                 'date_range' => $dateRange,
-                'generated_at' => now()->toISOString()
+                'generated_at' => now()->toISOString(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Təşkilat performans hesabatı yüklənərkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -95,18 +92,18 @@ class ReportsController extends Controller
             'survey_id' => 'nullable|integer|exists:surveys,id',
             'institution_id' => 'nullable|integer|exists:institutions,id',
             'status' => 'nullable|string|in:draft,published,closed',
-            'detailed' => 'nullable|boolean'
+            'detailed' => 'nullable|boolean',
         ]);
 
         try {
             $dateRange = $this->getDateRange($request);
-            
+
             $analytics = [
                 'survey_overview' => $this->getSurveyOverview($request, $dateRange),
                 'response_rates' => $this->getSurveyResponseRates($request, $dateRange),
                 'completion_analysis' => $this->getSurveyCompletionAnalysis($request, $dateRange),
                 'time_analytics' => $this->getSurveyTimeAnalytics($request, $dateRange),
-                'geographic_distribution' => $this->getSurveyGeographicDistribution($request, $dateRange)
+                'geographic_distribution' => $this->getSurveyGeographicDistribution($request, $dateRange),
             ];
 
             if ($request->detailed) {
@@ -118,13 +115,12 @@ class ReportsController extends Controller
                 'data' => $analytics,
                 'filters' => $request->only(['survey_id', 'institution_id', 'status']),
                 'date_range' => $dateRange,
-                'generated_at' => now()->toISOString()
+                'generated_at' => now()->toISOString(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Sorğu analitika məlumatları yüklənərkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -138,18 +134,18 @@ class ReportsController extends Controller
             'user_id' => 'nullable|integer|exists:users,id',
             'role' => 'nullable|string',
             'institution_id' => 'nullable|integer|exists:institutions,id',
-            'activity_type' => 'nullable|string'
+            'activity_type' => 'nullable|string',
         ]);
 
         try {
             $dateRange = $this->getDateRange($request);
-            
+
             $activity = [
                 'user_activity_summary' => $this->getUserActivitySummary($request, $dateRange),
                 'login_patterns' => $this->getUserLoginPatterns($request, $dateRange),
                 'feature_usage' => $this->getUserFeatureUsage($request, $dateRange),
                 'engagement_metrics' => $this->getUserEngagementMetrics($request, $dateRange),
-                'productivity_trends' => $this->getUserProductivityTrends($request, $dateRange)
+                'productivity_trends' => $this->getUserProductivityTrends($request, $dateRange),
             ];
 
             return response()->json([
@@ -157,13 +153,12 @@ class ReportsController extends Controller
                 'data' => $activity,
                 'filters' => $request->only(['user_id', 'role', 'institution_id', 'activity_type']),
                 'date_range' => $dateRange,
-                'generated_at' => now()->toISOString()
+                'generated_at' => now()->toISOString(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'İstifadəçi aktivlik hesabatı yüklənərkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -176,15 +171,15 @@ class ReportsController extends Controller
         $request->validate([
             'report_type' => 'required|string|in:overview,institutional,survey,user_activity',
             'format' => 'required|string|in:csv,json,pdf',
-            'filters' => 'nullable|array'
+            'filters' => 'nullable|array',
         ]);
 
         try {
             $dateRange = $this->getDateRange($request);
             $filters = $request->filters ?? [];
-            
+
             $reportData = $this->generateReportData($request->report_type, $filters, $dateRange);
-            
+
             $exportData = [
                 'report_type' => $request->report_type,
                 'format' => $request->format,
@@ -192,7 +187,7 @@ class ReportsController extends Controller
                 'filters' => $filters,
                 'date_range' => $dateRange,
                 'generated_at' => now()->toISOString(),
-                'total_records' => count($reportData)
+                'total_records' => count($reportData),
             ];
 
             // Log export activity
@@ -205,20 +200,19 @@ class ReportsController extends Controller
                     'report_type' => $request->report_type,
                     'format' => $request->format,
                     'filters' => $filters,
-                    'record_count' => count($reportData)
+                    'record_count' => count($reportData),
                 ],
-                'institution_id' => $request->user()->institution_id
+                'institution_id' => $request->user()->institution_id,
             ]);
 
             return response()->json([
                 'message' => 'Hesabat uğurla export edildi',
-                'data' => $exportData
+                'data' => $exportData,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Hesabat export edilərkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -229,10 +223,10 @@ class ReportsController extends Controller
     {
         $startDate = $request->input('start_date', now()->subDays(30)->toDateString());
         $endDate = $request->input('end_date', now()->toDateString());
-        
+
         return [
             'start_date' => Carbon::parse($startDate)->startOfDay(),
-            'end_date' => Carbon::parse($endDate)->endOfDay()
+            'end_date' => Carbon::parse($endDate)->endOfDay(),
         ];
     }
 
@@ -254,7 +248,7 @@ class ReportsController extends Controller
                 ->selectRaw('roles.display_name as role, COUNT(*) as count')
                 ->groupBy('roles.display_name')
                 ->pluck('count', 'role')
-                ->toArray()
+                ->toArray(),
         ];
     }
 
@@ -281,7 +275,7 @@ class ReportsController extends Controller
                 ->whereNotNull('region_code')
                 ->groupBy('region_code')
                 ->pluck('count', 'region_code')
-                ->toArray()
+                ->toArray(),
         ];
     }
 
@@ -302,7 +296,7 @@ class ReportsController extends Controller
                 ->groupBy('status')
                 ->pluck('count', 'status')
                 ->toArray(),
-            'response_rate' => $this->getAverageSurveyResponseRate($dateRange)
+            'response_rate' => $this->getAverageSurveyResponseRate($dateRange),
         ];
     }
 
@@ -322,7 +316,7 @@ class ReportsController extends Controller
             ->map(function ($item) {
                 return [
                     'date' => $item->date,
-                    'count' => $item->count
+                    'count' => $item->count,
                 ];
             })
             ->toArray();
@@ -331,7 +325,7 @@ class ReportsController extends Controller
             'total_activities' => array_sum($activities),
             'by_type' => $activities,
             'daily_activity' => $dailyActivity,
-            'most_active_users' => $this->getMostActiveUsers($dateRange, 10)
+            'most_active_users' => $this->getMostActiveUsers($dateRange, 10),
         ];
     }
 
@@ -342,7 +336,7 @@ class ReportsController extends Controller
             'system_uptime' => '99.9%', // Mock data - would come from monitoring system
             'error_rate' => $this->getSystemErrorRate($dateRange),
             'user_satisfaction' => $this->getUserSatisfactionScore($dateRange),
-            'data_quality_score' => $this->getDataQualityScore($dateRange)
+            'data_quality_score' => $this->getDataQualityScore($dateRange),
         ];
     }
 
@@ -354,13 +348,13 @@ class ReportsController extends Controller
         for ($i = $periods - 1; $i >= 0; $i--) {
             $start = Carbon::parse($dateRange['start_date'])->subWeeks($i);
             $end = $start->copy()->addWeek();
-            
+
             $trends[] = [
                 'period' => $start->format('Y-m-d'),
                 'users' => User::whereBetween('created_at', [$start, $end])->count(),
                 'institutions' => Institution::whereBetween('created_at', [$start, $end])->count(),
                 'surveys' => Survey::whereBetween('created_at', [$start, $end])->count(),
-                'activities' => ActivityLog::whereBetween('created_at', [$start, $end])->count()
+                'activities' => ActivityLog::whereBetween('created_at', [$start, $end])->count(),
             ];
         }
 
@@ -396,7 +390,7 @@ class ReportsController extends Controller
                     'region_code' => $institution->region_code,
                     'active_users' => $institution->active_users_count,
                     'total_users' => $institution->users->count(),
-                    'engagement_score' => $this->calculateInstitutionEngagementScore($institution)
+                    'engagement_score' => $this->calculateInstitutionEngagementScore($institution),
                 ];
             })
             ->toArray();
@@ -409,7 +403,7 @@ class ReportsController extends Controller
             'average_session_duration' => '24.5 minutes',
             'daily_active_users' => 156,
             'weekly_retention_rate' => '78.2%',
-            'feature_adoption_rate' => '64.3%'
+            'feature_adoption_rate' => '64.3%',
         ];
     }
 
@@ -420,7 +414,7 @@ class ReportsController extends Controller
             'participation_rate' => '67.8%',
             'completion_rate' => '89.3%',
             'average_response_time' => '12.4 minutes',
-            'survey_feedback_score' => '4.2/5'
+            'survey_feedback_score' => '4.2/5',
         ];
     }
 
@@ -431,7 +425,7 @@ class ReportsController extends Controller
             'high_activity' => 12,
             'medium_activity' => 18,
             'low_activity' => 8,
-            'inactive' => 3
+            'inactive' => 3,
         ];
     }
 
@@ -442,12 +436,12 @@ class ReportsController extends Controller
             'performance_vs_average' => '+15.2%',
             'ranking_change' => '+3 positions',
             'benchmark_score' => '8.4/10',
-            'improvement_areas' => ['User Engagement', 'Survey Response Rate']
+            'improvement_areas' => ['User Engagement', 'Survey Response Rate'],
         ];
     }
 
     // Additional helper methods for other analytics...
-    
+
     private function getSurveyOverview(Request $request, array $dateRange): array
     {
         // Implementation for survey overview
@@ -455,7 +449,7 @@ class ReportsController extends Controller
             'total_surveys' => Survey::count(),
             'response_rate' => '72.5%',
             'completion_rate' => '85.3%',
-            'average_time' => '15.2 minutes'
+            'average_time' => '15.2 minutes',
         ];
     }
 
@@ -467,13 +461,13 @@ class ReportsController extends Controller
                 'ministry' => '95.2%',
                 'regional' => '78.4%',
                 'sector' => '69.8%',
-                'school' => '67.2%'
+                'school' => '67.2%',
             ],
             'by_region' => [
                 'BA' => '74.3%',
                 'GA' => '69.8%',
-                'QU' => '71.2%'
-            ]
+                'QU' => '71.2%',
+            ],
         ];
     }
 
@@ -483,13 +477,13 @@ class ReportsController extends Controller
             'completion_trends' => [
                 'improving' => 15,
                 'stable' => 8,
-                'declining' => 3
+                'declining' => 3,
             ],
             'drop_off_points' => [
                 'section_1' => '5.2%',
                 'section_2' => '12.8%',
-                'section_3' => '8.9%'
-            ]
+                'section_3' => '8.9%',
+            ],
         ];
     }
 
@@ -499,7 +493,7 @@ class ReportsController extends Controller
             'average_completion_time' => '15.4 minutes',
             'fastest_completion' => '3.2 minutes',
             'slowest_completion' => '45.8 minutes',
-            'optimal_time_range' => '10-20 minutes'
+            'optimal_time_range' => '10-20 minutes',
         ];
     }
 
@@ -509,9 +503,9 @@ class ReportsController extends Controller
             'by_region' => [
                 'Baku' => ['responses' => 156, 'rate' => '74.2%'],
                 'Ganja' => ['responses' => 89, 'rate' => '68.9%'],
-                'Quba' => ['responses' => 45, 'rate' => '71.2%']
+                'Quba' => ['responses' => 45, 'rate' => '71.2%'],
             ],
-            'coverage' => '89.3%'
+            'coverage' => '89.3%',
         ];
     }
 
@@ -521,7 +515,7 @@ class ReportsController extends Controller
         return [
             'individual_responses' => [],
             'aggregated_data' => [],
-            'statistical_analysis' => []
+            'statistical_analysis' => [],
         ];
     }
 
@@ -558,7 +552,7 @@ class ReportsController extends Controller
         return [
             'report_type' => $reportType,
             'summary' => 'Generated report data',
-            'records' => []
+            'records' => [],
         ];
     }
 
@@ -577,10 +571,11 @@ class ReportsController extends Controller
             ->get()
             ->map(function ($item) {
                 $user = User::find($item->user_id);
+
                 return [
                     'user_id' => $item->user_id,
                     'username' => $user->username ?? 'Unknown',
-                    'activity_count' => $item->activity_count
+                    'activity_count' => $item->activity_count,
                 ];
             })
             ->toArray();

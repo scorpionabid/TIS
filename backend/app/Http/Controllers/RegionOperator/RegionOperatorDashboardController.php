@@ -13,8 +13,7 @@ class RegionOperatorDashboardController extends Controller
 {
     public function __construct(
         private readonly RegionOperatorDashboardService $dashboardService
-    ) {
-    }
+    ) {}
 
     /**
      * Primary dashboard endpoint (overview + team).
@@ -23,7 +22,7 @@ class RegionOperatorDashboardController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('regionoperator')) {
+        if (! $user->hasRole('regionoperator')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -44,7 +43,7 @@ class RegionOperatorDashboardController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Dashboard məlumatları yüklənə bilmədi'
+                'message' => 'Dashboard məlumatları yüklənə bilmədi',
             ], 500);
         }
     }
@@ -57,12 +56,13 @@ class RegionOperatorDashboardController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('regionoperator')) {
+        if (! $user->hasRole('regionoperator')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         try {
             $stats = $this->dashboardService->getStats($user);
+
             return response()->json($stats);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 400);
@@ -73,7 +73,7 @@ class RegionOperatorDashboardController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Statistika məlumatları yüklənə bilmədi'
+                'message' => 'Statistika məlumatları yüklənə bilmədi',
             ], 500);
         }
     }
@@ -93,7 +93,7 @@ class RegionOperatorDashboardController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('regionoperator')) {
+        if (! $user->hasRole('regionoperator')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -102,6 +102,7 @@ class RegionOperatorDashboardController extends Controller
 
         try {
             $tasks = $this->dashboardService->getPendingTasks($user, $limit);
+
             return response()->json($tasks);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 400);
@@ -112,7 +113,7 @@ class RegionOperatorDashboardController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Tapşırıq siyahısı yüklənə bilmədi'
+                'message' => 'Tapşırıq siyahısı yüklənə bilmədi',
             ], 500);
         }
     }
@@ -132,7 +133,7 @@ class RegionOperatorDashboardController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('regionoperator')) {
+        if (! $user->hasRole('regionoperator')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -140,6 +141,7 @@ class RegionOperatorDashboardController extends Controller
 
         try {
             $report = $this->dashboardService->getDailyReport($user, $days);
+
             return response()->json($report);
         } catch (DomainException $e) {
             return response()->json(['message' => $e->getMessage()], 400);
@@ -150,7 +152,7 @@ class RegionOperatorDashboardController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Günlük hesabatlar yüklənə bilmədi'
+                'message' => 'Günlük hesabatlar yüklənə bilmədi',
             ], 500);
         }
     }
@@ -162,7 +164,7 @@ class RegionOperatorDashboardController extends Controller
     {
         $user = $request->user();
 
-        if (!$user->hasRole('regionoperator')) {
+        if (! $user->hasRole('regionoperator')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -188,9 +190,8 @@ class RegionOperatorDashboardController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Komanda məlumatları yüklənə bilmədi'
+                'message' => 'Komanda məlumatları yüklənə bilmədi',
             ], 500);
         }
     }
 }
-

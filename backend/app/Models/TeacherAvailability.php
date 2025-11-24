@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class TeacherAvailability extends Model
 {
@@ -117,11 +117,11 @@ class TeacherAvailability extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active')
-                    ->where('effective_date', '<=', today())
-                    ->where(function ($q) {
-                        $q->whereNull('end_date')
-                          ->orWhere('end_date', '>=', today());
-                    });
+            ->where('effective_date', '<=', today())
+            ->where(function ($q) {
+                $q->whereNull('end_date')
+                    ->orWhere('end_date', '>=', today());
+            });
     }
 
     /**
@@ -170,10 +170,10 @@ class TeacherAvailability extends Model
     public function scopeCurrent(Builder $query): Builder
     {
         return $query->where('effective_date', '<=', today())
-                    ->where(function ($q) {
-                        $q->whereNull('end_date')
-                          ->orWhere('end_date', '>=', today());
-                    });
+            ->where(function ($q) {
+                $q->whereNull('end_date')
+                    ->orWhere('end_date', '>=', today());
+            });
     }
 
     /**
@@ -223,7 +223,7 @@ class TeacherAvailability extends Model
     {
         $today = today();
         $now = now();
-        
+
         // Check date range
         if ($this->effective_date > $today || ($this->end_date && $this->end_date < $today)) {
             return false;
@@ -237,7 +237,8 @@ class TeacherAvailability extends Model
 
         // Check time range
         $currentTime = $now->format('H:i');
-        return $currentTime >= $this->start_time->format('H:i') && 
+
+        return $currentTime >= $this->start_time->format('H:i') &&
                $currentTime <= $this->end_time->format('H:i');
     }
 
@@ -257,7 +258,7 @@ class TeacherAvailability extends Model
         }
 
         // Check date overlap
-        if (!$this->dateRangesOverlap($other)) {
+        if (! $this->dateRangesOverlap($other)) {
             return false;
         }
 
@@ -297,31 +298,31 @@ class TeacherAvailability extends Model
     public function getConflictingAvailabilities(): \Illuminate\Database\Eloquent\Collection
     {
         return self::where('teacher_id', $this->teacher_id)
-                  ->where('id', '!=', $this->id)
-                  ->where('day_of_week', $this->day_of_week)
-                  ->active()
-                  ->get()
-                  ->filter(fn($availability) => $this->conflictsWith($availability));
+            ->where('id', '!=', $this->id)
+            ->where('day_of_week', $this->day_of_week)
+            ->active()
+            ->get()
+            ->filter(fn ($availability) => $this->conflictsWith($availability));
     }
 
     /**
      * Check if teacher is available at specific time
      */
     public static function isTeacherAvailable(
-        int $teacherId, 
-        string $dayOfWeek, 
-        Carbon $startTime, 
+        int $teacherId,
+        string $dayOfWeek,
+        Carbon $startTime,
         Carbon $endTime,
         ?Carbon $date = null
     ): array {
         $date = $date ?? today();
-        
+
         $availabilities = self::where('teacher_id', $teacherId)
-                             ->forDay($dayOfWeek)
-                             ->current()
-                             ->active()
-                             ->orderBy('priority')
-                             ->get();
+            ->forDay($dayOfWeek)
+            ->current()
+            ->active()
+            ->orderBy('priority')
+            ->get();
 
         $result = [
             'is_available' => true,
@@ -332,9 +333,9 @@ class TeacherAvailability extends Model
 
         foreach ($availabilities as $availability) {
             // Check if the requested time overlaps with this availability
-            if (!$availability->timeRangesOverlap((object)[
+            if (! $availability->timeRangesOverlap((object) [
                 'start_time' => $startTime,
-                'end_time' => $endTime
+                'end_time' => $endTime,
             ])) {
                 continue;
             }
@@ -343,7 +344,7 @@ class TeacherAvailability extends Model
                 case 'unavailable':
                 case 'meeting':
                 case 'training':
-                    if (!$availability->is_flexible && !$availability->allow_emergency_override) {
+                    if (! $availability->is_flexible && ! $availability->allow_emergency_override) {
                         $result['is_available'] = false;
                         $result['conflicts'][] = [
                             'type' => $availability->availability_type,
@@ -394,17 +395,17 @@ class TeacherAvailability extends Model
     public static function getWeeklyAvailabilitySummary(int $teacherId): array
     {
         $availabilities = self::where('teacher_id', $teacherId)
-                             ->active()
-                             ->orderBy('day_of_week')
-                             ->orderBy('start_time')
-                             ->get()
-                             ->groupBy('day_of_week');
+            ->active()
+            ->orderBy('day_of_week')
+            ->orderBy('start_time')
+            ->get()
+            ->groupBy('day_of_week');
 
         $summary = [];
-        
+
         foreach (self::DAYS_OF_WEEK as $dayKey => $dayLabel) {
             $dayAvailabilities = $availabilities->get($dayKey, collect());
-            
+
             $summary[$dayKey] = [
                 'day' => $dayLabel,
                 'total_periods' => $dayAvailabilities->count(),
@@ -413,9 +414,9 @@ class TeacherAvailability extends Model
                 'preferred_periods' => $dayAvailabilities->where('availability_type', 'preferred')->count(),
                 'restricted_periods' => $dayAvailabilities->where('availability_type', 'restricted')->count(),
                 'total_available_hours' => $dayAvailabilities->where('availability_type', 'available')
-                                                          ->sum(function ($a) {
-                                                              return $a->start_time->diffInMinutes($a->end_time) / 60;
-                                                          }),
+                    ->sum(function ($a) {
+                        return $a->start_time->diffInMinutes($a->end_time) / 60;
+                    }),
                 'periods' => $dayAvailabilities->map(function ($availability) {
                     return [
                         'time_range' => $availability->time_range,
@@ -515,15 +516,15 @@ class TeacherAvailability extends Model
     public function getOptimalTimeSlots(string $dayOfWeek): array
     {
         $teacherAvailabilities = self::where('teacher_id', $this->teacher_id)
-                                   ->forDay($dayOfWeek)
-                                   ->active()
-                                   ->get();
+            ->forDay($dayOfWeek)
+            ->active()
+            ->get();
 
         $optimalSlots = [];
 
         foreach ($teacherAvailabilities as $availability) {
             $score = $this->calculateOptimalityScore($availability);
-            
+
             $optimalSlots[] = [
                 'availability_id' => $availability->id,
                 'time_range' => $availability->time_range,
@@ -534,7 +535,7 @@ class TeacherAvailability extends Model
         }
 
         // Sort by score (highest first)
-        usort($optimalSlots, fn($a, $b) => $b['score'] <=> $a['score']);
+        usort($optimalSlots, fn ($a, $b) => $b['score'] <=> $a['score']);
 
         return $optimalSlots;
     }
@@ -606,7 +607,7 @@ class TeacherAvailability extends Model
     public static function cleanupExpired(): int
     {
         return self::where('end_date', '<', today())
-                  ->where('status', 'active')
-                  ->update(['status' => 'expired']);
+            ->where('status', 'active')
+            ->update(['status' => 'expired']);
     }
 }

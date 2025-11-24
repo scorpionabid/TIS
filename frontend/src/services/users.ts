@@ -143,7 +143,7 @@ class UserService {
   }
 
   async getUser(id: number): Promise<User> {
-    let role = getStoredUser()?.role;
+    const role = getStoredUser()?.role;
     let endpoint = `/users/${id}`;
 
     switch (role) {

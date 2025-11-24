@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use Illuminate\Routing\Controller;
-use Exception;
 
 abstract class BaseController extends Controller
 {
@@ -62,7 +62,7 @@ abstract class BaseController extends Controller
                 'last_page' => $data->lastPage(),
                 'from' => $data->firstItem(),
                 'to' => $data->lastItem(),
-            ]
+            ],
         ]);
     }
 
@@ -77,7 +77,7 @@ abstract class BaseController extends Controller
             'sort_direction' => 'nullable|string|in:asc,desc',
         ];
 
-        if (!empty($sortableFields)) {
+        if (! empty($sortableFields)) {
             $rules['sort_by'] = 'nullable|string|in:' . implode(',', $sortableFields);
         }
 
@@ -94,7 +94,7 @@ abstract class BaseController extends Controller
 
         return $request->validate([
             $idField => "required|array|min:1|max:{$maxItems}",
-            "{$idField}.*" => "integer|exists:{$tableField},id"
+            "{$idField}.*" => "integer|exists:{$tableField},id",
         ]);
     }
 
@@ -110,19 +110,21 @@ abstract class BaseController extends Controller
                 return $result;
             } elseif ($result instanceof BinaryFileResponse) {
                 return $result;
-            } else {
-                return $this->successResponse($result);
             }
+
+            return $this->successResponse($result);
         } catch (ValidationException $e) {
             Log::warning("Validation failed for {$operation}", array_merge($context, [
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ]));
+
             return $this->errorResponse('Validation failed', 422, $e->errors());
         } catch (Exception $e) {
             Log::error("Error in {$operation}", array_merge($context, [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]));
+
             return $this->errorResponse('Internal server error', 500);
         }
     }
@@ -160,7 +162,7 @@ abstract class BaseController extends Controller
     protected function getPaginationParams(Request $request): array
     {
         return [
-            'per_page' => $request->get('per_page', 15)
+            'per_page' => $request->get('per_page', 15),
         ];
     }
 }

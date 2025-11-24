@@ -41,6 +41,6 @@ Schedule::call(function () {
         'total_notifications' => $totalNotifications,
         'unread_notifications' => $unreadNotifications,
         'old_notifications_30_days' => $oldNotifications,
-        'database_table_size' => 'notifications'
+        'database_table_size' => 'notifications',
     ]);
 })->monthly()->description('Generate monthly notification system report');

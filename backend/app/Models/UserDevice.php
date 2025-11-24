@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Str;
 
 class UserDevice extends Model
 {
@@ -85,7 +85,7 @@ class UserDevice extends Model
     public function activeSessions(): HasMany
     {
         return $this->sessions()->where('status', 'active')
-                                ->where('expires_at', '>', now());
+            ->where('expires_at', '>', now());
     }
 
     /**
@@ -125,7 +125,7 @@ class UserDevice extends Model
      */
     public function getFormattedLastSeenAttribute(): string
     {
-        if (!$this->last_seen_at) {
+        if (! $this->last_seen_at) {
             return 'Never';
         }
 
@@ -137,8 +137,8 @@ class UserDevice extends Model
      */
     public function isOnline(): bool
     {
-        return $this->activeSessions()->exists() && 
-               $this->last_seen_at && 
+        return $this->activeSessions()->exists() &&
+               $this->last_seen_at &&
                $this->last_seen_at->diffInMinutes(now()) <= 15;
     }
 
@@ -147,8 +147,8 @@ class UserDevice extends Model
      */
     public function needsVerification(): bool
     {
-        return $this->requires_verification && 
-               (!$this->verification_blocked_until || $this->verification_blocked_until->isPast());
+        return $this->requires_verification &&
+               (! $this->verification_blocked_until || $this->verification_blocked_until->isPast());
     }
 
     /**
@@ -168,7 +168,7 @@ class UserDevice extends Model
     /**
      * Update device activity
      */
-    public function updateActivity(string $ipAddress = null, array $metadata = []): void
+    public function updateActivity(?string $ipAddress = null, array $metadata = []): void
     {
         $updates = [
             'last_seen_at' => now(),
@@ -182,7 +182,7 @@ class UserDevice extends Model
         if (isset($metadata['country'])) {
             $updates['last_location_country'] = $metadata['country'];
         }
-        
+
         if (isset($metadata['city'])) {
             $updates['last_location_city'] = $metadata['city'];
         }
@@ -227,11 +227,11 @@ class UserDevice extends Model
         // Check device limit
         $activeDeviceCount = $user->devices()->active()->count();
         if ($activeDeviceCount >= self::MAX_DEVICES_PER_USER) {
-            throw new \Exception("Maksimum {self::MAX_DEVICES_PER_USER} cihaz limiti aşıldı.");
+            throw new \Exception('Maksimum {self::MAX_DEVICES_PER_USER} cihaz limiti aşıldı.');
         }
 
         $ipAddress = Request::ip() ?? '127.0.0.1';
-        
+
         // Parse user agent for device information
         $parsedUA = self::parseUserAgent($deviceInfo['user_agent'] ?? '');
 
@@ -267,14 +267,15 @@ class UserDevice extends Model
     public static function findOrCreateDevice(User $user, array $deviceInfo): self
     {
         $deviceId = $deviceInfo['device_id'] ?? null;
-        
+
         if ($deviceId) {
             $device = self::where('device_id', $deviceId)
-                         ->where('user_id', $user->id)
-                         ->first();
-            
+                ->where('user_id', $user->id)
+                ->first();
+
             if ($device) {
                 $device->updateActivity(Request::ip(), $deviceInfo);
+
                 return $device;
             }
         }
@@ -346,6 +347,7 @@ class UserDevice extends Model
         foreach ($systems as $name => $pattern) {
             if (preg_match($pattern, $userAgent, $matches)) {
                 $version = isset($matches[1]) ? str_replace('_', '.', $matches[1]) : '';
+
                 return $version ? "{$name} {$version}" : $name;
             }
         }
@@ -362,6 +364,7 @@ class UserDevice extends Model
             if (preg_match('/iPad|Tablet/', $userAgent)) {
                 return 'tablet';
             }
+
             return 'mobile';
         }
 
@@ -373,11 +376,21 @@ class UserDevice extends Model
      */
     protected static function getPlatform(string $userAgent): string
     {
-        if (preg_match('/Windows/', $userAgent)) return 'Windows';
-        if (preg_match('/Macintosh/', $userAgent)) return 'macOS';
-        if (preg_match('/Linux/', $userAgent)) return 'Linux';
-        if (preg_match('/Android/', $userAgent)) return 'Android';
-        if (preg_match('/iPhone|iPad/', $userAgent)) return 'iOS';
+        if (preg_match('/Windows/', $userAgent)) {
+            return 'Windows';
+        }
+        if (preg_match('/Macintosh/', $userAgent)) {
+            return 'macOS';
+        }
+        if (preg_match('/Linux/', $userAgent)) {
+            return 'Linux';
+        }
+        if (preg_match('/Android/', $userAgent)) {
+            return 'Android';
+        }
+        if (preg_match('/iPhone|iPad/', $userAgent)) {
+            return 'iOS';
+        }
 
         return 'Unknown';
     }
@@ -397,7 +410,7 @@ class UserDevice extends Model
     /**
      * Deactivate device
      */
-    public function deactivate(string $reason = null): bool
+    public function deactivate(?string $reason = null): bool
     {
         // Terminate all active sessions
         $this->activeSessions()->update([

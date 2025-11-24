@@ -19,8 +19,6 @@ class QuestionSyncService
      * Handles create, update, and delete operations in a single sync.
      * Returns summary of changes for audit logging.
      *
-     * @param Survey $survey
-     * @param array $questions
      * @return array Summary of changes (created, updated, deleted)
      */
     public function syncQuestions(Survey $survey, array $questions): array
@@ -43,7 +41,7 @@ class QuestionSyncService
                 $question = $existingQuestions->get($questionId);
                 $diff = $this->diffQuestionPayload($question, $payload);
 
-                if (!empty($diff)) {
+                if (! empty($diff)) {
                     $question->fill($payload);
                     $question->save();
 
@@ -93,9 +91,6 @@ class QuestionSyncService
 
     /**
      * Reindex questions after deletion to ensure sequential order_index
-     *
-     * @param Survey $survey
-     * @return void
      */
     public function reindexQuestions(Survey $survey): void
     {
@@ -113,10 +108,6 @@ class QuestionSyncService
      * Prepare question payload for database
      *
      * Maps frontend format to backend database schema.
-     *
-     * @param array $questionData
-     * @param int $index
-     * @return array
      */
     public function prepareQuestionPayload(array $questionData, int $index): array
     {
@@ -154,7 +145,6 @@ class QuestionSyncService
      * Ensures options are always in array format or null.
      *
      * @param mixed $options
-     * @return array|null
      */
     public function normaliseOptions($options): ?array
     {
@@ -168,6 +158,7 @@ class QuestionSyncService
 
         if (is_string($options)) {
             $decoded = json_decode($options, true);
+
             return empty($decoded) ? null : array_values($decoded);
         }
 
@@ -180,8 +171,6 @@ class QuestionSyncService
      * Returns array of changes for audit logging.
      *
      * @param SurveyQuestion $question
-     * @param array $payload
-     * @return array
      */
     public function diffQuestionPayload($question, array $payload): array
     {
@@ -210,9 +199,6 @@ class QuestionSyncService
 
     /**
      * Check if question changes summary has any changes
-     *
-     * @param array|null $summary
-     * @return bool
      */
     public function hasQuestionChanges(?array $summary): bool
     {
@@ -220,16 +206,13 @@ class QuestionSyncService
             return false;
         }
 
-        return !empty($summary['created'])
-            || !empty($summary['updated'])
-            || !empty($summary['deleted']);
+        return ! empty($summary['created'])
+            || ! empty($summary['updated'])
+            || ! empty($summary['deleted']);
     }
 
     /**
      * Map frontend question types to backend enum types
-     *
-     * @param string $frontendType
-     * @return string
      */
     public function mapQuestionType(string $frontendType): string
     {
@@ -258,9 +241,6 @@ class QuestionSyncService
 
     /**
      * Map backend question types to frontend types
-     *
-     * @param string $backendType
-     * @return string
      */
     public function mapQuestionTypeToFrontend(string $backendType): string
     {

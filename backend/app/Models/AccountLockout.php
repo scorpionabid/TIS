@@ -2,11 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class AccountLockout extends Model
 {
@@ -77,7 +76,7 @@ class AccountLockout extends Model
     // Progressive lockout durations (in minutes)
     const LOCKOUT_DURATIONS = [
         1 => 5,      // 5 minutes for first lockout
-        2 => 15,     // 15 minutes for second lockout  
+        2 => 15,     // 15 minutes for second lockout
         3 => 30,     // 30 minutes for third lockout
         4 => 60,     // 1 hour for fourth lockout
         5 => 240,    // 4 hours for fifth lockout
@@ -114,10 +113,10 @@ class AccountLockout extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', 'active')
-                    ->where(function ($q) {
-                        $q->whereNull('unlock_at')
-                          ->orWhere('unlock_at', '>', now());
-                    });
+            ->where(function ($q) {
+                $q->whereNull('unlock_at')
+                    ->orWhere('unlock_at', '>', now());
+            });
     }
 
     /**
@@ -126,8 +125,8 @@ class AccountLockout extends Model
     public function scopeExpired(Builder $query): Builder
     {
         return $query->where('status', 'active')
-                    ->whereNotNull('unlock_at')
-                    ->where('unlock_at', '<=', now());
+            ->whereNotNull('unlock_at')
+            ->where('unlock_at', '<=', now());
     }
 
     /**
@@ -136,7 +135,7 @@ class AccountLockout extends Model
     public function scopeRequiresReview(Builder $query): Builder
     {
         return $query->where('requires_manual_review', true)
-                    ->where('status', 'active');
+            ->where('status', 'active');
     }
 
     /**
@@ -176,8 +175,8 @@ class AccountLockout extends Model
      */
     public function isActive(): bool
     {
-        return $this->status === 'active' && 
-               (!$this->unlock_at || $this->unlock_at->isFuture());
+        return $this->status === 'active' &&
+               (! $this->unlock_at || $this->unlock_at->isFuture());
     }
 
     /**
@@ -193,7 +192,7 @@ class AccountLockout extends Model
      */
     public function getRemainingTimeAttribute(): ?int
     {
-        if (!$this->isActive() || !$this->unlock_at) {
+        if (! $this->isActive() || ! $this->unlock_at) {
             return null;
         }
 
@@ -206,7 +205,7 @@ class AccountLockout extends Model
     public function getFormattedRemainingTimeAttribute(): string
     {
         $remaining = $this->remaining_time;
-        
+
         if ($remaining === null) {
             return 'N/A';
         }
@@ -228,7 +227,7 @@ class AccountLockout extends Model
     /**
      * Unlock account
      */
-    public function unlock(string $method = 'automatic', ?User $unlockedBy = null, string $reason = null): bool
+    public function unlock(string $method = 'automatic', ?User $unlockedBy = null, ?string $reason = null): bool
     {
         $actualDuration = $this->locked_at->diffInMinutes(now());
 
@@ -275,8 +274,8 @@ class AccountLockout extends Model
     ): self {
         // Calculate lockout duration and level
         $recentLockouts = self::where('user_id', $user->id)
-                              ->where('locked_at', '>=', now()->subDays(7))
-                              ->count();
+            ->where('locked_at', '>=', now()->subDays(7))
+            ->count();
 
         $level = self::determineLockoutLevel($type, $recentLockouts, $triggerData);
         $duration = self::calculateLockoutDuration($recentLockouts + 1, $type);
@@ -304,7 +303,7 @@ class AccountLockout extends Model
         SecurityAlert::createAlert([
             'user_id' => $user->id,
             'alert_type' => 'account_lockout',
-            'severity' => $level === 'permanent' ? 'critical' : 
+            'severity' => $level === 'permanent' ? 'critical' :
                          ($level === 'manual' ? 'high' : 'medium'),
             'title' => 'Account Locked',
             'description' => "Account locked due to {$type}",
@@ -329,7 +328,7 @@ class AccountLockout extends Model
     protected static function determineLockoutLevel(string $type, int $recentLockouts, array $triggerData): string
     {
         // Permanent lockout for severe security breaches
-        if ($type === 'security_breach' || 
+        if ($type === 'security_breach' ||
             ($triggerData['risk_score'] ?? 0) >= 90) {
             return 'permanent';
         }
@@ -341,7 +340,7 @@ class AccountLockout extends Model
         }
 
         // Extended lockout for repeated failures
-        if ($recentLockouts >= 2 || 
+        if ($recentLockouts >= 2 ||
             ($triggerData['failed_attempts'] ?? 0) >= 10) {
             return 'extended';
         }
@@ -402,8 +401,8 @@ class AccountLockout extends Model
     public static function isUserLocked(User $user): bool
     {
         return self::where('user_id', $user->id)
-                  ->active()
-                  ->exists();
+            ->active()
+            ->exists();
     }
 
     /**
@@ -412,9 +411,9 @@ class AccountLockout extends Model
     public static function getUserActiveLockout(User $user): ?self
     {
         return self::where('user_id', $user->id)
-                  ->active()
-                  ->latest('locked_at')
-                  ->first();
+            ->active()
+            ->latest('locked_at')
+            ->first();
     }
 
     /**
@@ -446,20 +445,20 @@ class AccountLockout extends Model
             'active_lockouts' => self::active()->count(),
             'manual_review_required' => self::requiresReview()->count(),
             'lockouts_by_type' => $lockouts->selectRaw('lockout_type, COUNT(*) as count')
-                                          ->groupBy('lockout_type')
-                                          ->pluck('count', 'lockout_type')
-                                          ->toArray(),
+                ->groupBy('lockout_type')
+                ->pluck('count', 'lockout_type')
+                ->toArray(),
             'lockouts_by_level' => $lockouts->selectRaw('lockout_level, COUNT(*) as count')
-                                           ->groupBy('lockout_level')
-                                           ->pluck('count', 'lockout_level')
-                                           ->toArray(),
+                ->groupBy('lockout_level')
+                ->pluck('count', 'lockout_level')
+                ->toArray(),
             'average_duration' => $lockouts->whereNotNull('actual_duration_minutes')
-                                          ->avg('actual_duration_minutes'),
+                ->avg('actual_duration_minutes'),
             'unlock_methods' => $lockouts->whereNotNull('unlock_method')
-                                        ->selectRaw('unlock_method, COUNT(*) as count')
-                                        ->groupBy('unlock_method')
-                                        ->pluck('count', 'unlock_method')
-                                        ->toArray(),
+                ->selectRaw('unlock_method, COUNT(*) as count')
+                ->groupBy('unlock_method')
+                ->pluck('count', 'unlock_method')
+                ->toArray(),
             'escalated_lockouts' => $lockouts->where('escalated_to_admin', true)->count(),
         ];
     }
@@ -488,22 +487,22 @@ class AccountLockout extends Model
     public static function getUserHistory(User $user, int $days = 90): array
     {
         $lockouts = self::where('user_id', $user->id)
-                       ->where('locked_at', '>=', now()->subDays($days))
-                       ->orderBy('locked_at', 'desc')
-                       ->get();
+            ->where('locked_at', '>=', now()->subDays($days))
+            ->orderBy('locked_at', 'desc')
+            ->get();
 
         return [
             'total_lockouts' => $lockouts->count(),
             'recent_lockouts' => $lockouts->take(10),
             'lockout_frequency' => $lockouts->count() / max(1, $days / 7), // per week
             'most_common_type' => $lockouts->groupBy('lockout_type')
-                                          ->map->count()
-                                          ->sortDesc()
-                                          ->keys()
-                                          ->first(),
+                ->map->count()
+                ->sortDesc()
+                ->keys()
+                ->first(),
             'total_locked_time' => $lockouts->sum('actual_duration_minutes'),
             'average_lockout_duration' => $lockouts->whereNotNull('actual_duration_minutes')
-                                                  ->avg('actual_duration_minutes'),
+                ->avg('actual_duration_minutes'),
         ];
     }
 }

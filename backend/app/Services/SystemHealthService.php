@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Facades\Artisan;
 use App\Models\ActivityLog;
 use App\Models\SecurityEvent;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class SystemHealthService extends BaseService
 {
@@ -23,7 +23,7 @@ class SystemHealthService extends BaseService
             'queue' => $this->checkQueueHealth(),
             'logs' => $this->checkLogsHealth(),
             'performance' => $this->getPerformanceMetrics(),
-            'security' => $this->getSecurityMetrics()
+            'security' => $this->getSecurityMetrics(),
         ];
     }
 
@@ -33,14 +33,14 @@ class SystemHealthService extends BaseService
     public function calculateOverallHealth(array $components): string
     {
         $statuses = collect($components)->pluck('status')->toArray();
-        
+
         if (in_array('unhealthy', $statuses)) {
             return 'unhealthy';
         } elseif (in_array('warning', $statuses)) {
             return 'warning';
-        } else {
-            return 'healthy';
         }
+
+        return 'healthy';
     }
 
     /**
@@ -49,7 +49,7 @@ class SystemHealthService extends BaseService
     public function getHealthRecommendations(array $health): array
     {
         $recommendations = [];
-        
+
         foreach ($health as $component => $status) {
             if ($status['status'] === 'warning' || $status['status'] === 'unhealthy') {
                 switch ($component) {
@@ -74,7 +74,7 @@ class SystemHealthService extends BaseService
                 }
             }
         }
-        
+
         return $recommendations;
     }
 
@@ -104,15 +104,15 @@ class SystemHealthService extends BaseService
             'properties' => [
                 'tasks' => $tasks,
                 'successful' => array_keys($results),
-                'failed' => array_keys($errors)
+                'failed' => array_keys($errors),
             ],
-            'institution_id' => $user->institution_id
+            'institution_id' => $user->institution_id,
         ]);
 
         return [
             'results' => $results,
             'errors' => $errors,
-            'status' => empty($errors) ? 'success' : (empty($results) ? 'error' : 'partial')
+            'status' => empty($errors) ? 'success' : (empty($results) ? 'error' : 'partial'),
         ];
     }
 
@@ -125,16 +125,16 @@ class SystemHealthService extends BaseService
             $start = microtime(true);
             DB::select('SELECT 1');
             $responseTime = round((microtime(true) - $start) * 1000, 2);
-            
+
             return [
                 'status' => 'healthy',
                 'response_time' => $responseTime . 'ms',
-                'connections' => $this->getDatabaseConnections()
+                'connections' => $this->getDatabaseConnections(),
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'unhealthy',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -153,12 +153,12 @@ class SystemHealthService extends BaseService
                 'status' => $usedPercent < 90 ? 'healthy' : 'warning',
                 'used_percent' => $usedPercent,
                 'free_space' => $this->formatBytes($freeSpace),
-                'total_space' => $this->formatBytes($totalSpace)
+                'total_space' => $this->formatBytes($totalSpace),
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'unhealthy',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -172,15 +172,15 @@ class SystemHealthService extends BaseService
             Cache::put('health_check', 'test', 60);
             $value = Cache::get('health_check');
             Cache::forget('health_check');
-            
+
             return [
                 'status' => $value === 'test' ? 'healthy' : 'unhealthy',
-                'driver' => config('cache.default')
+                'driver' => config('cache.default'),
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'unhealthy',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -194,12 +194,12 @@ class SystemHealthService extends BaseService
             return [
                 'status' => 'healthy',
                 'driver' => config('mail.default'),
-                'host' => config('mail.mailers.smtp.host')
+                'host' => config('mail.mailers.smtp.host'),
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'unhealthy',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -213,12 +213,12 @@ class SystemHealthService extends BaseService
             return [
                 'status' => 'healthy',
                 'driver' => config('queue.default'),
-                'pending_jobs' => $this->getPendingJobsCount()
+                'pending_jobs' => $this->getPendingJobsCount(),
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'unhealthy',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -231,16 +231,16 @@ class SystemHealthService extends BaseService
         try {
             $logPath = storage_path('logs');
             $logSize = $this->getDirectorySize($logPath);
-            
+
             return [
                 'status' => $logSize < 100 * 1024 * 1024 ? 'healthy' : 'warning', // 100MB threshold
                 'size' => $this->formatBytes($logSize),
-                'path' => $logPath
+                'path' => $logPath,
             ];
         } catch (\Exception $e) {
             return [
                 'status' => 'unhealthy',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ];
         }
     }
@@ -255,7 +255,7 @@ class SystemHealthService extends BaseService
             'memory_usage' => round(memory_get_usage() / 1024 / 1024, 2) . ' MB',
             'peak_memory' => round(memory_get_peak_usage() / 1024 / 1024, 2) . ' MB',
             'cpu_load' => $this->getCpuLoad(),
-            'uptime' => $this->getSystemUptime()
+            'uptime' => $this->getSystemUptime(),
         ];
     }
 
@@ -271,7 +271,7 @@ class SystemHealthService extends BaseService
                 ->count(),
             'active_sessions' => DB::table('sessions')->count(),
             'last_security_scan' => 'Never',
-            'security_score' => 85
+            'security_score' => 85,
         ];
     }
 
@@ -283,24 +283,28 @@ class SystemHealthService extends BaseService
         switch ($task) {
             case 'clear_cache':
                 Artisan::call('cache:clear');
+
                 return ['message' => 'Cache təmizləndi', 'time' => now()];
-                
+
             case 'optimize_db':
                 Artisan::call('optimize');
+
                 return ['message' => 'Database optimize edildi', 'time' => now()];
-                
+
             case 'cleanup_logs':
                 $this->cleanupOldLogs();
+
                 return ['message' => 'Köhnə loglar təmizləndi', 'time' => now()];
-                
+
             case 'backup_db':
                 // Would implement actual backup
                 return ['message' => 'Database backup yaradıldı', 'time' => now()];
-                
+
             case 'update_stats':
                 Artisan::call('queue:work --stop-when-empty');
+
                 return ['message' => 'Statistikalar yeniləndi', 'time' => now()];
-                
+
             default:
                 throw new \Exception("Unknown maintenance task: {$task}");
         }
@@ -313,7 +317,7 @@ class SystemHealthService extends BaseService
     {
         $retentionDays = 30;
         $cutoffDate = now()->subDays($retentionDays);
-        
+
         ActivityLog::where('created_at', '<', $cutoffDate)->delete();
         SecurityEvent::where('created_at', '<', $cutoffDate)->delete();
     }
@@ -327,8 +331,10 @@ class SystemHealthService extends BaseService
             $driver = config('database.default');
             if ($driver === 'mysql') {
                 $result = DB::select("SHOW STATUS LIKE 'Threads_connected'");
+
                 return $result[0]->Value ?? 'Unknown';
             }
+
             return 'Unknown';
         } catch (\Exception $e) {
             return 'Unknown';
@@ -353,6 +359,7 @@ class SystemHealthService extends BaseService
     private function getCpuLoad(): string
     {
         $load = sys_getloadavg();
+
         return $load ? (string) $load[0] : 'Unknown';
     }
 
@@ -365,9 +372,9 @@ class SystemHealthService extends BaseService
         $bytes = max($bytes, 0);
         $pow = floor(($bytes ? log($bytes) : 0) / log(1024));
         $pow = min($pow, count($units) - 1);
-        
+
         $bytes /= pow(1024, $pow);
-        
+
         return round($bytes, 2) . ' ' . $units[$pow];
     }
 
@@ -377,12 +384,12 @@ class SystemHealthService extends BaseService
     private function getDirectorySize(string $path): int
     {
         $size = 0;
-        $files = glob(rtrim($path, '/').'/*', GLOB_NOSORT);
-        
+        $files = glob(rtrim($path, '/') . '/*', GLOB_NOSORT);
+
         foreach ($files as $file) {
             $size += is_file($file) ? filesize($file) : $this->getDirectorySize($file);
         }
-        
+
         return $size;
     }
 
@@ -393,9 +400,10 @@ class SystemHealthService extends BaseService
     {
         if (PHP_OS_FAMILY === 'Linux') {
             $uptime = shell_exec('uptime -p');
+
             return trim($uptime) ?: 'Unknown';
         }
-        
+
         return 'Unknown';
     }
 }

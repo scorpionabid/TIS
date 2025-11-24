@@ -2,14 +2,12 @@
 
 namespace App\Services;
 
-use App\Models\DataApprovalRequest;
 use App\Models\ApprovalAction;
 use App\Models\ApprovalWorkflow;
+use App\Models\DataApprovalRequest;
 use App\Models\Survey;
-use App\Services\BaseService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class ApprovalAnalyticsService extends BaseService
 {
@@ -22,9 +20,9 @@ class ApprovalAnalyticsService extends BaseService
         $dateTo = $request->get('date_to', Carbon::now()->format('Y-m-d'));
 
         $baseQuery = DataApprovalRequest::whereBetween('data_approval_requests.created_at', [$dateFrom, $dateTo]);
-        
+
         // Apply user-based filtering
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $this->applyUserAccessControl($baseQuery, $user);
         }
 
@@ -38,8 +36,8 @@ class ApprovalAnalyticsService extends BaseService
             'bottlenecks' => $this->getBottleneckAnalysis(clone $baseQuery),
             'period' => [
                 'from' => $dateFrom,
-                'to' => $dateTo
-            ]
+                'to' => $dateTo,
+            ],
         ];
     }
 
@@ -52,21 +50,21 @@ class ApprovalAnalyticsService extends BaseService
             'survey:id,title,description,survey_type',
             'institution:id,name,type',
             'respondent:id,name,username,email',
-            'department:id,name'
+            'department:id,name',
         ])->where('status', 'submitted');
 
         // Apply hierarchical filtering based on user role
         $this->applySurveyResponseHierarchy($query, $user);
-        
+
         // Apply filters
         if ($request->filled('survey_id')) {
             $query->where('survey_id', $request->survey_id);
         }
-        
+
         if ($request->filled('status')) {
             $query->where('status', $request->status);
         }
-        
+
         if ($request->filled('institution_id') && $user->hasRole(['superadmin', 'regionadmin'])) {
             $query->where('institution_id', $request->institution_id);
         }
@@ -85,9 +83,9 @@ class ApprovalAnalyticsService extends BaseService
                 'per_page' => $responses->perPage(),
                 'total' => $responses->total(),
                 'from' => $responses->firstItem(),
-                'to' => $responses->lastItem()
+                'to' => $responses->lastItem(),
             ],
-            'filters_applied' => $this->getAppliedFilters($request, $user)
+            'filters_applied' => $this->getAppliedFilters($request, $user),
         ];
     }
 
@@ -99,7 +97,7 @@ class ApprovalAnalyticsService extends BaseService
         $query = Survey::where('approval_status', 'pending');
 
         // Apply user-based filtering
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $this->applySurveyAccessControl($query, $user);
         }
 
@@ -118,7 +116,7 @@ class ApprovalAnalyticsService extends BaseService
 
         // Sort by priority and creation date
         $query->orderByDesc('priority')
-              ->orderBy('created_at', 'asc');
+            ->orderBy('created_at', 'asc');
 
         $surveys = $query->paginate($request->get('per_page', 15));
 
@@ -128,8 +126,8 @@ class ApprovalAnalyticsService extends BaseService
                 'total' => $surveys->total(),
                 'high_priority' => Survey::where('approval_status', 'pending')
                     ->where('priority', 'high')->count(),
-                'awaiting_approval' => $surveys->total()
-            ]
+                'awaiting_approval' => $surveys->total(),
+            ],
         ];
     }
 
@@ -141,7 +139,7 @@ class ApprovalAnalyticsService extends BaseService
         $workflows = ApprovalWorkflow::with(['approvalRequests' => function ($query) {
             $query->selectRaw('workflow_id, COUNT(*) as total_requests, 
                               AVG(CASE WHEN current_status = "approved" THEN 1 ELSE 0 END) as approval_rate')
-                  ->groupBy('workflow_id');
+                ->groupBy('workflow_id');
         }])->where('is_active', true)->get();
 
         return $workflows->map(function ($workflow) {
@@ -154,7 +152,7 @@ class ApprovalAnalyticsService extends BaseService
                 'is_active' => $workflow->is_active,
                 'total_requests' => $workflow->approvalRequests->sum('total_requests') ?? 0,
                 'approval_rate' => round(($workflow->approvalRequests->avg('approval_rate') ?? 0) * 100, 2),
-                'workflow_config' => $workflow->workflow_config
+                'workflow_config' => $workflow->workflow_config,
             ];
         })->toArray();
     }
@@ -178,7 +176,7 @@ class ApprovalAnalyticsService extends BaseService
                 'pending' => $pending,
                 'needs_revision' => $revision,
                 'approval_rate' => $total > 0 ? round(($approved / $total) * 100, 2) : 0,
-                'rejection_rate' => $total > 0 ? round(($rejected / $total) * 100, 2) : 0
+                'rejection_rate' => $total > 0 ? round(($rejected / $total) * 100, 2) : 0,
             ];
         } catch (\Exception $e) {
             return [
@@ -188,7 +186,7 @@ class ApprovalAnalyticsService extends BaseService
                 'pending' => 0,
                 'needs_revision' => 0,
                 'approval_rate' => 0,
-                'rejection_rate' => 0
+                'rejection_rate' => 0,
             ];
         }
     }
@@ -208,7 +206,7 @@ class ApprovalAnalyticsService extends BaseService
         return array_map(function ($count) use ($total) {
             return [
                 'count' => $count,
-                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0
+                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0,
             ];
         }, $statusCounts);
     }
@@ -235,13 +233,14 @@ class ApprovalAnalyticsService extends BaseService
                 ->groupBy('approval_workflows.id', 'approval_workflows.workflow_type', 'approval_workflows.name')
                 ->get()
                 ->map(function ($item) {
-                    $item->approval_rate = $item->total_requests > 0 
-                        ? round(($item->approved / $item->total_requests) * 100, 2) 
+                    $item->approval_rate = $item->total_requests > 0
+                        ? round(($item->approved / $item->total_requests) * 100, 2)
                         : 0;
-                    $item->rejection_rate = $item->total_requests > 0 
-                        ? round(($item->rejected / $item->total_requests) * 100, 2) 
+                    $item->rejection_rate = $item->total_requests > 0
+                        ? round(($item->rejected / $item->total_requests) * 100, 2)
                         : 0;
                     $item->avg_processing_hours = round($item->avg_processing_hours ?? 0, 2);
+
                     return $item;
                 });
 
@@ -275,16 +274,16 @@ class ApprovalAnalyticsService extends BaseService
             END as time_range,
             COUNT(*) as count
         ')
-        ->groupBy('time_range')
-        ->pluck('count', 'time_range')
-        ->toArray();
+            ->groupBy('time_range')
+            ->pluck('count', 'time_range')
+            ->toArray();
 
         return [
             'average_hours' => round($stats->avg_hours ?? 0, 2),
             'minimum_hours' => round($stats->min_hours ?? 0, 2),
             'maximum_hours' => round($stats->max_hours ?? 0, 2),
             'standard_deviation' => round($stats->stddev_hours ?? 0, 2),
-            'distribution' => $distribution
+            'distribution' => $distribution,
         ];
     }
 
@@ -295,7 +294,7 @@ class ApprovalAnalyticsService extends BaseService
     {
         try {
             $requestIds = $baseQuery->pluck('id');
-            
+
             if ($requestIds->isEmpty()) {
                 return [];
             }
@@ -313,10 +312,11 @@ class ApprovalAnalyticsService extends BaseService
                 ->groupBy('users.id', 'users.username')
                 ->get()
                 ->map(function ($item) {
-                    $item->approval_rate = $item->total_actions > 0 
-                        ? round(($item->approved_count / $item->total_actions) * 100, 2) 
+                    $item->approval_rate = $item->total_actions > 0
+                        ? round(($item->approved_count / $item->total_actions) * 100, 2)
                         : 0;
                     $item->avg_response_hours = round($item->avg_response_hours ?? 0, 2);
+
                     return $item;
                 });
 
@@ -332,8 +332,8 @@ class ApprovalAnalyticsService extends BaseService
     private function getTrendAnalysis($dateFrom, $dateTo, $user): array
     {
         $query = DataApprovalRequest::whereBetween('created_at', [$dateFrom, $dateTo]);
-        
-        if (!$user->hasRole('superadmin')) {
+
+        if (! $user->hasRole('superadmin')) {
             $this->applyUserAccessControl($query, $user);
         }
 
@@ -344,13 +344,14 @@ class ApprovalAnalyticsService extends BaseService
             SUM(CASE WHEN current_status = "approved" THEN 1 ELSE 0 END) as approved,
             SUM(CASE WHEN current_status = "rejected" THEN 1 ELSE 0 END) as rejected
         ')
-        ->groupBy('month')
-        ->orderBy('month')
-        ->get()
-        ->map(function ($item) {
-            $item->approval_rate = $item->total > 0 ? round(($item->approved / $item->total) * 100, 2) : 0;
-            return $item;
-        });
+            ->groupBy('month')
+            ->orderBy('month')
+            ->get()
+            ->map(function ($item) {
+                $item->approval_rate = $item->total > 0 ? round(($item->approved / $item->total) * 100, 2) : 0;
+
+                return $item;
+            });
 
         // Weekly trends (last 8 weeks)
         $weeklyTrends = DataApprovalRequest::where('created_at', '>=', Carbon::now()->subWeeks(8))
@@ -365,7 +366,7 @@ class ApprovalAnalyticsService extends BaseService
 
         return [
             'monthly' => $monthlyTrends->toArray(),
-            'weekly' => $weeklyTrends->toArray()
+            'weekly' => $weeklyTrends->toArray(),
         ];
     }
 
@@ -398,15 +399,15 @@ class ApprovalAnalyticsService extends BaseService
                         'workflow_type' => $request->workflow->workflow_type ?? 'Unknown',
                         'submitter' => $request->submitter->name ?? 'Unknown',
                         'days_pending' => Carbon::parse($request->created_at)->diffInDays(now()),
-                        'current_approver_role' => $request->current_approver_role
+                        'current_approver_role' => $request->current_approver_role,
                     ];
                 }),
-                'approver_bottlenecks' => $pendingByApprover->toArray()
+                'approver_bottlenecks' => $pendingByApprover->toArray(),
             ];
         } catch (\Exception $e) {
             return [
                 'long_processing_requests' => [],
-                'approver_bottlenecks' => []
+                'approver_bottlenecks' => [],
             ];
         }
     }
@@ -448,7 +449,7 @@ class ApprovalAnalyticsService extends BaseService
             $regionInstitution = $user->institution;
             if ($regionInstitution && $regionInstitution->level == 2) {
                 $childIds = $regionInstitution->getAllChildrenIds();
-                $query->whereHas('creator', function($q) use ($childIds) {
+                $query->whereHas('creator', function ($q) use ($childIds) {
                     $q->whereIn('institution_id', $childIds);
                 });
             }
@@ -456,14 +457,14 @@ class ApprovalAnalyticsService extends BaseService
             $sectorInstitution = $user->institution;
             if ($sectorInstitution && $sectorInstitution->level == 3) {
                 $childIds = $sectorInstitution->getAllChildrenIds();
-                $query->whereHas('creator', function($q) use ($childIds) {
+                $query->whereHas('creator', function ($q) use ($childIds) {
                     $q->whereIn('institution_id', $childIds);
                 });
             }
         } elseif ($user->hasRole('schooladmin')) {
             $schoolInstitution = $user->institution;
             if ($schoolInstitution) {
-                $query->whereHas('creator', function($q) use ($schoolInstitution) {
+                $query->whereHas('creator', function ($q) use ($schoolInstitution) {
                     $q->where('institution_id', $schoolInstitution->id);
                 });
             }
@@ -486,27 +487,25 @@ class ApprovalAnalyticsService extends BaseService
             if ($regionInstitution && $regionInstitution->level == 2) {
                 $childIds = $regionInstitution->getAllChildrenIds();
                 $query->whereIn('institution_id', $childIds)
-                      ->whereHas('respondent', function($q) {
-                          $q->whereHas('roles', function($roleQuery) {
-                              $roleQuery->whereIn('name', ['sektoradmin', 'schooladmin']);
-                          });
-                      });
+                    ->whereHas('respondent', function ($q) {
+                        $q->whereHas('roles', function ($roleQuery) {
+                            $roleQuery->whereIn('name', ['sektoradmin', 'schooladmin']);
+                        });
+                    });
             }
-        } 
-        elseif ($user->hasRole('sektoradmin')) {
+        } elseif ($user->hasRole('sektoradmin')) {
             // SektorAdmin: Can only see SchoolAdmin responses in their sector
             $sectorInstitution = $user->institution;
             if ($sectorInstitution && $sectorInstitution->level == 3) {
                 $childIds = $sectorInstitution->getAllChildrenIds();
                 $query->whereIn('institution_id', $childIds)
-                      ->whereHas('respondent', function($q) {
-                          $q->whereHas('roles', function($roleQuery) {
-                              $roleQuery->where('name', 'schooladmin');
-                          });
-                      });
+                    ->whereHas('respondent', function ($q) {
+                        $q->whereHas('roles', function ($roleQuery) {
+                            $roleQuery->where('name', 'schooladmin');
+                        });
+                    });
             }
-        } 
-        else {
+        } else {
             // Other roles can only see their own institution's responses
             if ($user->institution) {
                 $query->where('institution_id', $user->institution->id);
@@ -562,7 +561,7 @@ class ApprovalAnalyticsService extends BaseService
             'approved_count' => $approvedCount,
             'failed_count' => $failedCount,
             'errors' => $errors,
-            'success_rate' => count($responseIds) > 0 ? ($approvedCount / count($responseIds)) * 100 : 0
+            'success_rate' => count($responseIds) > 0 ? ($approvedCount / count($responseIds)) * 100 : 0,
         ];
     }
 
@@ -601,7 +600,7 @@ class ApprovalAnalyticsService extends BaseService
             'rejected_count' => $rejectedCount,
             'failed_count' => $failedCount,
             'errors' => $errors,
-            'success_rate' => count($responseIds) > 0 ? ($rejectedCount / count($responseIds)) * 100 : 0
+            'success_rate' => count($responseIds) > 0 ? ($rejectedCount / count($responseIds)) * 100 : 0,
         ];
     }
 
@@ -619,6 +618,7 @@ class ApprovalAnalyticsService extends BaseService
         if ($user->hasRole('regionadmin')) {
             if ($user->institution && $user->institution->level == 2) {
                 $childIds = $user->institution->getAllChildrenIds();
+
                 return in_array($response->institution_id, $childIds);
             }
         }
@@ -627,6 +627,7 @@ class ApprovalAnalyticsService extends BaseService
         if ($user->hasRole('sektoradmin')) {
             if ($user->institution && $user->institution->level == 3) {
                 $childIds = $user->institution->getAllChildrenIds();
+
                 return in_array($response->institution_id, $childIds);
             }
         }

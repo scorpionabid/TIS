@@ -2,19 +2,18 @@
 
 namespace App\Jobs;
 
+use App\Events\BulkApprovalCompleted;
+use App\Events\BulkApprovalProgress;
+use App\Models\User;
+use App\Services\LoggingService;
+use App\Services\SimpleCacheService;
+use App\Services\SurveyApprovalService;
+use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use App\Models\User;
-use App\Models\Survey;
-use App\Services\SurveyApprovalService;
-use App\Services\SimpleCacheService;
-use App\Events\BulkApprovalProgress;
-use App\Events\BulkApprovalCompleted;
-use App\Services\LoggingService;
-use Exception;
 use Log;
 
 class BulkApprovalJob implements ShouldQueue
@@ -22,13 +21,19 @@ class BulkApprovalJob implements ShouldQueue
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
     public int $timeout = 300; // 5 minutes
+
     public int $tries = 3;
+
     public int $maxExceptions = 5;
 
     protected array $responseIds;
+
     protected string $action;
+
     protected ?string $comments;
+
     protected int $userId;
+
     protected string $jobId;
 
     /**
@@ -46,7 +51,7 @@ class BulkApprovalJob implements ShouldQueue
         $this->userId = $userId;
         $this->comments = $comments;
         $this->jobId = $jobId ?: uniqid('bulk_approval_', true);
-        
+
         // Set queue priority based on batch size
         $this->onQueue($this->getPriorityQueue(count($responseIds)));
     }
@@ -59,13 +64,13 @@ class BulkApprovalJob implements ShouldQueue
         SimpleCacheService $cacheService
     ): void {
         $correlationId = LoggingService::createCorrelationId();
-        
+
         LoggingService::bulkOperation('bulk_approval_job_started', [
             'job_id' => $this->jobId,
             'correlation_id' => $correlationId,
             'response_count' => count($this->responseIds),
             'action' => $this->action,
-            'user_id' => $this->userId
+            'user_id' => $this->userId,
         ]);
 
         try {
@@ -78,7 +83,7 @@ class BulkApprovalJob implements ShouldQueue
             // Process responses in chunks to avoid memory issues
             $chunkSize = $this->getChunkSize($totalResponses);
             $processedCount = 0;
-            
+
             foreach (array_chunk($this->responseIds, $chunkSize) as $chunkIndex => $responseChunk) {
                 try {
                     $chunkResult = $this->processResponseChunk(
@@ -90,7 +95,7 @@ class BulkApprovalJob implements ShouldQueue
                     $successfulCount += $chunkResult['successful'];
                     $failedCount += $chunkResult['failed'];
                     $errors = array_merge($errors, $chunkResult['errors']);
-                    
+
                     $processedCount += count($responseChunk);
 
                     // Emit progress event
@@ -110,19 +115,18 @@ class BulkApprovalJob implements ShouldQueue
                     if ($chunkIndex < count(array_chunk($this->responseIds, $chunkSize)) - 1) {
                         sleep(1);
                     }
-
                 } catch (Exception $e) {
                     Log::error('Error processing chunk in bulk approval job', [
                         'job_id' => $this->jobId,
                         'chunk_index' => $chunkIndex,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ]);
 
                     // Mark all responses in failed chunk as errors
                     foreach ($responseChunk as $responseId) {
                         $errors[] = [
                             'response_id' => $responseId,
-                            'error' => 'Chunk processing failed: ' . $e->getMessage()
+                            'error' => 'Chunk processing failed: ' . $e->getMessage(),
                         ];
                         $failedCount++;
                     }
@@ -137,7 +141,7 @@ class BulkApprovalJob implements ShouldQueue
                 'total' => $totalResponses,
                 'action' => $this->action,
                 'errors' => $errors,
-                'completed_at' => now()->toISOString()
+                'completed_at' => now()->toISOString(),
             ];
 
             // Store result for later retrieval
@@ -158,9 +162,8 @@ class BulkApprovalJob implements ShouldQueue
                 'total' => $totalResponses,
                 'action' => $this->action,
                 'user_id' => $this->userId,
-                'duration_seconds' => time() - LARAVEL_START
+                'duration_seconds' => time() - LARAVEL_START,
             ]);
-
         } catch (Exception $e) {
             LoggingService::error($e, [
                 'job_id' => $this->jobId,
@@ -168,7 +171,7 @@ class BulkApprovalJob implements ShouldQueue
                 'operation' => 'bulk_approval_job',
                 'action' => $this->action,
                 'user_id' => $this->userId,
-                'response_count' => count($this->responseIds)
+                'response_count' => count($this->responseIds),
             ]);
 
             // Emit failure event
@@ -182,7 +185,7 @@ class BulkApprovalJob implements ShouldQueue
                     'total' => count($this->responseIds),
                     'action' => $this->action,
                     'errors' => [['error' => 'Job failed: ' . $e->getMessage()]],
-                    'completed_at' => now()->toISOString()
+                    'completed_at' => now()->toISOString(),
                 ]
             ));
 
@@ -217,21 +220,20 @@ class BulkApprovalJob implements ShouldQueue
                     $failed++;
                     $errors[] = [
                         'response_id' => $responseId,
-                        'error' => 'Approval processing returned false'
+                        'error' => 'Approval processing returned false',
                     ];
                 }
-
             } catch (Exception $e) {
                 $failed++;
                 $errors[] = [
                     'response_id' => $responseId,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ];
 
                 Log::warning('Individual response processing failed in bulk job', [
                     'job_id' => $this->jobId,
                     'response_id' => $responseId,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ]);
             }
         }
@@ -239,7 +241,7 @@ class BulkApprovalJob implements ShouldQueue
         return [
             'successful' => $successful,
             'failed' => $failed,
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
@@ -261,7 +263,7 @@ class BulkApprovalJob implements ShouldQueue
         } catch (Exception $e) {
             Log::warning('Cache invalidation failed for chunk', [
                 'job_id' => $this->jobId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -277,9 +279,9 @@ class BulkApprovalJob implements ShouldQueue
             return 25;
         } elseif ($totalResponses <= 500) {
             return 50;
-        } else {
-            return 100;
         }
+
+        return 100;
     }
 
     /**
@@ -291,9 +293,9 @@ class BulkApprovalJob implements ShouldQueue
             return 'high'; // Small batches get high priority
         } elseif ($batchSize <= 50) {
             return 'default';
-        } else {
-            return 'low'; // Large batches get low priority to not block other jobs
         }
+
+        return 'low'; // Large batches get low priority to not block other jobs
     }
 
     /**
@@ -307,16 +309,16 @@ class BulkApprovalJob implements ShouldQueue
             'response_count' => count($this->responseIds),
             'action' => $this->action,
             'user_id' => $this->userId,
-            'attempts' => $this->attempts()
+            'attempts' => $this->attempts(),
         ]);
-        
+
         LoggingService::bulkOperation('bulk_approval_job_failed', [
             'job_id' => $this->jobId,
             'response_count' => count($this->responseIds),
             'action' => $this->action,
             'user_id' => $this->userId,
             'error' => $exception->getMessage(),
-            'attempts' => $this->attempts()
+            'attempts' => $this->attempts(),
         ]);
 
         // Store failure result
@@ -327,7 +329,7 @@ class BulkApprovalJob implements ShouldQueue
             'total' => count($this->responseIds),
             'action' => $this->action,
             'errors' => [['error' => 'Job failed permanently: ' . $exception->getMessage()]],
-            'completed_at' => now()->toISOString()
+            'completed_at' => now()->toISOString(),
         ];
 
         cache()->put("bulk_approval_result:{$this->jobId}", $failureResult, 3600);

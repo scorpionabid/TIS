@@ -3,12 +3,11 @@
 namespace App\Http\Controllers\MektebAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Institution;
-use App\Models\Department;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class MektebAdminDashboardController extends Controller
 {
@@ -34,19 +33,19 @@ class MektebAdminDashboardController extends Controller
     public function getDashboardStats(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         // Verify user has schooladmin role
-        if (!$user->hasRole('schooladmin')) {
+        if (! $user->hasRole('schooladmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         try {
             // Get user's school (institution)
             $userSchool = $user->institution;
-            
-            if (!$userSchool || !in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational'])) {
+
+            if (! $userSchool || ! in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational'])) {
                 return response()->json([
-                    'message' => 'İstifadəçi məktəbə təyin edilməyib'
+                    'message' => 'İstifadəçi məktəbə təyin edilməyib',
                 ], 400);
             }
 
@@ -72,7 +71,7 @@ class MektebAdminDashboardController extends Controller
                 'type' => $this->getSchoolTypeDisplay($userSchool->type),
                 'sector' => $userSchool->parent?->name ?? 'Bilinmir',
                 'establishedYear' => $userSchool->established_year ?? '1985', // Mock data
-                'address' => $userSchool->address ?? 'Ünvan qeyd edilməyib'
+                'address' => $userSchool->address ?? 'Ünvan qeyd edilməyib',
             ];
 
             // Get recent activities
@@ -96,13 +95,12 @@ class MektebAdminDashboardController extends Controller
                 'schoolInfo' => $schoolInfo,
                 'recentActivities' => $recentActivities,
                 'classroomStats' => $classroomStats,
-                'teachersBySubject' => $teachersBySubject
+                'teachersBySubject' => $teachersBySubject,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Dashboard məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -113,17 +111,17 @@ class MektebAdminDashboardController extends Controller
     public function getSchoolClasses(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('schooladmin')) {
+
+        if (! $user->hasRole('schooladmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         try {
             $userSchool = $user->institution;
-            
-            if (!$userSchool) {
+
+            if (! $userSchool) {
                 return response()->json([
-                    'message' => 'İstifadəçi məktəbə təyin edilməyib'
+                    'message' => 'İstifadəçi məktəbə təyin edilməyib',
                 ], 400);
             }
 
@@ -132,9 +130,9 @@ class MektebAdminDashboardController extends Controller
             $grades = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
             $sections = ['A', 'B', 'C'];
             $teachers = [
-                'Aynur Məmmədova', 'Səbinə Quliyeva', 'Rəşad Əliyev', 
+                'Aynur Məmmədova', 'Səbinə Quliyeva', 'Rəşad Əliyev',
                 'Nigar Həsənova', 'Farid Bayramov', 'Leyla Qasımova',
-                'Mübariz Həsənov', 'Gülnar Əhmədova', 'Vüsal Məmmədov'
+                'Mübariz Həsənov', 'Gülnar Əhmədova', 'Vüsal Məmmədov',
             ];
 
             $classId = 1;
@@ -148,7 +146,7 @@ class MektebAdminDashboardController extends Controller
                         'students' => rand(20, 35),
                         'teacher' => $teachers[array_rand($teachers)],
                         'classroom' => "Sinif {$grade}-{$section}",
-                        'schedule' => $this->generateClassSchedule($grade)
+                        'schedule' => $this->generateClassSchedule($grade),
                     ];
                 }
             }
@@ -163,14 +161,13 @@ class MektebAdminDashboardController extends Controller
                 'grades_covered' => array_unique(array_column($classes, 'grade')),
                 'school' => [
                     'name' => $userSchool->name,
-                    'type' => $this->getSchoolTypeDisplay($userSchool->type)
-                ]
+                    'type' => $this->getSchoolTypeDisplay($userSchool->type),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Sinif məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -181,17 +178,17 @@ class MektebAdminDashboardController extends Controller
     public function getAnalytics(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('schooladmin')) {
+
+        if (! $user->hasRole('schooladmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         try {
             $userSchool = $user->institution;
-            
-            if (!$userSchool) {
+
+            if (! $userSchool) {
                 return response()->json([
-                    'message' => 'İstifadəçi məktəbə təyin edilməyib'
+                    'message' => 'İstifadəçi məktəbə təyin edilməyib',
                 ], 400);
             }
 
@@ -200,31 +197,30 @@ class MektebAdminDashboardController extends Controller
                 'studentEnrollment' => [
                     'current' => rand(400, 600),
                     'lastYear' => rand(350, 550),
-                    'growthRate' => rand(5, 15) / 100
+                    'growthRate' => rand(5, 15) / 100,
                 ],
                 'academicPerformance' => [
                     'averageGrade' => rand(70, 85) / 10,
                     'passRate' => rand(85, 95),
-                    'topPerformers' => rand(15, 30)
+                    'topPerformers' => rand(15, 30),
                 ],
                 'teacherMetrics' => [
                     'totalTeachers' => rand(30, 60),
                     'experiencedTeachers' => rand(15, 35),
-                    'averageExperience' => rand(8, 20)
+                    'averageExperience' => rand(8, 20),
                 ],
                 'attendanceMetrics' => [
                     'averageAttendance' => rand(90, 98),
                     'chronicAbsenteeism' => rand(2, 8),
-                    'monthlyTrend' => [85, 88, 92, 89, 91, 94]
-                ]
+                    'monthlyTrend' => [85, 88, 92, 89, 91, 94],
+                ],
             ];
 
             return response()->json($analytics);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Analytics məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -235,22 +231,22 @@ class MektebAdminDashboardController extends Controller
     public function getSchoolTeachers(Request $request): JsonResponse
     {
         $user = $request->user();
-        
-        if (!$user->hasRole('schooladmin')) {
+
+        if (! $user->hasRole('schooladmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         try {
             $userSchool = $user->institution;
-            
+
             // Get teachers assigned to this school
             $teachers = User::where('institution_id', $userSchool->id)
-                ->whereHas('roles', function($q) {
+                ->whereHas('roles', function ($q) {
                     $q->where('name', 'müəllim');
                 })
                 ->with(['roles', 'department'])
                 ->get()
-                ->map(function($teacher) {
+                ->map(function ($teacher) {
                     return [
                         'id' => $teacher->id,
                         'username' => $teacher->username,
@@ -261,9 +257,9 @@ class MektebAdminDashboardController extends Controller
                         'experience_years' => rand(2, 25),
                         'department' => $teacher->department?->name ?? 'Departament təyin edilməyib',
                         'is_active' => $teacher->is_active,
-                        'last_login' => $teacher->last_login_at ? 
+                        'last_login' => $teacher->last_login_at ?
                             Carbon::parse($teacher->last_login_at)->diffForHumans() : 'Heç vaxt',
-                        'joined_date' => $teacher->created_at->format('Y-m-d')
+                        'joined_date' => $teacher->created_at->format('Y-m-d'),
                     ];
                 });
 
@@ -275,14 +271,13 @@ class MektebAdminDashboardController extends Controller
                 'average_experience' => round($teachers->avg('experience_years'), 1),
                 'school' => [
                     'name' => $userSchool->name,
-                    'type' => $this->getSchoolTypeDisplay($userSchool->type)
-                ]
+                    'type' => $this->getSchoolTypeDisplay($userSchool->type),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Müəllim məlumatları yüklənə bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -300,7 +295,7 @@ class MektebAdminDashboardController extends Controller
                 'description' => '5-ci sinfə 3 yeni şagird qeydiyyatdan keçdi',
                 'time' => '2 saat əvvəl',
                 'status' => 'completed',
-                'class' => '5-A sinfi'
+                'class' => '5-A sinfi',
             ],
             [
                 'id' => '2',
@@ -308,7 +303,7 @@ class MektebAdminDashboardController extends Controller
                 'title' => 'Müəllim qiymətləndirmə sorğusu',
                 'description' => 'Şagirdlər üçün müəllim qiymətləndirmə sorğusu başladı',
                 'time' => '4 saat əvvəl',
-                'status' => 'in_progress'
+                'status' => 'in_progress',
             ],
             [
                 'id' => '3',
@@ -317,7 +312,7 @@ class MektebAdminDashboardController extends Controller
                 'description' => 'Riyaziyyat müəllimi yeni 9-cu sinifə təyin edildi',
                 'time' => '1 gün əvvəl',
                 'status' => 'completed',
-                'class' => '9-B sinfi'
+                'class' => '9-B sinfi',
             ],
             [
                 'id' => '4',
@@ -325,7 +320,7 @@ class MektebAdminDashboardController extends Controller
                 'title' => 'Valideyn toplantısı',
                 'description' => '8-ci sinif valideynləri ilə toplantı planlaşdırıldı',
                 'time' => '2 gün əvvəl',
-                'status' => 'pending'
+                'status' => 'pending',
             ],
             [
                 'id' => '5',
@@ -333,8 +328,8 @@ class MektebAdminDashboardController extends Controller
                 'title' => 'Dərs cədvəli yeniləndi',
                 'description' => 'Yeni təhsil ili üçün dərs cədvəli hazırlandı',
                 'time' => '3 gün əvvəl',
-                'status' => 'completed'
-            ]
+                'status' => 'completed',
+            ],
         ];
     }
 
@@ -351,7 +346,7 @@ class MektebAdminDashboardController extends Controller
             ['id' => 5, 'grade' => 11, 'section' => 'A', 'students' => 22, 'teacher' => 'Farid Bayramov'],
             ['id' => 6, 'grade' => 7, 'section' => 'A', 'students' => 29, 'teacher' => 'Leyla Qasımova'],
             ['id' => 7, 'grade' => 8, 'section' => 'A', 'students' => 27, 'teacher' => 'Mübariz Həsənov'],
-            ['id' => 8, 'grade' => 10, 'section' => 'A', 'students' => 23, 'teacher' => 'Gülnar Əhmədova']
+            ['id' => 8, 'grade' => 10, 'section' => 'A', 'students' => 23, 'teacher' => 'Gülnar Əhmədova'],
         ];
     }
 
@@ -368,7 +363,7 @@ class MektebAdminDashboardController extends Controller
             ['subject' => 'Fizika', 'teachers' => 2, 'classes' => 5],
             ['subject' => 'Kimya', 'teachers' => 2, 'classes' => 4],
             ['subject' => 'Biologiya', 'teachers' => 1, 'classes' => 3],
-            ['subject' => 'Coğrafiya', 'teachers' => 1, 'classes' => 3]
+            ['subject' => 'Coğrafiya', 'teachers' => 1, 'classes' => 3],
         ];
     }
 
@@ -379,12 +374,12 @@ class MektebAdminDashboardController extends Controller
     {
         $subjects = $this->getSubjectsForGrade($grade);
         $days = ['Bazar ertəsi', 'Çərşənbə axşamı', 'Çərşənbə', 'Cümə axşamı', 'Cümə'];
-        
+
         $schedule = [];
         foreach ($days as $day) {
             $schedule[$day] = array_slice($subjects, 0, rand(4, 6));
         }
-        
+
         return $schedule;
     }
 
@@ -394,15 +389,15 @@ class MektebAdminDashboardController extends Controller
     private function getSubjectsForGrade($grade): array
     {
         $baseSubjects = ['Azərbaycan dili', 'Riyaziyyat', 'İngilis dili', 'Tarix', 'Bədən tərbiyəsi'];
-        
+
         if ($grade >= 7) {
             $baseSubjects = array_merge($baseSubjects, ['Fizika', 'Kimya', 'Biologiya', 'Coğrafiya']);
         }
-        
+
         if ($grade >= 10) {
             $baseSubjects = array_merge($baseSubjects, ['Ədəbiyyat', 'Fəlsəfə']);
         }
-        
+
         return $baseSubjects;
     }
 
@@ -412,11 +407,11 @@ class MektebAdminDashboardController extends Controller
     private function getRandomSubject(): string
     {
         $subjects = [
-            'Riyaziyyat', 'Azərbaycan dili', 'İngilis dili', 'Tarix', 
+            'Riyaziyyat', 'Azərbaycan dili', 'İngilis dili', 'Tarix',
             'Fizika', 'Kimya', 'Biologiya', 'Coğrafiya', 'Bədən tərbiyəsi',
-            'Musiqi', 'Təsviri sənət', 'İnformatika'
+            'Musiqi', 'Təsviri sənət', 'İnformatika',
         ];
-        
+
         return $subjects[array_rand($subjects)];
     }
 
@@ -430,7 +425,7 @@ class MektebAdminDashboardController extends Controller
             'secondary_school' => 'Orta Məktəb',
             'gymnasium' => 'Gimnaziya',
             'vocational' => 'Peşə Məktəbi',
-            'kindergarten' => 'Uşaq Bağçası'
+            'kindergarten' => 'Uşaq Bağçası',
         ];
 
         return $types[$type] ?? $type;

@@ -102,6 +102,7 @@ class RegionOperatorPermissionService
         foreach (self::CRUD_FIELDS as $field) {
             if (array_key_exists($field, $nested)) {
                 $permissions[$field] = $this->toBool($nested[$field]);
+
                 continue;
             }
 
@@ -171,14 +172,14 @@ class RegionOperatorPermissionService
     {
         $hasCrudPayload = $this->hasCrudPayload($payload);
 
-        if ($requirePayload && !$hasCrudPayload) {
+        if ($requirePayload && ! $hasCrudPayload) {
             $this->logValidationFailure('missing_payload');
             throw ValidationException::withMessages([
                 'region_operator_permissions' => [self::VALIDATION_ERROR_MESSAGE],
             ]);
         }
 
-        if ($hasCrudPayload && !$this->hasAnyEnabledPermissions($payload)) {
+        if ($hasCrudPayload && ! $this->hasAnyEnabledPermissions($payload)) {
             $this->logValidationFailure('empty_permissions');
             throw ValidationException::withMessages([
                 'region_operator_permissions' => [self::VALIDATION_ERROR_MESSAGE],

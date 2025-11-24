@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('notifications', function (Blueprint $table) {
             // Add data column for storing notification JSON data
-            if (!Schema::hasColumn('notifications', 'data')) {
+            if (! Schema::hasColumn('notifications', 'data')) {
                 $table->text('data')->nullable();
             }
         });

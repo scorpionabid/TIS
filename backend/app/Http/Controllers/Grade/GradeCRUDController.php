@@ -34,8 +34,8 @@ class GradeCRUDController extends Controller
         // Paginate results
         $perPage = $request->get('per_page', 20);
         $grades = $query->orderBy('class_level')
-                       ->orderBy('name')
-                       ->paginate($perPage);
+            ->orderBy('name')
+            ->paginate($perPage);
 
         // Transform using GradeResource
         return response()->json([
@@ -69,10 +69,10 @@ class GradeCRUDController extends Controller
 
         // Check for unique grade name within institution, academic year, and class level
         $existingGrade = Grade::where('institution_id', $validated['institution_id'])
-                             ->where('academic_year_id', $validated['academic_year_id'])
-                             ->where('class_level', $classLevel)
-                             ->where('name', $className)
-                             ->first();
+            ->where('academic_year_id', $validated['academic_year_id'])
+            ->where('class_level', $classLevel)
+            ->where('name', $className)
+            ->first();
         if ($existingGrade) {
             return response()->json([
                 'success' => false,
@@ -81,10 +81,10 @@ class GradeCRUDController extends Controller
         }
 
         // Check if room is available
-        if (!empty($validated['room_id'])) {
+        if (! empty($validated['room_id'])) {
             $roomInUse = Grade::where('room_id', $validated['room_id'])
-                             ->where('academic_year_id', $validated['academic_year_id'])
-                             ->first();
+                ->where('academic_year_id', $validated['academic_year_id'])
+                ->first();
             if ($roomInUse) {
                 return response()->json([
                     'success' => false,
@@ -94,10 +94,10 @@ class GradeCRUDController extends Controller
         }
 
         // Check if teacher is already assigned
-        if (!empty($validated['homeroom_teacher_id'])) {
+        if (! empty($validated['homeroom_teacher_id'])) {
             $teacherAssigned = Grade::where('homeroom_teacher_id', $validated['homeroom_teacher_id'])
-                                   ->where('academic_year_id', $validated['academic_year_id'])
-                                   ->first();
+                ->where('academic_year_id', $validated['academic_year_id'])
+                ->first();
             if ($teacherAssigned) {
                 return response()->json([
                     'success' => false,
@@ -107,7 +107,7 @@ class GradeCRUDController extends Controller
 
             // Verify the user is a teacher
             $teacher = User::find($validated['homeroom_teacher_id']);
-            if (!$teacher->hasRole(['müəllim', 'müavin'])) {
+            if (! $teacher->hasRole(['müəllim', 'müavin'])) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Seçilən istifadəçi müəllim deyil',
@@ -136,7 +136,7 @@ class GradeCRUDController extends Controller
             ]);
 
             // Sync tags if provided
-            if (!empty($validated['tag_ids']) && is_array($validated['tag_ids'])) {
+            if (! empty($validated['tag_ids']) && is_array($validated['tag_ids'])) {
                 $grade->tags()->sync($validated['tag_ids']);
             }
 
@@ -148,7 +148,6 @@ class GradeCRUDController extends Controller
                 'data' => new GradeResource($grade),
                 'message' => 'Sinif uğurla yaradıldı',
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -200,11 +199,11 @@ class GradeCRUDController extends Controller
         // Check for unique grade name if name or class_level is being updated
         if ($request->has('name') || $request->has('class_level')) {
             $existingGrade = Grade::where('institution_id', $grade->institution_id)
-                                 ->where('academic_year_id', $grade->academic_year_id)
-                                 ->where('class_level', $classLevel)
-                                 ->where('name', $className)
-                                 ->where('id', '!=', $grade->id)
-                                 ->first();
+                ->where('academic_year_id', $grade->academic_year_id)
+                ->where('class_level', $classLevel)
+                ->where('name', $className)
+                ->where('id', '!=', $grade->id)
+                ->first();
             if ($existingGrade) {
                 return response()->json([
                     'success' => false,
@@ -217,9 +216,9 @@ class GradeCRUDController extends Controller
         if ($request->has('room_id') && $validated['room_id'] !== $grade->room_id) {
             if ($validated['room_id']) {
                 $roomInUse = Grade::where('room_id', $validated['room_id'])
-                                 ->where('academic_year_id', $grade->academic_year_id)
-                                 ->where('id', '!=', $grade->id)
-                                 ->first();
+                    ->where('academic_year_id', $grade->academic_year_id)
+                    ->where('id', '!=', $grade->id)
+                    ->first();
                 if ($roomInUse) {
                     return response()->json([
                         'success' => false,
@@ -233,9 +232,9 @@ class GradeCRUDController extends Controller
         if ($request->has('homeroom_teacher_id') && $validated['homeroom_teacher_id'] !== $grade->homeroom_teacher_id) {
             if ($validated['homeroom_teacher_id']) {
                 $teacherAssigned = Grade::where('homeroom_teacher_id', $validated['homeroom_teacher_id'])
-                                       ->where('academic_year_id', $grade->academic_year_id)
-                                       ->where('id', '!=', $grade->id)
-                                       ->first();
+                    ->where('academic_year_id', $grade->academic_year_id)
+                    ->where('id', '!=', $grade->id)
+                    ->first();
                 if ($teacherAssigned) {
                     return response()->json([
                         'success' => false,
@@ -245,7 +244,7 @@ class GradeCRUDController extends Controller
 
                 // Verify the user is a teacher
                 $teacher = User::find($validated['homeroom_teacher_id']);
-                if (!$teacher->hasRole(['müəllim', 'müavin'])) {
+                if (! $teacher->hasRole(['müəllim', 'müavin'])) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Seçilən istifadəçi müəllim deyil',
@@ -255,10 +254,10 @@ class GradeCRUDController extends Controller
         }
 
         try {
-            $updateData = array_filter($validated, fn($key) => in_array($key, [
+            $updateData = array_filter($validated, fn ($key) => in_array($key, [
                 'room_id', 'homeroom_teacher_id', 'specialty', 'student_count',
                 'male_student_count', 'female_student_count', 'education_program',
-                'is_active', 'metadata', 'class_type', 'class_profile', 'teaching_shift'
+                'is_active', 'metadata', 'class_type', 'class_profile', 'teaching_shift',
             ]), ARRAY_FILTER_USE_KEY);
 
             $updateData['name'] = $className;
@@ -279,7 +278,6 @@ class GradeCRUDController extends Controller
                 'data' => new GradeResource($grade),
                 'message' => 'Sinif məlumatları uğurla yeniləndi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -299,8 +297,8 @@ class GradeCRUDController extends Controller
 
         // Check if grade has active students
         $activeStudents = \App\Models\StudentEnrollment::where('grade_id', $grade->id)
-                                          ->where('status', 'active')
-                                          ->count();
+            ->where('status', 'active')
+            ->count();
         if ($activeStudents > 0) {
             return response()->json([
                 'success' => false,
@@ -316,7 +314,6 @@ class GradeCRUDController extends Controller
                 'success' => true,
                 'message' => 'Sinif uğurla deaktiv edildi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -339,7 +336,7 @@ class GradeCRUDController extends Controller
 
         // Apply regional access control
         $user = $request->user();
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = InstitutionAccessService::getAccessibleInstitutions($user);
             $query->whereIn('institution_id', $accessibleInstitutions);
         }
@@ -398,7 +395,7 @@ class GradeCRUDController extends Controller
         if ($request->has('search')) {
             $query->where(function ($q) use ($request) {
                 $q->where('name', 'ILIKE', "%{$request->search}%")
-                  ->orWhere('specialty', 'ILIKE', "%{$request->search}%");
+                    ->orWhere('specialty', 'ILIKE', "%{$request->search}%");
             });
         }
 
@@ -462,7 +459,7 @@ class GradeCRUDController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => "{$targetClassLevel}-{$validated['name']} sinfi artıq mövcuddur",
-                'errors' => ['name' => ["Bu sinif adı artıq istifadə olunur"]]
+                'errors' => ['name' => ['Bu sinif adı artıq istifadə olunur']],
             ], 422);
         }
 
@@ -515,9 +512,8 @@ class GradeCRUDController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => new GradeResource($newGrade),
-                'message' => 'Sinif uğurla kopyalandı'
+                'message' => 'Sinif uğurla kopyalandı',
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

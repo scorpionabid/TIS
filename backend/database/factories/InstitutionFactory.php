@@ -127,7 +127,7 @@ class InstitutionFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'name' => $this->faker->city() . ' Regional Office',
-            'type' => 'region', 
+            'type' => 'region',
             'level' => 2,
             'institution_code' => 'REG' . $this->faker->numberBetween(1, 10),
         ]);

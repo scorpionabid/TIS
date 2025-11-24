@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ResponseHelpers;
+use App\Http\Traits\ValidationRules;
 use App\Models\InventoryItem;
 use App\Services\InventoryTransactionService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use App\Http\Traits\ValidationRules;
-use App\Http\Traits\ResponseHelpers;
+use Illuminate\Http\Request;
 
 class InventoryTransactionController extends Controller
 {
-    use ValidationRules, ResponseHelpers;
+    use ResponseHelpers, ValidationRules;
 
     protected InventoryTransactionService $transactionService;
 
@@ -31,12 +31,12 @@ class InventoryTransactionController extends Controller
             'expected_return_date' => 'sometimes|date|after:today',
             'location' => 'sometimes|string|max:255',
             'room_id' => 'sometimes|integer|exists:rooms,id',
-            'notes' => 'sometimes|string|max:1000'
+            'notes' => 'sometimes|string|max:1000',
         ]);
 
         try {
             $transaction = $this->transactionService->assignItem($item, $validated);
-            
+
             return $this->successResponse(
                 $this->transactionService->formatTransactionForResponse($transaction),
                 'Item assigned successfully'
@@ -58,12 +58,12 @@ class InventoryTransactionController extends Controller
             'return_room_id' => 'sometimes|integer|exists:rooms,id',
             'needs_maintenance' => 'sometimes|boolean',
             'damage_report' => 'sometimes|string|max:2000',
-            'notes' => 'sometimes|string|max:1000'
+            'notes' => 'sometimes|string|max:1000',
         ]);
 
         try {
             $transaction = $this->transactionService->returnItem($item, $validated);
-            
+
             return $this->successResponse(
                 $this->transactionService->formatTransactionForResponse($transaction),
                 'Item returned successfully'
@@ -84,12 +84,12 @@ class InventoryTransactionController extends Controller
             'supplier' => 'sometimes|string|max:255',
             'purchase_price' => 'sometimes|numeric|min:0',
             'reference_number' => 'sometimes|string|max:100',
-            'notes' => 'sometimes|string|max:1000'
+            'notes' => 'sometimes|string|max:1000',
         ]);
 
         try {
             $transaction = $this->transactionService->updateStock($item, $validated);
-            
+
             return $this->successResponse(
                 $this->transactionService->formatTransactionForResponse($transaction),
                 'Stock updated successfully'
@@ -110,12 +110,12 @@ class InventoryTransactionController extends Controller
             'institution_id' => 'sometimes|integer|exists:institutions,id',
             'reason' => 'required|string|max:255',
             'authorized_by' => 'sometimes|integer|exists:users,id',
-            'notes' => 'sometimes|string|max:1000'
+            'notes' => 'sometimes|string|max:1000',
         ]);
 
         try {
             $transaction = $this->transactionService->transferItem($item, $validated);
-            
+
             return $this->successResponse(
                 $this->transactionService->formatTransactionForResponse($transaction),
                 'Item transferred successfully'
@@ -135,12 +135,12 @@ class InventoryTransactionController extends Controller
             'date_from' => 'sometimes|date',
             'date_to' => 'sometimes|date|after_or_equal:date_from',
             'user_id' => 'sometimes|integer|exists:users,id',
-            'per_page' => 'sometimes|integer|min:1|max:100'
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         try {
             $history = $this->transactionService->getTransactionHistory($item, $validated);
-            
+
             return $this->successResponse($history, 'Transaction history retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -154,7 +154,7 @@ class InventoryTransactionController extends Controller
     {
         try {
             $summary = $this->transactionService->getTransactionSummary($item);
-            
+
             return $this->successResponse($summary, 'Transaction summary retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -170,15 +170,15 @@ class InventoryTransactionController extends Controller
             'item_ids' => 'required|array|min:1',
             'item_ids.*' => 'required|integer|exists:inventory_items,id',
             'user_id' => 'required|integer|exists:users,id',
-            'expected_return_date' => 'sometimes|date|after:today'
+            'expected_return_date' => 'sometimes|date|after:today',
         ]);
 
         try {
             $preview = $this->transactionService->getBulkAssignmentPreview(
-                $validated['item_ids'], 
+                $validated['item_ids'],
                 $validated['user_id']
             );
-            
+
             return $this->successResponse($preview, 'Bulk assignment preview generated');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -195,7 +195,7 @@ class InventoryTransactionController extends Controller
             'item_ids.*' => 'required|integer|exists:inventory_items,id',
             'user_id' => 'required|integer|exists:users,id',
             'expected_return_date' => 'sometimes|date|after:today',
-            'notes' => 'sometimes|string|max:1000'
+            'notes' => 'sometimes|string|max:1000',
         ]);
 
         try {
@@ -204,7 +204,7 @@ class InventoryTransactionController extends Controller
                 $validated['user_id'],
                 $validated
             );
-            
+
             return $this->successResponse($result, 'Bulk assignment completed');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -222,7 +222,7 @@ class InventoryTransactionController extends Controller
             'condition' => 'sometimes|string|in:new,excellent,good,fair,poor,damaged',
             'return_location' => 'sometimes|string|max:255',
             'needs_maintenance' => 'sometimes|boolean',
-            'notes' => 'sometimes|string|max:1000'
+            'notes' => 'sometimes|string|max:1000',
         ]);
 
         try {
@@ -230,7 +230,7 @@ class InventoryTransactionController extends Controller
                 $validated['item_ids'],
                 $validated
             );
-            
+
             return $this->successResponse($result, 'Bulk return completed');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -245,7 +245,7 @@ class InventoryTransactionController extends Controller
         $validated = $request->validate([
             'user_id' => 'required|integer|exists:users,id',
             'status' => 'sometimes|string|in:active,overdue,all',
-            'per_page' => 'sometimes|integer|min:1|max:100'
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         try {
@@ -253,7 +253,7 @@ class InventoryTransactionController extends Controller
                 $validated['user_id'],
                 $validated
             );
-            
+
             return $this->successResponse($assignments, 'User assignments retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -269,12 +269,12 @@ class InventoryTransactionController extends Controller
             'days_overdue' => 'sometimes|integer|min:1',
             'institution_id' => 'sometimes|integer|exists:institutions,id',
             'user_id' => 'sometimes|integer|exists:users,id',
-            'per_page' => 'sometimes|integer|min:1|max:100'
+            'per_page' => 'sometimes|integer|min:1|max:100',
         ]);
 
         try {
             $overdueReturns = $this->transactionService->getOverdueReturns($validated);
-            
+
             return $this->successResponse($overdueReturns, 'Overdue returns retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -290,12 +290,12 @@ class InventoryTransactionController extends Controller
             'date_from' => 'sometimes|date',
             'date_to' => 'sometimes|date|after_or_equal:date_from',
             'institution_id' => 'sometimes|integer|exists:institutions,id',
-            'category' => 'sometimes|string'
+            'category' => 'sometimes|string',
         ]);
 
         try {
             $statistics = $this->transactionService->getTransactionStatistics($validated);
-            
+
             return $this->successResponse($statistics, 'Transaction statistics retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);

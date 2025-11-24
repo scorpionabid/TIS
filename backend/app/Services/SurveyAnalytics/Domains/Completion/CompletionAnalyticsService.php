@@ -16,8 +16,6 @@ use App\Services\SurveyAnalytics\Domains\Question\QuestionAnalyticsService;
  * - Completion time analytics (average, median)
  * - Dropout point identification
  * - Completion trend analysis
- *
- * @package App\Services\SurveyAnalytics\Domains\Completion
  */
 class CompletionAnalyticsService
 {
@@ -32,9 +30,6 @@ class CompletionAnalyticsService
      * Get completion statistics for a survey
      *
      * LOGIC PRESERVED FROM: SurveyAnalyticsService::getCompletionStats() (lines 213-225)
-     *
-     * @param Survey $survey
-     * @return array
      */
     public function getCompletionStats(Survey $survey): array
     {
@@ -44,14 +39,13 @@ class CompletionAnalyticsService
             'median_time' => $this->calculateMedianCompletionTime($survey),
             'completion_by_question' => $this->getCompletionByQuestion($survey),
             'dropout_points' => $this->getDropoutPoints($survey),
-            'completion_trends' => $this->getCompletionTrends($survey)
+            'completion_trends' => $this->getCompletionTrends($survey),
         ];
     }
 
     /**
      * Calculate completion rate
      *
-     * @param Survey $survey
      * @return float Completion rate percentage
      */
     public function calculateCompletionRate(Survey $survey): float
@@ -59,7 +53,9 @@ class CompletionAnalyticsService
         $totalResponses = $survey->responses->count();
         $completeResponses = $survey->responses->where('is_complete', true)->count();
 
-        if ($totalResponses == 0) return 0;
+        if ($totalResponses == 0) {
+            return 0;
+        }
 
         return round(($completeResponses / $totalResponses) * 100, 2);
     }
@@ -67,7 +63,6 @@ class CompletionAnalyticsService
     /**
      * Calculate average completion time in seconds
      *
-     * @param Survey $survey
      * @return int Average completion time in seconds
      */
     public function calculateAverageCompletionTime(Survey $survey): int
@@ -77,7 +72,9 @@ class CompletionAnalyticsService
             ->whereNotNull('submitted_at')
             ->get();
 
-        if ($responses->isEmpty()) return 0;
+        if ($responses->isEmpty()) {
+            return 0;
+        }
 
         $totalTime = 0;
         foreach ($responses as $response) {
@@ -92,7 +89,6 @@ class CompletionAnalyticsService
      *
      * LOGIC PRESERVED FROM: SurveyAnalyticsService::calculateMedianCompletionTime() (lines 979-1000)
      *
-     * @param Survey $survey
      * @return int Median completion time in seconds
      */
     public function calculateMedianCompletionTime(Survey $survey): int
@@ -102,7 +98,9 @@ class CompletionAnalyticsService
             ->whereNotNull('submitted_at')
             ->get();
 
-        if ($responses->isEmpty()) return 0;
+        if ($responses->isEmpty()) {
+            return 0;
+        }
 
         $times = $responses->map(function ($response) {
             return $response->started_at->diffInSeconds($response->submitted_at);
@@ -123,9 +121,6 @@ class CompletionAnalyticsService
      *
      * LOGIC PRESERVED FROM: SurveyAnalyticsService::getCompletionByQuestion() (lines 1006-1009)
      * Delegates to QuestionAnalyticsService
-     *
-     * @param Survey $survey
-     * @return array
      */
     public function getCompletionByQuestion(Survey $survey): array
     {
@@ -137,7 +132,6 @@ class CompletionAnalyticsService
      *
      * LOGIC PRESERVED FROM: SurveyAnalyticsService::getDropoutPoints() (lines 884-902)
      *
-     * @param Survey $survey
      * @return array Question indices with dropout rate > 30%
      */
     public function getDropoutPoints(Survey $survey): array
@@ -156,7 +150,7 @@ class CompletionAnalyticsService
                 $dropoutRates[] = [
                     'question_index' => $index,
                     'dropout_rate' => $dropoutRate,
-                    'question_text' => $question['question'] ?? 'Unknown'
+                    'question_text' => $question['question'] ?? 'Unknown',
                 ];
             }
         }
@@ -168,9 +162,6 @@ class CompletionAnalyticsService
      * Get completion trends over time
      *
      * LOGIC PRESERVED FROM: SurveyAnalyticsService::getCompletionTrends() (lines 869-878)
-     *
-     * @param Survey $survey
-     * @return array
      */
     public function getCompletionTrends(Survey $survey): array
     {
@@ -187,9 +178,6 @@ class CompletionAnalyticsService
      * Get detailed completion analysis
      *
      * Provides comprehensive completion insights
-     *
-     * @param Survey $survey
-     * @return array
      */
     public function getCompletionAnalysis(Survey $survey): array
     {
@@ -200,29 +188,26 @@ class CompletionAnalyticsService
                 'completion_rate' => $this->calculateCompletionRate($survey),
                 'partial_rate' => $responses->count() > 0
                     ? round(($responses->where('is_complete', false)->count() / $responses->count()) * 100, 2)
-                    : 0
+                    : 0,
             ],
             'timing' => [
                 'average_time' => $this->calculateAverageCompletionTime($survey),
                 'median_time' => $this->calculateMedianCompletionTime($survey),
                 'min_time' => $this->getMinCompletionTime($survey),
-                'max_time' => $this->getMaxCompletionTime($survey)
+                'max_time' => $this->getMaxCompletionTime($survey),
             ],
             'dropout_analysis' => [
                 'dropout_points' => $this->getDropoutPoints($survey),
-                'completion_by_question' => $this->getCompletionByQuestion($survey)
+                'completion_by_question' => $this->getCompletionByQuestion($survey),
             ],
             'trends' => [
-                'completion_trends' => $this->getCompletionTrends($survey)
-            ]
+                'completion_trends' => $this->getCompletionTrends($survey),
+            ],
         ];
     }
 
     /**
      * Get minimum completion time
-     *
-     * @param Survey $survey
-     * @return int
      */
     protected function getMinCompletionTime(Survey $survey): int
     {
@@ -239,9 +224,6 @@ class CompletionAnalyticsService
 
     /**
      * Get maximum completion time
-     *
-     * @param Survey $survey
-     * @return int
      */
     protected function getMaxCompletionTime(Survey $survey): int
     {

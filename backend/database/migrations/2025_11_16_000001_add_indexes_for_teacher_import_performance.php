@@ -28,7 +28,7 @@ return new class extends Migration
 
         Schema::table('user_profiles', function (Blueprint $table) {
             // Index for position type filtering
-            if (!Schema::hasIndex('user_profiles', 'idx_user_profiles_position_type')) {
+            if (! Schema::hasIndex('user_profiles', 'idx_user_profiles_position_type')) {
                 $table->index('position_type', 'idx_user_profiles_position_type');
             }
 
@@ -44,14 +44,14 @@ return new class extends Migration
 
         Schema::table('institutions', function (Blueprint $table) {
             // Index for UTIS code lookup (prioritized in hybrid search)
-            if (!Schema::hasColumn('institutions', 'utis_code')) {
+            if (! Schema::hasColumn('institutions', 'utis_code')) {
                 // Column might not exist yet, skip
             } else {
                 $table->index('utis_code', 'idx_institutions_utis_code');
             }
 
             // Index for institution code lookup
-            if (!Schema::hasColumn('institutions', 'institution_code')) {
+            if (! Schema::hasColumn('institutions', 'institution_code')) {
                 // Column might not exist yet, skip
             } else {
                 $table->index('institution_code', 'idx_institutions_institution_code');

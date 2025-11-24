@@ -1,21 +1,21 @@
 <?php
 
-use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\Grade\GradeUnifiedController;
+use App\Http\Controllers\MektebAdmin\MektebAdminDashboardController;
 use App\Http\Controllers\RegionAdmin\RegionAdminDashboardController;
 use App\Http\Controllers\RegionAdmin\RegionAdminInstitutionController;
-use App\Http\Controllers\RegionAdmin\RegionAdminUserController;
 use App\Http\Controllers\RegionAdmin\RegionAdminReportsController;
 use App\Http\Controllers\RegionAdmin\RegionAdminTaskController;
-use App\Http\Controllers\RegionAdmin\RegionTeacherController;
+use App\Http\Controllers\RegionAdmin\RegionAdminUserController;
 use App\Http\Controllers\RegionAdmin\RegionOperatorPermissionController;
-use App\Http\Controllers\SurveyController;
+use App\Http\Controllers\RegionAdmin\RegionTeacherController;
 use App\Http\Controllers\RegionOperator\RegionOperatorDashboardController;
-use App\Http\Controllers\SektorAdmin\SektorAdminDashboardController;
-use App\Http\Controllers\MektebAdmin\MektebAdminDashboardController;
 use App\Http\Controllers\School\SchoolDashboardController;
 use App\Http\Controllers\School\SchoolStudentController;
 use App\Http\Controllers\School\SchoolTeacherController;
-use App\Http\Controllers\Grade\GradeUnifiedController;
+use App\Http\Controllers\SektorAdmin\SektorAdminDashboardController;
+use App\Http\Controllers\SuperAdminDashboardController;
+use App\Http\Controllers\SurveyController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -48,7 +48,7 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::get('dashboard/stats', [RegionAdminDashboardController::class, 'getDashboardStats']);
     Route::get('dashboard/activities', [RegionAdminDashboardController::class, 'getDashboardActivities']);
     Route::get('dashboard/analytics', [RegionAdminDashboardController::class, 'getAnalytics']);
-    
+
     // Institution management endpoints - READ operations (RegionAdmin-specific)
     Route::get('region-institutions', [RegionAdminInstitutionController::class, 'index']);
     Route::get('region-institutions/{institution}', [RegionAdminInstitutionController::class, 'getInstitutionDetails']);
@@ -59,7 +59,7 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::post('region-institutions', [RegionAdminInstitutionController::class, 'store']);
     Route::put('region-institutions/{institution}', [RegionAdminInstitutionController::class, 'updateInstitution']);
     Route::delete('region-institutions/{institution}', [RegionAdminInstitutionController::class, 'deleteInstitution']);
-    
+
     // Department management endpoints (RegionAdmin-specific)
     Route::get('region-institutions/{institution}/departments', [RegionAdminInstitutionController::class, 'getDepartments']);
     Route::post('region-institutions/{institution}/departments', [RegionAdminInstitutionController::class, 'storeDepartment']);
@@ -70,7 +70,7 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::get('grades', [GradeUnifiedController::class, 'index']);
     Route::get('grades/{grade}', [GradeUnifiedController::class, 'show']);
     Route::get('region-institutions/{institution}/grades', [RegionAdminInstitutionController::class, 'getInstitutionClasses']);
-    
+
     // User management endpoints - READ operations
     Route::get('users', [RegionAdminUserController::class, 'index']);
     Route::get('users/permissions/meta', [RegionAdminUserController::class, 'getPermissionMetadata']);
@@ -78,7 +78,7 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::get('users/{user}', [RegionAdminUserController::class, 'show']);
     Route::get('users/{user}/activity', [RegionAdminUserController::class, 'getUserActivity']);
     // Route::get('institutions/{institution}/users', [RegionAdminUserController::class, 'getInstitutionUsers']); // TODO: Implement this method
-    
+
     // User management endpoints - WRITE operations
     Route::post('users', [RegionAdminUserController::class, 'store']);
     Route::put('users/{user}', [RegionAdminUserController::class, 'update']);
@@ -87,15 +87,15 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     // RegionOperator permission management
     Route::get('region-operators/{user}/permissions', [RegionOperatorPermissionController::class, 'show']);
     Route::put('region-operators/{user}/permissions', [RegionOperatorPermissionController::class, 'update']);
-    
+
     // User management helper endpoints (TODO: Implement these methods)
     // Route::post('users/{user}/assign-role', [RegionAdminUserController::class, 'assignRole']);
     // Route::post('users/{user}/assign-institution', [RegionAdminUserController::class, 'assignInstitution']);
     // Route::post('users/bulk-create', [RegionAdminUserController::class, 'bulkCreateUsers']);
-    
+
     // Survey analytics endpoints for RegionAdmin dashboard
     Route::get('surveys/dashboard-analytics', [SurveyController::class, 'getRegionAnalytics']);
-    
+
     // Reports endpoints
     Route::get('reports/institutions', [RegionAdminReportsController::class, 'getInstitutionReports']);
     Route::get('reports/users', [RegionAdminReportsController::class, 'getUserReports']);
@@ -105,7 +105,7 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::get('reports/{reportId}/download', [RegionAdminReportsController::class, 'downloadReport']);
     Route::get('reports/scheduled', [RegionAdminReportsController::class, 'getScheduledReports']);
     Route::post('reports/schedule', [RegionAdminReportsController::class, 'scheduleReport']);
-    
+
     // Task management endpoints
     Route::get('tasks', [RegionAdminTaskController::class, 'getRegionTasks']);
     Route::post('tasks', [RegionAdminTaskController::class, 'createTask']);
@@ -145,51 +145,51 @@ Route::prefix('sektoradmin')->middleware(['role:sektoradmin', 'regional.access:s
     Route::get('dashboard', [SektorAdminDashboardController::class, 'getDashboardStats']);
     Route::get('dashboard/analytics', [SektorAdminDashboardController::class, 'getSectorAnalytics']);
     Route::get('schools', [SektorAdminDashboardController::class, 'getSectorSchools']);
-    
+
     // Survey Response Approval endpoints
     Route::get('survey-responses/pending', [SektorAdminDashboardController::class, 'getPendingSurveyResponses']);
     Route::get('survey-responses/{responseId}', [SektorAdminDashboardController::class, 'getSurveyResponseDetails']);
     Route::post('survey-responses/{responseId}/approve', [SektorAdminDashboardController::class, 'approveSurveyResponse']);
     Route::post('survey-responses/{responseId}/reject', [SektorAdminDashboardController::class, 'rejectSurveyResponse']);
-    
+
     // Task Approval endpoints
     Route::get('tasks/pending', [SektorAdminDashboardController::class, 'getPendingTasks']);
     Route::get('tasks/statistics', [SektorAdminDashboardController::class, 'getTaskStatistics']);
     Route::get('tasks/{taskId}', [SektorAdminDashboardController::class, 'getTaskDetails']);
     Route::post('tasks/{taskId}/approve', [SektorAdminDashboardController::class, 'approveTask']);
     Route::post('tasks/{taskId}/reject', [SektorAdminDashboardController::class, 'rejectTask']);
-    
+
     // Enhanced SektorAdmin Management Routes
-    
+
     // User Management
     Route::get('users', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getSectorUsers']);
     Route::get('teachers', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getSectorTeachers']);
     Route::post('users', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'createSchoolUser']);
     Route::get('available-schools', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getAvailableSchools']);
-    
+
     // Student Management
     Route::get('students', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getSectorStudents']);
     Route::get('schools/{schoolId}/students', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getStudentsBySchool']);
     Route::get('students/statistics', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getStudentStatistics']);
     Route::get('students/export', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'exportStudentData']);
-    
+
     // Grade Management - Updated to use GradeUnifiedController
     Route::get('grades', [GradeUnifiedController::class, 'index']);
     Route::get('schools/{schoolId}/grades', [GradeUnifiedController::class, 'index']);
     Route::get('grades/{gradeId}/students', [GradeUnifiedController::class, 'students']);
     Route::get('grades/{gradeId}', [GradeUnifiedController::class, 'show']);
-    
+
     // Schedule Management
     Route::get('schedules', [App\Http\Controllers\SektorAdmin\SektorScheduleController::class, 'getSectorSchedules']);
     Route::get('schedules/teachers', [App\Http\Controllers\SektorAdmin\SektorScheduleController::class, 'getTeacherSchedules']);
     Route::get('schedules/statistics', [App\Http\Controllers\SektorAdmin\SektorScheduleController::class, 'getScheduleStatistics']);
-    
+
     // Attendance Management
     Route::get('attendance/reports', [App\Http\Controllers\SektorAdmin\SektorAttendanceController::class, 'getAttendanceReports']);
     Route::get('attendance/daily', [App\Http\Controllers\SektorAdmin\SektorAttendanceController::class, 'getDailyAttendanceSummary']);
     Route::get('attendance/trends', [App\Http\Controllers\SektorAdmin\SektorAttendanceController::class, 'getAttendanceTrends']);
     Route::get('attendance/analysis', [App\Http\Controllers\SektorAdmin\SektorAttendanceController::class, 'getAbsenteeismAnalysis']);
-    
+
     // Assessment Management
     Route::get('assessments/reports', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'getAssessmentReports']);
     Route::get('assessments/comparative', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'getComparativeAnalysis']);
@@ -197,7 +197,7 @@ Route::prefix('sektoradmin')->middleware(['role:sektoradmin', 'regional.access:s
     Route::get('assessments/export', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'exportAssessmentData']);
 });
 
-// Teacher Dashboard Routes  
+// Teacher Dashboard Routes
 Route::prefix('teacher')->middleware(['role:müəllim', 'regional.access:school', 'audit.logging'])->group(function () {
     // Dashboard endpoints
     // Teacher dashboard routes - TODO: Implement TeacherDashboardController
@@ -212,7 +212,7 @@ Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:su
     Route::get('dashboard/overview', [SchoolDashboardController::class, 'getOverview']);
     Route::get('dashboard/statistics', [SchoolDashboardController::class, 'getStatistics']);
     Route::get('dashboard/analytics', [SchoolDashboardController::class, 'getAnalytics']);
-    
+
     // Legacy MektebAdmin dashboard endpoints for backward compatibility
     Route::get('dashboard', [MektebAdminDashboardController::class, 'getDashboard']);
     Route::get('dashboard/stats', [SchoolDashboardController::class, 'getDashboardStats']);
@@ -225,15 +225,14 @@ Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:su
     Route::get('dashboard/pending-surveys', [SchoolDashboardController::class, 'getPendingSurveys']);
     Route::get('dashboard/today-priority', [SchoolDashboardController::class, 'getTodayPriority']);
     Route::get('dashboard/recent-documents', [SchoolDashboardController::class, 'getRecentDocuments']);
-    
+
     // Student management endpoints
     Route::get('students', [SchoolStudentController::class, 'index']);
     Route::post('students', [SchoolStudentController::class, 'store']);
     Route::get('students/{student}', [SchoolStudentController::class, 'show']);
     Route::put('students/{student}', [SchoolStudentController::class, 'update']);
     Route::delete('students/{student}', [SchoolStudentController::class, 'destroy']);
-    
-    
+
     // Grade management routes - Updated to use GradeUnifiedController
     Route::get('grades', [GradeUnifiedController::class, 'index']);
     Route::post('grades', [GradeUnifiedController::class, 'store']);
@@ -242,26 +241,26 @@ Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:su
     Route::delete('grades/{grade}', [GradeUnifiedController::class, 'destroy']);
     Route::get('grades/{grade}/students', [GradeUnifiedController::class, 'students']);
     Route::post('grades/{grade}/students/enroll', [GradeUnifiedController::class, 'enrollStudent']);
-    
+
     // Teacher management routes
     Route::get('teachers', [SchoolTeacherController::class, 'index']);
-    Route::get('test', function() {
+    Route::get('test', function () {
         return response()->json([
             'success' => true,
             'message' => 'SchoolAdmin endpoint işləyir',
             'timestamp' => now()->toISOString(),
-            'user' => auth()->user() ? auth()->user()->username : 'not authenticated'
+            'user' => auth()->user() ? auth()->user()->username : 'not authenticated',
         ]);
     });
     Route::get('teachers/{teacher}', [SchoolTeacherController::class, 'show']);
     Route::post('teachers/{teacher}/assign-classes', [SchoolTeacherController::class, 'assignClasses']);
     Route::get('teachers/{teacher}/performance', [SchoolTeacherController::class, 'getPerformance']);
-    
+
     // Inventory management routes
     Route::get('inventory', [App\Http\Controllers\School\SchoolInventoryController::class, 'getInventoryItems']);
     Route::get('inventory/{item}', [App\Http\Controllers\School\SchoolInventoryController::class, 'getInventoryItem']);
     Route::get('inventory/statistics/overview', [App\Http\Controllers\School\SchoolInventoryController::class, 'getInventoryStatistics']);
-    
+
     // Bulk Attendance Management Routes - New Feature
     Route::prefix('bulk-attendance')->group(function () {
         Route::get('/', [App\Http\Controllers\School\BulkAttendanceController::class, 'index'])->middleware('permission:attendance.read');
@@ -270,7 +269,7 @@ Route::prefix('schooladmin')->middleware(['auth:sanctum', 'role_or_permission:su
         Route::get('weekly-summary', [App\Http\Controllers\School\BulkAttendanceController::class, 'getWeeklySummary'])->middleware('permission:attendance.read');
         Route::get('export', [App\Http\Controllers\School\BulkAttendanceController::class, 'exportData'])->middleware('permission:attendance.read');
     });
-    
+
     // Import routes for school admin - TODO: implement SchoolImportController
     // Route::post('import/students', [App\Http\Controllers\School\SchoolImportController::class, 'importStudents']);
     // Route::post('import/teachers', [App\Http\Controllers\School\SchoolImportController::class, 'importTeachers']);

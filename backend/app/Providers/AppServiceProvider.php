@@ -2,12 +2,11 @@
 
 namespace App\Providers;
 
-use Illuminate\Support\ServiceProvider;
+use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Database\Connection;
-use Illuminate\Database\Query\Grammars\SQLiteGrammar;
+use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -18,7 +17,7 @@ class AppServiceProvider extends ServiceProvider
     {
         // Register Survey Approval Bridge service
         $this->app->singleton(\App\Services\SurveyApprovalBridge::class, function ($app) {
-            return new \App\Services\SurveyApprovalBridge();
+            return new \App\Services\SurveyApprovalBridge;
         });
 
         // REFACTOR: Register SurveyAnalytics services (Phase 1)
@@ -89,7 +88,7 @@ class AppServiceProvider extends ServiceProvider
                     'connection' => $query->connectionName,
                     'url' => request()->fullUrl() ?? 'console',
                     'user_id' => $this->safeGetUserId(),
-                    'timestamp' => now()->toISOString()
+                    'timestamp' => now()->toISOString(),
                 ]);
 
                 if (config('app.debug')) {
@@ -102,7 +101,7 @@ class AppServiceProvider extends ServiceProvider
                     'count' => $queryCount,
                     'url' => request()->fullUrl() ?? 'console',
                     'user_id' => $this->safeGetUserId(),
-                    'last_query' => $query->sql
+                    'last_query' => $query->sql,
                 ]);
             }
         });
@@ -115,7 +114,7 @@ class AppServiceProvider extends ServiceProvider
                         'url' => request()->fullUrl(),
                         'method' => request()->method(),
                         'user_id' => $this->safeGetUserId(),
-                        'memory_usage' => round(memory_get_peak_usage(true) / 1024 / 1024, 2) . 'MB'
+                        'memory_usage' => round(memory_get_peak_usage(true) / 1024 / 1024, 2) . 'MB',
                     ]);
                 }
             });
@@ -152,7 +151,8 @@ class AppServiceProvider extends ServiceProvider
 
             $connection = DB::connection($name);
 
-            $connection->setQueryGrammar(new class($connection) extends SQLiteGrammar {
+            $connection->setQueryGrammar(new class($connection) extends SQLiteGrammar
+            {
                 public function __construct($connection)
                 {
                     parent::__construct($connection);
@@ -175,8 +175,8 @@ class AppServiceProvider extends ServiceProvider
 
                 private function compileCaseInsensitiveLike(string $column, $value, bool $not = false): string
                 {
-                    $wrappedColumn = "LOWER(" . $this->wrap($column) . ")";
-                    $wrappedValue = "LOWER(" . $this->parameter($value) . ")";
+                    $wrappedColumn = 'LOWER(' . $this->wrap($column) . ')';
+                    $wrappedValue = 'LOWER(' . $this->parameter($value) . ')';
                     $operator = $not ? 'NOT LIKE' : 'LIKE';
 
                     return "$wrappedColumn $operator $wrappedValue";

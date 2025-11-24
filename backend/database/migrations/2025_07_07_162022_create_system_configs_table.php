@@ -19,7 +19,7 @@ return new class extends Migration
             $table->text('description')->nullable();
             $table->foreignId('updated_by')->nullable()->constrained('users')->onDelete('set null');
             $table->timestamps();
-            
+
             $table->index('key');
         });
     }

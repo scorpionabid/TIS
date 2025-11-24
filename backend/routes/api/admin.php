@@ -1,21 +1,21 @@
 <?php
 
-use App\Http\Controllers\UserControllerRefactored as UserController;
-use App\Http\Controllers\UserUtilityController;
-use App\Http\Controllers\InstitutionController;
-use App\Http\Controllers\InstitutionTypeController;
-use App\Http\Controllers\InstitutionHierarchyController;
-use App\Http\Controllers\InstitutionDepartmentController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\API\ApprovalApiControllerRefactored;
 use App\Http\Controllers\API\AssessmentExcelController;
 use App\Http\Controllers\API\BulkAssessmentController;
-use App\Http\Controllers\SubjectController;
-use App\Http\Controllers\SectorControllerRefactored as SectorController;
+use App\Http\Controllers\DepartmentController;
+use App\Http\Controllers\InstitutionController;
+use App\Http\Controllers\InstitutionDepartmentController;
+use App\Http\Controllers\InstitutionHierarchyController;
+use App\Http\Controllers\InstitutionTypeController;
+use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\PreschoolController;
-use App\Http\Controllers\API\ApprovalApiControllerRefactored;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SectorControllerRefactored as SectorController;
 use App\Http\Controllers\SettingsController;
+use App\Http\Controllers\SubjectController;
+use App\Http\Controllers\UserControllerRefactored as UserController;
+use App\Http\Controllers\UserUtilityController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -79,7 +79,7 @@ Route::prefix('users/bulk')->middleware('permission:users.write')->group(functio
     Route::post('assign-institution', [App\Http\Controllers\UserBulkController::class, 'assignInstitution']);
     Route::post('delete', [App\Http\Controllers\UserBulkController::class, 'delete']);
     Route::post('preview', [App\Http\Controllers\UserBulkController::class, 'preview']);
-    
+
     // Import/Export routes
     Route::post('import', [App\Http\Controllers\UserBulkController::class, 'importUsers']);
     Route::post('export', [App\Http\Controllers\UserBulkController::class, 'exportUsers']);
@@ -90,7 +90,7 @@ Route::prefix('users/bulk')->middleware('role:superadmin|regionadmin')->group(fu
     Route::post('restore', [App\Http\Controllers\UserBulkController::class, 'bulkRestore']);
 });
 
-// User bulk force delete (SuperAdmin only)  
+// User bulk force delete (SuperAdmin only)
 Route::prefix('users/bulk')->middleware('role:superadmin')->group(function () {
     Route::delete('force', [App\Http\Controllers\UserBulkController::class, 'bulkForceDelete']);
 });
@@ -144,18 +144,18 @@ Route::middleware('permission:institutions.write')->group(function () {
     Route::post('institutions', [InstitutionController::class, 'store']);
     Route::put('institutions/{institution}', [InstitutionController::class, 'update']);
     Route::delete('institutions/{id}', [\App\Http\Controllers\Institution\InstitutionCRUDController::class, 'destroy']); // Use ID instead of model binding for soft deleted institutions
-    
+
     // Import/Export routes
     Route::post('institutions/import/template', [InstitutionController::class, 'downloadImportTemplate']);
     Route::post('institutions/import', [InstitutionController::class, 'importFromTemplate']);
     // Export operations - unified under single pattern
     Route::post('institutions/export', [InstitutionController::class, 'exportInstitutions']);
     Route::post('institutions/export-by-type', [InstitutionController::class, 'exportInstitutionsByType']);
-    
+
     // Type-based Import/Export templates
     Route::post('institutions/import/template-by-type', [InstitutionController::class, 'downloadImportTemplateByType']);
     Route::post('institutions/import-by-type', [InstitutionController::class, 'importFromTemplateByType']);
-    
+
     // Enterprise import features
     Route::get('institutions/import/permissions', [InstitutionController::class, 'getImportPermissions']);
     Route::get('institutions/import/history', [InstitutionController::class, 'getImportHistory']);
@@ -249,33 +249,33 @@ Route::middleware('role:superadmin')->prefix('permissions')->group(function () {
 Route::prefix('system')->middleware('permission:system.config')->group(function () {
     Route::get('config', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getSystemConfig']);
     Route::put('config', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'updateSystemConfig']);
-    
+
     // System information
     Route::get('info', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getSystemInfo']);
-    
+
     // System health check
     Route::get('health', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'checkSystemHealth']);
-    
+
     // Cache management
     Route::post('cache/clear', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'clearCache']);
     Route::post('cache/optimize', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'optimizeCache']);
-    
+
     // System maintenance
     Route::post('maintenance/up', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'bringUpMaintenance']);
     Route::post('maintenance/down', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'bringDownMaintenance']);
-    
+
     // Permissions
     Route::get('permissions', [RoleController::class, 'getAllPermissions']);
-    
+
     // Backup and restore
     Route::post('backup/create', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'createBackup']);
     Route::get('backup/list', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'listBackups']);
     Route::post('backup/restore/{filename}', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'restoreBackup']);
-    
+
     // Logs
     Route::get('logs', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getLogs']);
     Route::get('logs/{log}', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getLogFile']);
-    
+
     // Scheduled reports
     Route::get('reports/scheduled', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getScheduledReports']);
     Route::post('reports/schedule', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'scheduleReport']);
@@ -293,7 +293,7 @@ Route::prefix('academic-years')->middleware('permission:institutions.read')->gro
     Route::post('/{academicYear}/activate', [App\Http\Controllers\AcademicYearController::class, 'activate'])->middleware('permission:institutions.write');
 });
 
-// Subjects management  
+// Subjects management
 Route::prefix('subjects')->group(function () {
     // Read operations - available to all authorized roles
     // Note: Using role-based access due to guard incompatibility with Sanctum API authentication
@@ -342,14 +342,14 @@ Route::prefix('import')->group(function () {
     Route::post('/students', [App\Http\Controllers\ImportController::class, 'importStudents'])->middleware('permission:users.import');
     Route::post('/teachers', [App\Http\Controllers\ImportController::class, 'importTeachers'])->middleware('permission:users.import');
     Route::post('/institutions', [App\Http\Controllers\ImportController::class, 'importInstitutions'])->middleware('role:superadmin');
-    
+
     // Template downloads
     Route::get('/template', [App\Http\Controllers\ImportController::class, 'downloadTemplate']);
     Route::get('/template/download/{type}', [App\Http\Controllers\ImportController::class, 'downloadTemplateFile'])->name('import.template.download');
-    
+
     // UTIS code generation (SuperAdmin only)
     Route::post('/generate-utis-codes', [App\Http\Controllers\ImportController::class, 'generateMissingUtisCode'])->middleware('role:superadmin');
-    
+
     // Legacy Export operations (SuperAdmin only) - DEPRECATED: Use institutions/export instead
     // Route::get('/export/institutions', [App\Http\Controllers\ImportController::class, 'exportInstitutions'])->middleware('role:superadmin');
     Route::get('/export/stats', [App\Http\Controllers\ImportController::class, 'getExportStats'])->middleware('role:superadmin');
@@ -391,13 +391,13 @@ Route::prefix('approvals')->group(function () {
     Route::get('/', [ApprovalApiControllerRefactored::class, 'index'])->middleware('permission:approvals.read');
     Route::get('/pending', [ApprovalApiControllerRefactored::class, 'getPending'])->middleware('permission:approvals.read');
     Route::get('/my-approvals', [ApprovalApiControllerRefactored::class, 'getMyApprovals'])->middleware('permission:approvals.read');
-    
+
     // Workflow templates (SuperAdmin and RegionAdmin) - BEFORE {approval} route
     Route::get('/templates', [ApprovalApiControllerRefactored::class, 'getTemplates'])->middleware('role:superadmin|regionadmin');
-    
+
     // Analytics and reports - BEFORE {approval} route
     Route::get('/analytics', [ApprovalApiControllerRefactored::class, 'getAnalytics'])->middleware('permission:approvals.read');
-    
+
     // Survey Response Approval - BEFORE {approval} route
     Route::get('/surveys', [ApprovalApiControllerRefactored::class, 'getSurveysForApproval'])->middleware('permission:approvals.read');
     Route::get('/survey-responses', [ApprovalApiControllerRefactored::class, 'getSurveyResponses'])->middleware('permission:approvals.read');
@@ -405,35 +405,35 @@ Route::prefix('approvals')->group(function () {
     Route::post('/survey-responses/{response}/reject', [ApprovalApiControllerRefactored::class, 'rejectSurveyResponse'])->middleware('permission:approvals.approve');
     Route::post('/survey-responses/bulk-approve', [ApprovalApiControllerRefactored::class, 'bulkApproveSurveyResponses'])->middleware('permission:approvals.approve');
     Route::post('/survey-responses/bulk-reject', [ApprovalApiControllerRefactored::class, 'bulkRejectSurveyResponses'])->middleware('permission:approvals.approve');
-    
+
     // Event Approval - Consolidated
     Route::post('/events/{event}/approve', [ApprovalApiControllerRefactored::class, 'approveEvent'])->middleware('permission:events.approve');
     Route::post('/events/{event}/reject', [ApprovalApiControllerRefactored::class, 'rejectEvent'])->middleware('permission:events.reject');
-    
-    // Task Approval - Consolidated  
+
+    // Task Approval - Consolidated
     Route::get('/tasks/pending', [ApprovalApiControllerRefactored::class, 'getPendingTasks'])->middleware('permission:approvals.read');
     Route::post('/tasks/{task}/approve', [ApprovalApiControllerRefactored::class, 'approveTask'])->middleware('permission:tasks.approve');
     Route::post('/tasks/{task}/reject', [ApprovalApiControllerRefactored::class, 'rejectTask'])->middleware('permission:tasks.reject');
-    
+
     // Delegation management - BEFORE {approval} route
     Route::get('/delegations', [ApprovalApiControllerRefactored::class, 'getDelegations'])->middleware('permission:approvals.delegate');
     Route::post('/delegations', [ApprovalApiControllerRefactored::class, 'createDelegation'])->middleware('permission:approvals.delegate');
     Route::delete('/delegations/{delegation}', [ApprovalApiControllerRefactored::class, 'revokeDelegation'])->middleware('permission:approvals.delegate');
-    
+
     // Notifications - BEFORE {approval} route
     Route::get('/notifications', [ApprovalApiControllerRefactored::class, 'getNotifications'])->middleware('permission:approvals.read');
     Route::post('/notifications/{notification}/mark-read', [ApprovalApiControllerRefactored::class, 'markNotificationRead'])->middleware('permission:approvals.read');
-    
+
     Route::get('/{approval}', [ApprovalApiControllerRefactored::class, 'show'])->middleware('permission:approvals.read');
-    
+
     // Create approval request
     Route::post('/', [ApprovalApiControllerRefactored::class, 'createRequest'])->middleware('permission:approvals.create');
-    
+
     // Approval actions (role-based authorization in controller)
     Route::post('/{approval}/approve', [ApprovalApiControllerRefactored::class, 'approve'])->middleware('permission:approvals.approve');
     Route::post('/{approval}/reject', [ApprovalApiControllerRefactored::class, 'reject'])->middleware('permission:approvals.approve');
     Route::post('/{approval}/return', [ApprovalApiControllerRefactored::class, 'returnForRevision'])->middleware('permission:approvals.approve');
-    
+
     // Bulk operations (SektorAdmin and above)
     Route::post('/bulk-approve', [ApprovalApiControllerRefactored::class, 'bulkApprove'])->middleware('role:sektoradmin|regionadmin|superadmin');
     Route::post('/bulk-reject', [ApprovalApiControllerRefactored::class, 'bulkReject'])->middleware('role:sektoradmin|regionadmin|superadmin');
@@ -444,7 +444,7 @@ Route::prefix('settings')->middleware(['auth:sanctum', 'role:superadmin|regionad
     // Notification settings
     Route::get('/notifications', [SettingsController::class, 'getNotifications']);
     Route::post('/notifications', [SettingsController::class, 'updateNotifications']);
-    
+
     // System health
     Route::get('/health', [SettingsController::class, 'getHealth']);
 });

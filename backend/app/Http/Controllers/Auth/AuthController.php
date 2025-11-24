@@ -15,6 +15,7 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     protected $loginService;
+
     protected $logoutService;
 
     public function __construct(
@@ -47,14 +48,13 @@ class AuthController extends Controller
 
             return response()->json([
                 'message' => 'Uğurlu giriş',
-                'data' => $result
+                'data' => $result,
             ]);
-
         } catch (ValidationException $e) {
             // Increment rate limiting on failed attempt
             RateLimiter::hit('login_ip:' . $request->ip(), 900);
             RateLimiter::hit('login_user:' . $request->login, 900);
-            
+
             throw $e;
         }
     }
@@ -68,7 +68,7 @@ class AuthController extends Controller
         $this->logoutService->logout($user);
 
         return response()->json([
-            'message' => 'Uğurla çıxış edildi'
+            'message' => 'Uğurla çıxış edildi',
         ]);
     }
 
@@ -78,11 +78,11 @@ class AuthController extends Controller
     public function me(Request $request): JsonResponse
     {
         $user = $request->user()->load(['profile', 'roles', 'institution', 'regionOperatorPermissions']);
-        
+
         // Spatie roles və permissions
         $roles = $user->getRoleNames()->toArray();
         $permissions = $user->getAllPermissions()->pluck('name')->toArray();
-        
+
         // Get user preferences
         $preferences = null;
         if ($user->profile) {
@@ -90,7 +90,7 @@ class AuthController extends Controller
         } else {
             $preferences = $this->getDefaultPreferences();
         }
-        
+
         // User data-nı hazırla
         $userData = $user->toArray();
         $userData['roles'] = $roles;
@@ -101,18 +101,18 @@ class AuthController extends Controller
                 \App\Services\RegionOperatorPermissionService::CRUD_FIELDS
             )
             : null;
-        
+
         \Log::debug('Me endpoint response', [
             'user_id' => $user->id,
             'roles_count' => count($roles),
             'permissions_count' => count($permissions),
-            'has_preferences' => !is_null($preferences),
+            'has_preferences' => ! is_null($preferences),
             'roles' => $roles,
-            'permissions' => $permissions
+            'permissions' => $permissions,
         ]);
-        
+
         return response()->json([
-            'user' => $userData
+            'user' => $userData,
         ]);
     }
 
@@ -126,22 +126,22 @@ class AuthController extends Controller
             'language' => 'az',
             'sidebar' => [
                 'collapsed' => false,
-                'favoriteItems' => []
+                'favoriteItems' => [],
             ],
             'dashboard' => [
                 'widgets' => ['stats', 'recent-activity', 'quick-actions'],
-                'layout' => 'grid'
+                'layout' => 'grid',
             ],
             'notifications' => [
                 'email' => true,
                 'browser' => true,
-                'sound' => false
+                'sound' => false,
             ],
             'accessibility' => [
                 'reducedMotion' => false,
                 'highContrast' => false,
-                'fontSize' => 'medium'
-            ]
+                'fontSize' => 'medium',
+            ],
         ];
     }
 
@@ -160,7 +160,7 @@ class AuthController extends Controller
 
         return response()->json([
             'message' => 'Token refreshed successfully',
-            'token' => $token
+            'token' => $token,
         ]);
     }
 }

@@ -14,7 +14,7 @@ enum EducationProgram: string
      */
     public function label(): string
     {
-        return match($this) {
+        return match ($this) {
             self::UMUMI => 'Ümumi təhsil',
             self::XUSUSI => 'Xüsusi təhsil',
             self::MEKTEBDE_FERDI => 'Məktəbdə fərdi təhsil',
@@ -27,7 +27,7 @@ enum EducationProgram: string
      */
     public function description(): string
     {
-        return match($this) {
+        return match ($this) {
             self::UMUMI => 'Standart ümumi təhsil proqramı',
             self::XUSUSI => 'Xüsusi ehtiyacları olan şagirdlər üçün təhsil',
             self::MEKTEBDE_FERDI => 'Məktəbdə fərdi təhsil proqramı',
@@ -41,7 +41,7 @@ enum EducationProgram: string
     public static function toArray(): array
     {
         return array_map(
-            fn(self $program) => [
+            fn (self $program) => [
                 'value' => $program->value,
                 'label' => $program->label(),
                 'description' => $program->description(),
@@ -63,7 +63,7 @@ enum EducationProgram: string
      */
     public static function labels(): array
     {
-        return array_map(fn(self $program) => $program->label(), self::cases());
+        return array_map(fn (self $program) => $program->label(), self::cases());
     }
 
     /**

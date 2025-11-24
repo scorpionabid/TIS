@@ -3,16 +3,14 @@
 namespace App\Http\Controllers\Dashboard;
 
 use App\Http\Controllers\Controller;
-use App\Models\User;
 use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\Task;
-use App\Models\Document;
-use App\Models\ActivityLog;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class DashboardAnalyticsController extends Controller
@@ -26,10 +24,10 @@ class DashboardAnalyticsController extends Controller
             $user = Auth::user();
 
             // Check SuperAdmin permission
-            if (!$user || !$user->hasRole('SuperAdmin')) {
+            if (! $user || ! $user->hasRole('SuperAdmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu məlumatlara giriş icazəniz yoxdur'
+                    'message' => 'Bu məlumatlara giriş icazəniz yoxdur',
                 ], 403);
             }
 
@@ -45,7 +43,7 @@ class DashboardAnalyticsController extends Controller
                     'institutionPerformance' => $this->getInstitutionPerformance(),
                     'surveyEffectiveness' => $this->getSurveyEffectiveness(),
                     'growthMetrics' => $this->getGrowthMetrics(),
-                    'alertsSummary' => $this->getSystemAlerts()
+                    'alertsSummary' => $this->getSystemAlerts(),
                 ];
             });
 
@@ -55,13 +53,12 @@ class DashboardAnalyticsController extends Controller
                 'generated_at' => now(),
                 'cache_expires_in' => 600,
             ]);
-
         } catch (\Exception $e) {
             Log::error('SuperAdmin analytics error: ' . $e->getMessage());
-            
+
             return response()->json([
                 'success' => false,
-                'message' => 'SuperAdmin analytics yüklənərkən xəta baş verdi'
+                'message' => 'SuperAdmin analytics yüklənərkən xəta baş verdi',
             ], 500);
         }
     }
@@ -74,10 +71,10 @@ class DashboardAnalyticsController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$user || !$user->hasRole('RegionAdmin')) {
+            if (! $user || ! $user->hasRole('RegionAdmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu məlumatlara giriş icazəniz yoxdur'
+                    'message' => 'Bu məlumatlara giriş icazəniz yoxdur',
                 ], 403);
             }
 
@@ -100,11 +97,10 @@ class DashboardAnalyticsController extends Controller
                 'data' => $analytics,
                 'region' => $user->institution->name,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Regional analytics alınarkən səhv: ' . $e->getMessage()
+                'message' => 'Regional analytics alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -305,51 +301,229 @@ class DashboardAnalyticsController extends Controller
     }
 
     // Placeholder methods for complex analytics
-    private function getLoginActivity(): array { return []; }
-    private function getGeographicDistribution(): array { return []; }
-    private function getRegionalDistribution(): array { return []; }
-    private function getInstitutionPerformanceMetrics(): array { return []; }
-    private function getCapacityUtilization(): array { return []; }
-    private function getSurveyResponseRates(): array { return []; }
-    private function getSurveyCompletionTrends(): array { return []; }
-    private function getSurveyCategoryBreakdown(): array { return []; }
-    private function getAverageResponseTime(): float { return 0.0; }
-    private function getTaskCompletionRate(): float { return 0.0; }
-    private function getAverageTaskCompletionTime(): float { return 0.0; }
-    private function getTasksByPriority(): array { return []; }
-    private function getTasksByCategory(): array { return []; }
-    private function getDatabaseHealth(): array { return ['status' => 'healthy']; }
-    private function getCacheHealth(): array { return ['status' => 'healthy']; }
-    private function getStorageHealth(): array { return ['status' => 'healthy']; }
-    private function getPerformanceMetrics(): array { return []; }
-    private function getErrorRates(): array { return []; }
-    private function getUptimeMetrics(): array { return []; }
-    private function getAverageSessionDuration(): float { return 0.0; }
-    private function getFeatureUsageStats(): array { return []; }
-    private function getPageViewStats(): array { return []; }
-    private function getInstitutionSurveyParticipation(): array { return []; }
-    private function getInstitutionTaskCompletion(): array { return []; }
-    private function getInstitutionUserActivity(): array { return []; }
-    private function getTopPerformingInstitutions(): array { return []; }
-    private function getInstitutionsNeedingImprovement(): array { return []; }
-    private function getSurveyCompletionRates(): array { return []; }
-    private function getSurveyTimeToComplete(): array { return []; }
-    private function getSurveyQualityScores(): array { return []; }
-    private function getFeedbackSentiment(): array { return []; }
-    private function getUserGrowthTrends(): array { return []; }
-    private function getInstitutionGrowthTrends(): array { return []; }
-    private function getContentGrowthTrends(): array { return []; }
-    private function getEngagementTrends(): array { return []; }
-    private function getCriticalAlerts(): array { return []; }
-    private function getWarningAlerts(): array { return []; }
-    private function getInfoAlerts(): array { return []; }
-    private function getMaintenanceAlerts(): array { return []; }
+    private function getLoginActivity(): array
+    {
+        return [];
+    }
+
+    private function getGeographicDistribution(): array
+    {
+        return [];
+    }
+
+    private function getRegionalDistribution(): array
+    {
+        return [];
+    }
+
+    private function getInstitutionPerformanceMetrics(): array
+    {
+        return [];
+    }
+
+    private function getCapacityUtilization(): array
+    {
+        return [];
+    }
+
+    private function getSurveyResponseRates(): array
+    {
+        return [];
+    }
+
+    private function getSurveyCompletionTrends(): array
+    {
+        return [];
+    }
+
+    private function getSurveyCategoryBreakdown(): array
+    {
+        return [];
+    }
+
+    private function getAverageResponseTime(): float
+    {
+        return 0.0;
+    }
+
+    private function getTaskCompletionRate(): float
+    {
+        return 0.0;
+    }
+
+    private function getAverageTaskCompletionTime(): float
+    {
+        return 0.0;
+    }
+
+    private function getTasksByPriority(): array
+    {
+        return [];
+    }
+
+    private function getTasksByCategory(): array
+    {
+        return [];
+    }
+
+    private function getDatabaseHealth(): array
+    {
+        return ['status' => 'healthy'];
+    }
+
+    private function getCacheHealth(): array
+    {
+        return ['status' => 'healthy'];
+    }
+
+    private function getStorageHealth(): array
+    {
+        return ['status' => 'healthy'];
+    }
+
+    private function getPerformanceMetrics(): array
+    {
+        return [];
+    }
+
+    private function getErrorRates(): array
+    {
+        return [];
+    }
+
+    private function getUptimeMetrics(): array
+    {
+        return [];
+    }
+
+    private function getAverageSessionDuration(): float
+    {
+        return 0.0;
+    }
+
+    private function getFeatureUsageStats(): array
+    {
+        return [];
+    }
+
+    private function getPageViewStats(): array
+    {
+        return [];
+    }
+
+    private function getInstitutionSurveyParticipation(): array
+    {
+        return [];
+    }
+
+    private function getInstitutionTaskCompletion(): array
+    {
+        return [];
+    }
+
+    private function getInstitutionUserActivity(): array
+    {
+        return [];
+    }
+
+    private function getTopPerformingInstitutions(): array
+    {
+        return [];
+    }
+
+    private function getInstitutionsNeedingImprovement(): array
+    {
+        return [];
+    }
+
+    private function getSurveyCompletionRates(): array
+    {
+        return [];
+    }
+
+    private function getSurveyTimeToComplete(): array
+    {
+        return [];
+    }
+
+    private function getSurveyQualityScores(): array
+    {
+        return [];
+    }
+
+    private function getFeedbackSentiment(): array
+    {
+        return [];
+    }
+
+    private function getUserGrowthTrends(): array
+    {
+        return [];
+    }
+
+    private function getInstitutionGrowthTrends(): array
+    {
+        return [];
+    }
+
+    private function getContentGrowthTrends(): array
+    {
+        return [];
+    }
+
+    private function getEngagementTrends(): array
+    {
+        return [];
+    }
+
+    private function getCriticalAlerts(): array
+    {
+        return [];
+    }
+
+    private function getWarningAlerts(): array
+    {
+        return [];
+    }
+
+    private function getInfoAlerts(): array
+    {
+        return [];
+    }
+
+    private function getMaintenanceAlerts(): array
+    {
+        return [];
+    }
 
     // Regional analytics helper methods
-    private function getRegionOverview($regionId): array { return []; }
-    private function getSectorPerformance($regionId): array { return []; }
-    private function getSchoolMetrics($regionId): array { return []; }
-    private function getStaffDistribution($regionId): array { return []; }
-    private function getSurveyParticipation($regionId): array { return []; }
-    private function getTaskCompletion($regionId): array { return []; }
+    private function getRegionOverview($regionId): array
+    {
+        return [];
+    }
+
+    private function getSectorPerformance($regionId): array
+    {
+        return [];
+    }
+
+    private function getSchoolMetrics($regionId): array
+    {
+        return [];
+    }
+
+    private function getStaffDistribution($regionId): array
+    {
+        return [];
+    }
+
+    private function getSurveyParticipation($regionId): array
+    {
+        return [];
+    }
+
+    private function getTaskCompletion($regionId): array
+    {
+        return [];
+    }
 }

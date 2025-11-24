@@ -23,7 +23,7 @@ return new class extends Migration
             $table->timestamp('responded_at')->nullable();
             $table->text('response_comment')->nullable();
             $table->timestamps();
-            
+
             $table->index(['delegate_id', 'status']);
             $table->index(['delegator_id']);
             $table->index(['approval_request_id']);

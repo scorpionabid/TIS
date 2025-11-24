@@ -4,15 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Document;
 use App\Models\DocumentShare;
-use App\Services\DocumentService;
-use App\Services\DocumentDownloadService;
-use App\Services\DocumentSharingService;
-use App\Services\DocumentPermissionService;
-use App\Services\DocumentValidationService;
 use App\Services\DocumentActivityService;
+use App\Services\DocumentDownloadService;
+use App\Services\DocumentPermissionService;
+use App\Services\DocumentService;
+use App\Services\DocumentSharingService;
+use App\Services\DocumentValidationService;
 use App\Services\NotificationService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -20,11 +20,17 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 class DocumentControllerRefactored extends Controller
 {
     protected DocumentService $documentService;
+
     protected DocumentDownloadService $downloadService;
+
     protected DocumentSharingService $sharingService;
+
     protected DocumentPermissionService $permissionService;
+
     protected DocumentValidationService $validationService;
+
     protected DocumentActivityService $activityService;
+
     protected NotificationService $notificationService;
 
     public function __construct(
@@ -52,7 +58,7 @@ class DocumentControllerRefactored extends Controller
     {
         try {
             $validator = $this->validationService->validateSearchFilters($request);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
@@ -93,7 +99,7 @@ class DocumentControllerRefactored extends Controller
             // Check regional permissions for document creation
             $canCreate = $this->permissionService->canUserCreateDocument($user, $validator->validated());
 
-            if (!$canCreate) {
+            if (! $canCreate) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu əməliyyatı həyata keçirmək üçün icazəniz yoxdur.',
@@ -102,10 +108,10 @@ class DocumentControllerRefactored extends Controller
 
             $file = $request->file('file');
             $userRole = $user->getRoleNames()->first();
-            
+
             // Validate file with role-based limits
             $fileValidationErrors = $this->validationService->validateFileUpload($file, $userRole);
-            if (!empty($fileValidationErrors)) {
+            if (! empty($fileValidationErrors)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'File validation failed',
@@ -125,7 +131,6 @@ class DocumentControllerRefactored extends Controller
                 'message' => 'Sənəd uğurla yükləndi.',
                 'data' => $document,
             ], 201);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Sənəd yüklənərkən xəta baş verdi.');
         }
@@ -138,9 +143,9 @@ class DocumentControllerRefactored extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             // Check if user can access this document
-            if (!$this->permissionService->canUserAccessDocument($user, $document)) {
+            if (! $this->permissionService->canUserAccessDocument($user, $document)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sənədə giriş icazəniz yoxdur.',
@@ -152,7 +157,7 @@ class DocumentControllerRefactored extends Controller
 
             $document->load([
                 'uploader:id,first_name,last_name',
-                'institution:id,name,name_en'
+                'institution:id,name,name_en',
             ]);
 
             return response()->json([
@@ -181,9 +186,9 @@ class DocumentControllerRefactored extends Controller
 
         try {
             $user = Auth::user();
-            
+
             // Check if user can modify this document
-            if (!$this->permissionService->canUserModifyDocument($user, $document)) {
+            if (! $this->permissionService->canUserModifyDocument($user, $document)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sənədi dəyişdirmək icazəniz yoxdur.',
@@ -214,9 +219,9 @@ class DocumentControllerRefactored extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             // Check if user can delete this document
-            if (!$this->permissionService->canUserDeleteDocument($user, $document)) {
+            if (! $this->permissionService->canUserDeleteDocument($user, $document)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sənədi silmək icazəniz yoxdur.',
@@ -235,8 +240,9 @@ class DocumentControllerRefactored extends Controller
         } catch (\Exception $e) {
             Log::error('Error in document.destroy', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->handleError($e, 'Sənəd silinərkən xəta baş verdi.');
         }
     }
@@ -251,7 +257,7 @@ class DocumentControllerRefactored extends Controller
         // Check if user can download this document
         $canDownload = $this->permissionService->canUserDownloadDocument($user, $document);
 
-        if (!$canDownload) {
+        if (! $canDownload) {
             abort(403, 'Bu sənədi yükləmək icazəniz yoxdur.');
         }
 
@@ -272,9 +278,9 @@ class DocumentControllerRefactored extends Controller
     public function preview(Document $document): StreamedResponse
     {
         $user = Auth::user();
-        
+
         // Check if user can access this document
-        if (!$this->permissionService->canUserAccessDocument($user, $document)) {
+        if (! $this->permissionService->canUserAccessDocument($user, $document)) {
             abort(403, 'Bu sənədə giriş icazəniz yoxdur.');
         }
 
@@ -291,8 +297,8 @@ class DocumentControllerRefactored extends Controller
     {
         try {
             $user = Auth::user();
-            
-            if (!$this->permissionService->canUserAccessDocument($user, $document)) {
+
+            if (! $this->permissionService->canUserAccessDocument($user, $document)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sənədə giriş icazəniz yoxdur.',
@@ -342,7 +348,7 @@ class DocumentControllerRefactored extends Controller
         try {
             $user = Auth::user();
 
-            if (!$this->permissionService->canUserShareDocument($user, $document)) {
+            if (! $this->permissionService->canUserShareDocument($user, $document)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sənədi paylaşmaq icazəniz yoxdur.',
@@ -385,7 +391,7 @@ class DocumentControllerRefactored extends Controller
         try {
             $user = Auth::user();
 
-            if (!$this->permissionService->canUserShareDocument($user, $document)) {
+            if (! $this->permissionService->canUserShareDocument($user, $document)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sənəd üçün ictimai link yaratmaq icazəniz yoxdur.',
@@ -443,7 +449,7 @@ class DocumentControllerRefactored extends Controller
             $user = Auth::user();
 
             // Check if user can revoke this share
-            if (!$this->permissionService->canUserModifyDocument($user, $share->document)) {
+            if (! $this->permissionService->canUserModifyDocument($user, $share->document)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu paylaşımı ləğv etmək icazəniz yoxdur.',
@@ -469,7 +475,7 @@ class DocumentControllerRefactored extends Controller
         try {
             $user = Auth::user();
 
-            if (!$this->permissionService->canUserAccessDocument($user, $document)) {
+            if (! $this->permissionService->canUserAccessDocument($user, $document)) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu sənədə giriş icazəniz yoxdur.',
@@ -528,7 +534,7 @@ class DocumentControllerRefactored extends Controller
     {
         try {
             $validator = $this->validationService->validateActivityFilters($request);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
@@ -556,7 +562,7 @@ class DocumentControllerRefactored extends Controller
     {
         try {
             $validator = $this->validationService->validateActivityFilters($request);
-            
+
             if ($validator->fails()) {
                 return response()->json([
                     'success' => false,
@@ -585,7 +591,7 @@ class DocumentControllerRefactored extends Controller
         try {
             $user = Auth::user();
             $filters = $request->only(['period', 'action', 'date_from', 'date_to']);
-            
+
             $trends = $this->activityService->getActivityTrends($filters, $user);
 
             return response()->json([
@@ -605,7 +611,7 @@ class DocumentControllerRefactored extends Controller
         try {
             $user = Auth::user();
             $filters = $request->only(['date_from', 'date_to', 'limit']);
-            
+
             $popularity = $this->activityService->getDocumentPopularity($filters, $user);
 
             return response()->json([
@@ -626,7 +632,7 @@ class DocumentControllerRefactored extends Controller
             $user = Auth::user();
             $filters = $request->only(['action', 'date_from', 'date_to', 'institution_id', 'user_id']);
             $format = $request->get('format', 'csv');
-            
+
             $exportData = $this->activityService->exportActivityData($filters, $user, $format);
 
             $filename = 'document_activity_' . now()->format('Y-m-d_H-i-s') . '.' . $format;
@@ -636,8 +642,8 @@ class DocumentControllerRefactored extends Controller
                 'data' => [
                     'filename' => $filename,
                     'content' => $exportData,
-                    'format' => $format
-                ]
+                    'format' => $format,
+                ],
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Aktivlik məlumatları ixrac edilərkən xəta baş verdi.');
@@ -685,7 +691,7 @@ class DocumentControllerRefactored extends Controller
                     'document_type' => $document->file_type ?? 'document',
                     'description' => $document->description ?? '',
                     'expires_at' => $document->expires_at?->format('d.m.Y H:i'),
-                    'action_url' => "/documents/{$document->id}"
+                    'action_url' => "/documents/{$document->id}",
                 ]
             );
         } catch (\Throwable $e) {
@@ -704,20 +710,20 @@ class DocumentControllerRefactored extends Controller
     {
         $institutionTargets = $document->accessible_institutions;
 
-        if (empty($institutionTargets) && !empty($document->allowed_institutions)) {
+        if (empty($institutionTargets) && ! empty($document->allowed_institutions)) {
             $institutionTargets = $document->allowed_institutions;
         }
 
-        if ((empty($institutionTargets) || !is_array($institutionTargets)) && $document->institution_id) {
+        if ((empty($institutionTargets) || ! is_array($institutionTargets)) && $document->institution_id) {
             $institutionTargets = [$document->institution_id];
         }
 
         $institutionTargets = array_values(array_unique(array_filter((array) $institutionTargets)));
         $userIds = [];
 
-        if (!empty($institutionTargets)) {
+        if (! empty($institutionTargets)) {
             $targetRoles = config('notification_roles.resource_notification_roles', [
-                'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+                'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher',
             ]);
 
             $userIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
@@ -726,7 +732,7 @@ class DocumentControllerRefactored extends Controller
             );
         }
 
-        if (!empty($document->allowed_users)) {
+        if (! empty($document->allowed_users)) {
             $userIds = array_merge($userIds, $document->allowed_users);
         }
 
@@ -747,7 +753,7 @@ class DocumentControllerRefactored extends Controller
             } elseif (isset($share['institution_ids']) && is_array($share['institution_ids'])) {
                 // Use InstitutionNotificationHelper to expand institution IDs to user IDs
                 $targetRoles = config('notification_roles.resource_notification_roles', [
-                    'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+                    'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher',
                 ]);
                 $targetUserIds = \App\Services\InstitutionNotificationHelper::expandInstitutionsToUsers(
                     $share['institution_ids'],
@@ -755,7 +761,7 @@ class DocumentControllerRefactored extends Controller
                 );
             }
 
-            if (!empty($targetUserIds)) {
+            if (! empty($targetUserIds)) {
                 $this->notificationService->sendDocumentNotification(
                     $document,
                     'shared',
@@ -765,7 +771,7 @@ class DocumentControllerRefactored extends Controller
                         'document_title' => $document->title,
                         'share_message' => $share['message'] ?? '',
                         'share_expires_at' => $share['expires_at'] ?? null,
-                        'action_url' => "/documents/{$document->id}"
+                        'action_url' => "/documents/{$document->id}",
                     ]
                 );
             }
@@ -773,7 +779,7 @@ class DocumentControllerRefactored extends Controller
             // Log notification error but don't fail the share operation
             \Log::error('Document share notification failed', [
                 'document_id' => $document->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -797,8 +803,9 @@ class DocumentControllerRefactored extends Controller
             ]);
 
             // Check if user has permission to view sub-institution documents
-            if (!$user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
+            if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
                 Log::warning('User does not have permission', ['user_id' => $user->id]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu səhifəyə giriş icazəniz yoxdur.',
@@ -821,8 +828,9 @@ class DocumentControllerRefactored extends Controller
             Log::error('Error fetching sub-institution documents', [
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->handleError($e, 'Alt-müəssisə sənədləri yüklənərkən xəta baş verdi.');
         }
     }
@@ -845,7 +853,7 @@ class DocumentControllerRefactored extends Controller
                 return response()->json([
                     'success' => true,
                     'data' => [],
-                    'message' => 'Üst müəssisə tapılmadı'
+                    'message' => 'Üst müəssisə tapılmadı',
                 ]);
             }
 
@@ -862,8 +870,9 @@ class DocumentControllerRefactored extends Controller
             Log::error('Error fetching superior institutions', [
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
+
             return $this->handleError($e, 'Üst müəssisələr yüklənərkən xəta baş verdi.');
         }
     }
@@ -877,7 +886,7 @@ class DocumentControllerRefactored extends Controller
         \Log::error('DocumentController Error: ' . $e->getMessage(), [
             'file' => $e->getFile(),
             'line' => $e->getLine(),
-            'trace' => $e->getTraceAsString()
+            'trace' => $e->getTraceAsString(),
         ]);
 
         return response()->json([
@@ -887,7 +896,7 @@ class DocumentControllerRefactored extends Controller
             'debug' => config('app.debug') ? [
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
-                'trace' => array_slice($e->getTrace(), 0, 3)
+                'trace' => array_slice($e->getTrace(), 0, 3),
             ] : null,
         ], 500);
     }

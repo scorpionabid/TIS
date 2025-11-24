@@ -2,14 +2,14 @@
 
 namespace App\Services\SurveyApproval\Domains\Action;
 
+use App\Models\ApprovalAction;
+use App\Models\ApprovalWorkflow;
+use App\Models\DataApprovalRequest;
 use App\Models\SurveyResponse;
 use App\Models\User;
-use App\Models\ApprovalAction;
-use App\Models\DataApprovalRequest;
-use App\Models\ApprovalWorkflow;
 use App\Services\SurveyApproval\Domains\Security\ApprovalSecurityService;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Approval Action Service
@@ -30,8 +30,6 @@ use Illuminate\Support\Facades\Cache;
  * - Cache invalidation for approval stats
  *
  * SECURITY AUDIT: 2025-11-14
- *
- * @package App\Services\SurveyApproval\Domains\Action
  */
 class ApprovalActionService
 {
@@ -48,10 +46,9 @@ class ApprovalActionService
      * SECURITY CRITICAL: Authorization checked, transaction-safe
      * LOGIC PRESERVED FROM: SurveyApprovalService::approveResponse() (lines 165-241)
      *
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @param array $data ['comments' => string, 'metadata' => array]
+     * @param  array $data ['comments' => string, 'metadata' => array]
      * @return array ['status' => string, 'message' => string]
+     *
      * @throws \Exception
      */
     public function approveResponse(SurveyResponse $response, User $approver, array $data = []): array
@@ -59,7 +56,7 @@ class ApprovalActionService
         return DB::transaction(function () use ($response, $approver, $data) {
             $approvalRequest = $response->approvalRequest;
 
-            if (!$approvalRequest) {
+            if (! $approvalRequest) {
                 throw new \Exception('No approval request found for this response');
             }
 
@@ -91,10 +88,9 @@ class ApprovalActionService
      * SECURITY CRITICAL: Authorization checked, transaction-safe
      * LOGIC PRESERVED FROM: SurveyApprovalService::rejectResponse() (lines 246-309)
      *
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @param array $data ['comments' => string, 'metadata' => array]
+     * @param  array $data ['comments' => string, 'metadata' => array]
      * @return array ['status' => string, 'message' => string]
+     *
      * @throws \Exception
      */
     public function rejectResponse(SurveyResponse $response, User $approver, array $data = []): array
@@ -102,7 +98,7 @@ class ApprovalActionService
         return DB::transaction(function () use ($response, $approver, $data) {
             $approvalRequest = $response->approvalRequest;
 
-            if (!$approvalRequest) {
+            if (! $approvalRequest) {
                 throw new \Exception('No approval request found for this response');
             }
 
@@ -137,7 +133,7 @@ class ApprovalActionService
             return [
                 'status' => 'rejected',
                 'message' => 'Response rejected',
-                'response_id' => $response->id
+                'response_id' => $response->id,
             ];
         });
     }
@@ -148,10 +144,8 @@ class ApprovalActionService
      * SECURITY CRITICAL: Authorization checked, transaction-safe
      * LOGIC PRESERVED FROM: SurveyApprovalService::returnForRevision() (lines 314-353)
      *
-     * @param SurveyResponse $response
-     * @param User $approver
      * @param array $data ['comments' => string, 'metadata' => array]
-     * @return array
+     *
      * @throws \Exception
      */
     public function returnForRevision(SurveyResponse $response, User $approver, array $data = []): array
@@ -159,7 +153,7 @@ class ApprovalActionService
         return DB::transaction(function () use ($response, $approver, $data) {
             $approvalRequest = $response->approvalRequest;
 
-            if (!$approvalRequest) {
+            if (! $approvalRequest) {
                 throw new \Exception('No approval request found for this response');
             }
 
@@ -194,7 +188,7 @@ class ApprovalActionService
             return [
                 'status' => 'returned_for_revision',
                 'message' => 'Response returned for revision',
-                'response_id' => $response->id
+                'response_id' => $response->id,
             ];
         });
     }
@@ -203,13 +197,6 @@ class ApprovalActionService
      * Record approval action in audit trail
      *
      * SECURITY CRITICAL: Immutable audit log
-     *
-     * @param DataApprovalRequest $approvalRequest
-     * @param User $approver
-     * @param string $action
-     * @param int $level
-     * @param array $data
-     * @return ApprovalAction
      */
     protected function recordApprovalAction(
         DataApprovalRequest $approvalRequest,
@@ -231,10 +218,6 @@ class ApprovalActionService
 
     /**
      * Check if approval chain is complete
-     *
-     * @param ApprovalWorkflow $workflow
-     * @param int $currentLevel
-     * @return bool
      */
     protected function isApprovalChainComplete(ApprovalWorkflow $workflow, int $currentLevel): bool
     {
@@ -245,16 +228,12 @@ class ApprovalActionService
 
         // Check if there's a next required level
         $nextLevel = $this->getNextRequiredApprovalLevel($workflow, $currentLevel);
+
         return $nextLevel === null;
     }
 
     /**
      * Complete approval process
-     *
-     * @param DataApprovalRequest $approvalRequest
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @return array
      */
     protected function completeApproval(
         DataApprovalRequest $approvalRequest,
@@ -281,17 +260,12 @@ class ApprovalActionService
         return [
             'status' => 'completed',
             'message' => 'Response fully approved',
-            'response_id' => $response->id
+            'response_id' => $response->id,
         ];
     }
 
     /**
      * Move approval to next level
-     *
-     * @param DataApprovalRequest $approvalRequest
-     * @param ApprovalWorkflow $workflow
-     * @param int $currentLevel
-     * @return array
      */
     protected function moveToNextLevel(
         DataApprovalRequest $approvalRequest,
@@ -310,7 +284,7 @@ class ApprovalActionService
 
             return [
                 'status' => 'completed',
-                'message' => 'Response fully approved'
+                'message' => 'Response fully approved',
             ];
         }
 
@@ -323,16 +297,12 @@ class ApprovalActionService
         return [
             'status' => 'in_progress',
             'message' => 'Moved to next approval level',
-            'next_level' => $nextLevel
+            'next_level' => $nextLevel,
         ];
     }
 
     /**
      * Get next required approval level
-     *
-     * @param ApprovalWorkflow $workflow
-     * @param int $currentLevel
-     * @return int|null
      */
     protected function getNextRequiredApprovalLevel(ApprovalWorkflow $workflow, int $currentLevel): ?int
     {
@@ -353,9 +323,6 @@ class ApprovalActionService
 
     /**
      * Clear approval cache
-     *
-     * @param int $surveyId
-     * @return void
      */
     protected function clearApprovalCache(int $surveyId): void
     {

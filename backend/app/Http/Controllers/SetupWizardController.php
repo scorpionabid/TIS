@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Models\Institution;
 use App\Models\Department;
-use Illuminate\Http\Request;
+use App\Models\Institution;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
-use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class SetupWizardController extends Controller
 {
@@ -22,7 +22,7 @@ class SetupWizardController extends Controller
     {
         try {
             // Check if superadmin exists
-            $superAdminExists = User::whereHas('roles', function($q) {
+            $superAdminExists = User::whereHas('roles', function ($q) {
                 $q->where('name', 'superadmin');
             })->exists();
 
@@ -33,7 +33,7 @@ class SetupWizardController extends Controller
             $rolesConfigured = Role::count() >= 5; // At least 5 basic roles
             $permissionsConfigured = Permission::count() >= 20; // Basic permissions
 
-            $needsSetup = !($superAdminExists && $institutionsExist && $rolesConfigured && $permissionsConfigured);
+            $needsSetup = ! ($superAdminExists && $institutionsExist && $rolesConfigured && $permissionsConfigured);
 
             return response()->json([
                 'needs_setup' => $needsSetup,
@@ -41,15 +41,14 @@ class SetupWizardController extends Controller
                     'superadmin_exists' => $superAdminExists,
                     'institutions_exist' => $institutionsExist,
                     'roles_configured' => $rolesConfigured,
-                    'permissions_configured' => $permissionsConfigured
+                    'permissions_configured' => $permissionsConfigured,
                 ],
-                'recommendations' => $this->getSetupRecommendations($needsSetup)
+                'recommendations' => $this->getSetupRecommendations($needsSetup),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Setup status yoxlanıla bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -66,13 +65,13 @@ class SetupWizardController extends Controller
             'ministry_name' => 'required|string|max:255',
             'ministry_code' => 'required|string|max:20',
             'system_name' => 'required|string|max:255',
-            'system_locale' => 'required|string|in:az,en,tr'
+            'system_locale' => 'required|string|in:az,en,tr',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -91,12 +90,12 @@ class SetupWizardController extends Controller
                 'established_date' => now(),
                 'contact_info' => json_encode([
                     'email' => $request->superadmin_email,
-                    'phone' => '+994 12 000-00-00'
+                    'phone' => '+994 12 000-00-00',
                 ]),
                 'location' => json_encode([
                     'city' => 'Bakı',
-                    'country' => 'Azerbaijan'
-                ])
+                    'country' => 'Azerbaijan',
+                ]),
             ]);
 
             // 2. Create SuperAdmin User
@@ -108,7 +107,7 @@ class SetupWizardController extends Controller
                 'institution_id' => $ministry->id,
                 'is_active' => true,
                 'email_verified_at' => now(),
-                'password_changed_at' => now()
+                'password_changed_at' => now(),
             ]);
 
             // 3. Assign SuperAdmin Role
@@ -133,17 +132,16 @@ class SetupWizardController extends Controller
                     'next_steps' => [
                         'Regionları yaradın',
                         'Sektorları və məktəbləri qurun',
-                        'İstifadəçiləri əlavə edin'
-                    ]
-                ]
+                        'İstifadəçiləri əlavə edin',
+                    ],
+                ],
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'message' => 'Sistem qurulumu zamanı xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -158,13 +156,13 @@ class SetupWizardController extends Controller
             'region_code' => 'required|string|max:10',
             'sectors' => 'required|array|min:1',
             'sectors.*.name' => 'required|string|max:255',
-            'sectors.*.code' => 'required|string|max:10'
+            'sectors.*.code' => 'required|string|max:10',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -173,7 +171,7 @@ class SetupWizardController extends Controller
 
             // Get ministry
             $ministry = Institution::where('type', 'ministry')->where('level', 1)->first();
-            if (!$ministry) {
+            if (! $ministry) {
                 return response()->json(['message' => 'Ministry tapılmadı'], 404);
             }
 
@@ -189,8 +187,8 @@ class SetupWizardController extends Controller
                 'is_active' => true,
                 'contact_info' => json_encode([
                     'phone' => '+994 12 000-00-00',
-                    'email' => strtolower($request->region_code) . '@edu.gov.az'
-                ])
+                    'email' => strtolower($request->region_code) . '@edu.gov.az',
+                ]),
             ]);
 
             // Create Sectors
@@ -207,13 +205,13 @@ class SetupWizardController extends Controller
                     'is_active' => true,
                     'contact_info' => json_encode([
                         'phone' => '+994 12 000-00-00',
-                        'email' => strtolower($sectorData['code']) . '@edu.gov.az'
-                    ])
+                        'email' => strtolower($sectorData['code']) . '@edu.gov.az',
+                    ]),
                 ]);
 
                 // Create sample departments for sector
                 $this->createBasicDepartments($sector);
-                
+
                 $sectors[] = $sector;
             }
 
@@ -226,7 +224,7 @@ class SetupWizardController extends Controller
                 'institution_id' => $region->id,
                 'is_active' => true,
                 'email_verified_at' => now(),
-                'password_changed_at' => now()
+                'password_changed_at' => now(),
             ]);
 
             $regionAdminRole = Role::where('name', 'regionadmin')->first();
@@ -245,17 +243,16 @@ class SetupWizardController extends Controller
                     'credentials' => [
                         'username' => $regionAdmin->username,
                         'password' => 'admin123',
-                        'note' => 'Parol dərhal dəyişdirilməlidir'
-                    ]
-                ]
+                        'note' => 'Parol dərhal dəyişdirilməlidir',
+                    ],
+                ],
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             return response()->json([
                 'message' => 'Nümunə struktur yaradılarkən xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -274,7 +271,7 @@ class SetupWizardController extends Controller
             $orphanInstitutions = Institution::whereNotNull('parent_id')
                 ->whereDoesntHave('parent')
                 ->count();
-            
+
             if ($orphanInstitutions > 0) {
                 $issues[] = "Valideyn təşkilatı olmayan {$orphanInstitutions} təşkilat tapıldı";
             }
@@ -293,7 +290,7 @@ class SetupWizardController extends Controller
 
             // Check inactive institutions with active users
             $activeUsersInInactiveInstitutions = User::where('is_active', true)
-                ->whereHas('institution', function($q) {
+                ->whereHas('institution', function ($q) {
                     $q->where('is_active', false);
                 })
                 ->count();
@@ -305,7 +302,7 @@ class SetupWizardController extends Controller
             // Performance suggestions
             $totalUsers = User::count();
             $totalInstitutions = Institution::count();
-            
+
             if ($totalUsers > 1000) {
                 $suggestions[] = "Çox sayda istifadəçi var ({$totalUsers}). Performans üçün cache aktivləşdirin";
             }
@@ -322,18 +319,17 @@ class SetupWizardController extends Controller
                     'total_users' => $totalUsers,
                     'total_institutions' => $totalInstitutions,
                     'total_issues' => count($issues),
-                    'total_warnings' => count($warnings)
+                    'total_warnings' => count($warnings),
                 ],
                 'issues' => $issues,
                 'warnings' => $warnings,
                 'suggestions' => $suggestions,
-                'next_actions' => $this->getNextActions($issues, $warnings)
+                'next_actions' => $this->getNextActions($issues, $warnings),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Məlumat validasiyası aparıla bilmədi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -347,7 +343,7 @@ class SetupWizardController extends Controller
             ['name' => 'Maliyyə Şöbəsi', 'type' => 'maliyyə'],
             ['name' => 'İnzibati Şöbə', 'type' => 'inzibati'],
             ['name' => 'Təsərrüfat Şöbəsi', 'type' => 'təsərrüfat'],
-            ['name' => 'UBR Şöbəsi', 'type' => 'ubr']
+            ['name' => 'UBR Şöbəsi', 'type' => 'ubr'],
         ];
 
         foreach ($departments as $dept) {
@@ -355,7 +351,7 @@ class SetupWizardController extends Controller
                 'name' => $dept['name'],
                 'department_type' => $dept['type'],
                 'institution_id' => $institution->id,
-                'is_active' => true
+                'is_active' => true,
             ]);
         }
     }
@@ -370,7 +366,7 @@ class SetupWizardController extends Controller
         \Log::info('System configuration created', [
             'system_name' => $request->system_name,
             'locale' => $request->system_locale,
-            'setup_at' => now()
+            'setup_at' => now(),
         ]);
     }
 
@@ -379,7 +375,7 @@ class SetupWizardController extends Controller
      */
     private function getSetupRecommendations(bool $needsSetup): array
     {
-        if (!$needsSetup) {
+        if (! $needsSetup) {
             return ['Sistem düzgün qurulub və istifadəyə hazırdır'];
         }
 
@@ -388,7 +384,7 @@ class SetupWizardController extends Controller
             'Əsas təşkilat strukturunu qurun',
             'Roller və icazələri konfiqurasiya edin',
             'Regional strukturu yaradın',
-            'Test məlumatları əlavə edin'
+            'Test məlumatları əlavə edin',
         ];
     }
 
@@ -399,11 +395,11 @@ class SetupWizardController extends Controller
     {
         $actions = [];
 
-        if (!empty($issues)) {
+        if (! empty($issues)) {
             $actions[] = 'Kritik problemləri həll edin';
         }
 
-        if (!empty($warnings)) {
+        if (! empty($warnings)) {
             $actions[] = 'Xəbərdarlıqları nəzərdən keçirin';
         }
 

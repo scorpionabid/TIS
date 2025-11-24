@@ -114,7 +114,7 @@ class InventoryTransaction extends Model
 
     public function getTransactionTypeLabelAttribute(): string
     {
-        return match($this->transaction_type) {
+        return match ($this->transaction_type) {
             'purchase' => 'Satın alma',
             'assignment' => 'Tapşırılma',
             'return' => 'Geri qaytarılma',
@@ -133,7 +133,7 @@ class InventoryTransaction extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'Gözləyir',
             'approved' => 'Təsdiqlənib',
             'rejected' => 'Rədd edilib',

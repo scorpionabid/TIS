@@ -2,11 +2,11 @@
 
 namespace App\Http\Requests;
 
-use Illuminate\Foundation\Http\FormRequest;
-use App\Rules\ValidRoleAssignment;
-use App\Rules\DepartmentBelongsToInstitution;
-use App\Services\RegionOperatorPermissionService;
 use App\Models\Role;
+use App\Rules\DepartmentBelongsToInstitution;
+use App\Rules\ValidRoleAssignment;
+use App\Services\RegionOperatorPermissionService;
+use Illuminate\Foundation\Http\FormRequest;
 
 class StoreUserRequest extends FormRequest
 {
@@ -38,13 +38,13 @@ class StoreUserRequest extends FormRequest
             'role_id' => [
                 'required',
                 'exists:roles,id',
-                new ValidRoleAssignment
+                new ValidRoleAssignment,
             ],
             'institution_id' => 'nullable|exists:institutions,id',
             'department_id' => [
                 'nullable',
                 'exists:departments,id',
-                new DepartmentBelongsToInstitution($this->input('institution_id'))
+                new DepartmentBelongsToInstitution($this->input('institution_id')),
             ],
             'departments' => 'nullable|array',
             'departments.*' => 'string',
@@ -60,7 +60,7 @@ class StoreUserRequest extends FormRequest
             'gender' => 'nullable|in:male,female,other',    // Saved to: user_profiles
             'national_id' => 'nullable|string|max:20',      // Saved to: user_profiles
             'contact_phone' => 'nullable|string|max:20',    // Saved to: user_profiles
-            'emergency_contact' => 'nullable|string|max:20',// Saved to: user_profiles
+            'emergency_contact' => 'nullable|string|max:20', // Saved to: user_profiles
             'address' => 'nullable|array',                  // Saved to: user_profiles
         ], $this->regionOperatorPermissionRules());
     }
@@ -89,7 +89,7 @@ class StoreUserRequest extends FormRequest
     /**
      * Configure the validator instance.
      *
-     * @param  \Illuminate\Validation\Validator  $validator
+     * @param  \Illuminate\Validation\Validator $validator
      * @return void
      */
     public function withValidator($validator)
@@ -101,13 +101,13 @@ class StoreUserRequest extends FormRequest
             if ($role && $role->name === 'regionoperator') {
                 // Verify at least one permission is selected
                 $hasPermissions = collect(RegionOperatorPermissionService::CRUD_FIELDS)
-                    ->some(function($field) {
+                    ->some(function ($field) {
                         // Check both nested and flat structures
                         return $this->input($field) === true ||
                                $this->input("region_operator_permissions.$field") === true;
                     });
 
-                if (!$hasPermissions) {
+                if (! $hasPermissions) {
                     $validator->errors()->add(
                         'region_operator_permissions',
                         'RegionOperator roluna malik istifadəçi üçün ən azı 1 səlahiyyət seçilməlidir.'

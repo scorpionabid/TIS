@@ -128,7 +128,7 @@ class Indicator extends Model
     {
         return $query->where(function ($q) use ($search) {
             $q->where('name', 'ILIKE', "%{$search}%")
-              ->orWhere('code', 'ILIKE', "%{$search}%");
+                ->orWhere('code', 'ILIKE', "%{$search}%");
         });
     }
 }

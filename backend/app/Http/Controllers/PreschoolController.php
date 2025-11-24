@@ -3,14 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Institution;
-use App\Models\User;
 use App\Models\Task;
-use App\Models\Document;
-use App\Models\InstitutionType;
-use Illuminate\Http\Request;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\Rule;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class PreschoolController extends Controller
 {
@@ -18,14 +16,14 @@ class PreschoolController extends Controller
     {
         // Get preschools (institutions with preschool types)
         $preschoolTypes = ['kindergarten', 'preschool_center', 'nursery'];
-        
+
         $query = Institution::with(['parent', 'children', 'users', 'manager'])
             ->whereIn('type', $preschoolTypes)
             ->where('level', 4);
 
         // Apply user-based access control
         $user = Auth::user();
-        if ($user && !$user->hasRole('superadmin')) {
+        if ($user && ! $user->hasRole('superadmin')) {
             if ($user->hasRole('regionadmin')) {
                 // RegionAdmin can only see preschools in their region's sectors
                 $regionId = $user->institution_id;
@@ -55,12 +53,12 @@ class PreschoolController extends Controller
             $query->where('type', $request->type);
         }
 
-        if ($request->has('search') && !empty($request->search)) {
+        if ($request->has('search') && ! empty($request->search)) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
+            $query->where(function ($q) use ($search) {
                 $q->where('name', 'ILIKE', "%{$search}%")
-                  ->orWhere('code', 'ILIKE', "%{$search}%")
-                  ->orWhere('short_name', 'ILIKE', "%{$search}%");
+                    ->orWhere('code', 'ILIKE', "%{$search}%")
+                    ->orWhere('short_name', 'ILIKE', "%{$search}%");
             });
         }
 
@@ -75,7 +73,7 @@ class PreschoolController extends Controller
         $transformedPreschools = $preschools->map(function ($preschool) {
             $manager = $this->getPreschoolManager($preschool);
             $statistics = $this->calculatePreschoolStatistics($preschool);
-            
+
             return [
                 'id' => $preschool->id,
                 'name' => $preschool->name,
@@ -108,7 +106,7 @@ class PreschoolController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $transformedPreschools
+            'data' => $transformedPreschools,
         ]);
     }
 
@@ -131,7 +129,7 @@ class PreschoolController extends Controller
         // Set preschool-specific data
         $validated['level'] = 4;
         $validated['is_active'] = $validated['is_active'] ?? true;
-        
+
         // Generate code if not provided
         if (empty($validated['code'])) {
             $validated['code'] = 'BAGCA-' . time();
@@ -139,15 +137,15 @@ class PreschoolController extends Controller
 
         // Prepare JSON fields
         $locationData = [];
-        if (!empty($validated['address'])) {
+        if (! empty($validated['address'])) {
             $locationData['address'] = $validated['address'];
         }
 
         $contactData = [];
-        if (!empty($validated['phone'])) {
+        if (! empty($validated['phone'])) {
             $contactData['phone'] = $validated['phone'];
         }
-        if (!empty($validated['email'])) {
+        if (! empty($validated['email'])) {
             $contactData['email'] = $validated['email'];
         }
 
@@ -164,21 +162,21 @@ class PreschoolController extends Controller
             'contact_info' => $contactData,
         ];
 
-        if (!empty($validated['code'])) {
+        if (! empty($validated['code'])) {
             $institutionData['institution_code'] = $validated['code'];
         }
 
         $preschool = Institution::create($institutionData);
 
         // Assign manager if provided
-        if (!empty($validated['manager_id'])) {
+        if (! empty($validated['manager_id'])) {
             $this->assignPreschoolManager($preschool, $validated['manager_id']);
         }
 
         return response()->json([
             'success' => true,
             'message' => 'Məktəbəqədər müəssisə uğurla yaradıldı',
-            'data' => $preschool->load(['parent', 'children', 'users', 'manager'])
+            'data' => $preschool->load(['parent', 'children', 'users', 'manager']),
         ], 201);
     }
 
@@ -186,17 +184,17 @@ class PreschoolController extends Controller
     {
         // Ensure it's actually a preschool
         $preschoolTypes = ['kindergarten', 'preschool_center', 'nursery'];
-        if (!in_array($preschool->type, $preschoolTypes) || $preschool->level !== 4) {
+        if (! in_array($preschool->type, $preschoolTypes) || $preschool->level !== 4) {
             return response()->json([
                 'success' => false,
-                'message' => 'Məktəbəqədər müəssisə tapılmadı'
+                'message' => 'Məktəbəqədər müəssisə tapılmadı',
             ], 404);
         }
 
         // Load manager relationship
         $preschool->load('manager');
         $manager = $this->getPreschoolManager($preschool);
-        
+
         return response()->json([
             'success' => true,
             'data' => [
@@ -226,7 +224,7 @@ class PreschoolController extends Controller
                 'established_date' => $preschool->established_date?->format('Y-m-d'),
                 'created_at' => $preschool->created_at?->toISOString(),
                 'updated_at' => $preschool->updated_at?->toISOString(),
-            ]
+            ],
         ]);
     }
 
@@ -234,10 +232,10 @@ class PreschoolController extends Controller
     {
         // Ensure it's actually a preschool
         $preschoolTypes = ['kindergarten', 'preschool_center', 'nursery'];
-        if (!in_array($preschool->type, $preschoolTypes) || $preschool->level !== 4) {
+        if (! in_array($preschool->type, $preschoolTypes) || $preschool->level !== 4) {
             return response()->json([
                 'success' => false,
-                'message' => 'Məktəbəqədər müəssisə tapılmadı'
+                'message' => 'Məktəbəqədər müəssisə tapılmadı',
             ], 404);
         }
 
@@ -281,7 +279,7 @@ class PreschoolController extends Controller
             'contact_info' => $contactData,
         ];
 
-        if (!empty($validated['code'])) {
+        if (! empty($validated['code'])) {
             $updateData['institution_code'] = $validated['code'];
         }
 
@@ -299,7 +297,7 @@ class PreschoolController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Məktəbəqədər müəssisə uğurla yeniləndi',
-            'data' => $preschool->fresh(['parent', 'children', 'users', 'manager'])
+            'data' => $preschool->fresh(['parent', 'children', 'users', 'manager']),
         ]);
     }
 
@@ -307,10 +305,10 @@ class PreschoolController extends Controller
     {
         // Ensure it's actually a preschool
         $preschoolTypes = ['kindergarten', 'preschool_center', 'nursery'];
-        if (!in_array($preschool->type, $preschoolTypes) || $preschool->level !== 4) {
+        if (! in_array($preschool->type, $preschoolTypes) || $preschool->level !== 4) {
             return response()->json([
                 'success' => false,
-                'message' => 'Məktəbəqədər müəssisə tapılmadı'
+                'message' => 'Məktəbəqədər müəssisə tapılmadı',
             ], 404);
         }
 
@@ -319,7 +317,7 @@ class PreschoolController extends Controller
         if ($activeUsers > 0) {
             return response()->json([
                 'success' => false,
-                'message' => "Bu məktəbəqədər müəssisədə {$activeUsers} aktiv istifadəçi var. Əvvəlcə onları başqa müəssisəyə köçürün."
+                'message' => "Bu məktəbəqədər müəssisədə {$activeUsers} aktiv istifadəçi var. Əvvəlcə onları başqa müəssisəyə köçürün.",
             ], 400);
         }
 
@@ -327,20 +325,20 @@ class PreschoolController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Məktəbəqədər müəssisə uğurla silindi'
+            'message' => 'Məktəbəqədər müəssisə uğurla silindi',
         ]);
     }
 
     public function getPreschoolStatistics(): JsonResponse
     {
         $preschoolTypes = ['kindergarten', 'preschool_center', 'nursery'];
-        
+
         // Create base query with role-based filtering
         $query = Institution::whereIn('type', $preschoolTypes)->where('level', 4);
-        
+
         // Apply user-based access control (same as index method)
         $user = Auth::user();
-        if ($user && !$user->hasRole('superadmin')) {
+        if ($user && ! $user->hasRole('superadmin')) {
             if ($user->hasRole('regionadmin')) {
                 // RegionAdmin can only see preschools in their region's sectors
                 $regionId = $user->institution_id;
@@ -356,15 +354,15 @@ class PreschoolController extends Controller
                 $query->where('id', $user->institution_id);
             }
         }
-        
+
         // Get all filtered preschools for statistics with relations
         $allFilteredPreschools = $query->with(['parent', 'manager'])->get();
-        
+
         // Calculate basic counts from the collection
         $totalPreschools = $allFilteredPreschools->count();
         $activePreschools = $allFilteredPreschools->where('is_active', true)->count();
         $inactivePreschools = $allFilteredPreschools->where('is_active', false)->count();
-        
+
         $statistics = [
             'total_preschools' => $totalPreschools,
             'active_preschools' => $activePreschools,
@@ -376,9 +374,8 @@ class PreschoolController extends Controller
                 'preschools_without_managers' => 0,
                 'total_children' => 0,
                 'total_teachers' => 0,
-            ]
+            ],
         ];
-        
 
         // Statistics by type (from filtered results)
         foreach ($preschoolTypes as $type) {
@@ -387,7 +384,7 @@ class PreschoolController extends Controller
                 'type' => $type,
                 'type_label' => $this->getPreschoolTypeLabel($type),
                 'count' => $count,
-                'percentage' => $statistics['total_preschools'] > 0 ? round(($count / $statistics['total_preschools']) * 100, 1) : 0
+                'percentage' => $statistics['total_preschools'] > 0 ? round(($count / $statistics['total_preschools']) * 100, 1) : 0,
             ];
         }
 
@@ -396,6 +393,7 @@ class PreschoolController extends Controller
             ->groupBy('parent_id')
             ->map(function ($preschools, $sectorId) {
                 $sector = $preschools->first()->parent;
+
                 return [
                     'sector_id' => $sectorId,
                     'sector_name' => $sector?->name ?? 'Bilinməyən sektor',
@@ -408,29 +406,29 @@ class PreschoolController extends Controller
 
         // Performance summary (from filtered results)
         $statistics['performance_summary']['preschools_with_managers'] = $allFilteredPreschools
-            ->filter(function($preschool) {
+            ->filter(function ($preschool) {
                 return $preschool->manager !== null;
             })->count();
-        $statistics['performance_summary']['preschools_without_managers'] = $statistics['total_preschools'] - 
+        $statistics['performance_summary']['preschools_without_managers'] = $statistics['total_preschools'] -
             $statistics['performance_summary']['preschools_with_managers'];
 
         return response()->json([
             'success' => true,
-            'data' => $statistics
+            'data' => $statistics,
         ]);
     }
 
     public function assignManager(Institution $preschool, Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'manager_id' => 'required|exists:users,id'
+            'manager_id' => 'required|exists:users,id',
         ]);
 
         $preschoolTypes = ['kindergarten', 'preschool_center', 'nursery'];
-        if (!in_array($preschool->type, $preschoolTypes) || $preschool->level !== 4) {
+        if (! in_array($preschool->type, $preschoolTypes) || $preschool->level !== 4) {
             return response()->json([
                 'success' => false,
-                'message' => 'Məktəbəqədər müəssisə tapılmadı'
+                'message' => 'Məktəbəqədər müəssisə tapılmadı',
             ], 404);
         }
 
@@ -439,7 +437,7 @@ class PreschoolController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Menecer uğurla təyin edildi',
-            'data' => $preschool->fresh(['parent', 'manager'])
+            'data' => $preschool->fresh(['parent', 'manager']),
         ]);
     }
 
@@ -466,7 +464,7 @@ class PreschoolController extends Controller
         // Basic statistics for preschool
         return [
             'total_children' => 0, // TODO: Implement when Student model is available
-            'total_teachers' => $preschool->users()->whereHas('roles', function($q) {
+            'total_teachers' => $preschool->users()->whereHas('roles', function ($q) {
                 $q->where('name', 'müəllim');
             })->count(),
             'total_staff' => $preschool->users()->count(),
@@ -491,9 +489,9 @@ class PreschoolController extends Controller
         if ($user) {
             // Update user's institution
             $user->update(['institution_id' => $preschool->id]);
-            
+
             // Ensure user has bağçaadmin role (we'll create this role if needed)
-            if (!$user->hasRole('bağçaadmin')) {
+            if (! $user->hasRole('bağçaadmin')) {
                 $user->assignRole('bağçaadmin');
             }
         }

@@ -2,14 +2,13 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class Document extends Model
@@ -110,7 +109,9 @@ class Document extends Model
 
     // PRD-2: File size limits - Role-based limits
     const MAX_SIZE_MB = 50;
+
     const MAX_FILE_SIZE = self::MAX_SIZE_MB * 1024 * 1024;
+
     const ROLE_FILE_SIZE_LIMITS = [
         'superadmin' => 52428800,    // 50MB
         'regionadmin' => 52428800,   // 50MB
@@ -122,7 +123,7 @@ class Document extends Model
         'psixoloq' => 20971520,      // 20MB
         'müəllim' => 20971520,       // 20MB
     ];
-    
+
     // PRD-2: Allowed file types - PDF, Excel, Word (JPG minimal hallarda)
     const ALLOWED_MIME_TYPES = [
         'application/pdf',
@@ -136,7 +137,7 @@ class Document extends Model
     ];
 
     const ALLOWED_EXTENSIONS = [
-        'pdf', 'xls', 'xlsx', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif'
+        'pdf', 'xls', 'xlsx', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'gif',
     ];
 
     /**
@@ -193,8 +194,8 @@ class Document extends Model
     public function collections(): BelongsToMany
     {
         return $this->belongsToMany(DocumentCollection::class, 'document_collection_items', 'document_id', 'collection_id')
-                    ->withPivot(['added_by', 'sort_order', 'notes', 'created_at'])
-                    ->withTimestamps();
+            ->withPivot(['added_by', 'sort_order', 'notes', 'created_at'])
+            ->withTimestamps();
     }
 
     /**
@@ -251,8 +252,8 @@ class Document extends Model
     public function scopeExpiringSoon(Builder $query, int $days = 7): Builder
     {
         return $query->whereNotNull('expires_at')
-                    ->where('expires_at', '<=', now()->addDays($days))
-                    ->where('expires_at', '>', now());
+            ->where('expires_at', '<=', now()->addDays($days))
+            ->where('expires_at', '>', now());
     }
 
     /**
@@ -261,7 +262,7 @@ class Document extends Model
     public function scopeExpired(Builder $query): Builder
     {
         return $query->whereNotNull('expires_at')
-                    ->where('expires_at', '<', now());
+            ->where('expires_at', '<', now());
     }
 
     /**
@@ -270,13 +271,13 @@ class Document extends Model
     public function scopeAccessibleBy(Builder $query, User $user): Builder
     {
         $userRole = $user->roles->first()?->name;
-        
+
         return $query->where(function ($q) use ($user, $userRole) {
             // SuperAdmin can see all documents
             if ($userRole === 'superadmin') {
                 return; // No restrictions
             }
-            
+
             // Apply regional filtering based on user role
             $this->applyRegionalDocumentFiltering($q, $user, $userRole);
         });
@@ -310,7 +311,7 @@ class Document extends Model
             default:
                 // Unknown role - very restricted access
                 $query->where('uploaded_by', $user->id)
-                      ->orWhere('is_public', true);
+                    ->orWhere('is_public', true);
                 break;
         }
     }
@@ -418,16 +419,16 @@ class Document extends Model
     public function getFormattedFileSizeAttribute(): string
     {
         $bytes = $this->file_size;
-        
+
         if ($bytes >= 1073741824) {
             return number_format($bytes / 1073741824, 2) . ' GB';
         } elseif ($bytes >= 1048576) {
             return number_format($bytes / 1048576, 2) . ' MB';
         } elseif ($bytes >= 1024) {
             return number_format($bytes / 1024, 2) . ' KB';
-        } else {
-            return $bytes . ' bytes';
         }
+
+        return $bytes . ' bytes';
     }
 
     /**
@@ -475,8 +476,8 @@ class Document extends Model
      */
     public function isExpiringSoon(int $days = 7): bool
     {
-        return $this->expires_at && 
-               $this->expires_at->isFuture() && 
+        return $this->expires_at &&
+               $this->expires_at->isFuture() &&
                $this->expires_at->diffInDays(now()) <= $days;
     }
 
@@ -515,10 +516,10 @@ class Document extends Model
     public function getAllVersions()
     {
         $parentId = $this->parent_document_id ?? $this->id;
-        
+
         return self::where(function ($query) use ($parentId) {
             $query->where('id', $parentId)
-                  ->orWhere('parent_document_id', $parentId);
+                ->orWhere('parent_document_id', $parentId);
         })->orderBy('version', 'desc')->get();
     }
 
@@ -530,7 +531,7 @@ class Document extends Model
         $extension = pathinfo($originalFilename, PATHINFO_EXTENSION);
         $timestamp = now()->format('Y-m-d_H-i-s');
         $random = Str::random(8);
-        
+
         return "{$timestamp}_{$random}.{$extension}";
     }
 
@@ -581,7 +582,7 @@ class Document extends Model
             'metadata' => array_merge($this->metadata ?? [], [
                 'archive_reason' => $reason,
                 'archived_by' => auth()->id(),
-            ])
+            ]),
         ]);
     }
 
@@ -601,13 +602,13 @@ class Document extends Model
 
         // Check file type (PRD-2: PDF, Excel, Word only)
         $mimeType = $file->getMimeType();
-        if (!in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
-            $errors[] = "Yalnız PDF, Excel və Word faylları yüklənə bilər.";
+        if (! in_array($mimeType, self::ALLOWED_MIME_TYPES)) {
+            $errors[] = 'Yalnız PDF, Excel və Word faylları yüklənə bilər.';
         }
 
         $extension = strtolower($file->getClientOriginalExtension());
-        if (!in_array($extension, self::ALLOWED_EXTENSIONS)) {
-            $errors[] = "Bu fayl növü dəstəklənmir.";
+        if (! in_array($extension, self::ALLOWED_EXTENSIONS)) {
+            $errors[] = 'Bu fayl növü dəstəklənmir.';
         }
 
         return $errors;
@@ -621,7 +622,7 @@ class Document extends Model
         if ($userRole && isset(self::ROLE_FILE_SIZE_LIMITS[$userRole])) {
             return self::ROLE_FILE_SIZE_LIMITS[$userRole];
         }
-        
+
         return self::MAX_FILE_SIZE;
     }
 
@@ -654,9 +655,9 @@ class Document extends Model
     private function applyRegionAdminDocumentFiltering($query, User $user, $userRegionId)
     {
         // Get all institutions in the region
-        $regionInstitutions = Institution::where(function($q) use ($userRegionId) {
+        $regionInstitutions = Institution::where(function ($q) use ($userRegionId) {
             $q->where('id', $userRegionId) // The region itself
-              ->orWhere('parent_id', $userRegionId); // Sectors
+                ->orWhere('parent_id', $userRegionId); // Sectors
         })->pluck('id');
 
         $schoolInstitutions = Institution::whereIn('parent_id', $regionInstitutions)->pluck('id');
@@ -666,19 +667,19 @@ class Document extends Model
             // Documents from regional institutions
             $q->whereIn('institution_id', $allRegionalInstitutions)
               // Or uploaded by user
-              ->orWhere('uploaded_by', $user->id)
+                ->orWhere('uploaded_by', $user->id)
               // Or public documents
-              ->orWhere('is_public', true)
+                ->orWhere('is_public', true)
               // Or regional access level documents
-              ->orWhere(function($subQ) use ($allRegionalInstitutions) {
-                  $subQ->where('access_level', 'regional')
-                       ->whereIn('institution_id', $allRegionalInstitutions);
-              })
+                ->orWhere(function ($subQ) use ($allRegionalInstitutions) {
+                    $subQ->where('access_level', 'regional')
+                        ->whereIn('institution_id', $allRegionalInstitutions);
+                })
               // Or sectoral documents in their region
-              ->orWhere(function($subQ) use ($allRegionalInstitutions) {
-                  $subQ->where('access_level', 'sectoral')
-                       ->whereIn('institution_id', $allRegionalInstitutions);
-              });
+                ->orWhere(function ($subQ) use ($allRegionalInstitutions) {
+                    $subQ->where('access_level', 'sectoral')
+                        ->whereIn('institution_id', $allRegionalInstitutions);
+                });
         });
     }
 
@@ -692,12 +693,12 @@ class Document extends Model
 
         $query->where(function ($q) use ($user, $allSektorInstitutions) {
             $q->whereIn('institution_id', $allSektorInstitutions)
-              ->orWhere('uploaded_by', $user->id)
-              ->orWhere('is_public', true)
-              ->orWhere(function($subQ) use ($allSektorInstitutions) {
-                  $subQ->where('access_level', 'sectoral')
-                       ->whereIn('institution_id', $allSektorInstitutions);
-              });
+                ->orWhere('uploaded_by', $user->id)
+                ->orWhere('is_public', true)
+                ->orWhere(function ($subQ) use ($allSektorInstitutions) {
+                    $subQ->where('access_level', 'sectoral')
+                        ->whereIn('institution_id', $allSektorInstitutions);
+                });
         });
     }
 
@@ -708,12 +709,12 @@ class Document extends Model
     {
         $query->where(function ($q) use ($user, $userInstitutionId) {
             $q->where('institution_id', $userInstitutionId)
-              ->orWhere('uploaded_by', $user->id)
-              ->orWhere('is_public', true)
-              ->orWhere(function($subQ) use ($userInstitutionId) {
-                  $subQ->where('access_level', 'institution')
-                       ->where('institution_id', $userInstitutionId);
-              });
+                ->orWhere('uploaded_by', $user->id)
+                ->orWhere('is_public', true)
+                ->orWhere(function ($subQ) use ($userInstitutionId) {
+                    $subQ->where('access_level', 'institution')
+                        ->where('institution_id', $userInstitutionId);
+                });
         });
     }
 
@@ -723,7 +724,6 @@ class Document extends Model
      *
      * @param Institution $userInstitution
      * @param Institution $documentInstitution
-     * @return bool
      */
     private function isUserInstitutionParent($userInstitution, $documentInstitution): bool
     {
@@ -731,7 +731,7 @@ class Document extends Model
 
         // Traverse up the hierarchy (max 10 levels to prevent infinite loop)
         for ($i = 0; $i < 10; $i++) {
-            if (!$current->parent_id) {
+            if (! $current->parent_id) {
                 break;
             }
 
@@ -742,7 +742,7 @@ class Document extends Model
 
             // Move up one level
             $current = $current->parent;
-            if (!$current) {
+            if (! $current) {
                 break;
             }
         }

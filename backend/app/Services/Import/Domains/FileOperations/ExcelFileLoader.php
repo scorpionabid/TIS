@@ -27,14 +27,12 @@ class ExcelFileLoader
     /**
      * Load and validate Excel file structure
      *
-     * @param UploadedFile $file
-     * @return Spreadsheet
      * @throws \Exception
      */
     public function loadExcelFile(UploadedFile $file): Spreadsheet
     {
         // Validate file
-        if (!$file->isValid()) {
+        if (! $file->isValid()) {
             throw new \Exception('Fayl yüklənmədi və ya zədələnib');
         }
 
@@ -45,7 +43,7 @@ class ExcelFileLoader
 
         // Check file extension
         $extension = $file->getClientOriginalExtension();
-        if (!in_array(strtolower($extension), self::ALLOWED_EXTENSIONS)) {
+        if (! in_array(strtolower($extension), self::ALLOWED_EXTENSIONS)) {
             throw new \Exception('Yalnız Excel faylları (.xlsx, .xls) qəbul edilir');
         }
 

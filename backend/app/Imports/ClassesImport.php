@@ -2,35 +2,45 @@
 
 namespace App\Imports;
 
+use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\Institution;
-use App\Models\AcademicYear;
 use App\Models\User;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToModel;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Validation\Rule;
-use Illuminate\Support\Str;
 
-class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChunkReading
+class ClassesImport implements ToModel, WithChunkReading, WithHeadingRow, WithValidation
 {
     protected $region;
+
     protected $allowedInstitutionIds;
+
     protected $errors = [];
+
     protected $structuredErrors = []; // New: structured error format
+
     protected $successCount = 0;
+
     protected $institutionCache = [];
+
     protected $academicYearCache = [];
+
     protected $teacherCache = [];
 
     // Progress tracking
     protected $importSessionId;
+
     protected $totalRows = 0;
+
     protected $processedRows = 0;
+
     protected $currentInstitution = null;
+
     protected $startTime;
 
     // File type detection
@@ -66,10 +76,10 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
         $this->importSessionId = $sessionId ?? Str::uuid()->toString();
         $this->startTime = microtime(true);
 
-        Log::info("ClassesImport initialized", [
+        Log::info('ClassesImport initialized', [
             'file_type' => $this->fileType,
             'heading_row' => $this->headingRow(),
-            'session_id' => $this->importSessionId
+            'session_id' => $this->importSessionId,
         ]);
 
         // Pre-cache institutions for performance
@@ -171,7 +181,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
         $classIndex = $normalized['class_name'] ?? null;
 
         // If class_full_name column exists and class_level is still empty, try parsing it
-        if (($levelValue === null || $levelValue === '') && !empty($normalized['class_full_name'])) {
+        if (($levelValue === null || $levelValue === '') && ! empty($normalized['class_full_name'])) {
             $parsed = $this->parseCombinedClassName($normalized['class_full_name']);
             if ($parsed) {
                 [$normalized['class_level'], $normalized['class_name']] = $parsed;
@@ -179,7 +189,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
         }
 
         // If class_name column has combined format and class_level is empty, parse it
-        if (($levelValue === null || $levelValue === '') && !empty($classIndex)) {
+        if (($levelValue === null || $levelValue === '') && ! empty($classIndex)) {
             $parsed = $this->parseCombinedClassName($classIndex);
             if ($parsed) {
                 [$normalized['class_level'], $normalized['class_name']] = $parsed;
@@ -190,16 +200,16 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
     }
 
     /**
-     * @param array $row
      * @return \Illuminate\Database\Eloquent\Model|null
      */
     public function model(array $row)
     {
         try {
             // Skip completely empty rows (double-check from prepareForValidation)
-            if (!empty($row['_is_empty_row'])) {
+            if (! empty($row['_is_empty_row'])) {
                 Log::debug('Skipping empty row at index: ' . ($row['_row_index'] ?? 'unknown'));
-                return null;
+
+                return;
             }
 
             // Update progress tracking
@@ -215,7 +225,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
 
             // Validate class identifiers (either combined "Sinif adı" or level + letter)
             $classIdentifiers = $this->parseClassIdentifiers($row);
-            if (!$classIdentifiers) {
+            if (! $classIdentifiers) {
                 // Check which fields are missing for better error message
                 $classLevel = $row['class_level'] ?? null;
                 $className = $row['class_name'] ?? null;
@@ -248,7 +258,8 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                         'error'
                     );
                 }
-                return null;
+
+                return;
             }
             [$classLevel, $className] = $classIdentifiers;
 
@@ -261,7 +272,8 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                     $classLevel,
                     '0-12 arası rəqəm daxil edin'
                 );
-                return null;
+
+                return;
             }
 
             // Find institution by priority: UTIS code > Institution code > Name
@@ -269,11 +281,11 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             $identifierUsed = null;
 
             // 1. PRIORITY: Find by UTIS code
-            if (!empty($row['utis_code'])) {
+            if (! empty($row['utis_code'])) {
                 $utisCode = trim($row['utis_code']);
                 $institution = $this->institutionCache['utis:' . $utisCode] ?? null;
 
-                if (!$institution) {
+                if (! $institution) {
                     // Try to find similar UTIS codes for suggestion
                     $suggestion = $this->findSimilarUTISCode($utisCode);
                     $this->addError(
@@ -283,7 +295,8 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                         $utisCode,
                         $suggestion
                     );
-                    return null;
+
+                    return;
                 }
                 $identifierUsed = "UTIS: {$utisCode}";
 
@@ -292,11 +305,11 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             }
 
             // 2. FALLBACK: Find by institution code
-            if (!$institution && !empty($row['institution_code'])) {
+            if (! $institution && ! empty($row['institution_code'])) {
                 $instCode = trim($row['institution_code']);
                 $institution = $this->institutionCache['code:' . $instCode] ?? null;
 
-                if (!$institution) {
+                if (! $institution) {
                     $this->addError(
                         "Müəssisə kodu '{$instCode}' tapılmadı və ya bu regiona aid deyil",
                         $row,
@@ -304,17 +317,18 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                         $instCode,
                         'Müəssisə kodunu yoxlayın və ya UTIS kod istifadə edin'
                     );
-                    return null;
+
+                    return;
                 }
                 $identifierUsed = "Code: {$instCode}";
             }
 
             // 3. LAST RESORT: Find by name (with warning)
-            if (!$institution && !empty($row['institution_name'])) {
+            if (! $institution && ! empty($row['institution_name'])) {
                 $instName = trim($row['institution_name']);
                 $institution = $this->institutionCache['name:' . $instName] ?? null;
 
-                if (!$institution) {
+                if (! $institution) {
                     // Try fuzzy matching for institution name
                     $suggestion = $this->findSimilarInstitutionName($instName);
                     $this->addError(
@@ -324,32 +338,35 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                         $instName,
                         $suggestion
                     );
-                    return null;
+
+                    return;
                 }
 
                 // Warning: should use UTIS or institution code
-                Log::warning("Class import using institution name instead of code", [
+                Log::warning('Class import using institution name instead of code', [
                     'institution_name' => $instName,
-                    'class' => $row['class_name']
+                    'class' => $row['class_name'],
                 ]);
                 $identifierUsed = "Name: {$instName} (XƏBƏRDARLIQ: UTIS kod istifadə edin)";
             }
 
             // If still no institution found
-            if (!$institution) {
+            if (! $institution) {
                 $this->addError('Müəssisə müəyyən edilmədi. UTIS kod, müəssisə kodu və ya ad lazımdır', $row);
-                return null;
+
+                return;
             }
 
             // Validate institution is in region (double check)
-            if (!in_array($institution->id, $this->allowedInstitutionIds)) {
+            if (! in_array($institution->id, $this->allowedInstitutionIds)) {
                 Log::warning("Institution {$institution->name} is not in region {$this->region->name}");
                 $this->addError("Müəssisə '{$institution->name}' sizin regionunuzda deyil", $row);
-                return null;
+
+                return;
             }
 
             // Find or create academic year
-            $academicYearName = !empty($row['academic_year']) ? trim($row['academic_year']) : null;
+            $academicYearName = ! empty($row['academic_year']) ? trim($row['academic_year']) : null;
             $academicYear = null;
 
             if ($academicYearName) {
@@ -357,9 +374,9 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             }
 
             // If not found, use current academic year
-            if (!$academicYear) {
+            if (! $academicYear) {
                 $academicYear = AcademicYear::where('is_active', true)->first();
-                if (!$academicYear) {
+                if (! $academicYear) {
                     // Create default academic year if none exists
                     $currentYear = date('Y');
                     $nextYear = $currentYear + 1;
@@ -396,7 +413,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                     $row,
                     'student_count',
                     $studentCount,
-                    "Avtomatik düzəldildi: " . ($maleCount + $femaleCount) . " (oğlan + qız)",
+                    'Avtomatik düzəldildi: ' . ($maleCount + $femaleCount) . ' (oğlan + qız)',
                     'warning' // This is a warning, not an error
                 );
                 // Don't return - just warning, auto-correct the value
@@ -431,7 +448,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             if ($homeroomTeacherName) {
                 $homeroomTeacher = $this->findTeacherByFullName($homeroomTeacherName, $institution->id);
 
-                if (!$homeroomTeacher) {
+                if (! $homeroomTeacher) {
                     // Try to suggest similar teacher names
                     $suggestion = $this->findSimilarTeacherName($homeroomTeacherName, $institution->id);
                     $this->addError(
@@ -442,18 +459,18 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                         $suggestion
                     );
                     // ⚠️ Don't return - just log warning and skip teacher assignment
-                    Log::warning("Teacher not found, class will be created/updated without homeroom teacher", [
+                    Log::warning('Teacher not found, class will be created/updated without homeroom teacher', [
                         'teacher_name' => $homeroomTeacherName,
                         'institution' => $institution->name,
-                        'class' => "{$classLevel}{$className}"
+                        'class' => "{$classLevel}{$className}",
                     ]);
                     $homeroomTeacher = null; // Explicitly set to null to skip assignment
                 } elseif ($this->teacherAlreadyAssigned($homeroomTeacher->id, $academicYear->id, $existingClass?->id)) {
                     $this->addError("Müəllim '{$homeroomTeacherName}' artıq digər sinifə təyin edilib", $row, 'homeroom_teacher', $homeroomTeacherName);
                     // ⚠️ Don't return - just log warning and skip teacher assignment
-                    Log::warning("Teacher already assigned, class will be created/updated without homeroom teacher", [
+                    Log::warning('Teacher already assigned, class will be created/updated without homeroom teacher', [
                         'teacher_name' => $homeroomTeacherName,
-                        'class' => "{$classLevel}{$className}"
+                        'class' => "{$classLevel}{$className}",
                     ]);
                     $homeroomTeacher = null; // Skip teacher assignment
                 }
@@ -480,7 +497,8 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                     'is_active' => true,
                 ]);
                 $this->successCount++;
-                return null; // Return null to avoid creating duplicate
+
+                return; // Return null to avoid creating duplicate
             }
 
             // Create new class
@@ -508,8 +526,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             $this->successCount++;
             Log::info("Successfully created class via {$identifierUsed}: {$institution->name} - {$classLevel}{$className}");
 
-            return null;
-
+            return;
         } catch (\Exception $e) {
             // Enhanced error logging with row context
             $classInfo = isset($row['class_name']) && isset($row['class_level'])
@@ -524,13 +541,14 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                 'row_data' => $row,
                 'exception' => $e->getTraceAsString(),
                 'line' => $e->getLine(),
-                'file' => basename($e->getFile())
+                'file' => basename($e->getFile()),
             ]);
 
             // User-friendly error message with context
             $errorMessage = "Xəta ({$institutionInfo} - {$classInfo}): {$e->getMessage()}";
             $this->addError($errorMessage, $row, 'system_error', null, 'Sətir məlumatlarını yoxlayın və ya dəstək komandası ilə əlaqə saxlayın');
-            return null;
+
+            return;
         }
     }
 
@@ -542,22 +560,22 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
         $normalized = $row;
 
         foreach ($row as $key => $value) {
-            if (!is_string($key)) {
+            if (! is_string($key)) {
                 continue;
             }
 
             $asciiKey = Str::lower(Str::ascii($key));
             $normalizedKey = trim(preg_replace('/[^a-z0-9]+/', '_', $asciiKey), '_');
 
-            if ($normalizedKey && !array_key_exists($normalizedKey, $normalized)) {
+            if ($normalizedKey && ! array_key_exists($normalizedKey, $normalized)) {
                 $normalized[$normalizedKey] = $value;
             }
 
-            if (!array_key_exists('class_level', $normalized) && Str::contains($normalizedKey, 'sinif_seviy')) {
+            if (! array_key_exists('class_level', $normalized) && Str::contains($normalizedKey, 'sinif_seviy')) {
                 $normalized['class_level'] = $value;
             }
 
-            if (!array_key_exists('class_name', $normalized) && (Str::contains($normalizedKey, 'sinif_index') || Str::contains($normalizedKey, 'sinif_herf'))) {
+            if (! array_key_exists('class_name', $normalized) && (Str::contains($normalizedKey, 'sinif_index') || Str::contains($normalizedKey, 'sinif_herf'))) {
                 $normalized['class_name'] = $value;
             }
         }
@@ -611,7 +629,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
         ];
 
         foreach ($aliases as $from => $to) {
-            if (array_key_exists($from, $normalized) && !array_key_exists($to, $normalized)) {
+            if (array_key_exists($from, $normalized) && ! array_key_exists($to, $normalized)) {
                 $normalized[$to] = $normalized[$from];
             }
         }
@@ -631,17 +649,17 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             $parts[] = "Sətir {$rowIndex}";
         }
 
-        if (!empty($row['utis_code'])) {
+        if (! empty($row['utis_code'])) {
             $parts[] = "UTIS {$row['utis_code']}";
-        } elseif (!empty($row['institution_code'])) {
+        } elseif (! empty($row['institution_code'])) {
             $parts[] = "Kod {$row['institution_code']}";
         }
 
-        if (!empty($row['institution_name'])) {
+        if (! empty($row['institution_name'])) {
             $parts[] = $row['institution_name'];
         }
 
-        if (!empty($row['class_level']) && !empty($row['class_name'])) {
+        if (! empty($row['class_level']) && ! empty($row['class_name'])) {
             $parts[] = "Sinif {$row['class_level']}{$row['class_name']}";
         }
 
@@ -651,7 +669,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
     /**
      * Append a formatted error message with structured data.
      */
-    protected function addError(string $message, array $row = [], string $field = null, $value = null, string $suggestion = null, string $severity = 'error'): void
+    protected function addError(string $message, array $row = [], ?string $field = null, $value = null, ?string $suggestion = null, string $severity = 'error'): void
     {
         $context = $this->formatRowContext($row);
         $errorMessage = $context ? "{$message} ({$context})" : $message;
@@ -673,7 +691,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
                 'institution_name' => $row['institution_name'] ?? null,
                 'class_level' => $row['class_level'] ?? null,
                 'class_name' => $row['class_name'] ?? null,
-            ]
+            ],
         ];
 
         $this->structuredErrors[] = $structuredError;
@@ -710,6 +728,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             if ($index === '') {
                 return null;
             }
+
             return [$level, $index];
         }
 
@@ -735,6 +754,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
         }
 
         $trimmed = trim($value);
+
         return $trimmed === '' ? null : $trimmed;
     }
 
@@ -743,7 +763,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
      */
     protected function normalizeTeachingWeek(?string $value): ?string
     {
-        if (!$value) {
+        if (! $value) {
             return null;
         }
 
@@ -764,7 +784,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
     protected function normalizeTeachingShift(?string $value): ?string
     {
         $value = $this->sanitizeString($value);
-        if (!$value) {
+        if (! $value) {
             return null;
         }
 
@@ -782,7 +802,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
     protected function findTeacherByFullName(?string $fullName, int $institutionId): ?User
     {
         $normalized = $this->normalizeFullName($fullName);
-        if (!$normalized) {
+        if (! $normalized) {
             return null;
         }
 
@@ -803,11 +823,11 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             })
             ->where(function ($query) use ($normalized, $usersForward, $usersReverse, $profileForward, $profileReverse) {
                 $query->whereRaw("{$usersForward} = ?", [$normalized])
-                      ->orWhereRaw("{$usersReverse} = ?", [$normalized])
-                      ->orWhereHas('profile', function ($profileQuery) use ($normalized, $profileForward, $profileReverse) {
-                          $profileQuery->whereRaw("{$profileForward} = ?", [$normalized])
-                                       ->orWhereRaw("{$profileReverse} = ?", [$normalized]);
-                      });
+                    ->orWhereRaw("{$usersReverse} = ?", [$normalized])
+                    ->orWhereHas('profile', function ($profileQuery) use ($normalized, $profileForward, $profileReverse) {
+                        $profileQuery->whereRaw("{$profileForward} = ?", [$normalized])
+                            ->orWhereRaw("{$profileReverse} = ?", [$normalized]);
+                    });
             })
             ->first();
 
@@ -821,11 +841,12 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
      */
     protected function normalizeFullName(?string $fullName): ?string
     {
-        if (!$fullName) {
+        if (! $fullName) {
             return null;
         }
 
         $normalized = Str::of($fullName)->lower()->replaceMatches('/\s+/u', ' ')->trim()->toString();
+
         return $normalized === '' ? null : $normalized;
     }
 
@@ -930,16 +951,18 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             if ($bestMatch->utis_code) {
                 $suggestion .= " (UTIS: {$bestMatch->utis_code})";
             }
+
             return $suggestion;
         }
 
         // If no close match, suggest available institutions
-        $availableInstitutions = array_filter($this->institutionCache, function($key) {
+        $availableInstitutions = array_filter($this->institutionCache, function ($key) {
             return str_starts_with($key, 'name:');
         }, ARRAY_FILTER_USE_KEY);
 
         if (count($availableInstitutions) <= 5) {
-            $names = array_map(fn($inst) => $inst->name, array_slice($availableInstitutions, 0, 5));
+            $names = array_map(fn ($inst) => $inst->name, array_slice($availableInstitutions, 0, 5));
+
             return 'Mövcud müəssisələr: ' . implode(', ', $names);
         }
 
@@ -962,7 +985,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
             ->get();
 
         if ($teachers->isEmpty()) {
-            return "Bu müəssisədə müəllim tapılmadı. Əvvəlcə müəllimləri sistemə əlavə edin.";
+            return 'Bu müəssisədə müəllim tapılmadı. Əvvəlcə müəllimləri sistemə əlavə edin.';
         }
 
         $bestMatch = null;
@@ -996,7 +1019,7 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
         }
 
         // Show first 3 available teachers
-        $availableTeachers = $teachers->take(3)->map(function($t) {
+        $availableTeachers = $teachers->take(3)->map(function ($t) {
             return $t->first_name . ' ' . $t->last_name;
         })->toArray();
 
@@ -1018,9 +1041,6 @@ class ClassesImport implements ToModel, WithHeadingRow, WithValidation, WithChun
 
     /**
      * Check if a row is completely empty (skip blank rows in Excel)
-     *
-     * @param array $row
-     * @return bool
      */
     private function isRowEmpty(array $row): bool
     {

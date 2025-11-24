@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\SchoolAttendance;
 use App\Models\Institution;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
+use App\Models\SchoolAttendance;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class SchoolAttendanceController extends BaseController
 {
@@ -67,15 +67,14 @@ class SchoolAttendanceController extends BaseController
                     'per_page' => $attendanceRecords->perPage(),
                     'total' => $attendanceRecords->total(),
                     'from' => $attendanceRecords->firstItem(),
-                    'to' => $attendanceRecords->lastItem()
-                ]
+                    'to' => $attendanceRecords->lastItem(),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydləri yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -91,14 +90,14 @@ class SchoolAttendanceController extends BaseController
             'date' => 'required|date|before_or_equal:today',
             'start_count' => 'required|integer|min:0',
             'end_count' => 'required|integer|min:0',
-            'notes' => 'nullable|string|max:500'
+            'notes' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -107,7 +106,7 @@ class SchoolAttendanceController extends BaseController
             if ($request->end_count > $request->start_count) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Gün sonu sayı gün əvvəli sayından çox ola bilməz'
+                    'message' => 'Gün sonu sayı gün əvvəli sayından çox ola bilməz',
                 ], 422);
             }
 
@@ -115,22 +114,22 @@ class SchoolAttendanceController extends BaseController
             $existingRecord = SchoolAttendance::where([
                 'school_id' => $request->school_id,
                 'class_name' => $request->class_name,
-                'date' => $request->date
+                'date' => $request->date,
             ])->first();
 
             if ($existingRecord) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu tarix və sinif üçün artıq davamiyyət qeydi mövcuddur'
+                    'message' => 'Bu tarix və sinif üçün artıq davamiyyət qeydi mövcuddur',
                 ], 409);
             }
 
             $attendanceData = $validator->validated();
             $attendanceData['created_by'] = Auth::id();
-            
+
             // Calculate attendance rate
-            $attendanceData['attendance_rate'] = $request->start_count > 0 
-                ? round(($request->end_count / $request->start_count) * 100, 2) 
+            $attendanceData['attendance_rate'] = $request->start_count > 0
+                ? round(($request->end_count / $request->start_count) * 100, 2)
                 : 0;
 
             $attendance = SchoolAttendance::create($attendanceData);
@@ -140,14 +139,13 @@ class SchoolAttendanceController extends BaseController
             return response()->json([
                 'success' => true,
                 'message' => 'Davamiyyət qeydi uğurla yaradıldı',
-                'data' => $attendance
+                'data' => $attendance,
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi yaradılarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -162,14 +160,13 @@ class SchoolAttendanceController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'data' => $schoolAttendance
+                'data' => $schoolAttendance,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -185,14 +182,14 @@ class SchoolAttendanceController extends BaseController
             'date' => 'sometimes|required|date|before_or_equal:today',
             'start_count' => 'sometimes|required|integer|min:0',
             'end_count' => 'sometimes|required|integer|min:0',
-            'notes' => 'nullable|string|max:500'
+            'notes' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -206,19 +203,18 @@ class SchoolAttendanceController extends BaseController
             if ($endCount > $startCount) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Gün sonu sayı gün əvvəli sayından çox ola bilməz'
+                    'message' => 'Gün sonu sayı gün əvvəli sayından çox ola bilməz',
                 ], 422);
             }
 
             // Check for duplicate if key fields are being changed
-            if (isset($validatedData['school_id']) || 
-                isset($validatedData['class_name']) || 
+            if (isset($validatedData['school_id']) ||
+                isset($validatedData['class_name']) ||
                 isset($validatedData['date'])) {
-                
                 $checkFields = [
                     'school_id' => $validatedData['school_id'] ?? $schoolAttendance->school_id,
                     'class_name' => $validatedData['class_name'] ?? $schoolAttendance->class_name,
-                    'date' => $validatedData['date'] ?? $schoolAttendance->date
+                    'date' => $validatedData['date'] ?? $schoolAttendance->date,
                 ];
 
                 $existingRecord = SchoolAttendance::where($checkFields)
@@ -228,15 +224,15 @@ class SchoolAttendanceController extends BaseController
                 if ($existingRecord) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Bu tarix və sinif üçün artıq davamiyyət qeydi mövcuddur'
+                        'message' => 'Bu tarix və sinif üçün artıq davamiyyət qeydi mövcuddur',
                     ], 409);
                 }
             }
 
             // Recalculate attendance rate if counts are updated
             if (isset($validatedData['start_count']) || isset($validatedData['end_count'])) {
-                $validatedData['attendance_rate'] = $startCount > 0 
-                    ? round(($endCount / $startCount) * 100, 2) 
+                $validatedData['attendance_rate'] = $startCount > 0
+                    ? round(($endCount / $startCount) * 100, 2)
                     : 0;
             }
 
@@ -247,14 +243,13 @@ class SchoolAttendanceController extends BaseController
             return response()->json([
                 'success' => true,
                 'message' => 'Davamiyyət qeydi uğurla yeniləndi',
-                'data' => $schoolAttendance
+                'data' => $schoolAttendance,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi yenilənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -269,14 +264,13 @@ class SchoolAttendanceController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'message' => 'Davamiyyət qeydi uğurla silindi'
+                'message' => 'Davamiyyət qeydi uğurla silindi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi silinərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -297,7 +291,7 @@ class SchoolAttendanceController extends BaseController
             // Date range
             $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
             $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
-            
+
             $query->whereBetween('date', [$startDate, $endDate]);
 
             // Apply user-based filtering
@@ -311,19 +305,19 @@ class SchoolAttendanceController extends BaseController
                 'total_absent' => $records->sum('start_count') - $records->sum('end_count'),
                 'average_attendance' => 0,
                 'total_days' => $records->count(),
-                'total_records' => $records->count()
+                'total_records' => $records->count(),
             ];
 
             // Calculate average attendance rate
             if ($stats['total_students'] > 0) {
                 $stats['average_attendance'] = round(
-                    ($stats['total_present'] / $stats['total_students']) * 100, 
+                    ($stats['total_present'] / $stats['total_students']) * 100,
                     2
                 );
             }
 
             // Determine trend (simplified)
-            $stats['trend_direction'] = $stats['average_attendance'] >= 90 ? 'up' : 
+            $stats['trend_direction'] = $stats['average_attendance'] >= 90 ? 'up' :
                                       ($stats['average_attendance'] >= 80 ? 'stable' : 'down');
 
             return response()->json([
@@ -331,15 +325,14 @@ class SchoolAttendanceController extends BaseController
                 'data' => $stats,
                 'period' => [
                     'start_date' => $startDate,
-                    'end_date' => $endDate
-                ]
+                    'end_date' => $endDate,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Statistikalar hesablanarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -359,14 +352,13 @@ class SchoolAttendanceController extends BaseController
             return response()->json([
                 'success' => true,
                 'data' => $classes,
-                'message' => 'Sinif məlumatları alındı'
+                'message' => 'Sinif məlumatları alındı',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Sinif məlumatları alınarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -383,14 +375,14 @@ class SchoolAttendanceController extends BaseController
             'records.*.date' => 'required|date|before_or_equal:today',
             'records.*.start_count' => 'required|integer|min:0',
             'records.*.end_count' => 'required|integer|min:0',
-            'records.*.notes' => 'nullable|string|max:500'
+            'records.*.notes' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -405,8 +397,9 @@ class SchoolAttendanceController extends BaseController
                     if ($recordData['end_count'] > $recordData['start_count']) {
                         $errors[] = [
                             'index' => $index,
-                            'error' => 'Gün sonu sayı gün əvvəli sayından çox ola bilməz'
+                            'error' => 'Gün sonu sayı gün əvvəli sayından çox ola bilməz',
                         ];
+
                         continue;
                     }
 
@@ -414,20 +407,21 @@ class SchoolAttendanceController extends BaseController
                     $existing = SchoolAttendance::where([
                         'school_id' => $recordData['school_id'],
                         'class_name' => $recordData['class_name'],
-                        'date' => $recordData['date']
+                        'date' => $recordData['date'],
                     ])->exists();
 
                     if ($existing) {
                         $errors[] = [
                             'index' => $index,
-                            'error' => 'Bu tarix və sinif üçün artıq qeyd mövcuddur'
+                            'error' => 'Bu tarix və sinif üçün artıq qeyd mövcuddur',
                         ];
+
                         continue;
                     }
 
                     // Calculate attendance rate
-                    $attendanceRate = $recordData['start_count'] > 0 
-                        ? round(($recordData['end_count'] / $recordData['start_count']) * 100, 2) 
+                    $attendanceRate = $recordData['start_count'] > 0
+                        ? round(($recordData['end_count'] / $recordData['start_count']) * 100, 2)
                         : 0;
 
                     SchoolAttendance::create([
@@ -438,15 +432,14 @@ class SchoolAttendanceController extends BaseController
                         'end_count' => $recordData['end_count'],
                         'attendance_rate' => $attendanceRate,
                         'notes' => $recordData['notes'] ?? null,
-                        'created_by' => $userId
+                        'created_by' => $userId,
                     ]);
 
                     $created++;
-
                 } catch (\Exception $e) {
                     $errors[] = [
                         'index' => $index,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
                 }
             }
@@ -457,15 +450,14 @@ class SchoolAttendanceController extends BaseController
                 'data' => [
                     'created_count' => $created,
                     'error_count' => count($errors),
-                    'errors' => $errors
-                ]
+                    'errors' => $errors,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Toplu yaratma əməliyyatında xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -512,14 +504,14 @@ class SchoolAttendanceController extends BaseController
                     $record->end_count,
                     $record->absent_count,
                     $record->attendance_rate . '%',
-                    $record->notes ?? ''
+                    $record->notes ?? '',
                 ];
             }
 
             // Convert to CSV
             $csv = '';
             foreach ($csvData as $row) {
-                $csv .= implode(',', array_map(function($field) {
+                $csv .= implode(',', array_map(function ($field) {
                     return '"' . str_replace('"', '""', $field) . '"';
                 }, $row)) . "\n";
             }
@@ -528,12 +520,11 @@ class SchoolAttendanceController extends BaseController
                 ->header('Content-Type', 'text/csv; charset=UTF-8')
                 ->header('Content-Disposition', 'attachment; filename="davamiyyat-' . date('Y-m-d') . '.csv"')
                 ->header('Content-Length', strlen($csv));
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Export zamanı xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -545,7 +536,7 @@ class SchoolAttendanceController extends BaseController
     {
         try {
             $date = $request->get('date', now()->format('Y-m-d'));
-            
+
             $query = SchoolAttendance::with(['school:id,name'])
                 ->whereDate('date', $date);
 
@@ -560,22 +551,21 @@ class SchoolAttendanceController extends BaseController
                 'total_present' => $records->sum('end_count'),
                 'total_absent' => $records->sum('start_count') - $records->sum('end_count'),
                 'average_attendance' => $records->avg('attendance_rate') ?? 0,
-                'schools_reported' => $records->pluck('school_id')->unique()->count()
+                'schools_reported' => $records->pluck('school_id')->unique()->count(),
             ];
 
             return response()->json([
                 'success' => true,
                 'data' => [
                     'summary' => $summary,
-                    'records' => $records
-                ]
+                    'records' => $records,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Günlük hesabat alınarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -597,14 +587,14 @@ class SchoolAttendanceController extends BaseController
             $records = $query->get();
 
             // Group by date for daily breakdown
-            $dailyData = $records->groupBy(function($record) {
+            $dailyData = $records->groupBy(function ($record) {
                 return $record->date->format('Y-m-d');
-            })->map(function($dayRecords) {
+            })->map(function ($dayRecords) {
                 return [
                     'total_students' => $dayRecords->sum('start_count'),
                     'total_present' => $dayRecords->sum('end_count'),
                     'attendance_rate' => $dayRecords->avg('attendance_rate') ?? 0,
-                    'schools_count' => $dayRecords->count()
+                    'schools_count' => $dayRecords->count(),
                 ];
             });
 
@@ -614,19 +604,18 @@ class SchoolAttendanceController extends BaseController
                 'total_students' => $records->sum('start_count'),
                 'total_present' => $records->sum('end_count'),
                 'average_attendance' => $records->avg('attendance_rate') ?? 0,
-                'daily_breakdown' => $dailyData
+                'daily_breakdown' => $dailyData,
             ];
 
             return response()->json([
                 'success' => true,
-                'data' => $summary
+                'data' => $summary,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Həftəlik xülasə alınarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -660,16 +649,16 @@ class SchoolAttendanceController extends BaseController
                 'average_attendance' => round($records->avg('attendance_rate') ?? 0, 2),
                 'best_day' => null,
                 'worst_day' => null,
-                'schools_participating' => $records->pluck('school_id')->unique()->count()
+                'schools_participating' => $records->pluck('school_id')->unique()->count(),
             ];
 
             // Find best and worst days
-            $dailyAverages = $records->groupBy(function($record) {
+            $dailyAverages = $records->groupBy(function ($record) {
                 return $record->date->format('Y-m-d');
-            })->map(function($dayRecords, $date) {
+            })->map(function ($dayRecords, $date) {
                 return [
                     'date' => $date,
-                    'attendance_rate' => round($dayRecords->avg('attendance_rate') ?? 0, 2)
+                    'attendance_rate' => round($dayRecords->avg('attendance_rate') ?? 0, 2),
                 ];
             })->sortBy('attendance_rate');
 
@@ -680,14 +669,13 @@ class SchoolAttendanceController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'data' => $statistics
+                'data' => $statistics,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Aylıq statistika alınarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -703,12 +691,12 @@ class SchoolAttendanceController extends BaseController
             case 'superadmin':
                 // SuperAdmin can see all records
                 break;
-                
+
             case 'regionadmin':
                 // RegionAdmin can see records from their region's schools
-                $regionInstitutions = Institution::where(function($q) use ($user) {
+                $regionInstitutions = Institution::where(function ($q) use ($user) {
                     $q->where('id', $user->institution_id)
-                      ->orWhere('parent_id', $user->institution_id);
+                        ->orWhere('parent_id', $user->institution_id);
                 })->pluck('id');
 
                 $schoolInstitutions = Institution::whereIn('parent_id', $regionInstitutions)
@@ -716,7 +704,7 @@ class SchoolAttendanceController extends BaseController
                     ->pluck('id');
 
                 $allSchoolIds = $regionInstitutions->merge($schoolInstitutions)
-                    ->filter(function($id) {
+                    ->filter(function ($id) {
                         return Institution::where('id', $id)
                             ->whereIn('type', ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'])
                             ->exists();
@@ -724,7 +712,7 @@ class SchoolAttendanceController extends BaseController
 
                 $query->whereIn('school_id', $allSchoolIds);
                 break;
-                
+
             case 'sektoradmin':
                 // SektorAdmin can see records from their sector's schools
                 $sektorSchools = Institution::where('parent_id', $user->institution_id)
@@ -733,13 +721,13 @@ class SchoolAttendanceController extends BaseController
 
                 $query->whereIn('school_id', $sektorSchools);
                 break;
-                
+
             case 'məktəbadmin':
             case 'müəllim':
                 // School admin and teachers can only see their school's records
                 $query->where('school_id', $user->institution_id);
                 break;
-                
+
             default:
                 // Unknown role - no access
                 $query->where('id', -1); // Force empty result

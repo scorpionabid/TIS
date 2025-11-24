@@ -44,12 +44,12 @@ class SendDeadlineNotifications extends Command
         foreach ($tasks as $task) {
             // Check if we already sent a deadline warning recently
             $existingNotification = \App\Models\Notification::where('related_type', Task::class)
-                                                            ->where('related_id', $task->id)
-                                                            ->where('type', 'task_deadline')
-                                                            ->where('created_at', '>=', now()->subDay())
-                                                            ->exists();
+                ->where('related_id', $task->id)
+                ->where('type', 'task_deadline')
+                ->where('created_at', '>=', now()->subDay())
+                ->exists();
 
-            if (!$existingNotification) {
+            if (! $existingNotification) {
                 $this->notificationService->sendTaskDeadlineWarning($task);
                 $sentNotifications++;
                 $this->line("Sent deadline warning for task: {$task->title}");

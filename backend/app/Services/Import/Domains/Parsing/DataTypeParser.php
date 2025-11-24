@@ -16,8 +16,8 @@ class DataTypeParser
     /**
      * Parse date from Excel cell
      *
-     * @param \PhpOffice\PhpSpreadsheet\Cell\Cell $cell
-     * @return string|null Y-m-d format
+     * @param  \PhpOffice\PhpSpreadsheet\Cell\Cell $cell
+     * @return string|null                         Y-m-d format
      */
     public function parseDate($cell): ?string
     {
@@ -44,11 +44,11 @@ class DataTypeParser
      * Parse active status from text
      *
      * @param mixed $value
-     * @return bool
      */
     public function parseActiveStatus($value): bool
     {
         $value = strtolower(trim($value));
+
         return in_array($value, ['aktiv', 'active', '1', 'true', 'yes']);
     }
 
@@ -59,9 +59,6 @@ class DataTypeParser
      * - "73" → 73
      * - "73 // Sektor ID" → 73
      * - "Institution Name" → search by name
-     *
-     * @param string $value
-     * @return int|null
      */
     public function parseParentId(string $value): ?int
     {
@@ -96,9 +93,6 @@ class DataTypeParser
      * - "nümunə", "sample", "example", "test" in name
      * - "INST001" in institution code
      * - "12345678" as UTIS code
-     *
-     * @param array $rowData
-     * @return bool
      */
     public function isSampleRow(array $rowData): bool
     {

@@ -64,15 +64,15 @@ class AssessmentAnalytics extends Model
     public static function getForInstitution(int $institutionId, ?string $startDate = null, ?string $endDate = null): \Illuminate\Database\Eloquent\Collection
     {
         $query = self::where('institution_id', $institutionId);
-        
+
         if ($startDate) {
             $query->where('analysis_date', '>=', $startDate);
         }
-        
+
         if ($endDate) {
             $query->where('analysis_date', '<=', $endDate);
         }
-        
+
         return $query->orderBy('analysis_date', 'desc')->get();
     }
 
@@ -82,15 +82,15 @@ class AssessmentAnalytics extends Model
     public static function getForAssessmentType(int $assessmentTypeId, ?string $startDate = null, ?string $endDate = null): \Illuminate\Database\Eloquent\Collection
     {
         $query = self::where('assessment_type_id', $assessmentTypeId);
-        
+
         if ($startDate) {
             $query->where('analysis_date', '>=', $startDate);
         }
-        
+
         if ($endDate) {
             $query->where('analysis_date', '<=', $endDate);
         }
-        
+
         return $query->orderBy('analysis_date', 'desc')->get();
     }
 
@@ -100,19 +100,19 @@ class AssessmentAnalytics extends Model
     public static function getByScope(string $scope, ?string $scopeValue = null, ?string $startDate = null, ?string $endDate = null): \Illuminate\Database\Eloquent\Collection
     {
         $query = self::where('scope', $scope);
-        
+
         if ($scopeValue) {
             $query->where('scope_value', $scopeValue);
         }
-        
+
         if ($startDate) {
             $query->where('analysis_date', '>=', $startDate);
         }
-        
+
         if ($endDate) {
             $query->where('analysis_date', '<=', $endDate);
         }
-        
+
         return $query->orderBy('analysis_date', 'desc')->get();
     }
 
@@ -121,9 +121,16 @@ class AssessmentAnalytics extends Model
      */
     public function getPerformanceGrade(): string
     {
-        if ($this->average_score >= 90) return 'excellent';
-        if ($this->average_score >= 80) return 'good';
-        if ($this->average_score >= 70) return 'average';
+        if ($this->average_score >= 90) {
+            return 'excellent';
+        }
+        if ($this->average_score >= 80) {
+            return 'good';
+        }
+        if ($this->average_score >= 70) {
+            return 'average';
+        }
+
         return 'poor';
     }
 
@@ -133,14 +140,14 @@ class AssessmentAnalytics extends Model
     public function getPerformanceGradeWithLabel(): array
     {
         $grade = $this->getPerformanceGrade();
-        
+
         $labels = [
             'excellent' => 'Əla',
             'good' => 'Yaxşı',
             'average' => 'Orta',
             'poor' => 'Zəif',
         ];
-        
+
         return [
             'grade' => $grade,
             'label' => $labels[$grade] ?? 'Bilinməyən',
@@ -154,9 +161,11 @@ class AssessmentAnalytics extends Model
     {
         $distribution = $this->score_distribution ?? [];
         $total = $this->total_students;
-        
-        if ($total === 0) return [];
-        
+
+        if ($total === 0) {
+            return [];
+        }
+
         $formatted = [];
         foreach ($distribution as $range => $count) {
             $formatted[] = [
@@ -165,7 +174,7 @@ class AssessmentAnalytics extends Model
                 'percentage' => round(($count / $total) * 100, 1),
             ];
         }
-        
+
         return $formatted;
     }
 
@@ -176,16 +185,18 @@ class AssessmentAnalytics extends Model
     {
         $grades = $this->performance_grades ?? [];
         $total = $this->total_students;
-        
-        if ($total === 0) return [];
-        
+
+        if ($total === 0) {
+            return [];
+        }
+
         $labels = [
             'excellent' => 'Əla (90-100%)',
             'good' => 'Yaxşı (80-89%)',
             'average' => 'Orta (70-79%)',
             'poor' => 'Zəif (0-69%)',
         ];
-        
+
         $formatted = [];
         foreach (['excellent', 'good', 'average', 'poor'] as $grade) {
             $count = $grades[$grade] ?? 0;
@@ -195,7 +206,7 @@ class AssessmentAnalytics extends Model
                 'percentage' => round(($count / $total) * 100, 1),
             ];
         }
-        
+
         return $formatted;
     }
 
@@ -205,16 +216,21 @@ class AssessmentAnalytics extends Model
     public function getTrendDirection(): string
     {
         $trendData = $this->trend_data ?? [];
-        
+
         if (empty($trendData['previous_score'])) {
             return 'stable';
         }
-        
+
         $current = $this->average_score;
         $previous = $trendData['previous_score'];
-        
-        if ($current > $previous + 2) return 'up';
-        if ($current < $previous - 2) return 'down';
+
+        if ($current > $previous + 2) {
+            return 'up';
+        }
+        if ($current < $previous - 2) {
+            return 'down';
+        }
+
         return 'stable';
     }
 
@@ -224,16 +240,18 @@ class AssessmentAnalytics extends Model
     public function getTrendPercentage(): ?float
     {
         $trendData = $this->trend_data ?? [];
-        
+
         if (empty($trendData['previous_score'])) {
             return null;
         }
-        
+
         $current = $this->average_score;
         $previous = $trendData['previous_score'];
-        
-        if ($previous == 0) return null;
-        
+
+        if ($previous == 0) {
+            return null;
+        }
+
         return round((($current - $previous) / $previous) * 100, 1);
     }
 }

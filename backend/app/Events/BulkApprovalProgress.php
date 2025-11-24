@@ -2,9 +2,7 @@
 
 namespace App\Events;
 
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -15,12 +13,19 @@ class BulkApprovalProgress implements ShouldBroadcast
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
     public string $jobId;
+
     public int $userId;
+
     public int $processed;
+
     public int $total;
+
     public int $successful;
+
     public int $failed;
+
     public float $percentage;
+
     public array $metadata;
 
     /**
@@ -44,7 +49,7 @@ class BulkApprovalProgress implements ShouldBroadcast
         $this->percentage = $total > 0 ? round(($processed / $total) * 100, 2) : 0;
         $this->metadata = array_merge([
             'timestamp' => now()->toISOString(),
-            'remaining' => max(0, $total - $processed)
+            'remaining' => max(0, $total - $processed),
         ], $metadata);
     }
 
@@ -55,7 +60,7 @@ class BulkApprovalProgress implements ShouldBroadcast
     {
         return [
             new PrivateChannel("user.{$this->userId}.bulk-approval"),
-            new PrivateChannel("bulk-approval.{$this->jobId}")
+            new PrivateChannel("bulk-approval.{$this->jobId}"),
         ];
     }
 
@@ -73,10 +78,10 @@ class BulkApprovalProgress implements ShouldBroadcast
                 'successful' => $this->successful,
                 'failed' => $this->failed,
                 'percentage' => $this->percentage,
-                'remaining' => $this->metadata['remaining']
+                'remaining' => $this->metadata['remaining'],
             ],
             'metadata' => $this->metadata,
-            'status' => 'in_progress'
+            'status' => 'in_progress',
         ];
     }
 

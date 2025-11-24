@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 
 class SessionActivity extends Model
 {
@@ -45,14 +45,14 @@ class SessionActivity extends Model
 
     // We only want to track created_at, not updated_at
     const UPDATED_AT = null;
-    
+
     protected $dates = ['created_at'];
-    
+
     // Set the created_at timestamp when creating a new record
     protected static function boot()
     {
         parent::boot();
-        
+
         static::creating(function ($model) {
             if (empty($model->created_at)) {
                 $model->created_at = $model->freshTimestamp();
@@ -62,7 +62,7 @@ class SessionActivity extends Model
 
     const ACTIVITY_TYPES = [
         'login' => 'User Login',
-        'logout' => 'User Logout', 
+        'logout' => 'User Logout',
         'heartbeat' => 'Session Heartbeat',
         'api_call' => 'API Request',
         'page_view' => 'Page View',
@@ -75,7 +75,7 @@ class SessionActivity extends Model
 
     const RISK_LEVELS = [
         'very_low' => [0, 20],
-        'low' => [21, 40], 
+        'low' => [21, 40],
         'medium' => [41, 60],
         'high' => [61, 80],
         'critical' => [81, 100],
@@ -163,6 +163,7 @@ class SessionActivity extends Model
                 return $level;
             }
         }
+
         return 'unknown';
     }
 
@@ -171,7 +172,7 @@ class SessionActivity extends Model
      */
     public function getFormattedResponseTimeAttribute(): string
     {
-        if (!$this->response_time_ms) {
+        if (! $this->response_time_ms) {
             return 'N/A';
         }
 
@@ -187,8 +188,8 @@ class SessionActivity extends Model
      */
     public function isSecurityThreat(): bool
     {
-        return $this->is_suspicious || 
-               $this->risk_score >= 70 || 
+        return $this->is_suspicious ||
+               $this->risk_score >= 70 ||
                $this->activity_type === 'security_event';
     }
 
@@ -265,7 +266,7 @@ class SessionActivity extends Model
         }
 
         // Geographic anomaly
-        if (isset($data['country']) && $session->device && 
+        if (isset($data['country']) && $session->device &&
             $data['country'] !== $session->device->last_location_country) {
             $baseScore += 30;
         }
@@ -290,7 +291,7 @@ class SessionActivity extends Model
         $recentActivities = $session->activities()
             ->where('created_at', '>=', now()->subMinutes(5))
             ->count();
-        
+
         if ($recentActivities > 50) {
             $baseScore += 30;
         }
@@ -311,7 +312,7 @@ class SessionActivity extends Model
         ];
 
         $dataString = json_encode($requestData);
-        
+
         foreach ($suspiciousPatterns as $pattern) {
             if (stripos($dataString, $pattern) !== false) {
                 return true;
@@ -334,20 +335,25 @@ class SessionActivity extends Model
             case 'api_call':
                 $endpoint = $data['endpoint'] ?? 'unknown endpoint';
                 $method = $data['method'] ?? 'GET';
+
                 return "API call: {$method} {$endpoint}";
             case 'page_view':
                 $page = $data['page'] ?? $data['endpoint'] ?? 'unknown page';
+
                 return "Viewed page: {$page}";
             case 'download':
                 $file = $data['file'] ?? 'unknown file';
+
                 return "Downloaded file: {$file}";
             case 'upload':
                 $file = $data['file'] ?? 'unknown file';
+
                 return "Uploaded file: {$file}";
             case 'password_change':
                 return 'Changed password';
             case 'settings_change':
                 $setting = $data['setting'] ?? 'unknown setting';
+
                 return "Changed setting: {$setting}";
             case 'security_event':
                 return $data['description'] ?? 'Security event occurred';
@@ -366,17 +372,17 @@ class SessionActivity extends Model
         return [
             'total_activities' => $activities->count(),
             'by_type' => $activities->selectRaw('activity_type, COUNT(*) as count')
-                                    ->groupBy('activity_type')
-                                    ->pluck('count', 'activity_type')
-                                    ->toArray(),
+                ->groupBy('activity_type')
+                ->pluck('count', 'activity_type')
+                ->toArray(),
             'suspicious_count' => $activities->suspicious()->count(),
             'high_risk_count' => $activities->highRisk()->count(),
             'failed_requests' => $activities->failed()->count(),
             'average_risk_score' => $activities->avg('risk_score') ?? 0,
             'peak_activity_hour' => $activities->selectRaw('HOUR(created_at) as hour, COUNT(*) as count')
-                                              ->groupBy('hour')
-                                              ->orderByDesc('count')
-                                              ->first()?->hour,
+                ->groupBy('hour')
+                ->orderByDesc('count')
+                ->first()?->hour,
             'total_response_time' => $activities->sum('response_time_ms'),
             'average_response_time' => $activities->avg('response_time_ms'),
         ];
@@ -388,18 +394,18 @@ class SessionActivity extends Model
     public static function getUserActivityPatterns(User $user, int $days = 30): array
     {
         $activities = self::where('user_id', $user->id)
-                         ->where('created_at', '>=', now()->subDays($days));
+            ->where('created_at', '>=', now()->subDays($days));
 
         return [
             'daily_average' => $activities->count() / $days,
             'most_active_hour' => $activities->selectRaw('HOUR(created_at) as hour, COUNT(*) as count')
-                                            ->groupBy('hour')
-                                            ->orderByDesc('count')
-                                            ->first()?->hour ?? 0,
+                ->groupBy('hour')
+                ->orderByDesc('count')
+                ->first()?->hour ?? 0,
             'activity_by_type' => $activities->selectRaw('activity_type, COUNT(*) as count')
-                                            ->groupBy('activity_type')
-                                            ->pluck('count', 'activity_type')
-                                            ->toArray(),
+                ->groupBy('activity_type')
+                ->pluck('count', 'activity_type')
+                ->toArray(),
             'risk_distribution' => $activities->selectRaw('
                                        CASE 
                                            WHEN risk_score <= 20 THEN "very_low"
@@ -409,10 +415,10 @@ class SessionActivity extends Model
                                            ELSE "critical"
                                        END as risk_level, COUNT(*) as count
                                    ')
-                                   ->groupBy('risk_level')
-                                   ->pluck('count', 'risk_level')
-                                   ->toArray(),
-            'suspicious_activity_rate' => $activities->count() > 0 ? 
+                ->groupBy('risk_level')
+                ->pluck('count', 'risk_level')
+                ->toArray(),
+            'suspicious_activity_rate' => $activities->count() > 0 ?
                 ($activities->suspicious()->count() / $activities->count()) * 100 : 0,
         ];
     }

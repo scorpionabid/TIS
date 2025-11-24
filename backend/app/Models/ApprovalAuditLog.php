@@ -20,7 +20,7 @@ class ApprovalAuditLog extends Model
         'new_state',
         'ip_address',
         'user_agent',
-        'delegation_id'
+        'delegation_id',
     ];
 
     protected $casts = [
@@ -106,7 +106,7 @@ class ApprovalAuditLog extends Model
             'delegated' => 'Həvalə edildi',
             'escalated' => 'Escalate edildi',
             'auto_approved' => 'Avtomatik təsdiqləndi',
-            'expired' => 'Vaxtı bitdi'
+            'expired' => 'Vaxtı bitdi',
         ];
 
         return $descriptions[$this->action] ?? $this->action;
@@ -133,7 +133,7 @@ class ApprovalAuditLog extends Model
      */
     public function getChanges(): array
     {
-        if (!$this->previous_state || !$this->new_state) {
+        if (! $this->previous_state || ! $this->new_state) {
             return [];
         }
 
@@ -143,11 +143,11 @@ class ApprovalAuditLog extends Model
 
         foreach ($new as $key => $newValue) {
             $oldValue = $previous[$key] ?? null;
-            
+
             if ($oldValue !== $newValue) {
                 $changes[$key] = [
                     'old' => $oldValue,
-                    'new' => $newValue
+                    'new' => $newValue,
                 ];
             }
         }

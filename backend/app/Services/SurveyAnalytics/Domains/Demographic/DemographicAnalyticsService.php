@@ -15,8 +15,6 @@ use App\Models\Survey;
  * - Institution-based response breakdown
  * - Institution type distribution
  * - Hierarchical demographic insights
- *
- * @package App\Services\SurveyAnalytics\Domains\Demographic
  */
 class DemographicAnalyticsService
 {
@@ -24,9 +22,6 @@ class DemographicAnalyticsService
      * Get demographic statistics for a survey
      *
      * LOGIC PRESERVED FROM: SurveyAnalyticsService::getDemographicStats() (lines 179-188)
-     *
-     * @param Survey $survey
-     * @return array
      */
     public function getDemographicStats(Survey $survey): array
     {
@@ -35,7 +30,7 @@ class DemographicAnalyticsService
         return [
             'by_role' => $responses->groupBy('respondent.role.name')->map->count()->toArray(),
             'by_institution' => $responses->groupBy('respondent.institution.name')->map->count()->toArray(),
-            'by_institution_type' => $responses->groupBy('respondent.institution.type')->map->count()->toArray()
+            'by_institution_type' => $responses->groupBy('respondent.institution.type')->map->count()->toArray(),
         ];
     }
 
@@ -43,9 +38,6 @@ class DemographicAnalyticsService
      * Get comprehensive demographic breakdown
      *
      * Provides detailed demographic insights with percentages
-     *
-     * @param Survey $survey
-     * @return array
      */
     public function getDemographicBreakdown(Survey $survey): array
     {
@@ -57,7 +49,7 @@ class DemographicAnalyticsService
             'role_distribution' => $this->getRoleDistribution($responses, $totalResponses),
             'institution_distribution' => $this->getInstitutionDistribution($responses, $totalResponses),
             'institution_type_distribution' => $this->getInstitutionTypeDistribution($responses, $totalResponses),
-            'diversity_metrics' => $this->calculateDiversityMetrics($responses)
+            'diversity_metrics' => $this->calculateDiversityMetrics($responses),
         ];
     }
 
@@ -65,8 +57,6 @@ class DemographicAnalyticsService
      * Get role distribution with counts and percentages
      *
      * @param \Illuminate\Support\Collection $responses
-     * @param int $total
-     * @return array
      */
     protected function getRoleDistribution($responses, int $total): array
     {
@@ -77,7 +67,7 @@ class DemographicAnalyticsService
             $count = $roleResponses->count();
             $distribution[$role] = [
                 'count' => $count,
-                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0
+                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0,
             ];
         }
 
@@ -88,8 +78,6 @@ class DemographicAnalyticsService
      * Get institution distribution with counts and percentages
      *
      * @param \Illuminate\Support\Collection $responses
-     * @param int $total
-     * @return array
      */
     protected function getInstitutionDistribution($responses, int $total): array
     {
@@ -100,7 +88,7 @@ class DemographicAnalyticsService
             $count = $institutionResponses->count();
             $distribution[$institution] = [
                 'count' => $count,
-                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0
+                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0,
             ];
         }
 
@@ -116,8 +104,6 @@ class DemographicAnalyticsService
      * Get institution type distribution with counts and percentages
      *
      * @param \Illuminate\Support\Collection $responses
-     * @param int $total
-     * @return array
      */
     protected function getInstitutionTypeDistribution($responses, int $total): array
     {
@@ -128,7 +114,7 @@ class DemographicAnalyticsService
             $count = $typeResponses->count();
             $distribution[$type] = [
                 'count' => $count,
-                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0
+                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0,
             ];
         }
 
@@ -141,7 +127,6 @@ class DemographicAnalyticsService
      * Measures how diverse the respondent pool is across dimensions
      *
      * @param \Illuminate\Support\Collection $responses
-     * @return array
      */
     protected function calculateDiversityMetrics($responses): array
     {
@@ -154,7 +139,7 @@ class DemographicAnalyticsService
             ),
             'institution_diversity_index' => $this->calculateDiversityIndex(
                 $responses->groupBy('respondent.institution.name')->map->count()
-            )
+            ),
         ];
     }
 
@@ -164,12 +149,13 @@ class DemographicAnalyticsService
      * Measures heterogeneity in the distribution
      *
      * @param \Illuminate\Support\Collection $distribution
-     * @return float
      */
     protected function calculateDiversityIndex($distribution): float
     {
         $total = $distribution->sum();
-        if ($total == 0) return 0;
+        if ($total == 0) {
+            return 0;
+        }
 
         $index = 0;
         foreach ($distribution as $count) {

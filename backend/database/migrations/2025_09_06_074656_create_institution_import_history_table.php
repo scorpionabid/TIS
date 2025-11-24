@@ -18,34 +18,34 @@ return new class extends Migration
             $table->string('file_name');
             $table->string('file_size')->nullable();
             $table->string('file_hash')->nullable(); // To detect duplicate uploads
-            
+
             // Import statistics
             $table->integer('total_rows')->default(0);
             $table->integer('successful_imports')->default(0);
             $table->integer('failed_imports')->default(0);
             $table->integer('skipped_duplicates')->default(0);
             $table->integer('warnings_count')->default(0);
-            
+
             // Import results and details
             $table->json('import_results')->nullable(); // Full results for analysis
             $table->json('duplicate_analysis')->nullable(); // Duplicate detection results
             $table->json('error_summary')->nullable(); // Categorized errors
-            
+
             // Import configuration
             $table->json('import_options')->nullable(); // Duplicate handling, validation settings
             $table->enum('status', ['pending', 'processing', 'completed', 'failed', 'cancelled'])->default('pending');
-            
+
             // Timing
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->integer('processing_time_ms')->nullable(); // Processing time in milliseconds
-            
+
             // Metadata
             $table->string('ip_address')->nullable();
             $table->string('user_agent')->nullable();
-            
+
             $table->timestamps();
-            
+
             // Indexes
             $table->index(['user_id', 'created_at']);
             $table->index(['institution_type', 'created_at']);

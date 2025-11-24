@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class AcademicAssessment extends Model
 {
@@ -100,7 +100,7 @@ class AcademicAssessment extends Model
         'retention_period',
         'archive_date',
         'results_published',
-        'results_published_at'
+        'results_published_at',
     ];
 
     protected $casts = [
@@ -162,7 +162,7 @@ class AcademicAssessment extends Model
         'highest_score' => 'decimal:2',
         'lowest_score' => 'decimal:2',
         'reliability_coefficient' => 'decimal:4',
-        'improvement_percentage' => 'decimal:2'
+        'improvement_percentage' => 'decimal:2',
     ];
 
     // Relationships
@@ -234,8 +234,8 @@ class AcademicAssessment extends Model
 
     public function isRegistrationOpen(): bool
     {
-        return $this->status === 'registration_open' && 
-               (!$this->registration_deadline || $this->registration_deadline->isFuture());
+        return $this->status === 'registration_open' &&
+               (! $this->registration_deadline || $this->registration_deadline->isFuture());
     }
 
     public function isCompleted(): bool
@@ -288,18 +288,20 @@ class AcademicAssessment extends Model
     public function hasStarted(): bool
     {
         $assessmentDateTime = Carbon::parse($this->assessment_date->format('Y-m-d') . ' ' . $this->start_time->format('H:i:s'));
+
         return $assessmentDateTime->isPast();
     }
 
     public function hasEnded(): bool
     {
         $assessmentDateTime = Carbon::parse($this->assessment_date->format('Y-m-d') . ' ' . $this->end_time->format('H:i:s'));
+
         return $assessmentDateTime->isPast();
     }
 
     public function isInProgress(): bool
     {
-        return $this->hasStarted() && !$this->hasEnded() && $this->status === 'in_progress';
+        return $this->hasStarted() && ! $this->hasEnded() && $this->status === 'in_progress';
     }
 
     public function getDurationInHours(): float
@@ -309,24 +311,26 @@ class AcademicAssessment extends Model
 
     public function getTimeRemaining(): ?Carbon
     {
-        if (!$this->hasStarted()) {
+        if (! $this->hasStarted()) {
             $assessmentDateTime = Carbon::parse($this->assessment_date->format('Y-m-d') . ' ' . $this->start_time->format('H:i:s'));
+
             return $assessmentDateTime->diffForHumans();
         }
-        
+
         if ($this->isInProgress()) {
             $endDateTime = Carbon::parse($this->assessment_date->format('Y-m-d') . ' ' . $this->end_time->format('H:i:s'));
+
             return $endDateTime->diffForHumans();
         }
-        
+
         return null;
     }
 
     // Registration and participation
     public function canRegister(): bool
     {
-        return $this->isRegistrationOpen() && 
-               (!$this->max_participants || $this->getRegisteredCount() < $this->max_participants);
+        return $this->isRegistrationOpen() &&
+               (! $this->max_participants || $this->getRegisteredCount() < $this->max_participants);
     }
 
     public function getRegisteredCount(): int
@@ -358,24 +362,30 @@ class AcademicAssessment extends Model
     {
         $confirmed = $this->getConfirmedCount();
         $actual = $this->getActualParticipantCount();
-        
-        if ($confirmed === 0) return 0.0;
-        
+
+        if ($confirmed === 0) {
+            return 0.0;
+        }
+
         return round(($actual / $confirmed) * 100, 2);
     }
 
     // Scoring and analytics
     public function calculatePassRate(): float
     {
-        if (!$this->passing_score) return 0.0;
-        
+        if (! $this->passing_score) {
+            return 0.0;
+        }
+
         $totalParticipants = $this->participants()->whereNotNull('raw_score')->count();
-        if ($totalParticipants === 0) return 0.0;
-        
+        if ($totalParticipants === 0) {
+            return 0.0;
+        }
+
         $passedParticipants = $this->participants()
             ->where('raw_score', '>=', $this->passing_score)
             ->count();
-        
+
         return round(($passedParticipants / $totalParticipants) * 100, 2);
     }
 
@@ -385,7 +395,7 @@ class AcademicAssessment extends Model
             ->whereNotNull('raw_score')
             ->pluck('raw_score')
             ->toArray();
-        
+
         if (empty($scores)) {
             return [
                 'count' => 0,
@@ -393,47 +403,47 @@ class AcademicAssessment extends Model
                 'median' => 0,
                 'std_dev' => 0,
                 'min' => 0,
-                'max' => 0
+                'max' => 0,
             ];
         }
-        
+
         sort($scores);
         $count = count($scores);
         $sum = array_sum($scores);
         $mean = $sum / $count;
-        
+
         // Calculate median
         $middle = floor($count / 2);
-        $median = $count % 2 === 0 
+        $median = $count % 2 === 0
             ? ($scores[$middle - 1] + $scores[$middle]) / 2
             : $scores[$middle];
-        
+
         // Calculate standard deviation
-        $variance = array_sum(array_map(function($score) use ($mean) {
+        $variance = array_sum(array_map(function ($score) use ($mean) {
             return pow($score - $mean, 2);
         }, $scores)) / $count;
         $stdDev = sqrt($variance);
-        
+
         return [
             'count' => $count,
             'mean' => round($mean, 2),
             'median' => round($median, 2),
             'std_dev' => round($stdDev, 2),
             'min' => min($scores),
-            'max' => max($scores)
+            'max' => max($scores),
         ];
     }
 
     public function updateScoreStatistics(): void
     {
         $stats = $this->calculateScoreStatistics();
-        
+
         $this->update([
             'mean_score' => $stats['mean'],
             'median_score' => $stats['median'],
             'standard_deviation' => $stats['std_dev'],
             'lowest_score' => $stats['min'],
-            'highest_score' => $stats['max']
+            'highest_score' => $stats['max'],
         ]);
     }
 
@@ -446,17 +456,17 @@ class AcademicAssessment extends Model
             ->groupBy('performance_level')
             ->pluck('count', 'performance_level')
             ->toArray();
-        
+
         $total = array_sum($distribution);
         $percentages = [];
-        
+
         foreach ($distribution as $level => $count) {
             $percentages[$level] = [
                 'count' => $count,
-                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0
+                'percentage' => $total > 0 ? round(($count / $total) * 100, 2) : 0,
             ];
         }
-        
+
         return $percentages;
     }
 
@@ -472,13 +482,15 @@ class AcademicAssessment extends Model
 
     public function getInterventionCandidates(): \Illuminate\Database\Eloquent\Collection
     {
-        if (!$this->triggers_intervention || !$this->intervention_thresholds) {
+        if (! $this->triggers_intervention || ! $this->intervention_thresholds) {
             return collect([]);
         }
-        
+
         $threshold = $this->intervention_thresholds['low_performance_threshold'] ?? null;
-        if (!$threshold) return collect([]);
-        
+        if (! $threshold) {
+            return collect([]);
+        }
+
         return $this->participants()
             ->with('participant.profile')
             ->where('raw_score', '<', $threshold)
@@ -488,14 +500,14 @@ class AcademicAssessment extends Model
     }
 
     // Quality assurance
-    public function markQualityReviewed(int $reviewerId, string $rating = 'good', string $notes = null): void
+    public function markQualityReviewed(int $reviewerId, string $rating = 'good', ?string $notes = null): void
     {
         $this->update([
             'quality_reviewed' => true,
             'quality_reviewer' => $reviewerId,
             'quality_review_date' => now(),
             'quality_rating' => $rating,
-            'quality_notes' => $notes
+            'quality_notes' => $notes,
         ]);
     }
 
@@ -508,12 +520,12 @@ class AcademicAssessment extends Model
     public function calculateResourceRequirements(): array
     {
         $participantCount = $this->getConfirmedCount();
-        
+
         return [
             'rooms_needed' => ceil($participantCount / 30), // Assuming 30 students per room
             'proctors_needed' => ceil($participantCount / 25), // Assuming 1 proctor per 25 students
             'materials_needed' => $participantCount,
-            'technology_stations' => $this->uses_technology ? $participantCount : 0
+            'technology_stations' => $this->uses_technology ? $participantCount : 0,
         ];
     }
 
@@ -521,22 +533,22 @@ class AcademicAssessment extends Model
     {
         $required = $this->calculateResourceRequirements();
         $available = $this->required_resources ?? [];
-        
+
         foreach ($required as $resource => $needed) {
             $available_count = $available[$resource] ?? 0;
             if ($available_count < $needed) {
                 return false;
             }
         }
-        
+
         return true;
     }
 
     // Accessibility and accommodations
     public function hasAccessibilityFeatures(): bool
     {
-        return !empty($this->accessibility_features) || 
-               $this->supports_screen_reader || 
+        return ! empty($this->accessibility_features) ||
+               $this->supports_screen_reader ||
                $this->supports_extended_time;
     }
 
@@ -550,31 +562,33 @@ class AcademicAssessment extends Model
     // Certification and credentials
     public function generateCertificates(): int
     {
-        if (!$this->provides_certification) return 0;
-        
+        if (! $this->provides_certification) {
+            return 0;
+        }
+
         $eligibleParticipants = $this->participants()
             ->whereNotNull('raw_score');
-        
-        if (!empty($this->certification_criteria)) {
+
+        if (! empty($this->certification_criteria)) {
             $minScore = $this->certification_criteria['minimum_score'] ?? $this->passing_score;
             if ($minScore) {
                 $eligibleParticipants->where('raw_score', '>=', $minScore);
             }
         }
-        
+
         $certificatesGenerated = 0;
         foreach ($eligibleParticipants->get() as $participant) {
-            if (!$participant->certificate_earned) {
+            if (! $participant->certificate_earned) {
                 $participant->update([
                     'certificate_earned' => true,
                     'certificate_number' => $this->generateCertificateNumber($participant),
                     'certificate_issued_date' => now(),
-                    'certificate_expiry_date' => $this->certificate_expiry_date
+                    'certificate_expiry_date' => $this->certificate_expiry_date,
                 ]);
                 $certificatesGenerated++;
             }
         }
-        
+
         return $certificatesGenerated;
     }
 
@@ -583,34 +597,36 @@ class AcademicAssessment extends Model
         $prefix = strtoupper(substr($this->assessment_type, 0, 3));
         $year = $this->assessment_date->year;
         $sequence = str_pad($participant->id, 6, '0', STR_PAD_LEFT);
-        
+
         return "{$prefix}-{$year}-{$sequence}";
     }
 
     // Reporting and communication
     public function canReleaseResults(): bool
     {
-        return $this->isCompleted() && 
-               $this->quality_reviewed && 
-               (!$this->results_release_date || $this->results_release_date->isPast());
+        return $this->isCompleted() &&
+               $this->quality_reviewed &&
+               (! $this->results_release_date || $this->results_release_date->isPast());
     }
 
     public function publishResults(): bool
     {
-        if (!$this->canReleaseResults()) return false;
-        
+        if (! $this->canReleaseResults()) {
+            return false;
+        }
+
         $this->update([
             'results_published' => true,
             'results_published_at' => now(),
-            'status' => 'results_ready'
+            'status' => 'results_ready',
         ]);
-        
+
         // Trigger notifications to participants if enabled
         if ($this->parent_access_enabled || $this->student_access_enabled) {
             // This would trigger notification system
             // NotificationService::sendAssessmentResults($this);
         }
-        
+
         return true;
     }
 
@@ -653,7 +669,7 @@ class AcademicAssessment extends Model
     public function scopeUpcoming(Builder $query): Builder
     {
         return $query->where('assessment_date', '>', now())
-                    ->whereIn('status', ['scheduled', 'registration_open', 'registration_closed']);
+            ->whereIn('status', ['scheduled', 'registration_open', 'registration_closed']);
     }
 
     public function scopeCompleted(Builder $query): Builder
@@ -664,14 +680,14 @@ class AcademicAssessment extends Model
     public function scopeRequiringQualityReview(Builder $query): Builder
     {
         return $query->where('status', 'completed')
-                    ->where('quality_reviewed', false);
+            ->where('quality_reviewed', false);
     }
 
     public function scopeReadyForResults(Builder $query): Builder
     {
         return $query->where('status', 'completed')
-                    ->where('quality_reviewed', true)
-                    ->where('results_published', false);
+            ->where('quality_reviewed', true)
+            ->where('results_published', false);
     }
 
     public function scopeForGrade(Builder $query, int $gradeId): Builder

@@ -13,15 +13,15 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('tasks', function (Blueprint $table) {
-            if (!Schema::hasColumn('tasks', 'target_departments')) {
+            if (! Schema::hasColumn('tasks', 'target_departments')) {
                 $table->json('target_departments')->nullable()->after('target_institutions');
             }
 
-            if (!Schema::hasColumn('tasks', 'target_roles')) {
+            if (! Schema::hasColumn('tasks', 'target_roles')) {
                 $table->json('target_roles')->nullable()->after('target_departments');
             }
 
-            if (!Schema::hasColumn('tasks', 'completion_notes')) {
+            if (! Schema::hasColumn('tasks', 'completion_notes')) {
                 $table->text('completion_notes')->nullable()->after('notes');
             }
         });
@@ -31,9 +31,9 @@ return new class extends Migration
 
         if ($driver === 'mysql') {
             // Temporarily widen columns to allow value transformation
-            DB::statement("ALTER TABLE tasks MODIFY COLUMN category VARCHAR(50) NOT NULL");
-            DB::statement("ALTER TABLE tasks MODIFY COLUMN priority VARCHAR(50) NOT NULL");
-            DB::statement("ALTER TABLE tasks MODIFY COLUMN target_scope VARCHAR(50) NOT NULL");
+            DB::statement('ALTER TABLE tasks MODIFY COLUMN category VARCHAR(50) NOT NULL');
+            DB::statement('ALTER TABLE tasks MODIFY COLUMN priority VARCHAR(50) NOT NULL');
+            DB::statement('ALTER TABLE tasks MODIFY COLUMN target_scope VARCHAR(50) NOT NULL');
 
             // Normalize existing values to match new enums
             DB::table('tasks')->where('category', 'hesabat')->update(['category' => 'report']);
@@ -81,9 +81,9 @@ return new class extends Migration
                 ) NOT NULL DEFAULT 'specific'
             ");
         } elseif ($driver === 'pgsql') {
-            DB::statement("ALTER TABLE tasks ALTER COLUMN category TYPE VARCHAR(50)");
-            DB::statement("ALTER TABLE tasks ALTER COLUMN priority TYPE VARCHAR(50)");
-            DB::statement("ALTER TABLE tasks ALTER COLUMN target_scope TYPE VARCHAR(50)");
+            DB::statement('ALTER TABLE tasks ALTER COLUMN category TYPE VARCHAR(50)');
+            DB::statement('ALTER TABLE tasks ALTER COLUMN priority TYPE VARCHAR(50)');
+            DB::statement('ALTER TABLE tasks ALTER COLUMN target_scope TYPE VARCHAR(50)');
 
             DB::table('tasks')->where('category', 'hesabat')->update(['category' => 'report']);
             DB::table('tasks')->where('category', 'temir')->update(['category' => 'maintenance']);
@@ -109,9 +109,9 @@ return new class extends Migration
         $driver = DB::getDriverName();
 
         if ($driver === 'mysql') {
-            DB::statement("ALTER TABLE tasks MODIFY COLUMN category VARCHAR(50) NOT NULL");
-            DB::statement("ALTER TABLE tasks MODIFY COLUMN priority VARCHAR(50) NOT NULL");
-            DB::statement("ALTER TABLE tasks MODIFY COLUMN target_scope VARCHAR(50) NOT NULL");
+            DB::statement('ALTER TABLE tasks MODIFY COLUMN category VARCHAR(50) NOT NULL');
+            DB::statement('ALTER TABLE tasks MODIFY COLUMN priority VARCHAR(50) NOT NULL');
+            DB::statement('ALTER TABLE tasks MODIFY COLUMN target_scope VARCHAR(50) NOT NULL');
 
             DB::table('tasks')->where('category', 'report')->update(['category' => 'hesabat']);
             DB::table('tasks')->where('category', 'maintenance')->update(['category' => 'temir']);
@@ -160,9 +160,9 @@ return new class extends Migration
                 ) NOT NULL DEFAULT 'specific'
             ");
         } elseif ($driver === 'pgsql') {
-            DB::statement("ALTER TABLE tasks ALTER COLUMN category TYPE VARCHAR(16)");
-            DB::statement("ALTER TABLE tasks ALTER COLUMN priority TYPE VARCHAR(16)");
-            DB::statement("ALTER TABLE tasks ALTER COLUMN target_scope TYPE VARCHAR(16)");
+            DB::statement('ALTER TABLE tasks ALTER COLUMN category TYPE VARCHAR(16)');
+            DB::statement('ALTER TABLE tasks ALTER COLUMN priority TYPE VARCHAR(16)');
+            DB::statement('ALTER TABLE tasks ALTER COLUMN target_scope TYPE VARCHAR(16)');
 
             DB::table('tasks')->where('category', 'report')->update(['category' => 'hesabat']);
             DB::table('tasks')->where('category', 'maintenance')->update(['category' => 'temir']);

@@ -2,11 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Survey;
-use App\Models\SurveyResponse;
-use App\Models\SurveyAuditLog;
 use App\Models\ActivityLog;
 use App\Models\Notification;
+use App\Models\Survey;
+use App\Models\SurveyAuditLog;
+use App\Models\SurveyResponse;
 use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -20,18 +20,19 @@ class SurveyResponseService extends BaseService
     {
         $this->notificationService = $notificationService;
     }
+
     public function getResponses(array $filters, int $perPage = 15): array
     {
         $query = SurveyResponse::with(['survey', 'institution', 'respondent.profile', 'approvedBy']);
 
         $this->applyFilters($query, $filters);
         $this->applySorting($query, $filters);
-        
+
         $responses = $query->paginate($perPage);
 
         $this->logActivity('survey_responses_list', [
             'filters' => $filters,
-            'pagination' => ['per_page' => $perPage, 'page' => $responses->currentPage()]
+            'pagination' => ['per_page' => $perPage, 'page' => $responses->currentPage()],
         ]);
 
         return [
@@ -44,21 +45,21 @@ class SurveyResponseService extends BaseService
                 'per_page' => $responses->perPage(),
                 'total' => $responses->total(),
                 'from' => $responses->firstItem(),
-                'to' => $responses->lastItem()
-            ]
+                'to' => $responses->lastItem(),
+            ],
         ];
     }
 
     public function getResponseDetails(int $responseId): array
     {
         $response = SurveyResponse::with([
-            'survey', 'institution', 'department', 'respondent.profile', 'approvedBy'
+            'survey', 'institution', 'department', 'respondent.profile', 'approvedBy',
         ])->findOrFail($responseId);
 
         $this->logActivity('survey_response_view', [
             'entity_type' => 'SurveyResponse',
             'entity_id' => $responseId,
-            'description' => "Viewed survey response for: {$response->survey->title}"
+            'description' => "Viewed survey response for: {$response->survey->title}",
         ]);
 
         return [
@@ -67,21 +68,21 @@ class SurveyResponseService extends BaseService
                 'id' => $response->survey->id,
                 'title' => $response->survey->title,
                 'survey_type' => $response->survey->survey_type,
-                'is_anonymous' => $response->survey->is_anonymous
+                'is_anonymous' => $response->survey->is_anonymous,
             ],
             'institution' => [
                 'id' => $response->institution->id,
                 'name' => $response->institution->name,
-                'type' => $response->institution->type
+                'type' => $response->institution->type,
             ],
             'department' => $response->department ? [
                 'id' => $response->department->id,
-                'name' => $response->department->name
+                'name' => $response->department->name,
             ] : null,
             'respondent' => $response->survey->is_anonymous ? null : [
                 'id' => $response->respondent->id,
                 'username' => $response->respondent->username,
-                'name' => $response->respondent->profile?->full_name ?? $response->respondent->username
+                'name' => $response->respondent->profile?->full_name ?? $response->respondent->username,
             ],
             'respondent_role' => $response->respondent_role,
             'responses' => $response->responses,
@@ -94,12 +95,12 @@ class SurveyResponseService extends BaseService
             'approved_by' => $response->approvedBy ? [
                 'id' => $response->approvedBy->id,
                 'username' => $response->approvedBy->username,
-                'name' => $response->approvedBy->profile?->full_name ?? $response->approvedBy->username
+                'name' => $response->approvedBy->profile?->full_name ?? $response->approvedBy->username,
             ] : null,
             'rejection_reason' => $response->rejection_reason,
             'metadata' => $response->metadata,
             'created_at' => $response->created_at,
-            'updated_at' => $response->updated_at
+            'updated_at' => $response->updated_at,
         ];
     }
 
@@ -110,13 +111,13 @@ class SurveyResponseService extends BaseService
         $userInstitutionId = $user->institution_id;
 
         // SuperAdmin və survey creator-ları üçün institution_id tələbi yoxdur
-        if (!$userInstitutionId && !$user->hasRole(['superadmin']) && $survey->creator_id !== $user->id) {
+        if (! $userInstitutionId && ! $user->hasRole(['superadmin']) && $survey->creator_id !== $user->id) {
             throw new \InvalidArgumentException('You must belong to an institution to respond to surveys');
         }
 
         // Default institution_id for SuperAdmin or survey creator
         $institutionId = $userInstitutionId ?: 1; // Default to ministry for superadmin
-        
+
         // First check for existing user response before targeting restrictions
         $existingResponse = SurveyResponse::where('survey_id', $surveyId)
             ->where('institution_id', $institutionId)
@@ -128,12 +129,12 @@ class SurveyResponseService extends BaseService
             // Frontend will handle showing appropriate UI (edit vs view mode)
             return $existingResponse;
         }
-        
+
         // Only check targeting restrictions if no existing response
         // SuperAdmin və survey creator-ları targeting yoxlanışından keçməz
-        if (!$user->hasRole(['superadmin']) && $survey->creator_id !== $user->id) {
+        if (! $user->hasRole(['superadmin']) && $survey->creator_id !== $user->id) {
             // Use a modified targeting check that only looks at basic availability, not existing responses
-            if (!$this->canUserStartSurvey($survey, $institutionId)) {
+            if (! $this->canUserStartSurvey($survey, $institutionId)) {
                 throw new \InvalidArgumentException('This survey is not available for your institution or has expired');
             }
         }
@@ -152,18 +153,18 @@ class SurveyResponseService extends BaseService
                 'user_agent' => request()->userAgent(),
                 'started_at' => now(),
                 'status' => 'draft',
-                'metadata' => []
+                'metadata' => [],
             ]);
 
             $this->logActivity('survey_response_start', [
                 'entity_type' => 'SurveyResponse',
                 'entity_id' => $response->id,
-                'description' => "Started survey response for: {$survey->title}"
+                'description' => "Started survey response for: {$survey->title}",
             ]);
 
             $this->logAudit($survey->id, $response->id, 'started', [
                 'institution_id' => $institutionId,
-                'department_id' => $data['department_id'] ?? null
+                'department_id' => $data['department_id'] ?? null,
             ]);
 
             return $response->load(['survey', 'institution', 'respondent.profile']);
@@ -208,15 +209,15 @@ class SurveyResponseService extends BaseService
                 'entity_id' => $response->id,
                 'description' => "Saved survey response for: {$response->survey->title}",
                 'before_state' => $oldData,
-                'after_state' => $response->toArray()
+                'after_state' => $response->toArray(),
             ]);
 
             $this->logAudit($response->survey_id, $response->id,
                 $response->status === 'submitted' ? 'submitted' : 'saved', [
-                'progress_percentage' => $response->progress_percentage,
-                'is_complete' => $response->is_complete,
-                'auto_submitted' => isset($data['auto_submit']) && $data['auto_submit'] && $response->is_complete
-            ]);
+                    'progress_percentage' => $response->progress_percentage,
+                    'is_complete' => $response->is_complete,
+                    'auto_submitted' => isset($data['auto_submit']) && $data['auto_submit'] && $response->is_complete,
+                ]);
 
             return $response;
         });
@@ -235,7 +236,7 @@ class SurveyResponseService extends BaseService
             throw new \InvalidArgumentException('Response has already been submitted');
         }
 
-        if (!$response->is_complete) {
+        if (! $response->is_complete) {
             throw new \InvalidArgumentException('Response must be complete before submission');
         }
 
@@ -249,12 +250,12 @@ class SurveyResponseService extends BaseService
             $this->logActivity('survey_response_submit', [
                 'entity_type' => 'SurveyResponse',
                 'entity_id' => $response->id,
-                'description' => "Submitted survey response for: {$response->survey->title}"
+                'description' => "Submitted survey response for: {$response->survey->title}",
             ]);
 
             $this->logAudit($response->survey_id, $response->id, 'submitted', [
                 'submitted_at' => $response->submitted_at,
-                'progress_percentage' => $response->progress_percentage
+                'progress_percentage' => $response->progress_percentage,
             ]);
 
             // Auto-mark related survey notifications as read when user submits response
@@ -275,7 +276,7 @@ class SurveyResponseService extends BaseService
             throw new \InvalidArgumentException('You can only reopen your own responses');
         }
 
-        if (!in_array($response->status, ['submitted', 'rejected', 'returned'])) {
+        if (! in_array($response->status, ['submitted', 'rejected', 'returned'])) {
             throw new \InvalidArgumentException('Only submitted, rejected or returned responses can be reopened');
         }
 
@@ -300,7 +301,7 @@ class SurveyResponseService extends BaseService
                 $metadata['last_resubmitted_at'] = $resubmittedAt->toISOString();
 
                 $deadline = $approvalRequest->deadline;
-                if (!$deadline || $deadline->isPast()) {
+                if (! $deadline || $deadline->isPast()) {
                     $deadline = $resubmittedAt->copy()->addDays(7);
                 }
 
@@ -315,17 +316,17 @@ class SurveyResponseService extends BaseService
                 ]);
             }
 
-                $this->logActivity('survey_response_reopen', [
-                    'entity_type' => 'SurveyResponse',
-                    'entity_id' => $response->id,
-                    'description' => "Reopened survey response for: {$response->survey->title}",
-                    'previous_status' => $previousStatus
+            $this->logActivity('survey_response_reopen', [
+                'entity_type' => 'SurveyResponse',
+                'entity_id' => $response->id,
+                'description' => "Reopened survey response for: {$response->survey->title}",
+                'previous_status' => $previousStatus,
             ]);
 
             $this->logAudit($response->survey_id, $response->id, 'reopened', [
                 'previous_status' => $previousStatus,
                 'resubmitted_at' => $resubmittedAt,
-                'resubmitted_by' => $user->id
+                'resubmitted_by' => $user->id,
             ]);
 
             return $response->fresh();
@@ -348,12 +349,12 @@ class SurveyResponseService extends BaseService
 
             $questionErrors = $question->validateResponse($value, $enforceRequired);
 
-            if (!empty($questionErrors)) {
+            if (! empty($questionErrors)) {
                 $errors[$key] = $questionErrors;
             }
         }
 
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             throw ValidationException::withMessages($errors);
         }
     }
@@ -370,7 +371,7 @@ class SurveyResponseService extends BaseService
                 ->where('related_id', $surveyId)
                 ->where(function ($query) {
                     $query->where('related_type', 'App\Models\Survey')
-                          ->orWhere('related_type', 'Survey');
+                        ->orWhere('related_type', 'Survey');
                 })
                 ->first();
 
@@ -383,26 +384,26 @@ class SurveyResponseService extends BaseService
                         'status' => 'completed',
                         'final_status' => $finalStatus,
                         'completed_at' => now()->toISOString(),
-                        'action_type' => 'survey_completed'
-                    ])
+                        'action_type' => 'survey_completed',
+                    ]),
                 ]);
 
-                \Log::info("Survey notification marked as completed", [
+                \Log::info('Survey notification marked as completed', [
                     'notification_id' => $notification->id,
                     'survey_id' => $surveyId,
-                    'user_id' => $userId
+                    'user_id' => $userId,
                 ]);
             } else {
-                \Log::warning("No survey assignment notification found to mark as completed", [
+                \Log::warning('No survey assignment notification found to mark as completed', [
                     'survey_id' => $surveyId,
-                    'user_id' => $userId
+                    'user_id' => $userId,
                 ]);
             }
         } catch (\Exception $e) {
-            \Log::error("Failed to mark survey notification as completed", [
+            \Log::error('Failed to mark survey notification as completed', [
                 'survey_id' => $surveyId,
                 'user_id' => $userId,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
             // Don't throw exception as this is not critical for response submission
         }
@@ -423,12 +424,12 @@ class SurveyResponseService extends BaseService
             $this->logActivity('survey_response_approve', [
                 'entity_type' => 'SurveyResponse',
                 'entity_id' => $response->id,
-                'description' => "Approved survey response for: {$response->survey->title}"
+                'description' => "Approved survey response for: {$response->survey->title}",
             ]);
 
             $this->logAudit($response->survey_id, $response->id, 'approved', [
                 'approved_at' => $response->approved_at,
-                'approved_by' => $user->id
+                'approved_by' => $user->id,
             ]);
 
             return $response;
@@ -449,11 +450,11 @@ class SurveyResponseService extends BaseService
             $this->logActivity('survey_response_reject', [
                 'entity_type' => 'SurveyResponse',
                 'entity_id' => $response->id,
-                'description' => "Rejected survey response for: {$response->survey->title}"
+                'description' => "Rejected survey response for: {$response->survey->title}",
             ]);
 
             $this->logAudit($response->survey_id, $response->id, 'rejected', [
-                'rejection_reason' => $reason
+                'rejection_reason' => $reason,
             ]);
 
             return $response;
@@ -484,7 +485,7 @@ class SurveyResponseService extends BaseService
             'entity_type' => 'SurveyResponse',
             'entity_id' => $response->id,
             'description' => "Deleted survey response for: {$response->survey->title}",
-            'before_state' => $oldData
+            'before_state' => $oldData,
         ]);
     }
 
@@ -495,21 +496,21 @@ class SurveyResponseService extends BaseService
         $stats = [
             'progress' => [
                 'percentage' => $response->progress_percentage,
-                'is_complete' => $response->is_complete
+                'is_complete' => $response->is_complete,
             ],
             'timing' => [
                 'started_at' => $response->started_at,
                 'submitted_at' => $response->submitted_at,
-                'time_spent' => $response->submitted_at ? 
-                    $response->started_at->diffInMinutes($response->submitted_at) : null
+                'time_spent' => $response->submitted_at ?
+                    $response->started_at->diffInMinutes($response->submitted_at) : null,
             ],
             'status' => [
                 'current' => $response->status,
                 'is_draft' => $response->isDraft(),
                 'is_submitted' => $response->isSubmitted(),
                 'is_approved' => $response->isApproved(),
-                'is_rejected' => $response->isRejected()
-            ]
+                'is_rejected' => $response->isRejected(),
+            ],
         ];
 
         if ($response->is_complete && $response->survey->structure) {
@@ -517,17 +518,17 @@ class SurveyResponseService extends BaseService
             foreach ($response->survey->structure['sections'] ?? [] as $section) {
                 foreach ($section['questions'] ?? [] as $question) {
                     $questionId = $question['id'];
-                    $hasResponse = isset($response->responses[$questionId]) && 
-                                   $response->responses[$questionId] !== null && 
+                    $hasResponse = isset($response->responses[$questionId]) &&
+                                   $response->responses[$questionId] !== null &&
                                    $response->responses[$questionId] !== '';
-                    
+
                     $questionStats[$questionId] = [
                         'question' => $question['question'],
                         'type' => $question['type'],
                         'has_response' => $hasResponse,
-                        'response_length' => $hasResponse ? 
-                            (is_string($response->responses[$questionId]) ? 
-                                strlen($response->responses[$questionId]) : null) : null
+                        'response_length' => $hasResponse ?
+                            (is_string($response->responses[$questionId]) ?
+                                strlen($response->responses[$questionId]) : null) : null,
                     ];
                 }
             }
@@ -539,19 +540,19 @@ class SurveyResponseService extends BaseService
 
     protected function applyFilters($query, array $filters): void
     {
-        if (!empty($filters['survey_id'])) {
+        if (! empty($filters['survey_id'])) {
             $query->bySurvey($filters['survey_id']);
         }
 
-        if (!empty($filters['institution_id'])) {
+        if (! empty($filters['institution_id'])) {
             $query->byInstitution($filters['institution_id']);
         }
 
-        if (!empty($filters['respondent_id'])) {
+        if (! empty($filters['respondent_id'])) {
             $query->byRespondent($filters['respondent_id']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->byStatus($filters['status']);
         }
 
@@ -563,11 +564,11 @@ class SurveyResponseService extends BaseService
             }
         }
 
-        if (!empty($filters['my_responses'])) {
+        if (! empty($filters['my_responses'])) {
             $query->byRespondent(Auth::id());
         }
 
-        if (!empty($filters['institution_responses'])) {
+        if (! empty($filters['institution_responses'])) {
             $userInstitutionId = Auth::user()->institution_id;
             if ($userInstitutionId) {
                 $query->byInstitution($userInstitutionId);
@@ -590,17 +591,17 @@ class SurveyResponseService extends BaseService
                 'id' => $response->survey->id,
                 'title' => $response->survey->title,
                 'survey_type' => $response->survey->survey_type,
-                'is_anonymous' => $response->survey->is_anonymous
+                'is_anonymous' => $response->survey->is_anonymous,
             ],
             'institution' => [
                 'id' => $response->institution->id,
                 'name' => $response->institution->name,
-                'type' => $response->institution->type
+                'type' => $response->institution->type,
             ],
             'respondent' => $response->survey->is_anonymous ? null : [
                 'id' => $response->respondent->id,
                 'username' => $response->respondent->username,
-                'name' => $response->respondent->profile?->full_name ?? $response->respondent->username
+                'name' => $response->respondent->profile?->full_name ?? $response->respondent->username,
             ],
             'respondent_role' => $response->respondent_role,
             'progress_percentage' => $response->progress_percentage,
@@ -610,7 +611,7 @@ class SurveyResponseService extends BaseService
             'submitted_at' => $response->submitted_at,
             'approved_at' => $response->approved_at,
             'created_at' => $response->created_at,
-            'updated_at' => $response->updated_at
+            'updated_at' => $response->updated_at,
         ];
     }
 
@@ -619,7 +620,7 @@ class SurveyResponseService extends BaseService
         ActivityLog::logActivity(array_merge([
             'user_id' => Auth::id(),
             'activity_type' => $activityType,
-            'institution_id' => Auth::user()->institution_id
+            'institution_id' => Auth::user()->institution_id,
         ], $properties));
     }
 
@@ -632,7 +633,7 @@ class SurveyResponseService extends BaseService
             'action' => $action,
             'details' => $details,
             'ip_address' => request()->ip(),
-            'created_at' => now()
+            'created_at' => now(),
         ]);
     }
 
@@ -642,12 +643,12 @@ class SurveyResponseService extends BaseService
     private function canUserStartSurvey(Survey $survey, int $institutionId): bool
     {
         // Check if survey is active and not expired
-        if (!$survey->isOpenForResponses()) {
+        if (! $survey->isOpenForResponses()) {
             return false;
         }
 
         // Check if institution is in target list
-        if (!in_array($institutionId, $survey->target_institutions ?? [])) {
+        if (! in_array($institutionId, $survey->target_institutions ?? [])) {
             return false;
         }
 

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class TeachingLoadApiController extends Controller
@@ -13,7 +13,7 @@ class TeachingLoadApiController extends Controller
     {
         $user = $request->user();
         $institutionId = $user->institution_id;
-        
+
         $query = DB::table('teaching_loads')
             ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
             ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
@@ -22,7 +22,7 @@ class TeachingLoadApiController extends Controller
                 'teaching_loads.*',
                 'users.username as teacher_name',
                 'subjects.name as subject_name',
-                'classes.name as class_name'
+                'classes.name as class_name',
             ])
             ->orderBy('users.username');
 
@@ -35,7 +35,7 @@ class TeachingLoadApiController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $teachingLoads
+            'data' => $teachingLoads,
         ]);
     }
 
@@ -46,7 +46,7 @@ class TeachingLoadApiController extends Controller
             'subject_id' => 'required|exists:subjects,id',
             'class_id' => 'required|exists:classes,id',
             'weekly_hours' => 'required|numeric|min:1|max:40',
-            'academic_year_id' => 'required|exists:academic_years,id'
+            'academic_year_id' => 'required|exists:academic_years,id',
         ]);
 
         // Add default values for required fields that might be missing
@@ -58,7 +58,7 @@ class TeachingLoadApiController extends Controller
             'schedule_slots' => json_encode([]), // Empty array for schedule slots
             'metadata' => json_encode([]), // Empty metadata
             'created_at' => now(),
-            'updated_at' => now()
+            'updated_at' => now(),
         ]);
 
         $teachingLoadId = DB::table('teaching_loads')->insertGetId($data);
@@ -66,7 +66,7 @@ class TeachingLoadApiController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Teaching load created successfully',
-            'data' => ['id' => $teachingLoadId]
+            'data' => ['id' => $teachingLoadId],
         ]);
     }
 
@@ -79,7 +79,7 @@ class TeachingLoadApiController extends Controller
             ->select([
                 'teaching_loads.*',
                 'subjects.name as subject_name',
-                'classes.name as class_name'
+                'classes.name as class_name',
             ])
             ->get();
 
@@ -93,33 +93,33 @@ class TeachingLoadApiController extends Controller
                 'total_hours' => $totalHours,
                 'max_hours' => $maxHours,
                 'remaining_hours' => max(0, $maxHours - $totalHours),
-                'is_overloaded' => $totalHours > $maxHours
-            ]
+                'is_overloaded' => $totalHours > $maxHours,
+            ],
         ]);
     }
 
     public function update(Request $request, string $id): JsonResponse
     {
         $validated = $request->validate([
-            'weekly_hours' => 'required|numeric|min:1|max:40'
+            'weekly_hours' => 'required|numeric|min:1|max:40',
         ]);
 
         $updated = DB::table('teaching_loads')
             ->where('id', $id)
             ->update(array_merge($validated, [
-                'updated_at' => now()
+                'updated_at' => now(),
             ]));
 
-        if (!$updated) {
+        if (! $updated) {
             return response()->json([
                 'success' => false,
-                'message' => 'Teaching load not found'
+                'message' => 'Teaching load not found',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Teaching load updated successfully'
+            'message' => 'Teaching load updated successfully',
         ]);
     }
 
@@ -127,16 +127,16 @@ class TeachingLoadApiController extends Controller
     {
         $deleted = DB::table('teaching_loads')->where('id', $id)->delete();
 
-        if (!$deleted) {
+        if (! $deleted) {
             return response()->json([
                 'success' => false,
-                'message' => 'Teaching load not found'
+                'message' => 'Teaching load not found',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'message' => 'Teaching load deleted successfully'
+            'message' => 'Teaching load deleted successfully',
         ]);
     }
 
@@ -151,20 +151,20 @@ class TeachingLoadApiController extends Controller
                 'teaching_loads.*',
                 'users.username as teacher_name',
                 'subjects.name as subject_name',
-                'classes.name as class_name'
+                'classes.name as class_name',
             ])
             ->first();
 
-        if (!$teachingLoad) {
+        if (! $teachingLoad) {
             return response()->json([
                 'success' => false,
-                'message' => 'Teaching load not found'
+                'message' => 'Teaching load not found',
             ], 404);
         }
 
         return response()->json([
             'success' => true,
-            'data' => $teachingLoad
+            'data' => $teachingLoad,
         ]);
     }
 
@@ -184,14 +184,14 @@ class TeachingLoadApiController extends Controller
                 'teaching_loads.*',
                 'users.username as teacher_name',
                 'subjects.name as subject_name',
-                'classes.name as class_name'
+                'classes.name as class_name',
             ])
             ->orderBy('users.username')
             ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $teachingLoads
+            'data' => $teachingLoads,
         ]);
     }
 
@@ -203,14 +203,14 @@ class TeachingLoadApiController extends Controller
             'assignments.*.subject_id' => 'required|exists:subjects,id',
             'assignments.*.class_id' => 'required|exists:classes,id',
             'assignments.*.weekly_hours' => 'required|numeric|min:1|max:40',
-            'assignments.*.academic_year_id' => 'required|exists:academic_years,id'
+            'assignments.*.academic_year_id' => 'required|exists:academic_years,id',
         ]);
 
         $insertData = [];
         foreach ($validated['assignments'] as $assignment) {
             $insertData[] = array_merge($assignment, [
                 'created_at' => now(),
-                'updated_at' => now()
+                'updated_at' => now(),
             ]);
         }
 
@@ -219,7 +219,7 @@ class TeachingLoadApiController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Teaching loads assigned successfully',
-            'data' => ['count' => count($insertData)]
+            'data' => ['count' => count($insertData)],
         ]);
     }
 
@@ -248,8 +248,8 @@ class TeachingLoadApiController extends Controller
                 'total_teachers' => $totalTeachers,
                 'overloaded_teachers' => $overloadedTeachers,
                 'total_hours_assigned' => $totalHoursAssigned,
-                'average_load_per_teacher' => round($averageLoadPerTeacher, 2)
-            ]
+                'average_load_per_teacher' => round($averageLoadPerTeacher, 2),
+            ],
         ]);
     }
 
@@ -270,13 +270,13 @@ class TeachingLoadApiController extends Controller
                 'teacher_subjects.grade_levels',
                 'teacher_subjects.specialization_level',
                 'teacher_subjects.is_primary_subject',
-                'teacher_subjects.max_hours_per_week'
+                'teacher_subjects.max_hours_per_week',
             ])
             ->get();
 
         return response()->json([
             'success' => true,
-            'data' => $teacherSubjects
+            'data' => $teacherSubjects,
         ]);
     }
 }

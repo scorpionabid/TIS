@@ -5,11 +5,11 @@ namespace App\Services\RegionAdmin;
 use App\Models\Institution;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
-use Illuminate\Support\Facades\Log;
 
 /**
  * RegionTeacher Pre-Validation Service
@@ -20,22 +20,27 @@ use Illuminate\Support\Facades\Log;
 class RegionTeacherPreValidationService
 {
     protected array $validRows = [];
+
     protected array $invalidRows = [];
+
     protected array $errors = [];
+
     protected array $warnings = [];
+
     protected array $errorGroups = [];
+
     protected array $suggestions = [];
 
     // Cache for performance
     protected array $existingEmails = [];
+
     protected array $existingUsernames = [];
+
     protected array $institutionCache = [];
 
     /**
      * Validate entire Excel file before import
      *
-     * @param UploadedFile $file
-     * @param Institution $region
      * @return array Comprehensive validation report
      */
     public function validateFile(UploadedFile $file, Institution $region): array
@@ -82,7 +87,6 @@ class RegionTeacherPreValidationService
             ]);
 
             return $this->buildSuccessResponse($executionTime);
-
         } catch (\Exception $e) {
             Log::error('❌ Pre-validation failed', [
                 'error' => $e->getMessage(),
@@ -102,7 +106,7 @@ class RegionTeacherPreValidationService
         $allowedExtensions = ['xlsx', 'xls'];
         $extension = strtolower($file->getClientOriginalExtension());
 
-        if (!in_array($extension, $allowedExtensions)) {
+        if (! in_array($extension, $allowedExtensions)) {
             throw new \Exception('Yalnız .xlsx və .xls faylları qəbul edilir');
         }
 
@@ -132,12 +136,12 @@ class RegionTeacherPreValidationService
 
         $missingColumns = [];
         foreach ($requiredColumns as $column) {
-            if (!in_array($column, $headings)) {
+            if (! in_array($column, $headings)) {
                 $missingColumns[] = $column;
             }
         }
 
-        if (!empty($missingColumns)) {
+        if (! empty($missingColumns)) {
             throw new \Exception(
                 'Tələb olunan sütunlar tapılmadı: ' . implode(', ', $missingColumns)
             );
@@ -168,7 +172,7 @@ class RegionTeacherPreValidationService
             }
 
             // Skip empty rows
-            if (!empty(trim($rowData['email'] ?? ''))) {
+            if (! empty(trim($rowData['email'] ?? ''))) {
                 $result[] = $rowData;
             }
         }
@@ -183,7 +187,7 @@ class RegionTeacherPreValidationService
     {
         // Load existing emails in bulk
         $emails = array_filter(array_column($rows, 'email'));
-        if (!empty($emails)) {
+        if (! empty($emails)) {
             $this->existingEmails = User::whereIn('email', $emails)
                 ->pluck('email')
                 ->flip()
@@ -192,7 +196,7 @@ class RegionTeacherPreValidationService
 
         // Load existing usernames in bulk
         $usernames = array_filter(array_column($rows, 'username'));
-        if (!empty($usernames)) {
+        if (! empty($usernames)) {
             $this->existingUsernames = User::whereIn('username', $usernames)
                 ->pluck('username')
                 ->flip()
@@ -239,7 +243,7 @@ class RegionTeacherPreValidationService
 
         // VALIDATION 1: Institution lookup
         $institution = $this->findInstitution($data);
-        if (!$institution) {
+        if (! $institution) {
             $identifier = $data['institution_utis_code'] ?:
                          ($data['institution_code'] ?: $data['institution_id']);
 
@@ -308,7 +312,7 @@ class RegionTeacherPreValidationService
         }
 
         // Store warnings
-        if (!empty($rowWarnings)) {
+        if (! empty($rowWarnings)) {
             foreach ($rowWarnings as $warning) {
                 $this->warnings[] = array_merge($warning, [
                     'row_number' => $rowNumber,
@@ -363,17 +367,17 @@ class RegionTeacherPreValidationService
         $instId = $data['institution_id'];
 
         // Priority 1: UTIS code
-        if (!empty($utisCode) && isset($this->institutionCache['utis'][$utisCode])) {
+        if (! empty($utisCode) && isset($this->institutionCache['utis'][$utisCode])) {
             return $this->institutionCache['utis'][$utisCode];
         }
 
         // Priority 2: Institution code
-        if (!empty($instCode) && isset($this->institutionCache['code'][$instCode])) {
+        if (! empty($instCode) && isset($this->institutionCache['code'][$instCode])) {
             return $this->institutionCache['code'][$instCode];
         }
 
         // Priority 3: ID
-        if (!empty($instId) && is_numeric($instId) && isset($this->institutionCache['id'][$instId])) {
+        if (! empty($instId) && is_numeric($instId) && isset($this->institutionCache['id'][$instId])) {
             return $this->institutionCache['id'][$instId];
         }
 
@@ -477,7 +481,7 @@ class RegionTeacherPreValidationService
         }
 
         // Warn if assessment info is missing
-        if (empty($data['assessment_type']) && !empty($data['assessment_score'])) {
+        if (empty($data['assessment_type']) && ! empty($data['assessment_score'])) {
             $warnings[] = [
                 'field' => 'assessment_type',
                 'value' => null,
@@ -540,7 +544,7 @@ class RegionTeacherPreValidationService
      */
     protected function incrementErrorGroup(string $group): void
     {
-        if (!isset($this->errorGroups[$group])) {
+        if (! isset($this->errorGroups[$group])) {
             $this->errorGroups[$group] = 0;
         }
         $this->errorGroups[$group]++;
@@ -629,7 +633,7 @@ class RegionTeacherPreValidationService
                     'severity' => 'critical',
                     'message' => $message,
                     'suggestion' => 'Faylın formatını və strukturunu yoxlayın',
-                ]
+                ],
             ],
             'suggestions' => [
                 '📥 Template faylı yenidən yükləyin və nümunələrə baxın',

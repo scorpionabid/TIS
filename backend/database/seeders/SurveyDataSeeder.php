@@ -2,31 +2,29 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use App\Models\User;
-use App\Models\Institution;
 use App\Models\AcademicYear;
+use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\SurveyQuestion;
 use App\Models\SurveyResponse;
-use Carbon\Carbon;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class SurveyDataSeeder extends Seeder
 {
     public function run()
     {
         $this->command->info('📊 Seeding survey data...');
-        
+
         DB::beginTransaction();
-        
+
         try {
             $this->seedSurveys();
-            
+
             DB::commit();
-            
+
             $this->command->info('✅ Survey data seeding completed successfully!');
-            
         } catch (\Exception $e) {
             DB::rollback();
             $this->command->error('❌ Survey data seeding failed: ' . $e->getMessage());
@@ -37,14 +35,17 @@ class SurveyDataSeeder extends Seeder
     private function seedSurveys()
     {
         $currentYear = AcademicYear::where('is_active', true)->first();
-        $superadmin = User::whereHas('roles', function($q) { $q->where('name', 'superadmin'); })->first();
+        $superadmin = User::whereHas('roles', function ($q) {
+            $q->where('name', 'superadmin');
+        })->first();
         $institutions = Institution::where('level', 4)->take(3)->get();
-        
-        if (!$currentYear || !$superadmin) {
+
+        if (! $currentYear || ! $superadmin) {
             $this->command->warn('Skipping survey seeding - missing academic year or superadmin');
+
             return;
         }
-        
+
         // Create comprehensive surveys
         $surveys = [
             [
@@ -69,10 +70,10 @@ class SurveyDataSeeder extends Seeder
                 'status' => 'active',
             ],
         ];
-        
+
         foreach ($surveys as $surveyData) {
             $survey = Survey::firstOrCreate([
-                'title' => $surveyData['title']
+                'title' => $surveyData['title'],
             ], [
                 'description' => $surveyData['description'],
                 'survey_type' => $surveyData['survey_type'],
@@ -87,15 +88,15 @@ class SurveyDataSeeder extends Seeder
                 'actual_responses' => rand(20, 100),
                 'completion_threshold' => 80,
             ]);
-            
+
             // Add questions to each survey
             $this->addSurveyQuestions($survey);
-            
+
             // Add responses
             $this->addSurveyResponses($survey);
         }
     }
-    
+
     private function addSurveyQuestions($survey)
     {
         $questionSets = [
@@ -116,7 +117,7 @@ class SurveyDataSeeder extends Seeder
                 ['question' => 'Tələbələrin motivasiya səviyyəsi', 'type' => 'rating', 'required' => true],
             ],
         ];
-        
+
         if (isset($questionSets[$survey->title])) {
             foreach ($questionSets[$survey->title] as $index => $questionData) {
                 SurveyQuestion::firstOrCreate([
@@ -132,22 +133,22 @@ class SurveyDataSeeder extends Seeder
             }
         }
     }
-    
+
     private function addSurveyResponses($survey)
     {
         // Determine target users based on survey type
         $roleMap = [
             'feedback' => 'müəllim',
-            'assessment' => 'schooladmin', 
+            'assessment' => 'schooladmin',
             'performance' => 'müəllim',
         ];
-        
+
         $targetRole = $roleMap[$survey->survey_type] ?? 'müəllim';
-        
-        $targetUsers = User::whereHas('roles', function($q) use ($targetRole) { 
-            $q->where('name', $targetRole); 
+
+        $targetUsers = User::whereHas('roles', function ($q) use ($targetRole) {
+            $q->where('name', $targetRole);
         })->take(5)->get();
-        
+
         foreach ($targetUsers as $user) {
             $response = SurveyResponse::firstOrCreate([
                 'survey_id' => $survey->id,
@@ -164,12 +165,12 @@ class SurveyDataSeeder extends Seeder
             ]);
         }
     }
-    
+
     private function generateSampleResponses($survey)
     {
         $responses = [];
         $questions = $survey->questions;
-        
+
         foreach ($questions as $question) {
             switch ($question->type) {
                 case 'rating':
@@ -184,8 +185,8 @@ class SurveyDataSeeder extends Seeder
                 case 'checkbox':
                     if ($question->options) {
                         $selected = array_rand($question->options, rand(1, min(3, count($question->options))));
-                        $responses[$question->id] = is_array($selected) ? 
-                            array_map(fn($i) => $question->options[$i], $selected) :
+                        $responses[$question->id] = is_array($selected) ?
+                            array_map(fn ($i) => $question->options[$i], $selected) :
                             [$question->options[$selected]];
                     }
                     break;
@@ -199,7 +200,7 @@ class SurveyDataSeeder extends Seeder
                     $responses[$question->id] = 'Nümunə cavab';
             }
         }
-        
+
         return $responses;
     }
 }

@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('survey_response_id')->constrained()->onDelete('cascade');
             $table->foreignId('survey_question_id')->constrained()->onDelete('cascade');
-            
+
             // Response data based on question type
             $table->text('text_response')->nullable()->comment('For text/number questions');
             $table->decimal('number_response', 15, 2)->nullable()->comment('For number questions');
@@ -24,11 +24,11 @@ return new class extends Migration
             $table->integer('rating_response')->nullable()->comment('For rating questions (1-10)');
             $table->json('table_response')->nullable()->comment('For table/matrix questions');
             $table->json('file_response')->nullable()->comment('For file upload (file paths)');
-            
+
             // Additional metadata
             $table->json('metadata')->nullable()->comment('Additional response metadata');
             $table->timestamps();
-            
+
             // Indexes
             $table->index(['survey_response_id', 'survey_question_id']);
             $table->unique(['survey_response_id', 'survey_question_id'], 'unique_response_question');

@@ -3,17 +3,19 @@
 namespace App\Http\Controllers;
 
 use App\Models\Grade;
+use App\Services\ClassAnalyticsService;
 use App\Services\ClassCrudService;
 use App\Services\ClassPermissionService;
-use App\Services\ClassAnalyticsService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
 class ClassesControllerRefactored extends Controller
 {
     protected ClassCrudService $crudService;
+
     protected ClassPermissionService $permissionService;
+
     protected ClassAnalyticsService $analyticsService;
 
     public function __construct(
@@ -55,14 +57,14 @@ class ClassesControllerRefactored extends Controller
         try {
             $user = $request->user();
             $filters = $request->only([
-                'institution_id', 'grade_level', 'academic_year_id', 
-                'specialty', 'homeroom_teacher_id', 'status', 'search', 'include'
+                'institution_id', 'grade_level', 'academic_year_id',
+                'specialty', 'homeroom_teacher_id', 'status', 'search', 'include',
             ]);
-            
+
             // Apply regional filtering to filters
             $query = Grade::query();
             $this->permissionService->applyRegionalFiltering($query, $user);
-            
+
             $perPage = $request->get('per_page', 20);
             $result = $this->crudService->getClasses($filters, $perPage);
 
@@ -71,7 +73,6 @@ class ClassesControllerRefactored extends Controller
                 'data' => $result,
                 'message' => 'Sinif siyahısı uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Sinif siyahısı alınarkən xəta baş verdi');
         }
@@ -82,7 +83,7 @@ class ClassesControllerRefactored extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        if (!$this->permissionService->canCreateClass($request->user())) {
+        if (! $this->permissionService->canCreateClass($request->user())) {
             return response()->json([
                 'success' => false,
                 'message' => 'Sinif yaratmaq icazəniz yoxdur',
@@ -128,7 +129,6 @@ class ClassesControllerRefactored extends Controller
                 ],
                 'message' => 'Sinif uğurla yaradıldı',
             ], 201);
-
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
@@ -144,7 +144,7 @@ class ClassesControllerRefactored extends Controller
      */
     public function show(Request $request, Grade $class): JsonResponse
     {
-        if (!$this->permissionService->canAccessClass($request->user(), $class)) {
+        if (! $this->permissionService->canAccessClass($request->user(), $class)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu sinifin məlumatlarına giriş icazəniz yoxdur',
@@ -159,7 +159,6 @@ class ClassesControllerRefactored extends Controller
                 'data' => $data,
                 'message' => 'Sinif məlumatları uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Sinif məlumatları alınarkən xəta baş verdi');
         }
@@ -170,7 +169,7 @@ class ClassesControllerRefactored extends Controller
      */
     public function update(Request $request, Grade $class): JsonResponse
     {
-        if (!$this->permissionService->canModifyClass($request->user(), $class)) {
+        if (! $this->permissionService->canModifyClass($request->user(), $class)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu sinifi yeniləmək icazəniz yoxdur',
@@ -212,7 +211,6 @@ class ClassesControllerRefactored extends Controller
                 ],
                 'message' => 'Sinif məlumatları uğurla yeniləndi',
             ]);
-
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
@@ -228,7 +226,7 @@ class ClassesControllerRefactored extends Controller
      */
     public function destroy(Request $request, Grade $class): JsonResponse
     {
-        if (!$this->permissionService->canDeleteClass($request->user(), $class)) {
+        if (! $this->permissionService->canDeleteClass($request->user(), $class)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu sinifi silmək icazəniz yoxdur',
@@ -242,7 +240,6 @@ class ClassesControllerRefactored extends Controller
                 'success' => true,
                 'message' => 'Sinif uğurla deaktiv edildi',
             ]);
-
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
@@ -258,7 +255,7 @@ class ClassesControllerRefactored extends Controller
      */
     public function students(Request $request, Grade $class): JsonResponse
     {
-        if (!$this->permissionService->canAccessClass($request->user(), $class)) {
+        if (! $this->permissionService->canAccessClass($request->user(), $class)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu sinifin şagird siyahısına giriş icazəniz yoxdur',
@@ -297,7 +294,7 @@ class ClassesControllerRefactored extends Controller
                     'student_number' => $enrollment->student_number,
                     'first_name' => $enrollment->student->profile?->first_name,
                     'last_name' => $enrollment->student->profile?->last_name,
-                    'full_name' => $enrollment->student->profile 
+                    'full_name' => $enrollment->student->profile
                         ? "{$enrollment->student->profile->first_name} {$enrollment->student->profile->last_name}"
                         : $enrollment->student->username,
                     'email' => $enrollment->student->email,
@@ -327,7 +324,6 @@ class ClassesControllerRefactored extends Controller
                 ],
                 'message' => 'Sinif şagird siyahısı uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Şagird siyahısı alınarkən xəta baş verdi');
         }
@@ -338,7 +334,7 @@ class ClassesControllerRefactored extends Controller
      */
     public function assignTeacher(Request $request, Grade $class): JsonResponse
     {
-        if (!$this->permissionService->canAssignTeacher($request->user(), $class)) {
+        if (! $this->permissionService->canAssignTeacher($request->user(), $class)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu sinifə müəllim təyin etmək icazəniz yoxdur',
@@ -367,7 +363,7 @@ class ClassesControllerRefactored extends Controller
                     'class_id' => $class->id,
                     'teacher' => [
                         'id' => $class->homeroomTeacher->id,
-                        'full_name' => $class->homeroomTeacher->profile 
+                        'full_name' => $class->homeroomTeacher->profile
                             ? "{$class->homeroomTeacher->profile->first_name} {$class->homeroomTeacher->profile->last_name}"
                             : $class->homeroomTeacher->username,
                         'email' => $class->homeroomTeacher->email,
@@ -375,7 +371,6 @@ class ClassesControllerRefactored extends Controller
                 ],
                 'message' => 'Sinif rəhbəri uğurla təyin edildi',
             ]);
-
         } catch (\InvalidArgumentException $e) {
             return response()->json([
                 'success' => false,
@@ -399,7 +394,6 @@ class ClassesControllerRefactored extends Controller
                 'data' => $data,
                 'message' => 'Sinif statistikaları uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Statistikalar alınarkən xəta baş verdi');
         }
@@ -418,7 +412,6 @@ class ClassesControllerRefactored extends Controller
                 'data' => $context,
                 'message' => 'Permission context retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'İcazə konteksti alınarkən xəta baş verdi');
         }
@@ -450,7 +443,6 @@ class ClassesControllerRefactored extends Controller
                 'data' => $data,
                 'message' => 'Trending siniflar uğurla alındı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Trending məlumatlar alınarkən xəta baş verdi');
         }

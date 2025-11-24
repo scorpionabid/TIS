@@ -88,7 +88,7 @@ class Report extends Model
      */
     public function needsRegeneration(): bool
     {
-        if (!$this->schedule || !$this->last_generated_at) {
+        if (! $this->schedule || ! $this->last_generated_at) {
             return true;
         }
 
@@ -101,7 +101,7 @@ class Report extends Model
         ];
 
         $days = $scheduleMapping[$this->schedule] ?? null;
-        if (!$days) {
+        if (! $days) {
             return false;
         }
 
@@ -148,7 +148,7 @@ class Report extends Model
     {
         return $query->where(function ($q) {
             $q->whereNull('expiration_date')
-              ->orWhere('expiration_date', '>', now());
+                ->orWhere('expiration_date', '>', now());
         });
     }
 

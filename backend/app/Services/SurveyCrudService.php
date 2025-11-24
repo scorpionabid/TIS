@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Survey;
 use App\Models\Institution;
+use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Services\Survey\Domains\Query\SurveyQueryBuilder;
-use App\Services\Survey\Domains\Crud\SurveyCrudManager;
-use App\Services\Survey\Domains\Questions\QuestionSyncService;
-use App\Services\Survey\Domains\Formatting\SurveyResponseFormatter;
 use App\Services\Survey\Domains\Activity\SurveyActivityTracker;
+use App\Services\Survey\Domains\Crud\SurveyCrudManager;
+use App\Services\Survey\Domains\Formatting\SurveyResponseFormatter;
+use App\Services\Survey\Domains\Query\SurveyQueryBuilder;
+use App\Services\Survey\Domains\Questions\QuestionSyncService;
 use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
@@ -30,12 +30,6 @@ class SurveyCrudService
 {
     /**
      * Constructor with dependency injection
-     *
-     * @param SurveyQueryBuilder $queryBuilder
-     * @param SurveyCrudManager $crudManager
-     * @param QuestionSyncService $questionSync
-     * @param SurveyResponseFormatter $formatter
-     * @param SurveyActivityTracker $activityTracker
      */
     public function __construct(
         protected SurveyQueryBuilder $queryBuilder,
@@ -57,8 +51,8 @@ class SurveyCrudService
             'filters' => array_intersect_key($params, array_flip(['search', 'status', 'survey_type', 'creator_id', 'institution_id'])),
             'pagination' => [
                 'per_page' => $params['per_page'] ?? 15,
-                'page' => $params['page'] ?? 1
-            ]
+                'page' => $params['page'] ?? 1,
+            ],
         ]);
 
         return $surveys;
@@ -74,7 +68,7 @@ class SurveyCrudService
         // Log activity
         $this->activityTracker->logActivity('survey_view', "Viewed survey: {$survey->title}", [
             'entity_type' => 'Survey',
-            'entity_id' => $survey->id
+            'entity_id' => $survey->id,
         ]);
 
         return $survey;
@@ -136,7 +130,7 @@ class SurveyCrudService
         // Log activity
         $this->activityTracker->logActivity('survey_delete', "Deleted survey: {$surveyTitle}", [
             'entity_type' => 'Survey',
-            'entity_id' => $surveyId
+            'entity_id' => $surveyId,
         ]);
 
         return $result;
@@ -161,7 +155,7 @@ class SurveyCrudService
         $this->activityTracker->logActivity('survey_duplicate', "Duplicated survey: {$survey->title} → {$duplicate->title}", [
             'entity_type' => 'Survey',
             'entity_id' => $duplicate->id,
-            'source_survey_id' => $survey->id
+            'source_survey_id' => $survey->id,
         ]);
 
         return $duplicate;
@@ -212,7 +206,7 @@ class SurveyCrudService
      */
     public function getPerformanceBySector($user): array
     {
-        if (!$user->hasRole('regionadmin')) {
+        if (! $user->hasRole('regionadmin')) {
             return [];
         }
 
@@ -222,12 +216,12 @@ class SurveyCrudService
             ->where('level', 3)
             ->with(['children'])
             ->get()
-            ->map(function($sector) {
+            ->map(function ($sector) {
                 $schoolIds = $sector->children->pluck('id');
 
                 $surveys = Survey::whereJsonOverlaps('target_institutions', $schoolIds->toArray())->count();
 
-                $responses = SurveyResponse::whereHas('survey', function($query) {
+                $responses = SurveyResponse::whereHas('survey', function ($query) {
                     // Survey from this region
                 })->whereIn('institution_id', $schoolIds)->count();
 
@@ -235,7 +229,7 @@ class SurveyCrudService
                     'sector_name' => $sector->name,
                     'surveys_count' => $surveys,
                     'responses_count' => $responses,
-                    'response_rate' => $surveys > 0 ? round(($responses / ($surveys * 10)) * 100, 1) : 0
+                    'response_rate' => $surveys > 0 ? round(($responses / ($surveys * 10)) * 100, 1) : 0,
                 ];
             })->toArray();
     }

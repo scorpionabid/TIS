@@ -2,18 +2,16 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Models\StudentEnrollment;
-use App\Models\Grade;
 use App\Models\AcademicYear;
+use App\Models\Grade;
 use App\Models\Role;
-use App\Services\BaseService;
+use App\Models\StudentEnrollment;
+use App\Models\User;
+use Carbon\Carbon;
+use Exception;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
-use Exception;
 
 class StudentManagementService extends BaseService
 {
@@ -28,7 +26,7 @@ class StudentManagementService extends BaseService
             });
 
         // Apply user-based access control
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $query = $this->applyUserAccessControl($query, $user);
         }
 
@@ -40,24 +38,24 @@ class StudentManagementService extends BaseService
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('username', 'like', "%{$search}%")
-                  ->orWhere('email', 'like', "%{$search}%")
-                  ->orWhereHas('profile', function ($pq) use ($search) {
-                      $pq->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('national_id', 'like', "%{$search}%");
-                  });
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhereHas('profile', function ($pq) use ($search) {
+                        $pq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('national_id', 'like', "%{$search}%");
+                    });
             });
         }
 
         // Apply sorting
         $sortField = $request->get('sort', 'created_at');
         $direction = $request->get('direction', 'desc');
-        
+
         if ($sortField === 'name') {
             $query->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
-                  ->orderBy('user_profiles.first_name', $direction)
-                  ->orderBy('user_profiles.last_name', $direction)
-                  ->select('users.*');
+                ->orderBy('user_profiles.first_name', $direction)
+                ->orderBy('user_profiles.last_name', $direction)
+                ->select('users.*');
         } else {
             $query->orderBy($sortField, $direction);
         }
@@ -71,7 +69,7 @@ class StudentManagementService extends BaseService
             'total' => $students->total(),
             'current_page' => $students->currentPage(),
             'last_page' => $students->lastPage(),
-            'per_page' => $students->perPage()
+            'per_page' => $students->perPage(),
         ];
     }
 
@@ -80,7 +78,7 @@ class StudentManagementService extends BaseService
      */
     public function createStudent(array $data, $user)
     {
-        return DB::transaction(function () use ($data, $user) {
+        return DB::transaction(function () use ($data) {
             // Get student role
             $studentRole = Role::where('name', 'şagird')->firstOrFail();
 
@@ -101,7 +99,7 @@ class StudentManagementService extends BaseService
                 'role_id' => $studentRole->id,
                 'institution_id' => $data['institution_id'],
                 'is_active' => $data['is_active'] ?? true,
-                'email_verified_at' => now()
+                'email_verified_at' => now(),
             ];
 
             $student = User::create($userData);
@@ -112,7 +110,7 @@ class StudentManagementService extends BaseService
             $student->profile()->create($profileData);
 
             // Create enrollment if class/grade is specified
-            if (!empty($data['class_id'])) {
+            if (! empty($data['class_id'])) {
                 $this->enrollStudent($student, $data['class_id'], $data);
             }
 
@@ -125,7 +123,7 @@ class StudentManagementService extends BaseService
      */
     public function updateStudent($student, array $data, $user)
     {
-        if (!$this->canAccessStudent($user, $student)) {
+        if (! $this->canAccessStudent($user, $student)) {
             throw new Exception('Bu şagirdə giriş icazəniz yoxdur', 403);
         }
 
@@ -135,24 +133,24 @@ class StudentManagementService extends BaseService
                 'username' => $data['username'] ?? null,
                 'email' => $data['email'] ?? null,
                 'institution_id' => $data['institution_id'] ?? null,
-                'is_active' => $data['is_active'] ?? null
+                'is_active' => $data['is_active'] ?? null,
             ], function ($value) {
                 return $value !== null;
             });
 
-            if (!empty($userData)) {
+            if (! empty($userData)) {
                 $student->update($userData);
             }
 
             // Update password if provided
-            if (!empty($data['password'])) {
+            if (! empty($data['password'])) {
                 $student->update(['password' => Hash::make($data['password'])]);
             }
 
             // Update profile
             $profileData = $this->prepareProfileData($data);
 
-            if (!empty($profileData) && $student->profile) {
+            if (! empty($profileData) && $student->profile) {
                 $student->profile->update($profileData);
             }
 
@@ -245,7 +243,7 @@ class StudentManagementService extends BaseService
      */
     public function deleteStudent($student, $user)
     {
-        if (!$this->canAccessStudent($user, $student)) {
+        if (! $this->canAccessStudent($user, $student)) {
             throw new Exception('Bu şagirdə giriş icazəniz yoxdur', 403);
         }
 
@@ -278,7 +276,7 @@ class StudentManagementService extends BaseService
         $grade = Grade::findOrFail($gradeId);
         $currentAcademicYear = AcademicYear::current()->first();
 
-        if (!$currentAcademicYear) {
+        if (! $currentAcademicYear) {
             throw new Exception('Hazırda aktiv tədris ili yoxdur', 422);
         }
 
@@ -301,7 +299,7 @@ class StudentManagementService extends BaseService
             'enrollment_date' => $additionalData['enrollment_date'] ?? now(),
             'student_number' => $additionalData['student_number'] ?? $this->generateStudentNumber($grade),
             'is_active' => true,
-            'notes' => $additionalData['enrollment_notes'] ?? null
+            'notes' => $additionalData['enrollment_notes'] ?? null,
         ];
 
         return StudentEnrollment::create($enrollmentData);
@@ -312,13 +310,13 @@ class StudentManagementService extends BaseService
      */
     public function getStudentPerformance($student, $user)
     {
-        if (!$this->canAccessStudent($user, $student)) {
+        if (! $this->canAccessStudent($user, $student)) {
             throw new Exception('Bu şagirdə giriş icazəniz yoxdur', 403);
         }
 
         $currentYear = AcademicYear::current()->first();
-        if (!$currentYear) {
-            return null;
+        if (! $currentYear) {
+            return;
         }
 
         // Get current enrollment
@@ -327,8 +325,8 @@ class StudentManagementService extends BaseService
             ->where('is_active', true)
             ->first();
 
-        if (!$enrollment) {
-            return null;
+        if (! $enrollment) {
+            return;
         }
 
         // Get assessments and grades
@@ -342,11 +340,12 @@ class StudentManagementService extends BaseService
             ->map(function ($subjectAssessments) {
                 $totalScore = $subjectAssessments->sum('score');
                 $count = $subjectAssessments->count();
+
                 return $count > 0 ? round($totalScore / $count, 2) : 0;
             });
 
         // Overall average
-        $overallAverage = $subjectAverages->count() > 0 ? 
+        $overallAverage = $subjectAverages->count() > 0 ?
             round($subjectAverages->sum() / $subjectAverages->count(), 2) : 0;
 
         return [
@@ -354,7 +353,7 @@ class StudentManagementService extends BaseService
             'assessments' => $assessments,
             'subject_averages' => $subjectAverages,
             'overall_average' => $overallAverage,
-            'total_assessments' => $assessments->count()
+            'total_assessments' => $assessments->count(),
         ];
     }
 
@@ -390,29 +389,29 @@ class StudentManagementService extends BaseService
      */
     protected function applyRequestFilters($query, $request)
     {
-        if (!empty($filters['institution_id'])) {
+        if (! empty($filters['institution_id'])) {
             $query->where('institution_id', $filters['institution_id']);
         }
 
-        if (!empty($filters['class_id'])) {
+        if (! empty($filters['class_id'])) {
             $query->whereHas('studentEnrollments', function ($q) use ($filters) {
                 $q->where('grade_id', $filters['class_id'])->where('is_active', true);
             });
         }
 
-        if (!empty($filters['grade_level'])) {
+        if (! empty($filters['grade_level'])) {
             $query->whereHas('studentEnrollments.grade', function ($q) use ($filters) {
                 $q->where('grade_level', $filters['grade_level']);
             });
         }
 
-        if (!empty($filters['academic_year_id'])) {
+        if (! empty($filters['academic_year_id'])) {
             $query->whereHas('studentEnrollments', function ($q) use ($filters) {
                 $q->where('academic_year_id', $filters['academic_year_id']);
             });
         }
 
-        if (!empty($filters['enrollment_status'])) {
+        if (! empty($filters['enrollment_status'])) {
             $isActive = $filters['enrollment_status'] === 'active';
             $query->whereHas('studentEnrollments', function ($q) use ($isActive) {
                 $q->where('is_active', $isActive);
@@ -431,7 +430,7 @@ class StudentManagementService extends BaseService
                 $maxAge = (int) $ageRange[1];
                 $maxDate = Carbon::now()->subYears($minAge)->format('Y-m-d');
                 $minDate = Carbon::now()->subYears($maxAge + 1)->format('Y-m-d');
-                
+
                 $query->whereHas('profile', function ($q) use ($minDate, $maxDate) {
                     $q->whereBetween('birth_date', [$minDate, $maxDate]);
                 });
@@ -452,7 +451,7 @@ class StudentManagementService extends BaseService
      */
     private function canAccessStudent($user, $student): bool
     {
-        if (!$user || !$student) {
+        if (! $user || ! $student) {
             return false;
         }
 
@@ -462,19 +461,21 @@ class StudentManagementService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
         // RegionAdmin can access students in their region
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $allowedIds = $userInstitution->getAllChildrenIds();
+
             return in_array($student->institution_id, $allowedIds);
         }
 
         // SektorAdmin can access students in their sector
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $allowedIds = $userInstitution->getAllChildrenIds();
+
             return in_array($student->institution_id, $allowedIds);
         }
 
@@ -504,7 +505,7 @@ class StudentManagementService extends BaseService
         $baseUsername = strtolower(
             $this->transliterate($firstName) . '.' . $this->transliterate($lastName)
         );
-        
+
         $username = $baseUsername;
         $counter = 1;
 
@@ -524,7 +525,7 @@ class StudentManagementService extends BaseService
         $baseEmail = strtolower(
             $this->transliterate($firstName) . '.' . $this->transliterate($lastName)
         );
-        
+
         $email = $baseEmail . '@student.edu.az';
         $counter = 1;
 
@@ -543,7 +544,7 @@ class StudentManagementService extends BaseService
     {
         $currentYear = date('Y');
         $gradeLevel = str_pad($grade->grade_level, 2, '0', STR_PAD_LEFT);
-        
+
         // Get last student number for this grade in current year
         $lastEnrollment = StudentEnrollment::where('grade_id', $grade->id)
             ->whereYear('created_at', $currentYear)
@@ -556,7 +557,7 @@ class StudentManagementService extends BaseService
         }
 
         $nextNumber = str_pad($lastNumber + 1, 3, '0', STR_PAD_LEFT);
-        
+
         return $currentYear . $gradeLevel . $nextNumber;
     }
 
@@ -573,7 +574,7 @@ class StudentManagementService extends BaseService
             'ü' => 'u', 'Ü' => 'U',
             'ç' => 'c', 'Ç' => 'C',
             'ğ' => 'g', 'Ğ' => 'G',
-            'ş' => 's', 'Ş' => 'S'
+            'ş' => 's', 'Ş' => 'S',
         ];
 
         return strtr($text, $azToLatin);

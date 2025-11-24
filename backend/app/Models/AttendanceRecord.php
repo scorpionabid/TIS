@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class AttendanceRecord extends Model
 {
@@ -43,7 +43,7 @@ class AttendanceRecord extends Model
         'notes',
         'metadata',
         'affects_grade',
-        'attendance_weight'
+        'attendance_weight',
     ];
 
     protected $casts = [
@@ -59,7 +59,7 @@ class AttendanceRecord extends Model
         'metadata' => 'array',
         'parent_notified' => 'boolean',
         'affects_grade' => 'boolean',
-        'attendance_weight' => 'decimal:2'
+        'attendance_weight' => 'decimal:2',
     ];
 
     // Relationships
@@ -126,7 +126,7 @@ class AttendanceRecord extends Model
 
     public function requiresApproval(): bool
     {
-        return $this->isAbsent() && !$this->approved_at;
+        return $this->isAbsent() && ! $this->approved_at;
     }
 
     public function isApproved(): bool
@@ -137,7 +137,7 @@ class AttendanceRecord extends Model
     // Time calculations
     public function calculateMinutesLate(): int
     {
-        if (!$this->period_start_time || !$this->arrival_time) {
+        if (! $this->period_start_time || ! $this->arrival_time) {
             return 0;
         }
 
@@ -157,7 +157,7 @@ class AttendanceRecord extends Model
             return 0;
         }
 
-        if (!$this->period_start_time || !$this->period_end_time) {
+        if (! $this->period_start_time || ! $this->period_end_time) {
             return 0;
         }
 
@@ -169,6 +169,7 @@ class AttendanceRecord extends Model
             $arrivalTime = Carbon::parse($this->arrival_time);
             $departureTime = Carbon::parse($this->departure_time);
             $presentMinutes = $departureTime->diffInMinutes($arrivalTime);
+
             return max(0, $totalMinutes - $presentMinutes);
         }
 
@@ -177,23 +178,26 @@ class AttendanceRecord extends Model
 
     public function getAttendancePercentageForPeriod(): float
     {
-        if (!$this->period_start_time || !$this->period_end_time) {
+        if (! $this->period_start_time || ! $this->period_end_time) {
             return $this->isPresent() ? 100.0 : 0.0;
         }
 
         $totalMinutes = Carbon::parse($this->period_end_time)
             ->diffInMinutes(Carbon::parse($this->period_start_time));
-        
-        if ($totalMinutes === 0) return 100.0;
+
+        if ($totalMinutes === 0) {
+            return 100.0;
+        }
 
         $presentMinutes = $totalMinutes - $this->minutes_absent;
+
         return round(($presentMinutes / $totalMinutes) * 100, 2);
     }
 
     // Notification methods
     public function needsParentNotification(): bool
     {
-        return $this->isAbsent() && !$this->parent_notified;
+        return $this->isAbsent() && ! $this->parent_notified;
     }
 
     public function markParentNotified(string $method = 'sms'): void
@@ -201,7 +205,7 @@ class AttendanceRecord extends Model
         $this->update([
             'parent_notified' => true,
             'parent_notified_at' => now(),
-            'notification_method' => $method
+            'notification_method' => $method,
         ]);
     }
 
@@ -251,19 +255,19 @@ class AttendanceRecord extends Model
         }
     }
 
-    public function approveAttendance(int $approvedBy, string $notes = null): bool
+    public function approveAttendance(int $approvedBy, ?string $notes = null): bool
     {
         return $this->update([
             'approved_by' => $approvedBy,
             'approved_at' => now(),
-            'notes' => $notes ? ($this->notes . "\n" . $notes) : $this->notes
+            'notes' => $notes ? ($this->notes . "\n" . $notes) : $this->notes,
         ]);
     }
 
     // Academic impact
     public function getGradeImpact(): float
     {
-        if (!$this->affects_grade) {
+        if (! $this->affects_grade) {
             return 0.0;
         }
 
@@ -286,7 +290,7 @@ class AttendanceRecord extends Model
             'file_path' => $filePath,
             'type' => $type,
             'uploaded_at' => now()->toISOString(),
-            'uploaded_by' => auth()->id()
+            'uploaded_by' => auth()->id(),
         ];
 
         $this->update(['supporting_documents' => $documents]);
@@ -294,7 +298,7 @@ class AttendanceRecord extends Model
 
     public function hasSupportingDocuments(): bool
     {
-        return !empty($this->supporting_documents);
+        return ! empty($this->supporting_documents);
     }
 
     public function getMedicalDocuments(): array
@@ -324,8 +328,11 @@ class AttendanceRecord extends Model
             ->orderBy('attendance_date', 'desc')
             ->get()
             ->takeWhile(function ($record, $index) {
-                if ($index === 0) return true;
+                if ($index === 0) {
+                    return true;
+                }
                 $previousDate = $this->attendance_date->subDays($index);
+
                 return $record->attendance_date->equalTo($previousDate);
             })
             ->count();
@@ -370,13 +377,13 @@ class AttendanceRecord extends Model
     public function scopeRequiringApproval(Builder $query): Builder
     {
         return $query->whereNull('approved_at')
-                    ->whereIn('status', ['absent', 'excused', 'medical']);
+            ->whereIn('status', ['absent', 'excused', 'medical']);
     }
 
     public function scopeNeedingParentNotification(Builder $query): Builder
     {
         return $query->where('parent_notified', false)
-                    ->whereIn('status', ['absent', 'late']);
+            ->whereIn('status', ['absent', 'late']);
     }
 
     public function scopeForAcademicYear(Builder $query, int $academicYearId): Builder

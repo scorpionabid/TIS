@@ -8,14 +8,14 @@ use Illuminate\Http\Request;
 
 /**
  * Refactored Institution Import/Export Service
- * 
+ *
  * This service acts as a facade/proxy to the new modular import system
  * while maintaining backward compatibility with existing controller code.
- * 
+ *
  * The original 828-line monolithic service has been decomposed into:
  * - InstitutionExcelTemplateService (template generation)
  * - InstitutionExcelParserService (Excel parsing)
- * - InstitutionImportValidationService (data validation)  
+ * - InstitutionImportValidationService (data validation)
  * - Type-specific processors (business logic)
  * - InstitutionImportOrchestrator (main coordinator)
  */
@@ -25,7 +25,7 @@ class InstitutionImportExportService extends BaseService
 
     public function __construct()
     {
-        $this->orchestrator = new InstitutionImportOrchestrator();
+        $this->orchestrator = new InstitutionImportOrchestrator;
     }
 
     /**
@@ -43,18 +43,18 @@ class InstitutionImportExportService extends BaseService
     {
         // For legacy calls without institution type, use generic processing
         $genericType = InstitutionType::where('key', 'secondary_school')->first();
-        if (!$genericType) {
-            throw new \Exception("Default institution type not found. Please specify institution type.");
+        if (! $genericType) {
+            throw new \Exception('Default institution type not found. Please specify institution type.');
         }
 
         return $this->orchestrator->processImport($file, $genericType, [
             'skip_duplicate_detection' => false,
             'duplicate_handling' => [
                 'high_severity' => 'skip',
-                'medium_severity' => 'warn', 
+                'medium_severity' => 'warn',
                 'name_conflict' => 'skip',
-                'code_conflict' => 'skip'
-            ]
+                'code_conflict' => 'skip',
+            ],
         ]);
     }
 
@@ -78,9 +78,9 @@ class InstitutionImportExportService extends BaseService
      * Process import file by type with full enterprise features
      */
     public function processImportFileByType(
-        $file, 
-        InstitutionType $institutionType, 
-        array $options = [], 
+        $file,
+        InstitutionType $institutionType,
+        array $options = [],
         ?Request $request = null
     ): array {
         // Set default options if not provided
@@ -89,33 +89,33 @@ class InstitutionImportExportService extends BaseService
             'duplicate_handling' => [
                 'high_severity' => 'skip',
                 'medium_severity' => 'warn',
-                'name_conflict' => 'auto_rename', 
-                'code_conflict' => 'auto_generate'
+                'name_conflict' => 'auto_rename',
+                'code_conflict' => 'auto_generate',
             ],
             'validation_level' => 'strict',
-            'max_errors_before_abort' => 100
+            'max_errors_before_abort' => 100,
         ];
 
         $mergedOptions = array_merge($defaultOptions, $options);
 
         // Process the import with enhanced error handling
         $results = $this->orchestrator->processImport($file, $institutionType, $mergedOptions, $request);
-        
+
         // Add detailed error analysis for better user feedback
-        if (!empty($results['errors']) || !empty($results['warnings'])) {
+        if (! empty($results['errors']) || ! empty($results['warnings'])) {
             $analyzer = app(\App\Services\Import\ImportErrorAnalyzerService::class);
             $analysis = $analyzer->analyzeImportResults($results);
-            
+
             // Enhance results with analysis
             $results['error_analysis'] = $analysis;
             $results['detailed_report'] = $analyzer->generateErrorReport($results);
-            
+
             \Log::info('Import completed with detailed error analysis', [
                 'institution_type' => $institutionType->key,
                 'success_count' => $results['success'] ?? 0,
                 'error_count' => count($results['errors'] ?? []),
                 'warning_count' => count($results['warnings'] ?? []),
-                'success_rate' => $analysis['overall_success']['success_rate'] ?? 0
+                'success_rate' => $analysis['overall_success']['success_rate'] ?? 0,
             ]);
         }
 
@@ -131,11 +131,12 @@ class InstitutionImportExportService extends BaseService
     }
 
     /**
-     * Validate file before processing (New method) 
+     * Validate file before processing (New method)
      */
     public function validateImportFile($file): array
     {
-        $parser = new \App\Services\Import\InstitutionExcelParserService();
+        $parser = new \App\Services\Import\InstitutionExcelParserService;
+
         return $parser->validateFileStructure($file);
     }
 
@@ -144,7 +145,8 @@ class InstitutionImportExportService extends BaseService
      */
     public function getFileInfo($file): array
     {
-        $parser = new \App\Services\Import\InstitutionExcelParserService();
+        $parser = new \App\Services\Import\InstitutionExcelParserService;
+
         return $parser->getFileInfo($file);
     }
 
@@ -153,11 +155,12 @@ class InstitutionImportExportService extends BaseService
      */
     public function getProcessorInfo(): array
     {
-        $factory = new \App\Services\Import\InstitutionTypeProcessorFactory();
+        $factory = new \App\Services\Import\InstitutionTypeProcessorFactory;
+
         return [
             'processors' => count($factory->getAllProcessors()),
             'handled_types' => $factory->getAllHandledTypes(),
-            'processor_mapping' => $this->getProcessorMapping($factory)
+            'processor_mapping' => $this->getProcessorMapping($factory),
         ];
     }
 
@@ -168,15 +171,15 @@ class InstitutionImportExportService extends BaseService
     {
         $mapping = [];
         $allTypes = InstitutionType::all();
-        
+
         foreach ($allTypes as $type) {
             $mapping[$type->key] = [
                 'processor' => $factory->getProcessorName($type->key),
                 'has_specific_processor' => $factory->hasSpecificProcessor($type->key),
-                'headers' => $factory->getHeadersForType($type->key)
+                'headers' => $factory->getHeadersForType($type->key),
             ];
         }
-        
+
         return $mapping;
     }
 }

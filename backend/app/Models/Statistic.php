@@ -198,6 +198,7 @@ class Statistic extends Model
     public function scopeRecent($query, int $months = 12)
     {
         $cutoffPeriod = now()->subMonths($months)->format('Y-m');
+
         return $query->where('time_period', '>=', $cutoffPeriod);
     }
 }

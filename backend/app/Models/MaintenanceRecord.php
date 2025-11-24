@@ -219,14 +219,14 @@ class MaintenanceRecord extends Model
     public function scopeOverdue($query)
     {
         return $query->where('scheduled_date', '<', now()->toDateString())
-                    ->whereIn('status', ['scheduled', 'in_progress']);
+            ->whereIn('status', ['scheduled', 'in_progress']);
     }
 
     public function scopeUpcoming($query, $days = 7)
     {
         return $query->whereBetween('scheduled_date', [
             now()->toDateString(),
-            now()->addDays($days)->toDateString()
+            now()->addDays($days)->toDateString(),
         ])->where('status', 'scheduled');
     }
 
@@ -238,7 +238,7 @@ class MaintenanceRecord extends Model
     public function scopeThisMonth($query)
     {
         return $query->whereMonth('maintenance_date', now()->month)
-                    ->whereYear('maintenance_date', now()->year);
+            ->whereYear('maintenance_date', now()->year);
     }
 
     /**
@@ -246,7 +246,7 @@ class MaintenanceRecord extends Model
      */
     public function getMaintenanceTypeLabelAttribute(): string
     {
-        return match($this->maintenance_type) {
+        return match ($this->maintenance_type) {
             'preventive' => 'Profilaktik',
             'corrective' => 'Düzəldici',
             'emergency' => 'Təcili',
@@ -263,7 +263,7 @@ class MaintenanceRecord extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'scheduled' => 'Planlaşdırılıb',
             'in_progress' => 'Davam edir',
             'completed' => 'Tamamlanıb',
@@ -276,7 +276,7 @@ class MaintenanceRecord extends Model
 
     public function getPriorityLabelAttribute(): string
     {
-        return match($this->priority) {
+        return match ($this->priority) {
             'low' => 'Aşağı',
             'medium' => 'Orta',
             'high' => 'Yüksək',
@@ -288,7 +288,7 @@ class MaintenanceRecord extends Model
 
     public function getDurationAttribute(): ?int
     {
-        if (!$this->maintenance_date || !$this->completion_date) {
+        if (! $this->maintenance_date || ! $this->completion_date) {
             return null;
         }
 
@@ -302,7 +302,7 @@ class MaintenanceRecord extends Model
 
     public function getFormattedCostAttribute(): string
     {
-        if (!$this->total_cost) {
+        if (! $this->total_cost) {
             return 'Məlum deyil';
         }
 
@@ -315,7 +315,7 @@ class MaintenanceRecord extends Model
             return 'Tamamlanıb';
         }
 
-        if (!$this->scheduled_date) {
+        if (! $this->scheduled_date) {
             return 'Planlaşdırılmayıb';
         }
 
@@ -327,9 +327,9 @@ class MaintenanceRecord extends Model
             return 'Bu gün';
         } elseif ($daysUntilMaintenance <= 3) {
             return 'Yaxında';
-        } else {
-            return 'Planlaşdırılıb';
         }
+
+        return 'Planlaşdırılıb';
     }
 
     /**
@@ -352,14 +352,14 @@ class MaintenanceRecord extends Model
 
     public function isOverdue(): bool
     {
-        return $this->scheduled_date && 
-               $this->scheduled_date->isPast() && 
-               !$this->isCompleted();
+        return $this->scheduled_date &&
+               $this->scheduled_date->isPast() &&
+               ! $this->isCompleted();
     }
 
     public function isUpcoming($days = 7): bool
     {
-        return $this->scheduled_date && 
+        return $this->scheduled_date &&
                $this->scheduled_date->isBetween(now(), now()->addDays($days)) &&
                $this->isScheduled();
     }
@@ -389,7 +389,7 @@ class MaintenanceRecord extends Model
 
     public function complete($workPerformed, $conditionAfter = 'good', $nextMaintenanceDate = null): bool
     {
-        if (!in_array($this->status, ['scheduled', 'in_progress'])) {
+        if (! in_array($this->status, ['scheduled', 'in_progress'])) {
             return false;
         }
 
@@ -531,7 +531,7 @@ class MaintenanceRecord extends Model
     public static function createScheduled($itemId, $maintenanceType, $scheduledDate, $scheduledBy, $priority = 'medium'): self
     {
         $item = InventoryItem::find($itemId);
-        
+
         return self::create([
             'item_id' => $itemId,
             'scheduled_by' => $scheduledBy,
@@ -546,7 +546,7 @@ class MaintenanceRecord extends Model
     public static function createEmergency($itemId, $description, $technicianId = null, $scheduledBy = null): self
     {
         $item = InventoryItem::find($itemId);
-        
+
         return self::create([
             'item_id' => $itemId,
             'technician_id' => $technicianId,
@@ -584,7 +584,7 @@ class MaintenanceRecord extends Model
             ],
             'technician' => $this->technician ? [
                 'id' => $this->technician->id,
-                'name' => $this->technician->profile 
+                'name' => $this->technician->profile
                     ? "{$this->technician->profile->first_name} {$this->technician->profile->last_name}"
                     : $this->technician->username,
             ] : null,

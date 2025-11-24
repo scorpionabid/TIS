@@ -2,21 +2,19 @@
 
 namespace App\Services;
 
+use App\Models\Institution;
 use App\Models\Task;
 use App\Models\TaskAssignment;
 use App\Models\TaskProgressLog;
-use App\Models\Institution;
 use App\Models\User;
-use App\Services\BaseService;
-use App\Services\TaskPermissionService;
-use App\Services\NotificationService;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class TaskAssignmentService extends BaseService
 {
     protected TaskPermissionService $permissionService;
+
     protected NotificationService $notificationService;
 
     public function __construct(TaskPermissionService $permissionService, NotificationService $notificationService)
@@ -30,7 +28,7 @@ class TaskAssignmentService extends BaseService
      */
     public function createHierarchicalTask(array $data, $user): array
     {
-        if (!$this->permissionService->canCreateHierarchicalTask($user)) {
+        if (! $this->permissionService->canCreateHierarchicalTask($user)) {
             throw new \Exception('İerarxik tapşırıq yaratmaq icazəniz yoxdur');
         }
 
@@ -56,7 +54,7 @@ class TaskAssignmentService extends BaseService
                 'priority' => $data['priority'] ?? 'medium',
                 'deadline' => $data['deadline'] ?? null,
                 'created_by' => $user->id,
-                'assigned_to' => !empty($selectedUserIds)
+                'assigned_to' => ! empty($selectedUserIds)
                     ? $selectedUserIds[0]
                     : ($data['assigned_to'] ?? null),
                 'assigned_institution_id' => $data['target_institution_id'] ?? null,
@@ -66,7 +64,7 @@ class TaskAssignmentService extends BaseService
                 'target_scope' => $data['target_scope'] ?? 'specific',
                 'origin_scope' => $this->determineOriginScope($user, $data['target_scope'] ?? null),
                 'notes' => $data['notes'] ?? null,
-                'requires_approval' => (bool)($data['requires_approval'] ?? false),
+                'requires_approval' => (bool) ($data['requires_approval'] ?? false),
                 'status' => 'pending',
                 'progress' => 0,
             ]);
@@ -92,8 +90,8 @@ class TaskAssignmentService extends BaseService
                 'statistics' => [
                     'institutions_targeted' => $targetInstitutions->count(),
                     'assignments_created' => count($assignments),
-                    'users_assigned' => collect($assignments)->pluck('assigned_user_id')->filter()->unique()->count()
-                ]
+                    'users_assigned' => collect($assignments)->pluck('assigned_user_id')->filter()->unique()->count(),
+                ],
             ];
         });
     }
@@ -129,7 +127,7 @@ class TaskAssignmentService extends BaseService
     {
         $task = Task::findOrFail($taskId);
 
-        if (!$this->permissionService->canUserAccessTask($task, $user)) {
+        if (! $this->permissionService->canUserAccessTask($task, $user)) {
             throw new \Exception('Bu tapşırığa giriş icazəniz yoxdur');
         }
 
@@ -140,7 +138,7 @@ class TaskAssignmentService extends BaseService
         $this->permissionService->applyAssignmentAccessControl($query, $user);
 
         // Apply additional filters
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             if (is_array($filters['status'])) {
                 $query->whereIn('assignment_status', $filters['status']);
             } else {
@@ -148,15 +146,15 @@ class TaskAssignmentService extends BaseService
             }
         }
 
-        if (!empty($filters['institution_id'])) {
+        if (! empty($filters['institution_id'])) {
             $query->where('institution_id', $filters['institution_id']);
         }
 
-        if (!empty($filters['assigned_to'])) {
+        if (! empty($filters['assigned_to'])) {
             $query->where('assigned_user_id', $filters['assigned_to']);
         }
 
-        if (!empty($filters['priority'])) {
+        if (! empty($filters['priority'])) {
             $query->where('priority', $filters['priority']);
         }
 
@@ -168,12 +166,12 @@ class TaskAssignmentService extends BaseService
                 'title' => $task->title,
                 'description' => $task->description,
                 'status' => $task->status,
-                'progress' => $task->progress
+                'progress' => $task->progress,
             ],
-            'assignments' => $assignments->map(function($assignment) {
+            'assignments' => $assignments->map(function ($assignment) {
                 return $this->transformAssignmentData($assignment);
             }),
-            'summary' => $this->getAssignmentsSummary($assignments)
+            'summary' => $this->getAssignmentsSummary($assignments),
         ];
     }
 
@@ -185,7 +183,7 @@ class TaskAssignmentService extends BaseService
         return DB::transaction(function () use ($assignmentId, $data, $user) {
             $assignment = TaskAssignment::with(['task', 'assignedUser', 'institution'])->findOrFail($assignmentId);
 
-            if (!$this->permissionService->canUserUpdateAssignment($assignment, $user)) {
+            if (! $this->permissionService->canUserUpdateAssignment($assignment, $user)) {
                 throw new \Exception('Bu tapşırıq təyinatını yeniləmək icazəniz yoxdur');
             }
 
@@ -208,7 +206,7 @@ class TaskAssignmentService extends BaseService
                 'completion_notes' => $data['completion_notes'] ?? $assignment->completion_notes,
                 'completion_data' => $data['completion_data'] ?? $assignment->completion_data,
                 'completed_at' => $newStatus === 'completed' ? now() : $assignment->completed_at,
-                'updated_by' => $user->id
+                'updated_by' => $user->id,
             ]);
 
             // Log progress change
@@ -240,7 +238,7 @@ class TaskAssignmentService extends BaseService
         $task = Task::with(['assignments.assignedUser', 'assignments.institution'])
             ->findOrFail($taskId);
 
-        if (!$this->permissionService->canUserAccessTask($task, $user)) {
+        if (! $this->permissionService->canUserAccessTask($task, $user)) {
             throw new \Exception('Bu tapşırığa giriş icazəniz yoxdur');
         }
 
@@ -253,34 +251,34 @@ class TaskAssignmentService extends BaseService
                 'overall_progress' => 0,
                 'status_breakdown' => [],
                 'institutional_progress' => [],
-                'timeline' => []
+                'timeline' => [],
             ];
         }
 
         // Calculate status breakdown
-        $statusBreakdown = $assignments->groupBy('assignment_status')->map(function($group) use ($totalAssignments) {
+        $statusBreakdown = $assignments->groupBy('assignment_status')->map(function ($group) use ($totalAssignments) {
             return [
                 'count' => $group->count(),
-                'percentage' => round(($group->count() / $totalAssignments) * 100, 2)
+                'percentage' => round(($group->count() / $totalAssignments) * 100, 2),
             ];
         });
 
         // Calculate institutional progress
-        $institutionalProgress = $assignments->groupBy('institution_id')->map(function($group) {
+        $institutionalProgress = $assignments->groupBy('institution_id')->map(function ($group) {
             $total = $group->count();
             $completed = $group->where('assignment_status', 'completed')->count();
             $inProgress = $group->where('assignment_status', 'in_progress')->count();
-            
+
             return [
                 'institution' => [
                     'id' => $group->first()->institution->id,
-                    'name' => $group->first()->institution->name
+                    'name' => $group->first()->institution->name,
                 ],
                 'total_assignments' => $total,
                 'completed' => $completed,
                 'in_progress' => $inProgress,
                 'pending' => $total - $completed - $inProgress,
-                'completion_rate' => $total > 0 ? round(($completed / $total) * 100, 2) : 0
+                'completion_rate' => $total > 0 ? round(($completed / $total) * 100, 2) : 0,
             ];
         });
 
@@ -297,7 +295,7 @@ class TaskAssignmentService extends BaseService
             'institutional_progress' => $institutionalProgress->values(),
             'timeline' => $timeline,
             'estimated_completion' => $this->estimateCompletionDate($task),
-            'bottlenecks' => $this->identifyBottlenecks($assignments)
+            'bottlenecks' => $this->identifyBottlenecks($assignments),
         ];
     }
 
@@ -306,7 +304,7 @@ class TaskAssignmentService extends BaseService
      */
     public function bulkUpdateAssignments(array $assignmentIds, array $data, $user): array
     {
-        if (!$this->permissionService->canPerformBulkOperations($user)) {
+        if (! $this->permissionService->canPerformBulkOperations($user)) {
             throw new \Exception('Kütləvi əməliyyat icazəniz yoxdur');
         }
 
@@ -316,8 +314,8 @@ class TaskAssignmentService extends BaseService
             'summary' => [
                 'total' => count($assignmentIds),
                 'success' => 0,
-                'failed' => 0
-            ]
+                'failed' => 0,
+            ],
         ];
 
         DB::transaction(function () use ($assignmentIds, $data, $user, &$results) {
@@ -329,7 +327,7 @@ class TaskAssignmentService extends BaseService
                 } catch (\Exception $e) {
                     $results['failed'][] = [
                         'assignment_id' => $assignmentId,
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
                     $results['summary']['failed']++;
                 }
@@ -357,7 +355,7 @@ class TaskAssignmentService extends BaseService
 
         $targetUsers = collect();
 
-        if (!empty($selectedUserIds)) {
+        if (! empty($selectedUserIds)) {
             $targetUsers = User::whereIn('id', $selectedUserIds)
                 ->where('is_active', true)
                 ->with('roles')
@@ -366,9 +364,9 @@ class TaskAssignmentService extends BaseService
 
         if ($targetUsers->isEmpty()) {
             // Get users with target role in this institution
-            $targetUsers = User::whereHas('roles', function($q) use ($targetRole) {
-                    $q->where('name', $targetRole);
-                })
+            $targetUsers = User::whereHas('roles', function ($q) use ($targetRole) {
+                $q->where('name', $targetRole);
+            })
                 ->where('institution_id', $institution->id)
                 ->where('is_active', true)
                 ->with('roles')
@@ -394,14 +392,14 @@ class TaskAssignmentService extends BaseService
         foreach ($targetUsers as $targetUser) {
             // Ensure user has an allowed management role when manually selected
             $roleName = $targetUser->roles->first()?->name;
-            if (!empty($selectedUserIds) && !in_array($roleName, ['regionadmin', 'regionoperator', 'sektoradmin'])) {
+            if (! empty($selectedUserIds) && ! in_array($roleName, ['regionadmin', 'regionoperator', 'sektoradmin'])) {
                 continue;
             }
 
             $assignments[] = TaskAssignment::create([
                 'task_id' => $task->id,
                 'institution_id' => $institution->id,
-                'assigned_role' => !empty($selectedUserIds) ? ($roleName ?? $targetRole) : $targetRole,
+                'assigned_role' => ! empty($selectedUserIds) ? ($roleName ?? $targetRole) : $targetRole,
                 'assigned_user_id' => $targetUser->id,
                 'priority' => $priority,
                 'progress' => 0,
@@ -409,7 +407,7 @@ class TaskAssignmentService extends BaseService
                 'assignment_notes' => $assignmentNotes,
                 'assignment_metadata' => array_merge(
                     is_array($assignmentMetadata) ? $assignmentMetadata : [],
-                    !empty($selectedUserIds) ? ['selected_by_creator' => true] : []
+                    ! empty($selectedUserIds) ? ['selected_by_creator' => true] : []
                 ),
                 'assignment_status' => 'pending',
             ]);
@@ -423,7 +421,7 @@ class TaskAssignmentService extends BaseService
      */
     private function getTargetInstitutions(array $data, $user)
     {
-        if (!empty($data['specific_institutions'])) {
+        if (! empty($data['specific_institutions'])) {
             // Specific institutions provided
             $institutionIds = $data['specific_institutions'];
         } else {
@@ -435,11 +433,11 @@ class TaskAssignmentService extends BaseService
         // Filter by institution type/level if specified
         $query = Institution::whereIn('id', $institutionIds)->where('is_active', true);
 
-        if (!empty($data['target_institution_type'])) {
+        if (! empty($data['target_institution_type'])) {
             $query->where('type', $data['target_institution_type']);
         }
 
-        if (!empty($data['target_institution_level'])) {
+        if (! empty($data['target_institution_level'])) {
             $query->where('level', $data['target_institution_level']);
         }
 
@@ -452,7 +450,7 @@ class TaskAssignmentService extends BaseService
     private function calculateTaskProgress(Task $task): float
     {
         $assignments = $task->assignments;
-        
+
         if ($assignments->isEmpty()) {
             return 0.0;
         }
@@ -493,7 +491,7 @@ class TaskAssignmentService extends BaseService
         $task->update([
             'progress' => $progress,
             'status' => $newStatus,
-            'completed_at' => $newStatus === 'completed' ? now() : null
+            'completed_at' => $newStatus === 'completed' ? now() : null,
         ]);
     }
 
@@ -504,8 +502,8 @@ class TaskAssignmentService extends BaseService
     {
         $validTransitions = $this->getStatusTransitionMap();
 
-        if (!isset($validTransitions[$oldStatus]) ||
-            !in_array($newStatus, $validTransitions[$oldStatus])) {
+        if (! isset($validTransitions[$oldStatus]) ||
+            ! in_array($newStatus, $validTransitions[$oldStatus])) {
             throw new \Exception("Status dəyişikliyi mümkün deyil: {$oldStatus} -> {$newStatus}");
         }
     }
@@ -526,7 +524,7 @@ class TaskAssignmentService extends BaseService
             'pending' => ['in_progress', 'completed', 'cancelled'],
             'in_progress' => ['completed', 'cancelled', 'pending'],
             'completed' => ['in_progress'], // Allow reopening
-            'cancelled' => ['pending', 'in_progress']
+            'cancelled' => ['pending', 'in_progress'],
         ];
     }
 
@@ -541,12 +539,12 @@ class TaskAssignmentService extends BaseService
             'institution' => [
                 'id' => $assignment->institution->id,
                 'name' => $assignment->institution->name,
-                'type' => $assignment->institution->type
+                'type' => $assignment->institution->type,
             ],
             'assigned_user' => $assignment->assignedUser ? [
                 'id' => $assignment->assignedUser->id,
                 'name' => $assignment->assignedUser->name,
-                'email' => $assignment->assignedUser->email
+                'email' => $assignment->assignedUser->email,
             ] : null,
             'assigned_role' => $assignment->assigned_role,
             'assigned_user_id' => $assignment->assigned_user_id,
@@ -559,7 +557,7 @@ class TaskAssignmentService extends BaseService
             'completed_at' => $assignment->completed_at,
             'completion_notes' => $assignment->completion_notes,
             'created_at' => $assignment->created_at,
-            'is_overdue' => $assignment->due_date && Carbon::parse($assignment->due_date)->isPast() && $assignment->assignment_status !== 'completed'
+            'is_overdue' => $assignment->due_date && Carbon::parse($assignment->due_date)->isPast() && $assignment->assignment_status !== 'completed',
         ];
     }
 
@@ -578,11 +576,11 @@ class TaskAssignmentService extends BaseService
             'completed' => $statusCounts['completed'] ?? 0,
             'cancelled' => $statusCounts['cancelled'] ?? 0,
             'completion_rate' => $total > 0 ? round((($statusCounts['completed'] ?? 0) / $total) * 100, 2) : 0,
-            'overdue_count' => $assignments->filter(function($assignment) {
-                return $assignment->due_date && 
-                       Carbon::parse($assignment->due_date)->isPast() && 
+            'overdue_count' => $assignments->filter(function ($assignment) {
+                return $assignment->due_date &&
+                       Carbon::parse($assignment->due_date)->isPast() &&
                        $assignment->assignment_status !== 'completed';
-            })->count()
+            })->count(),
         ];
     }
 
@@ -612,7 +610,7 @@ class TaskAssignmentService extends BaseService
     {
         try {
             $task = $assignment->task?->fresh('creator');
-            if (!$task || !$task->creator) {
+            if (! $task || ! $task->creator) {
                 return;
             }
 
@@ -660,12 +658,12 @@ class TaskAssignmentService extends BaseService
      */
     private function normalizeStringArray($values): array
     {
-        if (empty($values) || !is_array($values)) {
+        if (empty($values) || ! is_array($values)) {
             return [];
         }
 
         return collect($values)
-            ->filter(fn ($value) => !is_null($value) && $value !== '')
+            ->filter(fn ($value) => ! is_null($value) && $value !== '')
             ->map(function ($value) {
                 return is_string($value) ? trim($value) : $value;
             })

@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('user_profiles', function (Blueprint $table) {
-            if (!Schema::hasColumn('user_profiles', 'position_type')) {
+            if (! Schema::hasColumn('user_profiles', 'position_type')) {
                 $table->enum('position_type', [
                     'direktor',
                     'direktor_muavini_tedris',
@@ -29,11 +29,11 @@ return new class extends Migration
                 ])->nullable()->after('specialty');
             }
 
-            if (!Schema::hasColumn('user_profiles', 'specialty_score')) {
+            if (! Schema::hasColumn('user_profiles', 'specialty_score')) {
                 $table->decimal('specialty_score', 5, 2)->nullable()->after('position_type');
             }
 
-            if (!Schema::hasColumn('user_profiles', 'specialty_level')) {
+            if (! Schema::hasColumn('user_profiles', 'specialty_level')) {
                 $table->enum('specialty_level', [
                     'bakalavr',
                     'magistr',
@@ -44,7 +44,7 @@ return new class extends Migration
         });
 
         if (Schema::hasColumn('user_profiles', 'position_type') &&
-            !$this->indexExists('user_profiles', 'user_profiles_position_type_index')) {
+            ! $this->indexExists('user_profiles', 'user_profiles_position_type_index')) {
             Schema::table('user_profiles', function (Blueprint $table) {
                 $table->index('position_type', 'user_profiles_position_type_index');
             });

@@ -2,17 +2,18 @@
 
 /**
  * Automated Controller Refactoring Script
- * 
+ *
  * Bu script mövcud controllerləri yeni architecture pattern-ə avtomatik çevirir
  */
-
 class ControllerRefactorer
 {
     private string $controllersPath;
+
     private string $outputPath;
+
     private array $patterns;
 
-    public function __construct(string $controllersPath = null, string $outputPath = null)
+    public function __construct(?string $controllersPath = null, ?string $outputPath = null)
     {
         $this->controllersPath = $controllersPath ?? __DIR__ . '/../app/Http/Controllers';
         $this->outputPath = $outputPath ?? __DIR__ . '/../app/Http/Controllers/Refactored';
@@ -26,12 +27,12 @@ class ControllerRefactorer
     {
         echo "🚀 Starting automated controller refactoring...\n\n";
 
-        if (!is_dir($this->outputPath)) {
+        if (! is_dir($this->outputPath)) {
             mkdir($this->outputPath, 0755, true);
         }
 
         $controllers = $this->getControllerFiles();
-        
+
         foreach ($controllers as $controller) {
             $this->refactorController($controller);
         }
@@ -46,7 +47,7 @@ class ControllerRefactorer
     {
         $fileName = basename($controllerPath);
         $className = pathinfo($fileName, PATHINFO_FILENAME);
-        
+
         echo "🔄 Refactoring {$className}...\n";
 
         $originalContent = file_get_contents($controllerPath);
@@ -65,22 +66,22 @@ class ControllerRefactorer
     {
         // 1. Update class declaration
         $content = $this->updateClassDeclaration($content, $className);
-        
+
         // 2. Add use statements
         $content = $this->addUseStatements($content);
-        
+
         // 3. Add traits
         $content = $this->addTraits($content);
-        
+
         // 4. Wrap methods with executeWithErrorHandling
         $content = $this->wrapMethodsWithErrorHandling($content);
-        
+
         // 5. Replace validation patterns
         $content = $this->replaceValidationPatterns($content);
-        
+
         // 6. Replace response patterns
         $content = $this->replaceResponsePatterns($content);
-        
+
         // 7. Add helper methods
         $content = $this->addHelperMethods($content, $className);
 
@@ -93,10 +94,10 @@ class ControllerRefactorer
     private function updateClassDeclaration(string $content, string $className): string
     {
         $newClassName = $className . 'Refactored';
-        
+
         $pattern = '/class\s+' . $className . '\s+extends\s+Controller/';
         $replacement = "class {$newClassName} extends BaseController";
-        
+
         return preg_replace($pattern, $replacement, $content);
     }
 
@@ -107,12 +108,12 @@ class ControllerRefactorer
     {
         $useStatements = [
             'use App\Http\Traits\ValidationRules;',
-            'use App\Http\Traits\ResponseHelpers;'
+            'use App\Http\Traits\ResponseHelpers;',
         ];
 
         // Find the position after existing use statements
         $lastUsePos = $this->findLastUseStatementPosition($content);
-        
+
         if ($lastUsePos !== false) {
             $useStatementsStr = implode("\n", $useStatements) . "\n";
             $content = substr_replace($content, $useStatementsStr, $lastUsePos, 0);
@@ -127,11 +128,11 @@ class ControllerRefactorer
     private function addTraits(string $content): string
     {
         $traitsCode = "\n    use ValidationRules, ResponseHelpers;\n";
-        
+
         // Find class opening brace
         $pattern = '/class\s+\w+\s+extends\s+\w+\s*\{/';
         $replacement = '$0' . $traitsCode;
-        
+
         return preg_replace($pattern, $replacement, $content);
     }
 
@@ -141,11 +142,11 @@ class ControllerRefactorer
     private function wrapMethodsWithErrorHandling(string $content): string
     {
         $methods = ['index', 'show', 'store', 'update', 'destroy'];
-        
+
         foreach ($methods as $method) {
             $content = $this->wrapMethodWithErrorHandling($content, $method);
         }
-        
+
         return $content;
     }
 
@@ -156,13 +157,13 @@ class ControllerRefactorer
     {
         // Match complete method including nested braces
         $pattern = '/public\s+function\s+' . $method . '\s*\([^{]*\)\s*:\s*JsonResponse\s*\{/';
-        
+
         return preg_replace_callback($pattern, function ($matches) use ($method) {
             $startPos = strpos($content, $matches[0]) + strlen($matches[0]);
             $braceCount = 1;
             $pos = $startPos;
             $methodEnd = $startPos;
-            
+
             // Find matching closing brace
             while ($pos < strlen($content) && $braceCount > 0) {
                 if ($content[$pos] === '{') {
@@ -176,19 +177,19 @@ class ControllerRefactorer
                 }
                 $pos++;
             }
-            
+
             $methodBody = substr($content, $startPos, $methodEnd - $startPos);
             $methodBody = trim($methodBody);
-            
+
             // Skip if already wrapped
             if (strpos($methodBody, 'executeWithErrorHandling') !== false) {
                 return $matches[0];
             }
-            
+
             $newMethodBody = "\n        return \$this->executeWithErrorHandling(function () use (\$request) {\n";
-            $newMethodBody .= "            " . str_replace("\n", "\n            ", $methodBody) . "\n";
+            $newMethodBody .= '            ' . str_replace("\n", "\n            ", $methodBody) . "\n";
             $newMethodBody .= "        }, '{$method} operation');\n    ";
-            
+
             return $matches[0] . $newMethodBody;
         }, $content);
     }
@@ -202,7 +203,7 @@ class ControllerRefactorer
         $patterns = [
             // Pagination validation
             '/\$request->validate\(\[\s*[\'"]per_page[\'"] => [\'"]nullable\|integer\|min:1\|max:100[\'"],?\s*[\'"]search[\'"] => [\'"]nullable\|string\|max:255[\'"],?[^\]]*\]\);/' => '$request->validate($this->getUserValidationRules());',
-            
+
             // Bulk operation validation
             '/\$request->validate\(\[\s*[\'"](\w+)_ids[\'"] => [\'"]required\|array\|min:1\|max:\d+[\'"],?\s*[\'"](\w+)_ids\.\*[\'"] => [\'"]integer\|exists:\w+,id[\'"],?\s*\]\);/' => '$request->validate($this->getBulkOperationRules(\'$1\'));',
         ];
@@ -222,10 +223,10 @@ class ControllerRefactorer
         $patterns = [
             // Success responses
             '/return\s+response\(\)->json\(\[\s*[\'"]success[\'"] => true,\s*[\'"]message[\'"] => [\'"]([^\'\"]+)[\'"],?\s*[\'"]data[\'"] => ([^,\]]+),?\s*\]\);/' => 'return $this->success($2, \'$1\');',
-            
+
             // Error responses
             '/return\s+response\(\)->json\(\[\s*[\'"]success[\'"] => false,\s*[\'"]message[\'"] => [\'"]([^\'\"]+)[\'"],?\s*\],?\s*(\d+)\);/' => 'return $this->error(\'$1\', $2);',
-            
+
             // Paginated responses
             '/return\s+response\(\)->json\(\[\s*[\'"]success[\'"] => true,\s*[\'"]data[\'"] => \$\w+->items\(\),\s*[\'"]meta[\'"] => \[[^\]]+\],?\s*\]\);/' => 'return $this->paginated($data);',
         ];
@@ -243,12 +244,12 @@ class ControllerRefactorer
     private function addHelperMethods(string $content, string $className): string
     {
         $helperMethods = $this->getHelperMethodsForController($className);
-        
-        if (!empty($helperMethods)) {
+
+        if (! empty($helperMethods)) {
             // Find the last method in the class
             $lastBracePos = strrpos($content, '}');
             $helperMethodsCode = "\n" . implode("\n\n", $helperMethods) . "\n";
-            
+
             $content = substr_replace($content, $helperMethodsCode, $lastBracePos, 0);
         }
 
@@ -413,10 +414,10 @@ class ControllerRefactorer
         foreach ($iterator as $file) {
             if ($file->isFile() && $file->getExtension() === 'php') {
                 $fileName = $file->getFilename();
-                
+
                 // Skip base classes and already refactored files
-                if (!in_array($fileName, ['Controller.php', 'BaseController.php']) && 
-                    !strpos($fileName, 'Refactored')) {
+                if (! in_array($fileName, ['Controller.php', 'BaseController.php']) &&
+                    ! strpos($fileName, 'Refactored')) {
                     $files[] = $file->getPathname();
                 }
             }
@@ -466,15 +467,15 @@ class ControllerRefactorer
                 'success' => '/return\s+response\(\)->json\(\[\s*[\'"]success[\'"] => true,\s*[\'"]message[\'"] => [\'"]([^\'\"]+)[\'"],?\s*[\'"]data[\'"] => ([^,\]]+),?\s*\]\);/',
                 'error' => '/return\s+response\(\)->json\(\[\s*[\'"]success[\'"] => false,\s*[\'"]message[\'"] => [\'"]([^\'\"]+)[\'"],?\s*\],?\s*(\d+)\);/',
                 'paginated' => '/return\s+response\(\)->json\(\[\s*[\'"]success[\'"] => true,\s*[\'"]data[\'"] => \$\w+->items\(\),\s*[\'"]meta[\'"] => \[[^\]]+\],?\s*\]\);/',
-            ]
+            ],
         ];
     }
 }
 
 // CLI interface
 if (php_sapi_name() === 'cli') {
-    $refactorer = new ControllerRefactorer();
-    
+    $refactorer = new ControllerRefactorer;
+
     if (isset($argv[1]) && $argv[1] === 'single' && isset($argv[2])) {
         // Refactor single controller
         $controllerPath = $argv[2];

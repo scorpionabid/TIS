@@ -15,16 +15,16 @@ return new class extends Migration
         Schema::table('users', function (Blueprint $table) {
             // Composite index for institution and role queries
             $table->index(['institution_id', 'role_id'], 'users_institution_role_idx');
-            
+
             // Index for active user lookups
             $table->index(['is_active', 'last_login_at'], 'users_active_login_idx');
-            
+
             // Index for email verification status
             $table->index(['email_verified_at'], 'users_email_verified_idx');
-            
+
             // Department assignment index
             $table->index(['department_id'], 'users_department_idx');
-            
+
             // Created at index for recent user queries
             $table->index(['created_at'], 'users_created_at_idx');
         });
@@ -101,13 +101,13 @@ return new class extends Migration
         Schema::table('documents', function (Blueprint $table) {
             // Institution and category index
             $table->index(['institution_id', 'category'], 'documents_institution_category_idx');
-            
+
             // File type and size index for filtering
             $table->index(['file_type', 'file_size'], 'documents_type_size_idx');
-            
+
             // Uploaded by index
             $table->index(['uploaded_by'], 'documents_uploaded_by_idx');
-            
+
             // Access level index
             $table->index(['access_level'], 'documents_access_level_idx');
         });
@@ -116,7 +116,7 @@ return new class extends Migration
         Schema::table('notifications', function (Blueprint $table) {
             // Recipient, read status and date index
             $table->index(['recipient_id', 'is_read', 'created_at'], 'notifications_recipient_read_date_idx');
-            
+
             // Notification type index
             $table->index(['type'], 'notifications_type_idx');
         });
@@ -125,7 +125,7 @@ return new class extends Migration
         Schema::table('departments', function (Blueprint $table) {
             // Institution and type index
             $table->index(['institution_id', 'type'], 'departments_institution_type_idx');
-            
+
             // Parent department index
             $table->index(['parent_id'], 'departments_parent_idx');
         });
@@ -135,10 +135,10 @@ return new class extends Migration
             Schema::table('activity_logs', function (Blueprint $table) {
                 // User and date index
                 $table->index(['user_id', 'created_at'], 'activity_logs_user_date_idx');
-                
+
                 // Action type index
                 $table->index(['action'], 'activity_logs_action_idx');
-                
+
                 // Subject type and id index
                 $table->index(['subject_type', 'subject_id'], 'activity_logs_subject_idx');
             });
@@ -149,7 +149,7 @@ return new class extends Migration
             Schema::table('assessment_entries', function (Blueprint $table) {
                 // Student and assessment type index
                 $table->index(['student_id', 'assessment_type_id'], 'assessment_entries_student_type_idx');
-                
+
                 // Institution and date index
                 $table->index(['institution_id', 'assessment_date'], 'assessment_entries_institution_date_idx');
             });
@@ -159,10 +159,10 @@ return new class extends Migration
             Schema::table('attendance_records', function (Blueprint $table) {
                 // Student and date index
                 $table->index(['student_id', 'date'], 'attendance_records_student_date_idx');
-                
+
                 // Institution and date index
                 $table->index(['institution_id', 'date'], 'attendance_records_institution_date_idx');
-                
+
                 // Status index
                 $table->index(['status'], 'attendance_records_status_idx');
             });

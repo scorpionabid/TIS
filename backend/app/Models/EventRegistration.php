@@ -113,7 +113,7 @@ class EventRegistration extends Model
      */
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'pending' => 'Gözləmədə',
             'confirmed' => 'Təsdiqləndi',
             'waitlisted' => 'Gözləmə siyahısında',

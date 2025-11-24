@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\Events;
 
 use App\Http\Controllers\Controller;
-use App\Models\SchoolEvent;
 use App\Models\Institution;
-use Illuminate\Http\Request;
+use App\Models\SchoolEvent;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Carbon\Carbon;
 
 class EventManagementController extends Controller
 {
@@ -55,7 +55,7 @@ class EventManagementController extends Controller
         $user = $request->user();
 
         // Check if user can create events for this institution
-        if (!$this->canManageEventForInstitution($user, $request->institution_id)) {
+        if (! $this->canManageEventForInstitution($user, $request->institution_id)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu təşkilat üçün tədbir yaratmaq üçün icazəniz yoxdur',
@@ -69,7 +69,7 @@ class EventManagementController extends Controller
                 'title', 'description', 'event_type', 'event_category', 'status', 'priority',
                 'institution_id', 'start_date', 'end_date', 'start_time', 'end_time',
                 'location', 'max_participants', 'registration_required', 'registration_deadline',
-                'is_public', 'is_recurring', 'recurrence_rule', 'tags', 'notes', 'metadata'
+                'is_public', 'is_recurring', 'recurrence_rule', 'tags', 'notes', 'metadata',
             ]);
 
             // Set defaults
@@ -85,7 +85,7 @@ class EventManagementController extends Controller
             if (isset($eventData['start_time']) && isset($eventData['end_time'])) {
                 $startDateTime = Carbon::parse($eventData['start_date'] . ' ' . $eventData['start_time']);
                 $endDateTime = Carbon::parse($eventData['end_date'] . ' ' . $eventData['end_time']);
-                
+
                 if ($startDateTime >= $endDateTime) {
                     return response()->json([
                         'success' => false,
@@ -130,9 +130,9 @@ class EventManagementController extends Controller
                 ],
                 'message' => 'Tədbir uğurla yaradıldı',
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Tədbir yaradılarkən xəta baş verdi',
@@ -149,7 +149,7 @@ class EventManagementController extends Controller
         $user = $request->user();
 
         // Check permissions
-        if (!$this->canManageEvent($user, $event)) {
+        if (! $this->canManageEvent($user, $event)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tədbiri redaktə etmək üçün icazəniz yoxdur',
@@ -208,7 +208,7 @@ class EventManagementController extends Controller
                 'title', 'description', 'event_type', 'event_category', 'status', 'priority',
                 'start_date', 'end_date', 'start_time', 'end_time', 'location',
                 'max_participants', 'registration_required', 'registration_deadline',
-                'is_public', 'is_recurring', 'recurrence_rule', 'tags', 'notes', 'metadata'
+                'is_public', 'is_recurring', 'recurrence_rule', 'tags', 'notes', 'metadata',
             ]);
 
             // Validate updated date/time combination
@@ -220,7 +220,7 @@ class EventManagementController extends Controller
             if ($startTime && $endTime) {
                 $startDateTime = Carbon::parse($startDate . ' ' . $startTime);
                 $endDateTime = Carbon::parse($endDate . ' ' . $endTime);
-                
+
                 if ($startDateTime >= $endDateTime) {
                     return response()->json([
                         'success' => false,
@@ -265,9 +265,9 @@ class EventManagementController extends Controller
                 ],
                 'message' => 'Tədbir məlumatları uğurla yeniləndi',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Tədbir yenilənərkən xəta baş verdi',
@@ -284,7 +284,7 @@ class EventManagementController extends Controller
         $user = $request->user();
 
         // Check permissions
-        if (!$this->canManageEvent($user, $event)) {
+        if (! $this->canManageEvent($user, $event)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tədbiri silmək üçün icazəniz yoxdur',
@@ -315,7 +315,7 @@ class EventManagementController extends Controller
             // Delete related data
             $event->registrations()->delete();
             $event->resources()->delete();
-            
+
             $event->delete();
 
             DB::commit();
@@ -324,9 +324,9 @@ class EventManagementController extends Controller
                 'success' => true,
                 'message' => 'Tədbir uğurla silindi',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Tədbir silinərkən xəta baş verdi',
@@ -345,7 +345,7 @@ class EventManagementController extends Controller
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
@@ -356,7 +356,7 @@ class EventManagementController extends Controller
 
         // Check if institution is under user's hierarchy
         $targetInstitution = Institution::find($institutionId);
-        if (!$targetInstitution) {
+        if (! $targetInstitution) {
             return false;
         }
 

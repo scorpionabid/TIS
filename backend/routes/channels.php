@@ -12,7 +12,7 @@ Broadcast::channel('institution.{institutionId}', function ($user, $institutionI
     return $user->institution_id == $institutionId;
 });
 
-// Role-based channels  
+// Role-based channels
 Broadcast::channel('role.{roleName}', function ($user, $roleName) {
     return $user->hasRole($roleName);
 });
@@ -25,11 +25,13 @@ Broadcast::channel('department.{departmentId}', function ($user, $departmentId) 
 // Survey channels
 Broadcast::channel('survey.{surveyId}', function ($user, $surveyId) {
     $survey = \App\Models\Survey::find($surveyId);
-    
-    if (!$survey) return false;
-    
+
+    if (! $survey) {
+        return false;
+    }
+
     // Check if user can access this survey
-    return $user->can('view', $survey) || 
+    return $user->can('view', $survey) ||
            in_array($user->institution_id, $survey->target_institutions ?? []) ||
            in_array($user->role->name, $survey->target_roles ?? []);
 });
@@ -37,11 +39,13 @@ Broadcast::channel('survey.{surveyId}', function ($user, $surveyId) {
 // Task channels
 Broadcast::channel('task.{taskId}', function ($user, $taskId) {
     $task = \App\Models\Task::find($taskId);
-    
-    if (!$task) return false;
-    
+
+    if (! $task) {
+        return false;
+    }
+
     // Check if user is assigned to this task or can manage it
-    return $task->assigned_to == $user->id || 
+    return $task->assigned_to == $user->id ||
            $task->created_by == $user->id ||
            $user->can('manage', $task);
 });
@@ -55,6 +59,7 @@ Broadcast::channel('system.announcements', function ($user) {
 Broadcast::channel('region.{regionId}', function ($user, $regionId) {
     // Get user's region from institution hierarchy
     $userRegion = $user->institution->getRegionId();
+
     return $userRegion == $regionId;
 });
 

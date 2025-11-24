@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Grade;
 
 use App\Http\Controllers\Controller;
 use App\Models\GradeTag;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Grade Tag Controller
@@ -106,6 +106,7 @@ class GradeTagController extends Controller
         try {
             $categories = collect(GradeTag::getCategories())->map(function ($name, $key) {
                 $count = GradeTag::where('category', $key)->where('is_active', true)->count();
+
                 return [
                     'key' => $key,
                     'name' => $name,

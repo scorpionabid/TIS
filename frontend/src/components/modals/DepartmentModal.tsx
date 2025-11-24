@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,9 +69,18 @@ export const DepartmentModal: React.FC<DepartmentModalProps> = ({
     enabled: open && formData.institution_id > 0,
   });
 
-  const institutions = institutionsResponse?.data || institutionsResponse?.institutions || [];
-  const departmentTypes = typesResponse?.data || [];
-  const parentDepartments = parentDepartmentsResponse?.data || [];
+  const institutions = useMemo(
+    () => institutionsResponse?.data || institutionsResponse?.institutions || [],
+    [institutionsResponse]
+  );
+  const departmentTypes = useMemo(
+    () => typesResponse?.data || [],
+    [typesResponse]
+  );
+  const parentDepartments = useMemo(
+    () => parentDepartmentsResponse?.data || [],
+    [parentDepartmentsResponse]
+  );
   
   // Minimal debug logging (can be removed in production)
   React.useEffect(() => {

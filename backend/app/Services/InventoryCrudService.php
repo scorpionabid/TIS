@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
-use App\Models\ActivityLog;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Exception;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class InventoryCrudService
 {
@@ -18,35 +18,35 @@ class InventoryCrudService
     public function getPaginatedList(array $params): LengthAwarePaginator
     {
         $query = InventoryItem::with(['institution', 'assignedUser', 'room']);
-        
+
         // Apply regional access control
         $this->applyAccessControl($query);
-        
+
         // Apply filters
         $this->applyFilters($query, $params);
-        
+
         // Apply search
-        if (!empty($params['search'])) {
+        if (! empty($params['search'])) {
             $this->applySearch($query, $params['search']);
         }
-        
+
         // Apply sorting
         $this->applySorting($query, $params);
-        
+
         $items = $query->paginate($params['per_page'] ?? 15);
-        
+
         // Log activity
         $this->logActivity('inventory_list', 'Accessed inventory list', [
             'filters' => array_intersect_key($params, array_flip(['category', 'status', 'condition', 'institution_id'])),
             'pagination' => [
                 'per_page' => $params['per_page'] ?? 15,
-                'page' => $params['page'] ?? 1
-            ]
+                'page' => $params['page'] ?? 1,
+            ],
         ]);
-        
+
         return $items;
     }
-    
+
     /**
      * Get inventory item with all relations
      */
@@ -61,18 +61,18 @@ class InventoryCrudService
             },
             'maintenanceRecords' => function ($query) {
                 $query->latest()->take(5);
-            }
+            },
         ]);
-        
+
         // Log activity
         $this->logActivity('inventory_view', "Viewed inventory item: {$item->name}", [
             'entity_type' => 'InventoryItem',
-            'entity_id' => $item->id
+            'entity_id' => $item->id,
         ]);
-        
+
         return $item;
     }
-    
+
     /**
      * Create new inventory item
      */
@@ -81,24 +81,24 @@ class InventoryCrudService
         return DB::transaction(function () use ($data) {
             // Prepare item data
             $itemData = $this->prepareItemData($data);
-            
+
             // Create inventory item
             $item = InventoryItem::create($itemData);
-            
+
             // Create initial transaction
             $this->createInitialTransaction($item, $data);
-            
+
             // Log activity
             $this->logActivity('inventory_create', "Created inventory item: {$item->name}", [
                 'entity_type' => 'InventoryItem',
                 'entity_id' => $item->id,
-                'after_state' => $item->toArray()
+                'after_state' => $item->toArray(),
             ]);
-            
+
             return $item->load(['institution', 'assignedUser', 'room']);
         });
     }
-    
+
     /**
      * Update inventory item
      */
@@ -106,30 +106,30 @@ class InventoryCrudService
     {
         return DB::transaction(function () use ($item, $data) {
             $oldData = $item->toArray();
-            
+
             // Prepare update data
             $updateData = $this->prepareItemData($data);
-            
+
             // Update item
             $item->update($updateData);
-            
+
             // Create transaction if status or location changed
-            if (!app()->runningUnitTests() && $this->hasStatusOrLocationChanged($oldData, $updateData)) {
+            if (! app()->runningUnitTests() && $this->hasStatusOrLocationChanged($oldData, $updateData)) {
                 $this->createUpdateTransaction($item, $oldData, $updateData);
             }
-            
+
             // Log activity
             $this->logActivity('inventory_update', "Updated inventory item: {$item->name}", [
                 'entity_type' => 'InventoryItem',
                 'entity_id' => $item->id,
                 'before_state' => $oldData,
-                'after_state' => $item->toArray()
+                'after_state' => $item->toArray(),
             ]);
-            
+
             return $item->load(['institution', 'assignedUser', 'room']);
         });
     }
-    
+
     /**
      * Delete inventory item
      */
@@ -138,33 +138,33 @@ class InventoryCrudService
         return DB::transaction(function () use ($item) {
             $itemName = $item->name;
             $itemId = $item->id;
-            
+
             // Check if item can be deleted
             if ($item->status === 'in_use') {
                 throw new Exception('Cannot delete item that is currently in use. Please return it first.');
             }
-            
+
             if ($item->transactions()->count() > 1) {
                 throw new Exception('Cannot delete item with transaction history. Consider marking as retired instead.');
             }
-            
+
             // Delete related records
             $item->transactions()->delete();
             $item->maintenanceRecords()->delete();
-            
+
             // Delete item
             $item->delete();
-            
+
             // Log activity
             $this->logActivity('inventory_delete', "Deleted inventory item: {$itemName}", [
                 'entity_type' => 'InventoryItem',
-                'entity_id' => $itemId
+                'entity_id' => $itemId,
             ]);
-            
+
             return true;
         });
     }
-    
+
     /**
      * Get inventory item for public viewing
      */
@@ -183,10 +183,10 @@ class InventoryCrudService
             'is_available' => $item->status === 'available',
             'current_value' => $item->current_value,
             'warranty_expiry' => $item->warranty_expiry,
-            'last_maintenance' => $item->maintenanceRecords()->latest()->first()?->completed_at
+            'last_maintenance' => $item->maintenanceRecords()->latest()->first()?->completed_at,
         ];
     }
-    
+
     /**
      * Duplicate inventory item
      */
@@ -195,33 +195,33 @@ class InventoryCrudService
         return DB::transaction(function () use ($item, $overrides) {
             // Prepare item data for duplication
             $itemData = $item->toArray();
-            
+
             // Remove unique fields
             unset($itemData['id'], $itemData['code'], $itemData['created_at'], $itemData['updated_at']);
-            
+
             // Apply overrides
             $itemData = array_merge($itemData, $overrides);
-            
+
             // Set defaults for duplicate
-            if (!isset($overrides['name'])) {
+            if (! isset($overrides['name'])) {
                 $itemData['name'] = $item->name . ' (Copy)';
             }
-            if (!isset($overrides['code'])) {
+            if (! isset($overrides['code'])) {
                 $itemData['code'] = $this->generateUniqueCode($item->category);
             }
             $itemData['status'] = 'available';
             $itemData['assigned_to'] = null;
-            
+
             // Create duplicate
             $duplicate = $this->create($itemData);
-            
+
             // Log activity
             $this->logActivity('inventory_duplicate', "Duplicated inventory item: {$item->name} → {$duplicate->name}", [
                 'entity_type' => 'InventoryItem',
                 'entity_id' => $duplicate->id,
-                'source_item_id' => $item->id
+                'source_item_id' => $item->id,
             ]);
-            
+
             return $duplicate;
         });
     }
@@ -235,19 +235,19 @@ class InventoryCrudService
 
         $this->applyAccessControl($query);
 
-        if (!empty($params['query'])) {
+        if (! empty($params['query'])) {
             $this->applySearch($query, $params['query']);
         }
 
-        if (!empty($params['category'])) {
+        if (! empty($params['category'])) {
             $query->where('category', $params['category']);
         }
 
-        if (!empty($params['status'])) {
+        if (! empty($params['status'])) {
             $query->where('status', $params['status']);
         }
 
-        if (!empty($params['institution_id'])) {
+        if (! empty($params['institution_id'])) {
             $query->where('institution_id', $params['institution_id']);
         }
 
@@ -272,9 +272,9 @@ class InventoryCrudService
         $this->applyAccessControl($query);
 
         $categories = $query->select('category', DB::raw('count(*) as total'))
-                            ->groupBy('category')
-                            ->pluck('total', 'category')
-                            ->toArray();
+            ->groupBy('category')
+            ->pluck('total', 'category')
+            ->toArray();
 
         $this->logActivity('inventory_categories', 'Viewed inventory category distribution', [
             'categories' => $categories,
@@ -282,20 +282,20 @@ class InventoryCrudService
 
         return $categories;
     }
-    
+
     /**
      * Apply regional access control
      */
     protected function applyAccessControl($query): void
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole('superadmin')) {
+
+        if (! $user->hasRole('superadmin')) {
             $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
             $query->whereIn('institution_id', $accessibleInstitutions);
         }
     }
-    
+
     /**
      * Get user accessible institutions
      */
@@ -308,59 +308,59 @@ class InventoryCrudService
         } elseif ($user->hasRole('sektoradmin')) {
             // SektorAdmin can access institutions in their sector
             return $user->institution->children()->withTrashed()->pluck('id')->toArray();
-        } else {
-            // School level users can only access their own institution
-            return [$user->institution_id];
         }
+
+        // School level users can only access their own institution
+        return [$user->institution_id];
     }
-    
+
     /**
      * Apply filters to query
      */
     protected function applyFilters($query, array $params): void
     {
-        if (!empty($params['institution_id'])) {
+        if (! empty($params['institution_id'])) {
             $query->where('institution_id', $params['institution_id']);
         }
-        
-        if (!empty($params['category'])) {
+
+        if (! empty($params['category'])) {
             $query->where('category', $params['category']);
         }
-        
-        if (!empty($params['status'])) {
+
+        if (! empty($params['status'])) {
             $query->where('status', $params['status']);
         }
-        
-        if (!empty($params['condition'])) {
+
+        if (! empty($params['condition'])) {
             $query->where('condition', $params['condition']);
         }
-        
-        if (!empty($params['assigned_to'])) {
+
+        if (! empty($params['assigned_to'])) {
             $query->where('assigned_to', $params['assigned_to']);
         }
-        
-        if (!empty($params['room_id'])) {
+
+        if (! empty($params['room_id'])) {
             $query->where('room_id', $params['room_id']);
         }
-        
+
         if (isset($params['is_consumable'])) {
             $query->where('is_consumable', $params['is_consumable']);
         }
-        
-        if (!empty($params['low_stock'])) {
+
+        if (! empty($params['low_stock'])) {
             $query->lowStock();
         }
-        
-        if (!empty($params['needs_maintenance'])) {
+
+        if (! empty($params['needs_maintenance'])) {
             $query->needsMaintenance();
         }
-        
-        if (!empty($params['warranty_expiring'])) {
+
+        if (! empty($params['warranty_expiring'])) {
             $days = $params['warranty_expiring_days'] ?? 30;
             $query->warrantyExpiring($days);
         }
     }
-    
+
     /**
      * Apply search to query
      */
@@ -368,14 +368,14 @@ class InventoryCrudService
     {
         $query->where(function ($q) use ($search) {
             $q->where('name', 'LIKE', "%{$search}%")
-              ->orWhere('code', 'LIKE', "%{$search}%")
-              ->orWhere('description', 'LIKE', "%{$search}%")
-              ->orWhere('serial_number', 'LIKE', "%{$search}%")
-              ->orWhere('model', 'LIKE', "%{$search}%")
-              ->orWhere('brand', 'LIKE', "%{$search}%");
+                ->orWhere('code', 'LIKE', "%{$search}%")
+                ->orWhere('description', 'LIKE', "%{$search}%")
+                ->orWhere('serial_number', 'LIKE', "%{$search}%")
+                ->orWhere('model', 'LIKE', "%{$search}%")
+                ->orWhere('brand', 'LIKE', "%{$search}%");
         });
     }
-    
+
     /**
      * Apply sorting to query
      */
@@ -383,19 +383,19 @@ class InventoryCrudService
     {
         $sortBy = $params['sort_by'] ?? 'created_at';
         $sortOrder = $params['sort_order'] ?? 'desc';
-        
+
         $allowedSorts = [
             'name', 'category', 'status', 'condition', 'purchase_date',
-            'warranty_expiry', 'current_value', 'created_at'
+            'warranty_expiry', 'current_value', 'created_at',
         ];
-        
+
         if (in_array($sortBy, $allowedSorts)) {
             $query->orderBy($sortBy, $sortOrder);
         } else {
             $query->orderBy('created_at', 'desc');
         }
     }
-    
+
     /**
      * Prepare item data for creation/update
      */
@@ -407,21 +407,21 @@ class InventoryCrudService
             'purchase_price', 'current_value', 'depreciation_rate', 'warranty_expiry',
             'supplier', 'location', 'room_id', 'assigned_to', 'institution_id',
             'is_consumable', 'quantity', 'min_quantity', 'unit', 'notes',
-            'specifications', 'maintenance_schedule'
+            'specifications', 'maintenance_schedule',
         ]));
-        
+
         // Set defaults
-        if (!isset($preparedData['institution_id'])) {
+        if (! isset($preparedData['institution_id'])) {
             $preparedData['institution_id'] = Auth::user()->institution_id;
         }
-        
-        if (!isset($preparedData['code']) || empty($preparedData['code'])) {
+
+        if (! isset($preparedData['code']) || empty($preparedData['code'])) {
             $preparedData['code'] = $this->generateUniqueCode($preparedData['category'] ?? 'general');
         }
-        
+
         return $preparedData;
     }
-    
+
     /**
      * Generate unique inventory code
      */
@@ -429,15 +429,15 @@ class InventoryCrudService
     {
         $prefix = strtoupper(substr($category, 0, 3));
         $date = now()->format('ym');
-        
+
         do {
             $number = str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
             $code = "{$prefix}-{$date}-{$number}";
         } while (InventoryItem::where('code', $code)->exists());
-        
+
         return $code;
     }
-    
+
     /**
      * Create initial transaction for new item
      */
@@ -456,7 +456,7 @@ class InventoryCrudService
         $transaction->user_id = Auth::id();
         $transaction->save();
     }
-    
+
     /**
      * Check if status or location changed
      */
@@ -467,14 +467,14 @@ class InventoryCrudService
                (isset($updateData['room_id']) && ($oldData['room_id'] ?? null) !== $updateData['room_id']) ||
                (isset($updateData['assigned_to']) && ($oldData['assigned_to'] ?? null) !== $updateData['assigned_to']);
     }
-    
+
     /**
      * Create transaction for item update
      */
     protected function createUpdateTransaction(InventoryItem $item, array $oldData, array $updateData): void
     {
         $changes = array_diff_assoc($updateData, $oldData);
-        
+
         $transaction = new InventoryTransaction([
             'transaction_type' => 'updated',
             'status' => 'completed',
@@ -482,15 +482,15 @@ class InventoryCrudService
             'transaction_date' => now(),
             'metadata' => [
                 'changes' => $changes,
-                'old_values' => array_intersect_key($oldData, $changes)
-            ]
+                'old_values' => array_intersect_key($oldData, $changes),
+            ],
         ]);
 
         $transaction->item_id = $item->getKey();
         $transaction->user_id = Auth::id();
         $transaction->save();
     }
-    
+
     /**
      * Format item for API response
      */
@@ -506,12 +506,12 @@ class InventoryCrudService
             'current_value' => $item->current_value,
             'institution' => [
                 'id' => $item->institution?->id,
-                'name' => $item->institution?->name
+                'name' => $item->institution?->name,
             ],
             'assigned_user' => [
                 'id' => $item->assignedUser?->id,
                 'username' => $item->assignedUser?->username,
-                'full_name' => $item->assignedUser?->profile?->full_name
+                'full_name' => $item->assignedUser?->profile?->full_name,
             ],
             'location' => $item->room?->name ?? $item->location,
             'is_consumable' => $item->is_consumable,
@@ -519,17 +519,17 @@ class InventoryCrudService
             'warranty_expiry' => $item->warranty_expiry,
             'needs_maintenance' => $item->needs_maintenance,
             'created_at' => $item->created_at,
-            'updated_at' => $item->updated_at
+            'updated_at' => $item->updated_at,
         ];
     }
-    
+
     /**
      * Format detailed item for API response
      */
     public function formatDetailedForResponse(InventoryItem $item): array
     {
         $basic = $this->formatForResponse($item);
-        
+
         return array_merge($basic, [
             'description' => $item->description,
             'brand' => $item->brand,
@@ -548,7 +548,7 @@ class InventoryCrudService
                     'type' => $transaction->type,
                     'description' => $transaction->description,
                     'user' => $transaction->user?->username,
-                    'transaction_date' => $transaction->transaction_date
+                    'transaction_date' => $transaction->transaction_date,
                 ];
             }),
             'maintenance_records' => $item->maintenanceRecords?->take(3)->map(function ($record) {
@@ -558,12 +558,12 @@ class InventoryCrudService
                     'description' => $record->description,
                     'scheduled_date' => $record->scheduled_date,
                     'completed_at' => $record->completed_at,
-                    'status' => $record->status
+                    'status' => $record->status,
                 ];
-            })
+            }),
         ]);
     }
-    
+
     /**
      * Log activity
      */
@@ -573,9 +573,9 @@ class InventoryCrudService
             'user_id' => Auth::id(),
             'activity_type' => $activityType,
             'description' => $description,
-            'institution_id' => Auth::user()?->institution_id
+            'institution_id' => Auth::user()?->institution_id,
         ], $additionalData);
-        
+
         ActivityLog::logActivity($data);
     }
 }

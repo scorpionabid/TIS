@@ -2,30 +2,26 @@
 
 namespace Database\Seeders;
 
+use App\Models\AcademicYear;
+use App\Models\Institution;
+use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use App\Models\User;
-use App\Models\Institution;
-use App\Models\AcademicYear;
-use App\Models\KSQResult;
-use App\Models\BSQResult;
-use Carbon\Carbon;
 
 class AssessmentDataSeeder extends Seeder
 {
     public function run()
     {
         $this->command->info('📊 Seeding assessment data (KSQ/BSQ)...');
-        
+
         DB::beginTransaction();
-        
+
         try {
             $this->seedAssessmentData();
-            
+
             DB::commit();
-            
+
             $this->command->info('✅ Assessment data seeding completed successfully!');
-            
         } catch (\Exception $e) {
             DB::rollback();
             $this->command->error('❌ Assessment data seeding failed: ' . $e->getMessage());
@@ -37,13 +33,16 @@ class AssessmentDataSeeder extends Seeder
     {
         $institutions = Institution::where('level', 4)->take(3)->get();
         $currentYear = AcademicYear::where('is_active', true)->first();
-        $superadmin = User::whereHas('roles', function($q) { $q->where('name', 'superadmin'); })->first();
-        
-        if (!$currentYear || $institutions->count() === 0 || !$superadmin) {
+        $superadmin = User::whereHas('roles', function ($q) {
+            $q->where('name', 'superadmin');
+        })->first();
+
+        if (! $currentYear || $institutions->count() === 0 || ! $superadmin) {
             $this->command->warn('Skipping assessment seeding - missing dependencies');
+
             return;
         }
-        
+
         foreach ($institutions as $institution) {
             // KSQ Results
             DB::table('ksq_results')->updateOrInsert([
@@ -63,11 +62,11 @@ class AssessmentDataSeeder extends Seeder
                     'teaching' => rand(70, 90),
                     'learning' => rand(80, 95),
                     'infrastructure' => rand(65, 85),
-                    'community' => rand(70, 88)
+                    'community' => rand(70, 88),
                 ]),
                 'detailed_results' => json_encode([
                     'analysis' => 'Məktəbin ümumi performansı qənaətbəxşdir',
-                    'recommendations' => ['Texnoloji infrastrukturun təkmilləşdirilməsi', 'Müəllim kadrlarının inkişafı']
+                    'recommendations' => ['Texnoloji infrastrukturun təkmilləşdirilməsi', 'Müəllim kadrlarının inkişafı'],
                 ]),
                 'strengths' => 'Güçlü rəhbərlik, yaxşı tələbə nəticələri',
                 'improvement_areas' => 'İnfrastruktur, texnologiya inteqrasiyası',
@@ -82,8 +81,8 @@ class AssessmentDataSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
-            
-            // BSQ Results  
+
+            // BSQ Results
             DB::table('bsq_results')->updateOrInsert([
                 'institution_id' => $institution->id,
                 'academic_year_id' => $currentYear->id,
@@ -101,31 +100,31 @@ class AssessmentDataSeeder extends Seeder
                 'benchmark_comparison' => json_encode([
                     'global_average' => 750,
                     'national_average' => 680,
-                    'regional_average' => 720
+                    'regional_average' => 720,
                 ]),
                 'competency_areas' => json_encode([
                     'academic_excellence' => rand(75, 95),
                     'innovation' => rand(70, 90),
                     'sustainability' => rand(65, 85),
-                    'community_engagement' => rand(80, 95)
+                    'community_engagement' => rand(80, 95),
                 ]),
                 'detailed_scores' => json_encode([
                     'curriculum_quality' => rand(75, 95),
                     'teaching_methodology' => rand(70, 90),
                     'student_outcomes' => rand(80, 95),
-                    'facilities' => rand(65, 85)
+                    'facilities' => rand(65, 85),
                 ]),
                 'international_comparison' => json_encode([
                     'peer_institutions' => ['İstanbul Lisesi', 'Ankara Fen Lisesi', 'İzmir Almancıya Lisesi'],
                     'ranking_position' => rand(45, 85),
-                    'strength_areas' => ['STEM təhsili', 'Beynəlxalq mübadilələr']
+                    'strength_areas' => ['STEM təhsili', 'Beynəlxalq mübadilələr'],
                 ]),
                 'certification_level' => ['Bronze', 'Silver', 'Gold'][rand(0, 2)],
                 'certification_valid_until' => now()->addYears(3)->format('Y-m-d'),
                 'improvement_plan' => 'Dil təhsili və texnologiya inteqrasiyasının gücləndirilməsi',
                 'action_items' => json_encode([
                     'short_term' => ['Müəllim təlimləri', 'Texniki avadanlıqların yenilənməsi'],
-                    'long_term' => ['Beynəlxalq əməkdaşlıqların genişləndirilməsi', 'Araşdırma laboratoriyalarının qurulması']
+                    'long_term' => ['Beynəlxalq əməkdaşlıqların genişləndirilməsi', 'Araşdırma laboratoriyalarının qurulması'],
                 ]),
                 'status' => 'approved',
                 'approved_by' => $superadmin->id,

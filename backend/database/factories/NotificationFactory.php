@@ -25,7 +25,7 @@ class NotificationFactory extends Factory
         $types = array_keys(Notification::TYPES);
         $priorities = array_keys(Notification::PRIORITIES);
         $channels = array_keys(Notification::CHANNELS);
-        
+
         return [
             'title' => $this->faker->sentence,
             'message' => $this->faker->paragraph,
@@ -85,6 +85,7 @@ class NotificationFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             $sentAt = $attributes['sent_at'] ?? $this->faker->dateTimeBetween('-1 month', 'now');
+
             return [
                 'is_sent' => true,
                 'is_read' => true,
@@ -97,7 +98,7 @@ class NotificationFactory extends Factory
     /**
      * Indicate that the notification is scheduled.
      *
-     * @param  \DateTime|string  $date
+     * @param  \DateTime|string                        $date
      * @return \Database\Factories\NotificationFactory
      */
     public function scheduled($date = null)
@@ -142,7 +143,7 @@ class NotificationFactory extends Factory
     /**
      * Indicate the channel of the notification.
      *
-     * @param  string  $channel
+     * @param  string                                  $channel
      * @return \Database\Factories\NotificationFactory
      */
     public function channel($channel)
@@ -157,7 +158,7 @@ class NotificationFactory extends Factory
     /**
      * Indicate the type of the notification.
      *
-     * @param  string  $type
+     * @param  string                                  $type
      * @return \Database\Factories\NotificationFactory
      */
     public function ofType($type)

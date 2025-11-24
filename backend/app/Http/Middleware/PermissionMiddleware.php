@@ -2,27 +2,25 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\RegionOperatorPermissionMappingService;
 use Closure;
 use Illuminate\Http\Request;
-use Symfony\Component\HttpFoundation\Response;
 use Illuminate\Support\Facades\Auth;
-use Spatie\Permission\Models\Role;
-use App\Services\RegionOperatorPermissionMappingService;
+use Symfony\Component\HttpFoundation\Response;
 
 class PermissionMiddleware
 {
     /**
      * Handle an incoming request.
      *
-     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
-     * @param  string|array  $permissions
+     * @param \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response) $next
      */
     public function handle(Request $request, Closure $next, string|array $permissions): Response
     {
         $guard = config('auth.defaults.guard', 'sanctum');
         Auth::shouldUse($guard);
 
-        if (!Auth::guard($guard)->check()) {
+        if (! Auth::guard($guard)->check()) {
             return response()->json(['message' => 'Unauthenticated.'], 401);
         }
 
@@ -73,6 +71,7 @@ class PermissionMiddleware
                         'user_id' => $user->id,
                         'permission' => $permission,
                     ]);
+
                     return $next($request);
                 }
             }
@@ -86,18 +85,19 @@ class PermissionMiddleware
                     ->toArray();
             });
 
-            if (!empty($rolesWithPermission) && $user->hasAnyRole($rolesWithPermission)) {
+            if (! empty($rolesWithPermission) && $user->hasAnyRole($rolesWithPermission)) {
                 \Log::info('Permission granted via role fallback', [
                     'user_id' => $user->id,
                     'permission' => $permission,
                     'fallback_roles' => $rolesWithPermission,
                 ]);
+
                 return $next($request);
             }
         }
 
         return response()->json([
-            'message' => 'Forbidden. Required permissions: ' . implode(', ', $permissions)
+            'message' => 'Forbidden. Required permissions: ' . implode(', ', $permissions),
         ], 403);
     }
 
@@ -108,23 +108,21 @@ class PermissionMiddleware
      * RegionOperatorPermission table has the equivalent permission
      *
      * @param \App\Models\User $user
-     * @param string $spatiePermission
-     * @return bool
      */
     protected function checkRegionOperatorPermission($user, string $spatiePermission): bool
     {
         // Load region operator permissions if not already loaded
-        if (!$user->relationLoaded('regionOperatorPermissions')) {
+        if (! $user->relationLoaded('regionOperatorPermissions')) {
             $user->load('regionOperatorPermissions');
         }
 
         $roPermissions = $user->regionOperatorPermissions;
-        if (!$roPermissions) {
+        if (! $roPermissions) {
             return false;
         }
 
         // Map Spatie permission to RegionOperator permission field(s)
-        $mappingService = new RegionOperatorPermissionMappingService();
+        $mappingService = new RegionOperatorPermissionMappingService;
         $roFields = $mappingService->toRegionOperatorPermissions($spatiePermission);
 
         // Check if any of the mapped fields are enabled

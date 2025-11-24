@@ -7,18 +7,19 @@ use App\Http\Controllers\SektorAdmin\Dashboard\DashboardStatsController;
 use App\Http\Controllers\SektorAdmin\Dashboard\SchoolManagementController;
 // Note: SurveyApprovalController and TaskApprovalController have been consolidated
 // into the main SurveyApprovalController and will be handled via service layer
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SektorAdminDashboardController extends Controller
 {
     protected $statsController;
+
     protected $schoolController;
 
     public function __construct()
     {
-        $this->statsController = new DashboardStatsController();
-        $this->schoolController = new SchoolManagementController();
+        $this->statsController = new DashboardStatsController;
+        $this->schoolController = new SchoolManagementController;
     }
 
     /**
@@ -49,7 +50,7 @@ class SektorAdminDashboardController extends Controller
      * Survey approval methods moved to main SurveyApprovalController
      * These methods are deprecated and will redirect to the new controller
      */
-    
+
     /**
      * @deprecated Use SurveyApprovalController instead
      */
@@ -58,7 +59,7 @@ class SektorAdminDashboardController extends Controller
         // Redirect to new approval system
         return response()->json([
             'message' => 'Survey approval functionality has been moved to /api/survey-approval endpoints',
-            'redirect_to' => '/api/survey-approval/pending'
+            'redirect_to' => '/api/survey-approval/pending',
         ], 301);
     }
 
@@ -69,7 +70,7 @@ class SektorAdminDashboardController extends Controller
     {
         return response()->json([
             'message' => 'Survey approval functionality has been moved to /api/survey-approval endpoints',
-            'redirect_to' => "/api/survey-approval/requests/{$responseId}"
+            'redirect_to' => "/api/survey-approval/requests/{$responseId}",
         ], 301);
     }
 
@@ -80,7 +81,7 @@ class SektorAdminDashboardController extends Controller
     {
         return response()->json([
             'message' => 'Survey approval functionality has been moved to /api/survey-approval endpoints',
-            'redirect_to' => "/api/survey-approval/requests/{$responseId}/approve"
+            'redirect_to' => "/api/survey-approval/requests/{$responseId}/approve",
         ], 301);
     }
 
@@ -91,7 +92,7 @@ class SektorAdminDashboardController extends Controller
     {
         return response()->json([
             'message' => 'Survey approval functionality has been moved to /api/survey-approval endpoints',
-            'redirect_to' => "/api/survey-approval/requests/{$responseId}/reject"
+            'redirect_to' => "/api/survey-approval/requests/{$responseId}/reject",
         ], 301);
     }
 
@@ -102,7 +103,7 @@ class SektorAdminDashboardController extends Controller
     {
         return response()->json([
             'message' => 'Task approval functionality handled by task management system',
-            'redirect_to' => '/api/tasks/pending'
+            'redirect_to' => '/api/tasks/pending',
         ], 301);
     }
 
@@ -113,7 +114,7 @@ class SektorAdminDashboardController extends Controller
     {
         return response()->json([
             'message' => 'Task approval functionality handled by task management system',
-            'redirect_to' => "/api/tasks/{$taskId}"
+            'redirect_to' => "/api/tasks/{$taskId}",
         ], 301);
     }
 
@@ -124,7 +125,7 @@ class SektorAdminDashboardController extends Controller
     {
         return response()->json([
             'message' => 'Task approval functionality handled by task management system',
-            'redirect_to' => "/api/tasks/{$taskId}/approve"
+            'redirect_to' => "/api/tasks/{$taskId}/approve",
         ], 301);
     }
 
@@ -135,7 +136,7 @@ class SektorAdminDashboardController extends Controller
     {
         return response()->json([
             'message' => 'Task approval functionality handled by task management system',
-            'redirect_to' => "/api/tasks/{$taskId}/reject"
+            'redirect_to' => "/api/tasks/{$taskId}/reject",
         ], 301);
     }
 
@@ -146,7 +147,7 @@ class SektorAdminDashboardController extends Controller
     {
         return response()->json([
             'message' => 'Task statistics handled by task management system',
-            'redirect_to' => '/api/tasks/statistics'
+            'redirect_to' => '/api/tasks/statistics',
         ], 301);
     }
 }

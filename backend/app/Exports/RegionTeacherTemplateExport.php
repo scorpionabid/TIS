@@ -4,10 +4,10 @@ namespace App\Exports;
 
 use App\Models\Institution;
 use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
+use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
@@ -31,8 +31,8 @@ class RegionTeacherTemplateExport implements WithMultipleSheets
         return [
             new RegionTeacherTemplateSheet($this->region),
             new InstitutionReferenceSheet($this->region),
-            new FieldReferenceSheet(),
-            new QuickStartGuideSheet(), // NEW: Quick start guide
+            new FieldReferenceSheet,
+            new QuickStartGuideSheet, // NEW: Quick start guide
         ];
     }
 }
@@ -40,7 +40,7 @@ class RegionTeacherTemplateExport implements WithMultipleSheets
 /**
  * Main template sheet with sample data
  */
-class RegionTeacherTemplateSheet implements FromArray, WithHeadings, WithStyles, WithColumnWidths
+class RegionTeacherTemplateSheet implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
     protected $region;
 
@@ -395,7 +395,7 @@ class InstitutionReferenceSheet implements FromArray, WithHeadings, WithStyles
                 $inst->utis_code ?? '',
                 $inst->institution_code ?? '',
                 $inst->name,
-                $level
+                $level,
             ];
         }
 
@@ -427,7 +427,7 @@ class InstitutionReferenceSheet implements FromArray, WithHeadings, WithStyles
 /**
  * Field reference/documentation sheet
  */
-class FieldReferenceSheet implements FromArray, WithHeadings, WithStyles, WithColumnWidths
+class FieldReferenceSheet implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
     public function array(): array
     {
@@ -533,7 +533,7 @@ class FieldReferenceSheet implements FromArray, WithHeadings, WithStyles, WithCo
  * Quick Start Guide Sheet
  * Comprehensive step-by-step instructions for teacher import
  */
-class QuickStartGuideSheet implements FromArray, WithHeadings, WithStyles, WithColumnWidths
+class QuickStartGuideSheet implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
     public function array(): array
     {

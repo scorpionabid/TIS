@@ -60,10 +60,10 @@ class SchoolAssessmentController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
+        if (! $user->hasRole(['superadmin', 'regionadmin', 'schooladmin'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
+                'message' => 'Bu əməliyyat üçün icazəniz yoxdur',
             ], 403);
         }
 
@@ -85,7 +85,7 @@ class SchoolAssessmentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -99,7 +99,7 @@ class SchoolAssessmentController extends Controller
         if ($stage->assessment_type_id !== $assessmentType->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Seçilmiş mərhələ bu qiymətləndirmə növünə aid deyil'
+                'message' => 'Seçilmiş mərhələ bu qiymətləndirmə növünə aid deyil',
             ], 422);
         }
 
@@ -112,10 +112,10 @@ class SchoolAssessmentController extends Controller
             $institutionId = (int) ($data['institution_id'] ?? 0);
             $regionId = $user->institution?->region_id;
 
-            if (!$institutionId) {
+            if (! $institutionId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Təşkilat seçilməlidir'
+                    'message' => 'Təşkilat seçilməlidir',
                 ], 422);
             }
 
@@ -123,25 +123,25 @@ class SchoolAssessmentController extends Controller
                 ->where('region_id', $regionId)
                 ->exists();
 
-            if (!$isAccessibleInstitution) {
+            if (! $isAccessibleInstitution) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Seçilmiş təşkilat regionunuza aid deyil'
+                    'message' => 'Seçilmiş təşkilat regionunuza aid deyil',
                 ], 403);
             }
 
             if ($assessmentType->institution_id !== null && $assessmentType->institution_id !== $institutionId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu qiymətləndirmə növü yalnız konkret təşkilat üçün nəzərdə tutulub'
+                    'message' => 'Bu qiymətləndirmə növü yalnız konkret təşkilat üçün nəzərdə tutulub',
                 ], 403);
             }
         }
 
-        if (!$institutionId) {
+        if (! $institutionId) {
             return response()->json([
                 'success' => false,
-                'message' => 'Müəssisə müəyyən edilməlidir'
+                'message' => 'Müəssisə müəyyən edilməlidir',
             ], 422);
         }
 
@@ -151,18 +151,18 @@ class SchoolAssessmentController extends Controller
         $isAssigned = $assessmentType->isAssignedToInstitution($institutionId);
         $isGlobal = $assessmentType->institution_id === null;
 
-        if (!$isOwnedByInstitution && !$isAssigned && !$isGlobal) {
+        if (! $isOwnedByInstitution && ! $isAssigned && ! $isGlobal) {
             return response()->json([
                 'success' => false,
-                'message' => 'Qiymətləndirmə növü təşkilatınıza təyin edilməyib'
+                'message' => 'Qiymətləndirmə növü təşkilatınıza təyin edilməyib',
             ], 403);
         }
 
         // If type is owned by another institution and not assigned, deny access
-        if ($assessmentType->institution_id !== null && $assessmentType->institution_id !== $institutionId && !$isAssigned) {
+        if ($assessmentType->institution_id !== null && $assessmentType->institution_id !== $institutionId && ! $isAssigned) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə növü üçün icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə növü üçün icazəniz yoxdur',
             ], 403);
         }
 
@@ -189,7 +189,7 @@ class SchoolAssessmentController extends Controller
         return response()->json([
             'success' => true,
             'data' => $schoolAssessment,
-            'message' => 'Qiymətləndirmə sessiyası yaradıldı'
+            'message' => 'Qiymətləndirmə sessiyası yaradıldı',
         ], 201);
     }
 
@@ -199,10 +199,10 @@ class SchoolAssessmentController extends Controller
     public function show(SchoolAssessment $schoolAssessment): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canAccessSchoolAssessment($user, $schoolAssessment)) {
+        if (! $this->canAccessSchoolAssessment($user, $schoolAssessment)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirməyə giriş icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirməyə giriş icazəniz yoxdur',
             ], 403);
         }
 
@@ -220,10 +220,10 @@ class SchoolAssessmentController extends Controller
     public function storeClassResults(Request $request, SchoolAssessment $schoolAssessment): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canAccessSchoolAssessment($user, $schoolAssessment, true)) {
+        if (! $this->canAccessSchoolAssessment($user, $schoolAssessment, true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə üçün nəticə daxil etmək icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə üçün nəticə daxil etmək icazəniz yoxdur',
             ], 403);
         }
 
@@ -240,7 +240,7 @@ class SchoolAssessmentController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -250,21 +250,22 @@ class SchoolAssessmentController extends Controller
 
         $metadata = [];
         foreach ($resultFields as $field) {
-            if (!array_key_exists($field->field_key, $data['results'])) {
+            if (! array_key_exists($field->field_key, $data['results'])) {
                 if ($field->is_required) {
                     return response()->json([
                         'success' => false,
-                        'message' => "{$field->label} dəyəri tələb olunur"
+                        'message' => "{$field->label} dəyəri tələb olunur",
                     ], 422);
                 }
+
                 continue;
             }
 
             $value = $data['results'][$field->field_key];
-            if ($field->input_type !== 'text' && !is_numeric($value)) {
+            if ($field->input_type !== 'text' && ! is_numeric($value)) {
                 return response()->json([
                     'success' => false,
-                    'message' => "{$field->label} üçün rəqəm daxil edilməlidir"
+                    'message' => "{$field->label} üçün rəqəm daxil edilməlidir",
                 ], 422);
             }
 
@@ -296,7 +297,7 @@ class SchoolAssessmentController extends Controller
         return response()->json([
             'success' => true,
             'data' => $classResult,
-            'message' => 'Sinif nəticəsi saxlanıldı'
+            'message' => 'Sinif nəticəsi saxlanıldı',
         ]);
     }
 
@@ -306,10 +307,10 @@ class SchoolAssessmentController extends Controller
     public function complete(SchoolAssessment $schoolAssessment): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canAccessSchoolAssessment($user, $schoolAssessment, true)) {
+        if (! $this->canAccessSchoolAssessment($user, $schoolAssessment, true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirməni tamamlamağa icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirməni tamamlamağa icazəniz yoxdur',
             ], 403);
         }
 
@@ -317,7 +318,7 @@ class SchoolAssessmentController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Qiymətləndirmə tamamlandı'
+            'message' => 'Qiymətləndirmə tamamlandı',
         ]);
     }
 
@@ -329,10 +330,10 @@ class SchoolAssessmentController extends Controller
         $user = Auth::user();
 
         // Check if user has access to this assessment
-        if (!$this->canAccessSchoolAssessment($user, $schoolAssessment, true)) {
+        if (! $this->canAccessSchoolAssessment($user, $schoolAssessment, true)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu nəticəni silməyə icazəniz yoxdur'
+                'message' => 'Bu nəticəni silməyə icazəniz yoxdur',
             ], 403);
         }
 
@@ -340,15 +341,15 @@ class SchoolAssessmentController extends Controller
         if ($classResult->school_assessment_id !== $schoolAssessment->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Nəticə bu qiymətləndirməyə aid deyil'
+                'message' => 'Nəticə bu qiymətləndirməyə aid deyil',
             ], 404);
         }
 
         // Only allow creator or admins to delete
-        if (!$user->hasRole(['superadmin', 'regionadmin']) && $classResult->recorded_by !== $user->id) {
+        if (! $user->hasRole(['superadmin', 'regionadmin']) && $classResult->recorded_by !== $user->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Yalnız nəticəni daxil edən istifadəçi silə bilər'
+                'message' => 'Yalnız nəticəni daxil edən istifadəçi silə bilər',
             ], 403);
         }
 
@@ -356,7 +357,7 @@ class SchoolAssessmentController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Nəticə silindi'
+            'message' => 'Nəticə silindi',
         ]);
     }
 
@@ -367,10 +368,10 @@ class SchoolAssessmentController extends Controller
     {
         $user = Auth::user();
 
-        if (!$this->canAccessSchoolAssessment($user, $schoolAssessment)) {
+        if (! $this->canAccessSchoolAssessment($user, $schoolAssessment)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirməyə giriş icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirməyə giriş icazəniz yoxdur',
             ], 403);
         }
 
@@ -397,6 +398,7 @@ class SchoolAssessmentController extends Controller
 
         if ($user->hasRole('regionadmin')) {
             $regionId = $user->institution?->region_id;
+
             return $schoolAssessment->institution?->region_id === $regionId;
         }
 

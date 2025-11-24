@@ -16,7 +16,7 @@ class ImportErrorAnalyzerService extends BaseService
             'error_categories' => $this->categorizeErrors($results['errors'] ?? []),
             'warning_analysis' => $this->analyzeWarnings($results['warnings'] ?? []),
             'admin_analysis' => $this->analyzeAdminResults($results),
-            'recommendations' => []
+            'recommendations' => [],
         ];
 
         $analysis['recommendations'] = $this->generateRecommendations($analysis, $results);
@@ -40,7 +40,7 @@ class ImportErrorAnalyzerService extends BaseService
             'failed' => $failed,
             'skipped' => $skipped,
             'success_rate' => $total > 0 ? round(($success / $total) * 100, 1) : 0,
-            'failure_rate' => $total > 0 ? round(($failed / $total) * 100, 1) : 0
+            'failure_rate' => $total > 0 ? round(($failed / $total) * 100, 1) : 0,
         ];
     }
 
@@ -55,7 +55,7 @@ class ImportErrorAnalyzerService extends BaseService
             'duplicate_errors' => [],
             'admin_creation_errors' => [],
             'system_errors' => [],
-            'unknown_errors' => []
+            'unknown_errors' => [],
         ];
 
         foreach ($errors as $error) {
@@ -67,7 +67,7 @@ class ImportErrorAnalyzerService extends BaseService
         foreach ($categories as $category => &$errorList) {
             $errorList = [
                 'count' => count($errorList),
-                'errors' => $errorList
+                'errors' => $errorList,
             ];
         }
 
@@ -80,7 +80,7 @@ class ImportErrorAnalyzerService extends BaseService
     private function classifyError(string $error): string
     {
         // Validation errors
-        if (strpos($error, 'məcburidir') !== false || 
+        if (strpos($error, 'məcburidir') !== false ||
             strpos($error, 'required') !== false ||
             strpos($error, 'boş buraxıla bilməz') !== false) {
             return 'validation_errors';
@@ -125,7 +125,7 @@ class ImportErrorAnalyzerService extends BaseService
     {
         $analysis = [
             'total_warnings' => count($warnings),
-            'warning_types' => []
+            'warning_types' => [],
         ];
 
         $types = [];
@@ -142,6 +142,7 @@ class ImportErrorAnalyzerService extends BaseService
         }
 
         $analysis['warning_types'] = $types;
+
         return $analysis;
     }
 
@@ -151,13 +152,13 @@ class ImportErrorAnalyzerService extends BaseService
     private function analyzeAdminResults(array $results): array
     {
         $adminStats = $results['admin_statistics'] ?? [];
-        
+
         return [
             'total_institutions' => $results['success'] ?? 0,
             'admins_created' => $adminStats['admins_created'] ?? 0,
             'admins_skipped' => $adminStats['admins_skipped'] ?? 0,
             'admin_errors' => $adminStats['admin_errors'] ?? 0,
-            'admin_success_rate' => $this->calculateAdminSuccessRate($adminStats, $results['success'] ?? 0)
+            'admin_success_rate' => $this->calculateAdminSuccessRate($adminStats, $results['success'] ?? 0),
         ];
     }
 
@@ -166,11 +167,15 @@ class ImportErrorAnalyzerService extends BaseService
      */
     private function calculateAdminSuccessRate(array $adminStats, int $totalInstitutions): float
     {
-        if ($totalInstitutions === 0) return 0.0;
-        
+        if ($totalInstitutions === 0) {
+            return 0.0;
+        }
+
         $adminAttempts = ($adminStats['admins_created'] ?? 0) + ($adminStats['admin_errors'] ?? 0);
-        if ($adminAttempts === 0) return 0.0;
-        
+        if ($adminAttempts === 0) {
+            return 0.0;
+        }
+
         return round((($adminStats['admins_created'] ?? 0) / $adminAttempts) * 100, 1);
     }
 
@@ -189,7 +194,7 @@ class ImportErrorAnalyzerService extends BaseService
 
         // Error category recommendations
         $errorCategories = $analysis['error_categories'];
-        
+
         if ($errorCategories['validation_errors']['count'] > 0) {
             $recommendations[] = "📋 {$errorCategories['validation_errors']['count']} validasiya xətası. Məcburi sahələri doldurun.";
         }
@@ -209,7 +214,7 @@ class ImportErrorAnalyzerService extends BaseService
         }
 
         if ($adminAnalysis['admins_skipped'] > $adminAnalysis['admins_created']) {
-            $recommendations[] = "📧 Çox admin atlanıb. Admin Email sütununu doldurmağı unutmayın.";
+            $recommendations[] = '📧 Çox admin atlanıb. Admin Email sütununu doldurmağı unutmayın.';
         }
 
         return $recommendations;
@@ -221,10 +226,10 @@ class ImportErrorAnalyzerService extends BaseService
     public function generateErrorReport(array $results): string
     {
         $analysis = $this->analyzeImportResults($results);
-        
+
         $report = "📊 İMPORT NƏTİCƏLƏRİ HESABATI\n";
-        $report .= "=" . str_repeat("=", 30) . "\n\n";
-        
+        $report .= '=' . str_repeat('=', 30) . "\n\n";
+
         // Overall statistics
         $overall = $analysis['overall_success'];
         $report .= "📈 ÜMUMİ STATİSTİKA:\n";
@@ -256,7 +261,7 @@ class ImportErrorAnalyzerService extends BaseService
         }
 
         // Recommendations
-        if (!empty($analysis['recommendations'])) {
+        if (! empty($analysis['recommendations'])) {
             $report .= "💡 TÖVSİYƏLƏR:\n";
             foreach ($analysis['recommendations'] as $recommendation) {
                 $report .= "   {$recommendation}\n";
@@ -277,7 +282,7 @@ class ImportErrorAnalyzerService extends BaseService
             'duplicate_errors' => 'Təkrarlama xətaları',
             'admin_creation_errors' => 'Admin yaradılma xətaları',
             'system_errors' => 'Sistem xətaları',
-            'unknown_errors' => 'Naməlum xətalar'
+            'unknown_errors' => 'Naməlum xətalar',
         ];
 
         return $names[$category] ?? $category;

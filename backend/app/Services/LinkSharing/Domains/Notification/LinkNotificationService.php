@@ -3,8 +3,8 @@
 namespace App\Services\LinkSharing\Domains\Notification;
 
 use App\Models\LinkShare;
-use App\Services\NotificationService;
 use App\Services\LinkSharing\Domains\Configuration\LinkConfigurationService;
+use App\Services\NotificationService;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -39,7 +39,7 @@ class LinkNotificationService
         // Prepare recipients with institution-based targeting
         $recipients = [
             'institutions' => $targetInstitutions,
-            'target_roles' => $linkShare->target_roles ?? null
+            'target_roles' => $linkShare->target_roles ?? null,
         ];
 
         $options = [
@@ -52,7 +52,7 @@ class LinkNotificationService
             'link_id' => $linkShare->id,
             'target_institutions' => $targetInstitutions,
             'target_roles' => $linkShare->target_roles,
-            'variables' => array_keys($variables)
+            'variables' => array_keys($variables),
         ]);
 
         return $this->notificationService->sendFromTemplate($templateKey, $recipients, $variables, $options);

@@ -44,7 +44,7 @@ class UpdateGenerationSettingsRequest extends FormRequest
             'generation_preferences.min_break_between_same_subject' => 'sometimes|integer|between:0,3',
             'generation_preferences.room_optimization' => 'sometimes|boolean',
             'generation_preferences.conflict_resolution_strategy' => 'sometimes|string|in:teacher_priority,class_priority,balanced',
-            'is_active' => 'sometimes|boolean'
+            'is_active' => 'sometimes|boolean',
         ];
     }
 
@@ -104,7 +104,7 @@ class UpdateGenerationSettingsRequest extends FormRequest
             // Validate that break periods don't exceed daily periods
             $dailyPeriods = $this->input('daily_periods');
             $breakPeriods = $this->input('break_periods', []);
-            
+
             foreach ($breakPeriods as $index => $breakPeriod) {
                 if ($breakPeriod > $dailyPeriods) {
                     $validator->errors()->add(
@@ -137,7 +137,7 @@ class UpdateGenerationSettingsRequest extends FormRequest
             if ($firstPeriodStart) {
                 $startHour = (int) substr($firstPeriodStart, 0, 2);
                 $startMinute = (int) substr($firstPeriodStart, 3, 2);
-                
+
                 // Check reasonable start time (not too early or too late)
                 if ($startHour < 6 || $startHour > 12) {
                     $validator->errors()->add(
@@ -152,7 +152,7 @@ class UpdateGenerationSettingsRequest extends FormRequest
                               ($lunchBreakPeriod ? $this->input('lunch_duration', 60) : 0);
 
                 $endHour = $startHour + floor(($startMinute + $totalMinutes) / 60);
-                
+
                 if ($endHour > 18) { // 6 PM
                     $validator->errors()->add(
                         'daily_periods',
@@ -163,12 +163,12 @@ class UpdateGenerationSettingsRequest extends FormRequest
 
             // Validate generation preferences consistency
             $preferences = $this->input('generation_preferences', []);
-            
-            if (isset($preferences['max_consecutive_same_subject']) && 
+
+            if (isset($preferences['max_consecutive_same_subject']) &&
                 isset($preferences['min_break_between_same_subject'])) {
                 $maxConsecutive = $preferences['max_consecutive_same_subject'];
                 $minBreak = $preferences['min_break_between_same_subject'];
-                
+
                 if ($maxConsecutive == 1 && $minBreak > 0) {
                     $validator->errors()->add(
                         'generation_preferences.min_break_between_same_subject',

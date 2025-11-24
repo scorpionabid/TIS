@@ -2,20 +2,19 @@
 
 namespace App\Imports;
 
-use App\Models\User;
-use App\Models\UserProfile;
 use App\Models\Institution;
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use Maatwebsite\Excel\Concerns\ToCollection;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithBatchInserts;
-use Maatwebsite\Excel\Concerns\WithChunkReading;
 use Maatwebsite\Excel\Concerns\SkipsOnError;
 use Maatwebsite\Excel\Concerns\SkipsOnFailure;
+use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\WithBatchInserts;
+use Maatwebsite\Excel\Concerns\WithChunkReading;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Validators\Failure;
 
 /**
@@ -23,20 +22,20 @@ use Maatwebsite\Excel\Validators\Failure;
  * Imports teachers from Excel file with all required fields
  * Optimized for importing 1000+ teachers efficiently
  */
-class RegionTeachersImport implements
-    ToCollection,
-    WithHeadingRow,
-    WithBatchInserts,
-    WithChunkReading,
-    SkipsOnError,
-    SkipsOnFailure
+class RegionTeachersImport implements SkipsOnError, SkipsOnFailure, ToCollection, WithBatchInserts, WithChunkReading, WithHeadingRow
 {
     protected $region;
+
     protected $skipDuplicates;
+
     protected $updateExisting;
+
     protected $successCount = 0;
+
     protected $errorCount = 0;
+
     protected $skippedCount = 0;
+
     protected $details = [
         'success' => [],
         'errors' => [],
@@ -45,8 +44,11 @@ class RegionTeachersImport implements
 
     // Cache for bulk operations
     protected $existingEmails = [];
+
     protected $existingUsernames = [];
+
     protected $processedRows = 0;
+
     protected $totalRows = 0;
 
     public function __construct(
@@ -85,20 +87,22 @@ class RegionTeachersImport implements
 
                 // STEP 1: HYBRID INSTITUTION LOOKUP (NEW)
                 $institution = $this->findInstitution($data);
-                if (!$institution) {
+                if (! $institution) {
                     $utisCode = $data['institution_utis_code'];
                     $instCode = $data['institution_code'];
                     $instId = $data['institution_id'];
                     $identifier = $utisCode ?: ($instCode ?: $instId);
                     $this->details['errors'][] = "Sətir {$rowNumber}: Müəssisə tapılmadı (kod/ID: {$identifier})";
                     $this->errorCount++;
+
                     continue;
                 }
 
                 // STEP 2: Verify institution belongs to region
-                if (!$this->isInstitutionInRegion($institution)) {
+                if (! $this->isInstitutionInRegion($institution)) {
                     $this->details['errors'][] = "Sətir {$rowNumber}: Müəssisə (ID:{$institution->id}, Kod:{$institution->institution_code}) sizin regionunuza aid deyil";
                     $this->errorCount++;
+
                     continue;
                 }
 
@@ -112,6 +116,7 @@ class RegionTeachersImport implements
                     $errors = implode(', ', $validator->errors()->all());
                     $this->details['errors'][] = "Sətir {$rowNumber}: {$errors}";
                     $this->errorCount++;
+
                     continue;
                 }
 
@@ -121,24 +126,25 @@ class RegionTeachersImport implements
                 if ($existingTeacher) {
                     if ($this->skipDuplicates) {
                         $this->details['errors'][] = "Sətir {$rowNumber}: {$data['email']} artıq mövcuddur (keçildi)";
+
                         continue;
                     } elseif ($this->updateExisting) {
                         $this->updateTeacher($existingTeacher, $data);
                         $this->details['success'][] = "Yeniləndi: {$data['first_name']} {$data['last_name']} ({$data['email']})";
                         $this->successCount++;
-                        continue;
-                    } else {
-                        $this->details['errors'][] = "Sətir {$rowNumber}: {$data['email']} artıq mövcuddur";
-                        $this->errorCount++;
+
                         continue;
                     }
+                    $this->details['errors'][] = "Sətir {$rowNumber}: {$data['email']} artıq mövcuddur";
+                    $this->errorCount++;
+
+                    continue;
                 }
 
                 // Create new teacher
                 $this->createTeacher($data);
                 $this->details['success'][] = "Yaradıldı: {$data['first_name']} {$data['last_name']} ({$data['email']})";
                 $this->successCount++;
-
             } catch (\Exception $e) {
                 Log::error('RegionTeachersImport - Error processing row', [
                     'row_number' => $rowNumber,
@@ -168,14 +174,14 @@ class RegionTeachersImport implements
         })->filter()->unique()->toArray();
 
         // Bulk query existing users
-        if (!empty($emails)) {
+        if (! empty($emails)) {
             $this->existingEmails = User::whereIn('email', $emails)
                 ->pluck('email')
                 ->flip()
                 ->toArray();
         }
 
-        if (!empty($usernames)) {
+        if (! empty($usernames)) {
             $this->existingUsernames = User::whereIn('username', $usernames)
                 ->pluck('username')
                 ->flip()
@@ -234,6 +240,7 @@ class RegionTeachersImport implements
         }
 
         $trimmed = trim($value);
+
         return $trimmed === '' ? null : $trimmed;
     }
 
@@ -309,7 +316,7 @@ class RegionTeachersImport implements
      * Hybrid Institution Lookup (NEW)
      * Priority: UTİS code → institution_code → ID
      *
-     * @param array $data Row data with possible institution identifiers
+     * @param  array            $data Row data with possible institution identifiers
      * @return Institution|null Found institution or null
      */
     private function findInstitution(array $data): ?Institution
@@ -319,39 +326,42 @@ class RegionTeachersImport implements
         $instId = $data['institution_id'] ?? '';
 
         // Priority 1: UTİS Code (most reliable, government standard)
-        if (!empty($utisCode)) {
+        if (! empty($utisCode)) {
             $institution = Institution::where('utis_code', $utisCode)->first();
             if ($institution) {
                 Log::info('RegionTeachersImport - Institution found by UTIS code', [
                     'utis_code' => $utisCode,
                     'institution_id' => $institution->id,
-                    'name' => $institution->name
+                    'name' => $institution->name,
                 ]);
+
                 return $institution;
             }
         }
 
         // Priority 2: Institution Code (human-readable, unique)
-        if (!empty($instCode)) {
+        if (! empty($instCode)) {
             $institution = Institution::where('institution_code', $instCode)->first();
             if ($institution) {
                 Log::info('RegionTeachersImport - Institution found by institution_code', [
                     'institution_code' => $instCode,
                     'institution_id' => $institution->id,
-                    'name' => $institution->name
+                    'name' => $institution->name,
                 ]);
+
                 return $institution;
             }
         }
 
         // Priority 3: Direct ID (backward compatibility)
-        if (!empty($instId) && is_numeric($instId)) {
-            $institution = Institution::find((int)$instId);
+        if (! empty($instId) && is_numeric($instId)) {
+            $institution = Institution::find((int) $instId);
             if ($institution) {
                 Log::info('RegionTeachersImport - Institution found by ID', [
                     'institution_id' => $instId,
-                    'name' => $institution->name
+                    'name' => $institution->name,
                 ]);
+
                 return $institution;
             }
         }
@@ -372,6 +382,7 @@ class RegionTeachersImport implements
     private function isInstitutionInRegion(Institution $institution): bool
     {
         $regionChildrenIds = $this->region->getAllChildrenIds();
+
         return in_array($institution->id, $regionChildrenIds);
     }
 
@@ -436,7 +447,7 @@ class RegionTeachersImport implements
         ]);
 
         // Update password if provided
-        if (!empty($data['password'])) {
+        if (! empty($data['password'])) {
             $user->update(['password' => Hash::make($data['password'])]);
         }
 

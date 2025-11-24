@@ -4,22 +4,20 @@ namespace App\Imports;
 
 use App\Models\Institution;
 use App\Models\InstitutionType;
-use App\Services\UtisCodeService;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Concerns\ToModel;
-use Maatwebsite\Excel\Concerns\WithHeadingRow;
-use Maatwebsite\Excel\Concerns\WithValidation;
 use Maatwebsite\Excel\Concerns\WithBatchInserts;
 use Maatwebsite\Excel\Concerns\WithChunkReading;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Validation\Rule;
+use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithValidation;
 
-class InstitutionsImport implements ToModel, WithHeadingRow, WithValidation, WithBatchInserts, WithChunkReading
+class InstitutionsImport implements ToModel, WithBatchInserts, WithChunkReading, WithHeadingRow, WithValidation
 {
     protected $errors = [];
+
     protected $successCount = 0;
 
     /**
-     * @param array $row
      * @return \Illuminate\Database\Eloquent\Model|null
      */
     public function model(array $row)
@@ -30,54 +28,59 @@ class InstitutionsImport implements ToModel, WithHeadingRow, WithValidation, Wit
             // Validate required fields
             if (empty($row['name']) || empty($row['type'])) {
                 Log::warning('Skipping row due to missing required fields:', $row);
-                return null;
+
+                return;
             }
 
             // Check if institution already exists
             if (Institution::where('name', $row['name'])->exists()) {
                 Log::warning('Skipping row due to duplicate institution name:', $row);
-                return null;
+
+                return;
             }
 
             // Find institution type
             $institutionType = InstitutionType::where('key', $row['type'])->first();
-            if (!$institutionType) {
+            if (! $institutionType) {
                 Log::warning('Institution type not found:', ['type' => $row['type']]);
-                return null;
+
+                return;
             }
 
             // Find parent institution if specified
             $parent = null;
-            if (!empty($row['parent_name'])) {
+            if (! empty($row['parent_name'])) {
                 $parent = Institution::where('name', $row['parent_name'])->first();
-                if (!$parent) {
+                if (! $parent) {
                     Log::warning('Parent institution not found:', ['parent_name' => $row['parent_name']]);
                 }
             }
 
             // Handle UTIS code (optional)
             $utisCode = null;
-            if (!empty($row['utis_code'])) {
+            if (! empty($row['utis_code'])) {
                 $utisCode = trim($row['utis_code']);
-                
+
                 // Validate UTIS code format (must be 8 digits)
-                if (!preg_match('/^\d{8}$/', $utisCode)) {
+                if (! preg_match('/^\d{8}$/', $utisCode)) {
                     Log::warning('Invalid UTIS code format (must be 8 digits):', ['utis_code' => $utisCode, 'row' => $row]);
                     $this->errors[] = "Row {$row['name']}: UTIS kod 8 rəqəmli olmalıdır ({$utisCode})";
-                    return null;
+
+                    return;
                 }
-                
+
                 // Check if UTIS code already exists
                 if (Institution::where('utis_code', $utisCode)->exists()) {
                     Log::warning('UTIS code already exists:', ['utis_code' => $utisCode, 'row' => $row]);
                     $this->errors[] = "Row {$row['name']}: UTIS kod artıq mövcuddur ({$utisCode})";
-                    return null;
+
+                    return;
                 }
             }
 
             // Generate institution code if not provided
-            $institutionCode = !empty($row['institution_code']) 
-                ? $row['institution_code'] 
+            $institutionCode = ! empty($row['institution_code'])
+                ? $row['institution_code']
                 : $this->generateInstitutionCode($row['name'], $row['type']);
 
             // Determine level based on type and parent
@@ -86,42 +89,42 @@ class InstitutionsImport implements ToModel, WithHeadingRow, WithValidation, Wit
             // Create institution
             $institution = Institution::create([
                 'name' => trim($row['name']),
-                'short_name' => !empty($row['short_name']) ? trim($row['short_name']) : $this->generateShortName($row['name']),
+                'short_name' => ! empty($row['short_name']) ? trim($row['short_name']) : $this->generateShortName($row['name']),
                 'type' => $row['type'],
                 'utis_code' => $utisCode,
                 'parent_id' => $parent ? $parent->id : null,
                 'level' => $level,
-                'region_code' => !empty($row['region_code']) ? $row['region_code'] : 'AZ',
+                'region_code' => ! empty($row['region_code']) ? $row['region_code'] : 'AZ',
                 'institution_code' => $institutionCode,
                 'contact_info' => json_encode([
-                    'phone' => !empty($row['phone']) ? $row['phone'] : null,
-                    'email' => !empty($row['email']) ? $row['email'] : null,
+                    'phone' => ! empty($row['phone']) ? $row['phone'] : null,
+                    'email' => ! empty($row['email']) ? $row['email'] : null,
                 ]),
                 'location' => json_encode([
-                    'region' => !empty($row['region']) ? $row['region'] : null,
-                    'address' => !empty($row['address']) ? $row['address'] : null,
+                    'region' => ! empty($row['region']) ? $row['region'] : null,
+                    'address' => ! empty($row['address']) ? $row['address'] : null,
                 ]),
                 'metadata' => json_encode([
-                    'student_capacity' => !empty($row['student_capacity']) ? intval($row['student_capacity']) : null,
-                    'staff_count' => !empty($row['staff_count']) ? intval($row['staff_count']) : null,
-                    'founded_year' => !empty($row['founded_year']) ? intval($row['founded_year']) : null,
+                    'student_capacity' => ! empty($row['student_capacity']) ? intval($row['student_capacity']) : null,
+                    'staff_count' => ! empty($row['staff_count']) ? intval($row['staff_count']) : null,
+                    'founded_year' => ! empty($row['founded_year']) ? intval($row['founded_year']) : null,
                 ]),
                 'is_active' => true,
-                'established_date' => !empty($row['established_date']) ? $row['established_date'] : null,
+                'established_date' => ! empty($row['established_date']) ? $row['established_date'] : null,
             ]);
 
             $this->successCount++;
             Log::info('Successfully imported institution:', ['institution_id' => $institution->id, 'utis_code' => $utisCode]);
 
             return $institution;
-
         } catch (\Exception $e) {
             Log::error('Error importing institution:', [
                 'row' => $row,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            $this->errors[] = "Row error: " . $e->getMessage();
-            return null;
+            $this->errors[] = 'Row error: ' . $e->getMessage();
+
+            return;
         }
     }
 
@@ -156,13 +159,13 @@ class InstitutionsImport implements ToModel, WithHeadingRow, WithValidation, Wit
     {
         $words = explode(' ', $name);
         $code = '';
-        
+
         foreach ($words as $word) {
             if (strlen($word) > 0) {
                 $code .= strtoupper(substr($word, 0, 1));
             }
         }
-        
+
         // Add type prefix
         $typePrefix = [
             'ministry' => 'M',
@@ -172,9 +175,9 @@ class InstitutionsImport implements ToModel, WithHeadingRow, WithValidation, Wit
             'kindergarten' => 'KG',
             'preschool_center' => 'PC',
         ];
-        
+
         $prefix = $typePrefix[$type] ?? 'IN';
-        
+
         return $prefix . '-' . $code . '-' . str_pad(rand(1, 999), 3, '0', STR_PAD_LEFT);
     }
 
@@ -187,14 +190,14 @@ class InstitutionsImport implements ToModel, WithHeadingRow, WithValidation, Wit
         if (count($words) <= 2) {
             return $name;
         }
-        
+
         $shortName = '';
         foreach ($words as $word) {
             if (strlen($word) > 2) {
                 $shortName .= strtoupper(substr($word, 0, 1));
             }
         }
-        
+
         return $shortName;
     }
 
@@ -203,10 +206,10 @@ class InstitutionsImport implements ToModel, WithHeadingRow, WithValidation, Wit
      */
     private function determineLevel($institutionType, $parent)
     {
-        if (!$parent) {
+        if (! $parent) {
             return 1; // Root level
         }
-        
+
         return $parent->level + 1;
     }
 

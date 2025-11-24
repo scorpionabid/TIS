@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers\RegionAdmin;
 
-use App\Http\Controllers\Controller;
-use App\Models\User;
-use App\Models\Institution;
-use App\Services\RegionAdmin\RegionTeacherService;
 use App\Exports\TeacherImportErrorsExport;
-use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use App\Models\Institution;
+use App\Models\User;
+use App\Services\RegionAdmin\RegionTeacherService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Maatwebsite\Excel\Facades\Excel;
 
 class RegionTeacherController extends Controller
 {
@@ -24,19 +24,16 @@ class RegionTeacherController extends Controller
 
     /**
      * Get all teachers for the region with filtering and statistics
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function index(Request $request): JsonResponse
     {
         try {
             $user = Auth::user();
 
-            if (!$this->userHasTeacherReadAccess($user)) {
+            if (! $this->userHasTeacherReadAccess($user)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur'
+                    'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur',
                 ], 403);
             }
 
@@ -44,23 +41,23 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can view any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     // Get first region (level 2)
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -103,7 +100,6 @@ class RegionTeacherController extends Controller
                 ],
                 'statistics' => $result['statistics'],
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error getting teachers', [
                 'error' => $e->getMessage(),
@@ -112,16 +108,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Müəllimləri əldə edərkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Müəllimləri əldə edərkən xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Bulk update teacher status
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function bulkUpdateStatus(Request $request): JsonResponse
     {
@@ -129,10 +122,10 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$user->can('teachers.update')) {
+            if (! $user->can('teachers.update')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized - Missing teachers.update permission'
+                    'message' => 'Unauthorized - Missing teachers.update permission',
                 ], 403);
             }
 
@@ -158,7 +151,6 @@ class RegionTeacherController extends Controller
                 'message' => "{$updated} müəllimin statusu yeniləndi",
                 'updated_count' => $updated,
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error bulk updating status', [
                 'error' => $e->getMessage(),
@@ -166,16 +158,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Statusu yeniləyərkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Statusu yeniləyərkən xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Bulk delete teachers
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function bulkDelete(Request $request): JsonResponse
     {
@@ -183,10 +172,10 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$user->can('teachers.delete')) {
+            if (! $user->can('teachers.delete')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized - Missing teachers.delete permission'
+                    'message' => 'Unauthorized - Missing teachers.delete permission',
                 ], 403);
             }
 
@@ -207,7 +196,6 @@ class RegionTeacherController extends Controller
                 'message' => "{$deleted} müəllim silindi",
                 'deleted_count' => $deleted,
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error bulk deleting', [
                 'error' => $e->getMessage(),
@@ -215,16 +203,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Müəllimləri silərkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Müəllimləri silərkən xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Export teachers to Excel
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function export(Request $request): JsonResponse
     {
@@ -232,10 +217,10 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$this->userHasTeacherReadAccess($user)) {
+            if (! $this->userHasTeacherReadAccess($user)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Unauthorized',
                 ], 403);
             }
 
@@ -243,22 +228,22 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can export from any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -275,7 +260,6 @@ class RegionTeacherController extends Controller
                 'data' => $data,
                 'message' => 'Müəllimlər uğurla export edildi',
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error exporting', [
                 'error' => $e->getMessage(),
@@ -283,16 +267,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Export zamanı xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Export zamanı xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Get sectors for the region
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function getSectors(Request $request): JsonResponse
     {
@@ -302,22 +283,22 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can view sectors from any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -328,7 +309,6 @@ class RegionTeacherController extends Controller
                 'success' => true,
                 'data' => $sectors,
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error getting sectors', [
                 'error' => $e->getMessage(),
@@ -336,16 +316,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Sektorları əldə edərkən xəta baş verdi'
+                'message' => 'Sektorları əldə edərkən xəta baş verdi',
             ], 500);
         }
     }
 
     /**
      * Get schools for sectors or entire region
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function getSchools(Request $request): JsonResponse
     {
@@ -355,22 +332,22 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can view schools from any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -386,7 +363,6 @@ class RegionTeacherController extends Controller
                 'success' => true,
                 'data' => $schools,
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error getting schools', [
                 'error' => $e->getMessage(),
@@ -394,16 +370,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Məktəbləri əldə edərkən xəta baş verdi'
+                'message' => 'Məktəbləri əldə edərkən xəta baş verdi',
             ], 500);
         }
     }
 
     /**
      * Show single teacher details
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function show(int $id): JsonResponse
     {
@@ -411,10 +384,10 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$this->userHasTeacherReadAccess($user)) {
+            if (! $this->userHasTeacherReadAccess($user)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized - Missing teachers.read permission'
+                    'message' => 'Unauthorized - Missing teachers.read permission',
                 ], 403);
             }
 
@@ -422,22 +395,22 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can view teachers from any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -445,10 +418,10 @@ class RegionTeacherController extends Controller
             // Get teacher with full details
             $teacher = $this->teacherService->getTeacherDetails($id, $region);
 
-            if (!$teacher) {
+            if (! $teacher) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil'
+                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil',
                 ], 404);
             }
 
@@ -456,7 +429,6 @@ class RegionTeacherController extends Controller
                 'success' => true,
                 'data' => $teacher,
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error getting teacher details', [
                 'teacher_id' => $id,
@@ -465,16 +437,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Müəllim məlumatlarını əldə edərkən xəta baş verdi'
+                'message' => 'Müəllim məlumatlarını əldə edərkən xəta baş verdi',
             ], 500);
         }
     }
 
     /**
      * Create new teacher
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function store(Request $request): JsonResponse
     {
@@ -482,10 +451,10 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$user->can('teachers.create')) {
+            if (! $user->can('teachers.create')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized - Missing teachers.create permission'
+                    'message' => 'Unauthorized - Missing teachers.create permission',
                 ], 403);
             }
 
@@ -493,22 +462,22 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can create teachers in any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -538,7 +507,6 @@ class RegionTeacherController extends Controller
                 'data' => $teacher,
                 'message' => 'Müəllim uğurla yaradıldı',
             ], 201);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error creating teacher', [
                 'error' => $e->getMessage(),
@@ -547,17 +515,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Müəllim yaradılarkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Müəllim yaradılarkən xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Update teacher
-     *
-     * @param Request $request
-     * @param int $id
-     * @return JsonResponse
      */
     public function update(Request $request, int $id): JsonResponse
     {
@@ -565,10 +529,10 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$user->can('teachers.update')) {
+            if (! $user->can('teachers.update')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized - Missing teachers.update permission'
+                    'message' => 'Unauthorized - Missing teachers.update permission',
                 ], 403);
             }
 
@@ -576,22 +540,22 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can update teachers in any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -616,10 +580,10 @@ class RegionTeacherController extends Controller
             // Update teacher
             $teacher = $this->teacherService->updateTeacher($id, $validated, $region);
 
-            if (!$teacher) {
+            if (! $teacher) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil'
+                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil',
                 ], 404);
             }
 
@@ -628,7 +592,6 @@ class RegionTeacherController extends Controller
                 'data' => $teacher,
                 'message' => 'Müəllim uğurla yeniləndi',
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error updating teacher', [
                 'teacher_id' => $id,
@@ -637,16 +600,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Müəllim yenilənərkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Müəllim yenilənərkən xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Soft delete teacher
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function softDelete(int $id): JsonResponse
     {
@@ -654,10 +614,10 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$user->can('teachers.delete')) {
+            if (! $user->can('teachers.delete')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized - Missing teachers.delete permission'
+                    'message' => 'Unauthorized - Missing teachers.delete permission',
                 ], 403);
             }
 
@@ -665,22 +625,22 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can delete teachers from any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -692,10 +652,10 @@ class RegionTeacherController extends Controller
 
             $deleted = $this->teacherService->softDeleteTeacher($id, $region);
 
-            if (!$deleted) {
+            if (! $deleted) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil'
+                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil',
                 ], 404);
             }
 
@@ -703,7 +663,6 @@ class RegionTeacherController extends Controller
                 'success' => true,
                 'message' => 'Müəllim deaktiv edildi',
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error soft deleting teacher', [
                 'teacher_id' => $id,
@@ -712,16 +671,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Müəllim silinərkən xəta baş verdi'
+                'message' => 'Müəllim silinərkən xəta baş verdi',
             ], 500);
         }
     }
 
     /**
      * Hard delete teacher
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function hardDelete(int $id): JsonResponse
     {
@@ -729,10 +685,10 @@ class RegionTeacherController extends Controller
             $user = Auth::user();
 
             // Authorization check
-            if (!$user->can('teachers.delete')) {
+            if (! $user->can('teachers.delete')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized - Missing teachers.delete permission'
+                    'message' => 'Unauthorized - Missing teachers.delete permission',
                 ], 403);
             }
 
@@ -740,22 +696,22 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can hard delete teachers from any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -767,10 +723,10 @@ class RegionTeacherController extends Controller
 
             $deleted = $this->teacherService->hardDeleteTeacher($id, $region);
 
-            if (!$deleted) {
+            if (! $deleted) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil'
+                    'message' => 'Müəllim tapılmadı və ya sizin regionunuzda deyil',
                 ], 404);
             }
 
@@ -778,7 +734,6 @@ class RegionTeacherController extends Controller
                 'success' => true,
                 'message' => 'Müəllim tam silindi',
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error hard deleting teacher', [
                 'teacher_id' => $id,
@@ -787,7 +742,7 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Müəllim silinərkən xəta baş verdi'
+                'message' => 'Müəllim silinərkən xəta baş verdi',
             ], 500);
         }
     }
@@ -795,9 +750,6 @@ class RegionTeacherController extends Controller
     /**
      * PRE-VALIDATE Excel file before import (NEW)
      * Returns detailed validation report without importing
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function validateImport(Request $request): JsonResponse
     {
@@ -812,17 +764,17 @@ class RegionTeacherController extends Controller
 
             $hasPermission = \DB::table('role_has_permissions')
                 ->whereIn('role_id', $allRoles)
-                ->whereIn('permission_id', function($query) {
+                ->whereIn('permission_id', function ($query) {
                     $query->select('id')
                         ->from('permissions')
                         ->where('name', 'teachers.create');
                 })
                 ->exists();
 
-            if (!$hasPermission) {
+            if (! $hasPermission) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim yaratmaq səlahiyyətiniz yoxdur'
+                    'message' => 'Müəllim yaratmaq səlahiyyətiniz yoxdur',
                 ], 403);
             }
 
@@ -830,22 +782,22 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can validate for any region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -870,7 +822,6 @@ class RegionTeacherController extends Controller
             );
 
             return response()->json($validationResult);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error validating import file', [
                 'error' => $e->getMessage(),
@@ -879,16 +830,13 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Validasiya zamanı xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Validasiya zamanı xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
      * Import teachers from CSV/Excel
-     *
-     * @param Request $request
-     * @return JsonResponse
      */
     public function import(Request $request): JsonResponse
     {
@@ -903,17 +851,17 @@ class RegionTeacherController extends Controller
 
             $hasPermission = \DB::table('role_has_permissions')
                 ->whereIn('role_id', $allRoles)
-                ->whereIn('permission_id', function($query) {
+                ->whereIn('permission_id', function ($query) {
                     $query->select('id')
                         ->from('permissions')
                         ->where('name', 'teachers.create');
                 })
                 ->exists();
 
-            if (!$hasPermission) {
+            if (! $hasPermission) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim yaratmaq səlahiyyətiniz yoxdur'
+                    'message' => 'Müəllim yaratmaq səlahiyyətiniz yoxdur',
                 ], 403);
             }
 
@@ -921,23 +869,23 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can import to any region - get first available region
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     // Get first region (level 2)
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
             }
@@ -973,7 +921,7 @@ class RegionTeacherController extends Controller
                     $region
                 );
 
-                if (!$validationResult['success']) {
+                if (! $validationResult['success']) {
                     return response()->json($validationResult, 400);
                 }
 
@@ -1003,7 +951,7 @@ class RegionTeacherController extends Controller
                     'details' => $result['details'],
                     'error_groups' => $validationResult['error_groups'],
                     'suggestions' => $validationResult['suggestions'],
-                    'message' => "{$result['success_count']} muellim ugurla import edildi, " . count($validationResult['invalid_rows']) . " xetali setir oturuldu",
+                    'message' => "{$result['success_count']} muellim ugurla import edildi, " . count($validationResult['invalid_rows']) . ' xetali setir oturuldu',
                 ]);
             }
 
@@ -1021,9 +969,8 @@ class RegionTeacherController extends Controller
                 'imported' => $result['success_count'],
                 'errors' => $result['error_count'],
                 'details' => $result['details'],
-                'message' => $result['success_count'] . " muellim import edildi, " . $result['error_count'] . " xeta",
+                'message' => $result['success_count'] . ' muellim import edildi, ' . $result['error_count'] . ' xeta',
             ]);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error importing teachers', [
                 'error' => $e->getMessage(),
@@ -1032,7 +979,7 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'İmport zamanı xəta baş verdi: ' . $e->getMessage()
+                'message' => 'İmport zamanı xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1041,7 +988,6 @@ class RegionTeacherController extends Controller
      * Export validation errors to Excel (NEW)
      * Takes validation result from session and exports to Excel
      *
-     * @param Request $request
      * @return \Symfony\Component\HttpFoundation\BinaryFileResponse
      */
     public function exportValidationErrors(Request $request)
@@ -1049,10 +995,10 @@ class RegionTeacherController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$this->userHasTeacherReadAccess($user)) {
+            if (! $this->userHasTeacherReadAccess($user)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur'
+                    'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur',
                 ], 403);
             }
 
@@ -1064,7 +1010,7 @@ class RegionTeacherController extends Controller
             if (empty($invalidRows) && empty($errors)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Heç bir xəta tapılmadı'
+                    'message' => 'Heç bir xəta tapılmadı',
                 ], 400);
             }
 
@@ -1079,7 +1025,6 @@ class RegionTeacherController extends Controller
                 new TeacherImportErrorsExport($invalidRows, $errors, $summary),
                 $filename
             );
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error exporting validation errors', [
                 'error' => $e->getMessage(),
@@ -1088,7 +1033,7 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error export zamanı xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Error export zamanı xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1103,10 +1048,10 @@ class RegionTeacherController extends Controller
         try {
             $user = Auth::user();
 
-            if (!$this->userHasTeacherReadAccess($user)) {
+            if (! $this->userHasTeacherReadAccess($user)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur'
+                    'message' => 'Müəllim məlumatlarını oxumaq səlahiyyətiniz yoxdur',
                 ], 403);
             }
 
@@ -1114,15 +1059,15 @@ class RegionTeacherController extends Controller
 
             // SuperAdmin can use any region - get first available region for template
             if ($user->hasRole('superadmin')) {
-                if (!$region) {
+                if (! $region) {
                     // Get first region (level 2) for template generation
                     $region = Institution::where('level', 2)->first();
                 }
 
-                if (!$region) {
+                if (! $region) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Sistemdə heç bir region tapılmadı'
+                        'message' => 'Sistemdə heç bir region tapılmadı',
                     ], 404);
                 }
 
@@ -1133,10 +1078,10 @@ class RegionTeacherController extends Controller
                 ]);
             } else {
                 // Regular RegionAdmin - must have level 2 institution
-                if (!$region || $region->level !== 2) {
+                if (! $region || $region->level !== 2) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil'
+                        'message' => 'İstifadəçi regional admini deyil və ya müəssisə regional ofis deyil',
                     ], 400);
                 }
 
@@ -1147,7 +1092,6 @@ class RegionTeacherController extends Controller
             }
 
             return $this->teacherService->generateImportTemplate($region);
-
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error downloading template', [
                 'error' => $e->getMessage(),
@@ -1156,7 +1100,7 @@ class RegionTeacherController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Şablon yüklənərkən xəta baş verdi: ' . $e->getMessage()
+                'message' => 'Şablon yüklənərkən xəta baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -1166,7 +1110,7 @@ class RegionTeacherController extends Controller
      */
     private function userHasTeacherReadAccess(?User $user): bool
     {
-        if (!$user) {
+        if (! $user) {
             return false;
         }
 

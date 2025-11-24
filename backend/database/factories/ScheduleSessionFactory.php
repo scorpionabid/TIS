@@ -2,14 +2,14 @@
 
 namespace Database\Factories;
 
-use App\Models\ScheduleSession;
-use App\Models\Schedule;
-use App\Models\Subject;
-use App\Models\User;
 use App\Models\Room;
+use App\Models\Schedule;
+use App\Models\ScheduleSession;
+use App\Models\Subject;
 use App\Models\TimeSlot;
-use Illuminate\Database\Eloquent\Factories\Factory;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Factories\Factory;
 
 class ScheduleSessionFactory extends Factory
 {
@@ -27,24 +27,24 @@ class ScheduleSessionFactory extends Factory
             'teacher_id' => User::factory(),
             'room_id' => Room::factory(),
             'time_slot_id' => TimeSlot::factory(),
-            
+
             // Session timing
             'day_of_week' => $this->faker->randomElement(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']),
             'period_number' => $this->faker->numberBetween(1, 8),
             'start_time' => $startTime,
             'end_time' => $endTime,
             'duration_minutes' => $duration,
-            
+
             // Session classification
             'session_type' => $this->faker->randomElement(['regular', 'lab', 'practical', 'exam', 'quiz', 'review']),
             'recurrence_pattern' => $this->faker->randomElement(['weekly', 'bi_weekly', 'one_time']),
             'recurrence_config' => null,
-            
+
             // Session details
             'topic' => $this->faker->sentence(3),
             'description' => $this->faker->optional()->paragraph(1),
             'lesson_plan_reference' => $this->faker->optional()->word(),
-            
+
             // Resource requirements
             'requires_projector' => $this->faker->boolean(30),
             'requires_computer' => $this->faker->boolean(20),
@@ -52,12 +52,12 @@ class ScheduleSessionFactory extends Factory
             'requires_special_setup' => $this->faker->boolean(10),
             'required_resources' => $this->faker->optional()->randomElements(['whiteboard', 'speakers', 'microphone'], $this->faker->numberBetween(0, 2)),
             'room_setup_requirements' => null,
-            
+
             // Student and class information
             'expected_student_count' => $this->faker->numberBetween(15, 35),
             'student_groups' => null,
             'is_mandatory' => $this->faker->boolean(90),
-            
+
             // Status and modifications
             'status' => $this->faker->randomElement(['scheduled', 'confirmed', 'cancelled', 'completed']),
             'substitute_teacher_id' => null,
@@ -65,35 +65,35 @@ class ScheduleSessionFactory extends Factory
             'substitution_reason' => null,
             'last_modified_at' => null,
             'last_modified_by' => null,
-            
+
             // Attendance and completion
             'actual_student_count' => null,
             'attendance_percentage' => null,
             'session_started_at' => null,
             'session_ended_at' => null,
             'completion_notes' => null,
-            
+
             // Conflicts and warnings
             'has_conflicts' => $this->faker->boolean(10),
             'conflict_details' => null,
             'conflict_severity' => 'none',
-            
+
             // Quality and feedback
             'session_rating' => $this->faker->optional(30)->randomFloat(2, 1, 5),
             'teacher_feedback' => $this->faker->optional(20)->sentence(),
             'student_feedback' => $this->faker->optional(15)->sentence(),
             'session_analytics' => null,
-            
+
             // Notification and alerts
             'notify_students' => $this->faker->boolean(80),
             'notify_parents' => $this->faker->boolean(30),
             'notifications_sent_at' => null,
             'notification_history' => null,
-            
+
             // External integration
             'external_reference' => null,
             'integration_data' => null,
-            
+
             // Audit and metadata
             'metadata' => null,
             'administrative_notes' => $this->faker->optional(10)->sentence(),
@@ -120,7 +120,7 @@ class ScheduleSessionFactory extends Factory
         return $this->state(function (array $attributes) {
             $startTime = now()->subDays($this->faker->numberBetween(1, 30));
             $endTime = $startTime->copy()->addMinutes($attributes['duration_minutes']);
-            
+
             return [
                 'status' => 'completed',
                 'session_started_at' => $startTime,
@@ -146,7 +146,7 @@ class ScheduleSessionFactory extends Factory
                 'School event',
                 'Holiday',
                 'Maintenance',
-                'Weather conditions'
+                'Weather conditions',
             ]),
         ]);
     }
@@ -164,7 +164,7 @@ class ScheduleSessionFactory extends Factory
                     'type' => $this->faker->randomElement(['teacher', 'room', 'resource']),
                     'description' => 'Auto-detected conflict',
                     'severity' => $this->faker->randomElement(['medium', 'high']),
-                ]
+                ],
             ],
         ]);
     }
@@ -182,7 +182,7 @@ class ScheduleSessionFactory extends Factory
                 'Original teacher sick',
                 'Professional development',
                 'Emergency leave',
-                'Conference attendance'
+                'Conference attendance',
             ]),
         ]);
     }
@@ -276,7 +276,7 @@ class ScheduleSessionFactory extends Factory
         return $this->state(function (array $attributes) {
             $startTime = $this->faker->time('H:i', '11:30');
             $endTime = Carbon::createFromFormat('H:i', $startTime)->addMinutes($attributes['duration_minutes'])->format('H:i');
-            
+
             return [
                 'start_time' => $startTime,
                 'end_time' => $endTime,
@@ -293,7 +293,7 @@ class ScheduleSessionFactory extends Factory
         return $this->state(function (array $attributes) {
             $startTime = $this->faker->time('H:i', '16:30');
             $endTime = Carbon::createFromFormat('H:i', $startTime)->addMinutes($attributes['duration_minutes'])->format('H:i');
-            
+
             return [
                 'start_time' => $startTime,
                 'end_time' => $endTime,

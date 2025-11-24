@@ -19,7 +19,7 @@ return new class extends Migration
             $table->integer('preferred_consecutive_hours')->default(2);
             $table->json('preferred_time_slots')->nullable(); // JSON array of preferred times
             $table->json('unavailable_periods')->nullable(); // JSON array of unavailable periods
-            
+
             $table->foreign('last_schedule_id')->references('id')->on('schedules')->onDelete('set null');
             $table->index(['is_scheduled', 'last_schedule_id']);
         });
@@ -35,12 +35,12 @@ return new class extends Migration
             $table->dropIndex(['is_scheduled', 'last_schedule_id']);
             $table->dropColumn([
                 'is_scheduled',
-                'last_schedule_id', 
+                'last_schedule_id',
                 'last_scheduled_at',
                 'scheduling_constraints',
                 'preferred_consecutive_hours',
                 'preferred_time_slots',
-                'unavailable_periods'
+                'unavailable_periods',
             ]);
         });
     }

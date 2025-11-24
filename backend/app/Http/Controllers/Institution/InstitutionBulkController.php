@@ -5,14 +5,10 @@ namespace App\Http\Controllers\Institution;
 use App\Http\Controllers\Controller;
 use App\Models\Institution;
 use App\Models\InstitutionType;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
-use Symfony\Component\HttpFoundation\BinaryFileResponse;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class InstitutionBulkController extends Controller
 {
@@ -40,13 +36,12 @@ class InstitutionBulkController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $types,
-                'message' => 'İnstitut tipləri alındı'
+                'message' => 'İnstitut tipləri alındı',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'İnstitut tipləri alınarkən səhv: ' . $e->getMessage()
+                'message' => 'İnstitut tipləri alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -61,19 +56,19 @@ class InstitutionBulkController extends Controller
             $query = Institution::query();
 
             // Apply user-based filtering
-            if ($user && !$user->hasRole('superadmin')) {
+            if ($user && ! $user->hasRole('superadmin')) {
                 if ($user->hasRole('regionadmin')) {
                     $regionId = $user->institution->parent_id ?? $user->institution_id;
                     $query->where(function ($q) use ($regionId) {
                         $q->where('id', $regionId)
-                          ->orWhere('parent_id', $regionId)
-                          ->orWhereHas('parent', fn($pq) => $pq->where('parent_id', $regionId));
+                            ->orWhere('parent_id', $regionId)
+                            ->orWhereHas('parent', fn ($pq) => $pq->where('parent_id', $regionId));
                     });
                 } elseif ($user->hasRole('sektoradmin')) {
                     $sectorId = $user->institution_id;
                     $query->where(function ($q) use ($sectorId) {
                         $q->where('id', $sectorId)
-                          ->orWhere('parent_id', $sectorId);
+                            ->orWhere('parent_id', $sectorId);
                     });
                 }
             }
@@ -95,13 +90,12 @@ class InstitutionBulkController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $stats,
-                'message' => 'Statistikalar alındı'
+                'message' => 'Statistikalar alındı',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Statistikalar alınarkən səhv: ' . $e->getMessage()
+                'message' => 'Statistikalar alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -121,12 +115,12 @@ class InstitutionBulkController extends Controller
             $query = Institution::onlyTrashed()->with(['institutionType', 'parent']);
 
             // Apply user-based access control
-            if ($user && !$user->hasRole('superadmin')) {
+            if ($user && ! $user->hasRole('superadmin')) {
                 if ($user->hasRole('regionadmin')) {
                     $regionId = $user->institution->parent_id ?? $user->institution_id;
                     $query->where(function ($q) use ($regionId) {
                         $q->where('id', $regionId)
-                          ->orWhere('parent_id', $regionId);
+                            ->orWhere('parent_id', $regionId);
                     });
                 } elseif ($user->hasRole('sektoradmin')) {
                     $query->where('parent_id', $user->institution_id);
@@ -137,7 +131,7 @@ class InstitutionBulkController extends Controller
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'ilike', "%{$search}%")
-                      ->orWhere('code', 'ilike', "%{$search}%");
+                        ->orWhere('code', 'ilike', "%{$search}%");
                 });
             }
 
@@ -158,13 +152,12 @@ class InstitutionBulkController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $institutions,
-                'message' => 'Silinmiş institutlar alındı'
+                'message' => 'Silinmiş institutlar alındı',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Silinmiş institutlar alınarkən səhv: ' . $e->getMessage()
+                'message' => 'Silinmiş institutlar alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -179,10 +172,10 @@ class InstitutionBulkController extends Controller
 
             // Check access permissions
             $user = Auth::user();
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
+                    'message' => 'Bu əməliyyat üçün icazəniz yoxdur',
                 ], 403);
             }
 
@@ -190,13 +183,12 @@ class InstitutionBulkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'İnstitut uğurla bərpa edildi'
+                'message' => 'İnstitut uğurla bərpa edildi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'İnstitut bərpa edilərkən səhv: ' . $e->getMessage()
+                'message' => 'İnstitut bərpa edilərkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -208,10 +200,10 @@ class InstitutionBulkController extends Controller
     {
         try {
             // Only superadmin can permanently delete
-            if (!Auth::user()->hasRole('superadmin')) {
+            if (! Auth::user()->hasRole('superadmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
+                    'message' => 'Bu əməliyyat üçün icazəniz yoxdur',
                 ], 403);
             }
 
@@ -220,13 +212,12 @@ class InstitutionBulkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'İnstitut qəti olaraq silindi'
+                'message' => 'İnstitut qəti olaraq silindi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'İnstitut silinərkən səhv: ' . $e->getMessage()
+                'message' => 'İnstitut silinərkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -239,7 +230,7 @@ class InstitutionBulkController extends Controller
         try {
             $request->validate([
                 'ids' => 'required|array|min:1',
-                'ids.*' => 'integer|exists:institutions,id'
+                'ids.*' => 'integer|exists:institutions,id',
             ]);
 
             $count = Institution::whereIn('id', $request->ids)
@@ -247,13 +238,12 @@ class InstitutionBulkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "{$count} institut aktivləşdirildi"
+                'message' => "{$count} institut aktivləşdirildi",
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Aktivləşdirmə zamanı səhv: ' . $e->getMessage()
+                'message' => 'Aktivləşdirmə zamanı səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -266,7 +256,7 @@ class InstitutionBulkController extends Controller
         try {
             $request->validate([
                 'ids' => 'required|array|min:1',
-                'ids.*' => 'integer|exists:institutions,id'
+                'ids.*' => 'integer|exists:institutions,id',
             ]);
 
             $count = Institution::whereIn('id', $request->ids)
@@ -274,13 +264,12 @@ class InstitutionBulkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "{$count} institut deaktivləşdirildi"
+                'message' => "{$count} institut deaktivləşdirildi",
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Deaktivləşdirmə zamanı səhv: ' . $e->getMessage()
+                'message' => 'Deaktivləşdirmə zamanı səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -293,7 +282,7 @@ class InstitutionBulkController extends Controller
         try {
             $request->validate([
                 'ids' => 'required|array|min:1',
-                'ids.*' => 'integer|exists:institutions,id'
+                'ids.*' => 'integer|exists:institutions,id',
             ]);
 
             // Check for institutions with children
@@ -304,7 +293,7 @@ class InstitutionBulkController extends Controller
             if ($withChildren->isNotEmpty()) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu institutların alt institutları var: ' . $withChildren->implode(', ')
+                    'message' => 'Bu institutların alt institutları var: ' . $withChildren->implode(', '),
                 ], 400);
             }
 
@@ -314,13 +303,12 @@ class InstitutionBulkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => count($request->ids) . ' institut silindi'
+                'message' => count($request->ids) . ' institut silindi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Silmə zamanı səhv: ' . $e->getMessage()
+                'message' => 'Silmə zamanı səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -331,16 +319,16 @@ class InstitutionBulkController extends Controller
     public function bulkRestore(Request $request): JsonResponse
     {
         try {
-            if (!Auth::user()->hasRole('superadmin')) {
+            if (! Auth::user()->hasRole('superadmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu əməliyyat üçün icazəniz yoxdur'
+                    'message' => 'Bu əməliyyat üçün icazəniz yoxdur',
                 ], 403);
             }
 
             $request->validate([
                 'ids' => 'required|array|min:1',
-                'ids.*' => 'integer'
+                'ids.*' => 'integer',
             ]);
 
             DB::transaction(function () use ($request) {
@@ -351,13 +339,12 @@ class InstitutionBulkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => count($request->ids) . ' institut bərpa edildi'
+                'message' => count($request->ids) . ' institut bərpa edildi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bərpa zamanı səhv: ' . $e->getMessage()
+                'message' => 'Bərpa zamanı səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -372,20 +359,20 @@ class InstitutionBulkController extends Controller
                 'format' => 'nullable|string|in:excel,csv,pdf',
                 'ids' => 'nullable|array',
                 'ids.*' => 'integer|exists:institutions,id',
-                'filters' => 'nullable|array'
+                'filters' => 'nullable|array',
             ]);
 
             $user = Auth::user();
             $query = Institution::with(['institutionType', 'parent']);
 
             // Apply user-based access control
-            if ($user && !$user->hasRole('superadmin')) {
+            if ($user && ! $user->hasRole('superadmin')) {
                 if ($user->hasRole('regionadmin')) {
                     $regionId = $user->institution->parent_id ?? $user->institution_id;
                     $query->where(function ($q) use ($regionId) {
                         $q->where('id', $regionId)
-                          ->orWhere('parent_id', $regionId)
-                          ->orWhereHas('parent', fn($pq) => $pq->where('parent_id', $regionId));
+                            ->orWhere('parent_id', $regionId)
+                            ->orWhereHas('parent', fn ($pq) => $pq->where('parent_id', $regionId));
                     });
                 }
             }
@@ -423,13 +410,12 @@ class InstitutionBulkController extends Controller
                     'records' => $institutions->toArray(),
                     'count' => $institutions->count(),
                 ],
-                'message' => 'Eksport hazırlandı'
+                'message' => 'Eksport hazırlandı',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Eksport zamanı səhv: ' . $e->getMessage()
+                'message' => 'Eksport zamanı səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -445,11 +431,11 @@ class InstitutionBulkController extends Controller
             $validTypesString = implode(',', $validTypes);
 
             $validated = $request->validate([
-                'type' => "required|string|in:{$validTypesString}"
+                'type' => "required|string|in:{$validTypesString}",
             ]);
 
             // Use the enhanced template service to generate the template
-            $templateService = new \App\Services\Import\InstitutionExcelTemplateService();
+            $templateService = new \App\Services\Import\InstitutionExcelTemplateService;
             $filePath = $templateService->generateTemplateByType($validated['type']);
 
             // Generate filename
@@ -457,15 +443,14 @@ class InstitutionBulkController extends Controller
 
             return response()->download($filePath, $fileName, [
                 'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                'Content-Disposition' => 'attachment; filename="' . $fileName . '"'
+                'Content-Disposition' => 'attachment; filename="' . $fileName . '"',
             ])->deleteFileAfterSend(true);
-
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('Template download validation error', [
                 'errors' => $e->errors(),
                 'request' => $request->all(),
                 'available_types' => InstitutionType::active()->pluck('key')->toArray(),
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
             ]);
 
             return response()->json([
@@ -473,18 +458,18 @@ class InstitutionBulkController extends Controller
                 'message' => 'Validasiya xətası - müəssisə növü düzgün deyil',
                 'errors' => $e->errors(),
                 'available_types' => InstitutionType::active()->pluck('key')->toArray(),
-                'requested_type' => $request->input('type')
+                'requested_type' => $request->input('type'),
             ], 422);
         } catch (\Exception $e) {
             \Log::error('Template download error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Şablon yüklənərkən səhv baş verdi: ' . $e->getMessage()
+                'message' => 'Şablon yüklənərkən səhv baş verdi: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -497,10 +482,10 @@ class InstitutionBulkController extends Controller
         try {
             $validTypes = InstitutionType::active()->pluck('key')->toArray();
             $validTypesString = implode(',', $validTypes);
-            
+
             $validated = $request->validate([
                 'type' => "required|string|in:{$validTypesString}",
-                'filters' => 'nullable|array'
+                'filters' => 'nullable|array',
             ]);
 
             $user = Auth::user();
@@ -512,13 +497,13 @@ class InstitutionBulkController extends Controller
             });
 
             // Apply user-based access control
-            if ($user && !$user->hasRole('superadmin')) {
+            if ($user && ! $user->hasRole('superadmin')) {
                 if ($user->hasRole('regionadmin')) {
                     $regionId = $user->institution->parent_id ?? $user->institution_id;
                     $query->where(function ($q) use ($regionId) {
                         $q->where('id', $regionId)
-                          ->orWhere('parent_id', $regionId)
-                          ->orWhereHas('parent', fn($pq) => $pq->where('parent_id', $regionId));
+                            ->orWhere('parent_id', $regionId)
+                            ->orWhereHas('parent', fn ($pq) => $pq->where('parent_id', $regionId));
                     });
                 }
             }
@@ -540,7 +525,7 @@ class InstitutionBulkController extends Controller
 
             $institutionType = InstitutionType::where('key', $validated['type'])->first();
             $typeName = $institutionType ? $institutionType->name : $validated['type'];
-            
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -549,13 +534,12 @@ class InstitutionBulkController extends Controller
                     'records' => $institutions->toArray(),
                     'count' => $institutions->count(),
                 ],
-                'message' => "{$typeName} tipli müəssisələr eksport edildi"
+                'message' => "{$typeName} tipli müəssisələr eksport edildi",
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Eksport zamanı səhv: ' . $e->getMessage()
+                'message' => 'Eksport zamanı səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -576,14 +560,14 @@ class InstitutionBulkController extends Controller
 
             $validated = $request->validate([
                 'file' => 'required|file|mimes:xlsx,xls|max:10240',
-                'type' => "required|string|in:{$validTypesString}"
+                'type' => "required|string|in:{$validTypesString}",
             ]);
 
             \Log::info('Large import started', [
                 'type' => $validated['type'],
                 'file_size' => $validated['file']->getSize(),
                 'memory_limit' => ini_get('memory_limit'),
-                'time_limit' => ini_get('max_execution_time')
+                'time_limit' => ini_get('max_execution_time'),
             ]);
 
             // Use the ImportOrchestrator to handle the import process
@@ -600,33 +584,32 @@ class InstitutionBulkController extends Controller
                     'data' => [
                         'success' => $result['imported_count'],
                         'created_institutions' => $result['details'],
-                        'errors' => []
+                        'errors' => [],
                     ],
-                    'message' => $result['message']
-                ]);
-            } else {
-                return response()->json([
-                    'success' => false,
                     'message' => $result['message'],
-                    'errors' => $result['errors'] ?? [],
-                    'data' => [
-                        'success' => 0,
-                        'created_institutions' => [],
-                        'errors' => $result['errors'] ?? []
-                    ]
-                ], 422);
+                ]);
             }
 
+            return response()->json([
+                'success' => false,
+                'message' => $result['message'],
+                'errors' => $result['errors'] ?? [],
+                'data' => [
+                    'success' => 0,
+                    'created_institutions' => [],
+                    'errors' => $result['errors'] ?? [],
+                ],
+            ], 422);
         } catch (\Exception $e) {
             \Log::error('Excel Import Failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
                 'message' => 'İdxal zamanı səhv: ' . $e->getMessage(),
-                'errors' => [$e->getMessage()]
+                'errors' => [$e->getMessage()],
             ], 500);
         }
     }
@@ -638,26 +621,25 @@ class InstitutionBulkController extends Controller
     {
         try {
             $user = Auth::user();
-            
+
             $permissions = [
                 'can_import' => $user->can('institutions.import'),
                 'can_export' => $user->can('institutions.export'),
                 'can_bulk_operations' => $user->can('institutions.bulk'),
                 'accessible_types' => InstitutionType::active()->pluck('key')->toArray(),
                 'user_role' => $user->roles->first()?->name,
-                'institution_access_level' => $this->getUserAccessLevel($user)
+                'institution_access_level' => $this->getUserAccessLevel($user),
             ];
 
             return response()->json([
                 'success' => true,
                 'data' => $permissions,
-                'message' => 'İcazələr alındı'
+                'message' => 'İcazələr alındı',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'İcazələr alınarkən səhv: ' . $e->getMessage()
+                'message' => 'İcazələr alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -670,20 +652,19 @@ class InstitutionBulkController extends Controller
         try {
             // This would typically query an import_history table
             // For now, return empty array
-            
+
             return response()->json([
                 'success' => true,
                 'data' => [
                     'history' => [],
-                    'total' => 0
+                    'total' => 0,
                 ],
-                'message' => 'İdxal tarixçəsi alındı'
+                'message' => 'İdxal tarixçəsi alındı',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'İdxal tarixçəsi alınarkən səhv: ' . $e->getMessage()
+                'message' => 'İdxal tarixçəsi alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -699,19 +680,18 @@ class InstitutionBulkController extends Controller
                 'successful_imports' => 0,
                 'failed_imports' => 0,
                 'import_trends' => [],
-                'common_errors' => []
+                'common_errors' => [],
             ];
 
             return response()->json([
                 'success' => true,
                 'data' => $analytics,
-                'message' => 'İdxal analitikası alındı'
+                'message' => 'İdxal analitikası alındı',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Analitika alınarkən səhv: ' . $e->getMessage()
+                'message' => 'Analitika alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -727,11 +707,11 @@ class InstitutionBulkController extends Controller
             return 'region';
         } elseif ($user->hasRole('sektoradmin')) {
             return 'sector';
-        } else {
-            return 'own';
         }
+
+        return 'own';
     }
-    
+
     /**
      * Parse JSON field from Excel cell
      */
@@ -740,18 +720,18 @@ class InstitutionBulkController extends Controller
         if (empty($value)) {
             return [];
         }
-        
+
         // If it's already an array, return it
         if (is_array($value)) {
             return $value;
         }
-        
+
         // Try to decode JSON
         $decoded = json_decode($value, true);
         if (json_last_error() === JSON_ERROR_NONE) {
             return $decoded;
         }
-        
+
         // If not valid JSON, try to parse as simple key-value
         if (strpos($value, ':') !== false) {
             $parts = explode(',', $value);
@@ -762,12 +742,13 @@ class InstitutionBulkController extends Controller
                     $result[trim($keyValue[0])] = trim($keyValue[1]);
                 }
             }
+
             return $result;
         }
-        
+
         return [];
     }
-    
+
     /**
      * Parse date field from Excel cell
      */
@@ -776,21 +757,22 @@ class InstitutionBulkController extends Controller
         if (empty($value)) {
             return null;
         }
-        
+
         // If it's already a date string in correct format
         if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $value)) {
             return $value;
         }
-        
+
         // Try to parse different date formats
         try {
             $date = \Carbon\Carbon::parse($value);
+
             return $date->format('Y-m-d');
         } catch (\Exception $e) {
             return null;
         }
     }
-    
+
     /**
      * Parse boolean field from Excel cell
      */
@@ -799,11 +781,12 @@ class InstitutionBulkController extends Controller
         if (is_bool($value)) {
             return $value;
         }
-        
+
         $value = strtolower(trim($value));
+
         return in_array($value, ['true', '1', 'aktiv', 'active', 'bəli', 'yes']);
     }
-    
+
     /**
      * Parse parent ID field from Excel cell
      */
@@ -812,14 +795,14 @@ class InstitutionBulkController extends Controller
         if (empty($value)) {
             return null;
         }
-        
+
         // Extract numeric part (ignore comments)
         $numericPart = preg_replace('/[^0-9].*/', '', trim($value));
-        
+
         if (is_numeric($numericPart)) {
             return (int) $numericPart;
         }
-        
+
         return null;
     }
 
@@ -831,19 +814,19 @@ class InstitutionBulkController extends Controller
         try {
             $validated = $request->validate([
                 'level' => 'required|integer|min:2|max:4',
-                'search' => 'nullable|string|max:255'
+                'search' => 'nullable|string|max:255',
             ]);
 
             $query = Institution::where('level', '<', $validated['level'])
                 ->where('is_active', true);
 
             // Add search filter if provided
-            if (!empty($validated['search'])) {
+            if (! empty($validated['search'])) {
                 $search = $validated['search'];
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('name', 'LIKE', "%{$search}%")
-                      ->orWhere('short_name', 'LIKE', "%{$search}%")
-                      ->orWhere('region_code', 'LIKE', "%{$search}%");
+                        ->orWhere('short_name', 'LIKE', "%{$search}%")
+                        ->orWhere('region_code', 'LIKE', "%{$search}%");
                 });
             }
 
@@ -856,28 +839,27 @@ class InstitutionBulkController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $institutions->map(function($institution) {
+                'data' => $institutions->map(function ($institution) {
                     return [
                         'id' => $institution->id,
                         'name' => $institution->name,
                         'short_name' => $institution->short_name,
                         'level' => $institution->level,
                         'region_code' => $institution->region_code,
-                        'display_name' => "{$institution->name} (ID: {$institution->id})"
+                        'display_name' => "{$institution->name} (ID: {$institution->id})",
                     ];
                 }),
-                'message' => 'Üst müəssisələr siyahısı alındı'
+                'message' => 'Üst müəssisələr siyahısı alındı',
             ]);
-
         } catch (\Exception $e) {
             \Log::error('Parent institutions fetch error', [
                 'error' => $e->getMessage(),
-                'request' => $request->all()
+                'request' => $request->all(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Üst müəssisələr alınarkən səhv: ' . $e->getMessage()
+                'message' => 'Üst müəssisələr alınarkən səhv: ' . $e->getMessage(),
             ], 500);
         }
     }

@@ -2,9 +2,8 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
 use App\Models\NotificationTemplate;
+use Illuminate\Database\Seeder;
 
 class EnhancedNotificationTemplateSeeder extends Seeder
 {
@@ -34,7 +33,7 @@ class EnhancedNotificationTemplateSeeder extends Seeder
 📝 Təsvir: {{description}}
 
 Bu tapşırığı vaxtında tamamlamaq üçün dərhal fəaliyyətə başlayın.',
-                'is_active' => true
+                'is_active' => true,
             ],
 
             [
@@ -56,7 +55,7 @@ Bu tapşırığı vaxtında tamamlamaq üçün dərhal fəaliyyətə başlayın.
 📝 Təsvir: {{description}}
 
 🔥 Bu tapşırığı bu gün tamamlamağınızı tövsiyə edirik!',
-                'is_active' => true
+                'is_active' => true,
             ],
 
             [
@@ -78,7 +77,7 @@ Bu tapşırığı vaxtında tamamlamaq üçün dərhal fəaliyyətə başlayın.
 📝 Təsvir: {{description}}
 
 ⚠️ Bu tapşırığı bu gün tamamlamasanız, müddət keçəcək!',
-                'is_active' => true
+                'is_active' => true,
             ],
 
             [
@@ -100,7 +99,7 @@ Bu tapşırığı vaxtında tamamlamaq üçün dərhal fəaliyyətə başlayın.
 📝 Təsvir: {{description}}
 
 ⚠️ Zəhmət olmasa bu tapşırığı tez bir zamanda tamamlayın və izahat verin.',
-                'is_active' => true
+                'is_active' => true,
             ],
 
             // Enhanced Survey Deadline Templates
@@ -121,7 +120,7 @@ Bu tapşırığı vaxtında tamamlamaq üçün dərhal fəaliyyətə başlayın.
 📋 Təsvir: {{survey_description}}
 
 Zəhmət olmasa sorğunu 3 gün ərzində tamamlayın.',
-                'is_active' => true
+                'is_active' => true,
             ],
 
             [
@@ -141,7 +140,7 @@ Zəhmət olmasa sorğunu 3 gün ərzində tamamlayın.',
 📋 Təsvir: {{survey_description}}
 
 🔥 Bu sorğunu bu gün cavablamağınızı tövsiyə edirik!',
-                'is_active' => true
+                'is_active' => true,
             ],
 
             [
@@ -161,7 +160,7 @@ Zəhmət olmasa sorğunu 3 gün ərzində tamamlayın.',
 📋 Təsvir: {{survey_description}}
 
 ⚠️ Bu sorğunu bu gün cavablamasanız, müddət keçəcək!',
-                'is_active' => true
+                'is_active' => true,
             ],
 
             [
@@ -181,7 +180,7 @@ Zəhmət olmasa sorğunu 3 gün ərzində tamamlayın.',
 📋 Təsvir: {{survey_description}}
 
 ⚠️ Mümkün olduqca tez bu sorğunu tamamlayın.',
-                'is_active' => true
+                'is_active' => true,
             ],
 
             // Enhanced Document Notification Template
@@ -203,7 +202,7 @@ Zəhmət olmasa sorğunu 3 gün ərzində tamamlayın.',
 💬 Mesaj: {{share_message}}
 
 Bu sənədi görüntüləmək və yükləmək üçün aşağıdakı keçidə klikləyin.',
-                'is_active' => true
+                'is_active' => true,
             ],
 
             // Enhanced Link Notification Template
@@ -226,8 +225,8 @@ Bu sənədi görüntüləmək və yükləmək üçün aşağıdakı keçidə kli
 📝 Təsvir: {{description}}
 
 Bu bağlantıya daxil olmaq üçün aşağıdakı düyməni istifadə edin.',
-                'is_active' => true
-            ]
+                'is_active' => true,
+            ],
         ];
 
         foreach ($templates as $template) {

@@ -2,14 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\Document;
 use App\Models\Institution;
 use App\Models\Task;
-use App\Models\Document;
-use App\Models\User;
-use App\Services\BaseService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class SectorAnalyticsService extends BaseService
 {
@@ -26,14 +23,14 @@ class SectorAnalyticsService extends BaseService
 
         $overview = $this->getOverviewStatistics($baseQuery);
         $regionalBreakdown = $this->getRegionalBreakdown($baseQuery, $user);
-        
+
         return [
             // Frontend expects these at top level
             'total_sectors' => $overview['total_sectors'],
             'active_sectors' => $overview['active_sectors'],
             'inactive_sectors' => $overview['inactive_sectors'],
             'by_region' => $regionalBreakdown,
-            
+
             // Keep detailed data for additional use
             'overview' => $overview,
             'performance_metrics' => $this->getPerformanceMetrics($baseQuery),
@@ -45,8 +42,8 @@ class SectorAnalyticsService extends BaseService
             'recommendations' => $this->generateRecommendations($baseQuery),
             'period' => [
                 'from' => $dateFrom,
-                'to' => $dateTo
-            ]
+                'to' => $dateTo,
+            ],
         ];
     }
 
@@ -57,20 +54,20 @@ class SectorAnalyticsService extends BaseService
     {
         $sectorQuery = Institution::where('type', 'sector_education_office')->where('level', 3);
         $this->applySectorAccessControl($sectorQuery, $user);
-        
+
         $sector = $sectorQuery->findOrFail($sectorId);
 
         return [
             'sector' => [
                 'id' => $sector->id,
                 'name' => $sector->name,
-                'code' => $sector->code
+                'code' => $sector->code,
             ],
             'institutional_metrics' => $this->calculateInstitutionalMetrics($sector),
             'educational_metrics' => $this->calculateEducationalMetrics($sector),
             'administrative_metrics' => $this->calculateAdministrativeMetrics($sector),
             'performance_indicators' => $this->calculatePerformanceIndicators($sector),
-            'benchmarking' => $this->getBenchmarkingData($sector, $user)
+            'benchmarking' => $this->getBenchmarkingData($sector, $user),
         ];
     }
 
@@ -82,7 +79,7 @@ class SectorAnalyticsService extends BaseService
         $sectorQuery = Institution::where('type', 'sector_education_office')
             ->where('level', 3)
             ->whereIn('id', $sectorIds);
-        
+
         $this->applySectorAccessControl($sectorQuery, $user);
         $sectors = $sectorQuery->get();
 
@@ -96,16 +93,16 @@ class SectorAnalyticsService extends BaseService
                 'sector' => [
                     'id' => $sector->id,
                     'name' => $sector->name,
-                    'code' => $sector->code
+                    'code' => $sector->code,
                 ],
-                'metrics' => $this->calculateComparisonMetrics($sector)
+                'metrics' => $this->calculateComparisonMetrics($sector),
             ];
         }
 
         return [
             'sectors' => $comparisons,
             'rankings' => $this->calculateSectorRankings($comparisons),
-            'best_practices' => $this->identifyBestPractices($comparisons)
+            'best_practices' => $this->identifyBestPractices($comparisons),
         ];
     }
 
@@ -116,8 +113,8 @@ class SectorAnalyticsService extends BaseService
     {
         $total = $baseQuery->count();
         $active = $baseQuery->where('is_active', true)->count();
-        $withManagers = $baseQuery->whereHas('users', function($q) {
-            $q->whereHas('roles', function($r) {
+        $withManagers = $baseQuery->whereHas('users', function ($q) {
+            $q->whereHas('roles', function ($r) {
                 $r->where('name', 'sektoradmin');
             });
         })->count();
@@ -132,10 +129,10 @@ class SectorAnalyticsService extends BaseService
         foreach ($sectors as $sector) {
             $totalSchools += $sector->children->count();
             $activeSchools += $sector->children->where('is_active', true)->count();
-            
+
             foreach ($sector->children as $school) {
                 $totalStudents += $school->students()->count();
-                $totalTeachers += $school->users()->whereHas('roles', function($q) {
+                $totalTeachers += $school->users()->whereHas('roles', function ($q) {
                     $q->where('name', 'teacher');
                 })->count();
             }
@@ -152,7 +149,7 @@ class SectorAnalyticsService extends BaseService
             'total_students' => $totalStudents,
             'total_teachers' => $totalTeachers,
             'management_coverage' => $total > 0 ? round(($withManagers / $total) * 100, 2) : 0,
-            'activity_rate' => $total > 0 ? round(($active / $total) * 100, 2) : 0
+            'activity_rate' => $total > 0 ? round(($active / $total) * 100, 2) : 0,
         ];
     }
 
@@ -162,13 +159,13 @@ class SectorAnalyticsService extends BaseService
     private function getPerformanceMetrics($baseQuery): array
     {
         $sectors = $baseQuery->with(['children', 'users'])->get();
-        
+
         $metrics = [
             'avg_schools_per_sector' => 0,
             'avg_students_per_sector' => 0,
             'avg_teachers_per_sector' => 0,
             'student_teacher_ratio' => 0,
-            'school_utilization_rate' => 0
+            'school_utilization_rate' => 0,
         ];
 
         if ($sectors->count() > 0) {
@@ -183,7 +180,7 @@ class SectorAnalyticsService extends BaseService
 
                 foreach ($sector->children as $school) {
                     $studentCount += $school->students()->count();
-                    $teacherCount += $school->users()->whereHas('roles', function($q) {
+                    $teacherCount += $school->users()->whereHas('roles', function ($q) {
                         $q->where('name', 'teacher');
                     })->count();
                 }
@@ -198,7 +195,7 @@ class SectorAnalyticsService extends BaseService
             $metrics['avg_students_per_sector'] = round($totalStudents / $sectorCount, 2);
             $metrics['avg_teachers_per_sector'] = round($totalTeachers / $sectorCount, 2);
             $metrics['student_teacher_ratio'] = $totalTeachers > 0 ? round($totalStudents / $totalTeachers, 2) : 0;
-            $metrics['school_utilization_rate'] = $totalSchools > 0 ? 
+            $metrics['school_utilization_rate'] = $totalSchools > 0 ?
                 round(($sectors->where('is_active', true)->count() / $sectors->count()) * 100, 2) : 0;
         }
 
@@ -216,34 +213,34 @@ class SectorAnalyticsService extends BaseService
             ->groupBy('parent_id')
             ->map(function ($sectors, $regionId) {
                 $region = $sectors->first()->parent;
-                
+
                 // Calculate total institutions and students for this region's sectors
                 $totalInstitutions = 0;
                 $totalStudents = 0;
-                
+
                 foreach ($sectors as $sector) {
                     $totalInstitutions += $sector->children->count();
                     foreach ($sector->children as $institution) {
                         $totalStudents += $institution->students()->count();
                     }
                 }
-                
+
                 return [
                     'region_id' => $region?->id,
                     'region_name' => $region?->name,
                     'region' => [
                         'id' => $region?->id,
-                        'name' => $region?->name
+                        'name' => $region?->name,
                     ],
                     'sector_count' => $sectors->count(),
                     'active_sectors' => $sectors->where('is_active', true)->count(),
                     'total_institutions' => $totalInstitutions,
                     'total_students' => $totalStudents,
-                    'managed_sectors' => $sectors->filter(function($sector) {
-                        return $sector->users()->whereHas('roles', function($q) {
+                    'managed_sectors' => $sectors->filter(function ($sector) {
+                        return $sector->users()->whereHas('roles', function ($q) {
                             $q->where('name', 'sektoradmin');
                         })->exists();
-                    })->count()
+                    })->count(),
                 ];
             })
             ->values()
@@ -256,21 +253,21 @@ class SectorAnalyticsService extends BaseService
     private function getInstitutionAnalysis($baseQuery): array
     {
         $sectors = $baseQuery->with(['children.institutionType'])->get();
-        
+
         $institutionTypes = [];
         $totalInstitutions = 0;
 
         foreach ($sectors as $sector) {
             foreach ($sector->children as $institution) {
                 $typeName = $institution->institutionType?->name ?? 'Digər';
-                
-                if (!isset($institutionTypes[$typeName])) {
+
+                if (! isset($institutionTypes[$typeName])) {
                     $institutionTypes[$typeName] = [
                         'count' => 0,
-                        'active_count' => 0
+                        'active_count' => 0,
                     ];
                 }
-                
+
                 $institutionTypes[$typeName]['count']++;
                 if ($institution->is_active) {
                     $institutionTypes[$typeName]['active_count']++;
@@ -281,14 +278,14 @@ class SectorAnalyticsService extends BaseService
 
         // Calculate percentages
         foreach ($institutionTypes as $type => &$data) {
-            $data['percentage'] = $totalInstitutions > 0 ? 
+            $data['percentage'] = $totalInstitutions > 0 ?
                 round(($data['count'] / $totalInstitutions) * 100, 2) : 0;
         }
 
         return [
             'types_breakdown' => $institutionTypes,
             'total_institutions' => $totalInstitutions,
-            'type_diversity' => count($institutionTypes)
+            'type_diversity' => count($institutionTypes),
         ];
     }
 
@@ -298,19 +295,19 @@ class SectorAnalyticsService extends BaseService
     private function getManagementCoverage($baseQuery): array
     {
         $sectors = $baseQuery->with(['users.roles'])->get();
-        
+
         $managed = 0;
         $unmanaged = 0;
         $managerDetails = [];
 
         foreach ($sectors as $sector) {
-            $hasManager = $sector->users()->whereHas('roles', function($q) {
+            $hasManager = $sector->users()->whereHas('roles', function ($q) {
                 $q->where('name', 'sektoradmin');
             })->exists();
 
             if ($hasManager) {
                 $managed++;
-                $manager = $sector->users()->whereHas('roles', function($q) {
+                $manager = $sector->users()->whereHas('roles', function ($q) {
                     $q->where('name', 'sektoradmin');
                 })->first();
 
@@ -318,7 +315,7 @@ class SectorAnalyticsService extends BaseService
                     'sector_id' => $sector->id,
                     'sector_name' => $sector->name,
                     'manager_name' => $manager->name,
-                    'manager_email' => $manager->email
+                    'manager_email' => $manager->email,
                 ];
             } else {
                 $unmanaged++;
@@ -333,17 +330,17 @@ class SectorAnalyticsService extends BaseService
             'unmanaged_sectors' => $unmanaged,
             'coverage_rate' => $total > 0 ? round(($managed / $total) * 100, 2) : 0,
             'manager_details' => $managerDetails,
-            'unmanaged_sectors_list' => $sectors->filter(function($sector) {
-                return !$sector->users()->whereHas('roles', function($q) {
+            'unmanaged_sectors_list' => $sectors->filter(function ($sector) {
+                return ! $sector->users()->whereHas('roles', function ($q) {
                     $q->where('name', 'sektoradmin');
                 })->exists();
-            })->map(function($sector) {
+            })->map(function ($sector) {
                 return [
                     'id' => $sector->id,
                     'name' => $sector->name,
-                    'code' => $sector->code
+                    'code' => $sector->code,
                 ];
-            })->values()
+            })->values(),
         ];
     }
 
@@ -381,8 +378,8 @@ class SectorAnalyticsService extends BaseService
                 'total_tasks' => array_sum($taskTrends),
                 'total_documents' => array_sum($documentTrends),
                 'avg_daily_tasks' => count($taskTrends) > 0 ? round(array_sum($taskTrends) / count($taskTrends), 2) : 0,
-                'avg_daily_documents' => count($documentTrends) > 0 ? round(array_sum($documentTrends) / count($documentTrends), 2) : 0
-            ]
+                'avg_daily_documents' => count($documentTrends) > 0 ? round(array_sum($documentTrends) / count($documentTrends), 2) : 0,
+            ],
         ];
     }
 
@@ -392,7 +389,7 @@ class SectorAnalyticsService extends BaseService
     private function getComparativeAnalysis($baseQuery): array
     {
         $sectors = $baseQuery->with(['children', 'users'])->get();
-        
+
         $performance = [];
         foreach ($sectors as $sector) {
             $schoolCount = $sector->children->count();
@@ -402,7 +399,7 @@ class SectorAnalyticsService extends BaseService
 
             foreach ($sector->children as $school) {
                 $studentCount += $school->students()->count();
-                $teacherCount += $school->users()->whereHas('roles', function($q) {
+                $teacherCount += $school->users()->whereHas('roles', function ($q) {
                     $q->where('name', 'teacher');
                 })->count();
             }
@@ -415,7 +412,7 @@ class SectorAnalyticsService extends BaseService
                 'student_count' => $studentCount,
                 'teacher_count' => $teacherCount,
                 'student_teacher_ratio' => $teacherCount > 0 ? round($studentCount / $teacherCount, 2) : 0,
-                'activity_rate' => $schoolCount > 0 ? round(($activeSchools / $schoolCount) * 100, 2) : 0
+                'activity_rate' => $schoolCount > 0 ? round(($activeSchools / $schoolCount) * 100, 2) : 0,
             ];
         }
 
@@ -428,7 +425,7 @@ class SectorAnalyticsService extends BaseService
             'all_sectors_performance' => $performance,
             'top_by_students' => $topByStudents,
             'top_by_schools' => $topBySchools,
-            'top_by_activity_rate' => $topByActivity
+            'top_by_activity_rate' => $topByActivity,
         ];
     }
 
@@ -441,8 +438,8 @@ class SectorAnalyticsService extends BaseService
         $recommendations = [];
 
         // Check management coverage
-        $unmanaged = $sectors->filter(function($sector) {
-            return !$sector->users()->whereHas('roles', function($q) {
+        $unmanaged = $sectors->filter(function ($sector) {
+            return ! $sector->users()->whereHas('roles', function ($q) {
                 $q->where('name', 'sektoradmin');
             })->exists();
         });
@@ -454,7 +451,7 @@ class SectorAnalyticsService extends BaseService
                 'title' => 'Menecer təyinatı tələb olunur',
                 'description' => "{$unmanaged->count()} sektor üçün menecer təyin edilməmişdir",
                 'action' => 'Təcili olaraq sektoradmin təyin edin',
-                'affected_sectors' => $unmanaged->pluck('name')->toArray()
+                'affected_sectors' => $unmanaged->pluck('name')->toArray(),
             ];
         }
 
@@ -467,12 +464,12 @@ class SectorAnalyticsService extends BaseService
                 'title' => 'Qeyri-aktiv sektorlar',
                 'description' => "{$inactive->count()} sektor qeyri-aktivdir",
                 'action' => 'Sektorların statusunu yoxlayın və aktivləşdirin',
-                'affected_sectors' => $inactive->pluck('name')->toArray()
+                'affected_sectors' => $inactive->pluck('name')->toArray(),
             ];
         }
 
         // Check sectors with no schools
-        $withoutSchools = $sectors->filter(function($sector) {
+        $withoutSchools = $sectors->filter(function ($sector) {
             return $sector->children->count() === 0;
         });
 
@@ -483,7 +480,7 @@ class SectorAnalyticsService extends BaseService
                 'title' => 'Məktəbi olmayan sektorlar',
                 'description' => "{$withoutSchools->count()} sektorda məktəb yoxdur",
                 'action' => 'Sektor strukturunu yoxlayın və məktəbləri əlavə edin',
-                'affected_sectors' => $withoutSchools->pluck('name')->toArray()
+                'affected_sectors' => $withoutSchools->pluck('name')->toArray(),
             ];
         }
 
@@ -514,13 +511,13 @@ class SectorAnalyticsService extends BaseService
     private function calculateInstitutionalMetrics(Institution $sector): array
     {
         $children = $sector->children;
-        
+
         return [
             'total_institutions' => $children->count(),
             'active_institutions' => $children->where('is_active', true)->count(),
             'institution_types' => $children->groupBy('type')->map->count(),
-            'average_institutions_per_type' => $children->count() > 0 ? 
-                round($children->groupBy('type')->count() / $children->count(), 2) : 0
+            'average_institutions_per_type' => $children->count() > 0 ?
+                round($children->groupBy('type')->count() / $children->count(), 2) : 0,
         ];
     }
 
@@ -534,7 +531,7 @@ class SectorAnalyticsService extends BaseService
 
         foreach ($sector->children as $school) {
             $totalStudents += $school->students()->count();
-            $totalTeachers += $school->users()->whereHas('roles', function($q) {
+            $totalTeachers += $school->users()->whereHas('roles', function ($q) {
                 $q->where('name', 'teacher');
             })->count();
         }
@@ -543,10 +540,10 @@ class SectorAnalyticsService extends BaseService
             'total_students' => $totalStudents,
             'total_teachers' => $totalTeachers,
             'student_teacher_ratio' => $totalTeachers > 0 ? round($totalStudents / $totalTeachers, 2) : 0,
-            'avg_students_per_school' => $sector->children->count() > 0 ? 
+            'avg_students_per_school' => $sector->children->count() > 0 ?
                 round($totalStudents / $sector->children->count(), 2) : 0,
-            'avg_teachers_per_school' => $sector->children->count() > 0 ? 
-                round($totalTeachers / $sector->children->count(), 2) : 0
+            'avg_teachers_per_school' => $sector->children->count() > 0 ?
+                round($totalTeachers / $sector->children->count(), 2) : 0,
         ];
     }
 
@@ -558,7 +555,7 @@ class SectorAnalyticsService extends BaseService
         $taskCount = Task::where('assigned_institution_id', $sector->id)->count();
         $completedTasks = Task::where('assigned_institution_id', $sector->id)
             ->where('status', 'completed')->count();
-        
+
         $documentCount = Document::where('institution_id', $sector->id)->count();
 
         return [
@@ -566,8 +563,8 @@ class SectorAnalyticsService extends BaseService
             'completed_tasks' => $completedTasks,
             'task_completion_rate' => $taskCount > 0 ? round(($completedTasks / $taskCount) * 100, 2) : 0,
             'total_documents' => $documentCount,
-            'documents_per_school' => $sector->children->count() > 0 ? 
-                round($documentCount / $sector->children->count(), 2) : 0
+            'documents_per_school' => $sector->children->count() > 0 ?
+                round($documentCount / $sector->children->count(), 2) : 0,
         ];
     }
 
@@ -583,9 +580,9 @@ class SectorAnalyticsService extends BaseService
         // Calculate composite performance score
         $scores = [
             'institutional_efficiency' => min(100, ($institutional['active_institutions'] / max(1, $institutional['total_institutions'])) * 100),
-            'educational_capacity' => min(100, $educational['student_teacher_ratio'] > 0 ? 
+            'educational_capacity' => min(100, $educational['student_teacher_ratio'] > 0 ?
                 (20 / $educational['student_teacher_ratio']) * 100 : 0), // Optimal ratio assumed as 20:1
-            'administrative_effectiveness' => $administrative['task_completion_rate']
+            'administrative_effectiveness' => $administrative['task_completion_rate'],
         ];
 
         $overallScore = array_sum($scores) / count($scores);
@@ -593,7 +590,7 @@ class SectorAnalyticsService extends BaseService
         return [
             'individual_scores' => $scores,
             'overall_performance_score' => round($overallScore, 2),
-            'performance_grade' => $this->getPerformanceGrade($overallScore)
+            'performance_grade' => $this->getPerformanceGrade($overallScore),
         ];
     }
 
@@ -606,12 +603,12 @@ class SectorAnalyticsService extends BaseService
         $allSectorsQuery = Institution::where('type', 'sector_education_office')
             ->where('level', 3)
             ->where('id', '!=', $sector->id);
-        
+
         $this->applySectorAccessControl($allSectorsQuery, $user);
         $allSectors = $allSectorsQuery->get();
 
         $sectorMetrics = $this->calculateEducationalMetrics($sector);
-        
+
         // Calculate percentiles
         $ratios = [];
         foreach ($allSectors as $otherSector) {
@@ -639,9 +636,9 @@ class SectorAnalyticsService extends BaseService
             'sector_vs_average' => [
                 'sector_ratio' => $sectorMetrics['student_teacher_ratio'],
                 'average_ratio' => count($ratios) > 0 ? round(array_sum($ratios) / count($ratios), 2) : 0,
-                'difference' => count($ratios) > 0 ? 
-                    round($sectorMetrics['student_teacher_ratio'] - (array_sum($ratios) / count($ratios)), 2) : 0
-            ]
+                'difference' => count($ratios) > 0 ?
+                    round($sectorMetrics['student_teacher_ratio'] - (array_sum($ratios) / count($ratios)), 2) : 0,
+            ],
         ];
     }
 
@@ -650,10 +647,19 @@ class SectorAnalyticsService extends BaseService
      */
     private function getPerformanceGrade(float $score): string
     {
-        if ($score >= 90) return 'A';
-        if ($score >= 80) return 'B';
-        if ($score >= 70) return 'C';
-        if ($score >= 60) return 'D';
+        if ($score >= 90) {
+            return 'A';
+        }
+        if ($score >= 80) {
+            return 'B';
+        }
+        if ($score >= 70) {
+            return 'C';
+        }
+        if ($score >= 60) {
+            return 'D';
+        }
+
         return 'F';
     }
 }

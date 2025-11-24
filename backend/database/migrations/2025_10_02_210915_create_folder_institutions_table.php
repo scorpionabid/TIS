@@ -20,14 +20,14 @@ return new class extends Migration
 
             // Foreign keys
             $table->foreign('folder_id')
-                  ->references('id')
-                  ->on('document_collections')
-                  ->onDelete('cascade');
+                ->references('id')
+                ->on('document_collections')
+                ->onDelete('cascade');
 
             $table->foreign('institution_id')
-                  ->references('id')
-                  ->on('institutions')
-                  ->onDelete('cascade');
+                ->references('id')
+                ->on('institutions')
+                ->onDelete('cascade');
 
             // Unique constraint - prevent duplicate entries
             $table->unique(['folder_id', 'institution_id']);

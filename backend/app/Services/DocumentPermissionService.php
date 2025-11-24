@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Document;
-use App\Services\BaseService;
 use Illuminate\Support\Facades\Cache;
 
 class DocumentPermissionService extends BaseService
@@ -13,6 +12,7 @@ class DocumentPermissionService extends BaseService
      * Override BaseService defaults for longer caching of permissions
      */
     protected int $cacheMinutes = 60; // 1 hour for permission data
+
     protected bool $enableCache = true;
 
     /**
@@ -30,15 +30,16 @@ class DocumentPermissionService extends BaseService
     protected function getPermissionCacheKey(string $operation, int $userId, array $params = []): string
     {
         $paramHash = md5(json_encode($params));
+
         return "permissions:{$operation}:user{$userId}:{$paramHash}";
     }
 
     /**
      * Cache permission check result with tagging (Phase 2A optimized)
      */
-    protected function cachePermissionCheck(string $cacheKey, callable $callback, int $userId = null): mixed
+    protected function cachePermissionCheck(string $cacheKey, callable $callback, ?int $userId = null): mixed
     {
-        if (!$this->enableCache) {
+        if (! $this->enableCache) {
             return $callback();
         }
 
@@ -51,7 +52,7 @@ class DocumentPermissionService extends BaseService
         // Use Redis cache tags for selective invalidation (if supported)
         try {
             return Cache::tags($this->getPermissionCacheTags($userId))
-                        ->remember($cacheKey, now()->addMinutes($this->cacheMinutes), $callback);
+                ->remember($cacheKey, now()->addMinutes($this->cacheMinutes), $callback);
         } catch (\BadMethodCallException $e) {
             // Fallback for cache drivers that don't support tagging
             return Cache::remember($cacheKey, now()->addMinutes($this->cacheMinutes), $callback);
@@ -64,7 +65,7 @@ class DocumentPermissionService extends BaseService
      */
     protected function clearUserPermissionCache(int $userId): void
     {
-        if (!$this->enableCache) {
+        if (! $this->enableCache) {
             return;
         }
 
@@ -81,7 +82,7 @@ class DocumentPermissionService extends BaseService
      */
     protected function clearAllPermissionCache(): void
     {
-        if (!$this->enableCache) {
+        if (! $this->enableCache) {
             return;
         }
 
@@ -98,7 +99,6 @@ class DocumentPermissionService extends BaseService
      */
     public function canUserCreateDocument($user, array $documentData): bool
     {
-
         if ($user->hasRole('superadmin')) {
             return true;
         }
@@ -112,19 +112,21 @@ class DocumentPermissionService extends BaseService
             case 'regionoperator':
                 // Regional admins can create documents for their region and sub-institutions
                 $allowedInstitutions = $this->getRegionalInstitutions($userInstitutionId);
-                return !isset($documentData['institution_id']) || 
+
+                return ! isset($documentData['institution_id']) ||
                        in_array($documentData['institution_id'], $allowedInstitutions->toArray());
-                
+
             case 'sektoradmin':
                 // Sector admins can create documents for their sector and schools
                 $allowedInstitutions = $this->getSectorInstitutions($userInstitutionId);
-                return !isset($documentData['institution_id']) || 
+
+                return ! isset($documentData['institution_id']) ||
                        in_array($documentData['institution_id'], $allowedInstitutions->toArray());
-                
+
             case 'schooladmin':
             case 'müəllim':
                 // School-level users can only create documents in their institution
-                return !isset($documentData['institution_id']) ||
+                return ! isset($documentData['institution_id']) ||
                        $documentData['institution_id'] === $userInstitutionId;
 
             default:
@@ -153,15 +155,15 @@ class DocumentPermissionService extends BaseService
             case 'regionoperator':
                 // Regional admins can modify documents in their region
                 return $this->isDocumentInUserRegion($document, $userInstitutionId);
-                
+
             case 'sektoradmin':
                 // Sector admins can modify documents in their sector
                 return $this->isDocumentInUserSector($document, $userInstitutionId);
-                
+
             case 'schooladmin':
                 // School admins can only modify documents in their institution
                 return $document->institution_id === $userInstitutionId;
-                
+
             default:
                 return false;
         }
@@ -206,7 +208,7 @@ class DocumentPermissionService extends BaseService
 
         return $this->cachePermissionCheck($cacheKey, function () use ($user, $document) {
             // Use the existing document model method with additional checks
-            if (!$document->canAccess($user)) {
+            if (! $document->canAccess($user)) {
                 return false;
             }
 
@@ -316,7 +318,7 @@ class DocumentPermissionService extends BaseService
         }
 
         // Must have access first
-        if (!$this->canUserAccessDocument($user, $document)) {
+        if (! $this->canUserAccessDocument($user, $document)) {
             return false;
         }
 
@@ -384,20 +386,20 @@ class DocumentPermissionService extends BaseService
         }
 
         $accessibleInstitutions = $this->getUserAccessibleInstitutions($user);
-        
-        $query->where(function($q) use ($user, $accessibleInstitutions) {
+
+        $query->where(function ($q) use ($user, $accessibleInstitutions) {
             // Documents uploaded by user
             $q->where('uploaded_by', $user->id)
               // Documents in accessible institutions
-              ->orWhereIn('institution_id', $accessibleInstitutions)
+                ->orWhereIn('institution_id', $accessibleInstitutions)
               // Public documents
-              ->orWhere('is_public', true)
+                ->orWhere('is_public', true)
               // Documents specifically shared with user
-              ->orWhereHas('shares', function($shareQuery) use ($user) {
-                  $shareQuery->where('user_id', $user->id)
-                           ->where('expires_at', '>', now())
-                           ->orWhereNull('expires_at');
-              });
+                ->orWhereHas('shares', function ($shareQuery) use ($user) {
+                    $shareQuery->where('user_id', $user->id)
+                        ->where('expires_at', '>', now())
+                        ->orWhereNull('expires_at');
+                });
         });
 
         return $query;
@@ -414,7 +416,7 @@ class DocumentPermissionService extends BaseService
             'accessible_institutions' => $this->getUserAccessibleInstitutions($user),
             'role_level' => $this->getUserRoleLevel($user),
             'max_file_size' => $this->getUserMaxFileSize($user),
-            'allowed_file_types' => $this->getAllowedFileTypes($user)
+            'allowed_file_types' => $this->getAllowedFileTypes($user),
         ];
     }
 
@@ -428,21 +430,21 @@ class DocumentPermissionService extends BaseService
         }
 
         $userRole = $user->roles->first()?->name;
-        
+
         switch ($userRole) {
             case 'regionadmin':
             case 'regionoperator':
                 return 'regional';
-                
+
             case 'sektoradmin':
                 return 'sectoral';
-                
+
             case 'schooladmin':
                 return 'institutional';
 
             case 'müəllim':
                 return 'personal';
-                
+
             default:
                 return 'none';
         }
@@ -466,7 +468,7 @@ class DocumentPermissionService extends BaseService
     private function getAllowedFileTypes($user): array
     {
         $baseTypes = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt'];
-        
+
         if ($user->hasRole(['superadmin', 'regionadmin', 'sektoradmin'])) {
             return array_merge($baseTypes, ['zip', 'rar', 'jpg', 'jpeg', 'png', 'gif']);
         }
@@ -479,15 +481,15 @@ class DocumentPermissionService extends BaseService
      */
     private function getRegionalInstitutions($regionId)
     {
-        return \App\Models\Institution::where(function($q) use ($regionId) {
+        return \App\Models\Institution::where(function ($q) use ($regionId) {
             $q->where('id', $regionId) // The region itself
-              ->orWhere('parent_id', $regionId); // Sectors
+                ->orWhere('parent_id', $regionId); // Sectors
         })->get()->pluck('id')
-        ->merge(
-            \App\Models\Institution::whereIn('parent_id', 
-                \App\Models\Institution::where('parent_id', $regionId)->pluck('id')
-            )->pluck('id') // Schools
-        );
+            ->merge(
+                \App\Models\Institution::whereIn('parent_id',
+                    \App\Models\Institution::where('parent_id', $regionId)->pluck('id')
+                )->pluck('id') // Schools
+            );
     }
 
     /**
@@ -496,7 +498,7 @@ class DocumentPermissionService extends BaseService
     private function getSectorInstitutions($sektorId)
     {
         return \App\Models\Institution::where('parent_id', $sektorId)->pluck('id')
-               ->push($sektorId);
+            ->push($sektorId);
     }
 
     /**
@@ -505,6 +507,7 @@ class DocumentPermissionService extends BaseService
     private function isDocumentInUserRegion(Document $document, $userRegionId): bool
     {
         $allowedInstitutions = $this->getRegionalInstitutions($userRegionId);
+
         return $allowedInstitutions->contains($document->institution_id);
     }
 
@@ -514,6 +517,7 @@ class DocumentPermissionService extends BaseService
     private function isDocumentInUserSector(Document $document, $userSektorId): bool
     {
         $allowedInstitutions = $this->getSectorInstitutions($userSektorId);
+
         return $allowedInstitutions->contains($document->institution_id);
     }
 
@@ -526,31 +530,31 @@ class DocumentPermissionService extends BaseService
 
         switch ($operation) {
             case 'view':
-                if (!$this->canUserAccessDocument($user, $document)) {
+                if (! $this->canUserAccessDocument($user, $document)) {
                     $errors[] = 'Bu sənədə giriş icazəniz yoxdur.';
                 }
                 break;
 
             case 'download':
-                if (!$this->canUserDownloadDocument($user, $document)) {
+                if (! $this->canUserDownloadDocument($user, $document)) {
                     $errors[] = 'Bu sənədi yükləmək icazəniz yoxdur.';
                 }
                 break;
 
             case 'modify':
-                if (!$this->canUserModifyDocument($user, $document)) {
+                if (! $this->canUserModifyDocument($user, $document)) {
                     $errors[] = 'Bu sənədi dəyişdirmək icazəniz yoxdur.';
                 }
                 break;
 
             case 'delete':
-                if (!$this->canUserDeleteDocument($user, $document)) {
+                if (! $this->canUserDeleteDocument($user, $document)) {
                     $errors[] = 'Bu sənədi silmək icazəniz yoxdur.';
                 }
                 break;
 
             case 'share':
-                if (!$this->canUserShareDocument($user, $document)) {
+                if (! $this->canUserShareDocument($user, $document)) {
                     $errors[] = 'Bu sənədi paylaşmaq icazəniz yoxdur.';
                 }
                 break;
@@ -561,7 +565,7 @@ class DocumentPermissionService extends BaseService
 
         return [
             'is_valid' => empty($errors),
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
@@ -590,13 +594,13 @@ class DocumentPermissionService extends BaseService
             $userRole = $user->roles->first()?->name;
             $userInstitutionId = $user->institution_id;
 
-            if (!$userInstitutionId) {
+            if (! $userInstitutionId) {
                 return [];
             }
 
             $userInstitution = \App\Models\Institution::find($userInstitutionId);
 
-            if (!$userInstitution) {
+            if (! $userInstitution) {
                 return [];
             }
 

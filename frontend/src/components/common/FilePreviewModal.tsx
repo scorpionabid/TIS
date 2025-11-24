@@ -68,6 +68,18 @@ const REQUIRED_HEADERS = [
   },
 ];
 
+const containsControlCharacters = (value: string): boolean => {
+  for (let index = 0; index < value.length; index++) {
+    const charCode = value.charCodeAt(index);
+    const isAsciiControl = charCode >= 0 && charCode <= 31;
+    const isExtendedControl = charCode >= 127 && charCode <= 159;
+    if (isAsciiControl || isExtendedControl) {
+      return true;
+    }
+  }
+  return false;
+};
+
 export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
   file,
   isOpen,
@@ -250,9 +262,7 @@ export const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       }
 
       // Check for potential encoding issues
-      const hasWeirdChars = headers.some(h =>
-        /[\u0000-\u001F\u007F-\u009F]/.test(String(h))
-      );
+      const hasWeirdChars = headers.some((header) => containsControlCharacters(String(header)));
 
       if (hasWeirdChars) {
         warnings.push('Fayl kodlaşdırma problemi ola bilər - Azərbaycan hərfləri düzgün görünmürsə, faylı UTF-8 formatında yadda saxlayın');

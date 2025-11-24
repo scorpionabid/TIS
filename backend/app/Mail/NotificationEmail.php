@@ -36,7 +36,7 @@ class NotificationEmail extends Mailable implements ShouldQueue
      * Create a new message instance.
      *
      * @param  array  $notification
-     * @param  string  $subject
+     * @param  string $subject
      * @return void
      */
     public function __construct($notification, $subject = null)
@@ -53,21 +53,22 @@ class NotificationEmail extends Mailable implements ShouldQueue
     public function build()
     {
         return $this->subject($this->subject)
-                    ->view($this->viewName, [
-                        'notification' => $this->notification,
-                        'subject' => $this->subject,
-                    ]);
+            ->view($this->viewName, [
+                'notification' => $this->notification,
+                'subject' => $this->subject,
+            ]);
     }
 
     /**
      * Set a custom view for the email.
      *
-     * @param  string  $viewName
+     * @param  string $viewName
      * @return $this
      */
     public function setView($viewName)
     {
         $this->viewName = $viewName;
+
         return $this;
     }
 }

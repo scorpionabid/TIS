@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\InstitutionType;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class InstitutionTypeController extends Controller
 {
@@ -17,9 +17,9 @@ class InstitutionTypeController extends Controller
     {
         \Log::info('InstitutionTypeController::index called', [
             'params' => $request->all(),
-            'user_id' => Auth::id()
+            'user_id' => Auth::id(),
         ]);
-        
+
         try {
             $request->validate([
                 'include_inactive' => 'nullable|in:true,false,1,0',
@@ -34,7 +34,7 @@ class InstitutionTypeController extends Controller
             $isSystem = in_array($request->is_system, ['true', '1', 1, true]);
 
             // Filter by active status
-            if (!$includeInactive) {
+            if (! $includeInactive) {
                 $query->active();
             }
 
@@ -53,10 +53,10 @@ class InstitutionTypeController extends Controller
             }
 
             $institutionTypes = $query->get();
-            
+
             \Log::info('InstitutionTypeController::index success', [
                 'count' => $institutionTypes->count(),
-                'types' => $institutionTypes->pluck('key')->toArray()
+                'types' => $institutionTypes->pluck('key')->toArray(),
             ]);
 
             return response()->json([
@@ -64,14 +64,13 @@ class InstitutionTypeController extends Controller
                 'institution_types' => $institutionTypes,
                 'total' => $institutionTypes->count(),
             ]);
-
         } catch (\Exception $e) {
             \Log::error('InstitutionTypeController::index error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'request_data' => $request->all()
+                'request_data' => $request->all(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Müəssisə növləri yüklənərkən xəta baş verdi.',
@@ -86,8 +85,8 @@ class InstitutionTypeController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole('superadmin')) {
+
+        if (! $user->hasRole('superadmin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat yalnız SuperAdmin tərəfindən icra edilə bilər.',
@@ -128,7 +127,6 @@ class InstitutionTypeController extends Controller
                 'message' => 'Müəssisə növü uğurla yaradıldı.',
                 'data' => $institutionType,
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -151,7 +149,6 @@ class InstitutionTypeController extends Controller
                 'data' => $institutionType,
                 'institutions_count' => $institutionType->institutions->count(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -167,8 +164,8 @@ class InstitutionTypeController extends Controller
     public function update(Request $request, InstitutionType $institutionType): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole('superadmin')) {
+
+        if (! $user->hasRole('superadmin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat yalnız SuperAdmin tərəfindən icra edilə bilər.',
@@ -200,7 +197,7 @@ class InstitutionTypeController extends Controller
 
         try {
             $data = $validator->validated();
-            
+
             // Prevent changes to system type status
             if (isset($data['is_system']) && $institutionType->is_system) {
                 unset($data['is_system']);
@@ -213,7 +210,6 @@ class InstitutionTypeController extends Controller
                 'message' => 'Müəssisə növü yeniləndi.',
                 'data' => $institutionType->fresh(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -229,8 +225,8 @@ class InstitutionTypeController extends Controller
     public function destroy(InstitutionType $institutionType): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole('superadmin')) {
+
+        if (! $user->hasRole('superadmin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat yalnız SuperAdmin tərəfindən icra edilə bilər.',
@@ -238,7 +234,7 @@ class InstitutionTypeController extends Controller
         }
 
         try {
-            if (!$institutionType->canBeDeleted()) {
+            if (! $institutionType->canBeDeleted()) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Bu müəssisə növü silinə bilməz. Sistem növləri və ya aktiv müəssisələri olan növlər silinə bilməz.',
@@ -252,7 +248,6 @@ class InstitutionTypeController extends Controller
                 'success' => true,
                 'message' => "Müəssisə növü '{$typeName}' silindi.",
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -273,8 +268,8 @@ class InstitutionTypeController extends Controller
             ]);
 
             $institutionType = InstitutionType::where('key', $request->type_key)->first();
-            
-            if (!$institutionType) {
+
+            if (! $institutionType) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Müəssisə növü tapılmadı.',
@@ -288,7 +283,6 @@ class InstitutionTypeController extends Controller
                 'parent_types' => $parentTypes,
                 'total' => $parentTypes->count(),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -323,7 +317,7 @@ class InstitutionTypeController extends Controller
                             'allowed_parent_types' => $type->allowed_parent_types,
                             'institutions_count' => $type->institutions()->count(),
                         ];
-                    })->toArray()
+                    })->toArray(),
                 ];
             }
 
@@ -331,7 +325,6 @@ class InstitutionTypeController extends Controller
                 'success' => true,
                 'hierarchy' => $hierarchy,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

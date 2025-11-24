@@ -156,10 +156,6 @@ export default function Resources() {
     institutionScopeReady,
   } = useResourceScope();
 
-  if (!canViewResources) {
-    return <ResourceAccessRestricted />;
-  }
-
   const normalizeTab = useCallback((tabValue?: string | null): 'links' | 'documents' | 'folders' => {
     if (tabValue === 'documents') return 'documents';
     if (tabValue === 'folders') return canManageFolders ? 'folders' : 'links';
@@ -1300,17 +1296,7 @@ export default function Resources() {
   }
 
   if (!canViewResources) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəniz yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəni görməyə icazəniz yoxdur
-          </p>
-        </div>
-      </div>
-    );
+    return <ResourceAccessRestricted />;
   }
 
   const getResourceTypeLabel = (resource: Resource) => {

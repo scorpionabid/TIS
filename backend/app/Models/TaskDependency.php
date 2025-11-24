@@ -62,8 +62,8 @@ class TaskDependency extends Model
     public function isSatisfied(): bool
     {
         $dependsOnTask = $this->dependsOnTask;
-        
-        if (!$dependsOnTask) {
+
+        if (! $dependsOnTask) {
             return true; // If dependency task doesn't exist, consider it satisfied
         }
 

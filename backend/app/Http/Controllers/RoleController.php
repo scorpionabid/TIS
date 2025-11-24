@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use Spatie\Permission\Models\Role;
-use Spatie\Permission\Models\Permission;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
 use App\Services\RoleHierarchyService;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class RoleController extends Controller
 {
@@ -27,9 +27,9 @@ class RoleController extends Controller
     {
         $user = Auth::user();
         $guard = $this->resolveGuard($request);
-        
+
         // Get roles user can manage based on hierarchy
-        if ($user && !$user->hasRole('superadmin')) {
+        if ($user && ! $user->hasRole('superadmin')) {
             $roles = $this->hierarchyService->getUserManageableRoles($user)
                 ->where('guard_name', $guard)
                 ->load('permissions');
@@ -51,10 +51,10 @@ class RoleController extends Controller
                     'can_create_roles_below_level' => $role->can_create_roles_below_level,
                     'max_institutions_scope' => $role->max_institutions_scope,
                     'created_at' => $role->created_at,
-                    'updated_at' => $role->updated_at
+                    'updated_at' => $role->updated_at,
                 ];
             }),
-            'hierarchy_info' => $user ? $this->hierarchyService->getHierarchyVisualization($user) : []
+            'hierarchy_info' => $user ? $this->hierarchyService->getHierarchyVisualization($user) : [],
         ]);
     }
 
@@ -75,8 +75,8 @@ class RoleController extends Controller
                 'guard_name' => $role->guard_name,
                 'permissions' => $role->permissions->pluck('name'),
                 'created_at' => $role->created_at,
-                'updated_at' => $role->updated_at
-            ]
+                'updated_at' => $role->updated_at,
+            ],
         ]);
     }
 
@@ -86,8 +86,8 @@ class RoleController extends Controller
     public function store(Request $request): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user) {
+
+        if (! $user) {
             return response()->json(['message' => 'İcazəsiz giriş'], 401);
         }
 
@@ -97,24 +97,24 @@ class RoleController extends Controller
             'description' => 'nullable|string',
             'level' => 'required|integer|min:1|max:10',
             'permissions' => 'nullable|array',
-            'permissions.*' => 'string|exists:permissions,name'
+            'permissions.*' => 'string|exists:permissions,name',
         ]);
 
         // Validate role creation with hierarchy service
         $roleData = $request->only(['name', 'display_name', 'description', 'level', 'permissions']);
         $validationErrors = $this->hierarchyService->validateRoleCreation($user, $roleData);
-        
-        if (!empty($validationErrors)) {
+
+        if (! empty($validationErrors)) {
             return response()->json([
                 'message' => 'Rol yaradılması uğursuz',
-                'errors' => $validationErrors
+                'errors' => $validationErrors,
             ], 422);
         }
 
         try {
             // Create role using hierarchy service
             $role = $this->hierarchyService->createRole($user, $roleData);
-            
+
             return response()->json([
                 'message' => 'Rol uğurla yaradıldı',
                 'role' => [
@@ -126,13 +126,13 @@ class RoleController extends Controller
                     'role_category' => $role->role_category,
                     'permissions' => $role->permissions->pluck('name'),
                     'can_create_roles_below_level' => $role->can_create_roles_below_level,
-                    'max_institutions_scope' => $role->max_institutions_scope
-                ]
+                    'max_institutions_scope' => $role->max_institutions_scope,
+                ],
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Rol yaradılması zamanı xəta baş verdi',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -143,16 +143,16 @@ class RoleController extends Controller
     public function update(Request $request, Role $role): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user) {
+
+        if (! $user) {
             return response()->json(['message' => 'İcazəsiz giriş'], 401);
         }
 
         // Check if user can manage this role
         $manageableRoles = $this->hierarchyService->getUserManageableRoles($user);
-        if (!$manageableRoles->contains('id', $role->id)) {
+        if (! $manageableRoles->contains('id', $role->id)) {
             return response()->json([
-                'message' => 'Bu rolu dəyişmək üçün icazəniz yoxdur'
+                'message' => 'Bu rolu dəyişmək üçün icazəniz yoxdur',
             ], 403);
         }
 
@@ -164,13 +164,13 @@ class RoleController extends Controller
 
         $rules = [
             'display_name' => 'nullable|string',
-            'description' => 'nullable|string'
+            'description' => 'nullable|string',
         ];
-        
+
         if (in_array('level', $allowedFields)) {
             $rules['level'] = 'nullable|integer|min:1|max:10';
         }
-        
+
         if ($role->role_category === 'custom') {
             $rules['permissions'] = 'nullable|array';
             $rules['permissions.*'] = 'string|exists:permissions,name';
@@ -181,9 +181,9 @@ class RoleController extends Controller
         // Validate level change if applicable
         if ($request->has('level') && $role->role_category === 'custom') {
             $newLevel = $request->level;
-            if (!$this->hierarchyService->canUserCreateRole($user, $newLevel)) {
+            if (! $this->hierarchyService->canUserCreateRole($user, $newLevel)) {
                 return response()->json([
-                    'message' => 'Bu səviyyədə rol yaratmaq üçün icazəniz yoxdur'
+                    'message' => 'Bu səviyyədə rol yaratmaq üçün icazəniz yoxdur',
                 ], 422);
             }
         }
@@ -194,10 +194,10 @@ class RoleController extends Controller
             $allowedPermissions = $this->hierarchyService->getPermissionScopeForLevel($targetLevel);
             $requestedPermissions = $request->permissions ?? [];
             $invalidPermissions = array_diff($requestedPermissions, $allowedPermissions);
-            
-            if (!empty($invalidPermissions)) {
+
+            if (! empty($invalidPermissions)) {
                 return response()->json([
-                    'message' => 'Bu səviyyə üçün uyğun olmayan icazələr: ' . implode(', ', $invalidPermissions)
+                    'message' => 'Bu səviyyə üçün uyğun olmayan icazələr: ' . implode(', ', $invalidPermissions),
                 ], 422);
             }
         }
@@ -217,8 +217,8 @@ class RoleController extends Controller
                 'description' => $role->description,
                 'level' => $role->level,
                 'role_category' => $role->role_category,
-                'permissions' => $role->permissions->pluck('name')
-            ]
+                'permissions' => $role->permissions->pluck('name'),
+            ],
         ]);
     }
 
@@ -228,29 +228,29 @@ class RoleController extends Controller
     public function destroy(Role $role): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user) {
+
+        if (! $user) {
             return response()->json(['message' => 'İcazəsiz giriş'], 401);
         }
 
         // Check if user can delete this role using hierarchy service
-        if (!$this->hierarchyService->canDeleteRole($user, $role)) {
+        if (! $this->hierarchyService->canDeleteRole($user, $role)) {
             return response()->json([
-                'message' => 'Bu rolu silmək üçün icazəniz yoxdur'
+                'message' => 'Bu rolu silmək üçün icazəniz yoxdur',
             ], 403);
         }
 
         // Check if role is assigned to users
         if ($role->users()->count() > 0) {
             return response()->json([
-                'message' => 'İstifadəçilərə təyin edilmiş rolu silmək olmaz'
+                'message' => 'İstifadəçilərə təyin edilmiş rolu silmək olmaz',
             ], 422);
         }
 
         $role->delete();
 
         return response()->json([
-            'message' => 'Rol uğurla silindi'
+            'message' => 'Rol uğurla silindi',
         ]);
     }
 
@@ -262,12 +262,12 @@ class RoleController extends Controller
         $user = Auth::user();
         $guard = $this->resolveGuard($request);
         $level = $request->get('level'); // Optional level filter
-        
-        if ($user && !$user->hasRole('superadmin')) {
+
+        if ($user && ! $user->hasRole('superadmin')) {
             // Get permissions based on user's authority level
             $userLevel = $this->hierarchyService->getUserMaxAuthorityLevel($user);
             $targetLevel = $level ? max($level, $userLevel) : $userLevel;
-            
+
             if ($targetLevel) {
                 $allowedPermissionNames = $this->hierarchyService->getPermissionScopeForLevel($targetLevel);
                 $permissions = Permission::where('guard_name', $guard)
@@ -288,10 +288,10 @@ class RoleController extends Controller
                     'guard_name' => $permission->guard_name,
                     'scope' => $this->getPermissionScope($permission->name),
                     'created_at' => $permission->created_at,
-                    'updated_at' => $permission->updated_at
+                    'updated_at' => $permission->updated_at,
                 ];
             }),
-            'grouped_by_scope' => $this->groupPermissionsByScope($permissions)
+            'grouped_by_scope' => $this->groupPermissionsByScope($permissions),
         ]);
     }
 
@@ -301,8 +301,8 @@ class RoleController extends Controller
     public function hierarchy(Request $request): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user) {
+
+        if (! $user) {
             return response()->json(['message' => 'İcazəsiz giriş'], 401);
         }
 
@@ -314,8 +314,8 @@ class RoleController extends Controller
             'stats' => $stats,
             'user_info' => [
                 'max_authority_level' => $this->hierarchyService->getUserMaxAuthorityLevel($user),
-                'role_creation_limit' => $this->hierarchyService->getUserRoleCreationLimit($user)
-            ]
+                'role_creation_limit' => $this->hierarchyService->getUserRoleCreationLimit($user),
+            ],
         ]);
     }
 
@@ -325,10 +325,10 @@ class RoleController extends Controller
     public function availableForLevel(Request $request, int $level): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user || !$this->hierarchyService->canUserCreateRole($user, $level)) {
+
+        if (! $user || ! $this->hierarchyService->canUserCreateRole($user, $level)) {
             return response()->json([
-                'message' => 'Bu səviyyədə rol yaratmaq üçün icazəniz yoxdur'
+                'message' => 'Bu səviyyədə rol yaratmaq üçün icazəniz yoxdur',
             ], 403);
         }
 
@@ -341,10 +341,10 @@ class RoleController extends Controller
             'available_permissions' => $permissions->map(function ($permission) {
                 return [
                     'name' => $permission->name,
-                    'scope' => $this->getPermissionScope($permission->name)
+                    'scope' => $this->getPermissionScope($permission->name),
                 ];
             }),
-            'scope_info' => \App\Services\RoleHierarchyService::PERMISSION_SCOPES[$level] ?? []
+            'scope_info' => \App\Services\RoleHierarchyService::PERMISSION_SCOPES[$level] ?? [],
         ]);
     }
 
@@ -367,11 +367,22 @@ class RoleController extends Controller
      */
     private function getPermissionScope(string $permissionName): string
     {
-        if (str_contains($permissionName, 'system')) return 'system';
-        if (str_contains($permissionName, 'reports') || str_contains($permissionName, 'analytics')) return 'global';
-        if (str_contains($permissionName, 'institutions')) return 'regional';
-        if (str_contains($permissionName, 'users') && str_contains($permissionName, 'manage')) return 'sector';
-        if (str_contains($permissionName, 'surveys')) return 'institution';
+        if (str_contains($permissionName, 'system')) {
+            return 'system';
+        }
+        if (str_contains($permissionName, 'reports') || str_contains($permissionName, 'analytics')) {
+            return 'global';
+        }
+        if (str_contains($permissionName, 'institutions')) {
+            return 'regional';
+        }
+        if (str_contains($permissionName, 'users') && str_contains($permissionName, 'manage')) {
+            return 'sector';
+        }
+        if (str_contains($permissionName, 'surveys')) {
+            return 'institution';
+        }
+
         return 'classroom';
     }
 
@@ -382,7 +393,7 @@ class RoleController extends Controller
     {
         $user = Auth::user();
         $guard = $this->resolveGuard($request);
-        
+
         // Get all permissions, filtered by user role if not SuperAdmin
         if ($user && $user->hasRole('superadmin')) {
             $permissions = Permission::where('guard_name', $guard)->get();
@@ -390,7 +401,7 @@ class RoleController extends Controller
             // For non-SuperAdmin users, get permissions based on their level
             $userRoles = $user->roles->where('guard_name', $guard);
             $maxLevel = $userRoles->max('level') ?? 1;
-            
+
             $allowedPermissions = $this->hierarchyService->getPermissionScopeForLevel($maxLevel);
             $permissions = Permission::whereIn('name', $allowedPermissions)
                 ->where('guard_name', $guard)
@@ -407,7 +418,7 @@ class RoleController extends Controller
                     'created_at' => $permission->created_at,
                     'updated_at' => $permission->updated_at,
                 ];
-            })
+            }),
         ]);
     }
 
@@ -417,15 +428,15 @@ class RoleController extends Controller
     private function groupPermissionsByScope($permissions): array
     {
         $grouped = [];
-        
+
         foreach ($permissions as $permission) {
             $scope = $this->getPermissionScope($permission->name);
-            if (!isset($grouped[$scope])) {
+            if (! isset($grouped[$scope])) {
                 $grouped[$scope] = [];
             }
             $grouped[$scope][] = $permission->name;
         }
-        
+
         return $grouped;
     }
 }

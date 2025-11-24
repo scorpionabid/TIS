@@ -3,15 +3,14 @@
 namespace App\Http\Controllers\Psychology;
 
 use App\Http\Controllers\BaseController;
+use App\Models\Institution;
 use App\Models\PsychologySession;
 use App\Models\User;
-use App\Models\Institution;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Support\Facades\Auth;
-use Carbon\Carbon;
 
 class PsychologySessionController extends BaseController
 {
@@ -33,20 +32,20 @@ class PsychologySessionController extends BaseController
             'per_page' => 'sometimes|integer|min:1|max:100',
             'sort_by' => 'sometimes|in:scheduled_date,created_at,updated_at,session_type,status,priority_level',
             'sort_order' => 'sometimes|in:asc,desc',
-            'search' => 'sometimes|string|max:255'
+            'search' => 'sometimes|string|max:255',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
         try {
             $user = Auth::user();
-            
+
             // Build base query with relationships
             $query = PsychologySession::with([
                 'student:id,name,email',
@@ -54,10 +53,10 @@ class PsychologySessionController extends BaseController
                 'psychologist:id,name,email',
                 'psychologist.profile:user_id,first_name,last_name,specializations',
                 'institution:id,name',
-                'notes' => function($q) {
+                'notes' => function ($q) {
                     $q->orderBy('created_at', 'desc')->limit(3);
                 },
-                'assessments:id,psychology_session_id,assessment_type,status,created_at'
+                'assessments:id,psychology_session_id,assessment_type,status,created_at',
             ]);
 
             // Apply user-based filtering
@@ -84,16 +83,15 @@ class PsychologySessionController extends BaseController
                 'success' => true,
                 'data' => $sessions,
                 'filters' => $request->only([
-                    'institution_id', 'student_id', 'psychologist_id', 
-                    'session_type', 'session_category', 'status', 'priority_level'
+                    'institution_id', 'student_id', 'psychologist_id',
+                    'session_type', 'session_category', 'status', 'priority_level',
                 ]),
-                'message' => 'Psychology sessions retrieved successfully'
+                'message' => 'Psychology sessions retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving psychology sessions: ' . $e->getMessage()
+                'message' => 'Error retrieving psychology sessions: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -124,7 +122,7 @@ class PsychologySessionController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -133,10 +131,10 @@ class PsychologySessionController extends BaseController
             $student = User::findOrFail($request->student_id);
 
             // Check permissions
-            if (!$this->canCreateSession($user, $student)) {
+            if (! $this->canCreateSession($user, $student)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to create a session for this student'
+                    'message' => 'You do not have permission to create a session for this student',
                 ], 403);
             }
 
@@ -162,7 +160,7 @@ class PsychologySessionController extends BaseController
                     'created_by' => $user->id,
                     'created_at' => now(),
                     'initial_notes' => $request->notes ?? '',
-                ]
+                ],
             ]);
 
             // Log the activity
@@ -172,7 +170,7 @@ class PsychologySessionController extends BaseController
                 ->withProperties([
                     'session_type' => $request->session_type,
                     'student_name' => $student->name,
-                    'scheduled_date' => $request->scheduled_date
+                    'scheduled_date' => $request->scheduled_date,
                 ])
                 ->log('Psychology session scheduled');
 
@@ -181,20 +179,20 @@ class PsychologySessionController extends BaseController
             $session->load([
                 'student:id,name,email',
                 'psychologist:id,name,email',
-                'institution:id,name'
+                'institution:id,name',
             ]);
 
             return response()->json([
                 'success' => true,
                 'data' => $this->transformSession($session),
-                'message' => 'Psychology session created successfully'
+                'message' => 'Psychology session created successfully',
             ], 201);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error creating psychology session: ' . $e->getMessage()
+                'message' => 'Error creating psychology session: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -208,10 +206,10 @@ class PsychologySessionController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canViewSession($user, $session)) {
+            if (! $this->canViewSession($user, $session)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to view this session'
+                    'message' => 'You do not have permission to view this session',
                 ], 403);
             }
 
@@ -221,14 +219,14 @@ class PsychologySessionController extends BaseController
                 'psychologist:id,name,email',
                 'psychologist.profile:user_id,first_name,last_name,specializations,qualifications',
                 'institution:id,name,address,phone',
-                'notes' => function($q) {
+                'notes' => function ($q) {
                     $q->orderBy('created_at', 'desc');
                 },
                 'notes.author:id,name',
-                'assessments' => function($q) {
+                'assessments' => function ($q) {
                     $q->orderBy('created_at', 'desc');
                 },
-                'assessments.psychologist:id,name'
+                'assessments.psychologist:id,name',
             ]);
 
             return response()->json([
@@ -240,15 +238,14 @@ class PsychologySessionController extends BaseController
                         'can_complete' => $this->canCompleteSession($user, $session),
                         'can_add_notes' => $this->canAddNotes($user, $session),
                         'can_add_assessments' => $this->canAddAssessments($user, $session),
-                    ]
+                    ],
                 ],
-                'message' => 'Psychology session retrieved successfully'
+                'message' => 'Psychology session retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving psychology session: ' . $e->getMessage()
+                'message' => 'Error retrieving psychology session: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -272,7 +269,7 @@ class PsychologySessionController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Validation error',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -280,17 +277,17 @@ class PsychologySessionController extends BaseController
             $user = Auth::user();
 
             // Check permissions
-            if (!$this->canCompleteSession($user, $session)) {
+            if (! $this->canCompleteSession($user, $session)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'You do not have permission to complete this session'
+                    'message' => 'You do not have permission to complete this session',
                 ], 403);
             }
 
             if ($session->status === 'completed') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Session is already completed'
+                    'message' => 'Session is already completed',
                 ], 400);
             }
 
@@ -309,7 +306,7 @@ class PsychologySessionController extends BaseController
                 'session_metadata' => array_merge($session->session_metadata ?? [], [
                     'completed_by' => $user->id,
                     'completed_at' => now(),
-                ])
+                ]),
             ]);
 
             // Create follow-up session if required
@@ -323,7 +320,7 @@ class PsychologySessionController extends BaseController
                 ->causedBy($user)
                 ->withProperties([
                     'outcome' => $request->session_outcome,
-                    'follow_up_required' => $request->follow_up_required
+                    'follow_up_required' => $request->follow_up_required,
                 ])
                 ->log('Psychology session completed');
 
@@ -332,14 +329,14 @@ class PsychologySessionController extends BaseController
             return response()->json([
                 'success' => true,
                 'data' => $this->transformSession($session->fresh()),
-                'message' => 'Psychology session completed successfully'
+                'message' => 'Psychology session completed successfully',
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
-                'message' => 'Error completing psychology session: ' . $e->getMessage()
+                'message' => 'Error completing psychology session: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -401,13 +398,13 @@ class PsychologySessionController extends BaseController
 
         if ($request->has('search')) {
             $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->whereHas('student', function($sq) use ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('student', function ($sq) use ($search) {
                     $sq->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%");
                 })
-                ->orWhere('session_goals', 'like', "%{$search}%")
-                ->orWhere('completion_notes', 'like', "%{$search}%");
+                    ->orWhere('session_goals', 'like', "%{$search}%")
+                    ->orWhere('completion_notes', 'like', "%{$search}%");
             });
         }
     }
@@ -452,6 +449,7 @@ class PsychologySessionController extends BaseController
     private function transformSessionDetail($session)
     {
         $basic = $this->transformSession($session);
+
         return array_merge($basic, [
             'completion_notes' => $session->completion_notes,
             'intervention_methods' => $session->intervention_methods,
@@ -468,16 +466,28 @@ class PsychologySessionController extends BaseController
     // Permission check methods
     private function canCreateSession($user, $student): bool
     {
-        if ($user->hasRole('SuperAdmin')) return true;
-        if ($user->hasRole('psixoloq') && $user->institution_id === $student->institution_id) return true;
+        if ($user->hasRole('SuperAdmin')) {
+            return true;
+        }
+        if ($user->hasRole('psixoloq') && $user->institution_id === $student->institution_id) {
+            return true;
+        }
+
         return false;
     }
 
     private function canViewSession($user, $session): bool
     {
-        if ($user->hasRole('SuperAdmin')) return true;
-        if ($user->id === $session->psychologist_id) return true;
-        if ($user->hasRole('SchoolAdmin') && $user->institution_id === $session->institution_id) return true;
+        if ($user->hasRole('SuperAdmin')) {
+            return true;
+        }
+        if ($user->id === $session->psychologist_id) {
+            return true;
+        }
+        if ($user->hasRole('SchoolAdmin') && $user->institution_id === $session->institution_id) {
+            return true;
+        }
+
         return false;
     }
 
@@ -527,7 +537,7 @@ class PsychologySessionController extends BaseController
                 'original_session_id' => $originalSession->id,
                 'is_follow_up' => true,
                 'created_by' => $user->id,
-            ]
+            ],
         ]);
     }
 }

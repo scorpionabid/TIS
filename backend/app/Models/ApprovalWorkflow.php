@@ -66,13 +66,13 @@ class ApprovalWorkflow extends Model
     public function getNextApprovalLevel(int $currentLevel): ?array
     {
         $chain = $this->approval_chain;
-        
+
         foreach ($chain as $step) {
             if ($step['level'] > $currentLevel) {
                 return $step;
             }
         }
-        
+
         return null;
     }
 
@@ -85,7 +85,7 @@ class ApprovalWorkflow extends Model
         $maxRequiredLevel = collect($chain)
             ->where('required', true)
             ->max('level');
-            
+
         return $currentLevel >= $maxRequiredLevel;
     }
 

@@ -2,10 +2,9 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
-use Illuminate\Database\Seeder;
-use App\Models\Institution;
 use App\Models\Department;
+use App\Models\Institution;
+use Illuminate\Database\Seeder;
 
 class DepartmentSeeder extends Seeder
 {
@@ -16,10 +15,10 @@ class DepartmentSeeder extends Seeder
     {
         // Regional Administration Departments (Level 2)
         $this->createRegionalDepartments();
-        
-        // Sector Departments (Level 3)  
+
+        // Sector Departments (Level 3)
         $this->createSectorDepartments();
-        
+
         // School Departments (Level 4)
         $this->createSchoolDepartments();
     }
@@ -30,7 +29,7 @@ class DepartmentSeeder extends Seeder
     private function createRegionalDepartments(): void
     {
         $regionalInstitutions = Institution::where('type', 'region')->get();
-        
+
         foreach ($regionalInstitutions as $institution) {
             $departments = [
                 [
@@ -43,8 +42,8 @@ class DepartmentSeeder extends Seeder
                     'metadata' => [
                         'budget_responsibility' => true,
                         'reporting_frequency' => 'monthly',
-                        'audit_required' => true
-                    ]
+                        'audit_required' => true,
+                    ],
                 ],
                 [
                     'name' => 'İnzibati Şöbəsi',
@@ -56,8 +55,8 @@ class DepartmentSeeder extends Seeder
                     'metadata' => [
                         'hr_authority' => true,
                         'document_management' => true,
-                        'policy_creation' => true
-                    ]
+                        'policy_creation' => true,
+                    ],
                 ],
                 [
                     'name' => 'Təsərrüfat Şöbəsi',
@@ -69,15 +68,15 @@ class DepartmentSeeder extends Seeder
                     'metadata' => [
                         'construction_authority' => true,
                         'maintenance_responsibility' => true,
-                        'asset_management' => true
-                    ]
-                ]
+                        'asset_management' => true,
+                    ],
+                ],
             ];
 
             foreach ($departments as $deptData) {
                 Department::create(array_merge($deptData, [
                     'institution_id' => $institution->id,
-                    'is_active' => true
+                    'is_active' => true,
                 ]));
             }
         }
@@ -89,7 +88,7 @@ class DepartmentSeeder extends Seeder
     private function createSectorDepartments(): void
     {
         $sektorInstitutions = Institution::where('type', 'sektor')->get();
-        
+
         foreach ($sektorInstitutions as $institution) {
             $departments = [
                 [
@@ -101,8 +100,8 @@ class DepartmentSeeder extends Seeder
                     'capacity' => 4,
                     'metadata' => [
                         'budget_responsibility' => true,
-                        'reporting_to_region' => true
-                    ]
+                        'reporting_to_region' => true,
+                    ],
                 ],
                 [
                     'name' => 'İnzibati Şöbəsi',
@@ -113,8 +112,8 @@ class DepartmentSeeder extends Seeder
                     'capacity' => 6,
                     'metadata' => [
                         'coordination_role' => true,
-                        'local_hr' => true
-                    ]
+                        'local_hr' => true,
+                    ],
                 ],
                 [
                     'name' => 'Təsərrüfat Şöbəsi',
@@ -125,15 +124,15 @@ class DepartmentSeeder extends Seeder
                     'capacity' => 5,
                     'metadata' => [
                         'maintenance_responsibility' => true,
-                        'technical_support' => true
-                    ]
-                ]
+                        'technical_support' => true,
+                    ],
+                ],
             ];
 
             foreach ($departments as $deptData) {
                 Department::create(array_merge($deptData, [
                     'institution_id' => $institution->id,
-                    'is_active' => true
+                    'is_active' => true,
                 ]));
             }
         }
@@ -145,7 +144,7 @@ class DepartmentSeeder extends Seeder
     private function createSchoolDepartments(): void
     {
         $schoolInstitutions = Institution::whereIn('type', ['school', 'vocational'])->limit(10)->get();
-        
+
         foreach ($schoolInstitutions as $institution) {
             $departments = [
                 [
@@ -157,8 +156,8 @@ class DepartmentSeeder extends Seeder
                     'capacity' => 3,
                     'metadata' => [
                         'academic_responsibility' => true,
-                        'schedule_management' => true
-                    ]
+                        'schedule_management' => true,
+                    ],
                 ],
                 [
                     'name' => 'UBR Şöbəsi',
@@ -169,8 +168,8 @@ class DepartmentSeeder extends Seeder
                     'capacity' => 2,
                     'metadata' => [
                         'event_management' => true,
-                        'calendar_planning' => true
-                    ]
+                        'calendar_planning' => true,
+                    ],
                 ],
                 [
                     'name' => 'Təsərrüfat Şöbəsi',
@@ -181,8 +180,8 @@ class DepartmentSeeder extends Seeder
                     'capacity' => 4,
                     'metadata' => [
                         'inventory_management' => true,
-                        'resource_optimization' => true
-                    ]
+                        'resource_optimization' => true,
+                    ],
                 ],
                 [
                     'name' => 'Psixoloji Dəstək Şöbəsi',
@@ -193,8 +192,8 @@ class DepartmentSeeder extends Seeder
                     'capacity' => 2,
                     'metadata' => [
                         'student_support' => true,
-                        'counseling_services' => true
-                    ]
+                        'counseling_services' => true,
+                    ],
                 ],
                 [
                     'name' => 'Fənn Müəllimləri Şöbəsi',
@@ -206,15 +205,15 @@ class DepartmentSeeder extends Seeder
                     'metadata' => [
                         'teaching_responsibility' => true,
                         'subject_expertise' => true,
-                        'academic_development' => true
-                    ]
-                ]
+                        'academic_development' => true,
+                    ],
+                ],
             ];
 
             foreach ($departments as $deptData) {
                 Department::create(array_merge($deptData, [
                     'institution_id' => $institution->id,
-                    'is_active' => true
+                    'is_active' => true,
                 ]));
             }
         }

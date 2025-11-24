@@ -2,26 +2,28 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\User;
-use App\Services\UserCrudService;
-use App\Services\UserPermissionService;
-use App\Services\RegionOperatorPermissionService;
 use App\Http\Requests\StoreUserRequest;
 use App\Http\Requests\UpdateUserRequest;
-use App\Http\Traits\ValidationRules;
 use App\Http\Traits\ResponseHelpers;
-use Illuminate\Http\Request;
+use App\Http\Traits\ValidationRules;
+use App\Models\User;
+use App\Services\RegionOperatorPermissionService;
+use App\Services\UserCrudService;
+use App\Services\UserPermissionService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Role;
 
 class UserControllerRefactored extends BaseController
 {
-    use ValidationRules, ResponseHelpers;
+    use ResponseHelpers, ValidationRules;
 
     protected UserCrudService $userService;
+
     protected UserPermissionService $permissionService;
+
     protected RegionOperatorPermissionService $regionOperatorPermissionService;
 
     public function __construct(
@@ -41,40 +43,40 @@ class UserControllerRefactored extends BaseController
     {
         try {
             $currentUser = Auth::user();
-            
-            // Simple validation  
+
+            // Simple validation
             $perPage = $request->get('per_page', 15);
-            
+
             // For SuperAdmin, allow showing more users if not specified
             $userRole = $currentUser->roles->first()?->name;
-            if ($userRole === 'superadmin' && !$request->has('per_page')) {
+            if ($userRole === 'superadmin' && ! $request->has('per_page')) {
                 $perPage = 100;
             }
-            
+
             $search = $request->get('search');
-            
+
             // Build query with relations
             $query = User::with(['roles', 'institution', 'profile', 'regionOperatorPermissions']);
-            
+
             Log::info('🔍 UserController: Processing user list request', [
                 'user' => $currentUser->username,
                 'role' => $userRole,
-                'institution_id' => $currentUser->institution_id
+                'institution_id' => $currentUser->institution_id,
             ]);
-            
+
             $beforeCount = $query->count();
-            
+
             // Apply regional filtering using service
             $this->permissionService->applyRegionalFiltering($query, $currentUser);
-            
+
             $afterCount = $query->count();
-            
+
             Log::info('📊 Regional filtering applied', [
                 'before_count' => $beforeCount,
                 'after_count' => $afterCount,
-                'role' => $userRole
+                'role' => $userRole,
             ]);
-            
+
             $filters = [
                 'per_page' => $perPage,
                 'page' => $request->get('page', 1),
@@ -90,7 +92,7 @@ class UserControllerRefactored extends BaseController
             }
 
             $institutionFilter = $request->get('institution_id', $request->get('institution'));
-            if (!empty($institutionFilter) && $institutionFilter !== 'all') {
+            if (! empty($institutionFilter) && $institutionFilter !== 'all') {
                 $filters['institution_id'] = $institutionFilter;
             }
 
@@ -104,14 +106,14 @@ class UserControllerRefactored extends BaseController
 
             // Apply additional filtering, search, and sorting
             $this->userService->applyQueryCustomizations($query, $filters);
-            
+
             $users = $query->paginate($perPage);
-            
+
             // Format users data
-            $data = $users->getCollection()->map(function($user) {
+            $data = $users->getCollection()->map(function ($user) {
                 return $this->formatUserForList($user);
             });
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Users retrieved successfully',
@@ -122,10 +124,9 @@ class UserControllerRefactored extends BaseController
                     'per_page' => $users->perPage(),
                     'total' => $users->total(),
                     'from' => $users->firstItem(),
-                    'to' => $users->lastItem()
-                ]
+                    'to' => $users->lastItem(),
+                ],
             ]);
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İstifadəçilər yüklənərkən xəta baş verdi.');
         }
@@ -138,21 +139,20 @@ class UserControllerRefactored extends BaseController
     {
         try {
             $currentUser = Auth::user();
-            
+
             // Check access permission
             $permissionCheck = $this->permissionService->validateUserPermissions($currentUser, $user, 'view');
-            if (!$permissionCheck['is_valid']) {
+            if (! $permissionCheck['is_valid']) {
                 return response()->json([
                     'success' => false,
-                    'message' => $permissionCheck['errors'][0] ?? 'Bu istifadəçiyə giriş icazəniz yoxdur.'
+                    'message' => $permissionCheck['errors'][0] ?? 'Bu istifadəçiyə giriş icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $user = $this->userService->getWithRelations($user);
             $formattedUser = $this->userService->formatDetailedForResponse($user);
-            
+
             return $this->success($formattedUser, 'User retrieved successfully');
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İstifadəçi məlumatları yüklənərkən xəta baş verdi.');
         }
@@ -165,47 +165,46 @@ class UserControllerRefactored extends BaseController
     {
         try {
             $currentUser = Auth::user();
-            
+
             // Check if user can create users
-            if (!$this->permissionService->canUserCreateUsers($currentUser)) {
+            if (! $this->permissionService->canUserCreateUsers($currentUser)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'İstifadəçi yaratmaq icazəniz yoxdur.'
+                    'message' => 'İstifadəçi yaratmaq icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $validatedData = $request->validated();
 
             $targetRoleName = $this->resolveTargetRoleName($validatedData, $request);
             $this->enforceRegionOperatorPermissionRules($request, $targetRoleName, true);
-            
+
             // Validate institution and role permissions
             $availableInstitutions = collect($this->permissionService->getAvailableInstitutions($currentUser))
                 ->pluck('id')->toArray();
             $availableRoles = collect($this->permissionService->getAvailableRoles($currentUser))
                 ->pluck('id')->toArray();
-            
-            if (!in_array($validatedData['institution_id'], $availableInstitutions)) {
+
+            if (! in_array($validatedData['institution_id'], $availableInstitutions)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Seçilən təşkilata istifadəçi yaratmaq icazəniz yoxdur.'
+                    'message' => 'Seçilən təşkilata istifadəçi yaratmaq icazəniz yoxdur.',
                 ], 403);
             }
-            
-            if (!in_array($validatedData['role_id'], $availableRoles)) {
+
+            if (! in_array($validatedData['role_id'], $availableRoles)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Seçilən rolu təyin etmək icazəniz yoxdur.'
+                    'message' => 'Seçilən rolu təyin etmək icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $user = $this->userService->create($validatedData);
             $formattedUser = $this->userService->formatForResponse($user);
 
             $this->handleRegionOperatorPermissions($request, $user);
-            
+
             return $this->created($formattedUser, 'User created successfully');
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İstifadəçi yaradılarkən xəta baş verdi.');
         }
@@ -219,54 +218,53 @@ class UserControllerRefactored extends BaseController
         try {
             $currentUser = Auth::user();
             $currentRoleName = strtolower($user->roles->first()?->name ?? '');
-            
+
             // Check modify permission
             $permissionCheck = $this->permissionService->validateUserPermissions($currentUser, $user, 'modify');
-            if (!$permissionCheck['is_valid']) {
+            if (! $permissionCheck['is_valid']) {
                 return response()->json([
                     'success' => false,
-                    'message' => $permissionCheck['errors'][0] ?? 'Bu istifadəçini dəyişdirmək icazəniz yoxdur.'
+                    'message' => $permissionCheck['errors'][0] ?? 'Bu istifadəçini dəyişdirmək icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $validatedData = $request->validated();
 
             $targetRoleName = $this->resolveTargetRoleName($validatedData, $request, $user);
             $roleChangedToRegionOperator = $currentRoleName !== 'regionoperator' && $targetRoleName === 'regionoperator';
             $this->enforceRegionOperatorPermissionRules($request, $targetRoleName, $roleChangedToRegionOperator);
-            
+
             // If changing institution or role, validate permissions
             if (isset($validatedData['institution_id']) && $validatedData['institution_id'] !== $user->institution_id) {
                 $availableInstitutions = collect($this->permissionService->getAvailableInstitutions($currentUser))
                     ->pluck('id')->toArray();
-                    
-                if (!in_array($validatedData['institution_id'], $availableInstitutions)) {
+
+                if (! in_array($validatedData['institution_id'], $availableInstitutions)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Seçilən təşkilata istifadəçi köçürmək icazəniz yoxdur.'
+                        'message' => 'Seçilən təşkilata istifadəçi köçürmək icazəniz yoxdur.',
                     ], 403);
                 }
             }
-            
+
             if (isset($validatedData['role_id']) && $validatedData['role_id'] !== $user->role_id) {
                 $availableRoles = collect($this->permissionService->getAvailableRoles($currentUser))
                     ->pluck('id')->toArray();
-                    
-                if (!in_array($validatedData['role_id'], $availableRoles)) {
+
+                if (! in_array($validatedData['role_id'], $availableRoles)) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Seçilən rolu təyin etmək icazəniz yoxdur.'
+                        'message' => 'Seçilən rolu təyin etmək icazəniz yoxdur.',
                     ], 403);
                 }
             }
-            
+
             $updatedUser = $this->userService->update($user, $validatedData);
             $formattedUser = $this->userService->formatForResponse($updatedUser);
 
             $this->handleRegionOperatorPermissions($request, $updatedUser);
-            
+
             return $this->success($formattedUser, 'User updated successfully');
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İstifadəçi yenilənərkən xəta baş verdi.');
         }
@@ -279,25 +277,24 @@ class UserControllerRefactored extends BaseController
     {
         try {
             $currentUser = Auth::user();
-            
+
             // Check delete permission
             $permissionCheck = $this->permissionService->validateUserPermissions($currentUser, $user, 'delete');
-            if (!$permissionCheck['is_valid']) {
+            if (! $permissionCheck['is_valid']) {
                 return response()->json([
                     'success' => false,
-                    'message' => $permissionCheck['errors'][0] ?? 'Bu istifadəçini silmək icazəniz yoxdur.'
+                    'message' => $permissionCheck['errors'][0] ?? 'Bu istifadəçini silmək icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $deleteType = $request->query('type', 'soft');
             $this->userService->delete($user, $deleteType);
-            
-            $message = $deleteType === 'hard' 
+
+            $message = $deleteType === 'hard'
                 ? 'İstifadəçi həmişəlik silindi'
                 : 'İstifadəçi deaktiv edildi';
-            
+
             return $this->success(null, $message);
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İstifadəçi silinərkən xəta baş verdi.');
         }
@@ -310,27 +307,26 @@ class UserControllerRefactored extends BaseController
     {
         try {
             $currentUser = Auth::user();
-            
+
             // Check if user can view deleted users (high privilege)
-            if (!$currentUser->hasAnyRole(['superadmin', 'regionadmin'])) {
+            if (! $currentUser->hasAnyRole(['superadmin', 'regionadmin'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Silinmiş istifadəçiləri görmək icazəniz yoxdur.'
+                    'message' => 'Silinmiş istifadəçiləri görmək icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $validated = $request->validate([
                 'search' => 'nullable|string|max:255',
                 'per_page' => 'nullable|integer|min:1|max:100',
                 'page' => 'nullable|integer|min:1',
                 'role' => 'nullable|string',
-                'institution_id' => 'nullable|integer|exists:institutions,id'
+                'institution_id' => 'nullable|integer|exists:institutions,id',
             ]);
-            
+
             $trashedUsers = $this->userService->getTrashed($validated);
-            
+
             return $this->success($trashedUsers, 'Silinmiş istifadəçilər uğurla alındı');
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'Silinmiş istifadəçilər yüklənərkən xəta baş verdi.');
         }
@@ -343,22 +339,21 @@ class UserControllerRefactored extends BaseController
     {
         try {
             $currentUser = Auth::user();
-            
+
             // Find trashed user
             $user = User::onlyTrashed()->findOrFail($id);
-            
+
             // Check restore permission (high privilege)
-            if (!$currentUser->hasAnyRole(['superadmin', 'regionadmin'])) {
+            if (! $currentUser->hasAnyRole(['superadmin', 'regionadmin'])) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'İstifadəçi bərpa etmək icazəniz yoxdur.'
+                    'message' => 'İstifadəçi bərpa etmək icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $this->userService->restore($user);
-            
+
             return $this->success(null, 'İstifadəçi uğurla bərpa edildi');
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İstifadəçi bərpa edilərkən xəta baş verdi.');
         }
@@ -371,26 +366,25 @@ class UserControllerRefactored extends BaseController
     {
         try {
             $currentUser = Auth::user();
-            
+
             // Find trashed user
             $user = User::onlyTrashed()->findOrFail($id);
-            
+
             // Only SuperAdmin can permanently delete users
-            if (!$currentUser->hasRole('superadmin')) {
+            if (! $currentUser->hasRole('superadmin')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'İstifadəçini həmişəlik silmək icazəniz yoxdur.'
+                    'message' => 'İstifadəçini həmişəlik silmək icazəniz yoxdur.',
                 ], 403);
             }
-            
+
             $request->validate([
-                'confirm' => 'required|boolean|accepted'
+                'confirm' => 'required|boolean|accepted',
             ]);
-            
+
             $this->userService->forceDelete($user);
-            
+
             return $this->success(null, 'İstifadəçi həmişəlik silindi');
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İstifadəçi həmişəlik silinərkən xəta baş verdi.');
         }
@@ -404,13 +398,12 @@ class UserControllerRefactored extends BaseController
         try {
             $currentUser = Auth::user();
             $institutions = $this->permissionService->getAvailableInstitutions($currentUser);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $institutions,
-                'message' => 'Available institutions retrieved successfully'
+                'message' => 'Available institutions retrieved successfully',
             ]);
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İcazə verilən təşkilatlar yüklənərkən xəta baş verdi.');
         }
@@ -424,13 +417,12 @@ class UserControllerRefactored extends BaseController
         try {
             $currentUser = Auth::user();
             $roles = $this->permissionService->getAvailableRoles($currentUser);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $roles,
-                'message' => 'Available roles retrieved successfully'
+                'message' => 'Available roles retrieved successfully',
             ]);
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İcazə verilən rollar yüklənərkən xəta baş verdi.');
         }
@@ -444,13 +436,12 @@ class UserControllerRefactored extends BaseController
         try {
             $currentUser = Auth::user();
             $context = $this->permissionService->getPermissionContext($currentUser);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => $context,
-                'message' => 'Permission context retrieved successfully'
+                'message' => 'Permission context retrieved successfully',
             ]);
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'İcazə konteksti yüklənərkən xəta baş verdi.');
         }
@@ -464,7 +455,7 @@ class UserControllerRefactored extends BaseController
         try {
             $users = User::with('roles')->take(3)->get();
             $result = [];
-            
+
             foreach ($users as $user) {
                 $firstRole = $user->roles->first();
                 $result[] = [
@@ -475,13 +466,12 @@ class UserControllerRefactored extends BaseController
                         'name' => $firstRole->name,
                         'display_name' => $firstRole->display_name,
                         'level' => $firstRole->level,
-                        'raw_data' => $firstRole->toArray()
-                    ] : null
+                        'raw_data' => $firstRole->toArray(),
+                    ] : null,
                 ];
             }
-            
+
             return response()->json(['debug_result' => $result]);
-            
         } catch (\Exception $e) {
             return $this->handleError($e, 'Debug məlumatları yüklənərkən xəta baş verdi.');
         }
@@ -493,7 +483,7 @@ class UserControllerRefactored extends BaseController
     private function formatUserForList($user): array
     {
         $role = $user->roles->first();
-        
+
         return [
             'id' => $user->id,
             'username' => $this->cleanUtf8($user->username),
@@ -503,17 +493,17 @@ class UserControllerRefactored extends BaseController
                 'id' => $role->id,
                 'name' => $this->cleanUtf8($role->name),
                 'display_name' => $this->cleanUtf8($role->display_name),
-                'level' => $role->level
+                'level' => $role->level,
             ] : [
                 'id' => null,
                 'name' => null,
                 'display_name' => null,
-                'level' => null
+                'level' => null,
             ],
             'institution' => $user->institution ? [
                 'id' => $user->institution->id,
                 'name' => $this->cleanUtf8($user->institution->name),
-                'type' => $this->cleanUtf8($user->institution->type)
+                'type' => $this->cleanUtf8($user->institution->type),
             ] : null,
             'is_active' => $user->is_active,
             'last_login_at' => $user->last_login_at,
@@ -535,18 +525,18 @@ class UserControllerRefactored extends BaseController
         if ($string === null) {
             return null;
         }
-        
+
         // Convert to UTF-8 and remove invalid characters
         $cleaned = mb_convert_encoding($string, 'UTF-8', 'UTF-8');
-        
+
         // Remove non-printable characters except newlines/tabs
         $cleaned = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $cleaned);
-        
+
         // Ensure valid UTF-8
-        if (!mb_check_encoding($cleaned, 'UTF-8')) {
+        if (! mb_check_encoding($cleaned, 'UTF-8')) {
             $cleaned = utf8_encode($cleaned);
         }
-        
+
         return $cleaned;
     }
 
@@ -561,7 +551,7 @@ class UserControllerRefactored extends BaseController
 
             // Get available roles based on user permissions
             $availableRoles = $this->permissionService->getAvailableRoles($currentUser);
-            $roles = collect($availableRoles)->map(function($role) {
+            $roles = collect($availableRoles)->map(function ($role) {
                 return [
                     'value' => $role['name'],
                     'label' => $role['display_name'] ?? $role['name'],
@@ -570,7 +560,7 @@ class UserControllerRefactored extends BaseController
 
             // Get available institutions based on user permissions
             $availableInstitutions = $this->permissionService->getAvailableInstitutions($currentUser);
-            $institutions = collect($availableInstitutions)->map(function($institution) {
+            $institutions = collect($availableInstitutions)->map(function ($institution) {
                 return [
                     'id' => $institution['id'],
                     'name' => $institution['name'],
@@ -585,7 +575,7 @@ class UserControllerRefactored extends BaseController
             $userRole = $currentUser->roles->first()?->name;
 
             // Department mapping helper
-            $mapDepartment = function($dept) {
+            $mapDepartment = function ($dept) {
                 return [
                     'id' => $dept->id,
                     'name' => $dept->name,
@@ -635,9 +625,8 @@ class UserControllerRefactored extends BaseController
                     'statuses' => $statuses,
                     'institutions' => $institutions,
                     'departments' => $departments,
-                ]
+                ],
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'Filter seçimləri yüklənərkən xəta baş verdi.');
         }
@@ -653,10 +642,10 @@ class UserControllerRefactored extends BaseController
             $currentUser = Auth::user();
 
             // Validate minimum search length
-            if (strlen($query) < 2 && !$request->has('institution_id') && !$request->has('role')) {
+            if (strlen($query) < 2 && ! $request->has('institution_id') && ! $request->has('role')) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Axtarış üçün ən azı 2 simvol daxil edin'
+                    'message' => 'Axtarış üçün ən azı 2 simvol daxil edin',
                 ], 400);
             }
 
@@ -668,11 +657,11 @@ class UserControllerRefactored extends BaseController
             $this->permissionService->applyRegionalFiltering($usersQuery, $currentUser);
 
             // Search by name or email
-            if (!empty($query)) {
-                $usersQuery->where(function($q) use ($query) {
+            if (! empty($query)) {
+                $usersQuery->where(function ($q) use ($query) {
                     $q->where('full_name', 'ILIKE', "%{$query}%")
-                      ->orWhere('username', 'ILIKE', "%{$query}%")
-                      ->orWhere('email', 'ILIKE', "%{$query}%");
+                        ->orWhere('username', 'ILIKE', "%{$query}%")
+                        ->orWhere('email', 'ILIKE', "%{$query}%");
                 });
             }
 
@@ -688,7 +677,7 @@ class UserControllerRefactored extends BaseController
             if ($request->filled('role')) {
                 $role = $request->get('role');
                 if ($role !== 'all') {
-                    $usersQuery->whereHas('roles', function($q) use ($role) {
+                    $usersQuery->whereHas('roles', function ($q) use ($role) {
                         $q->where('name', $role);
                     });
                 }
@@ -703,7 +692,7 @@ class UserControllerRefactored extends BaseController
             }
 
             // Only active users by default (unless explicitly requesting all)
-            if (!$request->has('include_inactive')) {
+            if (! $request->has('include_inactive')) {
                 $usersQuery->where('status', 'active');
             }
 
@@ -713,8 +702,9 @@ class UserControllerRefactored extends BaseController
                 ->paginate($perPage);
 
             // Format user data for selection UI
-            $data = $users->getCollection()->map(function($user) {
+            $data = $users->getCollection()->map(function ($user) {
                 $role = $user->roles->first();
+
                 return [
                     'id' => $user->id,
                     'full_name' => $user->full_name,
@@ -742,11 +732,10 @@ class UserControllerRefactored extends BaseController
                     'per_page' => $users->perPage(),
                     'total' => $users->total(),
                     'from' => $users->firstItem(),
-                    'to' => $users->lastItem()
+                    'to' => $users->lastItem(),
                 ],
-                'message' => 'İstifadəçilər tapıldı'
+                'message' => 'İstifadəçilər tapıldı',
             ]);
-
         } catch (\Exception $e) {
             return $this->handleError($e, 'İstifadəçi axtarışında xəta baş verdi.');
         }
@@ -758,7 +747,7 @@ class UserControllerRefactored extends BaseController
     private function handleError(\Exception $e, string $defaultMessage): JsonResponse
     {
         Log::error('UserController error: ' . $e->getMessage(), [
-            'trace' => $e->getTraceAsString()
+            'trace' => $e->getTraceAsString(),
         ]);
 
         return response()->json([
@@ -777,8 +766,9 @@ class UserControllerRefactored extends BaseController
         $hasCrudPayload = $this->regionOperatorPermissionService->hasCrudPayload($payload);
         $isRegionOperator = $this->regionOperatorPermissionService->shouldHandle($user);
 
-        if (!$isRegionOperator) {
+        if (! $isRegionOperator) {
             $this->regionOperatorPermissionService->deletePermissions($user);
+
             return;
         }
 

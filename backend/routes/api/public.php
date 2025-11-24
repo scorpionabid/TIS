@@ -2,8 +2,8 @@
 
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\PasswordController;
-use App\Http\Controllers\HealthController;
 use App\Http\Controllers\ConfigController;
+use App\Http\Controllers\HealthController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -49,9 +49,9 @@ Route::get('config/constants', [ConfigController::class, 'getConstants']);
 Route::get('test/websocket/info', function () {
     // Check if broadcasting is enabled (not 'log' or 'null')
     $broadcastDriver = env('BROADCAST_CONNECTION', 'log');
-    $isWebSocketEnabled = !in_array($broadcastDriver, ['log', 'null']);
+    $isWebSocketEnabled = ! in_array($broadcastDriver, ['log', 'null']);
 
-    if (!$isWebSocketEnabled) {
+    if (! $isWebSocketEnabled) {
         return response()->json([
             'success' => false,
             'message' => 'WebSocket/Broadcasting is disabled. Using polling for updates.',
@@ -65,6 +65,6 @@ Route::get('test/websocket/info', function () {
             'reverb_host' => env('REVERB_HOST', 'localhost'),
             'reverb_port' => (int) env('REVERB_PORT', 8080),
             'reverb_scheme' => env('REVERB_PORT', 8080) == 443 ? 'https' : 'http',
-        ]
+        ],
     ]);
 });

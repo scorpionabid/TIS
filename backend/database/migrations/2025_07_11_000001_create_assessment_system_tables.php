@@ -77,11 +77,11 @@ return new class extends Migration
             $table->string('external_report_url', 500)->nullable(); // Link to external assessment report
             $table->decimal('compliance_score', 5, 2)->nullable(); // Compliance with international standards
             $table->enum('accreditation_status', [
-                'full_accreditation', 
-                'conditional_accreditation', 
-                'provisional_accreditation', 
-                'denied', 
-                'not_applicable'
+                'full_accreditation',
+                'conditional_accreditation',
+                'provisional_accreditation',
+                'denied',
+                'not_applicable',
             ])->default('not_applicable');
             $table->timestamps();
 

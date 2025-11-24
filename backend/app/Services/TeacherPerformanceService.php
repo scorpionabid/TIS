@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\TeacherEvaluation;
 use App\Models\PerformanceMetric;
+use App\Models\TeacherEvaluation;
 use App\Models\TeacherProfessionalDevelopment;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Pagination\LengthAwarePaginator;
-use Carbon\Carbon;
 
 class TeacherPerformanceService extends BaseService
 {
@@ -24,31 +24,31 @@ class TeacherPerformanceService extends BaseService
             ->where('institution_id', Auth::user()->institution_id);
 
         // Apply filters
-        if (!empty($filters['teacher_id'])) {
+        if (! empty($filters['teacher_id'])) {
             $query->where('teacher_id', $filters['teacher_id']);
         }
 
-        if (!empty($filters['evaluator_id'])) {
+        if (! empty($filters['evaluator_id'])) {
             $query->where('evaluator_id', $filters['evaluator_id']);
         }
 
-        if (!empty($filters['evaluation_period'])) {
+        if (! empty($filters['evaluation_period'])) {
             $query->where('evaluation_period', $filters['evaluation_period']);
         }
 
-        if (!empty($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (!empty($filters['min_score'])) {
-            $query->whereRaw('(teaching_quality + student_engagement + professional_development + collaboration + innovation) / 5 >= ?', 
+        if (! empty($filters['min_score'])) {
+            $query->whereRaw('(teaching_quality + student_engagement + professional_development + collaboration + innovation) / 5 >= ?',
                 [$filters['min_score']]);
         }
 
         // Apply sorting
         $sortBy = $filters['sort_by'] ?? 'created_at';
         $sortDirection = $filters['sort_direction'] ?? 'desc';
-        
+
         if ($sortBy === 'overall_score') {
             $query->orderByRaw('(teaching_quality + student_engagement + professional_development + collaboration + innovation) / 5 ' . $sortDirection);
         } else {
@@ -74,8 +74,8 @@ class TeacherPerformanceService extends BaseService
                 'professional_development' => $data['professional_development'],
                 'collaboration' => $data['collaboration'],
                 'innovation' => $data['innovation'],
-                'overall_score' => ($data['teaching_quality'] + $data['student_engagement'] + 
-                                 $data['professional_development'] + $data['collaboration'] + 
+                'overall_score' => ($data['teaching_quality'] + $data['student_engagement'] +
+                                 $data['professional_development'] + $data['collaboration'] +
                                  $data['innovation']) / 5,
                 'strengths' => $data['strengths'] ?? [],
                 'areas_for_improvement' => $data['areas_for_improvement'] ?? [],
@@ -104,7 +104,7 @@ class TeacherPerformanceService extends BaseService
     {
         return DB::transaction(function () use ($evaluation, $data) {
             $oldScore = $evaluation->overall_score;
-            
+
             $evaluation->update([
                 'teaching_quality' => $data['teaching_quality'] ?? $evaluation->teaching_quality,
                 'student_engagement' => $data['student_engagement'] ?? $evaluation->student_engagement,
@@ -119,8 +119,8 @@ class TeacherPerformanceService extends BaseService
             ]);
 
             // Recalculate overall score
-            $evaluation->overall_score = ($evaluation->teaching_quality + $evaluation->student_engagement + 
-                                        $evaluation->professional_development + $evaluation->collaboration + 
+            $evaluation->overall_score = ($evaluation->teaching_quality + $evaluation->student_engagement +
+                                        $evaluation->professional_development + $evaluation->collaboration +
                                         $evaluation->innovation) / 5;
             $evaluation->save();
 
@@ -139,7 +139,7 @@ class TeacherPerformanceService extends BaseService
     public function getTeacherMetrics(int $teacherId): array
     {
         $teacher = User::findOrFail($teacherId);
-        
+
         // Current period evaluation
         $currentEvaluation = TeacherEvaluation::where('teacher_id', $teacherId)
             ->where('institution_id', Auth::user()->institution_id)
@@ -221,7 +221,7 @@ class TeacherPerformanceService extends BaseService
     public function getPerformanceDashboard(): array
     {
         $institutionId = Auth::user()->institution_id;
-        
+
         // Overall statistics
         $totalEvaluations = TeacherEvaluation::where('institution_id', $institutionId)->count();
         $avgOverallScore = TeacherEvaluation::where('institution_id', $institutionId)->avg('overall_score');
@@ -271,8 +271,8 @@ class TeacherPerformanceService extends BaseService
 
         // Professional development completion rates
         $pdStats = TeacherProfessionalDevelopment::whereHas('teacher', function ($query) use ($institutionId) {
-                $query->where('institution_id', $institutionId);
-            })
+            $query->where('institution_id', $institutionId);
+        })
             ->whereYear('start_date', Carbon::now()->year)
             ->selectRaw('
                 activity_type,
@@ -304,7 +304,7 @@ class TeacherPerformanceService extends BaseService
     public function updateEvaluationStatus(TeacherEvaluation $evaluation, string $status, ?string $notes = null): TeacherEvaluation
     {
         $oldStatus = $evaluation->status;
-        
+
         $evaluation->update([
             'status' => $status,
             'finalized_at' => $status === 'finalized' ? now() : null,
@@ -326,16 +326,16 @@ class TeacherPerformanceService extends BaseService
     public function generatePerformanceReport(array $filters = []): array
     {
         $institutionId = Auth::user()->institution_id;
-        
+
         $query = TeacherEvaluation::with(['teacher', 'evaluator'])
             ->where('institution_id', $institutionId);
 
         // Apply filters
-        if (!empty($filters['period'])) {
+        if (! empty($filters['period'])) {
             $query->where('evaluation_period', $filters['period']);
         }
 
-        if (!empty($filters['department'])) {
+        if (! empty($filters['department'])) {
             $query->whereHas('teacher', function ($q) use ($filters) {
                 $q->where('department_id', $filters['department']);
             });
@@ -401,7 +401,7 @@ class TeacherPerformanceService extends BaseService
         PerformanceMetric::where('user_id', $evaluation->teacher_id)
             ->where('period', $evaluation->evaluation_period)
             ->delete();
-            
+
         $this->createPerformanceMetrics($evaluation);
     }
 
@@ -438,7 +438,7 @@ class TeacherPerformanceService extends BaseService
             ->orderBy('evaluation_date', 'desc')
             ->first();
 
-        if (!$latestEvaluation) {
+        if (! $latestEvaluation) {
             return [];
         }
 
@@ -457,7 +457,7 @@ class TeacherPerformanceService extends BaseService
         $pdHours = TeacherProfessionalDevelopment::where('teacher_id', $teacherId)
             ->whereYear('start_date', Carbon::now()->year)
             ->sum('hours');
-            
+
         if ($pdHours >= 40) {
             $indicators[] = ['type' => 'success', 'message' => 'Exceeds professional development requirements'];
         } elseif ($pdHours < 20) {
@@ -472,13 +472,20 @@ class TeacherPerformanceService extends BaseService
      */
     private function calculateTrend(array $values): string
     {
-        if (count($values) < 2) return 'stable';
-        
+        if (count($values) < 2) {
+            return 'stable';
+        }
+
         $first = reset($values);
         $last = end($values);
-        
-        if ($last > $first + 5) return 'improving';
-        if ($last < $first - 5) return 'declining';
+
+        if ($last > $first + 5) {
+            return 'improving';
+        }
+        if ($last < $first - 5) {
+            return 'declining';
+        }
+
         return 'stable';
     }
 
@@ -525,7 +532,7 @@ class TeacherPerformanceService extends BaseService
     private function generateRecommendations(\Illuminate\Database\Eloquent\Collection $evaluations): array
     {
         $recommendations = [];
-        
+
         // Low scoring areas
         $avgScores = [
             'teaching_quality' => $evaluations->avg('teaching_quality'),

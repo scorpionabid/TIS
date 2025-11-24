@@ -43,7 +43,7 @@ class BulkAssessmentSession extends Model
     protected static function boot()
     {
         parent::boot();
-        
+
         static::creating(function ($model) {
             if (empty($model->session_id)) {
                 $model->session_id = 'bulk_' . Str::random(12) . '_' . time();
@@ -88,7 +88,10 @@ class BulkAssessmentSession extends Model
      */
     public function getCompletionPercentageAttribute(): float
     {
-        if ($this->total_students === 0) return 0;
+        if ($this->total_students === 0) {
+            return 0;
+        }
+
         return round(($this->completed_entries / $this->total_students) * 100, 1);
     }
 
@@ -155,7 +158,7 @@ class BulkAssessmentSession extends Model
         $operations[] = array_merge($operation, [
             'timestamp' => now()->toISOString(),
         ]);
-        
+
         $this->update(['bulk_operations_log' => $operations]);
     }
 
@@ -186,7 +189,7 @@ class BulkAssessmentSession extends Model
             ->whereNotNull('score')
             ->where('score', '!=', '')
             ->count();
-            
+
         $this->update(['completed_entries' => $completedCount]);
     }
 
@@ -204,7 +207,7 @@ class BulkAssessmentSession extends Model
             'started_at' => $this->started_at,
             'completed_at' => $this->completed_at,
             'submitted_at' => $this->submitted_at,
-            'has_validation_errors' => !empty($this->validation_errors),
+            'has_validation_errors' => ! empty($this->validation_errors),
             'bulk_operations_count' => count($this->bulk_operations_log ?? []),
         ];
     }

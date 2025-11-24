@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class TeacherProfessionalDevelopment extends Model
 {
@@ -132,7 +131,7 @@ class TeacherProfessionalDevelopment extends Model
     public function scopeUpcoming($query)
     {
         return $query->where('status', 'registered')
-                    ->where('start_date', '>', now());
+            ->where('start_date', '>', now());
     }
 
     public function scopeCurrentYear($query)
@@ -148,7 +147,7 @@ class TeacherProfessionalDevelopment extends Model
     public function scopeRequiresFollowUp($query)
     {
         return $query->where('follow_up_required', true)
-                    ->where('follow_up_date', '<=', now());
+            ->where('follow_up_date', '<=', now());
     }
 
     /**
@@ -156,7 +155,7 @@ class TeacherProfessionalDevelopment extends Model
      */
     public function getProgramTypeLabelAttribute(): string
     {
-        return match($this->program_type) {
+        $labels = [
             'workshop' => 'Təlim Seminarı',
             'conference' => 'Konfrans',
             'course' => 'Kurs',
@@ -169,13 +168,14 @@ class TeacherProfessionalDevelopment extends Model
             'self_study' => 'Özünütəhsil',
             'graduate_study' => 'Magistratura/Doktorantura',
             'professional_learning_community' => 'Peşəkar Öyrənmə Cəmiyyəti',
-            default => 'Digər'
-        };
+        ];
+
+        return $labels[$this->program_type] ?? 'Digər';
     }
 
     public function getProviderTypeLabelAttribute(): string
     {
-        return match($this->provider_type) {
+        $labels = [
             'internal' => 'Daxili Təşkilat',
             'ministry' => 'Təhsil Nazirliyi',
             'university' => 'Universitet',
@@ -185,13 +185,14 @@ class TeacherProfessionalDevelopment extends Model
             'ngo' => 'QHT',
             'international_organization' => 'Beynəlxalq Təşkilat',
             'online_platform' => 'Onlayn Platforma',
-            default => 'Digər'
         ];
+
+        return $labels[$this->provider_type] ?? 'Digər';
     }
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        $labels = [
             'planned' => 'Planlaşdırılıb',
             'registered' => 'Qeydiyyatdan keçib',
             'approved' => 'Təsdiqlənib',
@@ -199,25 +200,27 @@ class TeacherProfessionalDevelopment extends Model
             'completed' => 'Tamamlanıb',
             'cancelled' => 'Ləğv edilib',
             'postponed' => 'Təxirə salınıb',
-            default => 'Naməlum'
         ];
+
+        return $labels[$this->status] ?? 'Naməlum';
     }
 
     public function getCompletionStatusLabelAttribute(): string
     {
-        return match($this->completion_status) {
+        $labels = [
             'completed' => 'Tamamlanıb',
             'partially_completed' => 'Qismən Tamamlanıb',
             'not_completed' => 'Tamamlanmayıb',
             'withdrawn' => 'Geri çəkilib',
             'failed' => 'Uğursuz',
-            default => 'Məlum deyil'
         ];
+
+        return $labels[$this->completion_status] ?? 'Məlum deyil';
     }
 
     public function getFundingSourceLabelAttribute(): string
     {
-        return match($this->funding_source) {
+        $labels = [
             'institution' => 'Təşkilat Büdcəsi',
             'ministry' => 'Nazirlik Büdcəsi',
             'personal' => 'Şəxsi Vəsait',
@@ -225,19 +228,20 @@ class TeacherProfessionalDevelopment extends Model
             'scholarship' => 'Təqaüd',
             'employer_sponsored' => 'İşəgötürən tərəfindən',
             'free' => 'Pulsuz',
-            default => 'Digər'
         ];
+
+        return $labels[$this->funding_source] ?? 'Digər';
     }
 
     public function getProgressPercentageAttribute(): float
     {
-        if (!$this->start_date || !$this->end_date) {
+        if (! $this->start_date || ! $this->end_date) {
             return 0;
         }
 
         $now = now();
         $totalDays = $this->start_date->diffInDays($this->end_date);
-        
+
         if ($totalDays == 0) {
             return $now >= $this->start_date ? 100 : 0;
         }
@@ -251,16 +255,18 @@ class TeacherProfessionalDevelopment extends Model
         }
 
         $daysPassed = $this->start_date->diffInDays($now);
+
         return min(100, ($daysPassed / $totalDays) * 100);
     }
 
     public function getDaysRemainingAttribute(): ?int
     {
-        if (!$this->end_date || $this->completion_status === 'completed') {
+        if (! $this->end_date || $this->completion_status === 'completed') {
             return null;
         }
 
         $daysRemaining = now()->diffInDays($this->end_date, false);
+
         return $daysRemaining >= 0 ? $daysRemaining : 0;
     }
 
@@ -284,16 +290,16 @@ class TeacherProfessionalDevelopment extends Model
 
     public function isOverdue(): bool
     {
-        return $this->status === 'in_progress' && 
-               $this->end_date && 
-               $this->end_date->isPast() && 
-               !$this->isCompleted();
+        return $this->status === 'in_progress' &&
+               $this->end_date &&
+               $this->end_date->isPast() &&
+               ! $this->isCompleted();
     }
 
     public function requiresFollowUp(): bool
     {
-        return $this->follow_up_required && 
-               $this->follow_up_date && 
+        return $this->follow_up_required &&
+               $this->follow_up_date &&
                $this->follow_up_date <= now();
     }
 
@@ -319,7 +325,7 @@ class TeacherProfessionalDevelopment extends Model
     public function addSkill($skill): void
     {
         $skills = $this->skills_gained ?? [];
-        if (!in_array($skill, $skills)) {
+        if (! in_array($skill, $skills)) {
             $skills[] = $skill;
             $this->update(['skills_gained' => $skills]);
         }
@@ -354,7 +360,7 @@ class TeacherProfessionalDevelopment extends Model
         }
 
         $updates = ['effectiveness_rating' => $rating];
-        
+
         if ($feedback) {
             $updates['participant_feedback'] = $feedback;
         }
@@ -364,7 +370,7 @@ class TeacherProfessionalDevelopment extends Model
 
     public function calculateROI(): ?array
     {
-        if (!$this->cost || $this->cost <= 0) {
+        if (! $this->cost || $this->cost <= 0) {
             return null;
         }
 
@@ -417,14 +423,14 @@ class TeacherProfessionalDevelopment extends Model
             'impact_assessment' => [
                 'effectiveness_rating' => $this->effectiveness_rating,
                 'skills_gained' => count($this->skills_gained ?? []),
-                'classroom_application' => !empty($this->application_in_classroom),
+                'classroom_application' => ! empty($this->application_in_classroom),
                 'recommends_to_others' => $this->recommendation_for_others,
             ],
             'roi_analysis' => $this->calculateROI(),
             'follow_up' => [
                 'required' => $this->follow_up_required,
                 'date' => $this->follow_up_date,
-                'next_steps' => !empty($this->next_steps),
+                'next_steps' => ! empty($this->next_steps),
             ],
         ];
     }

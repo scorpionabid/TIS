@@ -2,10 +2,10 @@
 
 namespace App\Middleware;
 
+use App\Services\LoggingService;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use App\Services\LoggingService;
 
 class LogApiRequests
 {
@@ -24,7 +24,7 @@ class LogApiRequests
         // Prepare response data for logging
         $responseData = [
             'status' => $response->getStatusCode(),
-            'headers' => $this->filterSensitiveHeaders($response->headers->all())
+            'headers' => $this->filterSensitiveHeaders($response->headers->all()),
         ];
 
         // Add response body for non-binary content types and reasonable size
@@ -47,10 +47,10 @@ class LogApiRequests
                 'duration_ms' => $duration,
                 'endpoint' => $request->getPathInfo(),
                 'method' => $request->getMethod(),
-                'status_code' => $response->getStatusCode()
+                'status_code' => $response->getStatusCode(),
             ], [
                 'url' => $request->fullUrl(),
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
             ]);
         }
 
@@ -63,7 +63,7 @@ class LogApiRequests
     private function filterSensitiveHeaders(array $headers): array
     {
         $sensitiveHeaders = ['set-cookie', 'authorization', 'x-api-key'];
-        
+
         foreach ($sensitiveHeaders as $header) {
             if (isset($headers[$header])) {
                 $headers[$header] = ['[REDACTED]'];
@@ -85,7 +85,7 @@ class LogApiRequests
             'audio/',
             'application/pdf',
             'application/zip',
-            'application/octet-stream'
+            'application/octet-stream',
         ];
 
         foreach ($binaryTypes as $type) {

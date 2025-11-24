@@ -3,13 +3,13 @@
 namespace App\Http\Controllers\School;
 
 use App\Http\Controllers\Controller;
-use App\Models\Task;
 use App\Models\Notification;
+use App\Models\Task;
 use App\Services\SchoolDashboardService;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class SchoolDashboardController extends Controller
 {
@@ -26,27 +26,27 @@ class SchoolDashboardController extends Controller
     public function getOverview(): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-        
+
         $school = $user->institution;
-        
+
         // If user is SuperAdmin and has no institution, use first available school for demo
-        if (!$school && $user->hasRole('superadmin')) {
+        if (! $school && $user->hasRole('superadmin')) {
             $school = \App\Models\Institution::where('level', 4)->first();
         }
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
         $overview = $this->dashboardService->getDashboardStats($school);
-        
+
         return response()->json([
             'success' => true,
-            'data' => $overview
+            'data' => $overview,
         ]);
     }
 
@@ -56,19 +56,19 @@ class SchoolDashboardController extends Controller
     public function getStatistics(): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-        
+
         $school = $user->institution;
-        
+
         // If user is SuperAdmin and has no institution, use first available school for demo
-        if (!$school && $user->hasRole('superadmin')) {
+        if (! $school && $user->hasRole('superadmin')) {
             $school = \App\Models\Institution::where('level', 4)->first();
         }
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -76,7 +76,7 @@ class SchoolDashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $stats
+            'data' => $stats,
         ]);
     }
 
@@ -86,19 +86,19 @@ class SchoolDashboardController extends Controller
     public function getAnalytics(): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-        
+
         $school = $user->institution;
-        
+
         // If user is SuperAdmin and has no institution, use first available school for demo
-        if (!$school && $user->hasRole('superadmin')) {
+        if (! $school && $user->hasRole('superadmin')) {
             $school = \App\Models\Institution::where('level', 4)->first();
         }
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -107,28 +107,28 @@ class SchoolDashboardController extends Controller
             'student_enrollment' => [
                 'current' => 450,
                 'last_year' => 420,
-                'growth_rate' => 7.1
+                'growth_rate' => 7.1,
             ],
             'academic_performance' => [
                 'average_grade' => 8.2,
                 'pass_rate' => 94,
-                'top_performers' => 25
+                'top_performers' => 25,
             ],
             'teacher_metrics' => [
                 'total_teachers' => 42,
                 'experienced_teachers' => 28,
-                'average_experience' => 12
+                'average_experience' => 12,
             ],
             'attendance_metrics' => [
                 'average_attendance' => 96.5,
                 'chronic_absenteeism' => 3.2,
-                'monthly_trend' => [92, 94, 95, 93, 96, 98]
-            ]
+                'monthly_trend' => [92, 94, 95, 93, 96, 98],
+            ],
         ];
 
         return response()->json([
             'success' => true,
-            'data' => $analytics
+            'data' => $analytics,
         ]);
     }
 
@@ -139,13 +139,13 @@ class SchoolDashboardController extends Controller
     {
         $user = Auth::user();
         $school = $user->institution;
-        
+
         // If user is SuperAdmin and has no institution, use first available school for demo
-        if (!$school && $user->hasRole('superadmin')) {
+        if (! $school && $user->hasRole('superadmin')) {
             $school = \App\Models\Institution::where('level', 4)->first();
         }
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -153,7 +153,7 @@ class SchoolDashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $stats
+            'data' => $stats,
         ]);
     }
 
@@ -163,14 +163,14 @@ class SchoolDashboardController extends Controller
     public function getRecentActivities(): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
-        
+
         $school = $user->institution;
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -184,7 +184,7 @@ class SchoolDashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $activities
+            'data' => $activities,
         ]);
     }
 
@@ -196,16 +196,16 @@ class SchoolDashboardController extends Controller
         $user = Auth::user();
         $school = $user->institution;
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
         // Monthly attendance trend
         $attendanceTrend = $this->getMonthlyAttendanceTrend($school);
-        
+
         // Tasks completion rate
         $taskStats = $this->getTaskCompletionStats($school);
-        
+
         // Student enrollment by grade
         $enrollmentByGrade = $this->getEnrollmentByGrade($school);
 
@@ -215,7 +215,7 @@ class SchoolDashboardController extends Controller
                 'attendance_trend' => $attendanceTrend,
                 'task_stats' => $taskStats,
                 'enrollment_by_grade' => $enrollmentByGrade,
-            ]
+            ],
         ]);
     }
 
@@ -227,9 +227,10 @@ class SchoolDashboardController extends Controller
             $months[] = [
                 'month' => $date->format('Y-m'),
                 'label' => $date->format('M Y'),
-                'rate' => $this->getAttendanceRateForMonth($school, $date)
+                'rate' => $this->getAttendanceRateForMonth($school, $date),
             ];
         }
+
         return $months;
     }
 
@@ -271,7 +272,7 @@ class SchoolDashboardController extends Controller
             'completed' => $completed,
             'in_progress' => $inProgress,
             'pending' => $pending,
-            'completion_rate' => $total > 0 ? round(($completed / $total) * 100, 1) : 0
+            'completion_rate' => $total > 0 ? round(($completed / $total) * 100, 1) : 0,
         ];
     }
 
@@ -297,7 +298,7 @@ class SchoolDashboardController extends Controller
         $school = $user->institution;
         $limit = $request->get('limit', 5);
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -316,7 +317,7 @@ class SchoolDashboardController extends Controller
                     'priority' => $task->priority ?? 'medium',
                     'type' => 'task',
                     'status' => $task->status,
-                    'days_until_due' => Carbon::parse($task->due_date)->diffInDays(Carbon::now())
+                    'days_until_due' => Carbon::parse($task->due_date)->diffInDays(Carbon::now()),
                 ];
             });
 
@@ -332,14 +333,14 @@ class SchoolDashboardController extends Controller
         $school = $user->institution;
         $perPage = $request->get('per_page', 5);
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
         // Get notifications for the school/user
         $notifications = Notification::where(function ($query) use ($user, $school) {
             $query->where('user_id', $user->id) // Direct assignment
-                  ->orWhereJsonContains('target_users', $user->id);
+                ->orWhereJsonContains('target_users', $user->id);
 
             if ($school) {
                 $query->orWhereJsonContains('target_institutions', $school->id); // Targeted to user's institution
@@ -356,7 +357,7 @@ class SchoolDashboardController extends Controller
                     'type' => $notification->type,
                     'priority' => $notification->priority,
                     'created_at' => $notification->created_at->toISOString(),
-                    'read' => $notification->is_read
+                    'read' => $notification->is_read,
                 ];
             });
 
@@ -370,7 +371,7 @@ class SchoolDashboardController extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasRole(['superadmin', 'schooladmin'])) {
+        if (! $user->hasRole(['superadmin', 'schooladmin'])) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -381,7 +382,7 @@ class SchoolDashboardController extends Controller
                 'description' => 'Məktəbə yeni şagird qeydiyyatı',
                 'icon' => 'user-plus',
                 'path' => '/school/students',
-                'color' => 'primary'
+                'color' => 'primary',
             ],
             [
                 'id' => 'record_attendance',
@@ -389,7 +390,7 @@ class SchoolDashboardController extends Controller
                 'description' => 'Günlük davamiyyət qeydiyyatı',
                 'icon' => 'check-square',
                 'path' => '/school/attendance',
-                'color' => 'warning'
+                'color' => 'warning',
             ],
             [
                 'id' => 'manage_tasks',
@@ -397,8 +398,8 @@ class SchoolDashboardController extends Controller
                 'description' => 'Aktiv tapşırıqları idarə et',
                 'icon' => 'list',
                 'path' => '/school/tasks',
-                'color' => 'info'
-            ]
+                'color' => 'info',
+            ],
         ]);
     }
 
@@ -411,7 +412,7 @@ class SchoolDashboardController extends Controller
         $school = $user->institution;
         $limit = $request->get('limit', 10);
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -419,7 +420,7 @@ class SchoolDashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $surveys
+            'data' => $surveys,
         ]);
     }
 
@@ -431,7 +432,7 @@ class SchoolDashboardController extends Controller
         $user = Auth::user();
         $school = $user->institution;
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -439,7 +440,7 @@ class SchoolDashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $priorityItems
+            'data' => $priorityItems,
         ]);
     }
 
@@ -452,7 +453,7 @@ class SchoolDashboardController extends Controller
         $school = $user->institution;
         $limit = $request->get('limit', 10);
 
-        if (!$school) {
+        if (! $school) {
             return response()->json(['error' => 'User is not associated with a school'], 400);
         }
 
@@ -460,7 +461,7 @@ class SchoolDashboardController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $documents
+            'data' => $documents,
         ]);
     }
 }

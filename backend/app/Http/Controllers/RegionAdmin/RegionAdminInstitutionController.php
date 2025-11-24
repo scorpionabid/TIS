@@ -3,20 +3,19 @@
 namespace App\Http\Controllers\RegionAdmin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Institution;
 use App\Models\Department;
-use Illuminate\Http\Request;
+use App\Models\Institution;
+use App\Services\RegionAdmin\RegionAdminInstitutionService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
-use App\Services\RegionAdmin\RegionAdminInstitutionService;
 
 class RegionAdminInstitutionController extends Controller
 {
     public function __construct(
         private readonly RegionAdminInstitutionService $institutionService
-    ) {
-    }
+    ) {}
 
     /**
      * Get institution statistics for RegionAdmin
@@ -34,7 +33,7 @@ class RegionAdminInstitutionController extends Controller
             'total_sectors' => $summary['total_sectors'],
             'total_schools' => $summary['total_schools'],
             'total_users' => $summary['total_users'],
-            'total_active_users' => $summary['total_active_users']
+            'total_active_users' => $summary['total_active_users'],
         ]);
     }
 
@@ -48,7 +47,7 @@ class RegionAdminInstitutionController extends Controller
 
         $hierarchyData = $this->institutionService->buildInstitutionHierarchy($userRegionId);
 
-        if (!$hierarchyData) {
+        if (! $hierarchyData) {
             return response()->json(['error' => 'Region not found'], 404);
         }
 
@@ -62,7 +61,7 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:200',
             'short_name' => 'nullable|string|max:50',
@@ -72,18 +71,18 @@ class RegionAdminInstitutionController extends Controller
             'contact_info' => 'nullable|array',
             'location' => 'nullable|array',
             'metadata' => 'nullable|array',
-            'established_date' => 'nullable|date'
+            'established_date' => 'nullable|date',
         ]);
-        
+
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
-        
+
         $data = $validator->validated();
-        
+
         // Determine level and parent_id based on type
         if ($data['type'] === 'sektor') {
             $data['level'] = 3;
@@ -95,9 +94,9 @@ class RegionAdminInstitutionController extends Controller
                 $defaultSector = Institution::where('parent_id', $userRegionId)
                     ->where('level', 3)
                     ->first();
-                if (!$defaultSector) {
+                if (! $defaultSector) {
                     return response()->json([
-                        'message' => 'No sector found. Please create a sector first or specify parent_id.'
+                        'message' => 'No sector found. Please create a sector first or specify parent_id.',
                     ], 400);
                 }
                 $data['parent_id'] = $defaultSector->id;
@@ -107,34 +106,34 @@ class RegionAdminInstitutionController extends Controller
                     ->where('parent_id', $userRegionId)
                     ->where('level', 3)
                     ->first();
-                if (!$parentSector) {
+                if (! $parentSector) {
                     return response()->json([
-                        'message' => 'Invalid parent sector. Must be a sector under your region.'
+                        'message' => 'Invalid parent sector. Must be a sector under your region.',
                     ], 400);
                 }
             }
         }
-        
+
         // Set region code based on parent region
         $parentRegion = Institution::find($userRegionId);
         $data['region_code'] = $parentRegion->region_code ?? 'REG';
         $data['is_active'] = true;
-        
+
         try {
             $institution = Institution::create($data);
-            
+
             return response()->json([
                 'message' => 'Institution created successfully',
-                'institution' => $institution->load('parent')
+                'institution' => $institution->load('parent'),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to create institution',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Show a specific institution within RegionAdmin's scope
      */
@@ -142,27 +141,27 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         // Get all institution IDs under this region
         $region = Institution::find($userRegionId);
         $allowedIds = $region->getAllChildrenIds();
-        
-        if (!in_array($id, $allowedIds)) {
+
+        if (! in_array($id, $allowedIds)) {
             return response()->json(['message' => 'Institution not found in your region'], 404);
         }
-        
+
         $institution = Institution::with(['parent', 'children', 'departments'])
             ->find($id);
-            
-        if (!$institution) {
+
+        if (! $institution) {
             return response()->json(['message' => 'Institution not found'], 404);
         }
-        
+
         return response()->json([
-            'institution' => $institution
+            'institution' => $institution,
         ]);
     }
-    
+
     /**
      * Update an institution within RegionAdmin's scope
      */
@@ -170,20 +169,20 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         // Verify institution is under RegionAdmin's scope
         $region = Institution::find($userRegionId);
         $allowedIds = $region->getAllChildrenIds();
-        
-        if (!in_array($id, $allowedIds)) {
+
+        if (! in_array($id, $allowedIds)) {
             return response()->json(['message' => 'Institution not found in your region'], 404);
         }
-        
+
         $institution = Institution::find($id);
-        if (!$institution) {
+        if (! $institution) {
             return response()->json(['message' => 'Institution not found'], 404);
         }
-        
+
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:200',
             'short_name' => 'nullable|string|max:50',
@@ -192,31 +191,31 @@ class RegionAdminInstitutionController extends Controller
             'location' => 'nullable|array',
             'metadata' => 'nullable|array',
             'is_active' => 'sometimes|boolean',
-            'established_date' => 'nullable|date'
+            'established_date' => 'nullable|date',
         ]);
-        
+
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
-        
+
         try {
             $institution->update($validator->validated());
-            
+
             return response()->json([
                 'message' => 'Institution updated successfully',
-                'institution' => $institution->load('parent', 'children')
+                'institution' => $institution->load('parent', 'children'),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to update institution',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Delete an institution within RegionAdmin's scope
      */
@@ -224,48 +223,48 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         // Verify institution is under RegionAdmin's scope
         $region = Institution::find($userRegionId);
         $allowedIds = $region->getAllChildrenIds();
-        
-        if (!in_array($id, $allowedIds)) {
+
+        if (! in_array($id, $allowedIds)) {
             return response()->json(['message' => 'Institution not found in your region'], 404);
         }
-        
+
         $institution = Institution::find($id);
-        if (!$institution) {
+        if (! $institution) {
             return response()->json(['message' => 'Institution not found'], 404);
         }
-        
+
         // Check if institution has children
         if ($institution->children()->withTrashed()->exists()) {
             return response()->json([
-                'message' => 'Cannot delete institution with child institutions'
+                'message' => 'Cannot delete institution with child institutions',
             ], 400);
         }
-        
+
         // Check if institution has users
         if ($institution->users()->exists()) {
             return response()->json([
-                'message' => 'Cannot delete institution with assigned users'
+                'message' => 'Cannot delete institution with assigned users',
             ], 400);
         }
-        
+
         try {
             $institution->delete();
-            
+
             return response()->json([
-                'message' => 'Institution deleted successfully'
+                'message' => 'Institution deleted successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to delete institution',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Get all institutions under RegionAdmin's scope (for listing)
      */
@@ -273,9 +272,9 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         $institutions = Institution::where('parent_id', $userRegionId)
-            ->orWhere(function($query) use ($userRegionId) {
+            ->orWhere(function ($query) use ($userRegionId) {
                 // Get sectors and their children
                 $sectorIds = Institution::where('parent_id', $userRegionId)
                     ->where('level', 3)
@@ -286,9 +285,9 @@ class RegionAdminInstitutionController extends Controller
             ->orderBy('level')
             ->orderBy('name')
             ->get();
-            
+
         return response()->json([
-            'institutions' => $institutions
+            'institutions' => $institutions,
         ]);
     }
 
@@ -306,7 +305,7 @@ class RegionAdminInstitutionController extends Controller
     }
 
     // DEPARTMENT MANAGEMENT METHODS
-    
+
     /**
      * Get departments for a specific institution
      */
@@ -314,32 +313,32 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         // Verify institution is under RegionAdmin's scope
         $region = Institution::find($userRegionId);
         $allowedIds = $region->getAllChildrenIds();
-        
-        if (!in_array($institutionId, $allowedIds)) {
+
+        if (! in_array($institutionId, $allowedIds)) {
             return response()->json(['message' => 'Institution not found in your region'], 404);
         }
-        
+
         $institution = Institution::find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return response()->json(['message' => 'Institution not found'], 404);
         }
-        
+
         $departments = Department::where('institution_id', $institutionId)
             ->with(['parent', 'children'])
             ->orderBy('name')
             ->get();
-            
+
         return response()->json([
             'institution' => $institution,
             'departments' => $departments,
-            'allowed_types' => Department::getAllowedTypesForInstitution($institution->type)
+            'allowed_types' => Department::getAllowedTypesForInstitution($institution->type),
         ]);
     }
-    
+
     /**
      * Store a new department for an institution
      */
@@ -347,22 +346,22 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         // Verify institution is under RegionAdmin's scope
         $region = Institution::find($userRegionId);
         $allowedIds = $region->getAllChildrenIds();
-        
-        if (!in_array($institutionId, $allowedIds)) {
+
+        if (! in_array($institutionId, $allowedIds)) {
             return response()->json(['message' => 'Institution not found in your region'], 404);
         }
-        
+
         $institution = Institution::find($institutionId);
-        if (!$institution) {
+        if (! $institution) {
             return response()->json(['message' => 'Institution not found'], 404);
         }
-        
+
         $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
-        
+
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:100',
             'short_name' => 'nullable|string|max:20',
@@ -372,47 +371,47 @@ class RegionAdminInstitutionController extends Controller
             'metadata' => 'nullable|array',
             'capacity' => 'nullable|integer|min:1',
             'budget_allocation' => 'nullable|numeric|min:0',
-            'functional_scope' => 'nullable|string'
+            'functional_scope' => 'nullable|string',
         ]);
-        
+
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
-        
+
         $data = $validator->validated();
         $data['institution_id'] = $institutionId;
         $data['is_active'] = true;
-        
+
         // Validate parent department belongs to same institution
-        if (!empty($data['parent_department_id'])) {
+        if (! empty($data['parent_department_id'])) {
             $parentDept = Department::where('id', $data['parent_department_id'])
                 ->where('institution_id', $institutionId)
                 ->first();
-            if (!$parentDept) {
+            if (! $parentDept) {
                 return response()->json([
-                    'message' => 'Parent department must belong to the same institution'
+                    'message' => 'Parent department must belong to the same institution',
                 ], 400);
             }
         }
-        
+
         try {
             $department = Department::create($data);
-            
+
             return response()->json([
                 'message' => 'Department created successfully',
-                'department' => $department->load('parent', 'institution')
+                'department' => $department->load('parent', 'institution'),
             ], 201);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to create department',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Show a specific department
      */
@@ -420,29 +419,29 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         // Verify institution is under RegionAdmin's scope
         $region = Institution::find($userRegionId);
         $allowedIds = $region->getAllChildrenIds();
-        
-        if (!in_array($institutionId, $allowedIds)) {
+
+        if (! in_array($institutionId, $allowedIds)) {
             return response()->json(['message' => 'Institution not found in your region'], 404);
         }
-        
+
         $department = Department::where('id', $departmentId)
             ->where('institution_id', $institutionId)
             ->with(['parent', 'children', 'institution', 'users'])
             ->first();
-            
-        if (!$department) {
+
+        if (! $department) {
             return response()->json(['message' => 'Department not found'], 404);
         }
-        
+
         return response()->json([
-            'department' => $department
+            'department' => $department,
         ]);
     }
-    
+
     /**
      * Update a department
      */
@@ -450,26 +449,26 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         // Verify institution is under RegionAdmin's scope
         $region = Institution::find($userRegionId);
         $allowedIds = $region->getAllChildrenIds();
-        
-        if (!in_array($institutionId, $allowedIds)) {
+
+        if (! in_array($institutionId, $allowedIds)) {
             return response()->json(['message' => 'Institution not found in your region'], 404);
         }
-        
+
         $department = Department::where('id', $departmentId)
             ->where('institution_id', $institutionId)
             ->first();
-            
-        if (!$department) {
+
+        if (! $department) {
             return response()->json(['message' => 'Department not found'], 404);
         }
-        
+
         $institution = Institution::find($institutionId);
         $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
-        
+
         $validator = Validator::make($request->all(), [
             'name' => 'sometimes|required|string|max:100',
             'short_name' => 'nullable|string|max:20',
@@ -480,45 +479,45 @@ class RegionAdminInstitutionController extends Controller
             'capacity' => 'nullable|integer|min:1',
             'budget_allocation' => 'nullable|numeric|min:0',
             'functional_scope' => 'nullable|string',
-            'is_active' => 'sometimes|boolean'
+            'is_active' => 'sometimes|boolean',
         ]);
-        
+
         if ($validator->fails()) {
             return response()->json([
                 'message' => 'Validation failed',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
-        
+
         $data = $validator->validated();
-        
+
         // Validate parent department belongs to same institution
-        if (isset($data['parent_department_id']) && !empty($data['parent_department_id'])) {
+        if (isset($data['parent_department_id']) && ! empty($data['parent_department_id'])) {
             $parentDept = Department::where('id', $data['parent_department_id'])
                 ->where('institution_id', $institutionId)
                 ->first();
-            if (!$parentDept) {
+            if (! $parentDept) {
                 return response()->json([
-                    'message' => 'Parent department must belong to the same institution'
+                    'message' => 'Parent department must belong to the same institution',
                 ], 400);
             }
         }
-        
+
         try {
             $department->update($data);
-            
+
             return response()->json([
                 'message' => 'Department updated successfully',
-                'department' => $department->load('parent', 'children', 'institution')
+                'department' => $department->load('parent', 'children', 'institution'),
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to update department',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
-    
+
     /**
      * Delete a department
      */
@@ -526,47 +525,47 @@ class RegionAdminInstitutionController extends Controller
     {
         $user = $request->user();
         $userRegionId = $user->institution_id;
-        
+
         // Verify institution is under RegionAdmin's scope
         $region = Institution::find($userRegionId);
         $allowedIds = $region->getAllChildrenIds();
-        
-        if (!in_array($institutionId, $allowedIds)) {
+
+        if (! in_array($institutionId, $allowedIds)) {
             return response()->json(['message' => 'Institution not found in your region'], 404);
         }
-        
+
         $department = Department::where('id', $departmentId)
             ->where('institution_id', $institutionId)
             ->first();
-            
-        if (!$department) {
+
+        if (! $department) {
             return response()->json(['message' => 'Department not found'], 404);
         }
-        
+
         // Check if department has children
         if ($department->children()->exists()) {
             return response()->json([
-                'message' => 'Cannot delete department with sub-departments'
+                'message' => 'Cannot delete department with sub-departments',
             ], 400);
         }
-        
+
         // Check if department has users
         if ($department->users()->exists()) {
             return response()->json([
-                'message' => 'Cannot delete department with assigned users'
+                'message' => 'Cannot delete department with assigned users',
             ], 400);
         }
-        
+
         try {
             $department->delete();
-            
+
             return response()->json([
-                'message' => 'Department deleted successfully'
+                'message' => 'Department deleted successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'message' => 'Failed to delete department',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -579,26 +578,26 @@ class RegionAdminInstitutionController extends Controller
         try {
             $user = $request->user();
             $userRegionId = $user->institution_id;
-            
+
             // Get allowed institutions
             $region = \App\Models\Institution::find($userRegionId);
             $allowedInstitutionIds = $region->getAllChildrenIds();
             $allowedInstitutionIds[] = $userRegionId;
-            
+
             // Check if requested institution is allowed
-            if (!in_array($institutionId, $allowedInstitutionIds)) {
+            if (! in_array($institutionId, $allowedInstitutionIds)) {
                 return response()->json(['message' => 'Institution not found in your region'], 404);
             }
-            
+
             $institution = \App\Models\Institution::findOrFail($institutionId);
-            
+
             // Get classes for this institution
             $classes = \App\Models\Grade::where('institution_id', $institutionId)
                 ->with([
                     'homeroomTeacher:id,username,first_name,last_name',
                     'homeroomTeacher.profile:user_id,first_name,last_name',
                     'room:id,name,capacity',
-                    'academicYear:id,year,is_current'
+                    'academicYear:id,year,is_current',
                 ])
                 ->when($request->get('is_active'), function ($query, $isActive) {
                     $query->where('is_active', $isActive);
@@ -620,14 +619,13 @@ class RegionAdminInstitutionController extends Controller
                     'active_classes' => $classes->where('is_active', true)->count(),
                     'total_students' => $classes->sum('student_count'),
                     'average_class_size' => $classes->count() > 0 ? round($classes->sum('student_count') / $classes->count(), 1) : 0,
-                ]
+                ],
             ]);
-            
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch institution classes',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

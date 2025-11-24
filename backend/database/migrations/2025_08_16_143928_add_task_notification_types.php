@@ -1,8 +1,6 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
@@ -17,22 +15,22 @@ return new class extends Migration
             // SQLite doesn't have enum constraints like MySQL, so we'll just ensure the columns exist
             // and are of string type which can accept any of our notification type values
             DB::statement('PRAGMA foreign_keys=OFF');
-            
+
             // No need to modify the columns since SQLite string columns can accept any values
             // The validation will be handled at the application level
-            
+
             DB::statement('PRAGMA foreign_keys=ON');
         } elseif (DB::getDriverName() === 'pgsql') {
             // PostgreSQL doesn't support ENUM modification like MySQL
             // We'll handle this with CHECK constraints instead
-            
+
             // Drop existing check constraint if exists and create new one
             try {
                 DB::statement('ALTER TABLE notifications DROP CONSTRAINT IF EXISTS notifications_type_check');
             } catch (Exception $e) {
                 // Constraint might not exist
             }
-            
+
             DB::statement("
                 ALTER TABLE notifications 
                 ADD CONSTRAINT notifications_type_check CHECK (type IN (
@@ -77,7 +75,7 @@ return new class extends Migration
                     'security_alert'
                 ) COMMENT 'Notification trigger types'
             ");
-            
+
             DB::statement("
                 ALTER TABLE notifications 
                 MODIFY COLUMN priority ENUM(
@@ -112,7 +110,7 @@ return new class extends Migration
                 'security_alert'
             ) COMMENT 'Notification trigger types'
         ");
-        
+
         DB::statement("
             ALTER TABLE notifications 
             MODIFY COLUMN priority ENUM(

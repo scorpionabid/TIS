@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        if (!Schema::hasColumn('tasks', 'origin_scope')) {
+        if (! Schema::hasColumn('tasks', 'origin_scope')) {
             Schema::table('tasks', function (Blueprint $table) {
                 $table->string('origin_scope', 32)
                     ->nullable()

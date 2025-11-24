@@ -2,11 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Task;
-use App\Models\User;
 use App\Models\Institution;
 use App\Models\Notification;
-use App\Services\InstitutionNotificationHelper;
+use App\Models\Task;
+use App\Models\User;
 use Illuminate\Support\Facades\Log;
 
 class TaskNotificationService
@@ -17,6 +16,7 @@ class TaskNotificationService
     {
         $this->notificationService = $notificationService;
     }
+
     /**
      * Send notification when a new task is created
      */
@@ -26,7 +26,7 @@ class TaskNotificationService
             $task->loadMissing(['creator', 'assignedInstitution']);
             $targetUserIds = $this->getUsersInInstitutions($task->target_institutions ?? []);
 
-            if (!empty($targetUserIds)) {
+            if (! empty($targetUserIds)) {
                 $this->notificationService->sendTaskNotification(
                     $task,
                     'assigned',
@@ -50,7 +50,6 @@ class TaskNotificationService
                 'target_institutions' => $task->target_institutions,
                 'target_users' => count($targetUserIds),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Failed to send task creation notification', [
                 'task_id' => $task->id,
@@ -92,7 +91,6 @@ class TaskNotificationService
                 'new_status' => $task->status,
                 'updated_by' => $updatedBy->id,
             ]);
-
         } catch (\Exception $e) {
             Log::error('Failed to send task status update notification', [
                 'task_id' => $task->id,
@@ -112,11 +110,11 @@ class TaskNotificationService
 
             // Collect all recipients: target institution users + task creator
             $targetUserIds = $this->getUsersInInstitutions($task->target_institutions ?? []);
-            if ($task->created_by !== $approver->id && !in_array($task->created_by, $targetUserIds)) {
+            if ($task->created_by !== $approver->id && ! in_array($task->created_by, $targetUserIds)) {
                 $targetUserIds[] = $task->created_by;
             }
 
-            if (!empty($targetUserIds)) {
+            if (! empty($targetUserIds)) {
                 $this->notificationService->sendTaskNotification(
                     $task,
                     $action,
@@ -139,7 +137,6 @@ class TaskNotificationService
                 'approver' => $approver->id,
                 'target_users' => count($targetUserIds),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Failed to send task approval decision notification', [
                 'task_id' => $task->id,
@@ -157,7 +154,7 @@ class TaskNotificationService
             $urgencyLevel = $daysLeft <= 1 ? 'high' : ($daysLeft <= 3 ? 'medium' : 'low');
             $targetUserIds = $this->getUsersInInstitutions($task->target_institutions ?? []);
 
-            if (!empty($targetUserIds)) {
+            if (! empty($targetUserIds)) {
                 $this->notificationService->sendTaskNotification(
                     $task,
                     'deadline_approaching',
@@ -177,7 +174,6 @@ class TaskNotificationService
                 'days_left' => $daysLeft,
                 'target_users' => count($targetUserIds),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Failed to send task deadline notification', [
                 'task_id' => $task->id,
@@ -194,11 +190,11 @@ class TaskNotificationService
         try {
             // Collect all recipients: target institution users + task creator
             $targetUserIds = $this->getUsersInInstitutions($task->target_institutions ?? []);
-            if (!in_array($task->created_by, $targetUserIds)) {
+            if (! in_array($task->created_by, $targetUserIds)) {
                 $targetUserIds[] = $task->created_by;
             }
 
-            if (!empty($targetUserIds)) {
+            if (! empty($targetUserIds)) {
                 $this->notificationService->sendTaskNotification(
                     $task,
                     'overdue',
@@ -217,7 +213,6 @@ class TaskNotificationService
                 'task_id' => $task->id,
                 'target_users' => count($targetUserIds),
             ]);
-
         } catch (\Exception $e) {
             Log::error('Failed to send task overdue notification', [
                 'task_id' => $task->id,
@@ -231,7 +226,7 @@ class TaskNotificationService
      */
     private function notifySektorAdminForApproval(Task $task, User $submittedBy): void
     {
-        if (!$task->target_institutions) {
+        if (! $task->target_institutions) {
             return;
         }
 
@@ -240,13 +235,13 @@ class TaskNotificationService
         $sectorIds = Institution::whereIn('id', $schoolIds)->pluck('parent_id')->unique();
 
         $sektorAdminIds = User::whereHas('roles', function ($q) {
-                $q->where('name', 'sektoradmin');
-            })
+            $q->where('name', 'sektoradmin');
+        })
             ->whereIn('institution_id', $sectorIds)
             ->pluck('id')
             ->toArray();
 
-        if (!empty($sektorAdminIds)) {
+        if (! empty($sektorAdminIds)) {
             $this->notificationService->sendTaskNotification(
                 $task,
                 'approval_required',
@@ -263,7 +258,6 @@ class TaskNotificationService
         }
     }
 
-
     /**
      * Get user IDs in target institutions
      * Uses InstitutionNotificationHelper to avoid code duplication
@@ -271,7 +265,7 @@ class TaskNotificationService
     private function getUsersInInstitutions(array $institutionIds): array
     {
         $taskRoles = config('notification_roles.task_notification_roles', [
-            'schooladmin', 'məktəbadmin', 'müəllim'
+            'schooladmin', 'məktəbadmin', 'müəllim',
         ]);
 
         return InstitutionNotificationHelper::expandInstitutionsToUsers(
@@ -280,5 +274,4 @@ class TaskNotificationService
             false // Only active users
         );
     }
-
 }

@@ -22,7 +22,7 @@ class StudentResource extends JsonResource
             'date_of_birth' => $this->date_of_birth ?? null,
             'enrollment_date' => $this->when(
                 isset($this->pivot),
-                fn() => $this->pivot->enrollment_date ?? null
+                fn () => $this->pivot->enrollment_date ?? null
             ),
         ];
     }

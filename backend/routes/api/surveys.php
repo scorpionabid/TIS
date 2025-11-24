@@ -1,12 +1,12 @@
 <?php
 
-use App\Http\Controllers\SurveyController;
-use App\Http\Controllers\SurveyResponseController;
-use App\Http\Controllers\SurveyTargetingController;
-use App\Http\Controllers\SurveyNotificationController;
-use App\Http\Controllers\SurveyAnalyticsController;
-use App\Http\Controllers\SurveyStatusController;
 use App\Http\Controllers\BulkJobController;
+use App\Http\Controllers\SurveyAnalyticsController;
+use App\Http\Controllers\SurveyController;
+use App\Http\Controllers\SurveyNotificationController;
+use App\Http\Controllers\SurveyResponseController;
+use App\Http\Controllers\SurveyStatusController;
+use App\Http\Controllers\SurveyTargetingController;
 use Illuminate\Support\Facades\Route;
 
 /*

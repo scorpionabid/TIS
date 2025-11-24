@@ -2,13 +2,13 @@
 
 namespace App\Jobs;
 
-use Illuminate\Contracts\Queue\ShouldQueue;
-use Illuminate\Foundation\Queue\Queueable;
 use App\Models\Survey;
 use App\Models\Task;
-use App\Services\NotificationService;
 use App\Services\InstitutionNotificationHelper;
+use App\Services\NotificationService;
 use Carbon\Carbon;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
 
 class SendDeadlineReminders implements ShouldQueue
@@ -40,7 +40,7 @@ class SendDeadlineReminders implements ShouldQueue
         } catch (\Exception $e) {
             Log::error('Deadline reminder job failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
             throw $e;
         }
@@ -57,7 +57,7 @@ class SendDeadlineReminders implements ShouldQueue
         $deadlineThresholds = [
             ['days' => 3, 'action' => 'deadline_3_days'],
             ['days' => 1, 'action' => 'deadline_1_day'],
-            ['days' => 0, 'action' => 'deadline_today']
+            ['days' => 0, 'action' => 'deadline_today'],
         ];
 
         foreach ($deadlineThresholds as $threshold) {
@@ -77,9 +77,9 @@ class SendDeadlineReminders implements ShouldQueue
         // Find overdue surveys
         $overdueSurveys = Survey::where('status', 'published')
             ->where('end_date', '<', $now)
-            ->whereDoesntHave('notifications', function($query) use ($now) {
+            ->whereDoesntHave('notifications', function ($query) use ($now) {
                 $query->where('type', 'survey_overdue')
-                      ->where('created_at', '>=', $now->subDay());
+                    ->where('created_at', '>=', $now->subDay());
             })
             ->get();
 
@@ -99,7 +99,7 @@ class SendDeadlineReminders implements ShouldQueue
         $deadlineThresholds = [
             ['days' => 3, 'action' => 'deadline_3_days'],
             ['days' => 1, 'action' => 'deadline_1_day'],
-            ['days' => 0, 'action' => 'deadline_today']
+            ['days' => 0, 'action' => 'deadline_today'],
         ];
 
         foreach ($deadlineThresholds as $threshold) {
@@ -120,9 +120,9 @@ class SendDeadlineReminders implements ShouldQueue
         // Find overdue tasks
         $overdueTasks = Task::whereIn('status', ['pending', 'in_progress'])
             ->where('due_date', '<', $now)
-            ->whereDoesntHave('notifications', function($query) use ($now) {
+            ->whereDoesntHave('notifications', function ($query) use ($now) {
                 $query->where('type', 'task_overdue')
-                      ->where('created_at', '>=', $now->subDay());
+                    ->where('created_at', '>=', $now->subDay());
             })
             ->with(['assignments', 'assignedInstitution'])
             ->get();
@@ -142,7 +142,7 @@ class SendDeadlineReminders implements ShouldQueue
             $targetUserIds = [];
             if ($survey->target_institutions) {
                 $targetRoles = config('notification_roles.survey_notification_roles', [
-                    'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'
+                    'schooladmin', 'məktəbadmin', 'müəllim', 'teacher',
                 ]);
 
                 $targetUserIds = InstitutionNotificationHelper::expandInstitutionsToUsers(
@@ -151,7 +151,7 @@ class SendDeadlineReminders implements ShouldQueue
                 );
             }
 
-            if (!empty($targetUserIds)) {
+            if (! empty($targetUserIds)) {
                 $deadlineText = $this->getDeadlineText($daysLeft, $action);
 
                 $extraData = [
@@ -168,18 +168,18 @@ class SendDeadlineReminders implements ShouldQueue
                     $extraData
                 );
 
-                Log::info("Survey deadline reminder sent", [
+                Log::info('Survey deadline reminder sent', [
                     'survey_id' => $survey->id,
                     'action' => $action,
                     'days_left' => $daysLeft,
-                    'recipients' => count($targetUserIds)
+                    'recipients' => count($targetUserIds),
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error("Failed to send survey deadline reminder", [
+            Log::error('Failed to send survey deadline reminder', [
                 'survey_id' => $survey->id,
                 'action' => $action,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -193,7 +193,7 @@ class SendDeadlineReminders implements ShouldQueue
             // Get assigned user IDs from task assignments
             $assignedUserIds = $task->assignments()->pluck('assigned_user_id')->filter()->toArray();
 
-            if (!empty($assignedUserIds)) {
+            if (! empty($assignedUserIds)) {
                 $deadlineText = $this->getDeadlineText($daysLeft, $action);
 
                 $extraData = [
@@ -212,18 +212,18 @@ class SendDeadlineReminders implements ShouldQueue
                     $extraData
                 );
 
-                Log::info("Task deadline reminder sent", [
+                Log::info('Task deadline reminder sent', [
                     'task_id' => $task->id,
                     'action' => $action,
                     'days_left' => $daysLeft,
-                    'recipients' => count($assignedUserIds)
+                    'recipients' => count($assignedUserIds),
                 ]);
             }
         } catch (\Exception $e) {
-            Log::error("Failed to send task deadline reminder", [
+            Log::error('Failed to send task deadline reminder', [
                 'task_id' => $task->id,
                 'action' => $action,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }

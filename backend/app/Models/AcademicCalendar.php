@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
-use Carbon\CarbonPeriod;
 
 class AcademicCalendar extends Model
 {
@@ -137,8 +137,9 @@ class AcademicCalendar extends Model
     public function scopeCurrent(Builder $query): Builder
     {
         $today = today();
+
         return $query->where('start_date', '<=', $today)
-                    ->where('end_date', '>=', $today);
+            ->where('end_date', '>=', $today);
     }
 
     /**
@@ -171,15 +172,15 @@ class AcademicCalendar extends Model
     public function getWorkingDaysCountAttribute(): int
     {
         $workingDaysOfWeek = $this->working_days ?? [1, 2, 3, 4, 5];
-        $holidays = collect($this->holidays ?? [])->pluck('date')->map(fn($date) => Carbon::parse($date)->toDateString());
-        
+        $holidays = collect($this->holidays ?? [])->pluck('date')->map(fn ($date) => Carbon::parse($date)->toDateString());
+
         $period = CarbonPeriod::create($this->start_date, $this->end_date);
         $workingDays = 0;
 
         foreach ($period as $date) {
             $dayOfWeek = $date->dayOfWeek === 0 ? 7 : $date->dayOfWeek; // Convert Sunday from 0 to 7
-            
-            if (in_array($dayOfWeek, $workingDaysOfWeek) && !$holidays->contains($date->toDateString())) {
+
+            if (in_array($dayOfWeek, $workingDaysOfWeek) && ! $holidays->contains($date->toDateString())) {
                 $workingDays++;
             }
         }
@@ -194,14 +195,15 @@ class AcademicCalendar extends Model
     {
         $dayOfWeek = $date->dayOfWeek === 0 ? 7 : $date->dayOfWeek;
         $workingDays = $this->working_days ?? [1, 2, 3, 4, 5];
-        
-        if (!in_array($dayOfWeek, $workingDays)) {
+
+        if (! in_array($dayOfWeek, $workingDays)) {
             return false;
         }
 
         // Check if it's a holiday
         $holidays = collect($this->holidays ?? [])->pluck('date');
-        return !$holidays->contains($date->toDateString());
+
+        return ! $holidays->contains($date->toDateString());
     }
 
     /**
@@ -210,6 +212,7 @@ class AcademicCalendar extends Model
     public function isHoliday(Carbon $date): bool
     {
         $holidays = collect($this->holidays ?? []);
+
         return $holidays->contains('date', $date->toDateString());
     }
 
@@ -219,6 +222,7 @@ class AcademicCalendar extends Model
     public function getHolidayInfo(Carbon $date): ?array
     {
         $holidays = collect($this->holidays ?? []);
+
         return $holidays->firstWhere('date', $date->toDateString());
     }
 
@@ -302,7 +306,7 @@ class AcademicCalendar extends Model
                     ];
                 }
                 break;
-            
+
             case 'second':
                 if ($this->second_semester_start && $this->second_semester_end) {
                     return [
@@ -360,7 +364,7 @@ class AcademicCalendar extends Model
         foreach ($examPeriods as $exam) {
             $examStart = Carbon::parse($exam['start_date']);
             $examEnd = Carbon::parse($exam['end_date']);
-            
+
             if ($examStart->between($startDate, $endDate) || $examEnd->between($startDate, $endDate)) {
                 $events[] = [
                     'type' => 'exam',
@@ -373,7 +377,7 @@ class AcademicCalendar extends Model
         }
 
         // Sort events by date
-        usort($events, fn($a, $b) => $a['date']->compare($b['date']));
+        usort($events, fn ($a, $b) => $a['date']->compare($b['date']));
 
         return $events;
     }
@@ -421,7 +425,7 @@ class AcademicCalendar extends Model
         }
 
         foreach ($workingDays as $day) {
-            if (!in_array($day, [1, 2, 3, 4, 5, 6, 7])) {
+            if (! in_array($day, [1, 2, 3, 4, 5, 6, 7])) {
                 $errors[] = "Invalid working day: {$day}";
             }
         }
@@ -435,16 +439,16 @@ class AcademicCalendar extends Model
     public function activate(): bool
     {
         $errors = $this->validateCalendar();
-        if (!empty($errors)) {
+        if (! empty($errors)) {
             throw new \Exception('Calendar validation failed: ' . implode(', ', $errors));
         }
 
         // Deactivate other active calendars of same type for this institution
         self::where('institution_id', $this->institution_id)
-           ->where('calendar_type', $this->calendar_type)
-           ->where('id', '!=', $this->id)
-           ->where('status', 'active')
-           ->update(['status' => 'archived']);
+            ->where('calendar_type', $this->calendar_type)
+            ->where('id', '!=', $this->id)
+            ->where('status', 'active')
+            ->update(['status' => 'archived']);
 
         return $this->update(['status' => 'active']);
     }

@@ -92,7 +92,7 @@ class SecurityEvent extends Model
      */
     public function isResolved(): bool
     {
-        return !is_null($this->resolution);
+        return ! is_null($this->resolution);
     }
 
     /**
@@ -122,7 +122,7 @@ class SecurityEvent extends Model
     /**
      * Resolve the security event.
      */
-    public function resolve(string $resolution, string $notes = null, User $resolvedBy = null): void
+    public function resolve(string $resolution, ?string $notes = null, ?User $resolvedBy = null): void
     {
         $this->resolution = $resolution;
         $this->resolution_notes = $notes;
@@ -134,7 +134,7 @@ class SecurityEvent extends Model
     /**
      * Mark as false positive.
      */
-    public function markAsFalsePositive(string $notes = null, User $resolvedBy = null): void
+    public function markAsFalsePositive(?string $notes = null, ?User $resolvedBy = null): void
     {
         $this->resolve('false_positive', $notes, $resolvedBy);
     }
@@ -142,7 +142,7 @@ class SecurityEvent extends Model
     /**
      * Mark as action taken.
      */
-    public function markAsActionTaken(string $notes = null, User $resolvedBy = null): void
+    public function markAsActionTaken(?string $notes = null, ?User $resolvedBy = null): void
     {
         $this->resolve('action_taken', $notes, $resolvedBy);
     }
@@ -150,7 +150,7 @@ class SecurityEvent extends Model
     /**
      * Escalate the event.
      */
-    public function escalate(string $notes = null, User $resolvedBy = null): void
+    public function escalate(?string $notes = null, ?User $resolvedBy = null): void
     {
         $this->resolve('escalated', $notes, $resolvedBy);
     }
@@ -173,7 +173,7 @@ class SecurityEvent extends Model
      */
     public function getResolutionColorAttribute(): string
     {
-        if (!$this->isResolved()) {
+        if (! $this->isResolved()) {
             return 'red';
         }
 
@@ -193,12 +193,12 @@ class SecurityEvent extends Model
     public static function logEvent(array $attributes): self
     {
         $attributes['created_at'] = now();
-        
-        if (!isset($attributes['ip_address'])) {
+
+        if (! isset($attributes['ip_address'])) {
             $attributes['ip_address'] = request()->ip();
         }
 
-        if (!isset($attributes['user_agent'])) {
+        if (! isset($attributes['user_agent'])) {
             $attributes['user_agent'] = request()->userAgent();
         }
 

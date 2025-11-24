@@ -13,7 +13,7 @@ class DepartmentFactory extends Factory
     public function definition()
     {
         $types = ['maliyyə', 'inzibati', 'təsərrüfat', 'müəllim', 'psixoloq', 'ubr', 'müavin', 'general'];
-        
+
         return [
             'name' => $this->faker->company . ' Şöbəsi',
             'short_name' => $this->faker->lexify('???'),
@@ -136,14 +136,13 @@ class DepartmentFactory extends Factory
     /**
      * Create a department with specific institution type.
      *
-     * @param string $institutionType
      * @return \Illuminate\Database\Eloquent\Factories\Factory
      */
     public function forInstitutionType(string $institutionType)
     {
         return $this->state(function (array $attributes) use ($institutionType) {
             $validTypes = Department::getAllowedTypesForInstitution($institutionType);
-            
+
             return [
                 'department_type' => $this->faker->randomElement(array_keys($validTypes)),
                 'institution_id' => Institution::factory()->create(['type' => $institutionType])->id,
@@ -154,14 +153,13 @@ class DepartmentFactory extends Factory
     /**
      * Create a department with parent.
      *
-     * @param Department|null $parent
      * @return \Illuminate\Database\Eloquent\Factories\Factory
      */
     public function withParent(?Department $parent = null)
     {
         return $this->state(function (array $attributes) use ($parent) {
             $parentDept = $parent ?? Department::factory()->create();
-            
+
             return [
                 'parent_department_id' => $parentDept->id,
                 'institution_id' => $parentDept->institution_id,

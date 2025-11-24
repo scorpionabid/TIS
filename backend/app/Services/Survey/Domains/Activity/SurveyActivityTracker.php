@@ -2,9 +2,9 @@
 
 namespace App\Services\Survey\Domains\Activity;
 
+use App\Models\ActivityLog;
 use App\Models\Survey;
 use App\Models\SurveyAuditLog;
-use App\Models\ActivityLog;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Auth;
 
@@ -28,7 +28,7 @@ class SurveyActivityTracker
             'user_id' => Auth::id(),
             'activity_type' => $activityType,
             'description' => $description,
-            'institution_id' => Auth::user()?->institution_id
+            'institution_id' => Auth::user()?->institution_id,
         ], $additionalData);
 
         ActivityLog::logActivity($data);
@@ -48,7 +48,7 @@ class SurveyActivityTracker
             'new_values' => $additionalData['new_values'] ?? null,
             'metadata' => $additionalData,
             'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent()
+            'user_agent' => request()->userAgent(),
         ]);
     }
 
@@ -65,7 +65,7 @@ class SurveyActivityTracker
         ];
 
         $recipients = [
-            'institutions' => $targetInstitutions
+            'institutions' => $targetInstitutions,
         ];
 
         $options = [

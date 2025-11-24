@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\UserProfile;
 use App\Models\Institution;
-use Illuminate\Support\Facades\DB;
+use App\Models\UserProfile;
 
 class UtisCodeService
 {
@@ -114,13 +113,15 @@ class UtisCodeService
             if ($excludeId) {
                 $query->where('id', '!=', $excludeId);
             }
-            return !$query->exists();
+
+            return ! $query->exists();
         } elseif ($type === 'institution') {
             $query = Institution::where('utis_code', $code);
             if ($excludeId) {
                 $query->where('id', '!=', $excludeId);
             }
-            return !$query->exists();
+
+            return ! $query->exists();
         }
 
         return false;

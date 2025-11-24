@@ -73,7 +73,7 @@ class InstitutionAuditLog extends Model
      */
     public function getChangesSummaryAttribute(): string
     {
-        if (!$this->changes) {
+        if (! $this->changes) {
             return match ($this->action) {
                 'created' => 'Yeni təşkilat yaradıldı',
                 'deleted' => 'Təşkilat silindi',

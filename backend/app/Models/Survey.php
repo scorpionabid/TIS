@@ -6,7 +6,6 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOneThrough;
 
 class Survey extends Model
 {
@@ -115,7 +114,7 @@ class Survey extends Model
             Institution::class,
             User::class,
             'id', // Foreign key on users table
-            'id', // Foreign key on institutions table  
+            'id', // Foreign key on institutions table
             'creator_id', // Local key on surveys table
             'institution_id' // Local key on users table
         );
@@ -284,8 +283,8 @@ class Survey extends Model
     public function approve(User $approver): bool
     {
         $nextLevel = $this->getNextApprovalLevel();
-        
-        if (!$nextLevel) {
+
+        if (! $nextLevel) {
             return false;
         }
 
@@ -305,7 +304,7 @@ class Survey extends Model
                 $this->region_approved_by = $approver->id;
                 $this->region_approved_at = now();
                 // Auto-publish when fully approved
-                if (!$this->is_published) {
+                if (! $this->is_published) {
                     $this->status = 'published';
                     $this->is_published = true;
                     $this->published_at = now();
@@ -323,7 +322,7 @@ class Survey extends Model
     {
         $this->approval_status = 'rejected';
         $this->rejection_reason = $reason;
-        
+
         return $this->save();
     }
 
@@ -332,13 +331,13 @@ class Survey extends Model
      */
     public function shouldAutoArchive(): bool
     {
-        if (!$this->auto_archive || $this->archived_at) {
+        if (! $this->auto_archive || $this->archived_at) {
             return false;
         }
 
         // Auto-archive if past deadline and has responses
-        return $this->end_date && 
-               $this->end_date->isPast() && 
+        return $this->end_date &&
+               $this->end_date->isPast() &&
                $this->actual_responses > 0;
     }
 
@@ -347,14 +346,14 @@ class Survey extends Model
      */
     public function autoArchive(): bool
     {
-        if (!$this->shouldAutoArchive()) {
+        if (! $this->shouldAutoArchive()) {
             return false;
         }
 
         $this->status = 'archived';
         $this->archived_at = now();
         $this->archive_reason = 'Müddət bitib və cavablar toplandı (avtomatik arxivləşdirmə)';
-        
+
         return $this->save();
     }
 
@@ -367,7 +366,7 @@ class Survey extends Model
             'title', 'description', 'frequency', 'category', 'max_questions',
             'is_anonymous', 'allow_multiple_responses', 'structure',
             'target_institutions', 'target_departments', 'completion_threshold',
-            'auto_archive'
+            'auto_archive',
         ]);
 
         $surveyData = array_merge($surveyData, $overrides, [
@@ -388,15 +387,15 @@ class Survey extends Model
                 'options', 'validation_rules', 'metadata', 'min_value', 'max_value',
                 'min_length', 'max_length', 'allowed_file_types', 'max_file_size',
                 'rating_min', 'rating_max', 'rating_min_label', 'rating_max_label',
-                'table_headers', 'table_rows', 'translations'
+                'table_headers', 'table_rows', 'translations',
             ]);
-            
+
             $questionData['survey_id'] = $survey->id;
             SurveyQuestion::create($questionData);
         }
 
         $survey->updateQuestionsCount();
-        
+
         return $survey;
     }
 
@@ -418,10 +417,11 @@ class Survey extends Model
     public function getTargetingAttribute()
     {
         $institutions = $this->target_institutions ?? [];
+
         return collect($institutions)->map(function ($institutionId) {
             return (object) [
                 'institution_id' => $institutionId,
-                'institution' => Institution::find($institutionId)
+                'institution' => Institution::find($institutionId),
             ];
         });
     }
@@ -468,7 +468,7 @@ class Survey extends Model
         }
 
         $now = now();
-        
+
         if ($this->start_date && $now->lt($this->start_date)) {
             return false;
         }
@@ -493,7 +493,7 @@ class Survey extends Model
      */
     public function isOpenForResponses(): bool
     {
-        return $this->isActive() && !$this->hasExpired();
+        return $this->isActive() && ! $this->hasExpired();
     }
 
     /**
@@ -507,6 +507,7 @@ class Survey extends Model
         }
 
         $completedCount = $this->responses()->where('is_complete', true)->count();
+
         return round(($completedCount / $targetCount) * 100, 2);
     }
 
@@ -515,20 +516,20 @@ class Survey extends Model
      */
     public function canInstitutionRespond(int $institutionId): bool
     {
-        if (!$this->isOpenForResponses()) {
+        if (! $this->isOpenForResponses()) {
             return false;
         }
 
-        if (!in_array($institutionId, $this->target_institutions ?? [])) {
+        if (! in_array($institutionId, $this->target_institutions ?? [])) {
             return false;
         }
 
-        if (!$this->allow_multiple_responses) {
+        if (! $this->allow_multiple_responses) {
             $existingResponse = $this->responses()
                 ->where('institution_id', $institutionId)
                 ->where('is_complete', true)
                 ->exists();
-            
+
             if ($existingResponse) {
                 return false;
             }
@@ -559,13 +560,14 @@ class Survey extends Model
     public function scopeActive($query)
     {
         $now = now();
+
         return $query->where('status', 'published')
-                    ->where(function ($q) use ($now) {
-                        $q->whereNull('start_date')->orWhere('start_date', '<=', $now);
-                    })
-                    ->where(function ($q) use ($now) {
-                        $q->whereNull('end_date')->orWhere('end_date', '>=', $now);
-                    });
+            ->where(function ($q) use ($now) {
+                $q->whereNull('start_date')->orWhere('start_date', '<=', $now);
+            })
+            ->where(function ($q) use ($now) {
+                $q->whereNull('end_date')->orWhere('end_date', '>=', $now);
+            });
     }
 
     /**

@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Room;
-use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class RoomMaintenanceService extends BaseService
@@ -46,7 +45,7 @@ class RoomMaintenanceService extends BaseService
     {
         $query = Room::query();
 
-        if (!empty($roomIds)) {
+        if (! empty($roomIds)) {
             $query->whereIn('id', $roomIds);
         }
 
@@ -87,7 +86,7 @@ class RoomMaintenanceService extends BaseService
             return $room->grades->sum('student_count');
         });
 
-        $utilizationRate = $capacityStats->total_capacity > 0 
+        $utilizationRate = $capacityStats->total_capacity > 0
             ? round(($totalOccupancy / $capacityStats->total_capacity) * 100, 2)
             : 0;
 
@@ -114,15 +113,15 @@ class RoomMaintenanceService extends BaseService
                 'inactive_rooms' => $inactiveRooms,
                 'occupied_rooms' => $occupiedRooms,
                 'available_rooms' => $activeRooms - $occupiedRooms,
-                'occupancy_rate' => $activeRooms > 0 
-                    ? round(($occupiedRooms / $activeRooms) * 100, 2) 
+                'occupancy_rate' => $activeRooms > 0
+                    ? round(($occupiedRooms / $activeRooms) * 100, 2)
                     : 0,
             ],
             'capacity' => [
-                'total_capacity' => (int)$capacityStats->total_capacity,
+                'total_capacity' => (int) $capacityStats->total_capacity,
                 'average_capacity' => round($capacityStats->average_capacity, 1),
-                'min_capacity' => (int)$capacityStats->min_capacity,
-                'max_capacity' => (int)$capacityStats->max_capacity,
+                'min_capacity' => (int) $capacityStats->min_capacity,
+                'max_capacity' => (int) $capacityStats->max_capacity,
                 'total_occupancy' => $totalOccupancy,
                 'utilization_rate' => $utilizationRate,
             ],
@@ -138,9 +137,9 @@ class RoomMaintenanceService extends BaseService
     private function getFacilityStatistics($rooms): array
     {
         $allFacilities = [];
-        
+
         foreach ($rooms as $room) {
-            if (!empty($room->facilities)) {
+            if (! empty($room->facilities)) {
                 $allFacilities = array_merge($allFacilities, $room->facilities);
             }
         }
@@ -171,7 +170,7 @@ class RoomMaintenanceService extends BaseService
             'auditorium' => 'Auditoriya',
             'kitchen' => 'Mətbəx',
             'storage' => 'Anbar',
-            'other' => 'Digər'
+            'other' => 'Digər',
         ];
 
         return $displayNames[$roomType] ?? $roomType;
@@ -184,7 +183,7 @@ class RoomMaintenanceService extends BaseService
     {
         $query = Room::with(['grades', 'institution']);
 
-        if (!empty($roomIds)) {
+        if (! empty($roomIds)) {
             $query->whereIn('id', $roomIds);
         }
 
@@ -233,7 +232,7 @@ class RoomMaintenanceService extends BaseService
                 ];
             }
 
-            if (!empty($roomRecommendations)) {
+            if (! empty($roomRecommendations)) {
                 $recommendations[] = [
                     'room' => [
                         'id' => $room->id,
@@ -257,6 +256,7 @@ class RoomMaintenanceService extends BaseService
             $bMaxPriority = min(array_map(function ($rec) use ($priorityOrder) {
                 return $priorityOrder[$rec['priority']] ?? 4;
             }, $b['recommendations']));
+
             return $aMaxPriority <=> $bMaxPriority;
         });
 
@@ -282,7 +282,7 @@ class RoomMaintenanceService extends BaseService
             // Get schedule data for the period (assuming Schedule model exists)
             $scheduleCount = 0; // Would query actual schedule data
             $totalHours = 0; // Would calculate from actual schedule data
-            
+
             $currentOccupancy = $room->grades->sum('student_count');
             $utilizationRate = $room->capacity > 0 ? ($currentOccupancy / $room->capacity) * 100 : 0;
 
@@ -337,7 +337,7 @@ class RoomMaintenanceService extends BaseService
     private function calculateCapacityMatch(Room $room): float
     {
         $currentOccupancy = $room->grades->sum('student_count');
-        
+
         if ($currentOccupancy === 0) {
             return 0;
         }
@@ -346,7 +346,7 @@ class RoomMaintenanceService extends BaseService
         $idealOccupancy = $room->capacity * 0.8;
         $difference = abs($currentOccupancy - $idealOccupancy);
         $maxDifference = max($idealOccupancy, $room->capacity - $idealOccupancy);
-        
+
         return round((1 - ($difference / $maxDifference)) * 100, 2);
     }
 
@@ -359,12 +359,13 @@ class RoomMaintenanceService extends BaseService
         // In practice, you would analyze how well the facilities match the room's usage
         $facilityCount = count($room->facilities ?? []);
         $expectedFacilities = $this->getExpectedFacilitiesForRoomType($room->room_type);
-        
+
         if (empty($expectedFacilities)) {
             return 100; // No specific requirements
         }
 
         $matches = array_intersect($room->facilities ?? [], $expectedFacilities);
+
         return round((count($matches) / count($expectedFacilities)) * 100, 2);
     }
 

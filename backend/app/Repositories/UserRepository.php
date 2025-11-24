@@ -13,7 +13,7 @@ class UserRepository extends BaseRepository
         'email',
         'profile.first_name',
         'profile.last_name',
-        'institution.name'
+        'institution.name',
     ];
 
     protected array $filterableFields = [
@@ -28,7 +28,7 @@ class UserRepository extends BaseRepository
         'last_login_from',
         'last_login_to',
         'sort_by',
-        'sort_direction'
+        'sort_direction',
     ];
 
     protected array $defaultRelationships = ['role', 'institution', 'profile'];
@@ -74,9 +74,9 @@ class UserRepository extends BaseRepository
     public function getByRolePaginated(string $roleName, array $filters = [], int $perPage = 15): LengthAwarePaginator
     {
         $query = $this->model->with($this->defaultRelationships)
-                            ->whereHas('role', function ($q) use ($roleName) {
-                                $q->where('name', $roleName);
-                            });
+            ->whereHas('role', function ($q) use ($roleName) {
+                $q->where('name', $roleName);
+            });
 
         $this->applyFilters($query, $filters);
 
@@ -90,6 +90,7 @@ class UserRepository extends BaseRepository
     {
         $query = $this->model->where('institution_id', $institutionId);
         $this->applyFilters($query, $filters);
+
         return $query->get();
     }
 
@@ -100,6 +101,7 @@ class UserRepository extends BaseRepository
     {
         $query = $this->model->whereIn('institution_id', $institutionIds);
         $this->applyFilters($query, $filters);
+
         return $query->get();
     }
 
@@ -110,6 +112,7 @@ class UserRepository extends BaseRepository
     {
         $query = $this->model->where('is_active', true);
         $this->applyFilters($query, $filters);
+
         return $query->get();
     }
 
@@ -120,6 +123,7 @@ class UserRepository extends BaseRepository
     {
         $query = $this->model->where('is_active', false);
         $this->applyFilters($query, $filters);
+
         return $query->get();
     }
 
@@ -145,8 +149,8 @@ class UserRepository extends BaseRepository
     public function getInactiveLogins(int $days = 30): Collection
     {
         return $this->model->where('last_login_at', '<=', now()->subDays($days))
-                          ->orWhereNull('last_login_at')
-                          ->get();
+            ->orWhereNull('last_login_at')
+            ->get();
     }
 
     /**
@@ -155,8 +159,8 @@ class UserRepository extends BaseRepository
     public function getLockedUsers(): Collection
     {
         return $this->model->whereNotNull('locked_until')
-                          ->where('locked_until', '>', now())
-                          ->get();
+            ->where('locked_until', '>', now())
+            ->get();
     }
 
     /**
@@ -173,7 +177,7 @@ class UserRepository extends BaseRepository
     public function getStatisticsByRole(): array
     {
         $cacheKey = $this->getCacheKey('role_statistics');
-        
+
         return $this->getCached($cacheKey, function () {
             return $this->model->selectRaw('
                 roles.name as role_name,
@@ -183,11 +187,11 @@ class UserRepository extends BaseRepository
                 SUM(CASE WHEN users.is_active = false THEN 1 ELSE 0 END) as inactive_count,
                 SUM(CASE WHEN users.last_login_at >= ? THEN 1 ELSE 0 END) as recently_active_count
             ', [now()->subDays(7)])
-            ->join('roles', 'users.role_id', '=', 'roles.id')
-            ->groupBy('roles.id', 'roles.name', 'roles.display_name')
-            ->orderBy('roles.level')
-            ->get()
-            ->toArray();
+                ->join('roles', 'users.role_id', '=', 'roles.id')
+                ->groupBy('roles.id', 'roles.name', 'roles.display_name')
+                ->orderBy('roles.level')
+                ->get()
+                ->toArray();
         });
     }
 
@@ -197,7 +201,7 @@ class UserRepository extends BaseRepository
     public function getStatisticsByInstitution(): array
     {
         $cacheKey = $this->getCacheKey('institution_statistics');
-        
+
         return $this->getCached($cacheKey, function () {
             return $this->model->selectRaw('
                 institutions.name as institution_name,
@@ -205,11 +209,11 @@ class UserRepository extends BaseRepository
                 COUNT(*) as total_count,
                 SUM(CASE WHEN users.is_active = true THEN 1 ELSE 0 END) as active_count
             ')
-            ->join('institutions', 'users.institution_id', '=', 'institutions.id')
-            ->groupBy('institutions.id', 'institutions.name', 'institutions.type')
-            ->orderBy('institutions.name')
-            ->get()
-            ->toArray();
+                ->join('institutions', 'users.institution_id', '=', 'institutions.id')
+                ->groupBy('institutions.id', 'institutions.name', 'institutions.type')
+                ->orderBy('institutions.name')
+                ->get()
+                ->toArray();
         });
     }
 
@@ -219,7 +223,7 @@ class UserRepository extends BaseRepository
     public function getActivityStatistics(): array
     {
         $cacheKey = $this->getCacheKey('activity_statistics');
-        
+
         return $this->getCached($cacheKey, function () {
             return [
                 'total_users' => $this->count(),
@@ -228,18 +232,18 @@ class UserRepository extends BaseRepository
                 'verified_emails' => $this->model->whereNotNull('email_verified_at')->count(),
                 'unverified_emails' => $this->model->whereNull('email_verified_at')->count(),
                 'locked_users' => $this->model->whereNotNull('locked_until')
-                                                ->where('locked_until', '>', now())
-                                                ->count(),
+                    ->where('locked_until', '>', now())
+                    ->count(),
                 'users_with_failed_attempts' => $this->model->where('failed_login_attempts', '>', 0)->count(),
                 'recently_logged_in' => $this->model->where('last_login_at', '>=', now()->subDays(7))->count(),
                 'never_logged_in' => $this->model->whereNull('last_login_at')->count(),
                 'created_this_week' => $this->model->whereBetween('created_at', [
                     now()->startOfWeek(),
-                    now()->endOfWeek()
+                    now()->endOfWeek(),
                 ])->count(),
                 'created_this_month' => $this->model->whereMonth('created_at', now()->month)
-                                                  ->whereYear('created_at', now()->year)
-                                                  ->count(),
+                    ->whereYear('created_at', now()->year)
+                    ->count(),
             ];
         });
     }
@@ -252,25 +256,25 @@ class UserRepository extends BaseRepository
         $query = $this->model->with($this->defaultRelationships);
 
         // Text search
-        if (!empty($criteria['search'])) {
+        if (! empty($criteria['search'])) {
             $searchQuery = $this->buildSearchQuery($criteria['search']);
             $query->mergeConstraintsFrom($searchQuery);
         }
 
         // Role filter
-        if (!empty($criteria['roles'])) {
+        if (! empty($criteria['roles'])) {
             $query->whereHas('role', function ($q) use ($criteria) {
                 $q->whereIn('name', (array) $criteria['roles']);
             });
         }
 
         // Institution filter
-        if (!empty($criteria['institutions'])) {
+        if (! empty($criteria['institutions'])) {
             $query->whereIn('institution_id', (array) $criteria['institutions']);
         }
 
         // Department filter
-        if (!empty($criteria['departments'])) {
+        if (! empty($criteria['departments'])) {
             $query->whereIn('department_id', (array) $criteria['departments']);
         }
 
@@ -289,23 +293,23 @@ class UserRepository extends BaseRepository
         }
 
         // Date range filters
-        if (!empty($criteria['created_from'])) {
+        if (! empty($criteria['created_from'])) {
             $query->whereDate('created_at', '>=', $criteria['created_from']);
         }
-        if (!empty($criteria['created_to'])) {
+        if (! empty($criteria['created_to'])) {
             $query->whereDate('created_at', '<=', $criteria['created_to']);
         }
 
         // Last login filters
-        if (!empty($criteria['last_login_from'])) {
+        if (! empty($criteria['last_login_from'])) {
             $query->whereDate('last_login_at', '>=', $criteria['last_login_from']);
         }
-        if (!empty($criteria['last_login_to'])) {
+        if (! empty($criteria['last_login_to'])) {
             $query->whereDate('last_login_at', '<=', $criteria['last_login_to']);
         }
 
         // Sorting
-        if (!empty($criteria['sort_by'])) {
+        if (! empty($criteria['sort_by'])) {
             $direction = $criteria['sort_direction'] ?? 'asc';
             $query->orderBy($criteria['sort_by'], $direction);
         } else {

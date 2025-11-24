@@ -92,6 +92,7 @@ class Upload extends Model
     {
         $units = ['B', 'KB', 'MB', 'GB'];
         $power = $this->file_size > 0 ? floor(log($this->file_size, 1024)) : 0;
+
         return number_format($this->file_size / pow(1024, $power), 2) . ' ' . $units[$power];
     }
 
@@ -186,7 +187,7 @@ class Upload extends Model
     public function scopeByEntity($query, string $entityType, int $entityId)
     {
         return $query->where('entity_type', $entityType)
-                    ->where('entity_id', $entityId);
+            ->where('entity_id', $entityId);
     }
 
     /**

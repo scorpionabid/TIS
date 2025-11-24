@@ -89,7 +89,7 @@ class RegionOperatorPermissionMappingService
     /**
      * Convert RegionOperator permissions array to Spatie permission names
      *
-     * @param array $roPermissions ['can_create_surveys' => true, ...]
+     * @param  array $roPermissions ['can_create_surveys' => true, ...]
      * @return array ['surveys.create', 'surveys.update', ...]
      */
     public function toSpatiePermissions(array $roPermissions): array
@@ -109,7 +109,6 @@ class RegionOperatorPermissionMappingService
     /**
      * Check if a Spatie permission maps to any RegionOperator permission
      *
-     * @param string $spatiePermission
      * @return array Array of RO permission field names
      */
     public function toRegionOperatorPermissions(string $spatiePermission): array
@@ -119,8 +118,6 @@ class RegionOperatorPermissionMappingService
 
     /**
      * Get all Spatie permissions that RegionOperator can potentially have
-     *
-     * @return array
      */
     public function getAllMappedSpatiePermissions(): array
     {
@@ -138,7 +135,7 @@ class RegionOperatorPermissionMappingService
         $missing = [];
 
         foreach ($allRoPermissions as $roPermission) {
-            if (!isset(self::RO_TO_SPATIE_MAP[$roPermission])) {
+            if (! isset(self::RO_TO_SPATIE_MAP[$roPermission])) {
                 $missing[] = $roPermission;
             }
         }

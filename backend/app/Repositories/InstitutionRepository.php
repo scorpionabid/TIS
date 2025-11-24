@@ -4,7 +4,6 @@ namespace App\Repositories;
 
 use App\Models\Institution;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Pagination\LengthAwarePaginator;
 
 class InstitutionRepository extends BaseRepository
 {
@@ -13,7 +12,7 @@ class InstitutionRepository extends BaseRepository
         'code',
         'address',
         'contact_email',
-        'parent.name'
+        'parent.name',
     ];
 
     protected array $filterableFields = [
@@ -26,7 +25,7 @@ class InstitutionRepository extends BaseRepository
         'established_from',
         'established_to',
         'sort_by',
-        'sort_direction'
+        'sort_direction',
     ];
 
     protected array $defaultRelationships = ['parent', 'children', 'departments'];
@@ -50,11 +49,11 @@ class InstitutionRepository extends BaseRepository
     public function getRoots(bool $includeInactive = false): Collection
     {
         $query = $this->model->whereNull('parent_id');
-        
-        if (!$includeInactive) {
+
+        if (! $includeInactive) {
             $query->where('is_active', true);
         }
-        
+
         return $query->orderBy('name')->get();
     }
 
@@ -64,11 +63,11 @@ class InstitutionRepository extends BaseRepository
     public function getChildren(int $parentId, bool $includeInactive = false): Collection
     {
         $query = $this->model->where('parent_id', $parentId);
-        
-        if (!$includeInactive) {
+
+        if (! $includeInactive) {
             $query->where('is_active', true);
         }
-        
+
         return $query->orderBy('name')->get();
     }
 
@@ -78,21 +77,21 @@ class InstitutionRepository extends BaseRepository
     public function getHierarchy(bool $includeInactive = false): Collection
     {
         $cacheKey = $this->getCacheKey("hierarchy_{$includeInactive}");
-        
+
         return $this->getCached($cacheKey, function () use ($includeInactive) {
             $relationships = ['children' => function ($query) use ($includeInactive) {
                 $query->with(['children.children.children.children']);
-                if (!$includeInactive) {
+                if (! $includeInactive) {
                     $query->where('is_active', true);
                 }
                 $query->orderBy('name');
             }];
 
             $query = $this->model->with($relationships)
-                                ->whereNull('parent_id')
-                                ->orderBy('name');
+                ->whereNull('parent_id')
+                ->orderBy('name');
 
-            if (!$includeInactive) {
+            if (! $includeInactive) {
                 $query->where('is_active', true);
             }
 
@@ -106,11 +105,11 @@ class InstitutionRepository extends BaseRepository
     public function getByType(string $type, bool $includeInactive = false): Collection
     {
         $query = $this->model->where('type', $type);
-        
-        if (!$includeInactive) {
+
+        if (! $includeInactive) {
             $query->where('is_active', true);
         }
-        
+
         return $query->orderBy('name')->get();
     }
 
@@ -120,11 +119,11 @@ class InstitutionRepository extends BaseRepository
     public function getByLevel(int $level, bool $includeInactive = false): Collection
     {
         $query = $this->model->where('level', $level);
-        
-        if (!$includeInactive) {
+
+        if (! $includeInactive) {
             $query->where('is_active', true);
         }
-        
+
         return $query->orderBy('name')->get();
     }
 
@@ -134,11 +133,11 @@ class InstitutionRepository extends BaseRepository
     public function getByRegionCode(string $regionCode, bool $includeInactive = false): Collection
     {
         $query = $this->model->where('region_code', $regionCode);
-        
-        if (!$includeInactive) {
+
+        if (! $includeInactive) {
             $query->where('is_active', true);
         }
-        
+
         return $query->orderBy('name')->get();
     }
 
@@ -149,11 +148,11 @@ class InstitutionRepository extends BaseRepository
     {
         $descendants = collect();
         $institution = $this->findWith($institutionId, ['children.children.children.children']);
-        
+
         if ($institution) {
             $this->collectDescendants($institution, $descendants);
         }
-        
+
         return $descendants;
     }
 
@@ -164,11 +163,11 @@ class InstitutionRepository extends BaseRepository
     {
         $ancestors = collect();
         $institution = $this->findWith($institutionId, ['parent.parent.parent.parent']);
-        
+
         if ($institution && $institution->parent) {
             $this->collectAncestors($institution->parent, $ancestors);
         }
-        
+
         return $ancestors->reverse()->values();
     }
 
@@ -179,16 +178,16 @@ class InstitutionRepository extends BaseRepository
     {
         $path = collect();
         $institution = $this->findWith($institutionId, ['parent.parent.parent.parent']);
-        
+
         if ($institution) {
             // Get ancestors first
             $ancestors = $this->getAncestors($institutionId);
             $path = $path->merge($ancestors);
-            
+
             // Add the institution itself
             $path->push($institution);
         }
-        
+
         return $path;
     }
 
@@ -214,12 +213,12 @@ class InstitutionRepository extends BaseRepository
     public function hasTasks(int $institutionId): bool
     {
         $institution = $this->model->find($institutionId);
-        
-        if (!$institution) {
+
+        if (! $institution) {
             return false;
         }
-        
-        return $institution->assignedTasks()->exists() || 
+
+        return $institution->assignedTasks()->exists() ||
                $institution->createdTasks()->exists();
     }
 
@@ -245,8 +244,8 @@ class InstitutionRepository extends BaseRepository
     public function getEstablishedBetween(string $startDate, string $endDate): Collection
     {
         return $this->model->whereBetween('established_date', [$startDate, $endDate])
-                          ->orderBy('established_date')
-                          ->get();
+            ->orderBy('established_date')
+            ->get();
     }
 
     /**
@@ -255,8 +254,8 @@ class InstitutionRepository extends BaseRepository
     public function getRecentlyCreated(int $days = 30): Collection
     {
         return $this->model->where('created_at', '>=', now()->subDays($days))
-                          ->orderBy('created_at', 'desc')
-                          ->get();
+            ->orderBy('created_at', 'desc')
+            ->get();
     }
 
     /**
@@ -265,7 +264,7 @@ class InstitutionRepository extends BaseRepository
     public function getStatisticsByType(): array
     {
         $cacheKey = $this->getCacheKey('type_statistics');
-        
+
         return $this->getCached($cacheKey, function () {
             return $this->model->selectRaw('
                 type,
@@ -273,11 +272,11 @@ class InstitutionRepository extends BaseRepository
                 SUM(CASE WHEN is_active = true THEN 1 ELSE 0 END) as active_count,
                 SUM(CASE WHEN is_active = false THEN 1 ELSE 0 END) as inactive_count
             ')
-            ->groupBy('type')
-            ->orderBy('type')
-            ->get()
-            ->keyBy('type')
-            ->toArray();
+                ->groupBy('type')
+                ->orderBy('type')
+                ->get()
+                ->keyBy('type')
+                ->toArray();
         });
     }
 
@@ -287,18 +286,18 @@ class InstitutionRepository extends BaseRepository
     public function getStatisticsByLevel(): array
     {
         $cacheKey = $this->getCacheKey('level_statistics');
-        
+
         return $this->getCached($cacheKey, function () {
             return $this->model->selectRaw('
                 level,
                 COUNT(*) as total_count,
                 SUM(CASE WHEN is_active = true THEN 1 ELSE 0 END) as active_count
             ')
-            ->groupBy('level')
-            ->orderBy('level')
-            ->get()
-            ->keyBy('level')
-            ->toArray();
+                ->groupBy('level')
+                ->orderBy('level')
+                ->get()
+                ->keyBy('level')
+                ->toArray();
         });
     }
 
@@ -308,12 +307,12 @@ class InstitutionRepository extends BaseRepository
     public function getComprehensiveStatistics(): array
     {
         $cacheKey = $this->getCacheKey('comprehensive_statistics');
-        
+
         return $this->getCached($cacheKey, function () {
             $baseStats = $this->getStatistics();
             $typeStats = $this->getStatisticsByType();
             $levelStats = $this->getStatisticsByLevel();
-            
+
             return array_merge($baseStats, [
                 'by_type' => $typeStats,
                 'by_level' => $levelStats,
@@ -373,13 +372,13 @@ class InstitutionRepository extends BaseRepository
     protected function clearModelCache(): void
     {
         parent::clearModelCache();
-        
+
         // Clear specific hierarchy cache keys
         $keys = [
             $this->getCacheKey('hierarchy_true'),
             $this->getCacheKey('hierarchy_false'),
         ];
-        
+
         foreach ($keys as $key) {
             cache()->forget($key);
         }
@@ -402,7 +401,7 @@ class InstitutionRepository extends BaseRepository
     private function collectAncestors(Institution $institution, Collection $ancestors): void
     {
         $ancestors->push($institution);
-        
+
         if ($institution->parent) {
             $this->collectAncestors($institution->parent, $ancestors);
         }

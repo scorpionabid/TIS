@@ -16,19 +16,19 @@ class AuthServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(LoginService::class, function ($app) {
-            return new LoginService();
+            return new LoginService;
         });
 
         $this->app->singleton(LogoutService::class, function ($app) {
-            return new LogoutService();
+            return new LogoutService;
         });
 
         $this->app->singleton(DeviceService::class, function ($app) {
-            return new DeviceService();
+            return new DeviceService;
         });
 
         $this->app->singleton(SessionService::class, function ($app) {
-            return new SessionService();
+            return new SessionService;
         });
     }
 

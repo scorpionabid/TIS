@@ -2,11 +2,11 @@
 
 namespace Database\Factories;
 
-use App\Models\ScheduleConflict;
+use App\Models\Room;
 use App\Models\Schedule;
+use App\Models\ScheduleConflict;
 use App\Models\ScheduleSession;
 use App\Models\TimeSlot;
-use App\Models\Room;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -18,36 +18,36 @@ class ScheduleConflictFactory extends Factory
     {
         $conflictType = $this->faker->randomElement(['teacher', 'room', 'resource', 'time', 'capacity']);
         $severity = $this->faker->randomElement(['low', 'medium', 'high', 'critical']);
-        
+
         return [
             'schedule_id' => Schedule::factory(),
             'session_id' => ScheduleSession::factory(),
-            
+
             // Conflict identification
             'conflict_type' => $conflictType,
             'severity' => $severity,
             'title' => $this->generateTitleByType($conflictType),
             'description' => $this->generateDescriptionByType($conflictType),
             'affected_entities' => $this->generateAffectedEntities($conflictType),
-            
+
             // Conflict source information
             'source_entity_type' => $this->getSourceEntityType($conflictType),
             'source_entity_id' => $this->faker->numberBetween(1, 100),
             'target_entity_type' => $this->getTargetEntityType($conflictType),
             'target_entity_id' => $this->faker->numberBetween(1, 100),
-            
+
             // Time and location context
             'day_of_week' => $this->faker->randomElement(['monday', 'tuesday', 'wednesday', 'thursday', 'friday']),
             'time_slot_id' => TimeSlot::factory(),
             'start_time' => $this->faker->time('H:i', '16:00'),
             'end_time' => $this->faker->time('H:i', '17:00'),
             'room_id' => Room::factory(),
-            
+
             // Detection and resolution
             'detection_method' => $this->faker->randomElement(['automatic', 'manual', 'validation']),
             'detected_at' => $this->faker->dateTimeThisMonth(),
             'detected_by' => User::factory(),
-            
+
             // Resolution tracking
             'status' => $this->faker->randomElement(['pending', 'acknowledged', 'in_progress', 'resolved']),
             'resolution_notes' => $this->faker->optional(30)->sentence(),
@@ -55,17 +55,17 @@ class ScheduleConflictFactory extends Factory
                 'reschedule_session',
                 'assign_substitute',
                 'change_room',
-                'modify_requirements'
+                'modify_requirements',
             ], $this->faker->numberBetween(1, 2)),
             'resolved_at' => $this->faker->optional(40)->dateTimeThisMonth(),
             'resolved_by' => $this->faker->optional(40)->numberBetween(1, 50),
-            
+
             // Impact assessment
             'impact_score' => $this->calculateImpactScore($severity, $conflictType),
             'impact_analysis' => $this->generateImpactAnalysis($conflictType, $severity),
             'blocks_approval' => $this->faker->boolean($severity === 'critical' ? 80 : 20),
             'requires_notification' => $this->faker->boolean(70),
-            
+
             // Suggestions and alternatives
             'suggested_solutions' => $this->generateSuggestedSolutions($conflictType),
             'alternative_slots' => $this->faker->optional(30)->randomElements([
@@ -76,36 +76,36 @@ class ScheduleConflictFactory extends Factory
             'alternative_resources' => $this->faker->optional(20)->randomElements([
                 'alternative_room',
                 'different_equipment',
-                'virtual_setup'
+                'virtual_setup',
             ], $this->faker->numberBetween(1, 2)),
-            
+
             // Recurrence and patterns
             'is_recurring' => $this->faker->boolean(30),
             'recurrence_pattern' => $this->faker->optional(30)->randomElement(['weekly', 'daily', 'specific_days']),
             'recurrence_data' => $this->faker->optional(30)->randomElements([
                 'days' => ['monday', 'wednesday', 'friday'],
-                'frequency' => 1
+                'frequency' => 1,
             ]),
-            
+
             // Business rules and constraints
             'violated_constraint' => $this->getViolatedConstraint($conflictType),
             'constraint_data' => $this->generateConstraintData($conflictType),
             'constraint_weight' => $this->faker->randomFloat(2, 0.1, 1.0),
-            
+
             // Notification and communication
             'stakeholders' => $this->generateStakeholders($conflictType),
             'notification_history' => null,
             'last_notification_sent' => null,
-            
+
             // External integration
             'external_reference' => $this->faker->optional(10)->uuid(),
             'integration_data' => null,
-            
+
             // Audit and metadata
             'metadata' => $this->faker->optional(20)->randomElements([
                 'auto_detected' => true,
                 'priority' => $this->faker->randomElement(['low', 'medium', 'high']),
-                'category' => $this->faker->randomElement(['scheduling', 'resource', 'policy'])
+                'category' => $this->faker->randomElement(['scheduling', 'resource', 'policy']),
             ]),
             'administrative_notes' => $this->faker->optional(15)->sentence(),
             'conflict_history' => null,
@@ -117,31 +117,31 @@ class ScheduleConflictFactory extends Factory
      */
     private function generateTitleByType(string $type): string
     {
-        return match($type) {
+        return match ($type) {
             'teacher' => $this->faker->randomElement([
                 'Teacher Double Booking Detected',
                 'Instructor Scheduling Conflict',
-                'Teacher Availability Conflict'
+                'Teacher Availability Conflict',
             ]),
             'room' => $this->faker->randomElement([
                 'Room Double Booking',
                 'Classroom Scheduling Conflict',
-                'Room Availability Issue'
+                'Room Availability Issue',
             ]),
             'resource' => $this->faker->randomElement([
                 'Resource Unavailable',
                 'Equipment Conflict',
-                'Facility Requirements Not Met'
+                'Facility Requirements Not Met',
             ]),
             'time' => $this->faker->randomElement([
                 'Time Slot Overlap',
                 'Schedule Timing Conflict',
-                'Period Scheduling Issue'
+                'Period Scheduling Issue',
             ]),
             'capacity' => $this->faker->randomElement([
                 'Room Capacity Exceeded',
                 'Enrollment Over Capacity',
-                'Space Limitation Conflict'
+                'Space Limitation Conflict',
             ]),
             default => 'Scheduling Conflict Detected'
         };
@@ -152,7 +152,7 @@ class ScheduleConflictFactory extends Factory
      */
     private function generateDescriptionByType(string $type): string
     {
-        return match($type) {
+        return match ($type) {
             'teacher' => 'The assigned teacher is already scheduled for another session at the same time.',
             'room' => 'The requested room is already booked for another session during this time slot.',
             'resource' => 'Required resources or equipment are not available during the scheduled time.',
@@ -167,21 +167,21 @@ class ScheduleConflictFactory extends Factory
      */
     private function generateAffectedEntities(string $type): array
     {
-        return match($type) {
+        return match ($type) {
             'teacher' => [
                 'teachers' => [$this->faker->numberBetween(1, 50)],
-                'sessions' => [$this->faker->numberBetween(1, 200), $this->faker->numberBetween(1, 200)]
+                'sessions' => [$this->faker->numberBetween(1, 200), $this->faker->numberBetween(1, 200)],
             ],
             'room' => [
                 'rooms' => [$this->faker->numberBetween(1, 20)],
-                'sessions' => [$this->faker->numberBetween(1, 200)]
+                'sessions' => [$this->faker->numberBetween(1, 200)],
             ],
             'resource' => [
                 'resources' => [$this->faker->randomElement(['projector', 'lab_equipment', 'computer'])],
-                'sessions' => [$this->faker->numberBetween(1, 200)]
+                'sessions' => [$this->faker->numberBetween(1, 200)],
             ],
             default => [
-                'sessions' => [$this->faker->numberBetween(1, 200)]
+                'sessions' => [$this->faker->numberBetween(1, 200)],
             ]
         };
     }
@@ -191,7 +191,7 @@ class ScheduleConflictFactory extends Factory
      */
     private function getSourceEntityType(string $conflictType): string
     {
-        return match($conflictType) {
+        return match ($conflictType) {
             'teacher' => 'teacher',
             'room' => 'room',
             'resource' => 'resource',
@@ -214,7 +214,7 @@ class ScheduleConflictFactory extends Factory
      */
     private function calculateImpactScore(string $severity, string $type): int
     {
-        $baseScore = match($severity) {
+        $baseScore = match ($severity) {
             'critical' => 80,
             'high' => 60,
             'medium' => 40,
@@ -222,7 +222,7 @@ class ScheduleConflictFactory extends Factory
             default => 10
         };
 
-        $typeModifier = match($type) {
+        $typeModifier = match ($type) {
             'teacher' => 15,
             'room' => 10,
             'resource' => 8,
@@ -254,7 +254,7 @@ class ScheduleConflictFactory extends Factory
      */
     private function generateSuggestedSolutions(string $type): array
     {
-        return match($type) {
+        return match ($type) {
             'teacher' => [
                 ['type' => 'reschedule', 'title' => 'Reschedule one session', 'difficulty' => 'medium'],
                 ['type' => 'substitute', 'title' => 'Assign substitute teacher', 'difficulty' => 'low'],
@@ -278,7 +278,7 @@ class ScheduleConflictFactory extends Factory
      */
     private function getViolatedConstraint(string $type): string
     {
-        return match($type) {
+        return match ($type) {
             'teacher' => 'teacher_availability',
             'room' => 'room_availability',
             'resource' => 'resource_availability',
@@ -293,7 +293,7 @@ class ScheduleConflictFactory extends Factory
      */
     private function generateConstraintData(string $type): array
     {
-        return match($type) {
+        return match ($type) {
             'teacher' => [
                 'max_concurrent_sessions' => 1,
                 'break_time_required' => '15 minutes',
@@ -319,15 +319,15 @@ class ScheduleConflictFactory extends Factory
     private function generateStakeholders(string $type): array
     {
         $stakeholders = ['schedule_coordinator', 'department_head'];
-        
+
         if ($type === 'teacher') {
             $stakeholders[] = 'affected_teachers';
         }
-        
+
         if (in_array($type, ['room', 'resource'])) {
             $stakeholders[] = 'facilities_manager';
         }
-        
+
         return $stakeholders;
     }
 
@@ -399,7 +399,7 @@ class ScheduleConflictFactory extends Factory
             'recurrence_data' => [
                 'days' => ['monday', 'wednesday', 'friday'],
                 'frequency' => 1,
-                'occurrences' => $this->faker->numberBetween(5, 15)
+                'occurrences' => $this->faker->numberBetween(5, 15),
             ],
         ]);
     }

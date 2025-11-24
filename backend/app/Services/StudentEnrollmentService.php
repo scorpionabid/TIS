@@ -3,16 +3,15 @@
 namespace App\Services;
 
 use App\Models\Grade;
-use App\Models\User;
 use App\Models\StudentEnrollment;
-use Illuminate\Support\Facades\DB;
+use App\Models\User;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Carbon\Carbon;
 
 /**
  * Student Enrollment Service
- * 
+ *
  * Handles all business logic related to student enrollments in grades/classes.
  * Manages enrollment status, transfers, and academic progression.
  */
@@ -31,12 +30,12 @@ class StudentEnrollmentService
 
         // Apply sorting
         $query->orderBy('student_number', 'asc')
-              ->orderBy('enrollment_date', 'asc');
+            ->orderBy('enrollment_date', 'asc');
 
         // Paginate if requested
         if (isset($options['per_page'])) {
             $enrollments = $query->paginate($options['per_page']);
-            
+
             return [
                 'grade_info' => [
                     'id' => $grade->id,
@@ -61,7 +60,7 @@ class StudentEnrollmentService
             ];
         } else {
             $enrollments = $query->get();
-            
+
             return [
                 'grade_info' => [
                     'id' => $grade->id,
@@ -83,9 +82,9 @@ class StudentEnrollmentService
      * Enroll a student in a grade
      */
     public function enrollStudent(
-        User $enrolledBy, 
-        int $studentId, 
-        int $gradeId, 
+        User $enrolledBy,
+        int $studentId,
+        int $gradeId,
         array $enrollmentData = []
     ): StudentEnrollment {
         // Validate inputs
@@ -93,9 +92,9 @@ class StudentEnrollmentService
         $grade = Grade::findOrFail($gradeId);
 
         // Check permissions
-        if (!$this->canEnrollStudentInGrade($enrolledBy, $student, $grade)) {
+        if (! $this->canEnrollStudentInGrade($enrolledBy, $student, $grade)) {
             throw ValidationException::withMessages([
-                'permission' => ['Bu şagirdi bu sinifə yazmaq icazəniz yoxdur']
+                'permission' => ['Bu şagirdi bu sinifə yazmaq icazəniz yoxdur'],
             ]);
         }
 
@@ -108,7 +107,7 @@ class StudentEnrollmentService
             $existingEnrollment = StudentEnrollment::where('student_id', $studentId)
                 ->whereHas('grade', function ($query) use ($grade) {
                     $query->where('academic_year_id', $grade->academic_year_id)
-                          ->where('institution_id', $grade->institution_id);
+                        ->where('institution_id', $grade->institution_id);
                 })
                 ->where('enrollment_status', 'active')
                 ->first();
@@ -116,15 +115,15 @@ class StudentEnrollmentService
             if ($existingEnrollment) {
                 // Transfer student instead of creating new enrollment
                 return $this->transferStudent(
-                    $enrolledBy, 
-                    $existingEnrollment, 
-                    $grade, 
+                    $enrolledBy,
+                    $existingEnrollment,
+                    $grade,
                     $enrollmentData['transfer_reason'] ?? 'Sinif dəyişikliyi'
                 );
             }
 
             // Generate student number if not provided
-            if (!isset($enrollmentData['student_number'])) {
+            if (! isset($enrollmentData['student_number'])) {
                 $enrollmentData['student_number'] = $this->generateStudentNumber($grade);
             }
 
@@ -157,7 +156,6 @@ class StudentEnrollmentService
             DB::commit();
 
             return $enrollment->load(['student.profile', 'grade']);
-
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -168,15 +166,15 @@ class StudentEnrollmentService
      * Transfer a student from one grade to another
      */
     public function transferStudent(
-        User $transferredBy, 
-        StudentEnrollment $currentEnrollment, 
-        Grade $newGrade, 
-        string $reason = null
+        User $transferredBy,
+        StudentEnrollment $currentEnrollment,
+        Grade $newGrade,
+        ?string $reason = null
     ): StudentEnrollment {
         // Validate transfer
-        if (!$this->canTransferStudent($transferredBy, $currentEnrollment, $newGrade)) {
+        if (! $this->canTransferStudent($transferredBy, $currentEnrollment, $newGrade)) {
             throw ValidationException::withMessages([
-                'permission' => ['Bu şagirdi köçürmək icazəniz yoxdur']
+                'permission' => ['Bu şagirdi köçürmək icazəniz yoxdur'],
             ]);
         }
 
@@ -227,7 +225,6 @@ class StudentEnrollmentService
             DB::commit();
 
             return $newEnrollment->load(['student.profile', 'grade']);
-
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -238,15 +235,15 @@ class StudentEnrollmentService
      * Update enrollment status (graduate, withdraw, etc.)
      */
     public function updateEnrollmentStatus(
-        User $updatedBy, 
-        StudentEnrollment $enrollment, 
-        string $newStatus, 
+        User $updatedBy,
+        StudentEnrollment $enrollment,
+        string $newStatus,
         array $statusData = []
     ): StudentEnrollment {
         // Validate status change
-        if (!$this->canUpdateEnrollmentStatus($updatedBy, $enrollment, $newStatus)) {
+        if (! $this->canUpdateEnrollmentStatus($updatedBy, $enrollment, $newStatus)) {
             throw ValidationException::withMessages([
-                'permission' => ['Bu qeydiyyatın statusunu dəyişmək icazəniz yoxdur']
+                'permission' => ['Bu qeydiyyatın statusunu dəyişmək icazəniz yoxdur'],
             ]);
         }
 
@@ -286,7 +283,7 @@ class StudentEnrollmentService
 
             // Add notes if provided
             if (isset($statusData['notes'])) {
-                $updateData['notes'] = $enrollment->notes . "\n" . now()->format('Y-m-d H:i') . ": " . $statusData['notes'];
+                $updateData['notes'] = $enrollment->notes . "\n" . now()->format('Y-m-d H:i') . ': ' . $statusData['notes'];
             }
 
             // Update enrollment
@@ -315,7 +312,6 @@ class StudentEnrollmentService
             DB::commit();
 
             return $enrollment->fresh(['student.profile', 'grade']);
-
         } catch (\Exception $e) {
             DB::rollBack();
             throw $e;
@@ -436,7 +432,7 @@ class StudentEnrollmentService
         if (method_exists($enrollment, 'calculateCurrentAttendanceRate')) {
             $response['metrics'] = [
                 'attendance_rate' => $enrollment->calculateCurrentAttendanceRate(),
-                'days_enrolled' => $enrollment->enrollment_date ? 
+                'days_enrolled' => $enrollment->enrollment_date ?
                     now()->diffInDays($enrollment->enrollment_date) : 0,
             ];
         }
@@ -448,7 +444,7 @@ class StudentEnrollmentService
     private function canEnrollStudentInGrade(User $user, User $student, Grade $grade): bool
     {
         // Check if user has permission to manage enrollments
-        if (!$user->hasPermission('enrollments.create')) {
+        if (! $user->hasPermission('enrollments.create')) {
             return false;
         }
 
@@ -463,7 +459,7 @@ class StudentEnrollmentService
     private function canTransferStudent(User $user, StudentEnrollment $enrollment, Grade $newGrade): bool
     {
         // Check if user has permission to transfer students
-        if (!$user->hasPermission('enrollments.transfer')) {
+        if (! $user->hasPermission('enrollments.transfer')) {
             return false;
         }
 
@@ -472,14 +468,14 @@ class StudentEnrollmentService
             return true;
         }
 
-        return $user->institution_id === $enrollment->grade->institution_id && 
+        return $user->institution_id === $enrollment->grade->institution_id &&
                $user->institution_id === $newGrade->institution_id;
     }
 
     private function canUpdateEnrollmentStatus(User $user, StudentEnrollment $enrollment, string $newStatus): bool
     {
         // Check if user has permission to update enrollment status
-        if (!$user->hasPermission('enrollments.update_status')) {
+        if (! $user->hasPermission('enrollments.update_status')) {
             return false;
         }
 
@@ -495,23 +491,23 @@ class StudentEnrollmentService
     private function validateEnrollment(User $student, Grade $grade, array $enrollmentData): void
     {
         // Check if student is eligible for enrollment
-        if (!$student->hasRole('şagird')) {
+        if (! $student->hasRole('şagird')) {
             throw ValidationException::withMessages([
-                'student' => ['Seçilən istifadəçi şagird deyil']
+                'student' => ['Seçilən istifadəçi şagird deyil'],
             ]);
         }
 
         // Check if student belongs to same institution
         if ($student->institution_id !== $grade->institution_id) {
             throw ValidationException::withMessages([
-                'student' => ['Şagird eyni təşkilata aid olmalıdır']
+                'student' => ['Şagird eyni təşkilata aid olmalıdır'],
             ]);
         }
 
         // Check grade capacity
         if ($grade->room && $grade->getCurrentStudentCount() >= $grade->room->capacity) {
             throw ValidationException::withMessages([
-                'capacity' => ['Sinifin tutumu doludur']
+                'capacity' => ['Sinifin tutumu doludur'],
             ]);
         }
 
@@ -525,7 +521,7 @@ class StudentEnrollmentService
 
             if ($existingEnrollment) {
                 throw ValidationException::withMessages([
-                    'student_number' => ['Bu şagird nömrəsi artıq istifadə olunub']
+                    'student_number' => ['Bu şagird nömrəsi artıq istifadə olunub'],
                 ]);
             }
         }
@@ -536,28 +532,28 @@ class StudentEnrollmentService
         // Check if transfer is to same grade
         if ($currentEnrollment->grade_id === $newGrade->id) {
             throw ValidationException::withMessages([
-                'grade' => ['Şagird artıq bu sinifdədir']
+                'grade' => ['Şagird artıq bu sinifdədir'],
             ]);
         }
 
         // Check if both grades are in same institution
         if ($currentEnrollment->grade->institution_id !== $newGrade->institution_id) {
             throw ValidationException::withMessages([
-                'institution' => ['Fərqli təşkilatlar arasında köçürmə dəstəklənmir']
+                'institution' => ['Fərqli təşkilatlar arasında köçürmə dəstəklənmir'],
             ]);
         }
 
         // Check new grade capacity
         if ($newGrade->room && $newGrade->getCurrentStudentCount() >= $newGrade->room->capacity) {
             throw ValidationException::withMessages([
-                'capacity' => ['Hədəf sinifin tutumu doludur']
+                'capacity' => ['Hədəf sinifin tutumu doludur'],
             ]);
         }
 
         // Check if current enrollment is active
         if ($currentEnrollment->enrollment_status !== 'active') {
             throw ValidationException::withMessages([
-                'status' => ['Yalnız aktiv qeydiyyatlı şagirdlər köçürülə bilər']
+                'status' => ['Yalnız aktiv qeydiyyatlı şagirdlər köçürülə bilər'],
             ]);
         }
     }
@@ -565,33 +561,33 @@ class StudentEnrollmentService
     private function validateStatusChange(StudentEnrollment $enrollment, string $newStatus, array $statusData): void
     {
         $validStatuses = ['active', 'inactive', 'suspended', 'withdrawn', 'transferred', 'graduated'];
-        
-        if (!in_array($newStatus, $validStatuses)) {
+
+        if (! in_array($newStatus, $validStatuses)) {
             throw ValidationException::withMessages([
-                'status' => ['Keçərsiz status']
+                'status' => ['Keçərsiz status'],
             ]);
         }
 
         // Status-specific validations
         switch ($newStatus) {
             case 'graduated':
-                if (!isset($statusData['graduation_date'])) {
+                if (! isset($statusData['graduation_date'])) {
                     throw ValidationException::withMessages([
-                        'graduation_date' => ['Məzuniyyət tarixi tələb olunur']
+                        'graduation_date' => ['Məzuniyyət tarixi tələb olunur'],
                     ]);
                 }
                 break;
             case 'suspended':
-                if (!isset($statusData['suspension_reason'])) {
+                if (! isset($statusData['suspension_reason'])) {
                     throw ValidationException::withMessages([
-                        'suspension_reason' => ['Uzaqlaşdırma səbəbi tələb olunur']
+                        'suspension_reason' => ['Uzaqlaşdırma səbəbi tələb olunur'],
                     ]);
                 }
                 break;
             case 'withdrawn':
-                if (!isset($statusData['withdrawal_reason'])) {
+                if (! isset($statusData['withdrawal_reason'])) {
                     throw ValidationException::withMessages([
-                        'withdrawal_reason' => ['Çıxarılma səbəbi tələb olunur']
+                        'withdrawal_reason' => ['Çıxarılma səbəbi tələb olunur'],
                     ]);
                 }
                 break;
@@ -603,17 +599,17 @@ class StudentEnrollmentService
     {
         $institution = $grade->institution;
         $academicYear = $grade->academicYear;
-        
+
         // Format: {Institution Code}{Academic Year}{Grade Level}{Sequential Number}
         $prefix = strtoupper(substr($institution->code ?? $institution->name, 0, 3));
         $yearCode = substr($academicYear->name ?? date('Y'), -2);
         $gradeCode = str_pad($grade->class_level, 2, '0', STR_PAD_LEFT);
-        
+
         // Find next sequential number
         $lastNumber = StudentEnrollment::whereHas('grade', function ($query) use ($grade) {
-                $query->where('institution_id', $grade->institution_id)
-                      ->where('academic_year_id', $grade->academic_year_id);
-            })
+            $query->where('institution_id', $grade->institution_id)
+                ->where('academic_year_id', $grade->academic_year_id);
+        })
             ->where('student_number', 'LIKE', "{$prefix}{$yearCode}{$gradeCode}%")
             ->orderBy('student_number', 'desc')
             ->first();
@@ -662,7 +658,7 @@ class StudentEnrollmentService
             $search = $filters['search'];
             $query->whereHas('student', function ($q) use ($search) {
                 $q->where('name', 'ILIKE', "%{$search}%")
-                  ->orWhere('email', 'ILIKE', "%{$search}%");
+                    ->orWhere('email', 'ILIKE', "%{$search}%");
             })->orWhere('student_number', 'ILIKE', "%{$search}%");
         }
     }

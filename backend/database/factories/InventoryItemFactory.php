@@ -3,8 +3,8 @@
 namespace Database\Factories;
 
 use App\Models\Institution;
-use App\Models\User;
 use App\Models\Room;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -22,7 +22,7 @@ class InventoryItemFactory extends Factory
         $categories = [
             'electronics', 'furniture', 'books', 'equipment', 'supplies',
             'vehicles', 'sports', 'laboratory', 'medical', 'safety',
-            'cleaning', 'stationery', 'tools', 'software', 'other'
+            'cleaning', 'stationery', 'tools', 'software', 'other',
         ];
 
         $conditions = ['new', 'excellent', 'good', 'fair', 'poor', 'damaged'];

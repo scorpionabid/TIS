@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
 
 class DocumentDownload extends Model
 {
@@ -101,7 +101,7 @@ class DocumentDownload extends Model
     {
         return $query->whereBetween('created_at', [
             now()->startOfWeek(),
-            now()->endOfWeek()
+            now()->endOfWeek(),
         ]);
     }
 
@@ -111,7 +111,7 @@ class DocumentDownload extends Model
     public function scopeThisMonth(Builder $query): Builder
     {
         return $query->whereMonth('created_at', now()->month)
-                    ->whereYear('created_at', now()->year);
+            ->whereYear('created_at', now()->year);
     }
 
     /**
@@ -127,21 +127,21 @@ class DocumentDownload extends Model
      */
     public function getFormattedFileSizeAttribute(): string
     {
-        if (!$this->file_size_downloaded) {
+        if (! $this->file_size_downloaded) {
             return 'N/A';
         }
 
         $bytes = $this->file_size_downloaded;
-        
+
         if ($bytes >= 1073741824) {
             return number_format($bytes / 1073741824, 2) . ' GB';
         } elseif ($bytes >= 1048576) {
             return number_format($bytes / 1048576, 2) . ' MB';
         } elseif ($bytes >= 1024) {
             return number_format($bytes / 1024, 2) . ' KB';
-        } else {
-            return $bytes . ' bytes';
         }
+
+        return $bytes . ' bytes';
     }
 
     /**
@@ -165,12 +165,12 @@ class DocumentDownload extends Model
      */
     public function isMobileDownload(): bool
     {
-        if (!$this->user_agent) {
+        if (! $this->user_agent) {
             return false;
         }
 
         $mobileKeywords = ['Mobile', 'Android', 'iPhone', 'iPad', 'Windows Phone'];
-        
+
         foreach ($mobileKeywords as $keyword) {
             if (strpos($this->user_agent, $keyword) !== false) {
                 return true;
@@ -185,7 +185,7 @@ class DocumentDownload extends Model
      */
     public function getBrowserName(): string
     {
-        if (!$this->user_agent) {
+        if (! $this->user_agent) {
             return 'Unknown';
         }
 
@@ -253,16 +253,16 @@ class DocumentDownload extends Model
             'downloads_this_week' => $downloads->thisWeek()->count(),
             'downloads_this_month' => $downloads->thisMonth()->count(),
             'by_type' => $downloads->selectRaw('download_type, COUNT(*) as count')
-                                   ->groupBy('download_type')
-                                   ->pluck('count', 'download_type')
-                                   ->toArray(),
+                ->groupBy('download_type')
+                ->pluck('count', 'download_type')
+                ->toArray(),
             'total_data_transferred' => $downloads->sum('file_size_downloaded'),
             'last_download' => $downloads->latest()->first()?->created_at,
             'most_active_user' => $downloads->whereNotNull('user_id')
-                                           ->selectRaw('user_id, COUNT(*) as count')
-                                           ->groupBy('user_id')
-                                           ->orderByDesc('count')
-                                           ->first(),
+                ->selectRaw('user_id, COUNT(*) as count')
+                ->groupBy('user_id')
+                ->orderByDesc('count')
+                ->first(),
         ];
     }
 
@@ -281,11 +281,11 @@ class DocumentDownload extends Model
             'downloads_this_month' => $downloads->thisMonth()->count(),
             'total_data_downloaded' => $downloads->sum('file_size_downloaded'),
             'favorite_file_types' => $downloads->join('documents', 'documents.id', '=', 'document_downloads.document_id')
-                                             ->selectRaw('documents.file_type, COUNT(*) as count')
-                                             ->groupBy('documents.file_type')
-                                             ->orderByDesc('count')
-                                             ->pluck('count', 'file_type')
-                                             ->toArray(),
+                ->selectRaw('documents.file_type, COUNT(*) as count')
+                ->groupBy('documents.file_type')
+                ->orderByDesc('count')
+                ->pluck('count', 'file_type')
+                ->toArray(),
             'last_download' => $downloads->latest()->first()?->created_at,
         ];
     }
@@ -306,19 +306,19 @@ class DocumentDownload extends Model
             'unique_downloaders' => $downloads->whereNotNull('user_id')->distinct('user_id')->count(),
             'unique_documents' => $downloads->distinct('document_id')->count(),
             'top_documents' => $downloads->selectRaw('document_id, COUNT(*) as count')
-                                        ->groupBy('document_id')
-                                        ->orderByDesc('count')
-                                        ->limit(10)
-                                        ->with('document')
-                                        ->get(),
+                ->groupBy('document_id')
+                ->orderByDesc('count')
+                ->limit(10)
+                ->with('document')
+                ->get(),
             'downloads_by_type' => $downloads->selectRaw('download_type, COUNT(*) as count')
-                                            ->groupBy('download_type')
-                                            ->pluck('count', 'download_type')
-                                            ->toArray(),
+                ->groupBy('download_type')
+                ->pluck('count', 'download_type')
+                ->toArray(),
             'downloads_by_hour' => $downloads->selectRaw('HOUR(created_at) as hour, COUNT(*) as count')
-                                            ->groupBy('hour')
-                                            ->pluck('count', 'hour')
-                                            ->toArray(),
+                ->groupBy('hour')
+                ->pluck('count', 'hour')
+                ->toArray(),
         ];
     }
 }

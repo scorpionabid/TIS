@@ -2,22 +2,21 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\User;
-use App\Models\Role;
-use App\Models\Institution;
-use App\Models\Department;
-use App\Models\Student;
-use App\Models\SchoolClass;
-use App\Models\Survey;
-use App\Models\Task;
-use App\Models\UserProfile;
-use App\Models\Subject;
 use App\Models\Assessment;
 use App\Models\Attendance;
+use App\Models\Department;
+use App\Models\Institution;
+use App\Models\Role;
+use App\Models\SchoolClass;
+use App\Models\Student;
+use App\Models\Subject;
+use App\Models\Survey;
+use App\Models\Task;
+use App\Models\User;
+use App\Models\UserProfile;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 /**
  * Comprehensive Test Data Seeder for ATİS System
@@ -27,7 +26,9 @@ use Illuminate\Support\Str;
 class TestDataSeeder extends Seeder
 {
     private array $createdUsers = [];
+
     private array $createdInstitutions = [];
+
     private array $createdClasses = [];
 
     public function run(): void
@@ -36,31 +37,31 @@ class TestDataSeeder extends Seeder
 
         // Ensure basic data exists first
         $this->ensureBasicData();
-        
+
         // Create test users with profiles for all roles
         $this->createTestUsers();
-        
+
         // Create additional test institutions
         $this->createTestInstitutions();
-        
+
         // Create departments
         $this->createTestDepartments();
-        
+
         // Create classes and students
         $this->createTestClassesAndStudents();
-        
+
         // Create subjects and assessments
         $this->createTestSubjectsAndAssessments();
-        
+
         // Create surveys and tasks
         $this->createTestSurveysAndTasks();
-        
+
         // Create attendance records
         $this->createTestAttendance();
-        
+
         // Create soft delete test scenarios
         $this->createSoftDeleteTestData();
-        
+
         // Summary
         $this->displaySeedingSummary();
 
@@ -70,13 +71,13 @@ class TestDataSeeder extends Seeder
     private function ensureBasicData(): void
     {
         $this->command->info('🔍 Ensuring basic data exists...');
-        
+
         // Check if basic roles exist
         $rolesCount = Role::count();
         if ($rolesCount < 10) {
             $this->command->warn("Only $rolesCount roles found. Please run RoleSeeder first.");
         }
-        
+
         // Check if basic institutions exist
         $institutionsCount = Institution::count();
         if ($institutionsCount < 5) {
@@ -102,8 +103,8 @@ class TestDataSeeder extends Seeder
                 'profile' => [
                     'phone' => '+994 50 555-0001',
                     'address' => 'Ministry of Education, Test Building',
-                    'position' => 'Test System Administrator'
-                ]
+                    'position' => 'Test System Administrator',
+                ],
             ],
             [
                 'name' => 'Test SuperAdmin Secondary',
@@ -116,10 +117,10 @@ class TestDataSeeder extends Seeder
                 'is_active' => false, // For soft delete testing
                 'profile' => [
                     'phone' => '+994 50 555-0002',
-                    'position' => 'Test Secondary Administrator'
-                ]
+                    'position' => 'Test Secondary Administrator',
+                ],
             ],
-            
+
             // RegionAdmin users
             [
                 'name' => 'Test Baku RegionAdmin',
@@ -133,8 +134,8 @@ class TestDataSeeder extends Seeder
                 'profile' => [
                     'phone' => '+994 12 555-0003',
                     'address' => 'Baku Regional Education Office',
-                    'position' => 'Test Regional Administrator'
-                ]
+                    'position' => 'Test Regional Administrator',
+                ],
             ],
             [
                 'name' => 'Test Ganja RegionAdmin',
@@ -147,10 +148,10 @@ class TestDataSeeder extends Seeder
                 'is_active' => true,
                 'profile' => [
                     'phone' => '+994 22 555-0004',
-                    'position' => 'Test Regional Administrator'
-                ]
+                    'position' => 'Test Regional Administrator',
+                ],
             ],
-            
+
             // SektorAdmin users
             [
                 'name' => 'Test SektorAdmin Primary',
@@ -163,10 +164,10 @@ class TestDataSeeder extends Seeder
                 'is_active' => true,
                 'profile' => [
                     'phone' => '+994 12 555-0005',
-                    'position' => 'Test Sector Administrator'
-                ]
+                    'position' => 'Test Sector Administrator',
+                ],
             ],
-            
+
             // SchoolAdmin users
             [
                 'name' => 'Test SchoolAdmin Primary',
@@ -179,8 +180,8 @@ class TestDataSeeder extends Seeder
                 'is_active' => true,
                 'profile' => [
                     'phone' => '+994 12 555-0006',
-                    'position' => 'Test School Director'
-                ]
+                    'position' => 'Test School Director',
+                ],
             ],
             [
                 'name' => 'Test SchoolAdmin Secondary',
@@ -193,10 +194,10 @@ class TestDataSeeder extends Seeder
                 'is_active' => true,
                 'profile' => [
                     'phone' => '+994 12 555-0007',
-                    'position' => 'Test School Director'
-                ]
+                    'position' => 'Test School Director',
+                ],
             ],
-            
+
             // Teacher users
             [
                 'name' => 'Test Teacher Math',
@@ -210,8 +211,8 @@ class TestDataSeeder extends Seeder
                 'profile' => [
                     'phone' => '+994 50 555-0008',
                     'position' => 'Mathematics Teacher',
-                    'subject_specialization' => 'Mathematics'
-                ]
+                    'subject_specialization' => 'Mathematics',
+                ],
             ],
             [
                 'name' => 'Test Teacher Language',
@@ -225,8 +226,8 @@ class TestDataSeeder extends Seeder
                 'profile' => [
                     'phone' => '+994 50 555-0009',
                     'position' => 'Language Teacher',
-                    'subject_specialization' => 'Azerbaijani Language'
-                ]
+                    'subject_specialization' => 'Azerbaijani Language',
+                ],
             ],
             [
                 'name' => 'Test Teacher Inactive',
@@ -239,15 +240,16 @@ class TestDataSeeder extends Seeder
                 'is_active' => false, // For soft delete testing
                 'profile' => [
                     'phone' => '+994 50 555-0010',
-                    'position' => 'Inactive Test Teacher'
-                ]
-            ]
+                    'position' => 'Inactive Test Teacher',
+                ],
+            ],
         ];
 
         foreach ($testUsersData as $userData) {
             $role = Role::where('name', $userData['role'])->first();
-            if (!$role) {
+            if (! $role) {
                 $this->command->warn("Role not found: {$userData['role']}");
+
                 continue;
             }
 
@@ -266,7 +268,7 @@ class TestDataSeeder extends Seeder
             );
 
             // Assign role
-            if (!$user->hasRole($role)) {
+            if (! $user->hasRole($role)) {
                 $user->assignRole($role);
             }
 
@@ -293,7 +295,7 @@ class TestDataSeeder extends Seeder
         // Get existing institutions for parent relationships
         $bakuRegion = Institution::where('level', 2)->where('name', 'like', '%Baku%')->first();
         $ganjaRegion = Institution::where('level', 3)->where('name', 'like', '%Ganja%')->first();
-        
+
         $testInstitutions = [
             [
                 'name' => 'Test Kindergarten №1',
@@ -307,7 +309,7 @@ class TestDataSeeder extends Seeder
                 'contact_email' => 'test-kg1@edu.az',
                 'director_name' => 'Test KG Director',
                 'student_capacity' => 120,
-                'staff_count' => 15
+                'staff_count' => 15,
             ],
             [
                 'name' => 'Test Vocational School №1',
@@ -321,7 +323,7 @@ class TestDataSeeder extends Seeder
                 'contact_email' => 'test-voc1@edu.az',
                 'director_name' => 'Test Vocational Director',
                 'student_capacity' => 300,
-                'staff_count' => 25
+                'staff_count' => 25,
             ],
             [
                 'name' => 'Test High School №99',
@@ -336,8 +338,8 @@ class TestDataSeeder extends Seeder
                 'director_name' => 'Test High School Director',
                 'student_capacity' => 600,
                 'staff_count' => 45,
-                'is_active' => false // For soft delete testing
-            ]
+                'is_active' => false, // For soft delete testing
+            ],
         ];
 
         foreach ($testInstitutions as $instData) {
@@ -356,10 +358,10 @@ class TestDataSeeder extends Seeder
                     'student_capacity' => $instData['student_capacity'],
                     'staff_count' => $instData['staff_count'],
                     'is_active' => $instData['is_active'] ?? true,
-                    'established_date' => Carbon::now()->subYears(rand(5, 20))
+                    'established_date' => Carbon::now()->subYears(rand(5, 20)),
                 ]
             );
-            
+
             $this->createdInstitutions[] = $institution;
             $this->command->info("✅ Created institution: {$instData['name']}");
         }
@@ -370,25 +372,25 @@ class TestDataSeeder extends Seeder
         $this->command->info('🏛️ Creating test departments...');
 
         $schools = Institution::where('level', 4)->whereIn('type', ['school', 'high_school'])->take(3)->get();
-        
+
         $departmentTypes = [
             ['name' => 'Academic Department', 'type' => 'academic', 'description' => 'Academic affairs and curriculum'],
             ['name' => 'Administrative Department', 'type' => 'administrative', 'description' => 'Administrative operations'],
             ['name' => 'Finance Department', 'type' => 'finance', 'description' => 'Financial management and budgeting'],
         ];
-        
+
         foreach ($schools as $school) {
             foreach ($departmentTypes as $deptData) {
                 Department::firstOrCreate(
                     [
                         'institution_id' => $school->id,
-                        'name' => $deptData['name']
+                        'name' => $deptData['name'],
                     ],
                     [
                         'description' => $deptData['description'] . " for {$school->name}",
                         'type' => $deptData['type'],
                         'head_teacher_id' => null, // Will be assigned later if needed
-                        'is_active' => true
+                        'is_active' => true,
                     ]
                 );
             }
@@ -400,7 +402,7 @@ class TestDataSeeder extends Seeder
         $this->command->info('📚 Creating test classes and students...');
 
         $schools = Institution::where('level', 4)->whereIn('type', ['school', 'high_school'])->take(2)->get();
-        
+
         foreach ($schools as $school) {
             // Create classes for grades 1-11
             for ($grade = 1; $grade <= 11; $grade++) {
@@ -408,7 +410,7 @@ class TestDataSeeder extends Seeder
                     $class = SchoolClass::firstOrCreate(
                         [
                             'institution_id' => $school->id,
-                            'name' => "{$grade}-{$section}"
+                            'name' => "{$grade}-{$section}",
                         ],
                         [
                             'grade' => $grade,
@@ -417,21 +419,21 @@ class TestDataSeeder extends Seeder
                             'capacity' => 30,
                             'current_students' => 0, // Will be updated as students are added
                             'class_teacher_id' => null, // Will be assigned later
-                            'is_active' => true
+                            'is_active' => true,
                         ]
                     );
-                    
+
                     $this->createdClasses[] = $class;
-                    
+
                     // Create students for this class (10-25 students per class)
                     $studentsCount = rand(10, 25);
                     for ($i = 1; $i <= $studentsCount; $i++) {
-                        $studentId = $school->id . str_pad($grade, 2, '0', STR_PAD_LEFT) . 
+                        $studentId = $school->id . str_pad($grade, 2, '0', STR_PAD_LEFT) .
                                    $section . str_pad($i, 3, '0', STR_PAD_LEFT);
-                        
+
                         $birthYear = date('Y') - $grade - 6; // Approximate age
                         $birthDate = Carbon::createFromDate($birthYear, rand(1, 12), rand(1, 28));
-                        
+
                         Student::firstOrCreate(
                             ['student_id' => $studentId],
                             [
@@ -445,11 +447,11 @@ class TestDataSeeder extends Seeder
                                 'enrollment_date' => Carbon::now()->startOfYear(),
                                 'status' => 'active',
                                 'parent_phone' => '+994 50 ' . rand(100, 999) . '-' . rand(1000, 9999),
-                                'address' => 'Test Student Address ' . $i
+                                'address' => 'Test Student Address ' . $i,
                             ]
                         );
                     }
-                    
+
                     // Update current students count
                     $class->current_students = $studentsCount;
                     $class->save();
@@ -470,7 +472,7 @@ class TestDataSeeder extends Seeder
             'Coğrafiya' => 'Geography',
             'Fizika' => 'Physics',
             'Kimya' => 'Chemistry',
-            'Biologiya' => 'Biology'
+            'Biologiya' => 'Biology',
         ];
 
         foreach ($subjects as $nameAz => $nameEn) {
@@ -480,7 +482,7 @@ class TestDataSeeder extends Seeder
                     'name_en' => $nameEn,
                     'code' => strtoupper(substr($nameEn, 0, 3)),
                     'description' => "Test subject: {$nameEn}",
-                    'is_active' => true
+                    'is_active' => true,
                 ]
             );
         }
@@ -488,29 +490,29 @@ class TestDataSeeder extends Seeder
         // Create some assessment records
         $classes = SchoolClass::take(5)->get();
         $subjects = Subject::take(3)->get();
-        
+
         foreach ($classes as $class) {
             $students = Student::where('class_id', $class->id)->take(5)->get();
-            
+
             foreach ($subjects as $subject) {
                 foreach ($students as $student) {
                     // Create different types of assessments
                     $assessmentTypes = ['current', 'midterm', 'final'];
-                    
+
                     foreach ($assessmentTypes as $type) {
                         Assessment::firstOrCreate(
                             [
                                 'student_id' => $student->id,
                                 'subject_id' => $subject->id,
                                 'assessment_type' => $type,
-                                'assessment_date' => Carbon::now()->subDays(rand(1, 60))
+                                'assessment_date' => Carbon::now()->subDays(rand(1, 60)),
                             ],
                             [
                                 'grade' => rand(2, 5), // Azerbaijani grading scale
                                 'points' => rand(60, 100),
                                 'max_points' => 100,
                                 'teacher_id' => $this->createdUsers[array_rand($this->createdUsers)]->id ?? null,
-                                'notes' => "Test assessment for {$type} evaluation"
+                                'notes' => "Test assessment for {$type} evaluation",
                             ]
                         );
                     }
@@ -535,7 +537,7 @@ class TestDataSeeder extends Seeder
                 'created_by' => $regionAdmin?->id ?? 1,
                 'target_audience' => 'teachers',
                 'status' => 'active',
-                'priority' => 'high'
+                'priority' => 'high',
             ],
             [
                 'title' => 'School Infrastructure Needs Survey',
@@ -543,7 +545,7 @@ class TestDataSeeder extends Seeder
                 'created_by' => $sektorAdmin?->id ?? 1,
                 'target_audience' => 'schooladmins',
                 'status' => 'draft',
-                'priority' => 'medium'
+                'priority' => 'medium',
             ],
             [
                 'title' => 'Student Performance Evaluation',
@@ -551,8 +553,8 @@ class TestDataSeeder extends Seeder
                 'created_by' => $schoolAdmin?->id ?? 1,
                 'target_audience' => 'teachers',
                 'status' => 'active',
-                'priority' => 'high'
-            ]
+                'priority' => 'high',
+            ],
         ];
 
         foreach ($surveys as $surveyData) {
@@ -579,7 +581,7 @@ class TestDataSeeder extends Seeder
                 'assigned_to' => $sektorAdmin?->id ?? 2,
                 'priority' => 'high',
                 'status' => 'in_progress',
-                'due_date' => Carbon::now()->addDays(21)
+                'due_date' => Carbon::now()->addDays(21),
             ],
             [
                 'title' => 'Teacher Performance Evaluation',
@@ -588,7 +590,7 @@ class TestDataSeeder extends Seeder
                 'assigned_to' => $schoolAdmin?->id ?? 3,
                 'priority' => 'medium',
                 'status' => 'pending',
-                'due_date' => Carbon::now()->addDays(14)
+                'due_date' => Carbon::now()->addDays(14),
             ],
             [
                 'title' => 'School Safety Inspection Preparation',
@@ -597,8 +599,8 @@ class TestDataSeeder extends Seeder
                 'assigned_to' => null,
                 'priority' => 'high',
                 'status' => 'pending',
-                'due_date' => Carbon::now()->addDays(7)
-            ]
+                'due_date' => Carbon::now()->addDays(7),
+            ],
         ];
 
         foreach ($tasks as $taskData) {
@@ -610,7 +612,7 @@ class TestDataSeeder extends Seeder
                     'assigned_to' => $taskData['assigned_to'],
                     'priority' => $taskData['priority'],
                     'status' => $taskData['status'],
-                    'due_date' => $taskData['due_date']
+                    'due_date' => $taskData['due_date'],
                 ]
             );
         }
@@ -621,34 +623,34 @@ class TestDataSeeder extends Seeder
         $this->command->info('📅 Creating test attendance records...');
 
         $classes = SchoolClass::take(3)->get();
-        
+
         foreach ($classes as $class) {
             $students = Student::where('class_id', $class->id)->take(10)->get();
-            
+
             // Create attendance for the last 30 days
             for ($day = 30; $day >= 1; $day--) {
                 $date = Carbon::now()->subDays($day);
-                
+
                 // Skip weekends
                 if ($date->isWeekend()) {
                     continue;
                 }
-                
+
                 foreach ($students as $student) {
                     // 90% attendance rate
                     $isPresent = rand(1, 100) <= 90;
-                    
+
                     if (class_exists('App\Models\Attendance')) {
                         Attendance::firstOrCreate(
                             [
                                 'student_id' => $student->id,
-                                'date' => $date->format('Y-m-d')
+                                'date' => $date->format('Y-m-d'),
                             ],
                             [
                                 'class_id' => $class->id,
                                 'status' => $isPresent ? 'present' : 'absent',
                                 'marked_by' => $this->createdUsers[array_rand($this->createdUsers)]->id ?? null,
-                                'notes' => $isPresent ? null : 'Test absence record'
+                                'notes' => $isPresent ? null : 'Test absence record',
                             ]
                         );
                     }
@@ -669,7 +671,7 @@ class TestDataSeeder extends Seeder
                 'username' => 'test-user-delete',
                 'role' => 'müəllim',
                 'institution_id' => 5,
-                'is_active' => false // Will be soft deleted
+                'is_active' => false, // Will be soft deleted
             ],
             [
                 'name' => 'Test User For Restoration',
@@ -677,8 +679,8 @@ class TestDataSeeder extends Seeder
                 'username' => 'test-user-restore',
                 'role' => 'schooladmin',
                 'institution_id' => 6,
-                'is_active' => false // Will be soft deleted then restored
-            ]
+                'is_active' => false, // Will be soft deleted then restored
+            ],
         ];
 
         foreach ($softDeleteUsers as $userData) {
@@ -695,14 +697,14 @@ class TestDataSeeder extends Seeder
                         'email_verified_at' => now(),
                     ]
                 );
-                
+
                 $user->assignRole($role);
-                
+
                 // Simulate soft delete by setting deleted_at
-                if (!$userData['is_active']) {
+                if (! $userData['is_active']) {
                     $user->delete(); // This will set deleted_at timestamp
                 }
-                
+
                 $this->command->info("✅ Created soft delete test user: {$userData['email']}");
             }
         }
@@ -712,7 +714,7 @@ class TestDataSeeder extends Seeder
     {
         $this->command->info('📊 Test Data Seeding Summary:');
         $this->command->info('===============================');
-        
+
         // Count created data
         $stats = [
             'Users' => User::count(),
@@ -725,11 +727,11 @@ class TestDataSeeder extends Seeder
             'Surveys' => Survey::count(),
             'Tasks' => Task::count(),
         ];
-        
+
         foreach ($stats as $entity => $count) {
             $this->command->info("📈 {$entity}: {$count}");
         }
-        
+
         $this->command->info('===============================');
         $this->command->info('🔑 Test Login Credentials (all use password: test123):');
         $this->command->info('   SuperAdmin: test-superadmin@atis.test');
@@ -743,14 +745,14 @@ class TestDataSeeder extends Seeder
     {
         $firstNames = [
             'Əli', 'Məhəmməd', 'Həsən', 'Hüseyn', 'İbrahim', 'İsmayıl', 'Murad', 'Rəşad', 'Sahib', 'Tural',
-            'Aynur', 'Aytən', 'Günel', 'Leyla', 'Məryəm', 'Nigar', 'Səbinə', 'Şəbnəm', 'Ülkər', 'Zülfiyyə'
+            'Aynur', 'Aytən', 'Günel', 'Leyla', 'Məryəm', 'Nigar', 'Səbinə', 'Şəbnəm', 'Ülkər', 'Zülfiyyə',
         ];
-        
+
         $lastNames = [
             'Əliyev', 'Həsənov', 'Hüseynov', 'İbrahimov', 'Kərimov', 'Məmmədov', 'Rəhimov', 'Səfərov', 'Təhməzov', 'Vəliyev',
-            'Əliyeva', 'Həsənova', 'Hüseynova', 'İbrahimova', 'Kərimova', 'Məmmədova', 'Rəhimova', 'Səfərova', 'Təhməzova', 'Vəliyeva'
+            'Əliyeva', 'Həsənova', 'Hüseynova', 'İbrahimova', 'Kərimova', 'Məmmədova', 'Rəhimova', 'Səfərova', 'Təhməzova', 'Vəliyeva',
         ];
-        
+
         return $type === 'first' ? $firstNames[array_rand($firstNames)] : $lastNames[array_rand($lastNames)];
     }
 }

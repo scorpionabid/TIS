@@ -166,10 +166,10 @@ class SurveyResponse extends Model
         foreach ($questions as $question) {
             $questionId = (string) $question->id;
             $response = $this->responses[$questionId] ?? null;
-            
+
             // Check if question has a meaningful answer
             $hasAnswer = false;
-            
+
             if ($response !== null && $response !== '') {
                 // For multiple choice, check if array has items
                 if ($question->type === 'multiple_choice' && is_array($response)) {
@@ -178,24 +178,23 @@ class SurveyResponse extends Model
                 // For other types, check if value exists and is not empty
                 elseif (is_string($response)) {
                     $hasAnswer = trim($response) !== '';
-                }
-                else {
+                } else {
                     $hasAnswer = true;
                 }
             }
-            
+
             if ($hasAnswer) {
                 $answeredQuestions++;
             }
-            
+
             // Check if this is a required question that's unanswered
-            if (($question->required || $question->is_required) && !$hasAnswer) {
+            if (($question->required || $question->is_required) && ! $hasAnswer) {
                 $unansweredRequired++;
             }
         }
 
-        $this->progress_percentage = $totalQuestions > 0 
-            ? round(($answeredQuestions / $totalQuestions) * 100) 
+        $this->progress_percentage = $totalQuestions > 0
+            ? round(($answeredQuestions / $totalQuestions) * 100)
             : 0;
 
         // Survey is complete when all questions answered AND no required questions are missing
@@ -235,7 +234,7 @@ class SurveyResponse extends Model
                 $metadata['last_resubmitted_at'] = $resubmittedAt->toISOString();
 
                 $deadline = $approvalRequest->deadline;
-                if (!$deadline || $deadline->isPast()) {
+                if (! $deadline || $deadline->isPast()) {
                     $deadline = $resubmittedAt->copy()->addDays(7);
                 }
 
@@ -254,7 +253,7 @@ class SurveyResponse extends Model
         }
 
         // Only create approval request for submitted responses that need approval
-        if (!in_array($this->status, ['submitted', 'pending_approval'])) {
+        if (! in_array($this->status, ['submitted', 'pending_approval'])) {
             return;
         }
 
@@ -266,13 +265,13 @@ class SurveyResponse extends Model
                 'priority' => 'normal',
                 'metadata' => [
                     'auto_created' => true,
-                    'created_reason' => 'missing_approval_request_fix'
-                ]
+                    'created_reason' => 'missing_approval_request_fix',
+                ],
             ]);
         } catch (\Exception $e) {
             \Log::error('Failed to create approval request for survey response', [
                 'survey_response_id' => $this->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
         }
     }
@@ -285,13 +284,13 @@ class SurveyResponse extends Model
         $this->status = 'approved';
         $this->approved_by = $approver->id;
         $this->approved_at = now();
-        
+
         // Update associated approval request if exists
         if ($this->approvalRequest) {
             $this->approvalRequest->update([
                 'status' => 'approved',
                 'approved_at' => now(),
-                'approver_id' => $approver->id
+                'approver_id' => $approver->id,
             ]);
         }
 
@@ -309,14 +308,14 @@ class SurveyResponse extends Model
     {
         $this->status = 'rejected';
         $this->rejection_reason = $reason;
-        
+
         // Update associated approval request if exists
         if ($this->approvalRequest) {
             $this->approvalRequest->update([
                 'status' => 'rejected',
                 'rejected_at' => now(),
                 'rejection_reason' => $reason,
-                'approver_id' => $rejector ? $rejector->id : null
+                'approver_id' => $rejector ? $rejector->id : null,
             ]);
         }
 
@@ -420,7 +419,7 @@ class SurveyResponse extends Model
             $this->approvalRequest->update([
                 'current_status' => 'returned',
                 'rejection_reason' => $reason,
-                'approver_id' => $rejector ? $rejector->id : null
+                'approver_id' => $rejector ? $rejector->id : null,
             ]);
         }
 

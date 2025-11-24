@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class ApprovalDelegate extends Model
 {
@@ -61,8 +60,8 @@ class ApprovalDelegate extends Model
     public function scopeActive($query)
     {
         return $query->where('status', 'active')
-                    ->where('valid_from', '<=', now())
-                    ->where('valid_until', '>=', now());
+            ->where('valid_from', '<=', now())
+            ->where('valid_until', '>=', now());
     }
 
     /**
@@ -71,7 +70,7 @@ class ApprovalDelegate extends Model
     public function scopeExpired($query)
     {
         return $query->where('status', 'active')
-                    ->where('valid_until', '<', now());
+            ->where('valid_until', '<', now());
     }
 
     /**
@@ -123,7 +122,7 @@ class ApprovalDelegate extends Model
     /**
      * Revoke this delegation
      */
-    public function revoke(string $reason = null): void
+    public function revoke(?string $reason = null): void
     {
         $this->update([
             'status' => 'revoked',
@@ -134,7 +133,7 @@ class ApprovalDelegate extends Model
     /**
      * Suspend this delegation
      */
-    public function suspend(string $reason = null): void
+    public function suspend(?string $reason = null): void
     {
         $this->update([
             'status' => 'suspended',
@@ -147,7 +146,7 @@ class ApprovalDelegate extends Model
      */
     public function reactivate(): void
     {
-        if (!$this->isExpired()) {
+        if (! $this->isExpired()) {
             $this->update(['status' => 'active']);
         }
     }
@@ -157,7 +156,7 @@ class ApprovalDelegate extends Model
      */
     public function getFormattedScope(): string
     {
-        return match($this->delegation_scope) {
+        return match ($this->delegation_scope) {
             'all' => 'Bütün əməliyyatlar',
             'attendance_only' => 'Yalnız davamiyyət',
             'schedules_only' => 'Yalnız cədvəllər',
@@ -173,7 +172,7 @@ class ApprovalDelegate extends Model
      */
     public function getStatusColor(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'active' => 'success',
             'expired' => 'secondary',
             'revoked' => 'destructive',
@@ -199,7 +198,7 @@ class ApprovalDelegate extends Model
      */
     public function getFormattedStatus(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'active' => 'Aktiv',
             'expired' => 'Müddəti bitib',
             'revoked' => 'Ləğv edilib',

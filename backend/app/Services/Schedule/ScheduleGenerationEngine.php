@@ -2,28 +2,28 @@
 
 namespace App\Services\Schedule;
 
-use App\Models\Schedule;
-use App\Models\ScheduleSession;
-use App\Models\TeachingLoad;
-use App\Models\ScheduleGenerationSetting;
 use App\Models\AcademicYear;
 use App\Models\ClassModel;
+use App\Models\Schedule;
+use App\Models\ScheduleSession;
 use App\Models\TimeSlot;
-use App\Services\Schedule\WorkloadScheduleIntegrationService;
-use App\Services\Schedule\ScheduleRoomAssignmentService;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class ScheduleGenerationEngine
 {
     private WorkloadScheduleIntegrationService $integrationService;
+
     private ScheduleRoomAssignmentService $roomAssignmentService;
+
     private array $timeMatrix = [];
+
     private array $conflicts = [];
+
     private array $generationLog = [];
+
     private array $originalTeachingLoads = [];
+
     private array $preferences = [];
 
     public function __construct(WorkloadScheduleIntegrationService $integrationService, ScheduleRoomAssignmentService $roomAssignmentService)
@@ -84,20 +84,19 @@ class ScheduleGenerationEngine
                 'resolved_conflicts' => $resolvedConflicts,
                 'generation_time' => round($executionTime, 2),
                 'statistics' => $statistics,
-                'generation_log' => $this->generationLog
+                'generation_log' => $this->generationLog,
             ];
-
         } catch (\Exception $e) {
             Log::error('Schedule generation failed', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
                 'conflicts' => $this->conflicts,
-                'generation_log' => $this->generationLog
+                'generation_log' => $this->generationLog,
             ];
         }
     }
@@ -138,12 +137,12 @@ class ScheduleGenerationEngine
             ?? ($user?->institution_id);
 
         $classRecord = null;
-        if (!$institutionId && isset($firstLoad['class']['id'])) {
+        if (! $institutionId && isset($firstLoad['class']['id'])) {
             $classRecord = ClassModel::find($firstLoad['class']['id']);
             $institutionId = $classRecord?->institution_id;
         }
 
-        if (!$institutionId) {
+        if (! $institutionId) {
             throw new \InvalidArgumentException('Institution information is required for schedule generation.');
         }
 
@@ -158,18 +157,18 @@ class ScheduleGenerationEngine
         $academicYearId = $workloadData['academic_year_id']
             ?? ($firstLoad['class']['academic_year_id'] ?? null);
 
-        if (!$academicYearId && $classRecord) {
+        if (! $academicYearId && $classRecord) {
             $academicYearId = $classRecord->academic_year_id;
         }
 
-        if (!$academicYearId) {
+        if (! $academicYearId) {
             $academicYearId = AcademicYear::query()
                 ->where('is_active', true)
                 ->orderByDesc('start_date')
                 ->value('id');
         }
 
-        if (!$academicYearId) {
+        if (! $academicYearId) {
             throw new \InvalidArgumentException('Academic year identifier is required for schedule generation.');
         }
 
@@ -198,11 +197,11 @@ class ScheduleGenerationEngine
         $this->timeMatrix = [];
         $this->conflicts = [];
         $this->generationLog = [];
-        
+
         $this->log('Generation initialized', [
             'teaching_loads_count' => count($workloadData['teaching_loads']),
             'time_slots_count' => count($workloadData['time_slots']),
-            'preferences' => $preferences
+            'preferences' => $preferences,
         ]);
     }
 
@@ -240,8 +239,8 @@ class ScheduleGenerationEngine
             'metadata' => [
                 'generated_at' => now()->toISOString(),
                 'generation_engine_version' => '1.0',
-                'workload_data_hash' => md5(json_encode($workloadData['teaching_loads']))
-            ]
+                'workload_data_hash' => md5(json_encode($workloadData['teaching_loads'])),
+            ],
         ]);
 
         $this->log('Schedule record created', ['schedule_id' => $schedule->id]);
@@ -255,7 +254,7 @@ class ScheduleGenerationEngine
     private function createTimeMatrix(array $settings, array $timeSlots): void
     {
         $this->timeMatrix = [];
-        
+
         foreach ($settings['working_days'] as $day) {
             $this->timeMatrix[$day] = [];
 
@@ -267,7 +266,7 @@ class ScheduleGenerationEngine
                         'available' => true,
                         'assignments' => [],
                         'conflicts' => [],
-                        'time_slot' => $slot
+                        'time_slot' => $slot,
                     ];
                 }
             }
@@ -275,7 +274,7 @@ class ScheduleGenerationEngine
 
         $this->log('Time matrix created', [
             'days' => count($this->timeMatrix),
-            'periods_per_day' => count($timeSlots)
+            'periods_per_day' => count($timeSlots),
         ]);
     }
 
@@ -285,18 +284,18 @@ class ScheduleGenerationEngine
     private function processTeachingLoads(array $teachingLoads, Schedule $schedule): array
     {
         $scheduledSessions = [];
-        
+
         // Sort teaching loads by priority
         usort($teachingLoads, function ($a, $b) {
             return $a['priority_level'] <=> $b['priority_level'];
         });
 
         foreach ($teachingLoads as $load) {
-            $this->log("Processing teaching load", [
+            $this->log('Processing teaching load', [
                 'load_id' => $load['id'],
                 'teacher' => $load['teacher']['name'],
                 'subject' => $load['subject']['name'],
-                'weekly_hours' => $load['weekly_hours']
+                'weekly_hours' => $load['weekly_hours'],
             ]);
 
             $sessions = $this->scheduleTeachingLoad($load, $schedule);
@@ -318,19 +317,25 @@ class ScheduleGenerationEngine
         foreach ($distribution as $dayDistribution) {
             $day = $dayDistribution['day'];
             $lessonsNeeded = min($dayDistribution['lessons'], $remainingHours);
-            
-            if ($lessonsNeeded <= 0) continue;
+
+            if ($lessonsNeeded <= 0) {
+                continue;
+            }
 
             $daySessions = $this->findOptimalSlotsForDay($load, $day, $lessonsNeeded, $dayDistribution['consecutive']);
-            
+
             foreach ($daySessions as $session) {
                 $sessions[] = $session;
                 $remainingHours--;
-                
-                if ($remainingHours <= 0) break;
+
+                if ($remainingHours <= 0) {
+                    break;
+                }
             }
-            
-            if ($remainingHours <= 0) break;
+
+            if ($remainingHours <= 0) {
+                break;
+            }
         }
 
         // If we couldn't schedule all hours, try to fit remaining hours anywhere
@@ -349,7 +354,7 @@ class ScheduleGenerationEngine
     {
         $sessions = [];
         $availableSlots = $this->getAvailableSlotsForDay($day);
-        
+
         // Filter based on teacher and class availability
         $viableSlots = array_filter($availableSlots, function ($slot) use ($load) {
             return $this->isSlotViableForLoad($day, $slot, $load);
@@ -371,8 +376,9 @@ class ScheduleGenerationEngine
                 'load_id' => $load['id'],
                 'day' => $day,
                 'needed' => $lessonsNeeded,
-                'available' => count($viableSlots)
+                'available' => count($viableSlots),
             ]);
+
             return [];
         }
 
@@ -386,6 +392,7 @@ class ScheduleGenerationEngine
 
         // Otherwise, pick the best available slots
         $selectedSlots = array_slice($viableSlots, 0, $lessonsNeeded);
+
         return $this->createSessionsForSlots($load, $day, $selectedSlots);
     }
 
@@ -395,7 +402,7 @@ class ScheduleGenerationEngine
     private function isSlotViableForLoad(int $day, int $period, array $load): bool
     {
         // Check if slot is available
-        if (!$this->timeMatrix[$day][$period]['available']) {
+        if (! $this->timeMatrix[$day][$period]['available']) {
             return false;
         }
 
@@ -406,7 +413,7 @@ class ScheduleGenerationEngine
             }
         }
 
-        // Check class availability  
+        // Check class availability
         foreach ($this->timeMatrix[$day][$period]['assignments'] as $assignment) {
             if ($assignment['class_id'] === $load['class']['id']) {
                 return false;
@@ -414,7 +421,7 @@ class ScheduleGenerationEngine
         }
 
         // Check teacher preferences
-        if (!empty($load['unavailable_periods'])) {
+        if (! empty($load['unavailable_periods'])) {
             $slotKey = $day . '_' . $period;
             if (in_array($slotKey, $load['unavailable_periods'])) {
                 return false;
@@ -430,14 +437,14 @@ class ScheduleGenerationEngine
     private function findConsecutiveSlots(array $availableSlots, int $needed): ?array
     {
         sort($availableSlots);
-        
+
         for ($i = 0; $i <= count($availableSlots) - $needed; $i++) {
             $consecutive = [$availableSlots[$i]];
-            
+
             for ($j = $i + 1; $j < count($availableSlots); $j++) {
                 if ($availableSlots[$j] === end($consecutive) + 1) {
                     $consecutive[] = $availableSlots[$j];
-                    
+
                     if (count($consecutive) === $needed) {
                         return $consecutive;
                     }
@@ -496,7 +503,7 @@ class ScheduleGenerationEngine
                 'end_time' => $timeSlot['end_time'],
                 'duration_minutes' => $timeSlot['duration'],
                 'session_type' => 'regular',
-                'status' => 'scheduled'
+                'status' => 'scheduled',
             ];
 
             // Mark slot as occupied
@@ -505,7 +512,7 @@ class ScheduleGenerationEngine
                 'class_id' => $load['class']['id'],
                 'subject_id' => $load['subject']['id'],
                 'room_id' => $assignedRoomId,
-                'teaching_load_id' => $load['id']
+                'teaching_load_id' => $load['id'],
             ];
 
             $sessions[] = $session;
@@ -520,7 +527,7 @@ class ScheduleGenerationEngine
     private function getAvailableSlotsForDay(int $day): array
     {
         $available = [];
-        
+
         if (isset($this->timeMatrix[$day])) {
             foreach ($this->timeMatrix[$day] as $period => $slot) {
                 if ($slot['available']) {
@@ -538,24 +545,29 @@ class ScheduleGenerationEngine
     private function scheduleRemainingHours(array $load, int $remainingHours, Schedule $schedule): array
     {
         $sessions = [];
-        
+
         // Try to fit remaining hours in any available slots
         foreach ($this->timeMatrix as $day => $periods) {
-            if ($remainingHours <= 0) break;
+            if ($remainingHours <= 0) {
+                break;
+            }
 
             $periodKeys = array_keys($periods);
 
             if (($this->preferences['prefer_morning_core_subjects'] ?? false) && $this->isCoreSubject($load['subject'] ?? [])) {
                 $periodKeys = collect($periodKeys)->sort(function ($a, $b) {
-                    $weight = fn($period) => $period <= 4 ? $period : $period + 10;
+                    $weight = fn ($period) => $period <= 4 ? $period : $period + 10;
+
                     return $weight($a) <=> $weight($b);
                 })->values()->all();
             }
 
             foreach ($periodKeys as $period) {
                 $slot = $periods[$period];
-                if ($remainingHours <= 0) break;
-                
+                if ($remainingHours <= 0) {
+                    break;
+                }
+
                 if ($this->isSlotViableForLoad($day, $period, $load)) {
                     $sessionData = $this->createSessionsForSlots($load, $day, [$period]);
                     $sessions = array_merge($sessions, $sessionData);
@@ -570,7 +582,7 @@ class ScheduleGenerationEngine
                 'load_id' => $load['id'],
                 'teacher' => $load['teacher']['name'],
                 'subject' => $load['subject']['name'],
-                'unscheduled_hours' => $remainingHours
+                'unscheduled_hours' => $remainingHours,
             ]);
         }
 
@@ -584,7 +596,7 @@ class ScheduleGenerationEngine
     {
         $this->conflicts[] = array_merge($conflict, [
             'severity' => $conflict['severity'] ?? 'warning',
-            'timestamp' => now()->toISOString()
+            'timestamp' => now()->toISOString(),
         ]);
     }
 
@@ -596,10 +608,10 @@ class ScheduleGenerationEngine
         $this->detectTeacherLoadConflicts();
         // Teacher conflicts
         $this->detectTeacherConflicts();
-        
+
         // Class conflicts
         $this->detectClassConflicts();
-        
+
         // Room conflicts (if rooms are assigned)
         $this->detectRoomConflicts();
     }
@@ -612,17 +624,17 @@ class ScheduleGenerationEngine
         foreach ($this->timeMatrix as $day => $periods) {
             foreach ($periods as $period => $slot) {
                 $teachers = [];
-                
+
                 foreach ($slot['assignments'] as $assignment) {
                     $teacherId = $assignment['teacher_id'];
-                    
+
                     if (isset($teachers[$teacherId])) {
                         $this->addConflict([
                             'type' => 'teacher_double_booking',
                             'teacher_id' => $teacherId,
                             'day' => $day,
                             'period' => $period,
-                            'conflicting_loads' => [$teachers[$teacherId], $assignment['teaching_load_id']]
+                            'conflicting_loads' => [$teachers[$teacherId], $assignment['teaching_load_id']],
                         ]);
                     } else {
                         $teachers[$teacherId] = $assignment['teaching_load_id'];
@@ -638,7 +650,7 @@ class ScheduleGenerationEngine
 
         foreach ($this->originalTeachingLoads as $load) {
             $teacherId = $load['teacher']['id'] ?? null;
-            if (!$teacherId) {
+            if (! $teacherId) {
                 continue;
             }
 
@@ -668,17 +680,17 @@ class ScheduleGenerationEngine
         foreach ($this->timeMatrix as $day => $periods) {
             foreach ($periods as $period => $slot) {
                 $classes = [];
-                
+
                 foreach ($slot['assignments'] as $assignment) {
                     $classId = $assignment['class_id'];
-                    
+
                     if (isset($classes[$classId])) {
                         $this->addConflict([
                             'type' => 'class_double_booking',
                             'class_id' => $classId,
                             'day' => $day,
                             'period' => $period,
-                            'conflicting_loads' => [$classes[$classId], $assignment['teaching_load_id']]
+                            'conflicting_loads' => [$classes[$classId], $assignment['teaching_load_id']],
                         ]);
                     } else {
                         $classes[$classId] = $assignment['teaching_load_id'];
@@ -696,10 +708,10 @@ class ScheduleGenerationEngine
         foreach ($this->timeMatrix as $day => $periods) {
             foreach ($periods as $period => $slot) {
                 $roomAssignments = [];
-                
+
                 foreach ($slot['assignments'] as $assignment) {
                     $roomId = $assignment['room_id'] ?? null;
-                    if (!$roomId) {
+                    if (! $roomId) {
                         continue;
                     }
 
@@ -711,8 +723,8 @@ class ScheduleGenerationEngine
                             'period' => $period,
                             'conflicting_loads' => [
                                 $roomAssignments[$roomId],
-                                $assignment['teaching_load_id']
-                            ]
+                                $assignment['teaching_load_id'],
+                            ],
                         ]);
                     } else {
                         $roomAssignments[$roomId] = $assignment['teaching_load_id'];
@@ -728,10 +740,10 @@ class ScheduleGenerationEngine
     private function resolveConflicts(array $settings): array
     {
         $resolved = [];
-        
+
         // For now, just log conflicts - advanced resolution will be implemented in Phase 2
         foreach ($this->conflicts as $conflict) {
-            $this->log("Conflict detected", $conflict);
+            $this->log('Conflict detected', $conflict);
         }
 
         return $resolved;
@@ -757,7 +769,7 @@ class ScheduleGenerationEngine
     {
         $loadIds = array_column($teachingLoads, 'id');
         $this->integrationService->markTeachingLoadsAsScheduled($loadIds, $scheduleId);
-        
+
         $this->log('Teaching loads marked as scheduled', ['count' => count($loadIds)]);
     }
 
@@ -779,7 +791,7 @@ class ScheduleGenerationEngine
             'success_rate' => $successRate,
             'generation_duration_ms' => round($durationMs, 2),
             'memory_usage_bytes' => $memoryUsage,
-            'efficiency_score' => $this->calculateEfficiencyScore($totalSessions, $conflictCount)
+            'efficiency_score' => $this->calculateEfficiencyScore($totalSessions, $conflictCount),
         ];
     }
 
@@ -802,12 +814,12 @@ class ScheduleGenerationEngine
     {
         $days = [
             1 => 'monday',
-            2 => 'tuesday', 
+            2 => 'tuesday',
             3 => 'wednesday',
             4 => 'thursday',
             5 => 'friday',
             6 => 'saturday',
-            7 => 'sunday'
+            7 => 'sunday',
         ];
 
         return $days[$day] ?? 'monday';
@@ -821,7 +833,7 @@ class ScheduleGenerationEngine
         $this->generationLog[] = [
             'timestamp' => now()->toISOString(),
             'message' => $message,
-            'context' => $context
+            'context' => $context,
         ];
 
         Log::info("Schedule Generation: {$message}", $context);
@@ -830,6 +842,7 @@ class ScheduleGenerationEngine
     private function isCoreSubject(array $subject): bool
     {
         $coreSubjects = ['Riyaziyyat', 'Azərbaycan dili'];
+
         return in_array($subject['name'] ?? '', $coreSubjects, true);
     }
 }

@@ -101,10 +101,10 @@ class TaskAssignment extends Model
      */
     public function isOverdue(): bool
     {
-        return $this->task && 
-               $this->task->deadline && 
-               $this->task->deadline < now() && 
-               !in_array($this->assignment_status, ['completed']);
+        return $this->task &&
+               $this->task->deadline &&
+               $this->task->deadline < now() &&
+               ! in_array($this->assignment_status, ['completed']);
     }
 
     /**
@@ -114,9 +114,9 @@ class TaskAssignment extends Model
     {
         static::updating(function ($assignment) {
             if ($assignment->isDirty('assignment_status')) {
-                if ($assignment->assignment_status === 'accepted' && !$assignment->accepted_at) {
+                if ($assignment->assignment_status === 'accepted' && ! $assignment->accepted_at) {
                     $assignment->accepted_at = now();
-                } elseif ($assignment->assignment_status === 'completed' && !$assignment->completed_at) {
+                } elseif ($assignment->assignment_status === 'completed' && ! $assignment->completed_at) {
                     $assignment->completed_at = now();
                 }
             }

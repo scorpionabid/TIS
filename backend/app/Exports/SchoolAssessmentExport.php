@@ -4,15 +4,16 @@ namespace App\Exports;
 
 use App\Models\SchoolAssessment;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class SchoolAssessmentExport implements FromCollection, WithHeadings, WithMapping, WithStyles, ShouldAutoSize
+class SchoolAssessmentExport implements FromCollection, ShouldAutoSize, WithHeadings, WithMapping, WithStyles
 {
     protected $assessment;
+
     protected $resultFields;
 
     public function __construct(SchoolAssessment $assessment)
@@ -85,7 +86,7 @@ class SchoolAssessmentExport implements FromCollection, WithHeadings, WithMappin
                 'font' => ['bold' => true, 'size' => 12],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['rgb' => 'E2E8F0']
+                    'startColor' => ['rgb' => 'E2E8F0'],
                 ],
                 'alignment' => [
                     'horizontal' => \PhpOffice\PhpSpreadsheet\Style\Alignment::HORIZONTAL_CENTER,

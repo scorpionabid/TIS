@@ -3,17 +3,16 @@
 namespace App\Services\Schedule;
 
 use App\Models\Schedule;
-use App\Models\ScheduleSession;
 use App\Models\Teacher;
-use App\Models\Institution;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class MachineLearningScheduleAnalyzer
 {
     protected array $featureWeights = [];
+
     protected array $historicalData = [];
+
     protected array $patterns = [];
 
     public function __construct()
@@ -34,7 +33,7 @@ class MachineLearningScheduleAnalyzer
             'optimization_suggestions' => $this->generateOptimizationSuggestions($scheduleData),
             'similar_patterns' => $this->findSimilarHistoricalPatterns($scheduleData, $institutionId),
             'risk_factors' => $this->identifyRiskFactors($scheduleData),
-            'performance_metrics' => $this->calculatePredictedMetrics($scheduleData)
+            'performance_metrics' => $this->calculatePredictedMetrics($scheduleData),
         ];
 
         return $analysis;
@@ -67,7 +66,7 @@ class MachineLearningScheduleAnalyzer
             'teacher_conflicts' => $this->predictTeacherConflicts($scheduleData),
             'room_conflicts' => $this->predictRoomConflicts($scheduleData),
             'time_conflicts' => $this->predictTimeConflicts($scheduleData),
-            'workload_conflicts' => $this->predictWorkloadConflicts($scheduleData)
+            'workload_conflicts' => $this->predictWorkloadConflicts($scheduleData),
         ];
 
         $overallLikelihood = array_sum($conflictTypes) / count($conflictTypes);
@@ -76,7 +75,7 @@ class MachineLearningScheduleAnalyzer
             'overall_likelihood' => $overallLikelihood,
             'conflict_types' => $conflictTypes,
             'high_risk_periods' => $this->identifyHighRiskPeriods($scheduleData),
-            'mitigation_strategies' => $this->suggestMitigationStrategies($conflictTypes)
+            'mitigation_strategies' => $this->suggestMitigationStrategies($conflictTypes),
         ];
     }
 
@@ -91,7 +90,7 @@ class MachineLearningScheduleAnalyzer
         foreach ($teachingLoads as $load) {
             $teacherId = $load['teacher']['id'];
             $features = $this->extractTeacherScheduleFeatures($load, $scheduleData);
-            
+
             $satisfactionScore = $this->calculateTeacherSatisfactionScore($features);
             $satisfactionFactors = $this->identifyTeacherSatisfactionFactors($features);
 
@@ -100,7 +99,7 @@ class MachineLearningScheduleAnalyzer
                 'predicted_satisfaction' => $satisfactionScore,
                 'satisfaction_level' => $this->categorizeSatisfactionLevel($satisfactionScore),
                 'key_factors' => $satisfactionFactors,
-                'improvement_suggestions' => $this->suggestTeacherImprovements($features)
+                'improvement_suggestions' => $this->suggestTeacherImprovements($features),
             ];
         }
 
@@ -108,7 +107,7 @@ class MachineLearningScheduleAnalyzer
             'individual_predictions' => $satisfactionPredictions,
             'average_satisfaction' => $this->calculateAverageSatisfaction($satisfactionPredictions),
             'satisfaction_distribution' => $this->calculateSatisfactionDistribution($satisfactionPredictions),
-            'critical_teachers' => $this->identifyCriticalTeachers($satisfactionPredictions)
+            'critical_teachers' => $this->identifyCriticalTeachers($satisfactionPredictions),
         ];
     }
 
@@ -157,13 +156,13 @@ class MachineLearningScheduleAnalyzer
                     'similarity_score' => $similarity,
                     'success_rating' => $historical['success_rating'] ?? null,
                     'lessons_learned' => $historical['lessons_learned'] ?? [],
-                    'performance_metrics' => $historical['performance_metrics'] ?? []
+                    'performance_metrics' => $historical['performance_metrics'] ?? [],
                 ];
             }
         }
 
         // Sort by similarity score
-        usort($similarPatterns, fn($a, $b) => $b['similarity_score'] <=> $a['similarity_score']);
+        usort($similarPatterns, fn ($a, $b) => $b['similarity_score'] <=> $a['similarity_score']);
 
         return array_slice($similarPatterns, 0, 5); // Top 5 similar patterns
     }
@@ -177,13 +176,13 @@ class MachineLearningScheduleAnalyzer
 
         // High workload teachers
         $highWorkloadTeachers = $this->identifyHighWorkloadTeachers($scheduleData);
-        if (!empty($highWorkloadTeachers)) {
+        if (! empty($highWorkloadTeachers)) {
             $riskFactors[] = [
                 'type' => 'high_workload',
                 'severity' => 'medium',
                 'description' => 'Müəllimlər həddən artıq yüklənmişdir',
                 'affected_teachers' => $highWorkloadTeachers,
-                'recommendation' => 'Dərs yükünü yenidən bölüşdürün'
+                'recommendation' => 'Dərs yükünü yenidən bölüşdürün',
             ];
         }
 
@@ -195,7 +194,7 @@ class MachineLearningScheduleAnalyzer
                 'severity' => 'high',
                 'description' => 'Ardıcıl dərs saatları çoxdur',
                 'risk_level' => $consecutiveRisk['risk_level'],
-                'recommendation' => 'Dərs saatları arasında fasilə əlavə edin'
+                'recommendation' => 'Dərs saatları arasında fasilə əlavə edin',
             ];
         }
 
@@ -207,7 +206,7 @@ class MachineLearningScheduleAnalyzer
                 'severity' => 'high',
                 'description' => 'Pik saatlarda konflikt riski yüksəkdir',
                 'peak_periods' => $peakTimeRisk['peak_periods'],
-                'recommendation' => 'Pik saatlardakı dərsləri yenidən planlaşdırın'
+                'recommendation' => 'Pik saatlardakı dərsləri yenidən planlaşdırın',
             ];
         }
 
@@ -225,7 +224,7 @@ class MachineLearningScheduleAnalyzer
             'student_learning_impact' => $this->predictStudentLearningImpact($scheduleData),
             'resource_utilization' => $this->predictResourceUtilization($scheduleData),
             'conflict_resolution_time' => $this->predictConflictResolutionTime($scheduleData),
-            'adaptation_flexibility' => $this->predictAdaptationFlexibility($scheduleData)
+            'adaptation_flexibility' => $this->predictAdaptationFlexibility($scheduleData),
         ];
     }
 
@@ -239,21 +238,21 @@ class MachineLearningScheduleAnalyzer
             'temporal_patterns' => $this->analyzeTemporalPatterns($scheduleData),
             'behavioral_patterns' => $this->analyzeBehavioralPatterns($scheduleData),
             'efficiency_patterns' => $this->analyzeEfficiencyPatterns($scheduleData),
-            'satisfaction_patterns' => $this->analyzeSatisfactionPatterns($scheduleData)
+            'satisfaction_patterns' => $this->analyzeSatisfactionPatterns($scheduleData),
         ];
 
         $insights = [
             'key_success_factors' => $this->identifyKeySuccessFactors($patterns),
             'failure_predictors' => $this->identifyFailurePredictors($patterns),
             'optimization_opportunities' => $this->identifyOptimizationOpportunities($patterns),
-            'trend_analysis' => $this->analyzeTrends($patterns)
+            'trend_analysis' => $this->analyzeTrends($patterns),
         ];
 
         return [
             'patterns' => $patterns,
             'insights' => $insights,
             'recommendations' => $this->generateMLRecommendations($patterns, $insights),
-            'confidence_score' => $this->calculateConfidenceScore($patterns)
+            'confidence_score' => $this->calculateConfidenceScore($patterns),
         ];
     }
 
@@ -280,7 +279,7 @@ class MachineLearningScheduleAnalyzer
             'predictions' => $predictions,
             'prediction_horizon' => $predictionHorizon,
             'accuracy_estimate' => $this->estimatePredictionAccuracy($predictions),
-            'monitoring_recommendations' => $this->generateMonitoringRecommendations($predictions)
+            'monitoring_recommendations' => $this->generateMonitoringRecommendations($predictions),
         ];
     }
 
@@ -326,7 +325,7 @@ class MachineLearningScheduleAnalyzer
             'subject_diversity' => 0.08,
             'core_subject_ratio' => 0.10,
             'max_daily_load' => -0.15, // Negative because overload is bad
-            'afternoon_ratio' => 0.07
+            'afternoon_ratio' => 0.07,
         ];
     }
 
@@ -396,7 +395,7 @@ class MachineLearningScheduleAnalyzer
                     'schedules.performance_rating',
                     'schedules.created_at',
                     DB::raw('COUNT(schedule_sessions.id) as total_sessions'),
-                    DB::raw('AVG(schedule_sessions.satisfaction_rating) as avg_satisfaction')
+                    DB::raw('AVG(schedule_sessions.satisfaction_rating) as avg_satisfaction'),
                 ])
                 ->where('schedules.status', 'active')
                 ->whereNotNull('schedules.performance_rating')
@@ -409,7 +408,7 @@ class MachineLearningScheduleAnalyzer
     protected function getHistoricalSchedules(?int $institutionId = null): array
     {
         if ($institutionId) {
-            return array_filter($this->historicalData, fn($schedule) => $schedule['institution_id'] === $institutionId);
+            return array_filter($this->historicalData, fn ($schedule) => $schedule['institution_id'] === $institutionId);
         }
 
         return $this->historicalData;

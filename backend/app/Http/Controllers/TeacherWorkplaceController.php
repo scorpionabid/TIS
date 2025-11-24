@@ -5,8 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\TeacherWorkplace;
 use App\Models\User;
 use App\Models\UserProfile;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -25,11 +25,11 @@ class TeacherWorkplaceController extends Controller
             $teacher = User::findOrFail($userId);
 
             // Authorization: Only superadmin, same institution admin, or self
-            if (!$user->hasRole('superadmin') &&
+            if (! $user->hasRole('superadmin') &&
                 $user->institution_id !== $teacher->institution_id &&
                 $user->id !== $userId) {
                 return response()->json([
-                    'error' => 'Bu işçinin iş yerlərini görməyə icazəniz yoxdur'
+                    'error' => 'Bu işçinin iş yerlərini görməyə icazəniz yoxdur',
                 ], 403);
             }
 
@@ -75,13 +75,12 @@ class TeacherWorkplaceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $workplaces
+                'data' => $workplaces,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'İş yerləri yüklənə bilmədi',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -96,7 +95,7 @@ class TeacherWorkplaceController extends Controller
             $workplace = TeacherWorkplace::with(['institution', 'department', 'user'])->findOrFail($workplaceId);
 
             // Authorization check
-            if (!$user->hasRole('superadmin') &&
+            if (! $user->hasRole('superadmin') &&
                 $user->institution_id !== $workplace->user->institution_id &&
                 $user->id !== $workplace->user_id) {
                 return response()->json(['error' => 'Giriş icazəsi yoxdur'], 403);
@@ -104,13 +103,12 @@ class TeacherWorkplaceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $workplace
+                'data' => $workplace,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'İş yeri tapılmadı',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 404);
         }
     }
@@ -125,7 +123,7 @@ class TeacherWorkplaceController extends Controller
 
             // Authorization: Only superadmin or same institution admin
             $teacher = User::findOrFail($userId);
-            if (!$user->hasRole('superadmin') && $user->institution_id !== $teacher->institution_id) {
+            if (! $user->hasRole('superadmin') && $user->institution_id !== $teacher->institution_id) {
                 return response()->json(['error' => 'Əməliyyat icazəsi yoxdur'], 403);
             }
 
@@ -137,7 +135,7 @@ class TeacherWorkplaceController extends Controller
                     'direktor', 'direktor_muavini_tedris', 'direktor_muavini_inzibati',
                     'terbiye_isi_uzre_direktor_muavini', 'metodik_birlesme_rəhbəri',
                     'muəllim_sinif_rəhbəri', 'muəllim', 'psixoloq', 'kitabxanaçı',
-                    'laborant', 'tibb_işçisi', 'təsərrüfat_işçisi'
+                    'laborant', 'tibb_işçisi', 'təsərrüfat_işçisi',
                 ])],
                 'employment_type' => ['required', Rule::in(['full_time', 'part_time', 'contract', 'hourly'])],
                 'weekly_hours' => 'nullable|numeric|min:0|max:168',
@@ -155,7 +153,7 @@ class TeacherWorkplaceController extends Controller
             if ($validator->fails()) {
                 return response()->json([
                     'error' => 'Validasiya xətası',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -177,13 +175,12 @@ class TeacherWorkplaceController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $workplace->load(['institution', 'department']),
-                'message' => 'İş yeri uğurla əlavə edildi'
+                'message' => 'İş yeri uğurla əlavə edildi',
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'İş yeri əlavə edilə bilmədi',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -199,7 +196,7 @@ class TeacherWorkplaceController extends Controller
 
             // Authorization
             $teacher = User::find($workplace->user_id);
-            if (!$user->hasRole('superadmin') && $user->institution_id !== $teacher->institution_id) {
+            if (! $user->hasRole('superadmin') && $user->institution_id !== $teacher->institution_id) {
                 return response()->json(['error' => 'Əməliyyat icazəsi yoxdur'], 403);
             }
 
@@ -211,7 +208,7 @@ class TeacherWorkplaceController extends Controller
                     'direktor', 'direktor_muavini_tedris', 'direktor_muavini_inzibati',
                     'terbiye_isi_uzre_direktor_muavini', 'metodik_birlesme_rəhbəri',
                     'muəllim_sinif_rəhbəri', 'muəllim', 'psixoloq', 'kitabxanaçı',
-                    'laborant', 'tibb_işçisi', 'təsərrüfat_işçisi'
+                    'laborant', 'tibb_işçisi', 'təsərrüfat_işçisi',
                 ])],
                 'employment_type' => ['sometimes', Rule::in(['full_time', 'part_time', 'contract', 'hourly'])],
                 'weekly_hours' => 'nullable|numeric|min:0|max:168',
@@ -229,7 +226,7 @@ class TeacherWorkplaceController extends Controller
             if ($validator->fails()) {
                 return response()->json([
                     'error' => 'Validasiya xətası',
-                    'errors' => $validator->errors()
+                    'errors' => $validator->errors(),
                 ], 422);
             }
 
@@ -238,13 +235,12 @@ class TeacherWorkplaceController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $workplace->load(['institution', 'department']),
-                'message' => 'İş yeri yeniləndi'
+                'message' => 'İş yeri yeniləndi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'İş yeri yenilənə bilmədi',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -260,7 +256,7 @@ class TeacherWorkplaceController extends Controller
 
             // Authorization
             $teacher = User::find($workplace->user_id);
-            if (!$user->hasRole('superadmin') && $user->institution_id !== $teacher->institution_id) {
+            if (! $user->hasRole('superadmin') && $user->institution_id !== $teacher->institution_id) {
                 return response()->json(['error' => 'Əməliyyat icazəsi yoxdur'], 403);
             }
 
@@ -281,13 +277,12 @@ class TeacherWorkplaceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'İş yeri silindi'
+                'message' => 'İş yeri silindi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'error' => 'İş yeri silinə bilmədi',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 500);
         }
     }
@@ -303,7 +298,7 @@ class TeacherWorkplaceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'İş yeri aktivləşdirildi'
+                'message' => 'İş yeri aktivləşdirildi',
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);
@@ -321,7 +316,7 @@ class TeacherWorkplaceController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => 'İş yeri deaktivləşdirildi'
+                'message' => 'İş yeri deaktivləşdirildi',
             ]);
         } catch (\Exception $e) {
             return response()->json(['error' => $e->getMessage()], 500);

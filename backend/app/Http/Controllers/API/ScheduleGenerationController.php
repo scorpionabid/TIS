@@ -3,19 +3,20 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\Schedule\WorkloadScheduleIntegrationService;
-use App\Services\Schedule\ScheduleGenerationEngine;
-use App\Models\ScheduleGenerationSetting;
 use App\Http\Requests\GenerateScheduleFromWorkloadRequest;
 use App\Http\Requests\UpdateGenerationSettingsRequest;
-use Illuminate\Http\Request;
+use App\Models\ScheduleGenerationSetting;
+use App\Services\Schedule\ScheduleGenerationEngine;
+use App\Services\Schedule\WorkloadScheduleIntegrationService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class ScheduleGenerationController extends Controller
 {
     private WorkloadScheduleIntegrationService $integrationService;
+
     private ScheduleGenerationEngine $generationEngine;
 
     public function __construct(
@@ -35,10 +36,10 @@ class ScheduleGenerationController extends Controller
             $institutionId = $request->input('institution_id') ?? auth()->user()->institution_id;
             $academicYearId = $request->input('academic_year_id');
 
-            if (!$institutionId) {
+            if (! $institutionId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Institution ID is required'
+                    'message' => 'Institution ID is required',
                 ], 400);
             }
 
@@ -49,18 +50,17 @@ class ScheduleGenerationController extends Controller
 
             return response()->json([
                 'success' => true,
-                'data' => $workloadData
+                'data' => $workloadData,
             ]);
-
         } catch (\Exception $e) {
             Log::error('Failed to get workload ready data', [
                 'error' => $e->getMessage(),
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to retrieve workload data: ' . $e->getMessage()
+                'message' => 'Failed to retrieve workload data: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -73,7 +73,7 @@ class ScheduleGenerationController extends Controller
         try {
             $workloadData = $request->input('workload_data');
             $preferences = $request->input('generation_preferences', []);
-            
+
             // Add user context to preferences
             $preferences['generated_by'] = auth()->id();
             $preferences['generated_at'] = now()->toISOString();
@@ -81,13 +81,13 @@ class ScheduleGenerationController extends Controller
             // Generate schedule
             $result = $this->generationEngine->generateFromWorkload($workloadData, $preferences);
 
-            if (!$result['success']) {
+            if (! $result['success']) {
                 return response()->json([
                     'success' => false,
                     'message' => 'Schedule generation failed',
                     'error' => $result['error'] ?? 'Unknown error',
                     'conflicts' => $result['conflicts'] ?? [],
-                    'generation_log' => $result['generation_log'] ?? []
+                    'generation_log' => $result['generation_log'] ?? [],
                 ], 422);
             }
 
@@ -99,20 +99,19 @@ class ScheduleGenerationController extends Controller
                     'sessions_created' => $result['sessions_created'],
                     'statistics' => $result['statistics'],
                     'conflicts' => $result['conflicts'],
-                    'resolved_conflicts' => $result['resolved_conflicts']
-                ]
+                    'resolved_conflicts' => $result['resolved_conflicts'],
+                ],
             ]);
-
         } catch (\Exception $e) {
             Log::error('Schedule generation failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
-                'user_id' => auth()->id()
+                'user_id' => auth()->id(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Schedule generation failed: ' . $e->getMessage()
+                'message' => 'Schedule generation failed: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -124,19 +123,19 @@ class ScheduleGenerationController extends Controller
     {
         try {
             $institutionId = $request->input('institution_id') ?? auth()->user()->institution_id;
-            
+
             $setting = ScheduleGenerationSetting::where('institution_id', $institutionId)
                 ->active()
                 ->first();
 
-            if (!$setting) {
+            if (! $setting) {
                 return response()->json([
                     'success' => false,
                     'message' => 'No generation settings found for institution',
                     'data' => [
                         'has_settings' => false,
-                        'errors' => ['No generation settings configured']
-                    ]
+                        'errors' => ['No generation settings configured'],
+                    ],
                 ]);
             }
 
@@ -149,14 +148,13 @@ class ScheduleGenerationController extends Controller
                     'has_settings' => true,
                     'is_valid' => empty($validationErrors),
                     'errors' => $validationErrors,
-                    'settings' => $setting->toArray()
-                ]
+                    'settings' => $setting->toArray(),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Validation failed: ' . $e->getMessage()
+                'message' => 'Validation failed: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -168,12 +166,12 @@ class ScheduleGenerationController extends Controller
     {
         try {
             $institutionId = $request->input('institution_id') ?? auth()->user()->institution_id;
-            
+
             $setting = ScheduleGenerationSetting::where('institution_id', $institutionId)
                 ->active()
                 ->first();
 
-            if (!$setting) {
+            if (! $setting) {
                 // Return default settings
                 return response()->json([
                     'success' => true,
@@ -188,9 +186,9 @@ class ScheduleGenerationController extends Controller
                             'first_period_start' => '08:00',
                             'break_duration' => 10,
                             'lunch_duration' => 60,
-                            'generation_preferences' => ScheduleGenerationSetting::getDefaultPreferences()
-                        ]
-                    ]
+                            'generation_preferences' => ScheduleGenerationSetting::getDefaultPreferences(),
+                        ],
+                    ],
                 ]);
             }
 
@@ -201,14 +199,13 @@ class ScheduleGenerationController extends Controller
                     'settings' => $setting->toArray(),
                     'time_slots' => $setting->generateTimeSlots(),
                     'total_daily_duration' => $setting->getTotalDailyDuration(),
-                    'school_end_time' => $setting->getSchoolEndTime()
-                ]
+                    'school_end_time' => $setting->getSchoolEndTime(),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to get generation settings: ' . $e->getMessage()
+                'message' => 'Failed to get generation settings: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -220,7 +217,7 @@ class ScheduleGenerationController extends Controller
     {
         try {
             $institutionId = $request->input('institution_id') ?? auth()->user()->institution_id;
-            
+
             $setting = ScheduleGenerationSetting::where('institution_id', $institutionId)
                 ->first();
 
@@ -242,14 +239,13 @@ class ScheduleGenerationController extends Controller
                 'data' => [
                     'settings' => $setting->fresh(),
                     'time_slots' => $setting->generateTimeSlots(),
-                    'validation_errors' => $setting->validateForGeneration()
-                ]
+                    'validation_errors' => $setting->validateForGeneration(),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to update settings: ' . $e->getMessage()
+                'message' => 'Failed to update settings: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -261,18 +257,17 @@ class ScheduleGenerationController extends Controller
     {
         try {
             $institutionId = $request->input('institution_id') ?? auth()->user()->institution_id;
-            
+
             $status = $this->integrationService->getSchedulingIntegrationStatus($institutionId);
 
             return response()->json([
                 'success' => true,
-                'data' => $status
+                'data' => $status,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to get integration status: ' . $e->getMessage()
+                'message' => 'Failed to get integration status: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -285,7 +280,7 @@ class ScheduleGenerationController extends Controller
         try {
             $request->validate([
                 'teaching_load_ids' => 'required|array',
-                'teaching_load_ids.*' => 'integer|exists:teaching_loads,id'
+                'teaching_load_ids.*' => 'integer|exists:teaching_loads,id',
             ]);
 
             $updatedCount = $this->integrationService->markTeachingLoadsAsReady(
@@ -296,14 +291,13 @@ class ScheduleGenerationController extends Controller
                 'success' => true,
                 'message' => "Marked {$updatedCount} teaching loads as ready for scheduling",
                 'data' => [
-                    'updated_count' => $updatedCount
-                ]
+                    'updated_count' => $updatedCount,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to mark teaching loads as ready: ' . $e->getMessage()
+                'message' => 'Failed to mark teaching loads as ready: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -316,7 +310,7 @@ class ScheduleGenerationController extends Controller
         try {
             $request->validate([
                 'teaching_load_ids' => 'required|array',
-                'teaching_load_ids.*' => 'integer|exists:teaching_loads,id'
+                'teaching_load_ids.*' => 'integer|exists:teaching_loads,id',
             ]);
 
             $updatedCount = $this->integrationService->resetSchedulingStatus(
@@ -327,14 +321,13 @@ class ScheduleGenerationController extends Controller
                 'success' => true,
                 'message' => "Reset scheduling status for {$updatedCount} teaching loads",
                 'data' => [
-                    'updated_count' => $updatedCount
-                ]
+                    'updated_count' => $updatedCount,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to reset scheduling status: ' . $e->getMessage()
+                'message' => 'Failed to reset scheduling status: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -346,11 +339,11 @@ class ScheduleGenerationController extends Controller
     {
         try {
             $sessionId = $request->input('session_id');
-            
-            if (!$sessionId) {
+
+            if (! $sessionId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Session ID is required'
+                    'message' => 'Session ID is required',
                 ], 400);
             }
 
@@ -358,18 +351,17 @@ class ScheduleGenerationController extends Controller
             $progress = Cache::get("schedule_generation_progress_{$sessionId}", [
                 'progress' => 0,
                 'step' => 'Initializing...',
-                'status' => 'pending'
+                'status' => 'pending',
             ]);
 
             return response()->json([
                 'success' => true,
-                'data' => $progress
+                'data' => $progress,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to get generation progress: ' . $e->getMessage()
+                'message' => 'Failed to get generation progress: ' . $e->getMessage(),
             ], 500);
         }
     }
@@ -381,11 +373,11 @@ class ScheduleGenerationController extends Controller
     {
         try {
             $sessionId = $request->input('session_id');
-            
-            if (!$sessionId) {
+
+            if (! $sessionId) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Session ID is required'
+                    'message' => 'Session ID is required',
                 ], 400);
             }
 
@@ -393,18 +385,17 @@ class ScheduleGenerationController extends Controller
             Cache::put("schedule_generation_progress_{$sessionId}", [
                 'progress' => 0,
                 'step' => 'Cancelled',
-                'status' => 'cancelled'
+                'status' => 'cancelled',
             ], 300); // 5 minutes
 
             return response()->json([
                 'success' => true,
-                'message' => 'Schedule generation cancelled'
+                'message' => 'Schedule generation cancelled',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to cancel generation: ' . $e->getMessage()
+                'message' => 'Failed to cancel generation: ' . $e->getMessage(),
             ], 500);
         }
     }

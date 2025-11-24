@@ -2,25 +2,24 @@
 
 namespace App\Http\Middleware;
 
+use Carbon\Carbon;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class AuditLoggingMiddleware
 {
     /**
      * Handle an incoming request and log audit information
      *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse)  $next
+     * @param  \Closure(\Illuminate\Http\Request): (\Illuminate\Http\Response|\Illuminate\Http\RedirectResponse) $next
      * @return \Illuminate\Http\Response|\Illuminate\Http\RedirectResponse
      */
     public function handle(Request $request, Closure $next)
     {
         $startTime = microtime(true);
-        
+
         // Get user information
         $user = $request->user();
         $userId = $user?->id;
@@ -30,7 +29,7 @@ class AuditLoggingMiddleware
 
         // Process the request
         $response = $next($request);
-        
+
         // Calculate response time
         $endTime = microtime(true);
         $responseTime = round(($endTime - $startTime) * 1000, 2); // in milliseconds
@@ -43,7 +42,7 @@ class AuditLoggingMiddleware
                 'institution_id' => $institutionId,
                 'department_id' => $departmentId,
                 'response_time_ms' => $responseTime,
-                'timestamp' => Carbon::now()->toISOString()
+                'timestamp' => Carbon::now()->toISOString(),
             ]);
         }
 
@@ -73,7 +72,7 @@ class AuditLoggingMiddleware
             'api/regionadmin',
             'api/sektoradmin',
             'api/mektebadmin',
-            'api/regionoperator'
+            'api/regionoperator',
         ];
 
         foreach ($sensitivePatterns as $pattern) {
@@ -104,13 +103,13 @@ class AuditLoggingMiddleware
             'user_agent' => $request->userAgent(),
             'status_code' => $response->getStatusCode(),
             'request_id' => $request->header('X-Request-ID', uniqid()),
-            'context' => $context
+            'context' => $context,
         ];
 
         // Add request data for write operations (excluding sensitive data)
         if (in_array($request->method(), ['POST', 'PUT', 'PATCH'])) {
             $requestData = $request->all();
-            
+
             // Remove sensitive fields
             $sensitiveFields = ['password', 'password_confirmation', 'token', 'secret'];
             foreach ($sensitiveFields as $field) {
@@ -118,7 +117,7 @@ class AuditLoggingMiddleware
                     $requestData[$field] = '[REDACTED]';
                 }
             }
-            
+
             $auditData['request_data'] = $requestData;
         }
 
@@ -132,7 +131,7 @@ class AuditLoggingMiddleware
 
         // Log based on severity
         $logLevel = $this->getLogLevel($request, $response);
-        
+
         switch ($logLevel) {
             case 'emergency':
             case 'alert':
@@ -289,6 +288,7 @@ class AuditLoggingMiddleware
     private function isJson(string $string): bool
     {
         json_decode($string);
+
         return json_last_error() === JSON_ERROR_NONE;
     }
 
@@ -305,7 +305,7 @@ class AuditLoggingMiddleware
             // Fallback to default log if audit logging fails
             Log::error('Failed to store audit log', [
                 'error' => $e->getMessage(),
-                'audit_data' => $auditData
+                'audit_data' => $auditData,
             ]);
         }
     }

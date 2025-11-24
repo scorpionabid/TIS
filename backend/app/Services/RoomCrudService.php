@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Room;
 use App\Models\Institution;
-use Illuminate\Support\Facades\DB;
+use App\Models\Room;
 
 class RoomCrudService extends BaseService
 {
@@ -16,15 +15,15 @@ class RoomCrudService extends BaseService
         $query = Room::query();
 
         // Apply filters
-        if (!empty($filters['institution_id'])) {
+        if (! empty($filters['institution_id'])) {
             $query->where('institution_id', $filters['institution_id']);
         }
 
-        if (!empty($filters['room_type'])) {
+        if (! empty($filters['room_type'])) {
             $query->where('room_type', $filters['room_type']);
         }
 
-        if (!empty($filters['building'])) {
+        if (! empty($filters['building'])) {
             $query->where('building', $filters['building']);
         }
 
@@ -32,15 +31,15 @@ class RoomCrudService extends BaseService
             $query->where('floor', $filters['floor']);
         }
 
-        if (!empty($filters['min_capacity'])) {
+        if (! empty($filters['min_capacity'])) {
             $query->where('capacity', '>=', $filters['min_capacity']);
         }
 
-        if (!empty($filters['max_capacity'])) {
+        if (! empty($filters['max_capacity'])) {
             $query->where('capacity', '<=', $filters['max_capacity']);
         }
 
-        if (!empty($filters['facility'])) {
+        if (! empty($filters['facility'])) {
             $query->withFacility($filters['facility']);
         }
 
@@ -48,7 +47,7 @@ class RoomCrudService extends BaseService
             $query->where('is_active', $filters['is_active']);
         }
 
-        if (!empty($filters['availability'])) {
+        if (! empty($filters['availability'])) {
             if ($filters['availability'] === 'available') {
                 $query->whereDoesntHave('grades');
             } elseif ($filters['availability'] === 'occupied') {
@@ -56,12 +55,12 @@ class RoomCrudService extends BaseService
             }
         }
 
-        if (!empty($filters['search'])) {
+        if (! empty($filters['search'])) {
             $query->search($filters['search']);
         }
 
         // Handle includes
-        if (!empty($filters['include'])) {
+        if (! empty($filters['include'])) {
             $includes = $filters['include'];
             if (str_contains($includes, 'institution')) {
                 $query->with(['institution']);
@@ -87,7 +86,7 @@ class RoomCrudService extends BaseService
                 'total_pages' => $rooms->lastPage(),
                 'from' => $rooms->firstItem(),
                 'to' => $rooms->lastItem(),
-            ]
+            ],
         ];
     }
 
@@ -97,7 +96,7 @@ class RoomCrudService extends BaseService
     public function createRoom(array $data): Room
     {
         // Check for unique room number within institution
-        if (!empty($data['room_number'])) {
+        if (! empty($data['room_number'])) {
             $existingRoom = Room::where('institution_id', $data['institution_id'])
                 ->where('room_number', $data['room_number'])
                 ->first();
@@ -146,8 +145,8 @@ class RoomCrudService extends BaseService
         }
 
         $updateData = collect($data)->only([
-            'name', 'room_number', 'building', 'floor', 
-            'room_type', 'capacity', 'facilities', 'is_active'
+            'name', 'room_number', 'building', 'floor',
+            'room_type', 'capacity', 'facilities', 'is_active',
         ])->filter()->toArray();
 
         $room->update($updateData);
@@ -186,12 +185,12 @@ class RoomCrudService extends BaseService
                 'name' => $grade->name,
                 'full_name' => $grade->full_name,
                 'class_level' => $grade->class_level,
-                'student_count' => $grade->relationLoaded('students') 
-                    ? $grade->students->count() 
+                'student_count' => $grade->relationLoaded('students')
+                    ? $grade->students->count()
                     : $grade->student_count,
                 'homeroom_teacher' => $grade->homeroomTeacher ? [
                     'id' => $grade->homeroomTeacher->id,
-                    'full_name' => $grade->homeroomTeacher->profile 
+                    'full_name' => $grade->homeroomTeacher->profile
                         ? "{$grade->homeroomTeacher->profile->first_name} {$grade->homeroomTeacher->profile->last_name}"
                         : $grade->homeroomTeacher->username,
                     'email' => $grade->homeroomTeacher->email,
@@ -200,8 +199,8 @@ class RoomCrudService extends BaseService
         });
 
         $totalStudents = $room->grades->sum(function ($grade) {
-            return $grade->relationLoaded('students') 
-                ? $grade->students->count() 
+            return $grade->relationLoaded('students')
+                ? $grade->students->count()
                 : $grade->student_count;
         });
 
@@ -224,7 +223,7 @@ class RoomCrudService extends BaseService
             'grades' => $gradesData,
             'grades_count' => $room->grades->count(),
             'total_students' => $totalStudents,
-            'utilization_rate' => $room->capacity > 0 
+            'utilization_rate' => $room->capacity > 0
                 ? round(($totalStudents / $room->capacity) * 100, 2)
                 : 0,
             'is_available' => $room->grades->count() === 0,
@@ -241,19 +240,19 @@ class RoomCrudService extends BaseService
         $query = Room::active()->whereDoesntHave('grades');
 
         // Apply filters
-        if (!empty($filters['institution_id'])) {
+        if (! empty($filters['institution_id'])) {
             $query->where('institution_id', $filters['institution_id']);
         }
 
-        if (!empty($filters['min_capacity'])) {
+        if (! empty($filters['min_capacity'])) {
             $query->where('capacity', '>=', $filters['min_capacity']);
         }
 
-        if (!empty($filters['room_type'])) {
+        if (! empty($filters['room_type'])) {
             $query->where('room_type', $filters['room_type']);
         }
 
-        if (!empty($filters['required_facilities'])) {
+        if (! empty($filters['required_facilities'])) {
             foreach ($filters['required_facilities'] as $facility) {
                 $query->withFacility($facility);
             }
@@ -308,7 +307,7 @@ class RoomCrudService extends BaseService
             'is_active' => $room->is_active,
             'grades_count' => $room->grades()->count(),
             'current_occupancy' => $room->grades()->sum('student_count'),
-            'utilization_rate' => $room->capacity > 0 
+            'utilization_rate' => $room->capacity > 0
                 ? round(($room->grades()->sum('student_count') / $room->capacity) * 100, 2)
                 : 0,
             'is_available' => $room->grades()->count() === 0,
@@ -333,8 +332,8 @@ class RoomCrudService extends BaseService
                     'name' => $grade->name,
                     'full_name' => $grade->full_name,
                     'class_level' => $grade->class_level,
-                    'student_count' => $grade->relationLoaded('students') 
-                        ? $grade->students->count() 
+                    'student_count' => $grade->relationLoaded('students')
+                        ? $grade->students->count()
                         : $grade->student_count,
                 ];
             });
@@ -357,7 +356,7 @@ class RoomCrudService extends BaseService
             'auditorium' => 'Auditoriya',
             'kitchen' => 'Mətbəx',
             'storage' => 'Anbar',
-            'other' => 'Digər'
+            'other' => 'Digər',
         ];
     }
 
@@ -367,6 +366,7 @@ class RoomCrudService extends BaseService
     public function validateCapacityReduction(Room $room, int $newCapacity): bool
     {
         $currentOccupancy = $room->grades()->sum('student_count');
+
         return $newCapacity >= $currentOccupancy;
     }
 
@@ -382,6 +382,6 @@ class RoomCrudService extends BaseService
             $query->where('id', '!=', $excludeRoomId);
         }
 
-        return !$query->exists();
+        return ! $query->exists();
     }
 }

@@ -2,18 +2,15 @@
 
 namespace App\Services;
 
-use App\Models\ApprovalWorkflow;
-use App\Models\DataApprovalRequest;
 use App\Models\ApprovalAction;
 use App\Models\ApprovalNotification;
-use App\Models\ApprovalDelegate;
+use App\Models\ApprovalWorkflow;
+use App\Models\DataApprovalRequest;
 use App\Models\User;
-use App\Services\BaseService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ApprovalWorkflowService extends BaseService
 {
@@ -26,7 +23,7 @@ class ApprovalWorkflowService extends BaseService
             'workflow:id,name,workflow_type',
             'institution:id,name,type',
             'submitter:id,name,username,email',
-            'approvalActions.approver:id,name,username'
+            'approvalActions.approver:id,name,username',
         ]);
 
         // Apply user-based filtering
@@ -49,7 +46,7 @@ class ApprovalWorkflowService extends BaseService
             'total' => $approvals->total(),
             'current_page' => $approvals->currentPage(),
             'last_page' => $approvals->lastPage(),
-            'per_page' => $approvals->perPage()
+            'per_page' => $approvals->perPage(),
         ];
     }
 
@@ -65,10 +62,10 @@ class ApprovalWorkflowService extends BaseService
             'approvalActions' => function ($query) {
                 $query->orderBy('created_at', 'desc');
             },
-            'approvalActions.approver'
+            'approvalActions.approver',
         ])->findOrFail($id);
 
-        if (!$this->canUserViewApproval($user, $approval)) {
+        if (! $this->canUserViewApproval($user, $approval)) {
             throw new Exception('Bu təsdiq tələbinə giriş icazəniz yoxdur', 403);
         }
 
@@ -83,7 +80,7 @@ class ApprovalWorkflowService extends BaseService
         return DB::transaction(function () use ($id, $data, $user) {
             $approval = DataApprovalRequest::findOrFail($id);
 
-            if (!$this->canUserViewApproval($user, $approval)) {
+            if (! $this->canUserViewApproval($user, $approval)) {
                 throw new Exception('Bu təsdiq tələbinə giriş icazəniz yoxdur', 403);
             }
 
@@ -98,7 +95,7 @@ class ApprovalWorkflowService extends BaseService
                 'action_type' => 'approved',
                 'comments' => $data['comments'] ?? null,
                 'approval_level' => $data['approval_level'] ?? 1,
-                'approved_at' => now()
+                'approved_at' => now(),
             ]);
 
             // Determine next step based on workflow
@@ -110,7 +107,7 @@ class ApprovalWorkflowService extends BaseService
                 'current_status' => $nextStatus,
                 'current_approver_role' => $nextStatus === 'approved' ? null : $this->getNextApproverRole($workflow, $approval->current_approver_role),
                 'approved_at' => $nextStatus === 'approved' ? now() : null,
-                'completed_at' => now()
+                'completed_at' => now(),
             ]);
 
             // Create notifications
@@ -132,7 +129,7 @@ class ApprovalWorkflowService extends BaseService
         return DB::transaction(function () use ($id, $data, $user) {
             $approval = DataApprovalRequest::findOrFail($id);
 
-            if (!$this->canUserViewApproval($user, $approval)) {
+            if (! $this->canUserViewApproval($user, $approval)) {
                 throw new Exception('Bu təsdiq tələbinə giriş icazəniz yoxdur', 403);
             }
 
@@ -147,7 +144,7 @@ class ApprovalWorkflowService extends BaseService
                 'action_type' => 'rejected',
                 'comments' => $data['comments'],
                 'rejection_reason' => $data['rejection_reason'] ?? null,
-                'approved_at' => now()
+                'approved_at' => now(),
             ]);
 
             // Update approval request status
@@ -155,7 +152,7 @@ class ApprovalWorkflowService extends BaseService
                 'current_status' => 'rejected',
                 'current_approver_role' => null,
                 'rejected_at' => now(),
-                'completed_at' => now()
+                'completed_at' => now(),
             ]);
 
             // Create rejection notification
@@ -173,7 +170,7 @@ class ApprovalWorkflowService extends BaseService
         return DB::transaction(function () use ($id, $data, $user) {
             $approval = DataApprovalRequest::findOrFail($id);
 
-            if (!$this->canUserViewApproval($user, $approval)) {
+            if (! $this->canUserViewApproval($user, $approval)) {
                 throw new Exception('Bu təsdiq tələbinə giriş icazəniz yoxdur', 403);
             }
 
@@ -188,14 +185,14 @@ class ApprovalWorkflowService extends BaseService
                 'action_type' => 'returned_for_revision',
                 'comments' => $data['comments'],
                 'revision_notes' => $data['revision_notes'] ?? null,
-                'approved_at' => now()
+                'approved_at' => now(),
             ]);
 
             // Update approval request status
             $approval->update([
                 'current_status' => 'needs_revision',
                 'current_approver_role' => null,
-                'completed_at' => now()
+                'completed_at' => now(),
             ]);
 
             // Create revision notification
@@ -230,7 +227,7 @@ class ApprovalWorkflowService extends BaseService
 
         // Sort by priority and created date
         $query->orderByDesc('priority')
-              ->orderBy('created_at', 'asc');
+            ->orderBy('created_at', 'asc');
 
         $approvalRequests = $query->paginate($request->get('per_page', 15));
 
@@ -239,12 +236,12 @@ class ApprovalWorkflowService extends BaseService
 
         // Convert survey responses to approval request format
         $formattedSurveyResponses = $surveyResponses->map(function ($response) {
-            return (object)[
+            return (object) [
                 'id' => 'survey_' . $response->id,
-                'workflow' => (object)[
+                'workflow' => (object) [
                     'id' => null,
                     'name' => 'Survey Response: ' . $response->survey->title,
-                    'workflow_type' => 'survey'
+                    'workflow_type' => 'survey',
                 ],
                 'institution' => $response->institution,
                 'submitter' => $response->respondent,
@@ -255,7 +252,7 @@ class ApprovalWorkflowService extends BaseService
                 'current_approval_level' => 1,
                 'deadline' => null,
                 'response_data' => $response,
-                'type' => 'survey_response'
+                'type' => 'survey_response',
             ];
         });
 
@@ -279,7 +276,7 @@ class ApprovalWorkflowService extends BaseService
         $query = \App\Models\SurveyResponse::with([
             'survey:id,title,description',
             'institution:id,name,type',
-            'respondent:id,name,email'
+            'respondent:id,name,email',
         ])->where('status', 'submitted');
 
         // Filter based on user's hierarchy permissions
@@ -309,6 +306,7 @@ class ApprovalWorkflowService extends BaseService
                 $childInstitutionIds = $user->institution->getAllChildrenIds();
                 $query->whereIn('institution_id', array_merge([$user->institution_id], $childInstitutionIds));
             }
+
             return;
         }
 
@@ -317,11 +315,13 @@ class ApprovalWorkflowService extends BaseService
                 $childInstitutionIds = $user->institution->getAllChildrenIds();
                 $query->whereIn('institution_id', array_merge([$user->institution_id], $childInstitutionIds));
             }
+
             return;
         }
 
         if ($user->hasRole('schooladmin')) {
             $query->where('institution_id', $user->institution_id);
+
             return;
         }
 
@@ -337,7 +337,7 @@ class ApprovalWorkflowService extends BaseService
         $query = ApprovalAction::with([
             'approvalRequest.workflow',
             'approvalRequest.institution',
-            'approvalRequest.submitter'
+            'approvalRequest.submitter',
         ])->where('approver_id', $user->id);
 
         // Apply date filters
@@ -377,7 +377,7 @@ class ApprovalWorkflowService extends BaseService
                 'request_metadata' => $data['request_data'] ?? null,
                 'current_status' => 'pending',
                 'current_approval_level' => 1,
-                'submitted_at' => now()
+                'submitted_at' => now(),
             ];
 
             // Add polymorphic relationship fields if provided
@@ -404,7 +404,7 @@ class ApprovalWorkflowService extends BaseService
             $results = [
                 'approved' => 0,
                 'failed' => 0,
-                'errors' => []
+                'errors' => [],
             ];
 
             foreach ($requestIds as $id) {
@@ -433,13 +433,13 @@ class ApprovalWorkflowService extends BaseService
             'user' => $user->username,
             'role' => $user->roles->pluck('name')->toArray(),
             'date_from' => $dateFrom,
-            'date_to' => $dateTo
+            'date_to' => $dateTo,
         ]);
 
         $query = DataApprovalRequest::whereBetween('data_approval_requests.created_at', [$dateFrom, $dateTo]);
 
         // Filter by user authority if not superadmin
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             $this->filterByApprovalAuthority($query, $user);
         }
 
@@ -457,16 +457,16 @@ class ApprovalWorkflowService extends BaseService
 
         // Approval rate by workflow type
         \Log::info('🔍 getAnalytics: Before workflow stats query');
-        
+
         try {
             // Create fresh query for workflow stats to avoid conflicts
             $workflowQuery = DataApprovalRequest::whereBetween('data_approval_requests.created_at', [$dateFrom, $dateTo]);
-            
+
             // Apply same user filtering
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $this->filterByApprovalAuthority($workflowQuery, $user);
             }
-            
+
             $workflowStats = $workflowQuery->join('approval_workflows', 'data_approval_requests.workflow_id', '=', 'approval_workflows.id')
                 ->selectRaw('approval_workflows.workflow_type, 
                             COUNT(*) as total,
@@ -475,9 +475,10 @@ class ApprovalWorkflowService extends BaseService
                 ->get()
                 ->map(function ($item) {
                     $item->approval_rate = $item->total > 0 ? round(($item->approved / $item->total) * 100, 2) : 0;
+
                     return $item;
                 });
-                
+
             \Log::info('🔍 getAnalytics: Workflow stats query successful');
         } catch (\Exception $e) {
             \Log::error('🔍 getAnalytics: Workflow stats query failed', ['error' => $e->getMessage()]);
@@ -491,8 +492,8 @@ class ApprovalWorkflowService extends BaseService
             'total_requests' => array_sum($statusStats),
             'period' => [
                 'from' => $dateFrom,
-                'to' => $dateTo
-            ]
+                'to' => $dateTo,
+            ],
         ];
     }
 
@@ -535,7 +536,7 @@ class ApprovalWorkflowService extends BaseService
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('request_title', 'like', "%{$search}%")
-                  ->orWhere('request_description', 'like', "%{$search}%");
+                    ->orWhere('request_description', 'like', "%{$search}%");
             });
         }
 
@@ -558,12 +559,12 @@ class ApprovalWorkflowService extends BaseService
         if ($allowedIds->isNotEmpty()) {
             // Filter by institutional hierarchy, but exclude own submissions
             $query->whereIn('institution_id', $allowedIds)
-                  ->where('submitted_by', '!=', $user->id);
+                ->where('submitted_by', '!=', $user->id);
         } else {
             // For other roles, show requests where they are the current approver or submitter
             $query->where(function ($q) use ($user) {
                 $q->where('submitted_by', $user->id)
-                  ->orWhere('current_approver_role', $user->role->name);
+                    ->orWhere('current_approver_role', $user->role->name);
             });
         }
     }
@@ -601,7 +602,7 @@ class ApprovalWorkflowService extends BaseService
             // Check if this is the final approval level
             $currentLevel = $approval->approvalActions()->where('action_type', 'approved')->count();
             $requiredLevels = $workflow->required_approval_levels ?? 1;
-            
+
             return $currentLevel >= $requiredLevels ? 'approved' : 'pending';
         }
 
@@ -614,6 +615,7 @@ class ApprovalWorkflowService extends BaseService
     private function getFirstApproverRole($workflow): ?string
     {
         $config = $workflow->workflow_config ?? [];
+
         return $config['first_approver_role'] ?? 'schooladmin';
     }
 
@@ -624,10 +626,11 @@ class ApprovalWorkflowService extends BaseService
     {
         $config = $workflow->workflow_config ?? [];
         $hierarchy = $config['approval_hierarchy'] ?? ['schooladmin', 'sektoradmin', 'regionadmin'];
-        
+
         $currentIndex = array_search($currentRole, $hierarchy);
-        return $currentIndex !== false && isset($hierarchy[$currentIndex + 1]) 
-            ? $hierarchy[$currentIndex + 1] 
+
+        return $currentIndex !== false && isset($hierarchy[$currentIndex + 1])
+            ? $hierarchy[$currentIndex + 1]
             : null;
     }
 
@@ -637,15 +640,15 @@ class ApprovalWorkflowService extends BaseService
     private function createNextLevelNotification(DataApprovalRequest $approval): void
     {
         $approvers = $this->findApprovers($approval, $approval->current_approver_role);
-        
+
         foreach ($approvers as $approver) {
             ApprovalNotification::create([
                 'approval_request_id' => $approval->id,
                 'user_id' => $approver->id,
                 'notification_type' => 'approval_required',
                 'title' => "Yeni təsdiq tələbi: {$approval->request_title}",
-                'message' => "Sizin təsdiqqinizi gözləyən yeni tələb var.",
-                'is_read' => false
+                'message' => 'Sizin təsdiqqinizi gözləyən yeni tələb var.',
+                'is_read' => false,
             ]);
         }
     }
@@ -661,7 +664,7 @@ class ApprovalWorkflowService extends BaseService
             'notification_type' => 'request_rejected',
             'title' => "Tələb rədd edildi: {$approval->request_title}",
             'message' => "Tələbiniz rədd edildi. Səbəb: {$comments}",
-            'is_read' => false
+            'is_read' => false,
         ]);
     }
 
@@ -676,7 +679,7 @@ class ApprovalWorkflowService extends BaseService
             'notification_type' => 'revision_required',
             'title' => "Düzəliş tələb olunur: {$approval->request_title}",
             'message' => "Tələbinizdə düzəliş edilməsi gərəkir. Qeydlər: {$comments}",
-            'is_read' => false
+            'is_read' => false,
         ]);
     }
 
@@ -698,8 +701,8 @@ class ApprovalWorkflowService extends BaseService
             'user_id' => $approval->submitter_id,
             'notification_type' => 'request_approved',
             'title' => "Tələb təsdiqləndi: {$approval->request_title}",
-            'message' => "Tələbiniz uğurla təsdiqləndi və tətbiq edildi.",
-            'is_read' => false
+            'message' => 'Tələbiniz uğurla təsdiqləndi və tətbiq edildi.',
+            'is_read' => false,
         ]);
     }
 
@@ -709,21 +712,22 @@ class ApprovalWorkflowService extends BaseService
     private function findApprovers(DataApprovalRequest $approval, string $role)
     {
         $institution = $approval->institution;
-        
+
         // Find users in the same institution hierarchy with the specified role
         if ($role === 'schooladmin') {
             return User::whereHas('role', function ($q) use ($role) {
                 $q->where('name', $role);
             })->where('institution_id', $institution->id)->get();
         }
-        
+
         if ($role === 'sektoradmin' && $institution->level >= 3) {
             $sectorInstitution = $institution->level === 4 ? $institution->parent : $institution;
+
             return User::whereHas('role', function ($q) use ($role) {
                 $q->where('name', $role);
             })->where('institution_id', $sectorInstitution->id)->get();
         }
-        
+
         if ($role === 'regionadmin' && $institution->level >= 2) {
             $ancestors = $institution->getAncestors();
             $regionInstitution = $ancestors->firstWhere('level', 2);
@@ -733,7 +737,7 @@ class ApprovalWorkflowService extends BaseService
                 })->where('institution_id', $regionInstitution->id)->get();
             }
         }
-        
+
         return collect();
     }
 }

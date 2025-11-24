@@ -2,9 +2,8 @@
 
 namespace App\Services\Auth;
 
-use App\Models\User;
 use App\Models\SecurityEvent;
-use Illuminate\Support\Facades\Cache;
+use App\Models\User;
 
 class SessionService
 {
@@ -14,7 +13,7 @@ class SessionService
     public function getActiveSessions(User $user): array
     {
         $sessions = [];
-        
+
         // Get all tokens
         foreach ($user->tokens as $token) {
             $session = [
@@ -23,7 +22,7 @@ class SessionService
                 'last_used' => $token->last_used_at,
                 'expires_at' => $token->expires_at,
                 'current' => false,
-                'device' => null
+                'device' => null,
             ];
 
             // Try to find device info
@@ -39,7 +38,7 @@ class SessionService
                     'browser' => $device->browser,
                     'ip' => $device->ip_address,
                     'last_used' => $device->last_login_at,
-                    'is_trusted' => $device->is_trusted
+                    'is_trusted' => $device->is_trusted,
                 ];
             }
 
@@ -58,7 +57,7 @@ class SessionService
             ->where('id', $tokenId)
             ->first();
 
-        if (!$token) {
+        if (! $token) {
             return null;
         }
 
@@ -68,7 +67,7 @@ class SessionService
             'last_used' => $token->last_used_at,
             'expires_at' => $token->expires_at,
             'current' => true,
-            'device' => null
+            'device' => null,
         ];
 
         // Try to find device info
@@ -84,7 +83,7 @@ class SessionService
                 'browser' => $device->browser,
                 'ip' => $device->ip_address,
                 'last_used' => $device->last_login_at,
-                'is_trusted' => $device->is_trusted
+                'is_trusted' => $device->is_trusted,
             ];
         }
 
@@ -100,7 +99,7 @@ class SessionService
             ->where('id', $tokenId)
             ->first();
 
-        if (!$token) {
+        if (! $token) {
             return false;
         }
 
@@ -120,7 +119,7 @@ class SessionService
     {
         $token = $user->currentAccessToken();
 
-        if (!$token) {
+        if (! $token) {
             return false;
         }
 
@@ -160,16 +159,16 @@ class SessionService
         SecurityEvent::create([
             'event_type' => $allSessions ? 'session_revoked_all' : 'session_revoked',
             'severity' => 'medium',
-            'description' => $allSessions 
-                ? "Bütün digər sessiyalar ləğv edildi" 
+            'description' => $allSessions
+                ? 'Bütün digər sessiyalar ləğv edildi'
                 : "Sessiya ləğv edildi: {$sessionName}",
             'user_id' => $user->id,
             'ip_address' => request()->ip(),
             'user_agent' => request()->userAgent(),
             'metadata' => [
                 'session_name' => $sessionName,
-                'all_sessions' => $allSessions
-            ]
+                'all_sessions' => $allSessions,
+            ],
         ]);
     }
 }

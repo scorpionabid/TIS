@@ -2,8 +2,8 @@
 
 namespace App\Rules;
 
-use Illuminate\Contracts\Validation\Rule;
 use App\Models\Role;
+use Illuminate\Contracts\Validation\Rule;
 
 class ValidRoleAssignment implements Rule
 {
@@ -14,8 +14,8 @@ class ValidRoleAssignment implements Rule
     {
         $user = auth()->user();
         $role = Role::find($value);
-        
-        if (!$role) {
+
+        if (! $role) {
             return false;
         }
 

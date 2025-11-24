@@ -21,7 +21,7 @@ return [
         'schooladmin',
         'məktəbadmin',
         'müəllim',
-        'teacher'
+        'teacher',
     ],
 
     /**
@@ -30,7 +30,7 @@ return [
     'admin_roles' => [
         'superadmin',
         'regionadmin',
-        'sektoradmin'
+        'sektoradmin',
     ],
 
     /**
@@ -41,7 +41,7 @@ return [
         'məktəbadmin',
         'müəllim',
         'teacher',
-        'təhsilçi'
+        'təhsilçi',
     ],
 
     /**
@@ -50,7 +50,7 @@ return [
     'task_notification_roles' => [
         'schooladmin',
         'məktəbadmin',
-        'müəllim'
+        'müəllim',
     ],
 
     /**
@@ -63,7 +63,7 @@ return [
         'məktəbadmin',
         'müəllim',
         'teacher',
-        'təhsilçi'
+        'təhsilçi',
     ],
 
     /**
@@ -73,7 +73,7 @@ return [
         'schooladmin',
         'məktəbadmin',
         'müəllim',
-        'teacher'
+        'teacher',
     ],
 
     /**
@@ -84,7 +84,7 @@ return [
         'schooladmin',
         'məktəbadmin',
         'müəllim',
-        'teacher'
+        'teacher',
     ],
 
     /**
@@ -98,7 +98,7 @@ return [
         'məktəbadmin',
         'müəllim',
         'teacher',
-        'təhsilçi'
+        'təhsilçi',
     ],
 
     /**
@@ -114,7 +114,7 @@ return [
         'teacher',
         'təhsilçi',
         'student',
-        'şagird'
+        'şagird',
     ],
 
     /**
@@ -126,7 +126,7 @@ return [
         'regionadmin' => ['sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim', 'teacher'],
         'sektoradmin' => ['schooladmin', 'məktəbadmin', 'müəllim', 'teacher'],
         'schooladmin' => ['məktəbadmin', 'müəllim', 'teacher', 'təhsilçi'],
-        'məktəbadmin' => ['müəllim', 'teacher', 'təhsilçi']
+        'məktəbadmin' => ['müəllim', 'teacher', 'təhsilçi'],
     ],
 
     /**
@@ -140,7 +140,7 @@ return [
         'məktəbadmin' => 'normal',
         'müəllim' => 'normal',
         'teacher' => 'normal',
-        'təhsilçi' => 'low'
-    ]
+        'təhsilçi' => 'low',
+    ],
 
 ];

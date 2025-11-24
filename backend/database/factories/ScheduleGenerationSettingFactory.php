@@ -2,8 +2,8 @@
 
 namespace Database\Factories;
 
-use App\Models\ScheduleGenerationSetting;
 use App\Models\Institution;
+use App\Models\ScheduleGenerationSetting;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -41,4 +41,3 @@ class ScheduleGenerationSettingFactory extends Factory
         return $this->state(fn () => ['is_active' => false]);
     }
 }
-

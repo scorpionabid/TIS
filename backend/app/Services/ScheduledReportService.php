@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\ReportSchedule;
 use App\Models\ActivityLog;
-use Illuminate\Support\Facades\DB;
+use App\Models\ReportSchedule;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class ScheduledReportService extends BaseService
 {
@@ -33,8 +33,8 @@ class ScheduledReportService extends BaseService
                 'current_page' => $schedules->currentPage(),
                 'last_page' => $schedules->lastPage(),
                 'per_page' => $schedules->perPage(),
-                'total' => $schedules->total()
-            ]
+                'total' => $schedules->total(),
+            ],
         ];
     }
 
@@ -63,7 +63,7 @@ class ScheduledReportService extends BaseService
                 'day_of_month' => $data['day_of_month'] ?? null,
                 'next_run' => $nextRun,
                 'status' => 'active',
-                'created_by' => $user->id
+                'created_by' => $user->id,
             ]);
 
             // Log activity
@@ -76,15 +76,15 @@ class ScheduledReportService extends BaseService
                 'properties' => [
                     'report_type' => $schedule->report_type,
                     'frequency' => $schedule->frequency,
-                    'recipients_count' => count($schedule->recipients)
+                    'recipients_count' => count($schedule->recipients),
                 ],
-                'institution_id' => $user->institution_id
+                'institution_id' => $user->institution_id,
             ]);
 
             return [
                 'id' => $schedule->id,
                 'name' => $schedule->name,
-                'next_run' => $schedule->next_run
+                'next_run' => $schedule->next_run,
             ];
         });
     }
@@ -96,10 +96,10 @@ class ScheduledReportService extends BaseService
     {
         return DB::transaction(function () use ($schedule, $data, $user) {
             $oldData = $schedule->toArray();
-            
+
             $updateData = collect($data)->only([
-                'name', 'frequency', 'format', 'recipients', 
-                'filters', 'status', 'time', 'day_of_week', 'day_of_month'
+                'name', 'frequency', 'format', 'recipients',
+                'filters', 'status', 'time', 'day_of_week', 'day_of_month',
             ])->filter()->toArray();
 
             // Recalculate next run if frequency or time changed
@@ -123,14 +123,14 @@ class ScheduledReportService extends BaseService
                 'description' => "Updated scheduled report: {$schedule->name}",
                 'before_state' => $oldData,
                 'after_state' => $schedule->toArray(),
-                'institution_id' => $user->institution_id
+                'institution_id' => $user->institution_id,
             ]);
 
             return [
                 'id' => $schedule->id,
                 'name' => $schedule->name,
                 'status' => $schedule->status,
-                'next_run' => $schedule->next_run
+                'next_run' => $schedule->next_run,
             ];
         });
     }
@@ -150,7 +150,7 @@ class ScheduledReportService extends BaseService
             'entity_type' => 'ReportSchedule',
             'entity_id' => $schedule->id,
             'description' => "Deleted scheduled report: {$scheduleName}",
-            'institution_id' => $user->institution_id
+            'institution_id' => $user->institution_id,
         ]);
     }
 
@@ -179,7 +179,7 @@ class ScheduledReportService extends BaseService
         $schedule->update([
             'last_run' => now(),
             'next_run' => $nextRun,
-            'run_count' => $schedule->run_count + 1
+            'run_count' => $schedule->run_count + 1,
         ]);
     }
 
@@ -192,7 +192,7 @@ class ScheduledReportService extends BaseService
             'overview' => 'Ümumi icmal',
             'institutional' => 'Müəssisə hesabatı',
             'survey' => 'Sorğu nəticələri',
-            'user_activity' => 'İstifadəçi fəaliyyəti'
+            'user_activity' => 'İstifadəçi fəaliyyəti',
         ];
     }
 
@@ -205,7 +205,7 @@ class ScheduledReportService extends BaseService
             'daily' => 'Gündəlik',
             'weekly' => 'Həftəlik',
             'monthly' => 'Aylıq',
-            'quarterly' => 'Rüblük'
+            'quarterly' => 'Rüblük',
         ];
     }
 
@@ -217,7 +217,7 @@ class ScheduledReportService extends BaseService
         return [
             'csv' => 'CSV',
             'json' => 'JSON',
-            'pdf' => 'PDF'
+            'pdf' => 'PDF',
         ];
     }
 
@@ -236,25 +236,25 @@ class ScheduledReportService extends BaseService
                     $next->addDay();
                 }
                 break;
-                
+
             case 'weekly':
                 $next = $now->copy()->next($dayOfWeek ?? 0)->setTime($hour, $minute);
                 break;
-                
+
             case 'monthly':
                 $next = $now->copy()->startOfMonth()->addDays(($dayOfMonth ?? 1) - 1)->setTime($hour, $minute);
                 if ($next <= $now) {
                     $next->addMonth();
                 }
                 break;
-                
+
             case 'quarterly':
                 $next = $now->copy()->firstOfQuarter()->addDays(($dayOfMonth ?? 1) - 1)->setTime($hour, $minute);
                 if ($next <= $now) {
                     $next->addQuarter();
                 }
                 break;
-                
+
             default:
                 $next = $now->copy()->addDay();
         }
@@ -280,7 +280,7 @@ class ScheduledReportService extends BaseService
             'run_count' => $schedule->run_count ?? 0,
             'created_by' => $schedule->creator?->username,
             'created_at' => $schedule->created_at,
-            'filters' => $schedule->filters
+            'filters' => $schedule->filters,
         ];
     }
 
@@ -295,30 +295,30 @@ class ScheduledReportService extends BaseService
             $errors['name'] = 'Hesabat adı tələb olunur';
         }
 
-        if (empty($data['report_type']) || !in_array($data['report_type'], array_keys($this->getAvailableReportTypes()))) {
+        if (empty($data['report_type']) || ! in_array($data['report_type'], array_keys($this->getAvailableReportTypes()))) {
             $errors['report_type'] = 'Keçərli hesabat növü seçin';
         }
 
-        if (empty($data['frequency']) || !in_array($data['frequency'], array_keys($this->getFrequencyOptions()))) {
+        if (empty($data['frequency']) || ! in_array($data['frequency'], array_keys($this->getFrequencyOptions()))) {
             $errors['frequency'] = 'Keçərli tezlik seçin';
         }
 
-        if (empty($data['format']) || !in_array($data['format'], array_keys($this->getFormatOptions()))) {
+        if (empty($data['format']) || ! in_array($data['format'], array_keys($this->getFormatOptions()))) {
             $errors['format'] = 'Keçərli format seçin';
         }
 
-        if (empty($data['recipients']) || !is_array($data['recipients'])) {
+        if (empty($data['recipients']) || ! is_array($data['recipients'])) {
             $errors['recipients'] = 'Ən azı bir alıcı email adresi tələb olunur';
         } else {
             foreach ($data['recipients'] as $email) {
-                if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                if (! filter_var($email, FILTER_VALIDATE_EMAIL)) {
                     $errors['recipients'] = 'Bütün email adresləri keçərli olmalıdır';
                     break;
                 }
             }
         }
 
-        if (empty($data['time']) || !preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $data['time'])) {
+        if (empty($data['time']) || ! preg_match('/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/', $data['time'])) {
             $errors['time'] = 'Keçərli vaxt formatı (HH:MM) tələb olunur';
         }
 

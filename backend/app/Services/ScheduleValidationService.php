@@ -3,9 +3,8 @@
 namespace App\Services;
 
 use App\Models\Schedule;
-use App\Models\ScheduleSession;
 use App\Models\ScheduleConflict;
-use App\Services\BaseService;
+use App\Models\ScheduleSession;
 use Illuminate\Support\Facades\DB;
 
 class ScheduleValidationService extends BaseService
@@ -37,7 +36,7 @@ class ScheduleValidationService extends BaseService
         $conflicts = array_merge($conflicts, $loadConflicts);
 
         // Store conflicts in database for reporting
-        if (!empty($conflicts)) {
+        if (! empty($conflicts)) {
             foreach ($conflicts as $conflict) {
                 ScheduleConflict::create([
                     'schedule_id' => $schedule->id,
@@ -46,7 +45,7 @@ class ScheduleValidationService extends BaseService
                     'description' => $conflict['message'],
                     'session_id' => $conflict['session_id'] ?? null,
                     'conflicting_session_id' => $conflict['conflicting_session_id'] ?? null,
-                    'metadata' => json_encode($conflict['metadata'] ?? [])
+                    'metadata' => json_encode($conflict['metadata'] ?? []),
                 ]);
             }
         }
@@ -63,7 +62,7 @@ class ScheduleValidationService extends BaseService
         $warnings = [];
 
         // Check teacher availability
-        if (!empty($sessionData['teacher_id']) && !empty($sessionData['schedule_id'])) {
+        if (! empty($sessionData['teacher_id']) && ! empty($sessionData['schedule_id'])) {
             $teacherConflict = ScheduleSession::where('schedule_id', $sessionData['schedule_id'])
                 ->where('teacher_id', $sessionData['teacher_id'])
                 ->where('day_of_week', $sessionData['day_of_week'])
@@ -76,7 +75,7 @@ class ScheduleValidationService extends BaseService
         }
 
         // Check room availability
-        if (!empty($sessionData['room_id']) && !empty($sessionData['schedule_id'])) {
+        if (! empty($sessionData['room_id']) && ! empty($sessionData['schedule_id'])) {
             $roomConflict = ScheduleSession::where('schedule_id', $sessionData['schedule_id'])
                 ->where('room_id', $sessionData['room_id'])
                 ->where('day_of_week', $sessionData['day_of_week'])
@@ -89,7 +88,7 @@ class ScheduleValidationService extends BaseService
         }
 
         // Check class availability
-        if (!empty($sessionData['class_id']) && !empty($sessionData['schedule_id'])) {
+        if (! empty($sessionData['class_id']) && ! empty($sessionData['schedule_id'])) {
             $classConflict = ScheduleSession::where('schedule_id', $sessionData['schedule_id'])
                 ->where('class_id', $sessionData['class_id'])
                 ->where('day_of_week', $sessionData['day_of_week'])
@@ -102,16 +101,16 @@ class ScheduleValidationService extends BaseService
         }
 
         // Check time slot validity
-        if (!empty($sessionData['start_time']) && !empty($sessionData['end_time'])) {
+        if (! empty($sessionData['start_time']) && ! empty($sessionData['end_time'])) {
             if ($sessionData['start_time'] >= $sessionData['end_time']) {
                 $errors[] = 'Başlama vaxtı bitmə vaxtından böyük ola bilməz';
             }
         }
 
         // Check day of week validity
-        if (!empty($sessionData['day_of_week'])) {
+        if (! empty($sessionData['day_of_week'])) {
             $validDays = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-            if (!in_array($sessionData['day_of_week'], $validDays)) {
+            if (! in_array($sessionData['day_of_week'], $validDays)) {
                 $errors[] = 'Yanlış həftə günü';
             }
         }
@@ -119,7 +118,7 @@ class ScheduleValidationService extends BaseService
         return [
             'is_valid' => empty($errors),
             'errors' => $errors,
-            'warnings' => $warnings
+            'warnings' => $warnings,
         ];
     }
 
@@ -130,7 +129,7 @@ class ScheduleValidationService extends BaseService
     {
         $conflicts = [];
 
-        $teacherConflicts = DB::select("
+        $teacherConflicts = DB::select('
             SELECT 
                 s1.id as session1_id,
                 s2.id as session2_id,
@@ -145,7 +144,7 @@ class ScheduleValidationService extends BaseService
                 AND s1.id < s2.id
             INNER JOIN users u ON s1.teacher_id = u.id
             WHERE s1.schedule_id = ? AND s2.schedule_id = ?
-        ", [$schedule->id, $schedule->id]);
+        ', [$schedule->id, $schedule->id]);
 
         foreach ($teacherConflicts as $conflict) {
             $conflicts[] = [
@@ -158,8 +157,8 @@ class ScheduleValidationService extends BaseService
                     'teacher_id' => $conflict->teacher_id,
                     'teacher_name' => $conflict->teacher_name,
                     'day_of_week' => $conflict->day_of_week,
-                    'period' => $conflict->period
-                ]
+                    'period' => $conflict->period,
+                ],
             ];
         }
 
@@ -173,7 +172,7 @@ class ScheduleValidationService extends BaseService
     {
         $conflicts = [];
 
-        $roomConflicts = DB::select("
+        $roomConflicts = DB::select('
             SELECT 
                 s1.id as session1_id,
                 s2.id as session2_id,
@@ -188,7 +187,7 @@ class ScheduleValidationService extends BaseService
                 AND s1.id < s2.id
             LEFT JOIN rooms r ON s1.room_id = r.id
             WHERE s1.schedule_id = ? AND s2.schedule_id = ? AND s1.room_id IS NOT NULL
-        ", [$schedule->id, $schedule->id]);
+        ', [$schedule->id, $schedule->id]);
 
         foreach ($roomConflicts as $conflict) {
             $conflicts[] = [
@@ -201,8 +200,8 @@ class ScheduleValidationService extends BaseService
                     'room_id' => $conflict->room_id,
                     'room_name' => $conflict->room_name,
                     'day_of_week' => $conflict->day_of_week,
-                    'period' => $conflict->period
-                ]
+                    'period' => $conflict->period,
+                ],
             ];
         }
 
@@ -216,7 +215,7 @@ class ScheduleValidationService extends BaseService
     {
         $conflicts = [];
 
-        $classConflicts = DB::select("
+        $classConflicts = DB::select('
             SELECT 
                 s1.id as session1_id,
                 s2.id as session2_id,
@@ -231,7 +230,7 @@ class ScheduleValidationService extends BaseService
                 AND s1.id < s2.id
             INNER JOIN classes c ON s1.class_id = c.id
             WHERE s1.schedule_id = ? AND s2.schedule_id = ?
-        ", [$schedule->id, $schedule->id]);
+        ', [$schedule->id, $schedule->id]);
 
         foreach ($classConflicts as $conflict) {
             $conflicts[] = [
@@ -244,8 +243,8 @@ class ScheduleValidationService extends BaseService
                     'class_id' => $conflict->class_id,
                     'class_name' => $conflict->class_name,
                     'day_of_week' => $conflict->day_of_week,
-                    'period' => $conflict->period
-                ]
+                    'period' => $conflict->period,
+                ],
             ];
         }
 
@@ -260,7 +259,7 @@ class ScheduleValidationService extends BaseService
         $conflicts = [];
 
         // Get teaching loads and actual scheduled hours
-        $loadComparison = DB::select("
+        $loadComparison = DB::select('
             SELECT 
                 tl.id as load_id,
                 tl.teacher_id,
@@ -291,18 +290,18 @@ class ScheduleValidationService extends BaseService
             WHERE cl.institution_id = ?
               AND tl.academic_year = ?
               AND tl.semester = ?
-        ", [
+        ', [
             $schedule->id,
             $schedule->institution_id,
             $schedule->academic_year,
-            $schedule->semester
+            $schedule->semester,
         ]);
 
         foreach ($loadComparison as $load) {
             if ($load->actual_hours != $load->required_hours) {
                 $severity = 'medium';
                 $message = '';
-                
+
                 if ($load->actual_hours < $load->required_hours) {
                     $severity = 'high';
                     $deficit = $load->required_hours - $load->actual_hours;
@@ -325,8 +324,8 @@ class ScheduleValidationService extends BaseService
                         'actual_hours' => $load->actual_hours,
                         'teacher_name' => $load->teacher_name,
                         'class_name' => $load->class_name,
-                        'subject_name' => $load->subject_name
-                    ]
+                        'subject_name' => $load->subject_name,
+                    ],
                 ];
             }
         }
@@ -340,7 +339,7 @@ class ScheduleValidationService extends BaseService
     public function getValidationSummary(Schedule $schedule): array
     {
         $conflicts = ScheduleConflict::where('schedule_id', $schedule->id)->get();
-        
+
         $summary = [
             'total_conflicts' => $conflicts->count(),
             'high_severity' => $conflicts->where('severity', 'high')->count(),
@@ -348,7 +347,7 @@ class ScheduleValidationService extends BaseService
             'low_severity' => $conflicts->where('severity', 'low')->count(),
             'by_type' => $conflicts->groupBy('type')->map->count(),
             'is_valid' => $conflicts->count() === 0,
-            'validation_score' => $this->calculateValidationScore($conflicts)
+            'validation_score' => $this->calculateValidationScore($conflicts),
         ];
 
         return $summary;
@@ -381,6 +380,7 @@ class ScheduleValidationService extends BaseService
         }
 
         $score = max(0, 100 - $totalPenalty);
+
         return round($score, 2);
     }
 
@@ -393,7 +393,7 @@ class ScheduleValidationService extends BaseService
             'no_high_conflicts' => true,
             'teaching_loads_met' => true,
             'minimum_coverage' => true,
-            'valid_time_slots' => true
+            'valid_time_slots' => true,
         ];
 
         $issues = [];
@@ -422,10 +422,10 @@ class ScheduleValidationService extends BaseService
         // Check minimum coverage (at least 80% of required sessions)
         $totalSessions = $schedule->sessions()->count();
         $minRequired = $this->calculateMinimumRequiredSessions($schedule);
-        
+
         if ($totalSessions < ($minRequired * 0.8)) {
             $requirements['minimum_coverage'] = false;
-            $issues[] = "Minimum dərs əhatəsi təmin edilməyib";
+            $issues[] = 'Minimum dərs əhatəsi təmin edilməyib';
         }
 
         // Check for valid time slots
@@ -438,7 +438,7 @@ class ScheduleValidationService extends BaseService
             $issues[] = "{$invalidSessions} yanlış vaxt aralığı var";
         }
 
-        $meetsRequirements = array_reduce($requirements, function($carry, $item) {
+        $meetsRequirements = array_reduce($requirements, function ($carry, $item) {
             return $carry && $item;
         }, true);
 
@@ -446,7 +446,7 @@ class ScheduleValidationService extends BaseService
             'meets_requirements' => $meetsRequirements,
             'requirements' => $requirements,
             'issues' => $issues,
-            'approval_score' => $meetsRequirements ? 100 : round((array_sum($requirements) / count($requirements)) * 100, 2)
+            'approval_score' => $meetsRequirements ? 100 : round((array_sum($requirements) / count($requirements)) * 100, 2),
         ];
     }
 
@@ -473,19 +473,19 @@ class ScheduleValidationService extends BaseService
 
         // Maximum hours per day constraint
         if (isset($constraints['max_hours_per_day'])) {
-            $violations = array_merge($violations, 
+            $violations = array_merge($violations,
                 $this->checkMaxHoursPerDay($schedule, $constraints['max_hours_per_day']));
         }
 
         // Minimum break time constraint
         if (isset($constraints['min_break_time'])) {
-            $violations = array_merge($violations, 
+            $violations = array_merge($violations,
                 $this->checkMinBreakTime($schedule, $constraints['min_break_time']));
         }
 
         // Teacher max hours per day constraint
         if (isset($constraints['teacher_max_hours_per_day'])) {
-            $violations = array_merge($violations, 
+            $violations = array_merge($violations,
                 $this->checkTeacherMaxHours($schedule, $constraints['teacher_max_hours_per_day']));
         }
 
@@ -498,7 +498,7 @@ class ScheduleValidationService extends BaseService
     private function checkMaxHoursPerDay(Schedule $schedule, int $maxHours): array
     {
         $violations = [];
-        
+
         $dailyHours = $schedule->sessions()
             ->select('day_of_week', DB::raw('COUNT(*) as hours'))
             ->groupBy('day_of_week')
@@ -513,8 +513,8 @@ class ScheduleValidationService extends BaseService
                 'metadata' => [
                     'day' => $day->day_of_week,
                     'actual_hours' => $day->hours,
-                    'max_allowed' => $maxHours
-                ]
+                    'max_allowed' => $maxHours,
+                ],
             ];
         }
 
@@ -537,7 +537,7 @@ class ScheduleValidationService extends BaseService
     private function checkTeacherMaxHours(Schedule $schedule, int $maxHours): array
     {
         $violations = [];
-        
+
         $teacherDailyHours = $schedule->sessions()
             ->select('teacher_id', 'day_of_week', DB::raw('COUNT(*) as hours'))
             ->groupBy('teacher_id', 'day_of_week')
@@ -555,8 +555,8 @@ class ScheduleValidationService extends BaseService
                     'teacher_name' => $record->teacher->name,
                     'day' => $record->day_of_week,
                     'actual_hours' => $record->hours,
-                    'max_allowed' => $maxHours
-                ]
+                    'max_allowed' => $maxHours,
+                ],
             ];
         }
 

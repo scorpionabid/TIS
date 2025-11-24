@@ -47,7 +47,7 @@ trait ResponseHelpers
      */
     protected function paginated($data, string $message = 'Success'): JsonResponse
     {
-        if (!$data instanceof LengthAwarePaginator) {
+        if (! $data instanceof LengthAwarePaginator) {
             return $this->error('Data must be paginated');
         }
 
@@ -69,7 +69,7 @@ trait ResponseHelpers
                 'last' => $data->url($data->lastPage()),
                 'prev' => $data->previousPageUrl(),
                 'next' => $data->nextPageUrl(),
-            ]
+            ],
         ]);
     }
 
@@ -86,7 +86,7 @@ trait ResponseHelpers
             'success' => true,
             'message' => $message,
             'data' => $data,
-            'count' => is_array($data) ? count($data) : ($data instanceof Collection ? $data->count() : 0)
+            'count' => is_array($data) ? count($data) : ($data instanceof Collection ? $data->count() : 0),
         ]);
     }
 
@@ -160,7 +160,7 @@ trait ResponseHelpers
     protected function bulkOperation(int $successCount, int $totalCount, string $operation = 'processed'): JsonResponse
     {
         $message = "{$successCount} of {$totalCount} items {$operation} successfully";
-        
+
         return response()->json([
             'success' => $successCount > 0,
             'message' => $message,
@@ -168,8 +168,8 @@ trait ResponseHelpers
                 'success_count' => $successCount,
                 'total_count' => $totalCount,
                 'failed_count' => $totalCount - $successCount,
-                'success_rate' => $totalCount > 0 ? round(($successCount / $totalCount) * 100, 2) : 0
-            ]
+                'success_rate' => $totalCount > 0 ? round(($successCount / $totalCount) * 100, 2) : 0,
+            ],
         ]);
     }
 
@@ -180,13 +180,13 @@ trait ResponseHelpers
     {
         return response()->json([
             'success' => true,
-            'message' => "Export completed successfully",
+            'message' => 'Export completed successfully',
             'data' => [
                 'filename' => $filename,
                 'format' => $format,
                 'record_count' => $recordCount,
-                'exported_at' => now()->toISOString()
-            ]
+                'exported_at' => now()->toISOString(),
+            ],
         ]);
     }
 
@@ -199,7 +199,7 @@ trait ResponseHelpers
             'success' => true,
             'message' => $message,
             'data' => $stats,
-            'generated_at' => now()->toISOString()
+            'generated_at' => now()->toISOString(),
         ]);
     }
 
@@ -212,7 +212,7 @@ trait ResponseHelpers
             'success' => true,
             'message' => $message,
             'data' => $data,
-            'structure' => 'hierarchical'
+            'structure' => 'hierarchical',
         ]);
     }
 
@@ -225,7 +225,7 @@ trait ResponseHelpers
             'success' => true,
             'message' => $message,
             'data' => $data,
-            'meta' => $meta
+            'meta' => $meta,
         ]);
     }
 }

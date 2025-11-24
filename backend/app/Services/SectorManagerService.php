@@ -4,7 +4,6 @@ namespace App\Services;
 
 use App\Models\Institution;
 use App\Models\User;
-use App\Services\BaseService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -32,7 +31,7 @@ class SectorManagerService extends BaseService
 
                 $query->where(function ($q) use ($sectorIds) {
                     $q->whereNull('institution_id')
-                      ->orWhereIn('institution_id', $sectorIds);
+                        ->orWhereIn('institution_id', $sectorIds);
                 });
             }
         } elseif ($user->hasRole('sektoradmin')) {
@@ -46,7 +45,7 @@ class SectorManagerService extends BaseService
             $searchTerm = $request->search;
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('name', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('email', 'LIKE', "%{$searchTerm}%");
+                    ->orWhere('email', 'LIKE', "%{$searchTerm}%");
             });
         }
 
@@ -70,7 +69,7 @@ class SectorManagerService extends BaseService
 
         return [
             'managers' => $managers,
-            'summary' => $summary
+            'summary' => $summary,
         ];
     }
 
@@ -83,7 +82,7 @@ class SectorManagerService extends BaseService
             // Verify sector exists and user has access
             $sectorQuery = Institution::where('type', 'sector_education_office')
                 ->where('level', 3);
-            
+
             $this->applySectorAccessControl($sectorQuery, $user);
             $sector = $sectorQuery->findOrFail($sectorId);
 
@@ -91,8 +90,8 @@ class SectorManagerService extends BaseService
             $manager = User::whereHas('roles', function ($q) {
                 $q->where('name', 'sektoradmin');
             })
-            ->where('is_active', true)
-            ->findOrFail($managerId);
+                ->where('is_active', true)
+                ->findOrFail($managerId);
 
             // Check if manager is already assigned to another sector
             if ($manager->institution_id && $manager->institution_id !== $sectorId) {
@@ -110,7 +109,7 @@ class SectorManagerService extends BaseService
             $manager->update(['institution_id' => $sectorId]);
 
             // Ensure manager has correct role
-            if (!$manager->hasRole('sektoradmin')) {
+            if (! $manager->hasRole('sektoradmin')) {
                 $manager->assignRole('sektoradmin');
             }
 
@@ -118,10 +117,10 @@ class SectorManagerService extends BaseService
                 'sector' => [
                     'id' => $sector->id,
                     'name' => $sector->name,
-                    'code' => $sector->code
+                    'code' => $sector->code,
                 ],
                 'manager' => $this->transformManagerData($manager->fresh()),
-                'previous_manager' => $currentManager ? $this->transformManagerData($currentManager) : null
+                'previous_manager' => $currentManager ? $this->transformManagerData($currentManager) : null,
             ];
         });
     }
@@ -135,14 +134,14 @@ class SectorManagerService extends BaseService
             // Verify sector exists and user has access
             $sectorQuery = Institution::where('type', 'sector_education_office')
                 ->where('level', 3);
-            
+
             $this->applySectorAccessControl($sectorQuery, $user);
             $sector = $sectorQuery->findOrFail($sectorId);
 
             // Get current manager
             $currentManager = $this->getCurrentSectorManager($sector);
-            
-            if (!$currentManager) {
+
+            if (! $currentManager) {
                 throw new \Exception('Sektorda menecer təyin edilməyib');
             }
 
@@ -153,9 +152,9 @@ class SectorManagerService extends BaseService
                 'sector' => [
                     'id' => $sector->id,
                     'name' => $sector->name,
-                    'code' => $sector->code
+                    'code' => $sector->code,
                 ],
-                'removed_manager' => $this->transformManagerData($currentManager)
+                'removed_manager' => $this->transformManagerData($currentManager),
             ];
         });
     }
@@ -168,12 +167,12 @@ class SectorManagerService extends BaseService
         // Verify sector exists and user has access
         $sectorQuery = Institution::where('type', 'sector_education_office')
             ->where('level', 3);
-        
+
         $this->applySectorAccessControl($sectorQuery, $user);
         $sector = $sectorQuery->findOrFail($sectorId);
 
         $manager = $this->getCurrentSectorManager($sector);
-        
+
         return $manager ? $this->transformManagerData($manager) : null;
     }
 
@@ -185,22 +184,22 @@ class SectorManagerService extends BaseService
         // Verify sector exists and user has access
         $sectorQuery = Institution::where('type', 'sector_education_office')
             ->where('level', 3);
-        
+
         $this->applySectorAccessControl($sectorQuery, $user);
         $sector = $sectorQuery->findOrFail($sectorId);
 
         // Get assignment history from audit logs or activity logs
         // This is a simplified version - in real implementation you might want
         // to track this in a separate assignments table or audit log
-        
+
         $currentManager = $this->getCurrentSectorManager($sector);
         $history = [];
-        
+
         if ($currentManager) {
             $history[] = [
                 'manager' => $this->transformManagerData($currentManager),
                 'assigned_at' => $currentManager->updated_at,
-                'is_current' => true
+                'is_current' => true,
             ];
         }
 
@@ -208,10 +207,10 @@ class SectorManagerService extends BaseService
             'sector' => [
                 'id' => $sector->id,
                 'name' => $sector->name,
-                'code' => $sector->code
+                'code' => $sector->code,
             ],
             'assignment_history' => $history,
-            'total_assignments' => count($history)
+            'total_assignments' => count($history),
         ];
     }
 
@@ -227,8 +226,8 @@ class SectorManagerService extends BaseService
                 'summary' => [
                     'total' => count($assignments),
                     'success' => 0,
-                    'failed' => 0
-                ]
+                    'failed' => 0,
+                ],
             ];
 
             foreach ($assignments as $assignment) {
@@ -238,14 +237,14 @@ class SectorManagerService extends BaseService
                         $assignment['manager_id'],
                         $user
                     );
-                    
+
                     $results['successful'][] = $result;
                     $results['summary']['success']++;
                 } catch (\Exception $e) {
                     $results['failed'][] = [
                         'sector_id' => $assignment['sector_id'],
                         'manager_id' => $assignment['manager_id'],
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
                     $results['summary']['failed']++;
                 }
@@ -265,7 +264,7 @@ class SectorManagerService extends BaseService
         })->findOrFail($managerId);
 
         // Verify user can access this manager's data
-        if (!$user->hasRole('superadmin') && !$user->hasRole('regionadmin')) {
+        if (! $user->hasRole('superadmin') && ! $user->hasRole('regionadmin')) {
             if ($user->id !== $managerId) {
                 throw new \Exception('Bu məlumatları görməyə icazəniz yoxdur');
             }
@@ -277,9 +276,9 @@ class SectorManagerService extends BaseService
             'sector' => $sector ? [
                 'id' => $sector->id,
                 'name' => $sector->name,
-                'code' => $sector->code
+                'code' => $sector->code,
             ] : null,
-            'metrics' => []
+            'metrics' => [],
         ];
 
         if ($sector) {
@@ -287,14 +286,14 @@ class SectorManagerService extends BaseService
                 'schools_managed' => $sector->children()->withTrashed()->count(),
                 'active_schools' => $sector->children()->withTrashed()->where('is_active', true)->count(),
                 'total_students' => $sector->children()->withTrashed()->withCount('students')->get()->sum('students_count'),
-                'total_teachers' => $sector->children()->withTrashed()->withCount(['users' => function($query) {
-                    $query->whereHas('roles', function($roleQuery) {
+                'total_teachers' => $sector->children()->withTrashed()->withCount(['users' => function ($query) {
+                    $query->whereHas('roles', function ($roleQuery) {
                         $roleQuery->where('name', 'teacher');
                     });
                 }])->get()->sum('users_count'),
                 'recent_tasks_completed' => $sector->tasks()->where('status', 'completed')
                     ->where('completed_at', '>=', now()->subDays(30))->count(),
-                'documents_uploaded' => $sector->documents()->where('created_at', '>=', now()->subDays(30))->count()
+                'documents_uploaded' => $sector->documents()->where('created_at', '>=', now()->subDays(30))->count(),
             ];
         }
 
@@ -347,12 +346,12 @@ class SectorManagerService extends BaseService
                 'id' => $manager->institution->id,
                 'name' => $manager->institution->name,
                 'code' => $manager->institution->code,
-                'type' => $manager->institution->type
+                'type' => $manager->institution->type,
             ] : null,
             'assigned_at' => $manager->institution_id ? $manager->updated_at : null,
-            'is_available' => !$manager->institution_id,
+            'is_available' => ! $manager->institution_id,
             'last_login' => $manager->last_login_at,
-            'created_at' => $manager->created_at
+            'created_at' => $manager->created_at,
         ];
     }
 
@@ -375,7 +374,7 @@ class SectorManagerService extends BaseService
 
                 $baseQuery->where(function ($q) use ($sectorIds) {
                     $q->whereNull('institution_id')
-                      ->orWhereIn('institution_id', $sectorIds);
+                        ->orWhereIn('institution_id', $sectorIds);
                 });
             }
         }
@@ -388,7 +387,7 @@ class SectorManagerService extends BaseService
             'total_managers' => $total,
             'assigned_managers' => $assigned,
             'available_managers' => $available,
-            'assignment_rate' => $total > 0 ? round(($assigned / $total) * 100, 2) : 0
+            'assignment_rate' => $total > 0 ? round(($assigned / $total) * 100, 2) : 0,
         ];
     }
 }

@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use Spatie\Permission\Models\Permission;
-use Spatie\Permission\Models\Role;
-use Illuminate\Http\Request;
+use App\Services\RoleHierarchyService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use App\Services\RoleHierarchyService;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 
 class PermissionController extends Controller
 {
@@ -35,8 +35,8 @@ class PermissionController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('display_name', 'LIKE', "%{$search}%")
-                  ->orWhere('description', 'LIKE', "%{$search}%");
+                    ->orWhere('display_name', 'LIKE', "%{$search}%")
+                    ->orWhere('description', 'LIKE', "%{$search}%");
             });
         }
 
@@ -152,7 +152,7 @@ class PermissionController extends Controller
                 'roles' => $roles,
                 'created_at' => $permission->created_at,
                 'updated_at' => $permission->updated_at,
-            ]
+            ],
         ]);
     }
 
@@ -168,10 +168,10 @@ class PermissionController extends Controller
         ]);
 
         // Check if trying to deactivate a system permission
-        if ($request->has('is_active') && !$request->is_active) {
+        if ($request->has('is_active') && ! $request->is_active) {
             if ($this->isSystemPermission($permission)) {
                 return response()->json([
-                    'message' => 'Sistem səlahiyyətləri deaktiv edilə bilməz'
+                    'message' => 'Sistem səlahiyyətləri deaktiv edilə bilməz',
                 ], 422);
             }
 
@@ -219,7 +219,7 @@ class PermissionController extends Controller
             return $this->isSystemPermission($permission);
         });
 
-        if ($systemPermissions->count() > 0 && isset($data['is_active']) && !$data['is_active']) {
+        if ($systemPermissions->count() > 0 && isset($data['is_active']) && ! $data['is_active']) {
             return response()->json([
                 'message' => 'Sistem səlahiyyətləri deaktiv edilə bilməz',
                 'system_permissions' => $systemPermissions->pluck('name'),
@@ -330,7 +330,7 @@ class PermissionController extends Controller
                 default => 'other',
             };
 
-            if (!isset($grouped[$groupKey])) {
+            if (! isset($grouped[$groupKey])) {
                 $grouped[$groupKey] = [
                     'label' => $this->getGroupLabel($groupBy, $groupKey),
                     'permissions' => [],
@@ -373,9 +373,9 @@ class PermissionController extends Controller
 
         // Check if user can manage this role
         $manageableRoles = $this->hierarchyService->getUserManageableRoles($user);
-        if (!$manageableRoles->contains('id', $role->id)) {
+        if (! $manageableRoles->contains('id', $role->id)) {
             return response()->json([
-                'message' => 'Bu rolu idarə etmək üçün icazəniz yoxdur'
+                'message' => 'Bu rolu idarə etmək üçün icazəniz yoxdur',
             ], 403);
         }
 
@@ -384,7 +384,7 @@ class PermissionController extends Controller
         $requestedPermissionNames = Permission::whereIn('id', $permissionIds)->pluck('name')->toArray();
         $invalidPermissions = array_diff($requestedPermissionNames, $allowedPermissions);
 
-        if (!empty($invalidPermissions) && $action !== 'revoke') {
+        if (! empty($invalidPermissions) && $action !== 'revoke') {
             return response()->json([
                 'message' => 'Bu rol səviyyəsi üçün uyğun olmayan səlahiyyətlər',
                 'invalid_permissions' => $invalidPermissions,
@@ -472,11 +472,22 @@ class PermissionController extends Controller
      */
     private function getPermissionScope(string $permissionName): string
     {
-        if (str_contains($permissionName, 'system')) return 'system';
-        if (str_contains($permissionName, 'reports') || str_contains($permissionName, 'analytics')) return 'global';
-        if (str_contains($permissionName, 'institutions') || str_contains($permissionName, 'institution-types')) return 'regional';
-        if (str_contains($permissionName, 'users') && str_contains($permissionName, 'manage')) return 'sector';
-        if (str_contains($permissionName, 'surveys') || str_contains($permissionName, 'tasks') || str_contains($permissionName, 'documents')) return 'institution';
+        if (str_contains($permissionName, 'system')) {
+            return 'system';
+        }
+        if (str_contains($permissionName, 'reports') || str_contains($permissionName, 'analytics')) {
+            return 'global';
+        }
+        if (str_contains($permissionName, 'institutions') || str_contains($permissionName, 'institution-types')) {
+            return 'regional';
+        }
+        if (str_contains($permissionName, 'users') && str_contains($permissionName, 'manage')) {
+            return 'sector';
+        }
+        if (str_contains($permissionName, 'surveys') || str_contains($permissionName, 'tasks') || str_contains($permissionName, 'documents')) {
+            return 'institution';
+        }
+
         return 'classroom';
     }
 
@@ -498,6 +509,7 @@ class PermissionController extends Controller
             $result['action'] = $parts[0];
             $result['resource'] = $parts[1] ?? null;
             $result['category'] = $this->getCategoryFromResource($parts[1] ?? '');
+
             return $result;
         }
 
@@ -507,6 +519,7 @@ class PermissionController extends Controller
             $result['resource'] = $parts[0];
             $result['action'] = $parts[1] ?? null;
             $result['category'] = $this->getCategoryFromResource($parts[0]);
+
             return $result;
         }
 

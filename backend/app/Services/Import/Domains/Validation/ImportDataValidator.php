@@ -15,8 +15,6 @@ class ImportDataValidator
 {
     /**
      * Validation errors array
-     *
-     * @var array
      */
     protected array $validationErrors = [];
 
@@ -24,10 +22,6 @@ class ImportDataValidator
      * Validate import data
      *
      * Populates $validationErrors array with any validation failures.
-     *
-     * @param array $data
-     * @param InstitutionType $institutionType
-     * @return void
      */
     public function validateImportData(array $data, InstitutionType $institutionType): void
     {
@@ -92,8 +86,6 @@ class ImportDataValidator
 
     /**
      * Get validation errors
-     *
-     * @return array
      */
     public function getValidationErrors(): array
     {
@@ -102,18 +94,14 @@ class ImportDataValidator
 
     /**
      * Check if there are validation errors
-     *
-     * @return bool
      */
     public function hasValidationErrors(): bool
     {
-        return !empty($this->validationErrors);
+        return ! empty($this->validationErrors);
     }
 
     /**
      * Reset validation errors
-     *
-     * @return void
      */
     public function resetValidationErrors(): void
     {

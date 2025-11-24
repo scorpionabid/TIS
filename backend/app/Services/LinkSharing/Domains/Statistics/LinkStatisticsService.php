@@ -2,7 +2,6 @@
 
 namespace App\Services\LinkSharing\Domains\Statistics;
 
-use App\Models\LinkShare;
 use App\Models\LinkAccessLog;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
 use Exception;
@@ -25,7 +24,7 @@ class LinkStatisticsService
      */
     public function getLinkStatistics($linkShare, $user)
     {
-        if (!$this->permissionService->canViewLinkStats($user, $linkShare)) {
+        if (! $this->permissionService->canViewLinkStats($user, $linkShare)) {
             throw new Exception('Bu link statistikalarını görmək icazəniz yoxdur', 403);
         }
 
@@ -42,7 +41,7 @@ class LinkStatisticsService
                 ->count(),
             'access_this_month' => LinkAccessLog::where('link_share_id', $linkShare->id)
                 ->whereMonth('accessed_at', now()->month)
-                ->count()
+                ->count(),
         ];
 
         // Get access by day for the last 30 days
@@ -66,7 +65,7 @@ class LinkStatisticsService
         return [
             'overview' => $stats,
             'daily_access' => $dailyAccess,
-            'access_by_role' => $accessByRole
+            'access_by_role' => $accessByRole,
         ];
     }
 }

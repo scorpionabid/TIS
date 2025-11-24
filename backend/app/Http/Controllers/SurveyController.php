@@ -2,17 +2,17 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ResponseHelpers;
+use App\Http\Traits\ValidationRules;
 use App\Models\Survey;
 use App\Models\User;
 use App\Services\SurveyCrudService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use App\Http\Traits\ValidationRules;
-use App\Http\Traits\ResponseHelpers;
+use Illuminate\Http\Request;
 
 class SurveyController extends BaseController
 {
-    use ValidationRules, ResponseHelpers;
+    use ResponseHelpers, ValidationRules;
 
     protected SurveyCrudService $crudService;
 
@@ -40,19 +40,19 @@ class SurveyController extends BaseController
             'created_to' => 'nullable|date',
             'my_surveys' => 'nullable|boolean',
             'sort_by' => 'nullable|string|in:title,status,created_at,published_at,start_date,end_date',
-            'sort_direction' => 'nullable|string|in:asc,desc'
+            'sort_direction' => 'nullable|string|in:asc,desc',
         ]);
 
         try {
             $surveys = $this->crudService->getPaginatedList($validated);
-            
+
             // Format surveys for response
             $formattedSurveys = $surveys->getCollection()->map(function ($survey) {
                 return $this->crudService->formatForResponse($survey);
             });
-            
+
             $surveys->setCollection($formattedSurveys);
-            
+
             return $this->successResponse($surveys, 'Surveys retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -70,7 +70,7 @@ class SurveyController extends BaseController
             $survey->loadCount('responses');
             $surveyWithRelations = $this->crudService->getWithRelations($survey);
             $formattedSurvey = $this->crudService->formatDetailedForResponse($surveyWithRelations);
-            
+
             return $this->successResponse($formattedSurvey, 'Survey retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -122,13 +122,13 @@ class SurveyController extends BaseController
             'auto_close_on_max' => 'nullable|boolean',
             'notification_settings' => 'nullable|array',
             'target_institutions' => 'nullable|array',
-            'target_institutions.*' => 'integer|exists:institutions,id'
+            'target_institutions.*' => 'integer|exists:institutions,id',
         ]);
 
         try {
             $survey = $this->crudService->create($validated);
             $formattedSurvey = $this->crudService->formatDetailedForResponse($survey);
-            
+
             return $this->successResponse($formattedSurvey, 'Survey created successfully', 201);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -141,7 +141,7 @@ class SurveyController extends BaseController
     public function update(Request $request, Survey $survey): JsonResponse
     {
         // Check if user can edit this survey (either has surveys.write permission OR is the creator)
-        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+        if (! auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
             return $this->errorResponse('Bu sorğunu redaktə etmək üçün icazəniz yoxdur', 403);
         }
 
@@ -183,14 +183,14 @@ class SurveyController extends BaseController
             'auto_close_on_max' => 'nullable|boolean',
             'notification_settings' => 'nullable|array',
             'target_institutions' => 'nullable|array',
-            'target_institutions.*' => 'integer|exists:institutions,id'
+            'target_institutions.*' => 'integer|exists:institutions,id',
         ]);
 
         try {
             // YENİ: Published survey üçün creator-ə məhdud edit icazəsi
             if ($survey->status === 'published' && $survey->responses()->count() > 0) {
                 // Əgər user creator deyilsə, qadağan et
-                if ($survey->creator_id !== auth()->id() && !auth()->user()->can('surveys.write')) {
+                if ($survey->creator_id !== auth()->id() && ! auth()->user()->can('surveys.write')) {
                     return $this->errorResponse('Bu yayımlanmış sorğunu dəyişmək üçün icazəniz yoxdur', 403);
                 }
 
@@ -204,19 +204,19 @@ class SurveyController extends BaseController
             \Log::info('Survey update request:', [
                 'survey_id' => $survey->id,
                 'target_institutions' => $validated['target_institutions'] ?? 'not provided',
-                'validated_keys' => array_keys($validated)
+                'validated_keys' => array_keys($validated),
             ]);
 
             $updatedSurvey = $this->crudService->update($survey, $validated);
-            
+
             // Debug: Log after update
             \Log::info('Survey after update:', [
                 'survey_id' => $survey->id,
-                'target_institutions' => $updatedSurvey->target_institutions
+                'target_institutions' => $updatedSurvey->target_institutions,
             ]);
-            
+
             $formattedSurvey = $this->crudService->formatDetailedForResponse($updatedSurvey);
-            
+
             return $this->successResponse($formattedSurvey, 'Survey updated successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -229,40 +229,39 @@ class SurveyController extends BaseController
     public function destroy(Request $request, Survey $survey): JsonResponse
     {
         // Check if user can delete this survey (either has surveys.write permission OR is the creator)
-        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+        if (! auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
             return $this->errorResponse('Bu sorğunu silmək üçün icazəniz yoxdur', 403);
         }
 
         try {
             $forceDelete = $request->boolean('force', false);
-            
+
             if ($forceDelete) {
                 // Hard delete - completely remove from database
                 // First delete related records to avoid foreign key constraints
                 \DB::transaction(function () use ($survey) {
                     // Delete audit logs if they exist
                     \DB::table('survey_audit_logs')->where('survey_id', $survey->id)->delete();
-                    
+
                     // Delete survey responses if they exist
                     $survey->responses()->delete();
-                    
+
                     // Delete survey questions if they exist
                     $survey->questions()->delete();
-                    
+
                     // Finally delete the survey
                     $survey->forceDelete();
                 });
-                
+
                 return $this->successResponse(null, 'Survey permanently deleted successfully');
-            } else {
-                // Soft delete - mark as archived
-                $survey->update([
-                    'status' => 'archived',
-                    'archived_at' => now()
-                ]);
-                
-                return $this->successResponse(null, 'Survey archived successfully');
             }
+            // Soft delete - mark as archived
+            $survey->update([
+                'status' => 'archived',
+                'archived_at' => now(),
+            ]);
+
+            return $this->successResponse(null, 'Survey archived successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
         }
@@ -278,6 +277,7 @@ class SurveyController extends BaseController
     {
         try {
             $surveyData = $this->crudService->getSurveyForResponse($survey);
+
             return $this->successResponse($surveyData, 'Survey form retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -291,7 +291,7 @@ class SurveyController extends BaseController
     {
         try {
             // Check if user can access this survey
-            if (!auth()->user()->can('surveys.read') && $survey->creator_id !== auth()->id()) {
+            if (! auth()->user()->can('surveys.read') && $survey->creator_id !== auth()->id()) {
                 return $this->errorResponse('Bu sorğunun məhdudiyyətlərinə baxmaq üçün icazəniz yoxdur', 403);
             }
 
@@ -315,20 +315,20 @@ class SurveyController extends BaseController
     public function duplicate(Survey $survey, Request $request): JsonResponse
     {
         // Check if user can duplicate this survey (either has surveys.write permission OR is the creator)
-        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+        if (! auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
             return $this->errorResponse('Bu sorğunu kopyalamaq üçün icazəniz yoxdur', 403);
         }
 
         $validated = $request->validate([
             'title' => 'nullable|string|max:255',
             'description' => 'nullable|string|max:2000',
-            'survey_type' => 'nullable|string|in:form,poll,assessment,feedback'
+            'survey_type' => 'nullable|string|in:form,poll,assessment,feedback',
         ]);
 
         try {
             $duplicatedSurvey = $this->crudService->duplicate($survey, $validated);
             $formattedSurvey = $this->crudService->formatDetailedForResponse($duplicatedSurvey);
-            
+
             return $this->successResponse($formattedSurvey, 'Survey duplicated successfully', 201);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -353,28 +353,28 @@ class SurveyController extends BaseController
             $perPage = $request->get('per_page', 15);
             $search = $request->get('search');
             $statusFilter = $request->get('status');
-            
+
             $query = Survey::with(['creator']);
-            
+
             // Apply hierarchical filtering based on user role
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 if ($user->hasRole('regionadmin')) {
                     // RegionAdmin can see surveys from their region
                     $regionId = $user->institution_id;
                     $childIds = Institution::where('parent_id', $regionId)
-                        ->orWhereHas('parent', function($q) use ($regionId) {
+                        ->orWhereHas('parent', function ($q) use ($regionId) {
                             $q->where('parent_id', $regionId);
                         })->pluck('id');
-                    
-                    $query->whereHas('creator', function($q) use ($childIds, $user) {
+
+                    $query->whereHas('creator', function ($q) use ($childIds, $user) {
                         $q->whereIn('institution_id', array_merge($childIds->toArray(), [$user->institution_id]));
                     });
                 } elseif ($user->hasRole('sektoradmin')) {
                     // SektorAdmin can see surveys from their sector
                     $sectorId = $user->institution_id;
                     $childIds = Institution::where('parent_id', $sectorId)->pluck('id');
-                    
-                    $query->whereHas('creator', function($q) use ($childIds, $user) {
+
+                    $query->whereHas('creator', function ($q) use ($childIds, $user) {
                         $q->whereIn('institution_id', array_merge($childIds->toArray(), [$user->institution_id]));
                     });
                 } else {
@@ -382,22 +382,22 @@ class SurveyController extends BaseController
                     $query->where('creator_id', $user->id);
                 }
             }
-            
+
             // Apply search filter
             if ($search) {
-                $query->where(function($q) use ($search) {
+                $query->where(function ($q) use ($search) {
                     $q->where('title', 'like', "%{$search}%")
-                      ->orWhere('description', 'like', "%{$search}%");
+                        ->orWhere('description', 'like', "%{$search}%");
                 });
             }
-            
+
             // Apply status filter
             if ($statusFilter) {
                 $query->where('status', $statusFilter);
             }
-            
+
             $surveys = $query->orderBy('created_at', 'desc')->paginate($perPage);
-            
+
             return $this->paginatedResponse($surveys, 'Hierarchical surveys list retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -430,19 +430,19 @@ class SurveyController extends BaseController
                 foreach ($validated['questions'] as $questionData) {
                     $existingQuestion = \App\Models\SurveyQuestion::find($questionData['id']);
 
-                    if (!$existingQuestion || $existingQuestion->survey_id !== $survey->id) {
+                    if (! $existingQuestion || $existingQuestion->survey_id !== $survey->id) {
                         return $this->errorResponse('Sual tapılmadı və ya bu sorğuya aid deyil', 400);
                     }
 
                     $questionId = (string) $existingQuestion->id;
                     $restrictions = $questionRestrictions[$questionId] ?? null;
 
-                    if (!$restrictions) {
+                    if (! $restrictions) {
                         return $this->errorResponse('Sual məhdudiyyətləri müəyyən edilə bilmədi', 400);
                     }
 
                     // Approved responses varsa text edit əngirməsi
-                    if (isset($questionData['title']) && !$restrictions['can_edit_text']) {
+                    if (isset($questionData['title']) && ! $restrictions['can_edit_text']) {
                         return $this->errorResponse(
                             'Bu sualın artıq təsdiq edilmiş cavabları var. Sualın mətnini dəyişmək mümkün deyil. ' .
                             'Təsdiq edilmiş cavablar: ' . $restrictions['approved_responses_count'],
@@ -456,7 +456,7 @@ class SurveyController extends BaseController
                     }
 
                     // Required status dəyişməsi yalnız approved responses yoxsa
-                    if (isset($questionData['is_required']) && !$restrictions['can_edit_required']) {
+                    if (isset($questionData['is_required']) && ! $restrictions['can_edit_required']) {
                         return $this->errorResponse(
                             'Bu sualın artıq təsdiq edilmiş cavabları var. Tələb olunma statusunu dəyişmək mümkün deyil.',
                             400
@@ -469,13 +469,13 @@ class SurveyController extends BaseController
                         $newOptions = collect($questionData['options']);
 
                         // Əgər approved responses varsa, mövcud options-ı silmək olmaz
-                        if (!$restrictions['can_remove_options']) {
+                        if (! $restrictions['can_remove_options']) {
                             foreach ($existingOptionIds as $existingId) {
-                                $found = $newOptions->contains(function($option) use ($existingId) {
-                                    return (isset($option['id']) && $option['id'] == $existingId);
+                                $found = $newOptions->contains(function ($option) use ($existingId) {
+                                    return isset($option['id']) && $option['id'] == $existingId;
                                 });
 
-                                if (!$found) {
+                                if (! $found) {
                                     return $this->errorResponse(
                                         'Bu sualın artıq təsdiq edilmiş cavabları var. Mövcud seçimləri silmək olmaz, yalnız yeni əlavə edə bilərsiniz. ' .
                                         'Təsdiq edilmiş cavablar: ' . $restrictions['approved_responses_count'],
@@ -493,13 +493,13 @@ class SurveyController extends BaseController
             $formattedSurvey = $this->crudService->formatDetailedForResponse($updatedSurvey);
 
             return $this->successResponse($formattedSurvey, 'Sorğu təhlükəsiz yeniləndi');
-
         } catch (\Exception $e) {
             \Log::error('Published survey edit error:', [
                 'survey_id' => $survey->id,
                 'user_id' => auth()->id(),
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
+
             return $this->errorResponse('Yeniləmə zamanı səhv baş verdi: ' . $e->getMessage(), 500);
         }
     }
@@ -509,7 +509,7 @@ class SurveyController extends BaseController
      */
     private function updatePublishedSurveySafely(Survey $survey, array $data): Survey
     {
-        \DB::transaction(function() use ($survey, $data) {
+        \DB::transaction(function () use ($survey, $data) {
             // Survey meta məlumatlarını yenilə
             $survey->update(\Illuminate\Support\Arr::only($data, ['title', 'description']));
 
@@ -553,14 +553,12 @@ class SurveyController extends BaseController
                     'published_edit' => true,
                     'response_count' => $survey->responses()->count(),
                     'edit_timestamp' => now(),
-                ]
+                ],
             ]);
         });
 
         return $survey->fresh();
     }
-
-
 
     /**
      * Get user's survey dashboard statistics
@@ -579,19 +577,19 @@ class SurveyController extends BaseController
             $stats = [
                 'total' => $assignedSurveys->count(),
                 'pending' => $assignedSurveys->whereIn('status', ['published', 'active'])
-                    ->filter(function($survey) use ($user) {
-                        return !$survey->responses()->where('respondent_id', $user->id)->exists();
+                    ->filter(function ($survey) use ($user) {
+                        return ! $survey->responses()->where('respondent_id', $user->id)->exists();
                     })->count(),
                 'in_progress' => $responses->where('status', 'draft')->count(),
                 'completed' => $responses->where('status', 'submitted')->count(),
                 'overdue' => $assignedSurveys->where('end_date', '<', now())
                     ->whereIn('status', ['published', 'active'])
-                    ->filter(function($survey) use ($user) {
-                        return !$survey->responses()->where('respondent_id', $user->id)->exists();
+                    ->filter(function ($survey) use ($user) {
+                        return ! $survey->responses()->where('respondent_id', $user->id)->exists();
                     })->count(),
                 'completion_rate' => $assignedSurveys->count() > 0
                     ? round(($responses->where('status', 'submitted')->count() / $assignedSurveys->count()) * 100, 2)
-                    : 0
+                    : 0,
             ];
 
             return $this->successResponse($stats, 'Dashboard statistics retrieved successfully');
@@ -610,15 +608,15 @@ class SurveyController extends BaseController
             $perPage = $request->get('per_page', 20);
 
             $surveys = $this->getAssignedSurveysQuery($user)
-                ->with(['questions', 'responses' => function($q) use ($user) {
+                ->with(['questions', 'responses' => function ($q) use ($user) {
                     $q->where('respondent_id', $user->id)
-                      ->with('approvalRequest');
+                        ->with('approvalRequest');
                 }])
                 ->select('*')
                 ->paginate($perPage);
 
             // Add response status to each survey
-            $surveys->getCollection()->transform(function($survey) use ($user) {
+            $surveys->getCollection()->transform(function ($survey) {
                 $response = $survey->responses->first();
                 $originalStatus = $response?->status;
 
@@ -639,11 +637,12 @@ class SurveyController extends BaseController
                     $survey->response_status = 'not_started';
                 }
 
-                if (!$response && $survey->end_date && $survey->end_date < now()) {
+                if (! $response && $survey->end_date && $survey->end_date < now()) {
                     $survey->response_status = 'overdue';
                 }
 
                 $survey->makeHidden('responses');
+
                 return $survey;
             });
 
@@ -663,7 +662,7 @@ class SurveyController extends BaseController
             $perPage = $request->get('per_page', 20);
 
             $responses = \App\Models\SurveyResponse::where('respondent_id', $user->id)
-                ->with(['survey' => function($q) {
+                ->with(['survey' => function ($q) {
                     $q->select('id', 'title', 'description', 'end_date', 'questions_count');
                 }])
                 ->orderBy('updated_at', 'desc')
@@ -701,15 +700,15 @@ class SurveyController extends BaseController
     private function getAssignedSurveysQuery($user)
     {
         return Survey::whereIn('status', ['published', 'active'])
-            ->where(function($query) use ($user) {
+            ->where(function ($query) use ($user) {
                 // Check if user is targeted by role
                 $query->whereJsonContains('target_roles', $user->role)
                     // Or by institution
                     ->orWhereJsonContains('target_institutions', $user->institution_id)
                     // Or if no specific targeting (public surveys)
-                    ->orWhere(function($q) {
+                    ->orWhere(function ($q) {
                         $q->whereNull('target_roles')
-                          ->whereNull('target_institutions');
+                            ->whereNull('target_institutions');
                     });
             })
             ->orderBy('created_at', 'desc');
@@ -724,7 +723,7 @@ class SurveyController extends BaseController
     public function reorderQuestions(Request $request, Survey $survey): JsonResponse
     {
         // Check if user can edit this survey
-        if (!auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+        if (! auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
             return $this->errorResponse('Bu sorğunun suallarını yenidən sıralamaq üçün icazəniz yoxdur', 403);
         }
 
@@ -757,7 +756,7 @@ class SurveyController extends BaseController
                     'metadata' => [
                         'reorder_timestamp' => now(),
                         'question_count' => count($validated['questions']),
-                    ]
+                    ],
                 ]);
             });
 

@@ -5,7 +5,6 @@ namespace App\Services\Auth;
 use App\Models\User;
 use App\Models\UserDevice;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class DeviceService
 {
@@ -35,8 +34,8 @@ class DeviceService
     public function revokeDevice(User $user, string $deviceId): bool
     {
         $device = $this->getDevice($user, $deviceId);
-        
-        if (!$device) {
+
+        if (! $device) {
             return false;
         }
 
@@ -89,7 +88,7 @@ class DeviceService
     public function cleanupOldDevices(int $days = 90): int
     {
         $cutoff = now()->subDays($days);
-        
+
         return UserDevice::query()
             ->where('last_login_at', '<', $cutoff)
             ->delete();

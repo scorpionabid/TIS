@@ -3,15 +3,15 @@
 namespace App\Exports;
 
 use App\Models\SurveyResponse;
+use Carbon\Carbon;
 use Maatwebsite\Excel\Concerns\FromArray;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
-use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use Carbon\Carbon;
 
-class SingleSurveyResponseExport implements FromArray, WithHeadings, WithStyles, WithColumnWidths, WithTitle
+class SingleSurveyResponseExport implements FromArray, WithColumnWidths, WithHeadings, WithStyles, WithTitle
 {
     protected SurveyResponse $response;
 
@@ -28,53 +28,53 @@ class SingleSurveyResponseExport implements FromArray, WithHeadings, WithStyles,
         $data[] = [
             'Məlumat Tipi' => 'Əsas Məlumat',
             'Sahə' => 'Sorğu',
-            'Dəyər' => $this->response->survey->title ?? 'Naməlum'
+            'Dəyər' => $this->response->survey->title ?? 'Naməlum',
         ];
 
         if ($this->response->survey->description) {
             $data[] = [
                 'Məlumat Tipi' => 'Əsas Məlumat',
                 'Sahə' => 'Sorğu Təsviri',
-                'Dəyər' => $this->response->survey->description
+                'Dəyər' => $this->response->survey->description,
             ];
         }
 
         $data[] = [
             'Məlumat Tipi' => 'Əsas Məlumat',
             'Sahə' => 'Cavabverən',
-            'Dəyər' => $this->response->respondent->name ?? $this->response->respondent->username ?? 'Naməlum'
+            'Dəyər' => $this->response->respondent->name ?? $this->response->respondent->username ?? 'Naməlum',
         ];
 
         if ($this->response->respondent->email) {
             $data[] = [
                 'Məlumat Tipi' => 'Əsas Məlumat',
                 'Sahə' => 'E-poçt',
-                'Dəyər' => $this->response->respondent->email
+                'Dəyər' => $this->response->respondent->email,
             ];
         }
 
         $data[] = [
             'Məlumat Tipi' => 'Əsas Məlumat',
             'Sahə' => 'Müəssisə',
-            'Dəyər' => $this->response->institution->name ?? 'Naməlum'
+            'Dəyər' => $this->response->institution->name ?? 'Naməlum',
         ];
 
         $data[] = [
             'Məlumat Tipi' => 'Əsas Məlumat',
             'Sahə' => 'Status',
-            'Dəyər' => $this->getStatusText($this->response->status)
+            'Dəyər' => $this->getStatusText($this->response->status),
         ];
 
         $data[] = [
             'Məlumat Tipi' => 'Əsas Məlumat',
             'Sahə' => 'Tamamlanma Faizi',
-            'Dəyər' => $this->response->progress_percentage . '%'
+            'Dəyər' => $this->response->progress_percentage . '%',
         ];
 
         $data[] = [
             'Məlumat Tipi' => 'Əsas Məlumat',
             'Sahə' => 'Göndərilmə Tarixi',
-            'Dəyər' => $this->response->submitted_at ? Carbon::parse($this->response->submitted_at)->format('d.m.Y H:i') : 'Hələ göndərilməyib'
+            'Dəyər' => $this->response->submitted_at ? Carbon::parse($this->response->submitted_at)->format('d.m.Y H:i') : 'Hələ göndərilməyib',
         ];
 
         // Empty row separator
@@ -89,14 +89,14 @@ class SingleSurveyResponseExport implements FromArray, WithHeadings, WithStyles,
                 $data[] = [
                     'Məlumat Tipi' => 'Sorğu Cavabı',
                     'Sahə' => "Sual {$questionNumber}: " . ($question->title ?? $question->text ?? $question->question ?? 'Başlıqsız sual'),
-                    'Dəyər' => $this->formatAnswer($answer, $question)
+                    'Dəyər' => $this->formatAnswer($answer, $question),
                 ];
 
                 if ($question->description) {
                     $data[] = [
                         'Məlumat Tipi' => 'Sorğu Cavabı',
-                        'Sahə' => "  └─ Açıqlama",
-                        'Dəyər' => $question->description
+                        'Sahə' => '  └─ Açıqlama',
+                        'Dəyər' => $question->description,
                     ];
                 }
             }
@@ -104,7 +104,7 @@ class SingleSurveyResponseExport implements FromArray, WithHeadings, WithStyles,
             $data[] = [
                 'Məlumat Tipi' => 'Sorğu Cavabı',
                 'Sahə' => 'Məlumat',
-                'Dəyər' => 'Bu sorğuda sual tapılmadı'
+                'Dəyər' => 'Bu sorğuda sual tapılmadı',
             ];
         }
 
@@ -116,7 +116,7 @@ class SingleSurveyResponseExport implements FromArray, WithHeadings, WithStyles,
         return [
             'Məlumat Tipi',
             'Sahə',
-            'Dəyər'
+            'Dəyər',
         ];
     }
 
@@ -128,25 +128,25 @@ class SingleSurveyResponseExport implements FromArray, WithHeadings, WithStyles,
                 'font' => [
                     'bold' => true,
                     'size' => 12,
-                    'color' => ['argb' => 'FFFFFF']
+                    'color' => ['argb' => 'FFFFFF'],
                 ],
                 'fill' => [
                     'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['argb' => '0066CC']
-                ]
+                    'startColor' => ['argb' => '0066CC'],
+                ],
             ],
             // Basic info rows styling
             'A:A' => [
                 'font' => [
-                    'bold' => true
-                ]
+                    'bold' => true,
+                ],
             ],
             'B:B' => [
                 'font' => [
                     'bold' => true,
-                    'color' => ['argb' => '333333']
-                ]
-            ]
+                    'color' => ['argb' => '333333'],
+                ],
+            ],
         ];
     }
 
@@ -189,7 +189,7 @@ class SingleSurveyResponseExport implements FromArray, WithHeadings, WithStyles,
                 foreach ($answer as $rowIndex => $rowData) {
                     $rowLabel = isset($question->table_rows[$rowIndex])
                         ? $question->table_rows[$rowIndex]
-                        : "Sətir " . ($rowIndex + 1);
+                        : 'Sətir ' . ($rowIndex + 1);
 
                     if (is_array($rowData)) {
                         $formatted[] = $rowLabel . ': ' . implode(', ', $rowData);
@@ -197,10 +197,11 @@ class SingleSurveyResponseExport implements FromArray, WithHeadings, WithStyles,
                         $formatted[] = $rowLabel . ': ' . $rowData;
                     }
                 }
+
                 return implode(' | ', $formatted);
-            } else {
-                return implode(', ', $answer);
             }
+
+            return implode(', ', $answer);
         }
 
         return (string) $answer;

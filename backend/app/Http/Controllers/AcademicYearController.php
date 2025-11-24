@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\AcademicYear;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\ValidationException;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class AcademicYearController extends Controller
 {
@@ -29,10 +29,11 @@ class AcademicYearController extends Controller
             // If per_page is high (e.g., 50+), return all without pagination for dropdowns
             if ($perPage >= 50) {
                 $academicYears = $query->get();
+
                 return response()->json([
                     'success' => true,
                     'data' => $academicYears,
-                    'message' => 'Academic years retrieved successfully'
+                    'message' => 'Academic years retrieved successfully',
                 ]);
             }
 
@@ -47,14 +48,13 @@ class AcademicYearController extends Controller
                     'per_page' => $academicYears->perPage(),
                     'total' => $academicYears->total(),
                 ],
-                'message' => 'Academic years retrieved successfully'
+                'message' => 'Academic years retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve academic years',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -67,24 +67,23 @@ class AcademicYearController extends Controller
         try {
             $activeYear = AcademicYear::where('is_active', true)->first();
 
-            if (!$activeYear) {
+            if (! $activeYear) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'No active academic year found'
+                    'message' => 'No active academic year found',
                 ], 404);
             }
 
             return response()->json([
                 'success' => true,
                 'data' => $activeYear,
-                'message' => 'Active academic year retrieved successfully'
+                'message' => 'Active academic year retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve active academic year',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -98,14 +97,13 @@ class AcademicYearController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $academicYear,
-                'message' => 'Academic year retrieved successfully'
+                'message' => 'Academic year retrieved successfully',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve academic year',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -121,7 +119,7 @@ class AcademicYearController extends Controller
                 'start_date' => 'required|date',
                 'end_date' => 'required|date|after:start_date',
                 'is_active' => 'boolean',
-                'metadata' => 'array'
+                'metadata' => 'array',
             ]);
 
             DB::beginTransaction();
@@ -136,7 +134,7 @@ class AcademicYearController extends Controller
                 'start_date' => Carbon::parse($validated['start_date']),
                 'end_date' => Carbon::parse($validated['end_date']),
                 'is_active' => $validated['is_active'] ?? false,
-                'metadata' => $validated['metadata'] ?? []
+                'metadata' => $validated['metadata'] ?? [],
             ]);
 
             DB::commit();
@@ -144,22 +142,23 @@ class AcademicYearController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $academicYear->fresh(),
-                'message' => 'Academic year created successfully'
+                'message' => 'Academic year created successfully',
             ], 201);
-
         } catch (ValidationException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create academic year',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -175,7 +174,7 @@ class AcademicYearController extends Controller
                 'start_date' => 'required|date',
                 'end_date' => 'required|date|after:start_date',
                 'is_active' => 'boolean',
-                'metadata' => 'array'
+                'metadata' => 'array',
             ]);
 
             DB::beginTransaction();
@@ -192,7 +191,7 @@ class AcademicYearController extends Controller
                 'start_date' => Carbon::parse($validated['start_date']),
                 'end_date' => Carbon::parse($validated['end_date']),
                 'is_active' => $validated['is_active'] ?? $academicYear->is_active,
-                'metadata' => $validated['metadata'] ?? $academicYear->metadata
+                'metadata' => $validated['metadata'] ?? $academicYear->metadata,
             ]);
 
             DB::commit();
@@ -200,22 +199,23 @@ class AcademicYearController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $academicYear->fresh(),
-                'message' => 'Academic year updated successfully'
+                'message' => 'Academic year updated successfully',
             ]);
-
         } catch (ValidationException $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Validation failed',
-                'errors' => $e->errors()
+                'errors' => $e->errors(),
             ], 422);
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to update academic year',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -231,7 +231,7 @@ class AcademicYearController extends Controller
             if ($gradesCount > 0) {
                 return response()->json([
                     'success' => false,
-                    'message' => "Bu təhsil ilinə aid {$gradesCount} sinif var. Əvvəlcə sinifləri silməlisiniz."
+                    'message' => "Bu təhsil ilinə aid {$gradesCount} sinif var. Əvvəlcə sinifləri silməlisiniz.",
                 ], 400);
             }
 
@@ -239,7 +239,7 @@ class AcademicYearController extends Controller
             if ($academicYear->is_active) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Aktiv təhsil ili silinə bilməz. Əvvəlcə başqa ili aktiv edin.'
+                    'message' => 'Aktiv təhsil ili silinə bilməz. Əvvəlcə başqa ili aktiv edin.',
                 ], 400);
             }
 
@@ -248,14 +248,13 @@ class AcademicYearController extends Controller
 
             return response()->json([
                 'success' => true,
-                'message' => "'{$name}' təhsil ili uğurla silindi"
+                'message' => "'{$name}' təhsil ili uğurla silindi",
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to delete academic year',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }
@@ -281,15 +280,15 @@ class AcademicYearController extends Controller
             return response()->json([
                 'success' => true,
                 'data' => $academicYear->fresh(),
-                'message' => "'{$academicYear->name}' təhsil ili aktiv edildi"
+                'message' => "'{$academicYear->name}' təhsil ili aktiv edildi",
             ]);
-
         } catch (\Exception $e) {
             DB::rollBack();
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to activate academic year',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

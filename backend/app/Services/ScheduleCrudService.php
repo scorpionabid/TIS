@@ -4,9 +4,6 @@ namespace App\Services;
 
 use App\Models\Schedule;
 use App\Models\ScheduleSession;
-use App\Services\BaseService;
-use App\Services\SchedulePermissionService;
-use App\Services\ScheduleValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -15,6 +12,7 @@ class ScheduleCrudService extends BaseService
     protected string $modelClass = Schedule::class;
 
     protected $permissionService;
+
     protected $validationService;
 
     public function __construct(
@@ -60,7 +58,7 @@ class ScheduleCrudService extends BaseService
             $searchTerm = $request->search;
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('name', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('description', 'LIKE', "%{$searchTerm}%");
+                    ->orWhere('description', 'LIKE', "%{$searchTerm}%");
             });
         }
 
@@ -75,7 +73,7 @@ class ScheduleCrudService extends BaseService
         // Sorting
         $sortBy = $request->get('sort_by', 'created_at');
         $sortDirection = $request->get('sort_direction', 'desc');
-        
+
         $allowedSorts = ['created_at', 'updated_at', 'name', 'start_date', 'end_date', 'academic_year'];
         if (in_array($sortBy, $allowedSorts)) {
             $query->orderBy($sortBy, $sortDirection);
@@ -95,7 +93,7 @@ class ScheduleCrudService extends BaseService
 
         return [
             'schedules' => $schedules,
-            'summary' => $summary
+            'summary' => $summary,
         ];
     }
 
@@ -105,12 +103,12 @@ class ScheduleCrudService extends BaseService
     public function createSchedule(array $data, $user): Schedule
     {
         // Check permission
-        if (!$this->permissionService->canCreateSchedule($user)) {
+        if (! $this->permissionService->canCreateSchedule($user)) {
             throw new \Exception('Dərs cədvəli yaratmaq üçün icazəniz yoxdur');
         }
 
         // Check institution access
-        if (!$this->permissionService->canAccessInstitution($user, $data['institution_id'])) {
+        if (! $this->permissionService->canAccessInstitution($user, $data['institution_id'])) {
             throw new \Exception('Bu təhsil müəssisəsi üçün icazəniz yoxdur');
         }
 
@@ -130,7 +128,7 @@ class ScheduleCrudService extends BaseService
                 'period_duration' => $data['period_duration'] ?? 45,
                 'break_duration' => $data['break_duration'] ?? 10,
                 'start_time' => $data['start_time'] ?? '08:00',
-                'settings' => $data['settings'] ?? []
+                'settings' => $data['settings'] ?? [],
             ]);
 
             return $schedule->load(['institution', 'creator']);
@@ -152,7 +150,7 @@ class ScheduleCrudService extends BaseService
         $schedule = $query->findOrFail($id);
 
         // Check permission
-        if (!$this->permissionService->canViewSchedule($schedule, $user)) {
+        if (! $this->permissionService->canViewSchedule($schedule, $user)) {
             throw new \Exception('Bu dərs cədvəlini görmək üçün icazəniz yoxdur');
         }
 
@@ -168,7 +166,7 @@ class ScheduleCrudService extends BaseService
             $schedule = Schedule::findOrFail($id);
 
             // Check permission
-            if (!$this->permissionService->canEditSchedule($schedule, $user)) {
+            if (! $this->permissionService->canEditSchedule($schedule, $user)) {
                 throw new \Exception('Bu dərs cədvəlini redaktə etmək üçün icazəniz yoxdur');
             }
 
@@ -184,7 +182,7 @@ class ScheduleCrudService extends BaseService
                 'break_duration' => $data['break_duration'] ?? $schedule->break_duration,
                 'start_time' => $data['start_time'] ?? $schedule->start_time,
                 'settings' => $data['settings'] ?? $schedule->settings,
-                'updated_by' => $user->id
+                'updated_by' => $user->id,
             ]);
 
             // If status is being changed to draft, allow more updates
@@ -205,7 +203,7 @@ class ScheduleCrudService extends BaseService
             $schedule = Schedule::findOrFail($id);
 
             // Check permission
-            if (!$this->permissionService->canDeleteSchedule($schedule, $user)) {
+            if (! $this->permissionService->canDeleteSchedule($schedule, $user)) {
                 throw new \Exception('Bu dərs cədvəlini silmək üçün icazəniz yoxdur');
             }
 
@@ -228,7 +226,7 @@ class ScheduleCrudService extends BaseService
         $schedule = Schedule::findOrFail($scheduleId);
 
         // Check permission
-        if (!$this->permissionService->canEditSchedule($schedule, $user)) {
+        if (! $this->permissionService->canEditSchedule($schedule, $user)) {
             throw new \Exception('Bu dərs cədvəlinə slot əlavə etmək üçün icazəniz yoxdur');
         }
 
@@ -254,20 +252,20 @@ class ScheduleCrudService extends BaseService
                             'period' => $slotData['period'],
                             'start_time' => $slotData['start_time'],
                             'end_time' => $slotData['end_time'],
-                            'notes' => $slotData['notes'] ?? null
+                            'notes' => $slotData['notes'] ?? null,
                         ]);
 
                         $createdSlots[] = $slot->load(['teacher', 'class', 'subject']);
                     } else {
                         $errors[] = [
                             'slot_data' => $slotData,
-                            'errors' => $validation['errors']
+                            'errors' => $validation['errors'],
                         ];
                     }
                 } catch (\Exception $e) {
                     $errors[] = [
                         'slot_data' => $slotData,
-                        'errors' => [$e->getMessage()]
+                        'errors' => [$e->getMessage()],
                     ];
                 }
             }
@@ -279,8 +277,8 @@ class ScheduleCrudService extends BaseService
             'summary' => [
                 'total_requested' => count($slotsData),
                 'successfully_created' => count($createdSlots),
-                'failed' => count($errors)
-            ]
+                'failed' => count($errors),
+            ],
         ];
     }
 
@@ -293,12 +291,12 @@ class ScheduleCrudService extends BaseService
             $originalSchedule = Schedule::with('sessions')->findOrFail($id);
 
             // Check permission to view original
-            if (!$this->permissionService->canViewSchedule($originalSchedule, $user)) {
+            if (! $this->permissionService->canViewSchedule($originalSchedule, $user)) {
                 throw new \Exception('Orijinal dərs cədvəlini görmək üçün icazəniz yoxdur');
             }
 
             // Check permission to create new
-            if (!$this->permissionService->canCreateSchedule($user)) {
+            if (! $this->permissionService->canCreateSchedule($user)) {
                 throw new \Exception('Yeni dərs cədvəli yaratmaq üçün icazəniz yoxdur');
             }
 
@@ -318,7 +316,7 @@ class ScheduleCrudService extends BaseService
                 'period_duration' => $originalSchedule->period_duration,
                 'break_duration' => $originalSchedule->break_duration,
                 'start_time' => $originalSchedule->start_time,
-                'settings' => $originalSchedule->settings
+                'settings' => $originalSchedule->settings,
             ]);
 
             // Copy sessions if requested
@@ -334,7 +332,7 @@ class ScheduleCrudService extends BaseService
                         'period' => $session->period,
                         'start_time' => $session->start_time,
                         'end_time' => $session->end_time,
-                        'notes' => $session->notes
+                        'notes' => $session->notes,
                     ]);
                 }
             }
@@ -415,7 +413,7 @@ class ScheduleCrudService extends BaseService
                 'archived' => $byStatus['archived'] ?? 0,
             ],
             'current_academic_year' => now()->month >= 9 ? now()->year . '-' . (now()->year + 1) : (now()->year - 1) . '-' . now()->year,
-            'permissions' => $this->permissionService->getPermissionContext($user)
+            'permissions' => $this->permissionService->getPermissionContext($user),
         ];
     }
 
@@ -431,22 +429,22 @@ class ScheduleCrudService extends BaseService
                 'total_sessions' => $schedule->sessions->count(),
                 'working_days' => count($schedule->working_days),
                 'periods_per_day' => $schedule->periods_per_day,
-                'total_possible_slots' => count($schedule->working_days) * $schedule->periods_per_day
+                'total_possible_slots' => count($schedule->working_days) * $schedule->periods_per_day,
             ],
             'sessions_breakdown' => [
                 'by_day' => $schedule->sessions->groupBy('day_of_week')->map->count(),
                 'by_period' => $schedule->sessions->groupBy('period')->map->count(),
                 'by_teacher' => $schedule->sessions->groupBy('teacher_id')->map->count(),
                 'by_class' => $schedule->sessions->groupBy('class_id')->map->count(),
-                'by_subject' => $schedule->sessions->groupBy('subject_id')->map->count()
+                'by_subject' => $schedule->sessions->groupBy('subject_id')->map->count(),
             ],
             'utilization' => [
-                'schedule_utilization' => $schedule->sessions->count() > 0 ? 
+                'schedule_utilization' => $schedule->sessions->count() > 0 ?
                     round(($schedule->sessions->count() / (count($schedule->working_days) * $schedule->periods_per_day)) * 100, 2) : 0,
                 'teacher_utilization' => $this->calculateTeacherUtilization($schedule),
-                'room_utilization' => $this->calculateRoomUtilization($schedule)
+                'room_utilization' => $this->calculateRoomUtilization($schedule),
             ],
-            'validation' => $this->validationService->getValidationSummary($schedule)
+            'validation' => $this->validationService->getValidationSummary($schedule),
         ];
 
         return $stats;
@@ -463,14 +461,14 @@ class ScheduleCrudService extends BaseService
         foreach ($teachers as $teacherId => $sessions) {
             $maxPossibleHours = count($schedule->working_days) * $schedule->periods_per_day;
             $actualHours = $sessions->count();
-            
+
             $teacher = $sessions->first()->teacher;
             $utilization[] = [
                 'teacher_id' => $teacherId,
                 'teacher_name' => $teacher->name,
                 'actual_hours' => $actualHours,
                 'max_possible' => $maxPossibleHours,
-                'utilization_rate' => round(($actualHours / $maxPossibleHours) * 100, 2)
+                'utilization_rate' => round(($actualHours / $maxPossibleHours) * 100, 2),
             ];
         }
 
@@ -488,12 +486,12 @@ class ScheduleCrudService extends BaseService
         foreach ($rooms as $roomId => $sessions) {
             $maxPossibleHours = count($schedule->working_days) * $schedule->periods_per_day;
             $actualHours = $sessions->count();
-            
+
             $utilization[] = [
                 'room_id' => $roomId,
                 'actual_hours' => $actualHours,
                 'max_possible' => $maxPossibleHours,
-                'utilization_rate' => round(($actualHours / $maxPossibleHours) * 100, 2)
+                'utilization_rate' => round(($actualHours / $maxPossibleHours) * 100, 2),
             ];
         }
 
@@ -511,7 +509,7 @@ class ScheduleCrudService extends BaseService
         if (isset($params['week_start']) && isset($params['week_end'])) {
             $query->whereHas('schedule', function ($q) use ($params) {
                 $q->where('effective_from', '<=', $params['week_end'])
-                  ->where('effective_to', '>=', $params['week_start']);
+                    ->where('effective_to', '>=', $params['week_start']);
             });
         }
 
@@ -589,7 +587,7 @@ class ScheduleCrudService extends BaseService
     public function getSystemScheduleStatistics(Request $request, $user): array
     {
         $baseQuery = Schedule::query();
-        
+
         // Apply authority-based filtering
         $baseQuery = $this->permissionService->applyAuthorityFilter($baseQuery, $user);
 
@@ -621,7 +619,7 @@ class ScheduleCrudService extends BaseService
 
         // Get schedule sessions statistics
         $sessionQuery = ScheduleSession::query()
-            ->whereHas('schedule', function($q) use ($baseQuery) {
+            ->whereHas('schedule', function ($q) use ($baseQuery) {
                 $q->whereIn('id', $baseQuery->pluck('id'));
             });
 
@@ -648,7 +646,7 @@ class ScheduleCrudService extends BaseService
                 'approved' => $statusBreakdown['approved'] ?? 0,
                 'rejected' => $statusBreakdown['rejected'] ?? 0,
                 'archived' => $statusBreakdown['archived'] ?? 0,
-            ]
+            ],
         ];
     }
 }

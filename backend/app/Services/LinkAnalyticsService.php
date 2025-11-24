@@ -4,10 +4,8 @@ namespace App\Services;
 
 use App\Models\LinkShare;
 use App\Models\LinkShareAccess;
-use App\Services\BaseService;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use Illuminate\Http\Request;
 
 class LinkAnalyticsService extends BaseService
 {
@@ -20,7 +18,7 @@ class LinkAnalyticsService extends BaseService
         $dateTo = $request->get('date_to', Carbon::now()->format('Y-m-d'));
 
         $baseQuery = LinkShare::whereBetween('created_at', [$dateFrom, $dateTo]);
-        
+
         // Apply user-based access control
         $this->applyUserAccessControl($baseQuery, $user);
 
@@ -34,8 +32,8 @@ class LinkAnalyticsService extends BaseService
             'document_insights' => $this->getDocumentInsights($baseQuery),
             'period' => [
                 'from' => $dateFrom,
-                'to' => $dateTo
-            ]
+                'to' => $dateTo,
+            ],
         ];
     }
 
@@ -65,7 +63,7 @@ class LinkAnalyticsService extends BaseService
             'access_by_hour' => $this->getAccessByHour($query),
             'geographic_data' => $this->getGeographicData($query),
             'device_analytics' => $this->getDeviceAnalytics($query),
-            'referrer_analytics' => $this->getReferrerAnalytics($query)
+            'referrer_analytics' => $this->getReferrerAnalytics($query),
         ];
     }
 
@@ -91,7 +89,7 @@ class LinkAnalyticsService extends BaseService
         // Add unique visitors count
         $query->withCount(['accesses as unique_visitors' => function ($q) use ($period) {
             $q->where('accessed_at', '>=', Carbon::now()->subDays($period))
-              ->distinct('ip_address');
+                ->distinct('ip_address');
         }]);
 
         switch ($orderBy) {
@@ -116,14 +114,14 @@ class LinkAnalyticsService extends BaseService
                     'institution_name' => $link->institution->name ?? 'N/A',
                     'access_count' => $link->access_count ?? 0,
                     'unique_visitors' => $link->unique_visitors ?? 0,
-                    'is_password_protected' => !empty($link->password),
+                    'is_password_protected' => ! empty($link->password),
                     'expires_at' => $link->expires_at,
                     'created_at' => $link->created_at,
-                    'status' => $this->getLinkStatus($link)
+                    'status' => $this->getLinkStatus($link),
                 ];
             }),
             'period_days' => $period,
-            'total_found' => $links->count()
+            'total_found' => $links->count(),
         ];
     }
 
@@ -138,7 +136,7 @@ class LinkAnalyticsService extends BaseService
         $query = LinkShare::where('created_at', '>=', Carbon::now()->subDays($period));
         $this->applyUserAccessControl($query, $user);
 
-        $dateFormat = match($groupBy) {
+        $dateFormat = match ($groupBy) {
             'week' => '%Y-%u',
             'month' => '%Y-%m',
             default => '%Y-%m-%d'
@@ -150,13 +148,13 @@ class LinkAnalyticsService extends BaseService
             COUNT(CASE WHEN password IS NOT NULL THEN 1 END) as password_protected,
             COUNT(CASE WHEN expires_at IS NOT NULL THEN 1 END) as with_expiration
         ")
-        ->groupBy('period')
-        ->orderBy('period')
-        ->get();
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get();
 
         // Get access trends for the same period
         $accessQuery = LinkShareAccess::where('accessed_at', '>=', Carbon::now()->subDays($period));
-        
+
         // Filter by accessible links
         $accessibleLinkIds = $this->getAccessibleLinkIds($user);
         $accessQuery->whereIn('link_share_id', $accessibleLinkIds);
@@ -166,15 +164,15 @@ class LinkAnalyticsService extends BaseService
             COUNT(*) as total_accesses,
             COUNT(DISTINCT ip_address) as unique_visitors
         ")
-        ->groupBy('period')
-        ->orderBy('period')
-        ->get();
+            ->groupBy('period')
+            ->orderBy('period')
+            ->get();
 
         return [
             'sharing_trends' => $trends,
             'access_trends' => $accessTrends,
             'period_days' => $period,
-            'group_by' => $groupBy
+            'group_by' => $groupBy,
         ];
     }
 
@@ -184,7 +182,7 @@ class LinkAnalyticsService extends BaseService
     public function getSecurityAnalytics(Request $request, $user): array
     {
         $period = $request->get('period', 30);
-        
+
         $query = LinkShare::where('created_at', '>=', Carbon::now()->subDays($period));
         $this->applyUserAccessControl($query, $user);
 
@@ -211,14 +209,14 @@ class LinkAnalyticsService extends BaseService
                 'password_protection_rate' => $total > 0 ? round(($passwordProtected / $total) * 100, 2) : 0,
                 'with_expiration' => $withExpiration,
                 'expiration_usage_rate' => $total > 0 ? round(($withExpiration / $total) * 100, 2) : 0,
-                'expired_links' => $expired
+                'expired_links' => $expired,
             ],
             'access_security' => [
                 'total_access_attempts' => $totalAttempts,
                 'failed_attempts' => $failedAttempts,
-                'success_rate' => $totalAttempts > 0 ? round((($totalAttempts - $failedAttempts) / $totalAttempts) * 100, 2) : 0
+                'success_rate' => $totalAttempts > 0 ? round((($totalAttempts - $failedAttempts) / $totalAttempts) * 100, 2) : 0,
             ],
-            'recommendations' => $this->getSecurityRecommendations($passwordProtected, $withExpiration, $total)
+            'recommendations' => $this->getSecurityRecommendations($passwordProtected, $withExpiration, $total),
         ];
     }
 
@@ -231,7 +229,7 @@ class LinkAnalyticsService extends BaseService
         $active = $baseQuery->where(function ($q) {
             $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
         })->count();
-        
+
         $expired = $baseQuery->where('expires_at', '<', now())->count();
         $passwordProtected = $baseQuery->whereNotNull('password')->count();
 
@@ -240,7 +238,7 @@ class LinkAnalyticsService extends BaseService
             'active_links' => $active,
             'expired_links' => $expired,
             'password_protected' => $passwordProtected,
-            'protection_rate' => $total > 0 ? round(($passwordProtected / $total) * 100, 2) : 0
+            'protection_rate' => $total > 0 ? round(($passwordProtected / $total) * 100, 2) : 0,
         ];
     }
 
@@ -250,15 +248,15 @@ class LinkAnalyticsService extends BaseService
     private function getAccessAnalytics($baseQuery): array
     {
         $linkIds = $baseQuery->pluck('id');
-        
+
         $totalAccesses = LinkShareAccess::whereIn('link_share_id', $linkIds)->count();
         $uniqueVisitors = LinkShareAccess::whereIn('link_share_id', $linkIds)
             ->distinct('ip_address')->count();
-        
+
         return [
             'total_accesses' => $totalAccesses,
             'unique_visitors' => $uniqueVisitors,
-            'average_accesses_per_link' => $linkIds->count() > 0 ? round($totalAccesses / $linkIds->count(), 2) : 0
+            'average_accesses_per_link' => $linkIds->count() > 0 ? round($totalAccesses / $linkIds->count(), 2) : 0,
         ];
     }
 
@@ -274,7 +272,7 @@ class LinkAnalyticsService extends BaseService
             ->map(function ($link) {
                 return [
                     'link_id' => $link->id,
-                    'access_count' => $link->accesses_count
+                    'access_count' => $link->accesses_count,
                 ];
             })->toArray();
     }
@@ -285,14 +283,14 @@ class LinkAnalyticsService extends BaseService
     private function getSecurityMetrics($baseQuery): array
     {
         $linkIds = $baseQuery->pluck('id');
-        
+
         $failedAttempts = LinkShareAccess::whereIn('link_share_id', $linkIds)
             ->where('was_successful', false)
             ->count();
 
         return [
             'failed_access_attempts' => $failedAttempts,
-            'suspicious_activity_detected' => $failedAttempts > 10
+            'suspicious_activity_detected' => $failedAttempts > 10,
         ];
     }
 
@@ -308,10 +306,10 @@ class LinkAnalyticsService extends BaseService
             DATE(created_at) as date,
             COUNT(*) as links_created
         ')
-        ->groupBy('date')
-        ->orderBy('date')
-        ->get()
-        ->toArray();
+            ->groupBy('date')
+            ->orderBy('date')
+            ->get()
+            ->toArray();
     }
 
     /**
@@ -320,7 +318,7 @@ class LinkAnalyticsService extends BaseService
     private function getUserBehaviorAnalytics($baseQuery): array
     {
         $linkIds = $baseQuery->pluck('id');
-        
+
         return [
             'peak_hours' => LinkShareAccess::whereIn('link_share_id', $linkIds)
                 ->selectRaw('HOUR(accessed_at) as hour, COUNT(*) as access_count')
@@ -328,7 +326,7 @@ class LinkAnalyticsService extends BaseService
                 ->orderByDesc('access_count')
                 ->limit(3)
                 ->pluck('access_count', 'hour')
-                ->toArray()
+                ->toArray(),
         ];
     }
 
@@ -359,7 +357,7 @@ class LinkAnalyticsService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        
+
         if ($user->hasRole('regionadmin') && $userInstitution && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
             $query->whereIn('institution_id', $childIds);
@@ -380,6 +378,7 @@ class LinkAnalyticsService extends BaseService
     {
         $query = LinkShare::query();
         $this->applyUserAccessControl($query, $user);
+
         return $query->pluck('id')->toArray();
     }
 
@@ -391,7 +390,7 @@ class LinkAnalyticsService extends BaseService
         if ($link->expires_at && $link->expires_at < now()) {
             return 'expired';
         }
-        
+
         return 'active';
     }
 

@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -26,7 +25,7 @@ return new class extends Migration
             $table->json('after_state')->default('{}');
             $table->foreignId('institution_id')->nullable()->constrained('institutions');
             $table->timestamp('created_at')->useCurrent();
-            
+
             $table->index('user_id');
             $table->index('activity_type');
             $table->index(['entity_type', 'entity_id']);

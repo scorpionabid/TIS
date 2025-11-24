@@ -27,8 +27,6 @@ use App\Models\User;
  * ARCHITECTURE NOTE:
  * We delegate to existing SurveyNotificationService rather than duplicating
  * notification logic. This maintains the single responsibility principle.
- *
- * @package App\Services\SurveyApproval\Domains\Notification
  */
 class ApprovalNotificationService
 {
@@ -44,12 +42,6 @@ class ApprovalNotificationService
      *
      * DELEGATED to SurveyNotificationService
      * LOGIC PRESERVED FROM: SurveyApprovalService::notifySubmitterAboutRejection() (lines 796-804)
-     *
-     * @param DataApprovalRequest $approvalRequest
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @param string|null $reason
-     * @return void
      */
     public function notifySubmitterAboutRejection(
         DataApprovalRequest $approvalRequest,
@@ -67,10 +59,6 @@ class ApprovalNotificationService
 
     /**
      * Notify next approver in the approval chain
-     *
-     * @param DataApprovalRequest $approvalRequest
-     * @param int $nextLevel
-     * @return void
      */
     public function notifyNextApprover(
         DataApprovalRequest $approvalRequest,
@@ -81,7 +69,7 @@ class ApprovalNotificationService
         $workflowSteps = $workflow->workflow_steps ?? [];
 
         $stepDef = collect($workflowSteps)->firstWhere('level', $nextLevel);
-        if (!$stepDef) {
+        if (! $stepDef) {
             return;
         }
 
@@ -89,22 +77,22 @@ class ApprovalNotificationService
 
         // Get users with these roles in the institution
         $institution = $approvalRequest->institution;
-        if (!$institution) {
+        if (! $institution) {
             return;
         }
 
         $approvers = \App\Models\User::whereHas('role', function ($query) use ($allowedRoles) {
             $query->whereIn('name', $allowedRoles);
         })
-        ->where('institution_id', $institution->id)
-        ->get();
+            ->where('institution_id', $institution->id)
+            ->get();
 
         foreach ($approvers as $approver) {
             \App\Models\Notification::create([
                 'user_id' => $approver->id,
                 'type' => 'approval_required',
                 'title' => 'Təsdiq Gözlənilir',
-                'message' => "Yeni survey cavabı təsdiqinizi gözləyir",
+                'message' => 'Yeni survey cavabı təsdiqinizi gözləyir',
                 'data' => [
                     'approval_request_id' => $approvalRequest->id,
                     'survey_response_id' => $approvalRequest->approvalable_id,
@@ -119,11 +107,6 @@ class ApprovalNotificationService
 
     /**
      * Notify submitter about approval success
-     *
-     * @param DataApprovalRequest $approvalRequest
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @return void
      */
     public function notifySubmitterAboutApproval(
         DataApprovalRequest $approvalRequest,
@@ -139,12 +122,6 @@ class ApprovalNotificationService
 
     /**
      * Notify submitter about return for revision
-     *
-     * @param DataApprovalRequest $approvalRequest
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @param string|null $comments
-     * @return void
      */
     public function notifySubmitterAboutRevision(
         DataApprovalRequest $approvalRequest,
@@ -162,11 +139,6 @@ class ApprovalNotificationService
 
     /**
      * Send bulk notifications after bulk approval operation
-     *
-     * @param array $results
-     * @param string $action
-     * @param User $approver
-     * @return void
      */
     public function sendBulkNotifications(
         array $results,
@@ -178,15 +150,21 @@ class ApprovalNotificationService
 
         foreach ($results as $result) {
             $responseId = $result['response_id'] ?? null;
-            if (!$responseId) continue;
+            if (! $responseId) {
+                continue;
+            }
 
             $response = SurveyResponse::find($responseId);
-            if (!$response || !$response->approvalRequest) continue;
+            if (! $response || ! $response->approvalRequest) {
+                continue;
+            }
 
             $submitterId = $response->approvalRequest->submitted_by;
-            if (!$submitterId) continue;
+            if (! $submitterId) {
+                continue;
+            }
 
-            if (!isset($submitterGroups[$submitterId])) {
+            if (! isset($submitterGroups[$submitterId])) {
                 $submitterGroups[$submitterId] = [];
             }
 

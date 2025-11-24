@@ -12,8 +12,6 @@ class ImportStateManager
 {
     /**
      * Import results array
-     *
-     * @var array
      */
     protected array $importResults = [];
 
@@ -25,8 +23,6 @@ class ImportStateManager
      *
      * Note: Validation errors managed by ImportDataValidator
      * Note: Batch caches managed by BatchOptimizer and DuplicateDetector
-     *
-     * @return void
      */
     public function resetImportState(): void
     {
@@ -35,8 +31,6 @@ class ImportStateManager
 
     /**
      * Get import results
-     *
-     * @return array
      */
     public function getImportResults(): array
     {
@@ -45,9 +39,6 @@ class ImportStateManager
 
     /**
      * Add result message
-     *
-     * @param string $message
-     * @return void
      */
     public function addResult(string $message): void
     {
@@ -56,9 +47,6 @@ class ImportStateManager
 
     /**
      * Add multiple result messages
-     *
-     * @param array $messages
-     * @return void
      */
     public function addResults(array $messages): void
     {
@@ -67,8 +55,6 @@ class ImportStateManager
 
     /**
      * Get results count
-     *
-     * @return int
      */
     public function getResultsCount(): int
     {

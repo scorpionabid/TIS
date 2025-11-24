@@ -88,7 +88,7 @@ class IndicatorValue extends Model
      */
     public function compareWithBenchmark(string $benchmarkKey = 'target'): ?array
     {
-        if (!$this->indicator->isNumeric() || $this->value_numeric === null) {
+        if (! $this->indicator->isNumeric() || $this->value_numeric === null) {
             return null;
         }
 
@@ -165,11 +165,11 @@ class IndicatorValue extends Model
     public function scopeLatestForInstitutions($query, int $indicatorId)
     {
         return $query->where('indicator_id', $indicatorId)
-                    ->whereIn('id', function ($subQuery) use ($indicatorId) {
-                        $subQuery->selectRaw('max(id)')
-                                ->from('indicator_values')
-                                ->where('indicator_id', $indicatorId)
-                                ->groupBy('institution_id');
-                    });
+            ->whereIn('id', function ($subQuery) use ($indicatorId) {
+                $subQuery->selectRaw('max(id)')
+                    ->from('indicator_values')
+                    ->where('indicator_id', $indicatorId)
+                    ->groupBy('institution_id');
+            });
     }
 }

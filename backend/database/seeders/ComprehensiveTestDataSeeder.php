@@ -2,17 +2,16 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use App\Models\User;
-use App\Models\Role;
-use App\Models\Institution;
-use App\Models\InstitutionType;
 use App\Models\Department;
-use App\Models\Student;
+use App\Models\Institution;
+use App\Models\Role;
 use App\Models\SchoolClass;
+use App\Models\Student;
 use App\Models\Survey;
 use App\Models\Task;
+use App\Models\User;
 use Carbon\Carbon;
+use Illuminate\Database\Seeder;
 
 class ComprehensiveTestDataSeeder extends Seeder
 {
@@ -22,22 +21,22 @@ class ComprehensiveTestDataSeeder extends Seeder
 
         // Create comprehensive test users for all 12 roles
         $this->createTestUsers();
-        
+
         // Create additional institutions
         $this->createInstitutions();
-        
+
         // Create departments
         $this->createDepartments();
-        
+
         // Create classes
         $this->createClasses();
-        
+
         // Create students
         $this->createStudents();
-        
+
         // Create surveys for testing
         $this->createSurveys();
-        
+
         // Create tasks for testing
         $this->createTasks();
 
@@ -55,7 +54,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 'username' => 'test-superadmin',
                 'password' => bcrypt('test123'),
                 'role' => 'superadmin',
-                'institution_id' => 1
+                'institution_id' => 1,
             ],
             [
                 'name' => 'Test Baku RegionAdmin',
@@ -63,7 +62,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 'username' => 'test-baku-region',
                 'password' => bcrypt('test123'),
                 'role' => 'regionadmin',
-                'institution_id' => 2
+                'institution_id' => 2,
             ],
             [
                 'name' => 'Test SektorAdmin',
@@ -71,7 +70,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 'username' => 'test-sektoradmin',
                 'password' => bcrypt('test123'),
                 'role' => 'sektoradmin',
-                'institution_id' => 4
+                'institution_id' => 4,
             ],
             [
                 'name' => 'Test SchoolAdmin 1',
@@ -79,7 +78,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 'username' => 'test-schooladmin-1',
                 'password' => bcrypt('test123'),
                 'role' => 'schooladmin',
-                'institution_id' => 5
+                'institution_id' => 5,
             ],
             [
                 'name' => 'Test Teacher 1',
@@ -87,14 +86,15 @@ class ComprehensiveTestDataSeeder extends Seeder
                 'username' => 'test-teacher-1',
                 'password' => bcrypt('test123'),
                 'role' => 'müəllim',
-                'institution_id' => 5
+                'institution_id' => 5,
             ],
         ];
 
         foreach ($testUsers as $userData) {
             $role = Role::where('name', $userData['role'])->first();
-            if (!$role) {
+            if (! $role) {
                 $this->command->warn("Role not found: {$userData['role']}");
+
                 continue;
             }
 
@@ -109,7 +109,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 ]
             );
 
-            if (!$user->hasRole($role)) {
+            if (! $user->hasRole($role)) {
                 $user->assignRole($role);
             }
 
@@ -129,7 +129,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 'parent_id' => 4,
                 'address' => 'Test Kindergarten Address',
                 'contact_phone' => '+994 12 555-0003',
-                'contact_email' => 'test-kg1@edu.az'
+                'contact_email' => 'test-kg1@edu.az',
             ],
             [
                 'name' => 'Test Vocational School',
@@ -138,7 +138,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 'parent_id' => 4,
                 'address' => 'Test Vocational Address',
                 'contact_phone' => '+994 12 555-0004',
-                'contact_email' => 'test-voc1@edu.az'
+                'contact_email' => 'test-voc1@edu.az',
             ],
         ];
 
@@ -152,10 +152,10 @@ class ComprehensiveTestDataSeeder extends Seeder
                     'address' => $instData['address'],
                     'contact_phone' => $instData['contact_phone'],
                     'contact_email' => $instData['contact_email'],
-                    'is_active' => true
+                    'is_active' => true,
                 ]
             );
-            
+
             $this->command->info("✅ Created institution: {$instData['name']}");
         }
     }
@@ -165,17 +165,17 @@ class ComprehensiveTestDataSeeder extends Seeder
         $this->command->info('🏛️ Creating departments...');
 
         $schools = Institution::where('level', 4)->take(3)->get();
-        
+
         foreach ($schools as $school) {
             Department::firstOrCreate(
                 [
                     'institution_id' => $school->id,
-                    'name' => 'Test Academic Department'
+                    'name' => 'Test Academic Department',
                 ],
                 [
                     'description' => "Academic department for {$school->name}",
                     'type' => 'academic',
-                    'is_active' => true
+                    'is_active' => true,
                 ]
             );
         }
@@ -186,20 +186,20 @@ class ComprehensiveTestDataSeeder extends Seeder
         $this->command->info('📚 Creating classes...');
 
         $schools = Institution::where('level', 4)->take(2)->get();
-        
+
         foreach ($schools as $school) {
             for ($grade = 1; $grade <= 5; $grade++) {
                 SchoolClass::firstOrCreate(
                     [
                         'institution_id' => $school->id,
-                        'name' => "{$grade}-A"
+                        'name' => "{$grade}-A",
                     ],
                     [
                         'grade' => $grade,
                         'section' => 'A',
                         'academic_year' => '2024-2025',
                         'capacity' => 30,
-                        'is_active' => true
+                        'is_active' => true,
                     ]
                 );
             }
@@ -211,12 +211,12 @@ class ComprehensiveTestDataSeeder extends Seeder
         $this->command->info('👨‍🎓 Creating students...');
 
         $classes = SchoolClass::take(5)->get();
-        
+
         foreach ($classes as $class) {
             for ($i = 1; $i <= 10; $i++) {
                 Student::firstOrCreate(
                     [
-                        'student_id' => $class->institution_id . str_pad($class->id, 3, '0', STR_PAD_LEFT) . str_pad($i, 3, '0', STR_PAD_LEFT)
+                        'student_id' => $class->institution_id . str_pad($class->id, 3, '0', STR_PAD_LEFT) . str_pad($i, 3, '0', STR_PAD_LEFT),
                     ],
                     [
                         'first_name' => "Test Student {$i}",
@@ -226,7 +226,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                         'institution_id' => $class->institution_id,
                         'class_id' => $class->id,
                         'enrollment_date' => Carbon::now()->startOfYear(),
-                        'status' => 'active'
+                        'status' => 'active',
                     ]
                 );
             }
@@ -287,7 +287,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 'assigned_to' => $sektorAdmin?->id ?? 2,
                 'priority' => 'high',
                 'status' => 'pending',
-                'due_date' => Carbon::now()->addDays(14)
+                'due_date' => Carbon::now()->addDays(14),
             ],
             [
                 'title' => 'Test School Inspection',
@@ -296,7 +296,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 'assigned_to' => null,
                 'priority' => 'medium',
                 'status' => 'pending',
-                'due_date' => Carbon::now()->addDays(7)
+                'due_date' => Carbon::now()->addDays(7),
             ],
         ];
 
@@ -309,7 +309,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                     'assigned_to' => $taskData['assigned_to'],
                     'priority' => $taskData['priority'],
                     'status' => $taskData['status'],
-                    'due_date' => $taskData['due_date']
+                    'due_date' => $taskData['due_date'],
                 ]
             );
         }

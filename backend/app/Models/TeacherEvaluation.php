@@ -203,7 +203,7 @@ class TeacherEvaluation extends Model
     public function scopeOverdue($query)
     {
         return $query->where('next_evaluation_date', '<', now()->toDateString())
-                    ->where('status', '!=', 'completed');
+            ->where('status', '!=', 'completed');
     }
 
     /**
@@ -212,7 +212,7 @@ class TeacherEvaluation extends Model
     public function scopeCertificationType($query)
     {
         return $query->where('evaluation_type', 'certification')
-                    ->orWhere('evaluation_type', 'promotion');
+            ->orWhere('evaluation_type', 'promotion');
     }
 
     /**
@@ -221,7 +221,7 @@ class TeacherEvaluation extends Model
     public function scopeDiagnosticType($query)
     {
         return $query->where('evaluation_type', 'probationary')
-                    ->orWhere('evaluation_type', 'performance_improvement');
+            ->orWhere('evaluation_type', 'performance_improvement');
     }
 
     /**
@@ -230,7 +230,7 @@ class TeacherEvaluation extends Model
     public function scopeMiq60Type($query)
     {
         return $query->where('evaluation_type', 'mid_year')
-                    ->orWhere('certification_status', 'miq_60');
+            ->orWhere('certification_status', 'miq_60');
     }
 
     /**
@@ -239,7 +239,7 @@ class TeacherEvaluation extends Model
     public function scopeMiq100Type($query)
     {
         return $query->where('evaluation_type', 'annual')
-                    ->orWhere('certification_status', 'miq_100');
+            ->orWhere('certification_status', 'miq_100');
     }
 
     /**
@@ -247,7 +247,7 @@ class TeacherEvaluation extends Model
      */
     public function getEvaluationTypeLabelAttribute(): string
     {
-        return match($this->evaluation_type) {
+        $labels = [
             'annual' => 'İllik Qiymətləndirmə',
             'probationary' => 'Sınaq Müddəti',
             'mid_year' => 'İl Ortası',
@@ -255,13 +255,14 @@ class TeacherEvaluation extends Model
             'performance_improvement' => 'Performans İyileşdirmə',
             'special' => 'Xüsusi Qiymətləndirmə',
             'continuous' => 'Davamlı İzləmə',
-            default => 'Ümumi'
         ];
+
+        return $labels[$this->evaluation_type] ?? 'Ümumi';
     }
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        $labels = [
             'draft' => 'Layihə',
             'in_progress' => 'Davam edir',
             'pending_approval' => 'Təsdiq gözləyir',
@@ -269,26 +270,28 @@ class TeacherEvaluation extends Model
             'approved' => 'Təsdiqləndi',
             'requires_revision' => 'Düzəliş tələb edir',
             'cancelled' => 'Ləğv edildi',
-            default => 'Naməlum'
         ];
+
+        return $labels[$this->status] ?? 'Naməlum';
     }
 
     public function getOverallRatingLabelAttribute(): string
     {
-        return match($this->overall_rating) {
+        $labels = [
             'excellent' => 'Əla',
             'very_good' => 'Çox yaxşı',
             'good' => 'Yaxşı',
             'satisfactory' => 'Qənaətbəxş',
             'needs_improvement' => 'İyileşdirmə tələb edir',
             'unsatisfactory' => 'Qeyri-qənaətbəxş',
-            default => 'Qiymətləndirilməyib'
         ];
+
+        return $labels[$this->overall_rating] ?? 'Qiymətləndirilməyib';
     }
 
     public function getEvaluationPeriodLabelAttribute(): string
     {
-        return match($this->evaluation_period) {
+        $labels = [
             'q1' => '1-ci Rüb',
             'q2' => '2-ci Rüb',
             'q3' => '3-cü Rüb',
@@ -296,21 +299,33 @@ class TeacherEvaluation extends Model
             'semester1' => '1-ci Semestr',
             'semester2' => '2-ci Semestr',
             'annual' => 'İllik',
-            default => $this->evaluation_period
-        };
+        ];
+
+        return $labels[$this->evaluation_period] ?? $this->evaluation_period;
     }
 
     public function getPerformanceLevelAttribute(): string
     {
-        if (!$this->overall_score) {
+        if (! $this->overall_score) {
             return 'Qiymətləndirilməyib';
         }
 
-        if ($this->overall_score >= 90) return 'Əla';
-        if ($this->overall_score >= 80) return 'Çox yaxşı';
-        if ($this->overall_score >= 70) return 'Yaxşı';
-        if ($this->overall_score >= 60) return 'Qənaətbəxş';
-        if ($this->overall_score >= 50) return 'İyileşdirmə tələb edir';
+        if ($this->overall_score >= 90) {
+            return 'Əla';
+        }
+        if ($this->overall_score >= 80) {
+            return 'Çox yaxşı';
+        }
+        if ($this->overall_score >= 70) {
+            return 'Yaxşı';
+        }
+        if ($this->overall_score >= 60) {
+            return 'Qənaətbəxş';
+        }
+        if ($this->overall_score >= 50) {
+            return 'İyileşdirmə tələb edir';
+        }
+
         return 'Qeyri-qənaətbəxş';
     }
 
@@ -322,7 +337,7 @@ class TeacherEvaluation extends Model
             ->orderBy('evaluation_date', 'desc')
             ->first();
 
-        if (!$lastEvaluation || !$lastEvaluation->overall_score || !$this->overall_score) {
+        if (! $lastEvaluation || ! $lastEvaluation->overall_score || ! $this->overall_score) {
             return null;
         }
 
@@ -354,9 +369,9 @@ class TeacherEvaluation extends Model
 
     public function isOverdue(): bool
     {
-        return $this->next_evaluation_date && 
-               $this->next_evaluation_date->isPast() && 
-               !$this->isCompleted();
+        return $this->next_evaluation_date &&
+               $this->next_evaluation_date->isPast() &&
+               ! $this->isCompleted();
     }
 
     public function calculateOverallScore(): float
@@ -374,8 +389,8 @@ class TeacherEvaluation extends Model
             $this->leadership_score,
         ];
 
-        $validScores = array_filter($scores, fn($score) => $score !== null);
-        
+        $validScores = array_filter($scores, fn ($score) => $score !== null);
+
         return count($validScores) > 0 ? array_sum($validScores) / count($validScores) : 0;
     }
 
@@ -454,13 +469,15 @@ class TeacherEvaluation extends Model
     public function getActiveGoals(): array
     {
         $goals = $this->goals_set ?? [];
-        return array_filter($goals, fn($goal) => ($goal['status'] ?? 'active') === 'active');
+
+        return array_filter($goals, fn ($goal) => ($goal['status'] ?? 'active') === 'active');
     }
 
     public function getAchievedGoals(): array
     {
         $goals = $this->goals_set ?? [];
-        return array_filter($goals, fn($goal) => ($goal['status'] ?? 'active') === 'achieved');
+
+        return array_filter($goals, fn ($goal) => ($goal['status'] ?? 'active') === 'achieved');
     }
 
     public function getScoreBreakdown(): array
@@ -521,23 +538,40 @@ class TeacherEvaluation extends Model
 
     private function determineRating($score): string
     {
-        if ($score >= 90) return 'excellent';
-        if ($score >= 80) return 'very_good';
-        if ($score >= 70) return 'good';
-        if ($score >= 60) return 'satisfactory';
-        if ($score >= 50) return 'needs_improvement';
+        if ($score >= 90) {
+            return 'excellent';
+        }
+        if ($score >= 80) {
+            return 'very_good';
+        }
+        if ($score >= 70) {
+            return 'good';
+        }
+        if ($score >= 60) {
+            return 'satisfactory';
+        }
+        if ($score >= 50) {
+            return 'needs_improvement';
+        }
+
         return 'unsatisfactory';
     }
 
     private function calculateNextEvaluationDate()
     {
-        return match($this->evaluation_type) {
-            'annual' => $this->evaluation_date->addYear(),
-            'probationary' => $this->evaluation_date->addMonths(6),
-            'mid_year' => $this->evaluation_date->addMonths(6),
-            'continuous' => $this->evaluation_date->addMonths(3),
-            default => $this->evaluation_date->addYear()
-        };
+        if ($this->evaluation_type === 'annual') {
+            return $this->evaluation_date->addYear();
+        }
+
+        if ($this->evaluation_type === 'probationary' || $this->evaluation_type === 'mid_year') {
+            return $this->evaluation_date->addMonths(6);
+        }
+
+        if ($this->evaluation_type === 'continuous') {
+            return $this->evaluation_date->addMonths(3);
+        }
+
+        return $this->evaluation_date->addYear();
     }
 
     public function generateEvaluationSummary(): array
@@ -553,7 +587,7 @@ class TeacherEvaluation extends Model
             ],
             'teacher_info' => [
                 'id' => $this->teacher->id,
-                'name' => $this->teacher->profile 
+                'name' => $this->teacher->profile
                     ? "{$this->teacher->profile->first_name} {$this->teacher->profile->last_name}"
                     : $this->teacher->username,
                 'email' => $this->teacher->email,

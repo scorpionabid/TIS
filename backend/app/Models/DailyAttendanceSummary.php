@@ -2,14 +2,13 @@
 
 namespace App\Models;
 
+use App\Services\AcademicContextService;
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
-use App\Services\AcademicContextService;
-use App\Models\User;
 
 class DailyAttendanceSummary extends Model
 {
@@ -58,7 +57,7 @@ class DailyAttendanceSummary extends Model
         'temperature_check',
         'health_screening_passed',
         'health_notes',
-        'transportation_status'
+        'transportation_status',
     ];
 
     protected $casts = [
@@ -82,7 +81,7 @@ class DailyAttendanceSummary extends Model
         'parent_acknowledged' => 'boolean',
         'makeup_required' => 'boolean',
         'health_screening_passed' => 'boolean',
-        'temperature_check' => 'decimal:1'
+        'temperature_check' => 'decimal:1',
     ];
 
     // Relationships
@@ -119,7 +118,7 @@ class DailyAttendanceSummary extends Model
     public function attendanceRecords(): HasMany
     {
         return $this->hasMany(AttendanceRecord::class, 'student_id', 'student_id')
-                    ->whereDate('attendance_date', $this->attendance_date);
+            ->whereDate('attendance_date', $this->attendance_date);
     }
 
     // Status checking methods
@@ -156,9 +155,9 @@ class DailyAttendanceSummary extends Model
     public function needsAttention(): bool
     {
         return in_array($this->daily_status, [
-            'full_absent', 
-            'partial_present'
-        ]) && !$this->absence_authorized;
+            'full_absent',
+            'partial_present',
+        ]) && ! $this->absence_authorized;
     }
 
     // Calculation methods
@@ -190,7 +189,7 @@ class DailyAttendanceSummary extends Model
         // Combine period attendance with punctuality
         $periodRate = $this->calculateDailyAttendanceRate();
         $punctualityPenalty = ($this->periods_late / max($this->total_periods_scheduled, 1)) * 10;
-        
+
         return max(0, $periodRate - $punctualityPenalty);
     }
 
@@ -207,19 +206,19 @@ class DailyAttendanceSummary extends Model
 
     public function getTimeSpentInSchool(): float
     {
-        if (!$this->actual_arrival_time || !$this->actual_departure_time) {
+        if (! $this->actual_arrival_time || ! $this->actual_departure_time) {
             return $this->getActualPresentHours();
         }
 
         $arrivalTime = Carbon::parse($this->actual_arrival_time);
         $departureTime = Carbon::parse($this->actual_departure_time);
-        
+
         return round($departureTime->diffInMinutes($arrivalTime) / 60, 2);
     }
 
     public function getLatenessInMinutes(): int
     {
-        if (!$this->first_period_start || !$this->actual_arrival_time) {
+        if (! $this->first_period_start || ! $this->actual_arrival_time) {
             return $this->minutes_late;
         }
 
@@ -234,20 +233,20 @@ class DailyAttendanceSummary extends Model
     }
 
     // Absence management
-    public function authorizeAbsence(int $authorizedBy, string $reason = null): bool
+    public function authorizeAbsence(int $authorizedBy, ?string $reason = null): bool
     {
         return $this->update([
             'absence_authorized' => true,
             'authorized_by' => $authorizedBy,
             'authorized_at' => now(),
-            'absence_reason' => $reason ?? $this->absence_reason
+            'absence_reason' => $reason ?? $this->absence_reason,
         ]);
     }
 
     public function requiresMakeupWork(): bool
     {
-        return $this->makeup_required || 
-               ($this->isFullyAbsent() && !empty($this->affected_subjects));
+        return $this->makeup_required ||
+               ($this->isFullyAbsent() && ! empty($this->affected_subjects));
     }
 
     public function getMissedSubjects(): array
@@ -260,7 +259,7 @@ class DailyAttendanceSummary extends Model
         $assignments = $this->makeup_assignments ?? [];
         $assignments[] = array_merge($assignment, [
             'assigned_at' => now()->toISOString(),
-            'assigned_by' => auth()->id()
+            'assigned_by' => auth()->id(),
         ]);
 
         $this->update(['makeup_assignments' => $assignments]);
@@ -269,7 +268,7 @@ class DailyAttendanceSummary extends Model
     // Parent communication
     public function needsParentNotification(): bool
     {
-        return $this->needsAttention() && !$this->parent_notified;
+        return $this->needsAttention() && ! $this->parent_notified;
     }
 
     public function sendParentNotification(string $method, array $details = []): void
@@ -279,13 +278,13 @@ class DailyAttendanceSummary extends Model
             'method' => $method,
             'sent_at' => now()->toISOString(),
             'details' => $details,
-            'message' => $this->generateParentNotificationMessage()
+            'message' => $this->generateParentNotificationMessage(),
         ];
 
         $this->update([
             'parent_notified' => true,
             'parent_notified_at' => now(),
-            'notification_details' => $notificationDetails
+            'notification_details' => $notificationDetails,
         ]);
     }
 
@@ -293,7 +292,7 @@ class DailyAttendanceSummary extends Model
     {
         $this->update([
             'parent_acknowledged' => true,
-            'parent_acknowledged_at' => now()
+            'parent_acknowledged_at' => now(),
         ]);
     }
 
@@ -309,11 +308,13 @@ class DailyAttendanceSummary extends Model
 
         if ($this->isPartiallyPresent()) {
             $missedPeriods = $this->periods_absent + $this->periods_excused;
+
             return "ATİS: {$studentName} missed {$missedPeriods} period(s) on {$date}. Attendance rate: {$this->daily_attendance_rate}%.";
         }
 
         if ($this->wasLate()) {
             $lateMinutes = $this->getLatenessInMinutes();
+
             return "ATİS: {$studentName} arrived {$lateMinutes} minutes late on {$date}.";
         }
 
@@ -321,18 +322,18 @@ class DailyAttendanceSummary extends Model
     }
 
     // Health and safety
-    public function recordHealthScreening(float $temperature = null, bool $passed = true, array $notes = []): void
+    public function recordHealthScreening(?float $temperature = null, bool $passed = true, array $notes = []): void
     {
         $this->update([
             'temperature_check' => $temperature,
             'health_screening_passed' => $passed,
-            'health_notes' => array_merge($this->health_notes ?? [], $notes)
+            'health_notes' => array_merge($this->health_notes ?? [], $notes),
         ]);
     }
 
     public function hasHealthConcerns(): bool
     {
-        return !$this->health_screening_passed || 
+        return ! $this->health_screening_passed ||
                ($this->temperature_check && $this->temperature_check >= 37.5);
     }
 
@@ -344,11 +345,11 @@ class DailyAttendanceSummary extends Model
             $alerts[] = "High temperature recorded: {$this->temperature_check}°C";
         }
 
-        if (!$this->health_screening_passed) {
-            $alerts[] = "Failed daily health screening";
+        if (! $this->health_screening_passed) {
+            $alerts[] = 'Failed daily health screening';
         }
 
-        if (!empty($this->health_notes)) {
+        if (! empty($this->health_notes)) {
             $alerts = array_merge($alerts, $this->health_notes);
         }
 
@@ -363,7 +364,7 @@ class DailyAttendanceSummary extends Model
 
     public function getTransportationNote(): ?string
     {
-        return match($this->transportation_status) {
+        return match ($this->transportation_status) {
             'bus_late' => 'School bus was delayed',
             'bus_missed' => 'Student missed the school bus',
             'parent_pickup' => 'Transported by parent/guardian',
@@ -377,7 +378,7 @@ class DailyAttendanceSummary extends Model
     public function getAcademicImpactScore(): float
     {
         $baseScore = $this->daily_attendance_rate;
-        
+
         // Penalty for lateness
         if ($this->periods_late > 0) {
             $latenessPenalty = ($this->periods_late / $this->total_periods_scheduled) * 20;
@@ -408,11 +409,11 @@ class DailyAttendanceSummary extends Model
         // Get or create summary for this student and date
         $summary = static::where([
             'student_id' => $studentId,
-            'attendance_date' => $date
+            'attendance_date' => $date,
         ])->first();
 
         if ($attendanceRecords->isEmpty()) {
-            if (!$summary) {
+            if (! $summary) {
                 return static::createEmptySummary($studentId, $date);
             }
             // Update existing summary to reflect no records
@@ -424,13 +425,14 @@ class DailyAttendanceSummary extends Model
                 'periods_late' => 0,
                 'periods_excused' => 0,
                 'daily_attendance_rate' => 0,
-                'summary_generated_at' => now()
+                'summary_generated_at' => now(),
             ]);
+
             return $summary;
         }
 
-        if (!$summary) {
-            $summary = new static();
+        if (! $summary) {
+            $summary = new static;
             $summary->student_id = $studentId;
             $summary->attendance_date = $date;
 
@@ -480,7 +482,7 @@ class DailyAttendanceSummary extends Model
             'periods_late' => 0,
             'periods_excused' => 0,
             'daily_attendance_rate' => 0.00,
-            'summary_generated_at' => now()
+            'summary_generated_at' => now(),
         ]);
     }
 
@@ -556,19 +558,19 @@ class DailyAttendanceSummary extends Model
     public function scopeNeedingAttention(Builder $query): Builder
     {
         return $query->whereIn('daily_status', ['full_absent', 'partial_present'])
-                    ->where('absence_authorized', false);
+            ->where('absence_authorized', false);
     }
 
     public function scopeNeedingParentNotification(Builder $query): Builder
     {
         return $query->where('parent_notified', false)
-                    ->whereIn('daily_status', ['full_absent', 'partial_present', 'late_arrival']);
+            ->whereIn('daily_status', ['full_absent', 'partial_present', 'late_arrival']);
     }
 
     public function scopeWithHealthConcerns(Builder $query): Builder
     {
         return $query->where('health_screening_passed', false)
-                    ->orWhere('temperature_check', '>=', 37.5);
+            ->orWhere('temperature_check', '>=', 37.5);
     }
 
     public function scopeForAcademicYear(Builder $query, int $academicYearId): Builder

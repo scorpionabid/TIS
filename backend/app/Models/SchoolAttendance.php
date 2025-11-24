@@ -20,7 +20,7 @@ class SchoolAttendance extends Model
         'end_count',
         'attendance_rate',
         'notes',
-        'created_by'
+        'created_by',
     ];
 
     protected $casts = [
@@ -35,7 +35,7 @@ class SchoolAttendance extends Model
     protected $appends = [
         'absent_count',
         'formatted_date',
-        'school_name'
+        'school_name',
     ];
 
     /**
@@ -102,7 +102,7 @@ class SchoolAttendance extends Model
         if ($endDate) {
             return $query->whereBetween('date', [$startDate, $endDate]);
         }
-        
+
         return $query->whereDate('date', $startDate);
     }
 
@@ -129,7 +129,7 @@ class SchoolAttendance extends Model
     {
         return $query->whereBetween('date', [
             now()->startOfWeek(),
-            now()->endOfWeek()
+            now()->endOfWeek(),
         ]);
     }
 
@@ -140,7 +140,7 @@ class SchoolAttendance extends Model
     {
         return $query->whereBetween('date', [
             now()->startOfMonth(),
-            now()->endOfMonth()
+            now()->endOfMonth(),
         ]);
     }
 
@@ -214,7 +214,7 @@ class SchoolAttendance extends Model
     public static function getDailySummary($date = null)
     {
         $date = $date ?? today();
-        
+
         return self::whereDate('date', $date)
             ->selectRaw('
                 COUNT(*) as total_records,

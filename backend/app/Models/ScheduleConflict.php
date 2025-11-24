@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class ScheduleConflict extends Model
 {
@@ -303,9 +303,10 @@ class ScheduleConflict extends Model
      */
     public function getTimeRangeAttribute(): ?string
     {
-        if (!$this->start_time || !$this->end_time) {
+        if (! $this->start_time || ! $this->end_time) {
             return null;
         }
+
         return $this->start_time->format('H:i') . ' - ' . $this->end_time->format('H:i');
     }
 
@@ -314,7 +315,7 @@ class ScheduleConflict extends Model
      */
     public function getSeverityPriorityAttribute(): int
     {
-        return match($this->severity) {
+        return match ($this->severity) {
             'critical' => 5,
             'high' => 4,
             'medium' => 3,
@@ -361,8 +362,8 @@ class ScheduleConflict extends Model
      */
     public function canBeIgnored(): bool
     {
-        return in_array($this->status, ['pending', 'acknowledged']) && 
-               !in_array($this->severity, ['critical']);
+        return in_array($this->status, ['pending', 'acknowledged']) &&
+               ! in_array($this->severity, ['critical']);
     }
 
     /**
@@ -384,9 +385,9 @@ class ScheduleConflict extends Model
     /**
      * Start resolution process
      */
-    public function startResolution(User $user, string $notes = null): bool
+    public function startResolution(User $user, ?string $notes = null): bool
     {
-        if (!in_array($this->status, ['pending', 'acknowledged'])) {
+        if (! in_array($this->status, ['pending', 'acknowledged'])) {
             throw new \Exception('Conflict cannot be resolved in current status');
         }
 
@@ -403,7 +404,7 @@ class ScheduleConflict extends Model
      */
     public function resolve(User $user, array $resolutionData): bool
     {
-        if (!$this->canBeResolved()) {
+        if (! $this->canBeResolved()) {
             throw new \Exception('Conflict cannot be resolved in current status');
         }
 
@@ -423,7 +424,7 @@ class ScheduleConflict extends Model
      */
     public function ignore(User $user, string $reason): bool
     {
-        if (!$this->canBeIgnored()) {
+        if (! $this->canBeIgnored()) {
             throw new \Exception('Conflict cannot be ignored');
         }
 
@@ -442,7 +443,7 @@ class ScheduleConflict extends Model
      */
     public function escalate(User $user, string $reason): bool
     {
-        if (!in_array($this->status, ['pending', 'acknowledged', 'in_progress'])) {
+        if (! in_array($this->status, ['pending', 'acknowledged', 'in_progress'])) {
             throw new \Exception('Conflict cannot be escalated in current status');
         }
 
@@ -459,7 +460,7 @@ class ScheduleConflict extends Model
      */
     public function getSourceEntity(): ?Model
     {
-        if (!$this->source_entity_type || !$this->source_entity_id) {
+        if (! $this->source_entity_type || ! $this->source_entity_id) {
             return null;
         }
 
@@ -471,7 +472,7 @@ class ScheduleConflict extends Model
      */
     public function getTargetEntity(): ?Model
     {
-        if (!$this->target_entity_type || !$this->target_entity_id) {
+        if (! $this->target_entity_type || ! $this->target_entity_id) {
             return null;
         }
 
@@ -483,7 +484,7 @@ class ScheduleConflict extends Model
      */
     private function getEntityByType(string $type, int $id): ?Model
     {
-        return match($type) {
+        return match ($type) {
             'teacher' => User::find($id),
             'room' => Room::find($id),
             'session' => ScheduleSession::find($id),
@@ -523,6 +524,7 @@ class ScheduleConflict extends Model
         }
 
         $this->update(['suggested_solutions' => $solutions]);
+
         return $solutions;
     }
 
@@ -686,7 +688,7 @@ class ScheduleConflict extends Model
         $score = 0;
 
         // Base score by severity
-        $score += match($this->severity) {
+        $score += match ($this->severity) {
             'critical' => 40,
             'high' => 30,
             'medium' => 20,
@@ -696,7 +698,7 @@ class ScheduleConflict extends Model
         };
 
         // Add score by conflict type
-        $score += match($this->conflict_type) {
+        $score += match ($this->conflict_type) {
             'teacher' => 30,
             'room' => 20,
             'resource' => 15,
@@ -719,16 +721,17 @@ class ScheduleConflict extends Model
         $score = min(100, $score);
 
         $this->update(['impact_score' => $score]);
+
         return $score;
     }
 
     /**
      * Add entry to conflict history
      */
-    public function addToHistory(string $action, User $user, string $notes = null): void
+    public function addToHistory(string $action, User $user, ?string $notes = null): void
     {
         $history = $this->conflict_history ?? [];
-        
+
         $history[] = [
             'action' => $action,
             'timestamp' => now()->toISOString(),
@@ -745,14 +748,14 @@ class ScheduleConflict extends Model
      */
     public function sendNotifications(): bool
     {
-        if (!$this->requires_notification || empty($this->stakeholders)) {
+        if (! $this->requires_notification || empty($this->stakeholders)) {
             return true;
         }
 
         // This would integrate with the notification system
         // For now, just update the notification history
         $notificationHistory = $this->notification_history ?? [];
-        
+
         $notificationHistory[] = [
             'sent_at' => now()->toISOString(),
             'recipients' => $this->stakeholders,
@@ -788,7 +791,7 @@ class ScheduleConflict extends Model
                 'time_range' => $this->time_range,
             ],
             'affected_entities_count' => count($this->affected_entities ?? []),
-            'has_solutions' => !empty($this->suggested_solutions),
+            'has_solutions' => ! empty($this->suggested_solutions),
             'solution_count' => count($this->suggested_solutions ?? []),
         ];
     }
@@ -799,18 +802,18 @@ class ScheduleConflict extends Model
     public static function createFromDetection(array $detectionData): self
     {
         $conflict = self::create($detectionData);
-        
+
         // Calculate impact score
         $conflict->calculateImpactScore();
-        
+
         // Generate suggested solutions
         $conflict->generateSuggestedSolutions();
-        
+
         // Send notifications if required
         if ($conflict->requires_notification) {
             $conflict->sendNotifications();
         }
-        
+
         return $conflict;
     }
 }

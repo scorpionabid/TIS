@@ -3,7 +3,6 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
@@ -24,11 +23,10 @@ return new class extends Migration
             $table->integer('response_count')->default(0)->after('archived_at');
             $table->integer('completion_threshold')->nullable()->after('response_count'); // percentage required for completion
             $table->renameColumn('settings', 'metadata');
-            
+
             // Remove columns that don't match the design (skip template_id due to foreign key constraint)
             $table->dropColumn(['deadline', 'requires_approval', 'allow_partial_save', 'max_responses_per_institution']);
         });
-
     }
 
     /**
@@ -41,7 +39,7 @@ return new class extends Migration
             $table->dropColumn(['survey_type', 'is_anonymous', 'allow_multiple_responses', 'start_date', 'end_date', 'archived_at', 'response_count', 'completion_threshold']);
             $table->renameColumn('structure', 'questions');
             $table->renameColumn('metadata', 'settings');
-            
+
             // Add back the removed columns
             $table->timestamp('deadline')->nullable();
             $table->boolean('requires_approval')->default(false);
@@ -49,6 +47,5 @@ return new class extends Migration
             $table->integer('max_responses_per_institution')->default(1);
             $table->foreignId('template_id')->nullable()->constrained('survey_templates');
         });
-        
     }
 };

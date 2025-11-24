@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\InstitutionAuditLog;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class InstitutionAuditLogController extends Controller
@@ -15,8 +15,8 @@ class InstitutionAuditLogController extends Controller
     public function index(Request $request): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
@@ -59,8 +59,8 @@ class InstitutionAuditLogController extends Controller
             }
 
             if ($request->search) {
-                $query->where(function($q) use ($request) {
-                    $q->whereHas('institution', function($subQ) use ($request) {
+                $query->where(function ($q) use ($request) {
+                    $q->whereHas('institution', function ($subQ) use ($request) {
                         $subQ->where('name', 'ILIKE', "%{$request->search}%");
                     })->orWhere('description', 'ILIKE', "%{$request->search}%");
                 });
@@ -78,9 +78,8 @@ class InstitutionAuditLogController extends Controller
                     'total' => $logs->total(),
                     'from' => $logs->firstItem(),
                     'to' => $logs->lastItem(),
-                ]
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -96,8 +95,8 @@ class InstitutionAuditLogController extends Controller
     public function show(int $institutionId, Request $request): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
@@ -141,9 +140,8 @@ class InstitutionAuditLogController extends Controller
                     'total' => $logs->total(),
                     'from' => $logs->firstItem(),
                     'to' => $logs->lastItem(),
-                ]
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -159,8 +157,8 @@ class InstitutionAuditLogController extends Controller
     public function statistics(): JsonResponse
     {
         $user = Auth::user();
-        
-        if (!$user->hasRole(['superadmin', 'regionadmin'])) {
+
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.',
@@ -180,14 +178,14 @@ class InstitutionAuditLogController extends Controller
                     ->orderBy('count', 'desc')
                     ->limit(10)
                     ->get()
-                    ->mapWithKeys(function($log) {
+                    ->mapWithKeys(function ($log) {
                         return [$log->user->name ?? 'Unknown' => $log->count];
                     }),
                 'recent_activity' => InstitutionAuditLog::with(['institution', 'user'])
                     ->recent(7)
                     ->limit(10)
                     ->get()
-                    ->map(function($log) {
+                    ->map(function ($log) {
                         return [
                             'id' => $log->id,
                             'action' => $log->action_display,
@@ -203,7 +201,6 @@ class InstitutionAuditLogController extends Controller
                 'success' => true,
                 'data' => $stats,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,

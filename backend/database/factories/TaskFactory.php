@@ -108,6 +108,7 @@ class TaskFactory extends Factory
     {
         return $this->state(function (array $attributes) {
             $completedAt = $this->faker->dateTimeBetween('-1 month', 'now');
+
             return [
                 'status' => 'completed',
                 'progress' => 100,

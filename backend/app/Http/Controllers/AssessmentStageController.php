@@ -19,10 +19,10 @@ class AssessmentStageController extends Controller
     {
         $user = Auth::user();
 
-        if (!$this->canManageType($user, $assessmentType)) {
+        if (! $this->canManageType($user, $assessmentType)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə növünün mərhələlərinə baxmaq icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə növünün mərhələlərinə baxmaq icazəniz yoxdur',
             ], 403);
         }
 
@@ -38,10 +38,10 @@ class AssessmentStageController extends Controller
     public function store(Request $request, AssessmentType $assessmentType): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canManageType($user, $assessmentType)) {
+        if (! $this->canManageType($user, $assessmentType)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu qiymətləndirmə növü üçün mərhələ yaratmaq icazəniz yoxdur'
+                'message' => 'Bu qiymətləndirmə növü üçün mərhələ yaratmaq icazəniz yoxdur',
             ], 403);
         }
 
@@ -57,7 +57,7 @@ class AssessmentStageController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -69,7 +69,7 @@ class AssessmentStageController extends Controller
         return response()->json([
             'success' => true,
             'data' => $stage,
-            'message' => 'Mərhələ uğurla yaradıldı'
+            'message' => 'Mərhələ uğurla yaradıldı',
         ], 201);
     }
 
@@ -79,17 +79,17 @@ class AssessmentStageController extends Controller
     public function update(Request $request, AssessmentType $assessmentType, AssessmentStage $assessmentStage): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canManageType($user, $assessmentType)) {
+        if (! $this->canManageType($user, $assessmentType)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu mərhələni redaktə etmək icazəniz yoxdur'
+                'message' => 'Bu mərhələni redaktə etmək icazəniz yoxdur',
             ], 403);
         }
 
         if ($assessmentStage->assessment_type_id !== $assessmentType->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Mərhələ bu qiymətləndirmə növünə aid deyil'
+                'message' => 'Mərhələ bu qiymətləndirmə növünə aid deyil',
             ], 400);
         }
 
@@ -105,7 +105,7 @@ class AssessmentStageController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Validasiya xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -114,7 +114,7 @@ class AssessmentStageController extends Controller
         return response()->json([
             'success' => true,
             'data' => $assessmentStage,
-            'message' => 'Mərhələ uğurla yeniləndi'
+            'message' => 'Mərhələ uğurla yeniləndi',
         ]);
     }
 
@@ -124,24 +124,24 @@ class AssessmentStageController extends Controller
     public function destroy(AssessmentType $assessmentType, AssessmentStage $assessmentStage): JsonResponse
     {
         $user = Auth::user();
-        if (!$this->canManageType($user, $assessmentType)) {
+        if (! $this->canManageType($user, $assessmentType)) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu mərhələni silmək icazəniz yoxdur'
+                'message' => 'Bu mərhələni silmək icazəniz yoxdur',
             ], 403);
         }
 
         if ($assessmentStage->assessment_type_id !== $assessmentType->id) {
             return response()->json([
                 'success' => false,
-                'message' => 'Mərhələ bu qiymətləndirmə növünə aid deyil'
+                'message' => 'Mərhələ bu qiymətləndirmə növünə aid deyil',
             ], 400);
         }
 
         if ($assessmentStage->schoolAssessments()->exists()) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu mərhələ ilə bağlı qiymətləndirmələr mövcuddur, silinə bilməz'
+                'message' => 'Bu mərhələ ilə bağlı qiymətləndirmələr mövcuddur, silinə bilməz',
             ], 409);
         }
 
@@ -149,7 +149,7 @@ class AssessmentStageController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => 'Mərhələ uğurla silindi'
+            'message' => 'Mərhələ uğurla silindi',
         ]);
     }
 
@@ -167,15 +167,15 @@ class AssessmentStageController extends Controller
 
             // ...or any type explicitly assigned to their institution
             if ($user->institution_id && $assessmentType->assignedInstitutions()
-                    ->where('institutions.id', $user->institution_id)
-                    ->exists()) {
+                ->where('institutions.id', $user->institution_id)
+                ->exists()) {
                 return true;
             }
 
             // ...or any type assigned to institutions within their region
             if ($user->institution?->region_id && $assessmentType->assignedInstitutions()
-                    ->where('institutions.region_id', $user->institution->region_id)
-                    ->exists()) {
+                ->where('institutions.region_id', $user->institution->region_id)
+                ->exists()) {
                 return true;
             }
 

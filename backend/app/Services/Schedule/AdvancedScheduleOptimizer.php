@@ -2,17 +2,15 @@
 
 namespace App\Services\Schedule;
 
-use App\Models\ScheduleSession;
-use App\Models\TeachingLoad;
-use App\Models\Teacher;
-use App\Models\ClassModel;
 use App\Models\Subject;
-use Illuminate\Support\Collection;
+use App\Models\Teacher;
 
 class AdvancedScheduleOptimizer
 {
     protected array $optimizationScores = [];
+
     protected array $constraints = [];
+
     protected array $penalties = [];
 
     public function __construct()
@@ -28,23 +26,23 @@ class AdvancedScheduleOptimizer
     {
         $sessions = $scheduleData['sessions'] ?? [];
         $workloadData = $scheduleData['workload_data'];
-        
+
         $optimizationResult = [
             'original_sessions' => $sessions,
             'optimized_sessions' => [],
             'improvements' => [],
             'optimization_score' => 0,
             'conflicts_resolved' => 0,
-            'efficiency_gained' => 0
+            'efficiency_gained' => 0,
         ];
 
         // Apply different optimization strategies
         $optimizedSessions = $this->applyMultiStageOptimization($sessions, $workloadData, $preferences);
-        
+
         $optimizationResult['optimized_sessions'] = $optimizedSessions;
         $optimizationResult['improvements'] = $this->calculateImprovements($sessions, $optimizedSessions);
         $optimizationResult['optimization_score'] = $this->calculateOptimizationScore($optimizedSessions, $workloadData);
-        
+
         return $optimizationResult;
     }
 
@@ -110,15 +108,15 @@ class AdvancedScheduleOptimizer
         $teachingLoads = $workloadData['teaching_loads'];
 
         foreach ($teachingLoads as $load) {
-            if (!empty($load['preferred_time_slots'])) {
+            if (! empty($load['preferred_time_slots'])) {
                 $optimizedSessions = $this->moveSessionsToPreferredSlots(
-                    $optimizedSessions, 
-                    $load, 
+                    $optimizedSessions,
+                    $load,
                     $load['preferred_time_slots']
                 );
             }
 
-            if (!empty($load['unavailable_periods'])) {
+            if (! empty($load['unavailable_periods'])) {
                 $optimizedSessions = $this->avoidUnavailablePeriods(
                     $optimizedSessions,
                     $load,
@@ -156,11 +154,11 @@ class AdvancedScheduleOptimizer
 
         foreach ($dailyLoads as $teacherId => $dailyLoad) {
             $imbalanceDays = $this->findImbalancedDays($dailyLoad);
-            
-            if (!empty($imbalanceDays)) {
+
+            if (! empty($imbalanceDays)) {
                 $optimizedSessions = $this->redistributeTeacherLoad(
-                    $optimizedSessions, 
-                    $teacherId, 
+                    $optimizedSessions,
+                    $teacherId,
                     $imbalanceDays
                 );
             }
@@ -220,7 +218,7 @@ class AdvancedScheduleOptimizer
             'teacher_satisfaction_score' => $this->calculateTeacherSatisfactionScore($sessions, $workloadData),
             'efficiency_score' => $this->calculateEfficiencyScore($sessions),
             'distribution_score' => $this->calculateDistributionScore($sessions),
-            'utilization_score' => $this->calculateUtilizationScore($sessions)
+            'utilization_score' => $this->calculateUtilizationScore($sessions),
         ];
 
         $weights = [
@@ -228,7 +226,7 @@ class AdvancedScheduleOptimizer
             'teacher_satisfaction_score' => 0.25,
             'efficiency_score' => 0.2,
             'distribution_score' => 0.15,
-            'utilization_score' => 0.1
+            'utilization_score' => 0.1,
         ];
 
         $totalScore = 0;
@@ -274,7 +272,7 @@ class AdvancedScheduleOptimizer
             'optimized_schedule' => $bestSchedule,
             'generations_processed' => $generations,
             'final_fitness' => $bestSchedule['fitness'],
-            'optimization_log' => $this->optimizationScores
+            'optimization_log' => $this->optimizationScores,
         ];
     }
 
@@ -317,7 +315,7 @@ class AdvancedScheduleOptimizer
             'optimized_schedule' => $bestSchedule,
             'optimization_score' => $bestScore,
             'iterations' => $iterations,
-            'improvement' => $bestScore - $this->calculateOptimizationScore($initialSchedule, $workloadData)
+            'improvement' => $bestScore - $this->calculateOptimizationScore($initialSchedule, $workloadData),
         ];
     }
 
@@ -329,7 +327,7 @@ class AdvancedScheduleOptimizer
         $suggestions = [];
 
         // Pattern analysis from historical data
-        if (!empty($historicalData)) {
+        if (! empty($historicalData)) {
             $patterns = $this->analyzeHistoricalPatterns($historicalData);
             $suggestions['pattern_suggestions'] = $this->generatePatternBasedSuggestions($scheduleData, $patterns);
         }
@@ -361,7 +359,7 @@ class AdvancedScheduleOptimizer
             'lunch_break_required' => true,
             'core_subjects_morning_preference' => true,
             'teacher_room_change_limit' => 3,
-            'max_gaps_per_day_teacher' => 2
+            'max_gaps_per_day_teacher' => 2,
         ];
     }
 
@@ -378,7 +376,7 @@ class AdvancedScheduleOptimizer
             'late_core_subjects' => -15,
             'teacher_overload' => -50,
             'poor_distribution' => -30,
-            'room_change_penalty' => -10
+            'room_change_penalty' => -10,
         ];
     }
 
@@ -390,9 +388,10 @@ class AdvancedScheduleOptimizer
             $individual = $this->mutateSchedule($baseSchedule, 0.3);
             $population[] = [
                 'schedule' => $individual,
-                'fitness' => 0
+                'fitness' => 0,
             ];
         }
+
         return $population;
     }
 
@@ -401,13 +400,14 @@ class AdvancedScheduleOptimizer
         foreach ($population as &$individual) {
             $individual['fitness'] = $this->calculateOptimizationScore($individual['schedule'], $workloadData);
         }
+
         return $population;
     }
 
     protected function mutateSchedule(array $schedule, float $mutationRate): array
     {
         $mutatedSchedule = $schedule;
-        
+
         foreach ($mutatedSchedule as &$session) {
             if (rand() / getrandmax() < $mutationRate) {
                 // Random mutation: change time slot
@@ -415,7 +415,7 @@ class AdvancedScheduleOptimizer
                 $session['period_number'] = rand(1, 7);
             }
         }
-        
+
         return $mutatedSchedule;
     }
 
@@ -423,12 +423,12 @@ class AdvancedScheduleOptimizer
     protected function detectConflicts(array $sessions): array
     {
         $conflicts = [];
-        
+
         // Group sessions by time slot
         $timeSlots = [];
         foreach ($sessions as $session) {
             $key = $session['day_of_week'] . '_' . $session['period_number'];
-            if (!isset($timeSlots[$key])) {
+            if (! isset($timeSlots[$key])) {
                 $timeSlots[$key] = [];
             }
             $timeSlots[$key][] = $session;
@@ -447,7 +447,7 @@ class AdvancedScheduleOptimizer
     protected function analyzeSlotConflicts(array $sessions, string $slotKey): array
     {
         $conflicts = [];
-        
+
         for ($i = 0; $i < count($sessions); $i++) {
             for ($j = $i + 1; $j < count($sessions); $j++) {
                 $session1 = $sessions[$i];
@@ -459,18 +459,18 @@ class AdvancedScheduleOptimizer
                         'type' => 'teacher_conflict',
                         'severity' => 'critical',
                         'sessions' => [$session1, $session2],
-                        'slot' => $slotKey
+                        'slot' => $slotKey,
                     ];
                 }
 
                 // Room conflict
-                if (isset($session1['room_id']) && isset($session2['room_id']) && 
+                if (isset($session1['room_id']) && isset($session2['room_id']) &&
                     $session1['room_id'] === $session2['room_id']) {
                     $conflicts[] = [
                         'type' => 'room_conflict',
                         'severity' => 'warning',
                         'sessions' => [$session1, $session2],
-                        'slot' => $slotKey
+                        'slot' => $slotKey,
                     ];
                 }
 
@@ -480,7 +480,7 @@ class AdvancedScheduleOptimizer
                         'type' => 'class_conflict',
                         'severity' => 'critical',
                         'sessions' => [$session1, $session2],
-                        'slot' => $slotKey
+                        'slot' => $slotKey,
                     ];
                 }
             }
@@ -507,7 +507,7 @@ class AdvancedScheduleOptimizer
         $teachingLoads = $workloadData['teaching_loads'];
 
         foreach ($teachingLoads as $load) {
-            $teacherSessions = array_filter($sessions, fn($s) => $s['teacher_id'] === $load['teacher']['id']);
+            $teacherSessions = array_filter($sessions, fn ($s) => $s['teacher_id'] === $load['teacher']['id']);
             $teacherScore = $this->evaluateTeacherScheduleSatisfaction($teacherSessions, $load);
             $satisfactionScore = min($satisfactionScore, $teacherScore);
         }
@@ -520,13 +520,13 @@ class AdvancedScheduleOptimizer
         $score = 100;
 
         // Check preferred time slots
-        if (!empty($load['preferred_time_slots'])) {
+        if (! empty($load['preferred_time_slots'])) {
             $preferenceScore = $this->calculatePreferenceAdherence($teacherSessions, $load['preferred_time_slots']);
             $score *= $preferenceScore / 100;
         }
 
         // Check unavailable periods
-        if (!empty($load['unavailable_periods'])) {
+        if (! empty($load['unavailable_periods'])) {
             $violationPenalty = $this->calculateUnavailabilityViolations($teacherSessions, $load['unavailable_periods']);
             $score -= $violationPenalty;
         }
@@ -562,10 +562,10 @@ class AdvancedScheduleOptimizer
             $teacherGaps = 0;
 
             foreach ($dailySessions as $day => $daySessions) {
-                usort($daySessions, fn($a, $b) => $a['period_number'] <=> $b['period_number']);
-                
+                usort($daySessions, fn ($a, $b) => $a['period_number'] <=> $b['period_number']);
+
                 for ($i = 1; $i < count($daySessions); $i++) {
-                    $gap = $daySessions[$i]['period_number'] - $daySessions[$i-1]['period_number'] - 1;
+                    $gap = $daySessions[$i]['period_number'] - $daySessions[$i - 1]['period_number'] - 1;
                     $teacherGaps += max(0, $gap);
                 }
             }
@@ -581,11 +581,12 @@ class AdvancedScheduleOptimizer
         $grouped = [];
         foreach ($sessions as $session) {
             $teacherId = $session['teacher_id'];
-            if (!isset($grouped[$teacherId])) {
+            if (! isset($grouped[$teacherId])) {
                 $grouped[$teacherId] = [];
             }
             $grouped[$teacherId][] = $session;
         }
+
         return $grouped;
     }
 
@@ -594,11 +595,12 @@ class AdvancedScheduleOptimizer
         $grouped = [];
         foreach ($sessions as $session) {
             $day = $session['day_of_week'];
-            if (!isset($grouped[$day])) {
+            if (! isset($grouped[$day])) {
                 $grouped[$day] = [];
             }
             $grouped[$day][] = $session;
         }
+
         return $grouped;
     }
 }

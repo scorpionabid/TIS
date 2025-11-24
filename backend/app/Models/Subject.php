@@ -65,8 +65,8 @@ class Subject extends Model
     public function teachers()
     {
         return $this->belongsToMany(User::class, 'teacher_subjects', 'subject_id', 'teacher_id')
-                    ->where('teacher_subjects.is_active', true)
-                    ->withPivot(['grade_id', 'weekly_hours', 'academic_year_id']);
+            ->where('teacher_subjects.is_active', true)
+            ->withPivot(['grade_id', 'weekly_hours', 'academic_year_id']);
     }
 
     /**
@@ -75,8 +75,8 @@ class Subject extends Model
     public function grades()
     {
         return $this->belongsToMany(Grade::class, 'teacher_subjects', 'subject_id', 'grade_id')
-                    ->where('teacher_subjects.is_active', true)
-                    ->withPivot(['teacher_id', 'weekly_hours']);
+            ->where('teacher_subjects.is_active', true)
+            ->withPivot(['teacher_id', 'weekly_hours']);
     }
 
     /**
@@ -107,7 +107,7 @@ class Subject extends Model
     public function getClassLevelRangeAttribute(): string
     {
         if (empty($this->grade_levels)) {
-            return "Bütün siniflər";
+            return 'Bütün siniflər';
         }
 
         $levels = $this->grade_levels;
@@ -118,11 +118,12 @@ class Subject extends Model
             if (count($levels) === 1) {
                 return "Sinif {$levels[0]}";
             }
+
             return "Sinif {$levels[0]}-{$levels[count($levels) - 1]}";
         }
 
         // Otherwise, show as list (e.g., "Sinif 1, 3, 5, 7")
-        return "Sinif " . implode(", ", $levels);
+        return 'Sinif ' . implode(', ', $levels);
     }
 
     /**
@@ -170,9 +171,9 @@ class Subject extends Model
         return $query->where(function ($q) use ($classLevel) {
             // Subjects with no grade_levels are available for all
             $q->whereNull('grade_levels')
-              ->orWhereJsonLength('grade_levels', 0)
+                ->orWhereJsonLength('grade_levels', 0)
               // Check if class level is in grade_levels array
-              ->orWhereJsonContains('grade_levels', $classLevel);
+                ->orWhereJsonContains('grade_levels', $classLevel);
         });
     }
 
@@ -183,8 +184,8 @@ class Subject extends Model
     {
         return $query->where(function ($q) use ($search) {
             $q->where('name', 'ILIKE', "%{$search}%")
-              ->orWhere('short_name', 'ILIKE', "%{$search}%")
-              ->orWhere('code', 'ILIKE', "%{$search}%");
+                ->orWhere('short_name', 'ILIKE', "%{$search}%")
+                ->orWhere('code', 'ILIKE', "%{$search}%");
         });
     }
 
@@ -201,7 +202,7 @@ class Subject extends Model
 
         return $query->where(function ($q) use ($institutionId) {
             $q->where('institution_id', $institutionId)
-              ->orWhereNull('institution_id'); // Include global subjects
+                ->orWhereNull('institution_id'); // Include global subjects
         });
     }
 
@@ -265,7 +266,7 @@ class Subject extends Model
 
         // Check all values are integers between 1 and 12
         foreach ($gradeLevels as $level) {
-            if (!is_int($level) || $level < 1 || $level > 12) {
+            if (! is_int($level) || $level < 1 || $level > 12) {
                 return false;
             }
         }

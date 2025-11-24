@@ -4,14 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Services\SurveyResponseService;
 use App\Services\PermissionCheckService;
-use Illuminate\Http\Request;
+use App\Services\SurveyResponseService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SurveyResponseController extends BaseController
 {
     protected SurveyResponseService $responseService;
+
     protected PermissionCheckService $permissionService;
 
     public function __construct(
@@ -21,6 +22,7 @@ class SurveyResponseController extends BaseController
         $this->responseService = $responseService;
         $this->permissionService = $permissionService;
     }
+
     public function index(Request $request): JsonResponse
     {
         try {
@@ -34,7 +36,7 @@ class SurveyResponseController extends BaseController
                 'my_responses' => 'nullable|boolean',
                 'institution_responses' => 'nullable|boolean',
                 'sort_by' => 'nullable|string|in:created_at,updated_at,submitted_at,progress_percentage',
-                'sort_direction' => 'nullable|string|in:asc,desc'
+                'sort_direction' => 'nullable|string|in:asc,desc',
             ]);
 
             $result = $this->responseService->getResponses(
@@ -51,7 +53,7 @@ class SurveyResponseController extends BaseController
     public function show(Request $request, SurveyResponse $response): JsonResponse
     {
         try {
-            if (!$this->canViewResponse($response)) {
+            if (! $this->canViewResponse($response)) {
                 return $this->errorResponse('You do not have permission to view this response', 403);
             }
 
@@ -65,7 +67,7 @@ class SurveyResponseController extends BaseController
     {
         try {
             $validated = $request->validate([
-                'department_id' => 'nullable|exists:departments,id'
+                'department_id' => 'nullable|exists:departments,id',
             ]);
 
             $response = $this->responseService->startSurvey($survey->id, $validated);
@@ -87,13 +89,13 @@ class SurveyResponseController extends BaseController
         try {
             $validated = $request->validate([
                 'responses' => 'required|array',
-                'auto_submit' => 'nullable|boolean'
+                'auto_submit' => 'nullable|boolean',
             ]);
 
             $updatedResponse = $this->responseService->saveResponse($response->id, $validated);
 
-            $message = $updatedResponse->status === 'submitted' ? 
-                'Survey response submitted successfully' : 
+            $message = $updatedResponse->status === 'submitted' ?
+                'Survey response submitted successfully' :
                 'Survey response saved successfully';
 
             return $this->successResponse(['response' => $updatedResponse], $message);
@@ -135,6 +137,7 @@ class SurveyResponseController extends BaseController
             );
         } catch (\InvalidArgumentException $e) {
             $status = $e->getMessage() === 'You can only reopen your own responses' ? 403 : 422;
+
             return $this->errorResponse($e->getMessage(), $status);
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to reopen survey response: ' . $e->getMessage());
@@ -157,7 +160,7 @@ class SurveyResponseController extends BaseController
     public function statistics(Request $request, SurveyResponse $response): JsonResponse
     {
         try {
-            if (!$this->canViewResponse($response)) {
+            if (! $this->canViewResponse($response)) {
                 return $this->errorResponse('You do not have permission to view this response statistics', 403);
             }
 
@@ -177,13 +180,13 @@ class SurveyResponseController extends BaseController
         try {
             $validated = $request->validate([
                 'responses' => 'required|array',
-                'auto_submit' => 'nullable|boolean'
+                'auto_submit' => 'nullable|boolean',
             ]);
 
             $updatedResponse = $this->responseService->saveResponse($response->id, $validated);
 
-            $message = $updatedResponse->status === 'submitted' ? 
-                'Survey response submitted successfully' : 
+            $message = $updatedResponse->status === 'submitted' ?
+                'Survey response submitted successfully' :
                 'Survey response saved successfully';
 
             return $this->successResponse(['response' => $updatedResponse], $message);
@@ -201,7 +204,7 @@ class SurveyResponseController extends BaseController
     {
         try {
             $validated = $request->validate([
-                'department_id' => 'nullable|exists:departments,id'
+                'department_id' => 'nullable|exists:departments,id',
             ]);
 
             $response = $this->responseService->startSurvey($survey->id, $validated);
@@ -221,6 +224,7 @@ class SurveyResponseController extends BaseController
     private function canViewResponse(SurveyResponse $response): bool
     {
         $user = auth()->user();
+
         return $response->respondent_id === $user->id ||
                $response->institution_id === $user->institution_id ||
                $response->survey->creator_id === $user->id;
@@ -233,10 +237,10 @@ class SurveyResponseController extends BaseController
     {
         try {
             // Check if user can view this response
-            if (!$this->canViewResponse($response)) {
+            if (! $this->canViewResponse($response)) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Unauthorized'
+                    'message' => 'Unauthorized',
                 ], 403);
             }
 
@@ -246,21 +250,20 @@ class SurveyResponseController extends BaseController
             // Create Excel export for single response
             $export = new \App\Exports\SingleSurveyResponseExport($response);
 
-            $filename = "survey-response-{$response->id}-" . now()->format('Y-m-d') . ".xlsx";
+            $filename = "survey-response-{$response->id}-" . now()->format('Y-m-d') . '.xlsx';
 
             // Generate Excel file and return as download
             return \Maatwebsite\Excel\Facades\Excel::download($export, $filename, \Maatwebsite\Excel\Excel::XLSX);
-
         } catch (\Exception $e) {
             \Log::error('Excel export error', [
                 'response_id' => $response->id,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to generate report: ' . $e->getMessage()
+                'message' => 'Failed to generate report: ' . $e->getMessage(),
             ], 500);
         }
     }

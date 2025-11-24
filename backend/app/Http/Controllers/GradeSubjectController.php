@@ -111,7 +111,7 @@ class GradeSubjectController extends Controller
 
         // Verify subject is available for this grade level
         $subject = Subject::findOrFail($validated['subject_id']);
-        if (!$subject->isAvailableForLevel($grade->class_level)) {
+        if (! $subject->isAvailableForLevel($grade->class_level)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu fənn bu sinif səviyyəsi üçün uyğun deyil.',

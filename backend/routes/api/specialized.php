@@ -1,10 +1,10 @@
 <?php
 
-use App\Http\Controllers\PsychologyController;
-use App\Http\Controllers\InventoryController;
-use App\Http\Controllers\InventoryTransactionController;
-use App\Http\Controllers\InventoryMaintenanceController;
 use App\Http\Controllers\InventoryAnalyticsController;
+use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\InventoryMaintenanceController;
+use App\Http\Controllers\InventoryTransactionController;
+use App\Http\Controllers\PsychologyController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -145,6 +145,7 @@ Route::prefix('inventory/analytics')->middleware('permission:inventory.analytics
 Route::prefix('test/websocket')->group(function () {
     Route::post('/broadcast', function () {
         broadcast(new \App\Events\TestEvent('Test message from API'));
+
         return response()->json(['message' => 'Test event broadcasted']);
     });
     Route::get('/status', function () {

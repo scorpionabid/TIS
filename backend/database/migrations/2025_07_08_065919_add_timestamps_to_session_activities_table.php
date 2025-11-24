@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::table('session_activities', function (Blueprint $table) {
             // Only add updated_at if it doesn't exist
-            if (!Schema::hasColumn('session_activities', 'updated_at')) {
+            if (! Schema::hasColumn('session_activities', 'updated_at')) {
                 $table->timestamp('updated_at')->nullable();
             }
         });

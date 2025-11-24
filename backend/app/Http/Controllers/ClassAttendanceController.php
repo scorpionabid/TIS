@@ -3,15 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\ClassAttendance;
-use App\Models\Classes;
-use App\Models\Subject;
 use App\Models\User;
-use Illuminate\Http\Request;
-use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Validator;
 
 class ClassAttendanceController extends BaseController
 {
@@ -30,7 +27,7 @@ class ClassAttendanceController extends BaseController
                 'class:id,name,grade_level,section,current_enrollment',
                 'subject:id,name,short_name,code',
                 'teacher:id,first_name,last_name,username',
-                'approvedBy:id,first_name,last_name'
+                'approvedBy:id,first_name,last_name',
             ]);
 
             // Apply filters
@@ -79,15 +76,14 @@ class ClassAttendanceController extends BaseController
                     'current_page' => $attendanceRecords->currentPage(),
                     'total_pages' => $attendanceRecords->lastPage(),
                     'per_page' => $attendanceRecords->perPage(),
-                    'total' => $attendanceRecords->total()
-                ]
+                    'total' => $attendanceRecords->total(),
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydləri yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -110,14 +106,14 @@ class ClassAttendanceController extends BaseController
             'students_absent_unexcused' => 'integer|min:0',
             'students_late' => 'integer|min:0',
             'lesson_status' => 'required|in:completed,cancelled,partial,substituted',
-            'notes' => 'nullable|string|max:1000'
+            'notes' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -127,25 +123,25 @@ class ClassAttendanceController extends BaseController
                 'class_id' => $request->class_id,
                 'subject_id' => $request->subject_id,
                 'attendance_date' => $request->attendance_date,
-                'period_number' => $request->period_number
+                'period_number' => $request->period_number,
             ])->first();
 
             if ($existingRecord) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Bu tarix və dərs üçün artıq davamiyyət qeydi mövcuddur'
+                    'message' => 'Bu tarix və dərs üçün artıq davamiyyət qeydi mövcuddur',
                 ], 409);
             }
 
             // Validate attendance numbers
-            $totalAccounted = $request->students_present + 
-                            $request->students_absent_excused + 
+            $totalAccounted = $request->students_present +
+                            $request->students_absent_excused +
                             $request->students_absent_unexcused;
 
             if ($totalAccounted > $request->total_students_registered) {
                 return response()->json([
                     'success' => false,
-                    'message' => 'İştirak edən və qayıb şagirdlərin cəmi qeydiyyatlı şagird sayından çox ola bilməz'
+                    'message' => 'İştirak edən və qayıb şagirdlərin cəmi qeydiyyatlı şagird sayından çox ola bilməz',
                 ], 422);
             }
 
@@ -158,8 +154,8 @@ class ClassAttendanceController extends BaseController
                 'created_by_ip' => $request->ip(),
                 'created_by_user_agent' => $request->userAgent(),
                 'total_accounted' => $totalAccounted,
-                'attendance_percentage' => $request->total_students_registered > 0 ? 
-                    round(($request->students_present / $request->total_students_registered) * 100, 2) : 0
+                'attendance_percentage' => $request->total_students_registered > 0 ?
+                    round(($request->students_present / $request->total_students_registered) * 100, 2) : 0,
             ]);
 
             $attendance = ClassAttendance::create($attendanceData);
@@ -167,20 +163,19 @@ class ClassAttendanceController extends BaseController
             $attendance->load([
                 'class:id,name,grade_level,section',
                 'subject:id,name,short_name,code',
-                'teacher:id,first_name,last_name'
+                'teacher:id,first_name,last_name',
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Davamiyyət qeydi uğurla yaradıldı',
-                'data' => $attendance
+                'data' => $attendance,
             ], 201);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi yaradılarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -195,19 +190,18 @@ class ClassAttendanceController extends BaseController
                 'class:id,name,grade_level,section,current_enrollment,classroom_location',
                 'subject:id,name,short_name,code,default_weekly_hours',
                 'teacher:id,first_name,last_name,username',
-                'approvedBy:id,first_name,last_name'
+                'approvedBy:id,first_name,last_name',
             ]);
 
             return response()->json([
                 'success' => true,
-                'data' => $classAttendance
+                'data' => $classAttendance,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi yüklənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -221,7 +215,7 @@ class ClassAttendanceController extends BaseController
         if ($classAttendance->approval_status === 'approved') {
             return response()->json([
                 'success' => false,
-                'message' => 'Təsdiqlənmiş davamiyyət qeydini dəyişmək mümkün deyil'
+                'message' => 'Təsdiqlənmiş davamiyyət qeydini dəyişmək mümkün deyil',
             ], 403);
         }
 
@@ -238,14 +232,14 @@ class ClassAttendanceController extends BaseController
             'students_absent_unexcused' => 'sometimes|integer|min:0',
             'students_late' => 'sometimes|integer|min:0',
             'lesson_status' => 'sometimes|required|in:completed,cancelled,partial,substituted',
-            'notes' => 'nullable|string|max:1000'
+            'notes' => 'nullable|string|max:1000',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -253,11 +247,10 @@ class ClassAttendanceController extends BaseController
             $validatedData = $validator->validated();
 
             // Validate attendance numbers if provided
-            if (isset($validatedData['students_present']) || 
-                isset($validatedData['students_absent_excused']) || 
+            if (isset($validatedData['students_present']) ||
+                isset($validatedData['students_absent_excused']) ||
                 isset($validatedData['students_absent_unexcused']) ||
                 isset($validatedData['total_students_registered'])) {
-                
                 $present = $validatedData['students_present'] ?? $classAttendance->students_present;
                 $excused = $validatedData['students_absent_excused'] ?? $classAttendance->students_absent_excused;
                 $unexcused = $validatedData['students_absent_unexcused'] ?? $classAttendance->students_absent_unexcused;
@@ -266,22 +259,21 @@ class ClassAttendanceController extends BaseController
                 if (($present + $excused + $unexcused) > $total) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'İştirak edən və qayıb şagirdlərin cəmi qeydiyyatlı şagird sayından çox ola bilməz'
+                        'message' => 'İştirak edən və qayıb şagirdlərin cəmi qeydiyyatlı şagird sayından çox ola bilməz',
                     ], 422);
                 }
             }
 
             // Check for duplicate if key fields are being changed
-            if (isset($validatedData['class_id']) || 
-                isset($validatedData['subject_id']) || 
-                isset($validatedData['attendance_date']) || 
+            if (isset($validatedData['class_id']) ||
+                isset($validatedData['subject_id']) ||
+                isset($validatedData['attendance_date']) ||
                 isset($validatedData['period_number'])) {
-                
                 $checkFields = [
                     'class_id' => $validatedData['class_id'] ?? $classAttendance->class_id,
                     'subject_id' => $validatedData['subject_id'] ?? $classAttendance->subject_id,
                     'attendance_date' => $validatedData['attendance_date'] ?? $classAttendance->attendance_date,
-                    'period_number' => $validatedData['period_number'] ?? $classAttendance->period_number
+                    'period_number' => $validatedData['period_number'] ?? $classAttendance->period_number,
                 ];
 
                 $existingRecord = ClassAttendance::where($checkFields)
@@ -291,14 +283,14 @@ class ClassAttendanceController extends BaseController
                 if ($existingRecord) {
                     return response()->json([
                         'success' => false,
-                        'message' => 'Bu tarix və dərs üçün artıq davamiyyət qeydi mövcuddur'
+                        'message' => 'Bu tarix və dərs üçün artıq davamiyyət qeydi mövcuddur',
                     ], 409);
                 }
             }
 
             // Reset approval status if significant changes are made
-            if (isset($validatedData['students_present']) || 
-                isset($validatedData['students_absent_excused']) || 
+            if (isset($validatedData['students_present']) ||
+                isset($validatedData['students_absent_excused']) ||
                 isset($validatedData['students_absent_unexcused'])) {
                 $validatedData['approval_status'] = 'pending';
                 $validatedData['approved_by'] = null;
@@ -310,20 +302,19 @@ class ClassAttendanceController extends BaseController
             $classAttendance->load([
                 'class:id,name,grade_level,section',
                 'subject:id,name,short_name,code',
-                'teacher:id,first_name,last_name'
+                'teacher:id,first_name,last_name',
             ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'Davamiyyət qeydi uğurla yeniləndi',
-                'data' => $classAttendance
+                'data' => $classAttendance,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi yenilənərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -338,7 +329,7 @@ class ClassAttendanceController extends BaseController
             if ($classAttendance->approval_status === 'approved') {
                 return response()->json([
                     'success' => false,
-                    'message' => 'Təsdiqlənmiş davamiyyət qeydini silmək mümkün deyil'
+                    'message' => 'Təsdiqlənmiş davamiyyət qeydini silmək mümkün deyil',
                 ], 403);
             }
 
@@ -346,14 +337,13 @@ class ClassAttendanceController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'message' => 'Davamiyyət qeydi uğurla silindi'
+                'message' => 'Davamiyyət qeydi uğurla silindi',
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Davamiyyət qeydi silinərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -382,7 +372,7 @@ class ClassAttendanceController extends BaseController
             // Date range
             $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
             $endDate = $request->get('end_date', Carbon::now()->endOfMonth()->format('Y-m-d'));
-            
+
             $query->whereBetween('attendance_date', [$startDate, $endDate]);
 
             $records = $query->get();
@@ -399,20 +389,20 @@ class ClassAttendanceController extends BaseController
                     'completed' => $records->where('lesson_status', 'completed')->count(),
                     'cancelled' => $records->where('lesson_status', 'cancelled')->count(),
                     'partial' => $records->where('lesson_status', 'partial')->count(),
-                    'substituted' => $records->where('lesson_status', 'substituted')->count()
+                    'substituted' => $records->where('lesson_status', 'substituted')->count(),
                 ],
                 'approval_status' => [
                     'pending' => $records->where('approval_status', 'pending')->count(),
                     'approved' => $records->where('approval_status', 'approved')->count(),
                     'rejected' => $records->where('approval_status', 'rejected')->count(),
-                    'needs_review' => $records->where('approval_status', 'needs_review')->count()
-                ]
+                    'needs_review' => $records->where('approval_status', 'needs_review')->count(),
+                ],
             ];
 
             // Calculate average attendance rate
             if ($statistics['total_students_registered'] > 0) {
                 $statistics['avg_attendance_rate'] = round(
-                    ($statistics['total_students_present'] / $statistics['total_students_registered']) * 100, 
+                    ($statistics['total_students_present'] / $statistics['total_students_registered']) * 100,
                     2
                 );
             }
@@ -424,8 +414,8 @@ class ClassAttendanceController extends BaseController
                     'lessons' => $dayRecords->count(),
                     'total_registered' => $dayRecords->sum('total_students_registered'),
                     'total_present' => $dayRecords->sum('students_present'),
-                    'attendance_rate' => $dayRecords->sum('total_students_registered') > 0 ? 
-                        round(($dayRecords->sum('students_present') / $dayRecords->sum('total_students_registered')) * 100, 2) : 0
+                    'attendance_rate' => $dayRecords->sum('total_students_registered') > 0 ?
+                        round(($dayRecords->sum('students_present') / $dayRecords->sum('total_students_registered')) * 100, 2) : 0,
                 ];
             })->values();
 
@@ -436,15 +426,14 @@ class ClassAttendanceController extends BaseController
                 'data' => $statistics,
                 'period' => [
                     'start_date' => $startDate,
-                    'end_date' => $endDate
-                ]
+                    'end_date' => $endDate,
+                ],
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Statistikalar hesablanarkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -456,14 +445,14 @@ class ClassAttendanceController extends BaseController
     {
         $validator = Validator::make($request->all(), [
             'approval_status' => 'required|in:approved,rejected,needs_review',
-            'comments' => 'nullable|string|max:500'
+            'comments' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -471,10 +460,10 @@ class ClassAttendanceController extends BaseController
             $classAttendance->update([
                 'approval_status' => $request->approval_status,
                 'approved_by' => Auth::id(),
-                'approved_at' => now()
+                'approved_at' => now(),
             ]);
 
-            $message = match($request->approval_status) {
+            $message = match ($request->approval_status) {
                 'approved' => 'Davamiyyət qeydi təsdiqləndi',
                 'rejected' => 'Davamiyyət qeydi rədd edildi',
                 'needs_review' => 'Davamiyyət qeydi yenidən baxış üçün işarələndi'
@@ -487,15 +476,14 @@ class ClassAttendanceController extends BaseController
                     'class:id,name,grade_level,section',
                     'subject:id,name,short_name,code',
                     'teacher:id,first_name,last_name',
-                    'approvedBy:id,first_name,last_name'
-                ])
+                    'approvedBy:id,first_name,last_name',
+                ]),
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Təsdiq əməliyyatı yerinə yetirilərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }
@@ -509,14 +497,14 @@ class ClassAttendanceController extends BaseController
             'action' => 'required|in:approve,reject,delete',
             'attendance_ids' => 'required|array|min:1',
             'attendance_ids.*' => 'integer|exists:class_attendance,id',
-            'comments' => 'nullable|string|max:500'
+            'comments' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'message' => 'Validation xətası',
-                'errors' => $validator->errors()
+                'errors' => $validator->errors(),
             ], 422);
         }
 
@@ -533,7 +521,7 @@ class ClassAttendanceController extends BaseController
                                 $record->update([
                                     'approval_status' => 'approved',
                                     'approved_by' => Auth::id(),
-                                    'approved_at' => now()
+                                    'approved_at' => now(),
                                 ]);
                                 $processedCount++;
                             }
@@ -544,7 +532,7 @@ class ClassAttendanceController extends BaseController
                                 $record->update([
                                     'approval_status' => 'rejected',
                                     'approved_by' => Auth::id(),
-                                    'approved_at' => now()
+                                    'approved_at' => now(),
                                 ]);
                                 $processedCount++;
                             }
@@ -573,14 +561,13 @@ class ClassAttendanceController extends BaseController
                 'success' => true,
                 'message' => $message,
                 'processed_count' => $processedCount,
-                'error_count' => $errorCount
+                'error_count' => $errorCount,
             ]);
-
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Toplu əməliyyat yerinə yetirilərkən xəta baş verdi',
-                'error' => config('app.debug') ? $e->getMessage() : null
+                'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }
     }

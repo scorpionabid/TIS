@@ -24,7 +24,7 @@ return new class extends Migration
             $table->text('user_agent')->nullable();
             $table->foreignId('delegation_id')->nullable()->constrained('approval_delegations'); // Link to delegation if applicable
             $table->timestamps();
-            
+
             $table->index(['approval_request_id', 'action']);
             $table->index(['user_id', 'created_at']);
             $table->index(['action', 'created_at']);

@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Institution;
 use App\Models\Task;
 use App\Models\TaskAssignment;
-use App\Models\Institution;
-use App\Services\BaseService;
 use Illuminate\Database\Eloquent\Builder;
 
 class TaskPermissionService extends BaseService
@@ -20,7 +19,7 @@ class TaskPermissionService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
@@ -32,6 +31,7 @@ class TaskPermissionService extends BaseService
         // Check if task is assigned to user's institution or its children
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($task->assigned_institution_id, $childIds, true) ||
                    $task->assigned_institution_id === $userInstitution->id ||
                    $this->taskTargetsInstitutions($task, $childIds, 'regionadmin');
@@ -39,6 +39,7 @@ class TaskPermissionService extends BaseService
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($task->assigned_institution_id, $childIds, true) ||
                    $task->assigned_institution_id === $userInstitution->id ||
                    $this->taskTargetsInstitutions($task, $childIds, 'sektoradmin');
@@ -71,19 +72,21 @@ class TaskPermissionService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
         // Higher level admins can update tasks assigned to their institutions
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($task->assigned_institution_id, $childIds, true) ||
                    $this->taskTargetsInstitutions($task, $childIds, 'regionadmin');
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($task->assigned_institution_id, $childIds, true) ||
                    $this->taskTargetsInstitutions($task, $childIds, 'sektoradmin');
         }
@@ -106,19 +109,21 @@ class TaskPermissionService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
         // Higher level admins can delete tasks assigned to their institutions
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($task->assigned_institution_id, $childIds, true) ||
                    $this->taskTargetsInstitutions($task, $childIds, 'regionadmin');
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($task->assigned_institution_id, $childIds, true) ||
                    $this->taskTargetsInstitutions($task, $childIds, 'sektoradmin');
         }
@@ -141,25 +146,27 @@ class TaskPermissionService extends BaseService
         }
 
         $task = $assignment->task;
-        
+
         // Task creator can update assignments
         if ($task->created_by === $user->id) {
             return true;
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
         // Institution admins can update assignments in their scope
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($assignment->institution_id, $childIds);
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($assignment->institution_id, $childIds);
         }
 
@@ -180,15 +187,15 @@ class TaskPermissionService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        
-        if (!$userInstitution) {
+
+        if (! $userInstitution) {
             // User without institution can only see tasks assigned directly to them
-            return $query->whereHas('assignments', function($q) use ($user) {
+            return $query->whereHas('assignments', function ($q) use ($user) {
                 $q->where('assigned_user_id', $user->id);
             });
         }
 
-        $query->where(function($q) use ($user, $userInstitution) {
+        $query->where(function ($q) use ($user, $userInstitution) {
             // Tasks created by user
             $q->where('created_by', $user->id);
 
@@ -206,7 +213,7 @@ class TaskPermissionService extends BaseService
             }
 
             // Tasks directly assigned to user
-            $q->orWhereHas('assignments', function($subQ) use ($user) {
+            $q->orWhereHas('assignments', function ($subQ) use ($user) {
                 $subQ->where('assigned_user_id', $user->id);
             });
         });
@@ -224,7 +231,7 @@ class TaskPermissionService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return [];
         }
 
@@ -273,7 +280,7 @@ class TaskPermissionService extends BaseService
         $pendingIds = array_unique($institutionIds);
         $visited = [];
 
-        while (!empty($pendingIds)) {
+        while (! empty($pendingIds)) {
             $chunkIds = array_diff($pendingIds, $visited);
             if (empty($chunkIds)) {
                 break;
@@ -299,7 +306,7 @@ class TaskPermissionService extends BaseService
         $result = [];
 
         foreach ($institutionIds as $institutionId) {
-            if (!$indexed->has($institutionId)) {
+            if (! $indexed->has($institutionId)) {
                 continue;
             }
 
@@ -355,7 +362,7 @@ class TaskPermissionService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return [];
         }
 
@@ -444,6 +451,7 @@ class TaskPermissionService extends BaseService
     public function canAssignToRole($user, string $targetRole): bool
     {
         $allowedRoles = $this->getAllowedTargetRoles($user);
+
         return in_array($targetRole, $allowedRoles);
     }
 
@@ -453,6 +461,7 @@ class TaskPermissionService extends BaseService
     public function canAssignToInstitution($user, int $institutionId): bool
     {
         $targetableIds = $this->getUserInstitutionScope($user);
+
         return in_array($institutionId, $targetableIds);
     }
 
@@ -472,8 +481,8 @@ class TaskPermissionService extends BaseService
                 'id' => $user->institution->id,
                 'name' => $user->institution->name,
                 'level' => $user->institution->level,
-                'type' => $user->institution->type
-            ] : null
+                'type' => $user->institution->type,
+            ] : null,
         ];
     }
 
@@ -486,28 +495,28 @@ class TaskPermissionService extends BaseService
 
         // Check institution access
         if (isset($assignmentData['institution_id'])) {
-            if (!$this->canAssignToInstitution($user, $assignmentData['institution_id'])) {
+            if (! $this->canAssignToInstitution($user, $assignmentData['institution_id'])) {
                 $errors[] = 'Bu müəssisəyə tapşırıq təyin etmək icazəniz yoxdur';
             }
         }
 
         // Check role assignment
         if (isset($assignmentData['target_role'])) {
-            if (!$this->canAssignToRole($user, $assignmentData['target_role'])) {
+            if (! $this->canAssignToRole($user, $assignmentData['target_role'])) {
                 $errors[] = 'Bu rola tapşırıq təyin etmək icazəniz yoxdur';
             }
         }
 
         // Check hierarchical task creation
         if (isset($assignmentData['is_hierarchical']) && $assignmentData['is_hierarchical']) {
-            if (!$this->canCreateHierarchicalTask($user)) {
+            if (! $this->canCreateHierarchicalTask($user)) {
                 $errors[] = 'Ierarxik tapşırıq yaratmaq icazəniz yoxdur';
             }
         }
 
         return [
             'is_valid' => empty($errors),
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
@@ -521,12 +530,12 @@ class TaskPermissionService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        
-        if (!$userInstitution) {
+
+        if (! $userInstitution) {
             return $query->where('assigned_user_id', $user->id);
         }
 
-        $query->where(function($q) use ($user, $userInstitution) {
+        $query->where(function ($q) use ($user, $userInstitution) {
             // Assignments to the user
             $q->where('assigned_user_id', $user->id);
 
@@ -542,7 +551,7 @@ class TaskPermissionService extends BaseService
             }
 
             // Tasks created by user
-            $q->orWhereHas('task', function($taskQuery) use ($user) {
+            $q->orWhereHas('task', function ($taskQuery) use ($user) {
                 $taskQuery->where('created_by', $user->id);
             });
         });
@@ -570,7 +579,7 @@ class TaskPermissionService extends BaseService
             'institutional_scope_count' => count($this->getUserInstitutionScope($user)),
             'targetable_institutions_count' => count($this->getTargetableInstitutions($user)),
             'allowed_target_roles' => $this->getAllowedTargetRoles($user),
-            'access_level' => $this->determineAccessLevel($user)
+            'access_level' => $this->determineAccessLevel($user),
         ];
     }
 
@@ -593,7 +602,7 @@ class TaskPermissionService extends BaseService
 
         $targets = $task->target_institutions;
 
-        if (!is_array($targets) || empty($targets)) {
+        if (! is_array($targets) || empty($targets)) {
             return false;
         }
 
@@ -635,7 +644,7 @@ class TaskPermissionService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return 'personal';
         }
 

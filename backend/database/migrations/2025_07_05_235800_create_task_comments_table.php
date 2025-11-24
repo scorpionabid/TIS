@@ -18,13 +18,13 @@ return new class extends Migration
             $table->text('comment');
             $table->json('attachments')->nullable()->comment('JSON array of file paths');
             $table->enum('type', [
-                'comment', 
-                'status_change', 
-                'progress_update', 
-                'system'
+                'comment',
+                'status_change',
+                'progress_update',
+                'system',
             ])->default('comment');
             $table->timestamps();
-            
+
             $table->index(['task_id', 'created_at']);
         });
     }

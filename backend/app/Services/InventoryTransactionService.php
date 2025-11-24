@@ -2,13 +2,13 @@
 
 namespace App\Services;
 
+use App\Models\ActivityLog;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\User;
-use App\Models\ActivityLog;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Auth;
 use Exception;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 
 class InventoryTransactionService
 {
@@ -20,10 +20,10 @@ class InventoryTransactionService
         return DB::transaction(function () use ($item, $data) {
             // Validate assignment
             $this->validateAssignment($item, $data);
-            
+
             $oldAssignedTo = $item->assigned_to;
             $newAssignedTo = $data['user_id'];
-            
+
             // Create assignment transaction
             $transaction = InventoryTransaction::create([
                 'item_id' => $item->id,
@@ -37,23 +37,23 @@ class InventoryTransactionService
                 'transaction_date' => now(),
                 'notes' => $data['notes'] ?? null,
                 'location_from' => $item->location,
-                'location_to' => $data['location'] ?? $item->location
+                'location_to' => $data['location'] ?? $item->location,
             ]);
-            
+
             // Update item status
             $item->update([
                 'status' => $item->is_consumable ? 'consumed' : 'in_use',
                 'assigned_to' => $newAssignedTo,
                 'location' => $data['location'] ?? $item->location,
-                'room_id' => $data['room_id'] ?? $item->room_id
+                'room_id' => $data['room_id'] ?? $item->room_id,
             ]);
-            
+
             // Update quantity for consumables
             if ($item->is_consumable && isset($data['quantity'])) {
                 $newQuantity = max(0, $item->quantity - $data['quantity']);
                 $item->update(['quantity' => $newQuantity]);
             }
-            
+
             // Log activity
             $assignedUser = User::find($newAssignedTo);
             $this->logActivity('item_assigned', "Assigned {$item->name} to {$assignedUser->username}", [
@@ -61,13 +61,13 @@ class InventoryTransactionService
                 'entity_id' => $item->id,
                 'transaction_id' => $transaction->id,
                 'assigned_to' => $newAssignedTo,
-                'quantity' => $data['quantity'] ?? 1
+                'quantity' => $data['quantity'] ?? 1,
             ]);
-            
+
             return $transaction->load(['item', 'user', 'assignedToUser']);
         });
     }
-    
+
     /**
      * Return inventory item from assignment
      */
@@ -76,9 +76,9 @@ class InventoryTransactionService
         return DB::transaction(function () use ($item, $data) {
             // Validate return
             $this->validateReturn($item, $data);
-            
+
             $returnedBy = $item->assigned_to;
-            
+
             // Create return transaction
             $transaction = InventoryTransaction::create([
                 'item_id' => $item->id,
@@ -91,9 +91,9 @@ class InventoryTransactionService
                 'transaction_date' => now(),
                 'notes' => $data['notes'] ?? null,
                 'location_from' => $item->location,
-                'location_to' => $data['return_location'] ?? $item->location
+                'location_to' => $data['return_location'] ?? $item->location,
             ]);
-            
+
             // Update item status
             $newStatus = $this->determineReturnStatus($item, $data);
             $item->update([
@@ -101,25 +101,25 @@ class InventoryTransactionService
                 'assigned_to' => null,
                 'condition' => $data['condition'] ?? $item->condition,
                 'location' => $data['return_location'] ?? $item->location,
-                'room_id' => $data['return_room_id'] ?? null
+                'room_id' => $data['return_room_id'] ?? null,
             ]);
-            
+
             // Update quantity for consumables (if partial return)
             if ($item->is_consumable && isset($data['quantity_returned'])) {
                 $newQuantity = $item->quantity + $data['quantity_returned'];
                 $item->update(['quantity' => $newQuantity]);
             }
-            
+
             // Schedule maintenance if needed
-            if (!empty($data['needs_maintenance'])) {
+            if (! empty($data['needs_maintenance'])) {
                 $this->scheduleMaintenance($item, [
                     'maintenance_type' => 'inspection',
                     'description' => 'Post-return inspection',
                     'priority' => 'medium',
-                    'scheduled_date' => now()->addDays(3)
+                    'scheduled_date' => now()->addDays(3),
                 ]);
             }
-            
+
             // Log activity
             $returnedUser = User::find($returnedBy);
             $this->logActivity('item_returned', "Returned {$item->name} from {$returnedUser->username}", [
@@ -127,13 +127,13 @@ class InventoryTransactionService
                 'entity_id' => $item->id,
                 'transaction_id' => $transaction->id,
                 'returned_by' => $returnedBy,
-                'condition' => $data['condition'] ?? $item->condition
+                'condition' => $data['condition'] ?? $item->condition,
             ]);
-            
+
             return $transaction->load(['item', 'user', 'assignedFromUser']);
         });
     }
-    
+
     /**
      * Update stock quantity for consumable items
      */
@@ -142,14 +142,14 @@ class InventoryTransactionService
         return DB::transaction(function () use ($item, $data) {
             // Validate stock update
             $this->validateStockUpdate($item, $data);
-            
+
             $oldQuantity = $item->stock_quantity;
             $operation = $data['operation'] ?? 'add';
             $quantityChange = $data['quantity'];
-            $newQuantity = $operation === 'add' 
-                ? $oldQuantity + $quantityChange 
+            $newQuantity = $operation === 'add'
+                ? $oldQuantity + $quantityChange
                 : $oldQuantity - $quantityChange;
-            
+
             // Create stock transaction
             $transaction = InventoryTransaction::create([
                 'item_id' => $item->id,
@@ -162,15 +162,15 @@ class InventoryTransactionService
                 'notes' => $data['notes'] ?? null,
                 'supplier' => $data['supplier'] ?? null,
                 'unit_price' => $data['purchase_price'] ?? null,
-                'reference_number' => $data['reference_number'] ?? null
+                'reference_number' => $data['reference_number'] ?? null,
             ]);
-            
+
             // Update item quantity
             $item->update([
                 'stock_quantity' => $newQuantity,
-                'last_stock_update' => now()
+                'last_stock_update' => now(),
             ]);
-            
+
             // Update item status based on quantity
             if ($newQuantity <= 0) {
                 $item->update(['status' => 'out_of_stock']);
@@ -179,7 +179,7 @@ class InventoryTransactionService
             } else {
                 $item->update(['status' => 'available']);
             }
-            
+
             // Log activity
             $this->logActivity('stock_updated', "Updated stock for {$item->name}: {$oldQuantity} → {$newQuantity}", [
                 'entity_type' => 'InventoryItem',
@@ -188,13 +188,13 @@ class InventoryTransactionService
                 'old_quantity' => $oldQuantity,
                 'new_quantity' => $newQuantity,
                 'quantity_change' => $quantityChange,
-                'operation' => $operation
+                'operation' => $operation,
             ]);
-            
+
             return $transaction->load(['item', 'user']);
         });
     }
-    
+
     /**
      * Transfer item between locations
      */
@@ -203,10 +203,10 @@ class InventoryTransactionService
         return DB::transaction(function () use ($item, $data) {
             // Validate transfer
             $this->validateTransfer($item, $data);
-            
+
             $oldLocation = $item->location;
             $newLocation = $data['location'];
-            
+
             // Create transfer transaction
             $transaction = InventoryTransaction::create([
                 'item_id' => $item->id,
@@ -218,81 +218,81 @@ class InventoryTransactionService
                 'location_from' => $oldLocation,
                 'location_to' => $newLocation,
                 'notes' => $data['notes'] ?? null,
-                'approved_by' => $data['authorized_by'] ?? Auth::id()
+                'approved_by' => $data['authorized_by'] ?? Auth::id(),
             ]);
-            
+
             // Update item location
             $item->update([
                 'location' => $newLocation,
                 'room_id' => $data['room_id'] ?? null,
-                'institution_id' => $data['institution_id'] ?? $item->institution_id
+                'institution_id' => $data['institution_id'] ?? $item->institution_id,
             ]);
-            
+
             // Log activity
             $this->logActivity('item_transferred', "Transferred {$item->name} from {$oldLocation} to {$newLocation}", [
                 'entity_type' => 'InventoryItem',
                 'entity_id' => $item->id,
                 'transaction_id' => $transaction->id,
                 'location_from' => $oldLocation,
-                'location_to' => $newLocation
+                'location_to' => $newLocation,
             ]);
-            
+
             return $transaction->load(['item', 'user']);
         });
     }
-    
+
     /**
      * Get transaction history for item
      */
     public function getTransactionHistory(InventoryItem $item, array $params = []): array
     {
         $query = $item->transactions()->with(['user', 'assignedToUser', 'assignedFromUser', 'approver']);
-        
+
         // Apply filters
-        if (!empty($params['type'])) {
+        if (! empty($params['type'])) {
             $query->where('transaction_type', $params['type']);
         }
-        
-        if (!empty($params['date_from'])) {
+
+        if (! empty($params['date_from'])) {
             $query->whereDate('transaction_date', '>=', $params['date_from']);
         }
-        
-        if (!empty($params['date_to'])) {
+
+        if (! empty($params['date_to'])) {
             $query->whereDate('transaction_date', '<=', $params['date_to']);
         }
-        
-        if (!empty($params['user_id'])) {
+
+        if (! empty($params['user_id'])) {
             $query->where(function ($q) use ($params) {
                 $q->where('user_id', $params['user_id'])
-                  ->orWhere('assigned_to', $params['user_id'])
-                  ->orWhere('assigned_from', $params['user_id']);
+                    ->orWhere('assigned_to', $params['user_id'])
+                    ->orWhere('assigned_from', $params['user_id']);
             });
         }
-        
+
         $transactions = $query->orderBy('transaction_date', 'desc')
-                             ->paginate($params['per_page'] ?? 20);
-        
+            ->paginate($params['per_page'] ?? 20);
+
         // Log activity
         $this->logActivity('transaction_history_viewed', "Viewed transaction history for {$item->name}", [
             'entity_type' => 'InventoryItem',
             'entity_id' => $item->id,
-            'filters' => array_intersect_key($params, array_flip(['type', 'date_from', 'date_to', 'user_id']))
+            'filters' => array_intersect_key($params, array_flip(['type', 'date_from', 'date_to', 'user_id'])),
         ]);
-        
+
         return [
             'item' => $item,
             'transactions' => $transactions,
-            'summary' => $this->getTransactionSummary($item)
+            'summary' => $this->getTransactionSummary($item),
         ];
     }
-    
+
     /**
      * Get transaction summary for item
      */
     public function getTransactionSummary(InventoryItem $item): array
     {
         $transactions = $item->transactions;
-        
+
         return [
             'total_transactions' => $transactions->count(),
             'by_type' => [
@@ -306,81 +306,81 @@ class InventoryTransactionService
             'current_assignment' => $item->assignedUser ? [
                 'user' => $item->assignedUser->username,
                 'assigned_at' => $transactions->where('transaction_type', 'assignment')
-                                              ->where('assigned_to', $item->assigned_to)
-                                              ->max('transaction_date')
-            ] : null
+                    ->where('assigned_to', $item->assigned_to)
+                    ->max('transaction_date'),
+            ] : null,
         ];
     }
-    
+
     /**
      * Validate assignment
      */
     protected function validateAssignment(InventoryItem $item, array $data): void
     {
-        if ($item->status === 'in_use' && !$item->is_consumable) {
+        if ($item->status === 'in_use' && ! $item->is_consumable) {
             throw new Exception('Item is already assigned to another user');
         }
-        
+
         if ($item->status === 'maintenance' || $item->status === 'repair') {
             throw new Exception('Item is currently under maintenance and cannot be assigned');
         }
-        
+
         if ($item->status === 'retired' || $item->status === 'damaged') {
             throw new Exception('Item is not available for assignment');
         }
-        
+
         if ($item->is_consumable) {
             $requestedQuantity = $data['quantity'] ?? 1;
             if ($requestedQuantity > $item->quantity) {
                 throw new Exception("Insufficient stock. Available: {$item->quantity}, Requested: {$requestedQuantity}");
             }
         }
-        
-        if (!User::where('id', $data['user_id'])->where('is_active', true)->exists()) {
+
+        if (! User::where('id', $data['user_id'])->where('is_active', true)->exists()) {
             throw new Exception('User not found or inactive');
         }
     }
-    
+
     /**
      * Validate return
      */
     protected function validateReturn(InventoryItem $item, array $data): void
     {
-        if ($item->status !== 'in_use' && !$item->is_consumable) {
+        if ($item->status !== 'in_use' && ! $item->is_consumable) {
             throw new Exception('Item is not currently assigned');
         }
-        
-        if (!$item->assigned_to) {
+
+        if (! $item->assigned_to) {
             throw new Exception('Item is not assigned to any user');
         }
-        
+
         // Validate condition if provided
         if (isset($data['condition'])) {
             $validConditions = ['new', 'excellent', 'good', 'fair', 'poor', 'damaged'];
-            if (!in_array($data['condition'], $validConditions)) {
+            if (! in_array($data['condition'], $validConditions)) {
                 throw new Exception('Invalid condition specified');
             }
         }
     }
-    
+
     /**
      * Validate stock update
      */
     protected function validateStockUpdate(InventoryItem $item, array $data): void
     {
-        if (!$item->is_consumable) {
+        if (! $item->is_consumable) {
             throw new Exception('Stock updates are only allowed for consumable items');
         }
-        
-        if (!isset($data['quantity']) || $data['quantity'] < 0) {
+
+        if (! isset($data['quantity']) || $data['quantity'] < 0) {
             throw new Exception('Valid quantity is required');
         }
-        
-        if (!isset($data['reason']) || empty($data['reason'])) {
+
+        if (! isset($data['reason']) || empty($data['reason'])) {
             throw new Exception('Reason for stock update is required');
         }
     }
-    
+
     /**
      * Validate transfer
      */
@@ -389,34 +389,34 @@ class InventoryTransactionService
         if ($item->status === 'in_use') {
             throw new Exception('Cannot transfer item that is currently in use. Please return it first.');
         }
-        
-        if (!isset($data['location']) || empty($data['location'])) {
+
+        if (! isset($data['location']) || empty($data['location'])) {
             throw new Exception('Destination location is required');
         }
-        
+
         if ($item->location === $data['location']) {
             throw new Exception('Item is already at the specified location');
         }
     }
-    
+
     /**
      * Determine return status based on condition
      */
     protected function determineReturnStatus(InventoryItem $item, array $data): string
     {
         $condition = $data['condition'] ?? $item->condition;
-        
+
         if ($condition === 'damaged') {
             return 'damaged';
         } elseif ($condition === 'poor') {
             return 'needs_maintenance';
-        } elseif (!empty($data['needs_maintenance'])) {
+        } elseif (! empty($data['needs_maintenance'])) {
             return 'maintenance';
-        } else {
-            return 'available';
         }
+
+        return 'available';
     }
-    
+
     /**
      * Schedule maintenance (simplified version)
      */
@@ -426,7 +426,7 @@ class InventoryTransactionService
         // For now, just update item status
         $item->update(['status' => 'maintenance']);
     }
-    
+
     /**
      * Format transaction for API response
      */
@@ -442,21 +442,21 @@ class InventoryTransactionService
             'user' => [
                 'id' => $transaction->user?->id,
                 'username' => $transaction->user?->username,
-                'full_name' => $transaction->user?->profile?->full_name
+                'full_name' => $transaction->user?->profile?->full_name,
             ],
             'assigned_user' => $transaction->assignedToUser ? [
                 'id' => $transaction->assignedToUser->id,
                 'username' => $transaction->assignedToUser->username,
-                'full_name' => $transaction->assignedToUser->profile?->full_name
+                'full_name' => $transaction->assignedToUser->profile?->full_name,
             ] : null,
             'location_from' => $transaction->location_from,
             'location_to' => $transaction->location_to,
             'notes' => $transaction->notes,
             'notes' => $transaction->notes,
-            'created_at' => $transaction->created_at
+            'created_at' => $transaction->created_at,
         ];
     }
-    
+
     /**
      * Log activity
      */
@@ -466,9 +466,9 @@ class InventoryTransactionService
             'user_id' => Auth::id(),
             'activity_type' => $activityType,
             'description' => $description,
-            'institution_id' => Auth::user()?->institution_id
+            'institution_id' => Auth::user()?->institution_id,
         ], $additionalData);
-        
+
         ActivityLog::logActivity($data);
     }
 }

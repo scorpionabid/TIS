@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -51,13 +51,12 @@ return new class extends Migration
             foreach ($templates as $template) {
                 DB::table('notification_templates')->insert((array) $template);
             }
-
         } elseif (DB::getDriverName() === 'pgsql') {
             // For PostgreSQL, update the type constraint
-            DB::statement("
+            DB::statement('
                 ALTER TABLE notification_templates
                 DROP CONSTRAINT IF EXISTS notification_templates_type_check
-            ");
+            ');
 
             DB::statement("
                 ALTER TABLE notification_templates
@@ -84,7 +83,6 @@ return new class extends Migration
                     'security_alert'
                 ))
             ");
-
         } else {
             // For MySQL, update the ENUM constraint
             DB::statement("

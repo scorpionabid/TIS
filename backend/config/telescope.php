@@ -109,7 +109,7 @@ return [
     */
 
     'only_paths' => [
-        'api/*'  // Phase 2D: Focus monitoring on API endpoints
+        'api/*',  // Phase 2D: Focus monitoring on API endpoints
     ],
 
     'ignore_paths' => [

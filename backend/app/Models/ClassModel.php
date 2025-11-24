@@ -42,4 +42,3 @@ class ClassModel extends Model
         return $this->belongsTo(AcademicYear::class);
     }
 }
-

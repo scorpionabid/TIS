@@ -3,13 +3,13 @@
 namespace App\Exports;
 
 use Maatwebsite\Excel\Concerns\FromArray;
-use Maatwebsite\Excel\Concerns\WithHeadings;
-use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
-use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use Maatwebsite\Excel\Concerns\WithStyles;
 use PhpOffice\PhpSpreadsheet\Style\Color;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
  * Teacher Import Errors Export
@@ -18,7 +18,9 @@ use PhpOffice\PhpSpreadsheet\Style\Color;
 class TeacherImportErrorsExport implements WithMultipleSheets
 {
     protected array $invalidRows;
+
     protected array $errors;
+
     protected array $summary;
 
     public function __construct(array $invalidRows, array $errors, array $summary)
@@ -41,9 +43,10 @@ class TeacherImportErrorsExport implements WithMultipleSheets
 /**
  * Sheet 1: Error Summary
  */
-class ErrorSummarySheet implements FromArray, WithHeadings, WithStyles, WithColumnWidths
+class ErrorSummarySheet implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
     protected array $summary;
+
     protected array $errors;
 
     public function __construct(array $summary, array $errors)
@@ -73,7 +76,9 @@ class ErrorSummarySheet implements FromArray, WithHeadings, WithStyles, WithColu
 
         $errorCount = 0;
         foreach ($this->errors as $error) {
-            if ($errorCount >= 10) break;
+            if ($errorCount >= 10) {
+                break;
+            }
 
             $data[] = [
                 $error['row_number'],
@@ -137,7 +142,7 @@ class ErrorSummarySheet implements FromArray, WithHeadings, WithStyles, WithColu
 /**
  * Sheet 2: Invalid Rows (original data with error column)
  */
-class InvalidRowsSheet implements FromArray, WithHeadings, WithStyles, WithColumnWidths
+class InvalidRowsSheet implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
     protected array $invalidRows;
 
@@ -254,7 +259,7 @@ class InvalidRowsSheet implements FromArray, WithHeadings, WithStyles, WithColum
 /**
  * Sheet 3: Detailed Errors with Suggestions
  */
-class DetailedErrorsSheet implements FromArray, WithHeadings, WithStyles, WithColumnWidths
+class DetailedErrorsSheet implements FromArray, WithColumnWidths, WithHeadings, WithStyles
 {
     protected array $errors;
 

@@ -5,11 +5,11 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\BaseController;
 use App\Models\Schedule;
 use App\Services\ScheduleCrudService;
+use App\Services\ScheduleGenerationService;
 use App\Services\SchedulePermissionService;
 use App\Services\ScheduleValidationService;
-use App\Services\ScheduleGenerationService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class ScheduleApiController extends BaseController
@@ -23,16 +23,17 @@ class ScheduleApiController extends BaseController
         parent::__construct();
         $this->middleware('auth:sanctum');
     }
+
     public function index(Request $request): JsonResponse
     {
         try {
             $filters = $request->only([
                 'institution_id', 'academic_year_id', 'status', 'schedule_type',
-                'current', 'search', 'sort_by', 'sort_direction'
+                'current', 'search', 'sort_by', 'sort_direction',
             ]);
-            
+
             $perPage = min($request->get('per_page', 15), 100);
-            
+
             $result = $this->crudService->getSchedules($filters, $perPage);
 
             return $this->success('Schedules retrieved successfully', $result);
@@ -44,7 +45,7 @@ class ScheduleApiController extends BaseController
     public function store(Request $request): JsonResponse
     {
         try {
-            if (!$this->permissionService->canCreateSchedule($request->institution_id)) {
+            if (! $this->permissionService->canCreateSchedule($request->institution_id)) {
                 return $this->error('Access denied to this institution', 403);
             }
 
@@ -65,7 +66,7 @@ class ScheduleApiController extends BaseController
     public function show(string $id): JsonResponse
     {
         try {
-            if (!$this->permissionService->canViewSchedule($id)) {
+            if (! $this->permissionService->canViewSchedule($id)) {
                 return $this->error('Access denied to this schedule', 403);
             }
 
@@ -82,7 +83,7 @@ class ScheduleApiController extends BaseController
     public function update(Request $request, string $id): JsonResponse
     {
         try {
-            if (!$this->permissionService->canEditSchedule($id)) {
+            if (! $this->permissionService->canEditSchedule($id)) {
                 return $this->error('Access denied to this schedule', 403);
             }
 
@@ -104,7 +105,7 @@ class ScheduleApiController extends BaseController
     public function destroy(string $id): JsonResponse
     {
         try {
-            if (!$this->permissionService->canDeleteSchedule($id)) {
+            if (! $this->permissionService->canDeleteSchedule($id)) {
                 return $this->error('Access denied to this schedule', 403);
             }
 
@@ -129,13 +130,13 @@ class ScheduleApiController extends BaseController
                 'grade_id' => 'required|exists:grades,id',
                 'schedule_type' => [
                     'required',
-                    Rule::in(array_keys(Schedule::SCHEDULE_TYPES))
+                    Rule::in(array_keys(Schedule::SCHEDULE_TYPES)),
                 ],
                 'optimization_parameters' => 'nullable|array',
                 'constraints' => 'nullable|array',
             ]);
 
-            if (!$this->permissionService->canCreateSchedule($validated['institution_id'])) {
+            if (! $this->permissionService->canCreateSchedule($validated['institution_id'])) {
                 return $this->error('Access denied to this institution', 403);
             }
 
@@ -152,7 +153,7 @@ class ScheduleApiController extends BaseController
     public function validate(Request $request, string $id): JsonResponse
     {
         try {
-            if (!$this->permissionService->canViewSchedule($id)) {
+            if (! $this->permissionService->canViewSchedule($id)) {
                 return $this->error('Access denied to this schedule', 403);
             }
 
@@ -169,7 +170,7 @@ class ScheduleApiController extends BaseController
     public function approve(Request $request, string $id): JsonResponse
     {
         try {
-            if (!$this->permissionService->canApproveSchedule($id)) {
+            if (! $this->permissionService->canApproveSchedule($id)) {
                 return $this->error('Insufficient permissions to approve this schedule', 403);
             }
 
@@ -187,5 +188,4 @@ class ScheduleApiController extends BaseController
             return $this->error('Error approving schedule: ' . $e->getMessage());
         }
     }
-
 }

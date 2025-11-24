@@ -5,8 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DocumentCollection extends Model
@@ -15,7 +15,9 @@ class DocumentCollection extends Model
 
     // Scope types
     const SCOPE_PERSONAL = 'personal';
+
     const SCOPE_REGIONAL = 'regional';
+
     const SCOPE_SECTORAL = 'sectoral';
 
     // Predefined regional folder templates
@@ -95,9 +97,9 @@ class DocumentCollection extends Model
     public function documents(): BelongsToMany
     {
         return $this->belongsToMany(Document::class, 'document_collection_items', 'collection_id', 'document_id')
-                    ->withPivot(['added_by', 'sort_order', 'notes', 'created_at'])
-                    ->withTimestamps()
-                    ->orderBy('document_collection_items.sort_order');
+            ->withPivot(['added_by', 'sort_order', 'notes', 'created_at'])
+            ->withTimestamps()
+            ->orderBy('document_collection_items.sort_order');
     }
 
     /**
@@ -115,8 +117,8 @@ class DocumentCollection extends Model
     public function targetInstitutions(): BelongsToMany
     {
         return $this->belongsToMany(Institution::class, 'folder_institutions', 'folder_id', 'institution_id')
-                    ->withPivot(['can_upload'])
-                    ->withTimestamps();
+            ->withPivot(['can_upload'])
+            ->withTimestamps();
     }
 
     /**
@@ -140,9 +142,9 @@ class DocumentCollection extends Model
      */
     public function scopeForInstitution($query, int $institutionId)
     {
-        return $query->where(function($q) use ($institutionId) {
+        return $query->where(function ($q) use ($institutionId) {
             $q->where('institution_id', $institutionId)
-              ->orWhere('owner_institution_id', $institutionId);
+                ->orWhere('owner_institution_id', $institutionId);
         });
     }
 
@@ -151,9 +153,9 @@ class DocumentCollection extends Model
      */
     public function scopeAccessibleByRole($query, string $role)
     {
-        return $query->where(function($q) use ($role) {
+        return $query->where(function ($q) use ($role) {
             $q->where('is_public', true)
-              ->orWhereJsonContains('allowed_roles', $role);
+                ->orWhereJsonContains('allowed_roles', $role);
         });
     }
 

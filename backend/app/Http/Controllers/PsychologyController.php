@@ -2,29 +2,31 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Psychology\PsychologySessionController;
-use App\Http\Controllers\Psychology\PsychologyNotesController;
 use App\Http\Controllers\Psychology\PsychologyAssessmentController;
-use App\Models\PsychologySession;
-use App\Models\PsychologyNote;
+use App\Http\Controllers\Psychology\PsychologyNotesController;
+use App\Http\Controllers\Psychology\PsychologySessionController;
 use App\Models\PsychologyAssessment;
-use Illuminate\Http\Request;
+use App\Models\PsychologyNote;
+use App\Models\PsychologySession;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * PsychologyController - Legacy Controller
- * 
+ *
  * This controller has been refactored and split into specialized controllers:
  * - PsychologySessionController: Session CRUD, scheduling, completion, status management
  * - PsychologyNotesController: Session notes, comments, observations, file attachments
  * - PsychologyAssessmentController: Assessment creation, completion, scoring, statistics
- * 
+ *
  * This file acts as a proxy to maintain backward compatibility.
  */
 class PsychologyController extends Controller
 {
     protected PsychologySessionController $sessionController;
+
     protected PsychologyNotesController $notesController;
+
     protected PsychologyAssessmentController $assessmentController;
 
     public function __construct(
@@ -38,7 +40,7 @@ class PsychologyController extends Controller
     }
 
     // Session Management Methods - Proxy to PsychologySessionController
-    
+
     /**
      * Proxy to PsychologySessionController@index
      */
@@ -175,18 +177,18 @@ class PsychologyController extends Controller
                 'PsychologySessionController' => [
                     'methods' => ['index', 'store', 'show', 'complete'],
                     'size' => '533 lines',
-                    'description' => 'Session CRUD, scheduling, completion, filtering, permissions'
+                    'description' => 'Session CRUD, scheduling, completion, filtering, permissions',
                 ],
                 'PsychologyNotesController' => [
                     'methods' => ['store', 'index', 'update', 'destroy', 'statistics'],
-                    'size' => '455 lines', 
-                    'description' => 'Session notes, attachments, visibility controls, confidentiality'
+                    'size' => '455 lines',
+                    'description' => 'Session notes, attachments, visibility controls, confidentiality',
                 ],
                 'PsychologyAssessmentController' => [
                     'methods' => ['store', 'complete', 'index', 'show', 'statistics'],
                     'size' => '587 lines',
-                    'description' => 'Assessment creation, scoring, completion, detailed statistics'
-                ]
+                    'description' => 'Assessment creation, scoring, completion, detailed statistics',
+                ],
             ],
             'improvements' => [
                 'Specialized controllers for different responsibilities',
@@ -196,7 +198,7 @@ class PsychologyController extends Controller
                 'Complex assessment scoring algorithms',
                 'Detailed audit logging and activity tracking',
                 'Role-based data visibility controls',
-                'Performance optimizations with caching'
+                'Performance optimizations with caching',
             ],
             'refactored_at' => '2025-08-19T14:00:00Z',
             'size_reduction' => '92.3%', // 985 -> 76 lines in this proxy

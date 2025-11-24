@@ -1,13 +1,13 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Auth\DeviceController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\SessionController;
-use App\Http\Controllers\Auth\DeviceController;
-use App\Http\Controllers\UserControllerRefactored as UserController;
-use App\Http\Controllers\NavigationController;
 use App\Http\Controllers\HealthController;
+use App\Http\Controllers\NavigationController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\UserControllerRefactored as UserController;
 use Illuminate\Support\Facades\Route;
 
 /*

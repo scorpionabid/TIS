@@ -34,7 +34,7 @@ class TeachingLoad extends Model
         'distribution_pattern',
         'priority_level',
         'metadata',
-        'institution_id'
+        'institution_id',
     ];
 
     protected $casts = [
@@ -105,7 +105,7 @@ class TeachingLoad extends Model
     public function scopeReadyForScheduling($query)
     {
         return $query->where('schedule_generation_status', 'ready')
-                    ->where('is_scheduled', false);
+            ->where('is_scheduled', false);
     }
 
     /**
@@ -122,7 +122,7 @@ class TeachingLoad extends Model
     public function scopeScheduled($query)
     {
         return $query->where('is_scheduled', true)
-                    ->where('schedule_generation_status', 'scheduled');
+            ->where('schedule_generation_status', 'scheduled');
     }
 
     /**
@@ -138,7 +138,7 @@ class TeachingLoad extends Model
      */
     public function isReadyForScheduling(): bool
     {
-        return $this->schedule_generation_status === 'ready' && !$this->is_scheduled;
+        return $this->schedule_generation_status === 'ready' && ! $this->is_scheduled;
     }
 
     /**
@@ -150,7 +150,7 @@ class TeachingLoad extends Model
             'is_scheduled' => true,
             'last_schedule_id' => $scheduleId,
             'last_scheduled_at' => now(),
-            'schedule_generation_status' => 'scheduled'
+            'schedule_generation_status' => 'scheduled',
         ]);
     }
 
@@ -160,7 +160,7 @@ class TeachingLoad extends Model
     public function markAsConflicted(): bool
     {
         return $this->update([
-            'schedule_generation_status' => 'conflict'
+            'schedule_generation_status' => 'conflict',
         ]);
     }
 
@@ -173,7 +173,7 @@ class TeachingLoad extends Model
             'is_scheduled' => false,
             'last_schedule_id' => null,
             'last_scheduled_at' => null,
-            'schedule_generation_status' => 'pending'
+            'schedule_generation_status' => 'pending',
         ]);
     }
 
@@ -191,9 +191,9 @@ class TeachingLoad extends Model
             return ['pattern' => 'spread', 'max_consecutive' => 1]; // Spread across days
         } elseif ($this->weekly_hours <= 4) {
             return ['pattern' => 'paired', 'max_consecutive' => 2]; // Pairs of lessons
-        } else {
-            return ['pattern' => 'block', 'max_consecutive' => 3]; // Block scheduling
         }
+
+        return ['pattern' => 'block', 'max_consecutive' => 3]; // Block scheduling
     }
 
     /**
@@ -203,43 +203,43 @@ class TeachingLoad extends Model
     {
         $weeklyHours = $this->weekly_hours;
         $maxConsecutive = $this->preferred_consecutive_hours;
-        
+
         $distributions = [];
-        
+
         // Try to distribute evenly across weekdays
         $workingDays = 5; // Monday to Friday
-        
+
         if ($weeklyHours <= $workingDays) {
             // One lesson per day or less
             for ($i = 1; $i <= $weeklyHours; $i++) {
                 $distributions[] = [
                     'day' => $i,
                     'lessons' => 1,
-                    'consecutive' => false
+                    'consecutive' => false,
                 ];
             }
         } else {
             // Multiple lessons per day
             $basePerDay = intval($weeklyHours / $workingDays);
             $remainder = $weeklyHours % $workingDays;
-            
+
             for ($day = 1; $day <= $workingDays; $day++) {
                 $lessonsThisDay = $basePerDay;
                 if ($remainder > 0) {
                     $lessonsThisDay++;
                     $remainder--;
                 }
-                
+
                 if ($lessonsThisDay > 0) {
                     $distributions[] = [
                         'day' => $day,
                         'lessons' => $lessonsThisDay,
-                        'consecutive' => $lessonsThisDay > 1 && $lessonsThisDay <= $maxConsecutive
+                        'consecutive' => $lessonsThisDay > 1 && $lessonsThisDay <= $maxConsecutive,
                     ];
                 }
             }
         }
-        
+
         return $distributions;
     }
 }

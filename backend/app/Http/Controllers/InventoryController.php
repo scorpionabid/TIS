@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ResponseHelpers;
+use App\Http\Traits\ValidationRules;
 use App\Models\InventoryItem;
 use App\Services\InventoryCrudService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use App\Http\Traits\ValidationRules;
-use App\Http\Traits\ResponseHelpers;
+use Illuminate\Http\Request;
 
 class InventoryController extends BaseController
 {
-    use ValidationRules, ResponseHelpers;
+    use ResponseHelpers, ValidationRules;
 
     protected InventoryCrudService $crudService;
 
@@ -42,19 +42,19 @@ class InventoryController extends BaseController
             'per_page' => 'sometimes|integer|min:1|max:100',
             'include' => 'sometimes|string',
             'sort_by' => 'sometimes|in:name,category,status,condition,purchase_date,warranty_expiry,current_value',
-            'sort_order' => 'sometimes|in:asc,desc'
+            'sort_order' => 'sometimes|in:asc,desc',
         ]);
 
         try {
             $items = $this->crudService->getPaginatedList($validated);
-            
+
             // Format items for response
             $formattedItems = $items->getCollection()->map(function ($item) {
                 return $this->crudService->formatForResponse($item);
             });
-            
+
             $items->setCollection($formattedItems);
-            
+
             return $this->successResponse($items, 'Inventory items retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -93,13 +93,13 @@ class InventoryController extends BaseController
             'unit' => 'required_if:is_consumable,true|string|max:50',
             'notes' => 'sometimes|string|max:2000',
             'specifications' => 'sometimes|array',
-            'maintenance_schedule' => 'sometimes|string|max:500'
+            'maintenance_schedule' => 'sometimes|string|max:500',
         ]);
 
         try {
             $item = $this->crudService->create($validated);
             $formattedItem = $this->crudService->formatDetailedForResponse($item);
-            
+
             return $this->successResponse($formattedItem, 'Inventory item created successfully', 201);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -112,13 +112,13 @@ class InventoryController extends BaseController
     public function show(Request $request, InventoryItem $item): JsonResponse
     {
         $validated = $request->validate([
-            'include' => 'sometimes|string'
+            'include' => 'sometimes|string',
         ]);
 
         try {
             $itemWithRelations = $this->crudService->getWithRelations($item);
             $formattedItem = $this->crudService->formatDetailedForResponse($itemWithRelations);
-            
+
             return $this->successResponse($formattedItem, 'Inventory item retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -157,13 +157,13 @@ class InventoryController extends BaseController
             'unit' => 'sometimes|string|max:50',
             'notes' => 'sometimes|string|max:2000',
             'specifications' => 'sometimes|array',
-            'maintenance_schedule' => 'sometimes|string|max:500'
+            'maintenance_schedule' => 'sometimes|string|max:500',
         ]);
 
         try {
             $updatedItem = $this->crudService->update($item, $validated);
             $formattedItem = $this->crudService->formatDetailedForResponse($updatedItem);
-            
+
             return $this->successResponse($formattedItem, 'Inventory item updated successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -177,6 +177,7 @@ class InventoryController extends BaseController
     {
         try {
             $this->crudService->delete($item);
+
             return $this->successResponse(null, 'Inventory item deleted successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -190,6 +191,7 @@ class InventoryController extends BaseController
     {
         try {
             $publicData = $this->crudService->getItemForPublicView($item);
+
             return $this->successResponse($publicData, 'Inventory item public view retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -207,13 +209,13 @@ class InventoryController extends BaseController
             'quantity' => 'sometimes|integer|min:0',
             'location' => 'sometimes|string|max:255',
             'room_id' => 'sometimes|exists:rooms,id',
-            'notes' => 'sometimes|string|max:2000'
+            'notes' => 'sometimes|string|max:2000',
         ]);
 
         try {
             $duplicatedItem = $this->crudService->duplicate($item, $validated);
             $formattedItem = $this->crudService->formatDetailedForResponse($duplicatedItem);
-            
+
             return $this->successResponse($formattedItem, 'Inventory item duplicated successfully', 201);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 400);
@@ -227,6 +229,7 @@ class InventoryController extends BaseController
     {
         try {
             $categories = $this->crudService->getCategoriesWithCounts();
+
             return $this->successResponse($categories, 'Inventory categories retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -243,11 +246,12 @@ class InventoryController extends BaseController
             'category' => 'sometimes|string',
             'status' => 'sometimes|string',
             'institution_id' => 'sometimes|integer|exists:institutions,id',
-            'limit' => 'sometimes|integer|min:1|max:50'
+            'limit' => 'sometimes|integer|min:1|max:50',
         ]);
 
         try {
             $results = $this->crudService->searchItems($validated);
+
             return $this->successResponse($results, 'Search results retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);

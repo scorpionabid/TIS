@@ -3,12 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\TeacherEvaluation;
-use App\Models\PerformanceMetric;
-use App\Services\TeacherPerformanceService;
 use App\Services\PermissionCheckService;
-use Illuminate\Http\Request;
+use App\Services\TeacherPerformanceService;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 
 class TeacherPerformanceController extends BaseController
 {
@@ -30,11 +28,11 @@ class TeacherPerformanceController extends BaseController
             $filters = $request->only([
                 'teacher_id', 'evaluator_id', 'institution_id', 'academic_year',
                 'evaluation_type', 'status', 'overall_rating', 'search',
-                'requires_improvement', 'overdue'
+                'requires_improvement', 'overdue',
             ]);
-            
+
             $perPage = $request->get('per_page', 15);
-            
+
             $evaluations = $this->performanceService->getEvaluations($filters, $perPage);
 
             return $this->success(
@@ -66,7 +64,7 @@ class TeacherPerformanceController extends BaseController
     public function show(TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canAccessEvaluation($evaluation)) {
+            if (! $this->permissionService->canAccessEvaluation($evaluation)) {
                 return $this->error('Bu qiymətləndirməyə giriş icazəniz yoxdur', 403);
             }
 
@@ -84,7 +82,7 @@ class TeacherPerformanceController extends BaseController
     public function update(Request $request, TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canUpdateEvaluation($evaluation)) {
+            if (! $this->permissionService->canUpdateEvaluation($evaluation)) {
                 return $this->error('Bu qiymətləndirməni dəyişmək icazəniz yoxdur', 403);
             }
 
@@ -107,7 +105,7 @@ class TeacherPerformanceController extends BaseController
     public function destroy(TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canDeleteEvaluation($evaluation)) {
+            if (! $this->permissionService->canDeleteEvaluation($evaluation)) {
                 return $this->error('Bu qiymətləndirməni silmək icazəniz yoxdur', 403);
             }
 
@@ -124,7 +122,7 @@ class TeacherPerformanceController extends BaseController
     public function complete(TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canCompleteEvaluation($evaluation)) {
+            if (! $this->permissionService->canCompleteEvaluation($evaluation)) {
                 return $this->error('Bu qiymətləndirməni tamamlamaq icazəniz yoxdur', 403);
             }
 
@@ -144,7 +142,7 @@ class TeacherPerformanceController extends BaseController
     public function approve(Request $request, TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canApproveEvaluation()) {
+            if (! $this->permissionService->canApproveEvaluation()) {
                 return $this->error('Qiymətləndirmə təsdiqlənmək icazəniz yoxdur', 403);
             }
 
@@ -164,7 +162,7 @@ class TeacherPerformanceController extends BaseController
     public function requestRevision(Request $request, TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canRequestRevision()) {
+            if (! $this->permissionService->canRequestRevision()) {
                 return $this->error('Düzəliş tələb etmək icazəniz yoxdur', 403);
             }
 
@@ -183,7 +181,7 @@ class TeacherPerformanceController extends BaseController
     public function addGoal(Request $request, TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canModifyEvaluation($evaluation)) {
+            if (! $this->permissionService->canModifyEvaluation($evaluation)) {
                 return $this->error('Bu qiymətləndirməyə hədəf əlavə etmək icazəniz yoxdur', 403);
             }
 
@@ -209,7 +207,7 @@ class TeacherPerformanceController extends BaseController
     public function markGoalAchieved(Request $request, TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canModifyEvaluation($evaluation)) {
+            if (! $this->permissionService->canModifyEvaluation($evaluation)) {
                 return $this->error('Bu hədəfi əldə edilmiş kimi işarələmək icazəniz yoxdur', 403);
             }
 
@@ -233,7 +231,7 @@ class TeacherPerformanceController extends BaseController
     public function addRecommendation(Request $request, TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canModifyEvaluation($evaluation)) {
+            if (! $this->permissionService->canModifyEvaluation($evaluation)) {
                 return $this->error('Bu qiymətləndirməyə tövsiyə əlavə etmək icazəniz yoxdur', 403);
             }
 
@@ -257,7 +255,7 @@ class TeacherPerformanceController extends BaseController
     public function getMetrics(TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canAccessEvaluation($evaluation)) {
+            if (! $this->permissionService->canAccessEvaluation($evaluation)) {
                 return $this->error('Bu metrikalara giriş icazəniz yoxdur', 403);
             }
 
@@ -272,7 +270,7 @@ class TeacherPerformanceController extends BaseController
     public function addMetric(Request $request, TeacherEvaluation $evaluation): JsonResponse
     {
         try {
-            if (!$this->permissionService->canModifyEvaluation($evaluation)) {
+            if (! $this->permissionService->canModifyEvaluation($evaluation)) {
                 return $this->error('Bu qiymətləndirməyə metrika əlavə etmək icazəniz yoxdur', 403);
             }
 
@@ -304,7 +302,7 @@ class TeacherPerformanceController extends BaseController
     public function getTeacherSummary(Request $request, $teacherId): JsonResponse
     {
         try {
-            if (!$this->permissionService->canAccessTeacherData($teacherId)) {
+            if (! $this->permissionService->canAccessTeacherData($teacherId)) {
                 return $this->error('Bu müəllimin məlumatlarına giriş icazəniz yoxdur', 403);
             }
 
@@ -325,7 +323,7 @@ class TeacherPerformanceController extends BaseController
     public function getInstitutionStats(Request $request, $institutionId): JsonResponse
     {
         try {
-            if (!$this->permissionService->canAccessInstitutionData($institutionId)) {
+            if (! $this->permissionService->canAccessInstitutionData($institutionId)) {
                 return $this->error('Bu təşkilatın məlumatlarına giriş icazəniz yoxdur', 403);
             }
 

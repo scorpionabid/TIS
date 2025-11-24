@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 
@@ -23,7 +22,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'language',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Ədəbiyyat',
@@ -33,7 +32,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'humanities',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Riyaziyyat',
@@ -43,7 +42,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'core',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
 
             // Elm fənləri (Science subjects)
@@ -55,7 +54,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'science',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Kimya',
@@ -65,7 +64,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'science',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Biologiya',
@@ -75,7 +74,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'science',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
 
             // Humanitar fənlər (Humanities)
@@ -87,7 +86,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'humanities',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Ümumi tarix',
@@ -97,7 +96,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'humanities',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Coğrafiya',
@@ -107,7 +106,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'humanities',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Həyat bilgisi',
@@ -117,7 +116,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'humanities',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
 
             // Xarici dillər (Foreign languages)
@@ -129,7 +128,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'language',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Rus dili',
@@ -139,7 +138,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'language',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
 
             // İncəsənət (Arts)
@@ -151,7 +150,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'arts',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Təsviri incəsənət',
@@ -161,7 +160,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'arts',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
 
             // Fiziki və texniki fənlər (Physical & Technical)
@@ -173,7 +172,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'physical',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'İnformatika',
@@ -183,7 +182,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'technical',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Texnologiya',
@@ -193,7 +192,7 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'technical',
                 'is_active' => true,
-                'metadata' => json_encode([])
+                'metadata' => json_encode([]),
             ],
             [
                 'name' => 'Çağırışaqədərki hazırlıq',
@@ -203,8 +202,8 @@ class SubjectSeeder extends Seeder
                 'weekly_hours' => 1,
                 'category' => 'physical',
                 'is_active' => true,
-                'metadata' => json_encode([])
-            ]
+                'metadata' => json_encode([]),
+            ],
         ];
 
         DB::table('subjects')->insertOrIgnore($subjects);

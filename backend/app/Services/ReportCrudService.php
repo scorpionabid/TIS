@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Report;
 use App\Models\Institution;
-use App\Services\BaseService;
+use App\Models\Report;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -52,7 +51,7 @@ class ReportCrudService extends BaseService
             $searchTerm = $request->search;
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('name', 'LIKE', "%{$searchTerm}%")
-                  ->orWhere('description', 'LIKE', "%{$searchTerm}%");
+                    ->orWhere('description', 'LIKE', "%{$searchTerm}%");
             });
         }
 
@@ -67,7 +66,7 @@ class ReportCrudService extends BaseService
         // Sorting
         $sortBy = $request->get('sort_by', 'created_at');
         $sortDirection = $request->get('sort_direction', 'desc');
-        
+
         $allowedSorts = ['created_at', 'updated_at', 'name', 'type', 'status', 'generated_at'];
         if (in_array($sortBy, $allowedSorts)) {
             $query->orderBy($sortBy, $sortDirection);
@@ -90,7 +89,7 @@ class ReportCrudService extends BaseService
 
         return [
             'reports' => $reports,
-            'summary' => $summary
+            'summary' => $summary,
         ];
     }
 
@@ -100,7 +99,7 @@ class ReportCrudService extends BaseService
     public function createReport(array $data, $user): Report
     {
         // Validate institution access
-        if (!$this->canAccessInstitution($user, $data['institution_id'])) {
+        if (! $this->canAccessInstitution($user, $data['institution_id'])) {
             throw new \Exception('Bu müəssisə üçün hesabat yaratmaq icazəniz yoxdur');
         }
 
@@ -116,7 +115,7 @@ class ReportCrudService extends BaseService
                 'parameters' => $data['parameters'] ?? [],
                 'schedule_type' => $data['schedule_type'] ?? 'manual',
                 'schedule_config' => $data['schedule_config'] ?? null,
-                'is_active' => $data['is_active'] ?? true
+                'is_active' => $data['is_active'] ?? true,
             ]);
 
             // Log activity
@@ -134,14 +133,14 @@ class ReportCrudService extends BaseService
         $query = Report::with(['institution', 'creator']);
 
         // Add additional includes
-        if (!empty($includes)) {
+        if (! empty($includes)) {
             $query->with($includes);
         }
 
         $report = $query->findOrFail($id);
 
         // Check access permission
-        if (!$this->canAccessReport($report, $user)) {
+        if (! $this->canAccessReport($report, $user)) {
             throw new \Exception('Bu hesabatı görmək üçün icazəniz yoxdur');
         }
 
@@ -157,7 +156,7 @@ class ReportCrudService extends BaseService
             $report = $this->getReport($id, $user);
 
             // Check if user can edit this report
-            if (!$this->canEditReport($report, $user)) {
+            if (! $this->canEditReport($report, $user)) {
                 throw new \Exception('Bu hesabatı redaktə etmək üçün icazəniz yoxdur');
             }
 
@@ -175,7 +174,7 @@ class ReportCrudService extends BaseService
                 'schedule_type' => $data['schedule_type'] ?? $report->schedule_type,
                 'schedule_config' => $data['schedule_config'] ?? $report->schedule_config,
                 'is_active' => $data['is_active'] ?? $report->is_active,
-                'updated_by' => $user->id
+                'updated_by' => $user->id,
             ]);
 
             // If status is being changed
@@ -199,7 +198,7 @@ class ReportCrudService extends BaseService
             $report = $this->getReport($id, $user);
 
             // Check if user can delete this report
-            if (!$this->canDeleteReport($report, $user)) {
+            if (! $this->canDeleteReport($report, $user)) {
                 throw new \Exception('Bu hesabatı silmək üçün icazəniz yoxdur');
             }
 
@@ -233,14 +232,14 @@ class ReportCrudService extends BaseService
     public function updateReportStatus(Report $report, string $status, $user): Report
     {
         $validStatuses = ['draft', 'generating', 'completed', 'failed', 'archived'];
-        
-        if (!in_array($status, $validStatuses)) {
+
+        if (! in_array($status, $validStatuses)) {
             throw new \Exception("Yanlış hesabat statusu: {$status}");
         }
 
         $report->update([
             'status' => $status,
-            'updated_by' => $user->id
+            'updated_by' => $user->id,
         ]);
 
         // Update timestamps based on status
@@ -251,7 +250,7 @@ class ReportCrudService extends BaseService
             case 'completed':
                 $report->update([
                     'generated_at' => now(),
-                    'generation_completed_at' => now()
+                    'generation_completed_at' => now(),
                 ]);
                 break;
             case 'failed':
@@ -283,11 +282,11 @@ class ReportCrudService extends BaseService
                 'parameters' => $originalReport->parameters,
                 'schedule_type' => $newData['schedule_type'] ?? $originalReport->schedule_type,
                 'schedule_config' => $newData['schedule_config'] ?? $originalReport->schedule_config,
-                'is_active' => $newData['is_active'] ?? true
+                'is_active' => $newData['is_active'] ?? true,
             ]);
 
             $this->logActivity('report_duplicated', $duplicatedReport, $user, [
-                'original_report_id' => $originalReport->id
+                'original_report_id' => $originalReport->id,
             ]);
 
             return $duplicatedReport->load(['institution', 'creator']);
@@ -301,7 +300,7 @@ class ReportCrudService extends BaseService
     {
         $report = $this->getReport($id, $user);
 
-        if ($report->status !== 'completed' || !$report->result_data) {
+        if ($report->status !== 'completed' || ! $report->result_data) {
             throw new \Exception('Hesabat məlumatları mövcud deyil');
         }
 
@@ -312,8 +311,8 @@ class ReportCrudService extends BaseService
                 'generated_at' => $report->generated_at,
                 'generation_time' => $report->generation_time,
                 'data_points' => $this->countDataPoints($report->result_data),
-                'file_size' => $this->calculateResultDataSize($report->result_data)
-            ]
+                'file_size' => $this->calculateResultDataSize($report->result_data),
+            ],
         ];
     }
 
@@ -323,7 +322,7 @@ class ReportCrudService extends BaseService
     public function archiveOldReports(int $daysOld = 90): array
     {
         $cutoffDate = now()->subDays($daysOld);
-        
+
         $reportsToArchive = Report::where('status', 'completed')
             ->where('generated_at', '<', $cutoffDate)
             ->where('status', '!=', 'archived')
@@ -335,17 +334,17 @@ class ReportCrudService extends BaseService
         foreach ($reportsToArchive as $report) {
             try {
                 $report->update(['status' => 'archived']);
-                
+
                 // Optionally move files to archive storage
                 if ($report->file_path) {
                     $this->moveToArchiveStorage($report);
                 }
-                
+
                 $archivedCount++;
             } catch (\Exception $e) {
                 $errors[] = [
                     'report_id' => $report->id,
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ];
             }
         }
@@ -353,7 +352,7 @@ class ReportCrudService extends BaseService
         return [
             'archived_count' => $archivedCount,
             'total_candidates' => $reportsToArchive->count(),
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
@@ -371,11 +370,11 @@ class ReportCrudService extends BaseService
             'institution' => [
                 'id' => $report->institution->id,
                 'name' => $report->institution->name,
-                'type' => $report->institution->type
+                'type' => $report->institution->type,
             ],
             'creator' => [
                 'id' => $report->creator->id,
-                'name' => $report->creator->name
+                'name' => $report->creator->name,
             ],
             'config' => $report->config,
             'parameters' => $report->parameters,
@@ -385,10 +384,10 @@ class ReportCrudService extends BaseService
             'generation_time' => $report->generation_time,
             'file_path' => $report->file_path,
             'file_size' => $report->file_size,
-            'has_result_data' => !empty($report->result_data),
+            'has_result_data' => ! empty($report->result_data),
             'data_points_count' => $this->countDataPoints($report->result_data ?? []),
             'created_at' => $report->created_at,
-            'updated_at' => $report->updated_at
+            'updated_at' => $report->updated_at,
         ];
     }
 
@@ -431,14 +430,14 @@ class ReportCrudService extends BaseService
                 'generating' => $byStatus['generating'] ?? 0,
                 'completed' => $byStatus['completed'] ?? 0,
                 'failed' => $byStatus['failed'] ?? 0,
-                'archived' => $byStatus['archived'] ?? 0
+                'archived' => $byStatus['archived'] ?? 0,
             ],
             'by_type' => $byType,
             'recent_activity' => [
                 'last_24h' => $baseQuery->where('created_at', '>=', now()->subDay())->count(),
                 'last_7d' => $baseQuery->where('created_at', '>=', now()->subWeek())->count(),
-                'last_30d' => $baseQuery->where('created_at', '>=', now()->subMonth())->count()
-            ]
+                'last_30d' => $baseQuery->where('created_at', '>=', now()->subMonth())->count(),
+            ],
         ];
     }
 
@@ -452,9 +451,10 @@ class ReportCrudService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        
-        if (!$userInstitution) {
+
+        if (! $userInstitution) {
             $query->whereRaw('1 = 0'); // No access
+
             return;
         }
 
@@ -480,19 +480,21 @@ class ReportCrudService extends BaseService
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             return false;
         }
 
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($institutionId, $childIds);
         } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
+
             return in_array($institutionId, $childIds);
-        } else {
-            return $institutionId == $userInstitution->id;
         }
+
+        return $institutionId == $userInstitution->id;
     }
 
     /**
@@ -526,12 +528,12 @@ class ReportCrudService extends BaseService
      */
     private function countDataPoints($data): int
     {
-        if (!is_array($data)) {
+        if (! is_array($data)) {
             return 0;
         }
 
         $count = 0;
-        array_walk_recursive($data, function() use (&$count) {
+        array_walk_recursive($data, function () use (&$count) {
             $count++;
         });
 

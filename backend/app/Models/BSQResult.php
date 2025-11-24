@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class BSQResult extends Model
 {
@@ -44,7 +43,7 @@ class BSQResult extends Model
         'published_at',
         'external_report_url',
         'compliance_score',
-        'accreditation_status'
+        'accreditation_status',
     ];
 
     protected $casts = [
@@ -65,7 +64,7 @@ class BSQResult extends Model
         'compliance_score' => 'decimal:2',
         'international_ranking' => 'integer',
         'national_ranking' => 'integer',
-        'regional_ranking' => 'integer'
+        'regional_ranking' => 'integer',
     ];
 
     /**
@@ -134,18 +133,34 @@ class BSQResult extends Model
 
     public function getCertificationStatusAttribute()
     {
-        if (!$this->certification_valid_until) return 'not_certified';
-        if ($this->certification_valid_until->isFuture()) return 'certified';
+        if (! $this->certification_valid_until) {
+            return 'not_certified';
+        }
+        if ($this->certification_valid_until->isFuture()) {
+            return 'certified';
+        }
+
         return 'expired';
     }
 
     public function getPerformanceLevelAttribute()
     {
-        if ($this->percentage_score >= 95) return 'outstanding';
-        if ($this->percentage_score >= 85) return 'excellent';
-        if ($this->percentage_score >= 75) return 'good';
-        if ($this->percentage_score >= 65) return 'satisfactory';
-        if ($this->percentage_score >= 50) return 'needs_improvement';
+        if ($this->percentage_score >= 95) {
+            return 'outstanding';
+        }
+        if ($this->percentage_score >= 85) {
+            return 'excellent';
+        }
+        if ($this->percentage_score >= 75) {
+            return 'good';
+        }
+        if ($this->percentage_score >= 65) {
+            return 'satisfactory';
+        }
+        if ($this->percentage_score >= 50) {
+            return 'needs_improvement';
+        }
+
         return 'unsatisfactory';
     }
 
@@ -172,14 +187,22 @@ class BSQResult extends Model
     {
         // Bu metod beynəlxalq müqayisə üçün istifadə olunur
         // Real implementation-da external API integration ola bilər
-        
+
         $percentile = $this->percentage_score;
-        
-        if ($percentile >= 95) return ['level' => 'top_5_percent', 'description' => 'Ən yüksək 5% arasında'];
-        if ($percentile >= 90) return ['level' => 'top_10_percent', 'description' => 'Ən yüksək 10% arasında'];
-        if ($percentile >= 75) return ['level' => 'top_25_percent', 'description' => 'Ən yüksək 25% arasında'];
-        if ($percentile >= 50) return ['level' => 'above_average', 'description' => 'Ortadan yuxarı'];
-        
+
+        if ($percentile >= 95) {
+            return ['level' => 'top_5_percent', 'description' => 'Ən yüksək 5% arasında'];
+        }
+        if ($percentile >= 90) {
+            return ['level' => 'top_10_percent', 'description' => 'Ən yüksək 10% arasında'];
+        }
+        if ($percentile >= 75) {
+            return ['level' => 'top_25_percent', 'description' => 'Ən yüksək 25% arasında'];
+        }
+        if ($percentile >= 50) {
+            return ['level' => 'above_average', 'description' => 'Ortadan yuxarı'];
+        }
+
         return ['level' => 'below_average', 'description' => 'Ortadan aşağı'];
     }
 
@@ -190,7 +213,7 @@ class BSQResult extends Model
             'standard' => $this->international_standard,
             'overall_score' => $this->percentage_score,
             'certification_status' => $this->certification_status,
-            'compliance_areas' => []
+            'compliance_areas' => [],
         ];
 
         if (is_array($this->competency_areas)) {
@@ -199,7 +222,7 @@ class BSQResult extends Model
                 $report['compliance_areas'][$area] = [
                     'score' => $score,
                     'status' => $compliance,
-                    'meets_standard' => $score >= 70
+                    'meets_standard' => $score >= 70,
                 ];
             }
         }
@@ -209,14 +232,16 @@ class BSQResult extends Model
 
     public function isNearExpiration($days = 90)
     {
-        if (!$this->certification_valid_until) return false;
-        
+        if (! $this->certification_valid_until) {
+            return false;
+        }
+
         return $this->certification_valid_until->diffInDays(now()) <= $days;
     }
 
     public function requiresReassessment()
     {
-        return $this->certification_status === 'expired' || 
+        return $this->certification_status === 'expired' ||
                $this->accreditation_status === 'conditional_accreditation' ||
                $this->percentage_score < 70;
     }
@@ -228,7 +253,7 @@ class BSQResult extends Model
             'regional' => $this->regional_ranking,
             'national' => $this->national_ranking,
             'international' => $this->international_ranking,
-            'percentile' => $this->calculatePercentile()
+            'percentile' => $this->calculatePercentile(),
         ];
     }
 
@@ -236,14 +261,14 @@ class BSQResult extends Model
     {
         // Bu metod database-dəki digər nəticələrlə müqayisə edir
         $totalInstitutions = static::where('international_standard', $this->international_standard)
-                                  ->where('academic_year_id', $this->academic_year_id)
-                                  ->count();
-        
+            ->where('academic_year_id', $this->academic_year_id)
+            ->count();
+
         $lowerScores = static::where('international_standard', $this->international_standard)
-                            ->where('academic_year_id', $this->academic_year_id)
-                            ->where('percentage_score', '<', $this->percentage_score)
-                            ->count();
-        
+            ->where('academic_year_id', $this->academic_year_id)
+            ->where('percentage_score', '<', $this->percentage_score)
+            ->count();
+
         return $totalInstitutions > 0 ? round(($lowerScores / $totalInstitutions) * 100, 2) : 0;
     }
 }

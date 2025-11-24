@@ -24,7 +24,7 @@ class InstitutionObserver
     {
         $oldValues = $institution->getOriginal();
         $newValues = $institution->toArray();
-        
+
         // Get only changed fields
         $changes = [];
         foreach ($newValues as $key => $value) {
@@ -35,8 +35,8 @@ class InstitutionObserver
                 ];
             }
         }
-        
-        if (!empty($changes)) {
+
+        if (! empty($changes)) {
             $this->logAuditEvent($institution, 'updated', $oldValues, $newValues, $changes);
         }
     }
@@ -85,7 +85,7 @@ class InstitutionObserver
     private function logAuditEvent(Institution $institution, string $action, ?array $oldValues = null, ?array $newValues = null, ?array $changes = null): void
     {
         // Only log if user is authenticated
-        if (!Auth::check()) {
+        if (! Auth::check()) {
             return;
         }
 
@@ -128,7 +128,7 @@ class InstitutionObserver
         // Clear all institution cache keys
         Cache::forget('institutions_statistics');
         Cache::forget('institution_types');
-        
+
         // Clear pattern-based cache (requires cache tags or manual implementation)
         // For now, we'll flush all cache starting with 'institutions_'
         $cacheKeys = Cache::get('institution_cache_keys', []);

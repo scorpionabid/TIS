@@ -4,33 +4,32 @@ namespace App\Services;
 
 use App\Models\User;
 use App\Models\UserProfile;
-use App\Models\ActivityLog;
-use Illuminate\Support\Facades\Hash;
+use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
-use Exception;
+use Illuminate\Support\Facades\Hash;
 
 /**
  * DEPRECATED: UserService methods have been consolidated into UserCrudService
- * 
+ *
  * This service is deprecated and will be removed in future versions.
  * Please use UserCrudService instead for all user-related operations.
- * 
+ *
  * Methods available in UserCrudService:
  * - createUserWithProfile()
- * - resetUserPassword() 
+ * - resetUserPassword()
  * - toggleUserStatus()
  * - getUsersByRole()
  * - getUsersByInstitution()
  * - findByUsername()
  * - findByEmail()
- * 
+ *
  * @deprecated Use UserCrudService instead
  */
 class UserService extends BaseService
 {
     protected string $modelClass = User::class;
-    
+
     protected array $relationships = ['role', 'institution', 'profile', 'department'];
 
     /**
@@ -49,7 +48,7 @@ class UserService extends BaseService
                 'is_active' => $userData['is_active'] ?? true,
             ]);
 
-            if (!empty($profileData)) {
+            if (! empty($profileData)) {
                 UserProfile::create(array_merge($profileData, ['user_id' => $user->id]));
             }
 
@@ -67,7 +66,7 @@ class UserService extends BaseService
                 'password' => Hash::make($newPassword),
                 'password_changed_at' => now(),
                 'failed_login_attempts' => 0,
-                'locked_until' => null
+                'locked_until' => null,
             ]);
 
             return $user;
@@ -79,7 +78,7 @@ class UserService extends BaseService
      */
     public function toggleUserStatus(int $userId, bool $isActive): User
     {
-        if (!$isActive && $userId === Auth::id()) {
+        if (! $isActive && $userId === Auth::id()) {
             throw new Exception('Cannot deactivate your own account');
         }
 

@@ -45,7 +45,7 @@ class GradePolicy
             'superadmin',
             'regionadmin',
             'sektoradmin',
-            'schooladmin'
+            'schooladmin',
         ]);
     }
 
@@ -60,7 +60,7 @@ class GradePolicy
         }
 
         // Check if user has required role
-        if (!$user->hasAnyRole(['regionadmin', 'sektoradmin', 'schooladmin'])) {
+        if (! $user->hasAnyRole(['regionadmin', 'sektoradmin', 'schooladmin'])) {
             return false;
         }
 
@@ -81,7 +81,7 @@ class GradePolicy
         }
 
         // Check if user has required role
-        if (!$user->hasAnyRole(['regionadmin', 'sektoradmin', 'schooladmin'])) {
+        if (! $user->hasAnyRole(['regionadmin', 'sektoradmin', 'schooladmin'])) {
             return false;
         }
 
@@ -117,5 +117,4 @@ class GradePolicy
         // Same permissions as update
         return $this->update($user, $grade);
     }
-
 }

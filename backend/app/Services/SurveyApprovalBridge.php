@@ -2,16 +2,15 @@
 
 namespace App\Services;
 
+use App\Models\ApprovalWorkflow;
+use App\Models\DataApprovalRequest;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
 use App\Models\User;
-use App\Models\DataApprovalRequest;
-use App\Models\ApprovalWorkflow;
-use App\Services\ApprovalWorkflowService;
 use App\Services\SurveyApproval\Utilities\SurveyApprovalWorkflowResolver;
+use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Exception;
 
 /**
  * Survey Approval Bridge Service
@@ -31,19 +30,16 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
         // Don't call parent::__construct() as BaseService/ApprovalWorkflowService don't define constructors
         $this->workflowResolver = app(SurveyApprovalWorkflowResolver::class);
     }
+
     /**
      * Survey response üçün approval workflow başlat
-     * 
-     * @param SurveyResponse $response
-     * @param array $additionalData
-     * @return DataApprovalRequest
      */
     public function initiateSurveyResponseApproval(SurveyResponse $response, array $additionalData = []): DataApprovalRequest
     {
         return DB::transaction(function () use ($response, $additionalData) {
             // Survey approval workflow-nu tap və ya yarat (using resolver)
             $workflow = $this->workflowResolver->getOrCreateSurveyApprovalWorkflow();
-            
+
             // Approval request yarat
             $approvalRequest = $this->createApprovalRequest([
                 'workflow_type' => 'survey_response',
@@ -86,11 +82,6 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
 
     /**
      * Survey response approval-ını tamamla
-     * 
-     * @param DataApprovalRequest $approvalRequest
-     * @param User $approver
-     * @param array $data
-     * @return SurveyResponse
      */
     public function completeSurveyResponseApproval(DataApprovalRequest $approvalRequest, User $approver, array $data): SurveyResponse
     {
@@ -101,10 +92,10 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
             // Survey response-ı yenilə
             $surveyResponseId = $approvalRequest->request_data['survey_response_id'];
             $response = SurveyResponse::findOrFail($surveyResponseId);
-            
+
             if ($approvalRequest->current_status === 'approved') {
                 $response->approve($approver);
-                
+
                 // Survey statistics yenilə
                 $this->updateSurveyStatistics($response->survey);
             }
@@ -115,12 +106,6 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
 
     /**
      * Survey delegation xüsusiyyəti
-     * 
-     * @param DataApprovalRequest $approvalRequest
-     * @param User $currentApprover
-     * @param User $delegateeTo
-     * @param string $reason
-     * @return bool
      */
     public function delegateSurveyApproval(DataApprovalRequest $approvalRequest, User $currentApprover, User $delegateeTo, string $reason): bool
     {
@@ -156,11 +141,6 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
 
     /**
      * Survey-specific bulk approval
-     * 
-     * @param array $surveyResponseIds
-     * @param User $approver
-     * @param array $data
-     * @return array
      */
     public function bulkApproveSurveyResponses(array $surveyResponseIds, User $approver, array $data = []): array
     {
@@ -168,7 +148,7 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
             'approved' => 0,
             'failed' => 0,
             'errors' => [],
-            'details' => []
+            'details' => [],
         ];
 
         foreach ($surveyResponseIds as $responseId) {
@@ -202,10 +182,9 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
                         'response_id' => $responseId,
                         'response_status' => $response->status,
                         'institution_id' => $response->institution_id,
-                        'survey_id' => $response->survey_id
+                        'survey_id' => $response->survey_id,
                     ]);
                 }
-
             } catch (Exception $e) {
                 $results['failed']++;
                 $results['errors'][] = "Response ID {$responseId}: " . $e->getMessage();
@@ -213,7 +192,7 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
                 Log::error('Bulk approval exception', [
                     'response_id' => $responseId,
                     'error' => $e->getMessage(),
-                    'trace' => $e->getTraceAsString()
+                    'trace' => $e->getTraceAsString(),
                 ]);
             }
         }
@@ -230,10 +209,6 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
 
     /**
      * Survey template approval workflow
-     * 
-     * @param Survey $templateSurvey
-     * @param User $submitter
-     * @return DataApprovalRequest
      */
     public function submitSurveyTemplateForApproval(Survey $templateSurvey, User $submitter): DataApprovalRequest
     {
@@ -241,7 +216,7 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
             'workflow_type' => 'survey_template',
             'institution_id' => $submitter->institution_id,
             'request_title' => "Survey Şablonunun Təsdiqi: {$templateSurvey->title}",
-            'request_description' => "Yeni survey şablonunun sistem üzrə istifadə üçün təsdiqi",
+            'request_description' => 'Yeni survey şablonunun sistem üzrə istifadə üçün təsdiqi',
             'request_data' => [
                 'survey_template_id' => $templateSurvey->id,
                 'template_category' => $templateSurvey->category,
@@ -254,16 +229,12 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
 
     /**
      * Survey analytics approval üçün extended analytics
-     * 
-     * @param string $period
-     * @param User $user
-     * @return array
      */
     public function getSurveyApprovalAnalytics(string $period = '30days', ?User $user = null): array
     {
         $baseAnalytics = $this->getAnalytics(request()->merge([
             'date_from' => now()->sub($period)->format('Y-m-d'),
-            'date_to' => now()->format('Y-m-d')
+            'date_to' => now()->format('Y-m-d'),
         ]), $user ?? auth()->user());
 
         // Survey-specific metrics əlavə et
@@ -296,22 +267,22 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
     private function determineSurveyPriority(SurveyResponse $response): string
     {
         $survey = $response->survey;
-        
+
         // Təcili sorğular
         if ($survey->category === 'urgent') {
             return 'high';
         }
-        
+
         // Maliyyə sorğuları
         if ($survey->category === 'finance') {
             return 'high';
         }
-        
+
         // Deadline yaxın olan sorğular
         if ($survey->end_date && $survey->end_date->diffInDays(now()) <= 3) {
             return 'medium';
         }
-        
+
         return 'normal';
     }
 
@@ -364,7 +335,7 @@ class SurveyApprovalBridge extends ApprovalWorkflowService
     }
 
     /**
-     * Survey template approval stats  
+     * Survey template approval stats
      */
     private function getSurveyTemplateApprovalStats(string $period): array
     {

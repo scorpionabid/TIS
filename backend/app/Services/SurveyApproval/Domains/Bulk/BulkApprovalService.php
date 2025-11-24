@@ -2,9 +2,9 @@
 
 namespace App\Services\SurveyApproval\Domains\Bulk;
 
+use App\Jobs\BulkApprovalJob;
 use App\Models\SurveyResponse;
 use App\Models\User;
-use App\Jobs\BulkApprovalJob;
 use App\Services\SurveyApproval\Domains\Action\ApprovalActionService;
 use App\Services\SurveyApproval\Domains\Security\ApprovalSecurityService;
 use Illuminate\Support\Facades\DB;
@@ -32,16 +32,16 @@ use Illuminate\Support\Facades\Log;
  * LOGIC PRESERVED FROM: SurveyApprovalService (lines 354-462)
  *
  * SECURITY AUDIT: 2025-11-14
- *
- * @package App\Services\SurveyApproval\Domains\Bulk
  */
 class BulkApprovalService
 {
     protected ApprovalActionService $actionService;
+
     protected ApprovalSecurityService $securityService;
 
     // Security limits
     protected const MAX_SYNC_BATCH_SIZE = 20;
+
     protected const MAX_ASYNC_BATCH_SIZE = 100;
 
     public function __construct(
@@ -59,11 +59,8 @@ class BulkApprovalService
      *
      * SECURITY: Rate limiting enforced
      *
-     * @param array $responseIds
      * @param string $action (approve|reject|return)
-     * @param User $approver
-     * @param array $data
-     * @return array
+     *
      * @throws \Exception
      */
     public function bulkApprovalOperation(
@@ -82,7 +79,7 @@ class BulkApprovalService
         }
 
         // SECURITY: Validate action type
-        if (!in_array($action, ['approve', 'reject', 'return'])) {
+        if (! in_array($action, ['approve', 'reject', 'return'])) {
             throw new \Exception("Invalid bulk action: {$action}");
         }
 
@@ -92,7 +89,7 @@ class BulkApprovalService
             $approver
         );
 
-        if (!empty($authorizationCheck['unauthorized'])) {
+        if (! empty($authorizationCheck['unauthorized'])) {
             Log::warning('Bulk approval authorization failure', [
                 'approver_id' => $approver->id,
                 'unauthorized_count' => count($authorizationCheck['unauthorized']),
@@ -122,7 +119,7 @@ class BulkApprovalService
             'status' => 'queued',
             'total' => count($responseIds),
             'message' => 'Bulk approval operation has been queued for background processing',
-            'estimated_completion' => now()->addMinutes(ceil(count($responseIds) / 50))->toISOString()
+            'estimated_completion' => now()->addMinutes(ceil(count($responseIds) / 50))->toISOString(),
         ];
     }
 
@@ -132,12 +129,6 @@ class BulkApprovalService
      * LOGIC PRESERVED FROM: SurveyApprovalService::processBulkApprovalSync() (lines 378-439)
      *
      * SECURITY: Transaction-safe, individual authorization checks
-     *
-     * @param array $responseIds
-     * @param string $action
-     * @param User $approver
-     * @param string|null $comments
-     * @return array
      */
     public function processBulkApprovalSync(
         array $responseIds,
@@ -148,20 +139,20 @@ class BulkApprovalService
         $results = [];
         $errors = [];
 
-        Log::info("🚀 [BulkApproval] Starting sync processing", [
+        Log::info('🚀 [BulkApproval] Starting sync processing', [
             'response_count' => count($responseIds),
             'response_ids' => $responseIds,
             'action' => $action,
             'approver_id' => $approver->id,
-            'approver_role' => $approver->role?->name ?? 'unknown'
+            'approver_role' => $approver->role?->name ?? 'unknown',
         ]);
 
         DB::transaction(function () use ($responseIds, $action, $approver, $comments, &$results, &$errors) {
             foreach ($responseIds as $responseId) {
                 try {
-                    Log::info("📋 [BulkApproval] Processing response", [
+                    Log::info('📋 [BulkApproval] Processing response', [
                         'response_id' => $responseId,
-                        'action' => $action
+                        'action' => $action,
                     ]);
 
                     $result = $this->processIndividualApproval($responseId, $action, $approver, $comments);
@@ -172,21 +163,20 @@ class BulkApprovalService
                         'result' => $result,
                     ];
 
-                    Log::info("✅ [BulkApproval] Response processed successfully", [
+                    Log::info('✅ [BulkApproval] Response processed successfully', [
                         'response_id' => $responseId,
-                        'result' => $result
+                        'result' => $result,
                     ]);
-
                 } catch (\Exception $e) {
                     $errors[] = [
                         'response_id' => $responseId,
                         'error' => $e->getMessage(),
                     ];
 
-                    Log::error("❌ [BulkApproval] Response processing failed", [
+                    Log::error('❌ [BulkApproval] Response processing failed', [
                         'response_id' => $responseId,
                         'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString()
+                        'trace' => $e->getTraceAsString(),
                     ]);
                 }
             }
@@ -199,7 +189,7 @@ class BulkApprovalService
             'errors' => $errors,
         ];
 
-        Log::info("🏁 [BulkApproval] Sync processing completed", $finalResult);
+        Log::info('🏁 [BulkApproval] Sync processing completed', $finalResult);
 
         return $finalResult;
     }
@@ -211,11 +201,6 @@ class BulkApprovalService
      *
      * SECURITY: Individual permission check before action
      *
-     * @param int $responseId
-     * @param string $action
-     * @param User $approver
-     * @param string|null $comments
-     * @return bool
      * @throws \Exception
      */
     public function processIndividualApproval(
@@ -227,7 +212,7 @@ class BulkApprovalService
         $response = SurveyResponse::findOrFail($responseId);
 
         // SECURITY CHECK: Verify user has permission for this specific response
-        if (!$this->canUserApproveResponse($response, $approver)) {
+        if (! $this->canUserApproveResponse($response, $approver)) {
             throw new \Exception("User does not have permission to approve this response (ID: {$responseId})");
         }
 
@@ -241,23 +226,19 @@ class BulkApprovalService
         };
 
         // Action methods return arrays with status info
-        return is_array($result) && !empty($result);
+        return is_array($result) && ! empty($result);
     }
 
     /**
      * Check if user can approve a specific response
      *
      * SECURITY CRITICAL: Comprehensive authorization check
-     *
-     * @param SurveyResponse $response
-     * @param User $approver
-     * @return bool
      */
     protected function canUserApproveResponse(SurveyResponse $response, User $approver): bool
     {
         $approvalRequest = $response->approvalRequest;
 
-        if (!$approvalRequest) {
+        if (! $approvalRequest) {
             return false;
         }
 
@@ -276,12 +257,12 @@ class BulkApprovalService
         // SektorAdmin can approve responses from schools in their sector
         if ($approver->hasRole('sektoradmin')) {
             $responseInstitution = $response->institution;
-            if (!$responseInstitution) {
+            if (! $responseInstitution) {
                 return false;
             }
 
             $approverInstitution = $approver->institution;
-            if (!$approverInstitution) {
+            if (! $approverInstitution) {
                 return false;
             }
 
@@ -296,7 +277,7 @@ class BulkApprovalService
         // RegionAdmin can approve responses from institutions in their region
         if ($approver->hasRole('regionadmin')) {
             $responseInstitution = $response->institution;
-            if (!$responseInstitution) {
+            if (! $responseInstitution) {
                 return false;
             }
 
@@ -325,12 +306,6 @@ class BulkApprovalService
      * Generate bulk operation report
      *
      * Creates detailed report for bulk approval operation
-     *
-     * @param array $results
-     * @param array $errors
-     * @param User $approver
-     * @param string $action
-     * @return array
      */
     public function generateBulkReport(
         array $results,
@@ -370,9 +345,6 @@ class BulkApprovalService
      *
      * LOGIC PRESERVED FROM: SurveyApprovalService::batchUpdateResponses() (lines 933-980)
      *
-     * @param array $updates
-     * @param User $user
-     * @return array
      * @throws \Exception
      */
     public function batchUpdateResponses(array $updates, User $user): array
@@ -387,8 +359,9 @@ class BulkApprovalService
                     $response = SurveyResponse::findOrFail($update['response_id']);
 
                     // Check permissions
-                    if (!$this->canUserEditInstitutionResponse($user, $response->institution)) {
+                    if (! $this->canUserEditInstitutionResponse($user, $response->institution)) {
                         $errors[] = "No permission to edit institution: {$response->institution->name}";
+
                         continue;
                     }
 
@@ -402,7 +375,7 @@ class BulkApprovalService
                     $results[] = [
                         'response_id' => $response->id,
                         'institution' => $response->institution->name,
-                        'status' => 'updated'
+                        'status' => 'updated',
                     ];
                 } catch (\Exception $e) {
                     $errors[] = "Error updating response {$update['response_id']}: " . $e->getMessage();
@@ -414,7 +387,6 @@ class BulkApprovalService
             } else {
                 DB::rollback();
             }
-
         } catch (\Exception $e) {
             DB::rollback();
             throw $e;
@@ -424,16 +396,14 @@ class BulkApprovalService
             'successful' => count($results),
             'failed' => count($errors),
             'results' => $results,
-            'errors' => $errors
+            'errors' => $errors,
         ];
     }
 
     /**
      * Check if user can edit institution responses
      *
-     * @param User $user
      * @param mixed $institution
-     * @return bool
      */
     protected function canUserEditInstitutionResponse(User $user, $institution): bool
     {

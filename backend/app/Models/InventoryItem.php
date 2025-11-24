@@ -147,14 +147,14 @@ class InventoryItem extends Model
     public function scopeLowStock($query)
     {
         return $query->where('is_consumable', true)
-                    ->whereColumn('stock_quantity', '<=', 'min_stock_level');
+            ->whereColumn('stock_quantity', '<=', 'min_stock_level');
     }
 
     public function scopeWarrantyExpiring($query, $days = 30)
     {
         return $query->whereBetween('warranty_expiry', [
             now()->toDateString(),
-            now()->addDays($days)->toDateString()
+            now()->addDays($days)->toDateString(),
         ]);
     }
 
@@ -163,7 +163,7 @@ class InventoryItem extends Model
      */
     public function getCategoryLabelAttribute(): string
     {
-        return match($this->category) {
+        return match ($this->category) {
             'electronics' => 'Elektronika',
             'furniture' => 'Mebel',
             'books' => 'Kitablar',
@@ -185,7 +185,7 @@ class InventoryItem extends Model
 
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        return match ($this->status) {
             'available' => 'Mövcud',
             'in_use' => 'İstifadədə',
             'maintenance' => 'Təmirdə',
@@ -200,7 +200,7 @@ class InventoryItem extends Model
 
     public function getConditionLabelAttribute(): string
     {
-        return match($this->condition) {
+        return match ($this->condition) {
             'new' => 'Yeni',
             'excellent' => 'Əla',
             'good' => 'Yaxşı',
@@ -213,7 +213,7 @@ class InventoryItem extends Model
 
     public function getMaintenanceStatusAttribute(): string
     {
-        if (!$this->next_maintenance_date) {
+        if (! $this->next_maintenance_date) {
             return 'Planlaşdırılmayıb';
         }
 
@@ -223,14 +223,14 @@ class InventoryItem extends Model
             return 'Gecikmiş';
         } elseif ($daysUntilMaintenance <= 7) {
             return 'Yaxında';
-        } else {
-            return 'Planlaşdırılıb';
         }
+
+        return 'Planlaşdırılıb';
     }
 
     public function getWarrantyStatusAttribute(): string
     {
-        if (!$this->warranty_expiry) {
+        if (! $this->warranty_expiry) {
             return 'Məlum deyil';
         }
 
@@ -239,17 +239,17 @@ class InventoryItem extends Model
         }
 
         $daysUntilExpiry = now()->diffInDays($this->warranty_expiry);
-        
+
         if ($daysUntilExpiry <= 30) {
             return 'Bitir';
-        } else {
-            return 'Aktiv';
         }
+
+        return 'Aktiv';
     }
 
     public function getStockStatusAttribute(): string
     {
-        if (!$this->is_consumable) {
+        if (! $this->is_consumable) {
             return 'Tətbiq edilmir';
         }
 
@@ -257,9 +257,9 @@ class InventoryItem extends Model
             return 'Az';
         } elseif ($this->stock_quantity >= $this->max_stock_level) {
             return 'Çox';
-        } else {
-            return 'Normal';
         }
+
+        return 'Normal';
     }
 
     /**
@@ -277,19 +277,19 @@ class InventoryItem extends Model
 
     public function needsMaintenance(): bool
     {
-        return $this->next_maintenance_date && 
+        return $this->next_maintenance_date &&
                $this->next_maintenance_date->isPast();
     }
 
     public function isWarrantyExpiring($days = 30): bool
     {
-        return $this->warranty_expiry && 
+        return $this->warranty_expiry &&
                $this->warranty_expiry->isBetween(now(), now()->addDays($days));
     }
 
     public function isLowStock(): bool
     {
-        return $this->is_consumable && 
+        return $this->is_consumable &&
                $this->stock_quantity <= $this->min_stock_level;
     }
 
@@ -346,12 +346,12 @@ class InventoryItem extends Model
 
     public function updateStock($quantity, $operation = 'add'): bool
     {
-        if (!$this->is_consumable) {
+        if (! $this->is_consumable) {
             return false;
         }
 
-        $newQuantity = $operation === 'add' ? 
-            $this->stock_quantity + $quantity : 
+        $newQuantity = $operation === 'add' ?
+            $this->stock_quantity + $quantity :
             $this->stock_quantity - $quantity;
 
         return $this->update([
@@ -361,29 +361,29 @@ class InventoryItem extends Model
 
     public function calculateDepreciatedValue(): float
     {
-        if (!$this->purchase_price || !$this->purchase_date || !$this->depreciation_rate) {
+        if (! $this->purchase_price || ! $this->purchase_date || ! $this->depreciation_rate) {
             return $this->current_value ?: 0;
         }
 
         $monthsSincePurchase = $this->purchase_date->diffInMonths(now());
         $monthlyDepreciation = ($this->purchase_price * $this->depreciation_rate) / 12;
         $depreciatedAmount = $monthlyDepreciation * $monthsSincePurchase;
-        
+
         return max(0, $this->purchase_price - $depreciatedAmount);
     }
 
     private function calculateNextMaintenanceDate()
     {
         $schedule = $this->maintenance_schedule;
-        
-        if (!$schedule || !is_array($schedule) || !isset($schedule['frequency'])) {
-            return null;
+
+        if (! $schedule || ! is_array($schedule) || ! isset($schedule['frequency'])) {
+            return;
         }
 
         $frequency = $schedule['frequency'];
         $interval = $schedule['interval'] ?? 1;
 
-        return match($frequency) {
+        return match ($frequency) {
             'daily' => now()->addDays($interval),
             'weekly' => now()->addWeeks($interval),
             'monthly' => now()->addMonths($interval),
@@ -406,7 +406,7 @@ class InventoryItem extends Model
             return [
                 'user' => $transaction->user ? [
                     'id' => $transaction->user->id,
-                    'name' => $transaction->user->profile 
+                    'name' => $transaction->user->profile
                         ? "{$transaction->user->profile->first_name} {$transaction->user->profile->last_name}"
                         : $transaction->user->username,
                 ] : null,
@@ -431,7 +431,7 @@ class InventoryItem extends Model
                 'date' => $record->maintenance_date,
                 'technician' => $record->technician ? [
                     'id' => $record->technician->id,
-                    'name' => $record->technician->profile 
+                    'name' => $record->technician->profile
                         ? "{$record->technician->profile->first_name} {$record->technician->profile->last_name}"
                         : $record->technician->username,
                 ] : null,

@@ -177,7 +177,7 @@ class PsychologySession extends Model
     public function scopeUpcoming($query)
     {
         return $query->where('scheduled_date', '>=', now()->toDateString())
-                    ->where('status', 'scheduled');
+            ->where('status', 'scheduled');
     }
 
     public function scopeToday($query)
@@ -188,7 +188,7 @@ class PsychologySession extends Model
     public function scopeRequiresFollowUp($query)
     {
         return $query->where('follow_up_required', true)
-                    ->where('follow_up_date', '<=', now()->toDateString());
+            ->where('follow_up_date', '<=', now()->toDateString());
     }
 
     public function scopeHighPriority($query)
@@ -206,7 +206,7 @@ class PsychologySession extends Model
      */
     public function getStatusLabelAttribute(): string
     {
-        return match($this->status) {
+        $labels = [
             'draft' => 'Layihə',
             'scheduled' => 'Planlaşdırılıb',
             'in_progress' => 'Davam edir',
@@ -214,13 +214,14 @@ class PsychologySession extends Model
             'cancelled' => 'Ləğv edildi',
             'postponed' => 'Təxirə salındı',
             'no_show' => 'Gəlmədi',
-            default => 'Naməlum'
         ];
+
+        return $labels[$this->status] ?? 'Naməlum';
     }
 
     public function getSessionTypeLabelAttribute(): string
     {
-        return match($this->session_type) {
+        $labels = [
             'individual' => 'Fərdi',
             'group' => 'Qrup',
             'family' => 'Ailə',
@@ -228,13 +229,14 @@ class PsychologySession extends Model
             'assessment' => 'Qiymətləndirmə',
             'consultation' => 'Məsləhət',
             'follow_up' => 'İzləmə',
-            default => 'Digər'
         ];
+
+        return $labels[$this->session_type] ?? 'Digər';
     }
 
     public function getSessionCategoryLabelAttribute(): string
     {
-        return match($this->session_category) {
+        $labels = [
             'behavioral' => 'Davranış',
             'emotional' => 'Emosional',
             'academic' => 'Akademik',
@@ -247,35 +249,38 @@ class PsychologySession extends Model
             'autism' => 'Autizm',
             'learning_disability' => 'Öyrənmə çətinliyi',
             'other' => 'Digər',
-            default => 'Ümumi'
         ];
+
+        return $labels[$this->session_category] ?? 'Ümumi';
     }
 
     public function getPriorityLabelAttribute(): string
     {
-        return match($this->priority_level) {
+        $labels = [
             'low' => 'Aşağı',
             'medium' => 'Orta',
             'high' => 'Yüksək',
             'urgent' => 'Təcili',
-            default => 'Orta'
-        };
+        ];
+
+        return $labels[$this->priority_level] ?? 'Orta';
     }
 
     public function getConfidentialityLabelAttribute(): string
     {
-        return match($this->confidentiality_level) {
+        $labels = [
             'standard' => 'Standart',
             'high' => 'Yüksək',
             'restricted' => 'Məhdud',
             'confidential' => 'Konfidensiyal',
-            default => 'Standart'
-        };
+        ];
+
+        return $labels[$this->confidentiality_level] ?? 'Standart';
     }
 
     public function getSessionDurationAttribute(): string
     {
-        if (!$this->duration_minutes) {
+        if (! $this->duration_minutes) {
             return 'Məlum deyil';
         }
 
@@ -309,28 +314,28 @@ class PsychologySession extends Model
 
     public function isUpcoming(): bool
     {
-        return $this->scheduled_date && 
-               $this->scheduled_date->isFuture() && 
+        return $this->scheduled_date &&
+               $this->scheduled_date->isFuture() &&
                $this->isScheduled();
     }
 
     public function isToday(): bool
     {
-        return $this->scheduled_date && 
+        return $this->scheduled_date &&
                $this->scheduled_date->isToday();
     }
 
     public function isOverdue(): bool
     {
-        return $this->scheduled_date && 
-               $this->scheduled_date->isPast() && 
+        return $this->scheduled_date &&
+               $this->scheduled_date->isPast() &&
                $this->isScheduled();
     }
 
     public function requiresFollowUp(): bool
     {
-        return $this->follow_up_required && 
-               $this->follow_up_date && 
+        return $this->follow_up_required &&
+               $this->follow_up_date &&
                $this->follow_up_date->isPast();
     }
 
@@ -425,6 +430,7 @@ class PsychologySession extends Model
     public function getActiveGoals(): array
     {
         $goals = $this->goals_set ?? [];
+
         return array_filter($goals, function ($goal) {
             return ($goal['status'] ?? 'active') === 'active';
         });
@@ -433,6 +439,7 @@ class PsychologySession extends Model
     public function getAchievedGoals(): array
     {
         $goals = $this->goals_set ?? [];
+
         return array_filter($goals, function ($goal) {
             return ($goal['status'] ?? 'active') === 'achieved';
         });
@@ -442,7 +449,7 @@ class PsychologySession extends Model
     {
         $totalGoals = count($this->goals_set ?? []);
         $achievedGoals = count($this->getAchievedGoals());
-        
+
         return [
             'total_goals' => $totalGoals,
             'achieved_goals' => $achievedGoals,

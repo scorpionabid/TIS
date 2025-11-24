@@ -2,16 +2,16 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\ResponseHelpers;
+use App\Http\Traits\ValidationRules;
 use App\Models\Survey;
 use App\Services\SurveyBulkService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use App\Http\Traits\ValidationRules;
-use App\Http\Traits\ResponseHelpers;
+use Illuminate\Http\Request;
 
 class SurveyBulkController extends Controller
 {
-    use ValidationRules, ResponseHelpers;
+    use ResponseHelpers, ValidationRules;
 
     protected SurveyBulkService $bulkService;
 
@@ -27,7 +27,7 @@ class SurveyBulkController extends Controller
     {
         $validated = $request->validate([
             'survey_ids' => 'required|array|min:1',
-            'survey_ids.*' => 'required|integer|exists:surveys,id'
+            'survey_ids.*' => 'required|integer|exists:surveys,id',
         ]);
 
         try {
@@ -47,7 +47,7 @@ class SurveyBulkController extends Controller
     {
         $validated = $request->validate([
             'survey_ids' => 'required|array|min:1',
-            'survey_ids.*' => 'required|integer|exists:surveys,id'
+            'survey_ids.*' => 'required|integer|exists:surveys,id',
         ]);
 
         try {
@@ -67,7 +67,7 @@ class SurveyBulkController extends Controller
     {
         $validated = $request->validate([
             'survey_ids' => 'required|array|min:1',
-            'survey_ids.*' => 'required|integer|exists:surveys,id'
+            'survey_ids.*' => 'required|integer|exists:surveys,id',
         ]);
 
         try {
@@ -88,13 +88,13 @@ class SurveyBulkController extends Controller
         $validated = $request->validate([
             'survey_ids' => 'required|array|min:1',
             'survey_ids.*' => 'required|integer|exists:surveys,id',
-            'confirm' => 'sometimes|boolean'
+            'confirm' => 'sometimes|boolean',
         ]);
 
         try {
             $this->bulkService->validateBulkOperation($validated['survey_ids'], 'delete');
             $result = $this->bulkService->bulkDelete(
-                $validated['survey_ids'], 
+                $validated['survey_ids'],
                 $validated['confirm'] ?? false
             );
 
@@ -117,13 +117,13 @@ class SurveyBulkController extends Controller
             'settings.is_anonymous' => 'sometimes|boolean',
             'settings.allow_multiple_responses' => 'sometimes|boolean',
             'settings.requires_login' => 'sometimes|boolean',
-            'settings.auto_close_on_max' => 'sometimes|boolean'
+            'settings.auto_close_on_max' => 'sometimes|boolean',
         ]);
 
         try {
             $this->bulkService->validateBulkOperation($validated['survey_ids'], 'update_settings');
             $result = $this->bulkService->bulkUpdateSettings(
-                $validated['survey_ids'], 
+                $validated['survey_ids'],
                 $validated['settings']
             );
 
@@ -141,12 +141,12 @@ class SurveyBulkController extends Controller
         $validated = $request->validate([
             'survey_ids' => 'required|array|min:1',
             'survey_ids.*' => 'required|integer|exists:surveys,id',
-            'operation' => 'required|string|in:publish,close,archive,delete,update_settings'
+            'operation' => 'required|string|in:publish,close,archive,delete,update_settings',
         ]);
 
         try {
             $preview = $this->bulkService->getOperationPreview(
-                $validated['survey_ids'], 
+                $validated['survey_ids'],
                 $validated['operation']
             );
 
@@ -163,6 +163,7 @@ class SurveyBulkController extends Controller
     {
         try {
             $statistics = $this->bulkService->getStatistics();
+
             return $this->successResponse($statistics, 'Bulk operation statistics retrieved');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);

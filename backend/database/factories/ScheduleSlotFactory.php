@@ -2,9 +2,9 @@
 
 namespace Database\Factories;
 
-use App\Models\ScheduleSlot;
-use App\Models\Schedule;
 use App\Models\Classes;
+use App\Models\Schedule;
+use App\Models\ScheduleSlot;
 use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -30,7 +30,7 @@ class ScheduleSlotFactory extends Factory
     {
         $dayOfWeek = $this->faker->numberBetween(1, 5); // Monday to Friday
         $periodNumber = $this->faker->numberBetween(1, 6);
-        
+
         // Generate start and end times based on period
         $startHour = 7 + $periodNumber; // Starting from 8 AM
         $startTime = sprintf('%02d:00', $startHour);

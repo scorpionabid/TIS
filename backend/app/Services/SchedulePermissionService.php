@@ -2,9 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Schedule;
 use App\Models\Institution;
-use App\Services\BaseService;
+use App\Models\Schedule;
 use Illuminate\Database\Eloquent\Builder;
 
 class SchedulePermissionService extends BaseService
@@ -24,6 +23,7 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 2) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return $query->whereIn('institution_id', $childInstitutionIds);
             }
         }
@@ -33,6 +33,7 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 3) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return $query->whereIn('institution_id', $childInstitutionIds);
             }
         }
@@ -70,6 +71,7 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 2) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return in_array($schedule->institution_id, $childInstitutionIds);
             }
         }
@@ -78,12 +80,14 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 3) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return in_array($schedule->institution_id, $childInstitutionIds);
             }
         }
 
         if ($user->hasAnyRole(['schooladmin', 'teacher'])) {
             $userInstitution = $user->institution;
+
             return $userInstitution && $schedule->institution_id == $userInstitution->id;
         }
 
@@ -108,6 +112,7 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 2) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return in_array($schedule->institution_id, $childInstitutionIds);
             }
         }
@@ -116,12 +121,14 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 3) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return in_array($schedule->institution_id, $childInstitutionIds);
             }
         }
 
         if ($user->hasRole('schooladmin')) {
             $userInstitution = $user->institution;
+
             return $userInstitution && $schedule->institution_id == $userInstitution->id;
         }
 
@@ -146,6 +153,7 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 2) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return in_array($schedule->institution_id, $childInstitutionIds);
             }
         }
@@ -154,12 +162,14 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 3) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return in_array($schedule->institution_id, $childInstitutionIds);
             }
         }
 
         if ($user->hasRole('schooladmin')) {
             $userInstitution = $user->institution;
+
             return $userInstitution && $schedule->institution_id == $userInstitution->id;
         }
 
@@ -171,7 +181,7 @@ class SchedulePermissionService extends BaseService
      */
     public function canGenerateSchedule($user, ?int $institutionId = null): bool
     {
-        if (!$user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'])) {
+        if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'])) {
             return false;
         }
 
@@ -181,7 +191,7 @@ class SchedulePermissionService extends BaseService
 
         if ($institutionId) {
             $institution = Institution::find($institutionId);
-            if (!$institution) {
+            if (! $institution) {
                 return false;
             }
 
@@ -189,6 +199,7 @@ class SchedulePermissionService extends BaseService
                 $userInstitution = $user->institution;
                 if ($userInstitution && $userInstitution->level == 2) {
                     $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                     return in_array($institutionId, $childInstitutionIds);
                 }
             }
@@ -197,12 +208,14 @@ class SchedulePermissionService extends BaseService
                 $userInstitution = $user->institution;
                 if ($userInstitution && $userInstitution->level == 3) {
                     $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                     return in_array($institutionId, $childInstitutionIds);
                 }
             }
 
             if ($user->hasRole('schooladmin')) {
                 $userInstitution = $user->institution;
+
                 return $userInstitution && $institutionId == $userInstitution->id;
             }
         }
@@ -228,6 +241,7 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 2) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return in_array($schedule->institution_id, $childInstitutionIds);
             }
         }
@@ -236,6 +250,7 @@ class SchedulePermissionService extends BaseService
             $userInstitution = $user->institution;
             if ($userInstitution && $userInstitution->level == 3) {
                 $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                 return in_array($schedule->institution_id, $childInstitutionIds);
             }
         }
@@ -257,7 +272,7 @@ class SchedulePermissionService extends BaseService
      */
     public function canExportSchedule($user, ?int $institutionId = null): bool
     {
-        if (!$user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'teacher'])) {
+        if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'teacher'])) {
             return false;
         }
 
@@ -267,7 +282,7 @@ class SchedulePermissionService extends BaseService
 
         if ($institutionId) {
             $institution = Institution::find($institutionId);
-            if (!$institution) {
+            if (! $institution) {
                 return false;
             }
 
@@ -275,6 +290,7 @@ class SchedulePermissionService extends BaseService
                 $userInstitution = $user->institution;
                 if ($userInstitution && $userInstitution->level == 2) {
                     $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                     return in_array($institutionId, $childInstitutionIds);
                 }
             }
@@ -283,12 +299,14 @@ class SchedulePermissionService extends BaseService
                 $userInstitution = $user->institution;
                 if ($userInstitution && $userInstitution->level == 3) {
                     $childInstitutionIds = $userInstitution->getAllChildrenIds();
+
                     return in_array($institutionId, $childInstitutionIds);
                 }
             }
 
             if ($user->hasAnyRole(['schooladmin', 'teacher'])) {
                 $userInstitution = $user->institution;
+
                 return $userInstitution && $institutionId == $userInstitution->id;
             }
         }
@@ -321,6 +339,7 @@ class SchedulePermissionService extends BaseService
 
         if ($user->hasAnyRole(['schooladmin', 'teacher'])) {
             $userInstitution = $user->institution;
+
             return $userInstitution ? [$userInstitution->id] : [];
         }
 
@@ -333,6 +352,7 @@ class SchedulePermissionService extends BaseService
     public function canAccessInstitution($user, int $institutionId): bool
     {
         $accessibleInstitutions = $this->getAccessibleInstitutions($user);
+
         return in_array($institutionId, $accessibleInstitutions);
     }
 
@@ -350,8 +370,8 @@ class SchedulePermissionService extends BaseService
             'user_institution' => $user->institution ? [
                 'id' => $user->institution->id,
                 'name' => $user->institution->name,
-                'level' => $user->institution->level
-            ] : null
+                'level' => $user->institution->level,
+            ] : null,
         ];
     }
 

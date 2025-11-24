@@ -21,7 +21,7 @@ return new class extends Migration
             $table->integer('progress_percentage')->default(0);
             $table->text('notes')->nullable();
             $table->timestamps();
-            
+
             $table->index(['task_id', 'created_at']);
         });
 
@@ -34,7 +34,7 @@ return new class extends Migration
             $table->boolean('is_read')->default(false);
             $table->text('message')->nullable();
             $table->timestamps();
-            
+
             $table->index(['user_id', 'is_read']);
             $table->index(['task_id', 'notification_type']);
         });
@@ -51,7 +51,7 @@ return new class extends Migration
             $table->foreignId('created_by')->constrained('users')->onDelete('cascade');
             $table->boolean('is_active')->default(true);
             $table->timestamps();
-            
+
             $table->index(['created_by', 'is_active']);
             $table->index('category');
         });
@@ -70,7 +70,7 @@ return new class extends Migration
             $table->decimal('average_completion_days', 5, 2)->default(0);
             $table->json('category_breakdown')->nullable();
             $table->timestamps();
-            
+
             $table->index(['institution_id', 'report_period']);
             $table->index(['period_start', 'period_end']);
         });
@@ -82,7 +82,7 @@ return new class extends Migration
             $table->foreignId('depends_on_task_id')->constrained('tasks')->onDelete('cascade');
             $table->enum('dependency_type', ['blocks', 'requires'])->default('requires');
             $table->timestamps();
-            
+
             $table->unique(['task_id', 'depends_on_task_id']);
         });
 
@@ -96,7 +96,7 @@ return new class extends Migration
             $table->boolean('can_cascade_to_children')->default(true); // Can assign to child institutions
             $table->integer('max_target_count')->default(50); // Max number of targets per task
             $table->timestamps();
-            
+
             $table->index(['creator_role', 'target_scope']);
         });
 
@@ -115,7 +115,7 @@ return new class extends Migration
             $table->timestamp('completed_at')->nullable();
             $table->json('completion_data')->nullable(); // Structured completion response
             $table->timestamps();
-            
+
             $table->index(['task_id', 'assignment_status']);
             $table->index(['institution_id', 'assigned_role']);
             $table->index(['assigned_user_id', 'assignment_status']);

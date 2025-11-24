@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Institution;
 use App\Models\Department;
+use App\Models\Institution;
 use Illuminate\Http\Request;
 
 class DepartmentService
@@ -49,14 +49,14 @@ class DepartmentService
         $query->orderBy($sortBy, $sortDirection);
 
         // Return as hierarchy or paginated list
-        if ($request->boolean('hierarchy') && !$request->filled('parent_id')) {
+        if ($request->boolean('hierarchy') && ! $request->filled('parent_id')) {
             $departments = $query->whereNull('parent_department_id')->get();
             $this->loadDepartmentHierarchy($departments);
-            
+
             return $this->formatDepartmentHierarchy($departments);
-        } else {
-            return $query->paginate($request->per_page ?? 15);
         }
+
+        return $query->paginate($request->per_page ?? 15);
     }
 
     /**
@@ -69,14 +69,14 @@ class DepartmentService
             ->where('is_active', true)
             ->first();
 
-        if (!$institution) {
+        if (! $institution) {
             throw new \Exception('Təşkilat tapılmadı və ya aktiv deyil.');
         }
 
         // Ensure department type is allowed
-        if (!empty($validatedData['department_type'])) {
+        if (! empty($validatedData['department_type'])) {
             $allowedTypes = Department::getAllowedTypesForInstitution($institution->type);
-            if (!in_array($validatedData['department_type'], $allowedTypes)) {
+            if (! in_array($validatedData['department_type'], $allowedTypes)) {
                 throw new \Exception('Departament növü bu təşkilat üçün uyğun deyil.');
             }
         }
@@ -84,7 +84,7 @@ class DepartmentService
         // Ensure parent belongs to same institution
         if (isset($validatedData['parent_department_id'])) {
             $parent = Department::find($validatedData['parent_department_id']);
-            if (!$parent || $parent->institution_id !== $validatedData['institution_id']) {
+            if (! $parent || $parent->institution_id !== $validatedData['institution_id']) {
                 throw new \Exception('Yanlış ana departament seçilmişdir.');
             }
         }
@@ -100,7 +100,7 @@ class DepartmentService
         // Validate department type against institution type
         if (isset($validatedData['department_type'])) {
             $allowedTypes = Department::getAllowedTypesForInstitution($department->institution->type);
-            if (!in_array($validatedData['department_type'], $allowedTypes)) {
+            if (! in_array($validatedData['department_type'], $allowedTypes)) {
                 throw new \Exception('Departament növü bu təşkilat üçün uyğun deyil.');
             }
         }
@@ -109,7 +109,7 @@ class DepartmentService
         if (array_key_exists('parent_department_id', $validatedData)) {
             if ($validatedData['parent_department_id']) {
                 $parent = Department::find($validatedData['parent_department_id']);
-                if (!$parent || $parent->institution_id !== $department->institution_id) {
+                if (! $parent || $parent->institution_id !== $department->institution_id) {
                     throw new \Exception('Yanlış ana departament seçilmişdir.');
                 }
             }
@@ -137,7 +137,7 @@ class DepartmentService
 
         $department->update(['is_active' => false]);
 
-        if (!$department->trashed()) {
+        if (! $department->trashed()) {
             $department->delete();
         }
 
@@ -158,9 +158,9 @@ class DepartmentService
                 'root' => (clone $baseQuery)->whereNull('parent_department_id')->count(),
                 'child' => (clone $baseQuery)->whereNotNull('parent_department_id')->count(),
             ],
-            'total_users' => \App\Models\User::whereIn('department_id', 
+            'total_users' => \App\Models\User::whereIn('department_id',
                 (clone $baseQuery)->pluck('id'))->count(),
-            'active_users' => \App\Models\User::whereIn('department_id', 
+            'active_users' => \App\Models\User::whereIn('department_id',
                 (clone $baseQuery)->pluck('id'))->where('is_active', true)->count(),
         ];
     }
@@ -193,10 +193,9 @@ class DepartmentService
                 'children_count' => $department->children->count(),
                 'users_count' => $department->users_count ?? 0,
                 'active_users_count' => $department->active_users_count ?? 0,
-                'children' => $department->children->isNotEmpty() ? 
+                'children' => $department->children->isNotEmpty() ?
                     $this->formatDepartmentHierarchy($department->children) : [],
             ];
         })->toArray();
     }
-
 }

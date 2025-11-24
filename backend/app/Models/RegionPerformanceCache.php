@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class RegionPerformanceCache extends Model
 {
@@ -64,7 +64,7 @@ class RegionPerformanceCache extends Model
      */
     public function isValid(): bool
     {
-        return !$this->isExpired();
+        return ! $this->isExpired();
     }
 
     /**
@@ -73,6 +73,7 @@ class RegionPerformanceCache extends Model
     public static function generateCacheKey(int $regionId, ?Carbon $date = null): string
     {
         $date = $date ?? now();
+
         return "region_performance_{$regionId}_{$date->format('Y_m_d')}";
     }
 
@@ -83,7 +84,7 @@ class RegionPerformanceCache extends Model
     {
         $date = $date ?? now();
         $cacheKey = self::generateCacheKey($regionId, $date);
-        
+
         return self::firstOrNew(
             ['cache_key' => $cacheKey],
             [
@@ -110,35 +111,35 @@ class RegionPerformanceCache extends Model
     public function getFormattedPerformanceDistribution(): array
     {
         $distribution = $this->performance_distribution ?? [];
-        
+
         return [
             'excellent' => [
                 'count' => $distribution['excellent'] ?? 0,
                 'label' => 'Əla (90-100%)',
-                'percentage' => $this->total_institutions > 0 
+                'percentage' => $this->total_institutions > 0
                     ? round((($distribution['excellent'] ?? 0) / $this->total_institutions) * 100, 1)
-                    : 0
+                    : 0,
             ],
             'good' => [
                 'count' => $distribution['good'] ?? 0,
                 'label' => 'Yaxşı (80-89%)',
-                'percentage' => $this->total_institutions > 0 
+                'percentage' => $this->total_institutions > 0
                     ? round((($distribution['good'] ?? 0) / $this->total_institutions) * 100, 1)
-                    : 0
+                    : 0,
             ],
             'average' => [
                 'count' => $distribution['average'] ?? 0,
                 'label' => 'Orta (70-79%)',
-                'percentage' => $this->total_institutions > 0 
+                'percentage' => $this->total_institutions > 0
                     ? round((($distribution['average'] ?? 0) / $this->total_institutions) * 100, 1)
-                    : 0
+                    : 0,
             ],
             'poor' => [
                 'count' => $distribution['poor'] ?? 0,
                 'label' => 'Zəif (0-69%)',
-                'percentage' => $this->total_institutions > 0 
+                'percentage' => $this->total_institutions > 0
                     ? round((($distribution['poor'] ?? 0) / $this->total_institutions) * 100, 1)
-                    : 0
+                    : 0,
             ],
         ];
     }

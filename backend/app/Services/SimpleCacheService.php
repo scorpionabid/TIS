@@ -2,19 +2,22 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Cache;
+use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Models\Institution;
 use App\Models\User;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class SimpleCacheService
 {
     private const CACHE_PREFIX = 'survey_response_approval:';
+
     private const DEFAULT_TTL = 300; // 5 minutes
+
     private const STATS_TTL = 60; // 1 minute for stats
+
     private const USER_PERMISSIONS_TTL = 600; // 10 minutes
+
     private const INSTITUTIONS_TTL = 1800; // 30 minutes
 
     /**
@@ -33,11 +36,11 @@ class SimpleCacheService
     public function getCachedResponsesList(Survey $survey, array $filters, User $user)
     {
         $cacheKey = $this->getResponsesListCacheKey($survey->id, $filters, $user->id);
-        
+
         // Check if cache exists and is fresh
         $timestamp = Cache::get("{$cacheKey}:timestamp");
         if ($timestamp && (now()->timestamp - $timestamp) > self::DEFAULT_TTL) {
-            return null; // Cache is stale
+            return; // Cache is stale
         }
 
         return Cache::get($cacheKey);
@@ -58,6 +61,7 @@ class SimpleCacheService
     public function getCachedApprovalStats(Survey $survey, User $user): ?array
     {
         $cacheKey = $this->getStatssCacheKey($survey->id, $user->id);
+
         return Cache::get($cacheKey);
     }
 
@@ -76,6 +80,7 @@ class SimpleCacheService
     public function getCachedUserPermissions(User $user): ?array
     {
         $cacheKey = "user_permissions:{$user->id}";
+
         return Cache::get($cacheKey);
     }
 
@@ -85,7 +90,7 @@ class SimpleCacheService
     public function cacheInstitutionsHierarchy(): void
     {
         $institutions = Institution::select([
-            'id', 'name', 'type', 'level', 'parent_id'
+            'id', 'name', 'type', 'level', 'parent_id',
         ])->orderBy('level')->orderBy('name')->get()->toArray();
 
         Cache::put('institutions:hierarchy', $institutions, self::INSTITUTIONS_TTL);
@@ -126,6 +131,7 @@ class SimpleCacheService
     public function getCachedResponseDetails(int $responseId): ?array
     {
         $cacheKey = "response_details:{$responseId}";
+
         return Cache::get($cacheKey);
     }
 
@@ -152,7 +158,7 @@ class SimpleCacheService
     {
         // Clear specific response cache
         Cache::forget("response_details:{$response->id}");
-        
+
         // Clear survey-related caches - we'll need to clear all survey caches
         // since file cache doesn't support tags
         $this->clearSurveyCacheGroup($response->survey_id);
@@ -192,14 +198,14 @@ class SimpleCacheService
         try {
             // Cache institutions hierarchy
             $this->cacheInstitutionsHierarchy();
-            
+
             // Cache published surveys
             $publishedSurveys = Survey::where('status', 'published')
                 ->where('end_date', '>=', now())
                 ->select(['id', 'title', 'description', 'start_date', 'end_date', 'target_institutions'])
                 ->get()->toArray();
             $this->cachePublishedSurveys($publishedSurveys);
-            
+
             \Log::info('Survey response caches warmed up successfully');
         } catch (\Exception $e) {
             \Log::error('Failed to warm up caches: ' . $e->getMessage());
@@ -215,7 +221,7 @@ class SimpleCacheService
             'cache_driver' => 'file',
             'cached_surveys' => Cache::has('surveys:published') ? 'cached' : 'not_cached',
             'cached_institutions' => Cache::has('institutions:hierarchy') ? 'cached' : 'not_cached',
-            'status' => 'active'
+            'status' => 'active',
         ];
     }
 
@@ -226,18 +232,18 @@ class SimpleCacheService
     {
         $patterns = [
             'survey_response_approval:*',
-            'approval_stats_*', 
+            'approval_stats_*',
             'response_details:*',
             'user_permissions:*',
             'surveys:*',
-            'institutions:*'
+            'institutions:*',
         ];
 
         // For file cache, we need to manually clear known keys
         Cache::forget('surveys:published');
         Cache::forget('institutions:hierarchy');
         Cache::forget('institutions:types');
-        
+
         \Log::info('All survey response caches cleared');
     }
 
@@ -247,6 +253,7 @@ class SimpleCacheService
     private function getResponsesListCacheKey(int $surveyId, array $filters, int $userId): string
     {
         $filterHash = md5(serialize($filters));
+
         return self::CACHE_PREFIX . "responses:{$surveyId}:{$userId}:{$filterHash}";
     }
 
@@ -263,7 +270,7 @@ class SimpleCacheService
      */
     private function clearSurveyCacheGroup(int $surveyId): void
     {
-        // Since we can't use patterns with file cache, 
+        // Since we can't use patterns with file cache,
         // we'll log the cache clear request
         \Log::info("Cache invalidation requested for survey: {$surveyId}");
     }
@@ -276,12 +283,12 @@ class SimpleCacheService
         $stats = [
             'surveys' => [
                 'label' => 'Surveys',
-                'status' => Cache::has('surveys:published') ? 'active' : 'inactive'
+                'status' => Cache::has('surveys:published') ? 'active' : 'inactive',
             ],
             'institutions' => [
-                'label' => 'Institutions', 
-                'status' => Cache::has('institutions:hierarchy') ? 'active' : 'inactive'
-            ]
+                'label' => 'Institutions',
+                'status' => Cache::has('institutions:hierarchy') ? 'active' : 'inactive',
+            ],
         ];
 
         return $stats;

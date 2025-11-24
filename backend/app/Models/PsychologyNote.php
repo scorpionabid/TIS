@@ -110,7 +110,7 @@ class PsychologyNote extends Model
      */
     public function getNoteTypeLabelAttribute(): string
     {
-        return match($this->note_type) {
+        $labels = [
             'observation' => 'Müşahidə',
             'intervention' => 'Müdaxilə',
             'assessment' => 'Qiymətləndirmə',
@@ -119,19 +119,21 @@ class PsychologyNote extends Model
             'recommendation' => 'Tövsiyə',
             'follow_up' => 'İzləmə',
             'summary' => 'Xülasə',
-            default => 'Qeyd'
         ];
+
+        return $labels[$this->note_type] ?? 'Qeyd';
     }
 
     public function getConfidentialityLabelAttribute(): string
     {
-        return match($this->confidentiality_level) {
+        $labels = [
             'standard' => 'Standart',
             'high' => 'Yüksək',
             'restricted' => 'Məhdud',
             'confidential' => 'Konfidensiyal',
-            default => 'Standart'
-        };
+        ];
+
+        return $labels[$this->confidentiality_level] ?? 'Standart';
     }
 
     /**
@@ -160,7 +162,7 @@ class PsychologyNote extends Model
     public function addTag($tag): void
     {
         $tags = $this->tags ?? [];
-        if (!in_array($tag, $tags)) {
+        if (! in_array($tag, $tags)) {
             $tags[] = $tag;
             $this->update(['tags' => $tags]);
         }

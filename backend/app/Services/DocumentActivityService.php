@@ -4,11 +4,8 @@ namespace App\Services;
 
 use App\Models\Document;
 use App\Models\DocumentAccessLog;
-use App\Services\BaseService;
-use App\Services\DocumentPermissionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
 
 class DocumentActivityService extends BaseService
 {
@@ -25,12 +22,12 @@ class DocumentActivityService extends BaseService
     public function getTrackingActivity(Request $request, $user): array
     {
         $filters = $request->only(['action', 'date_from', 'date_to', 'institution_id', 'user_id', 'document_id']);
-        
+
         $query = DocumentAccessLog::query()
             ->with([
-                'document:id,title,original_filename', 
-                'user:id,first_name,last_name', 
-                'institution:id,name'
+                'document:id,title,original_filename',
+                'user:id,first_name,last_name',
+                'institution:id,name',
             ])
             ->orderByDesc('created_at');
 
@@ -46,7 +43,7 @@ class DocumentActivityService extends BaseService
         return [
             'activities' => $activities,
             'statistics' => $this->getActivityStatistics($query->clone(), $user),
-            'filters_applied' => array_filter($filters)
+            'filters_applied' => array_filter($filters),
         ];
     }
 
@@ -56,7 +53,7 @@ class DocumentActivityService extends BaseService
     public function getDocumentHistory(Document $document, Request $request, $user): array
     {
         // Check access permissions
-        if (!$this->permissionService->canUserAccessDocument($user, $document)) {
+        if (! $this->permissionService->canUserAccessDocument($user, $document)) {
             throw new \Exception('Bu sənədə giriş icazəniz yoxdur.');
         }
 
@@ -70,14 +67,14 @@ class DocumentActivityService extends BaseService
         return [
             'document' => $document,
             'history' => $history,
-            'summary' => $this->getDocumentActivitySummary($document)
+            'summary' => $this->getDocumentActivitySummary($document),
         ];
     }
 
     /**
      * Log document activity
      */
-    public function logActivity(Document $document, $user, string $action, Request $request = null): void
+    public function logActivity(Document $document, $user, string $action, ?Request $request = null): void
     {
         try {
             $activityData = [
@@ -86,7 +83,7 @@ class DocumentActivityService extends BaseService
                 'access_type' => $action,
                 'ip_address' => $request ? $request->ip() : null,
                 'user_agent' => $request ? $request->userAgent() : null,
-                'access_metadata' => $this->prepareActivityMetadata($document, $user, $action, $request)
+                'access_metadata' => $this->prepareActivityMetadata($document, $user, $action, $request),
             ];
 
             DocumentAccessLog::create($activityData);
@@ -109,14 +106,14 @@ class DocumentActivityService extends BaseService
     public function getActivityStatistics($query, $user): array
     {
         $baseQuery = $query instanceof \Illuminate\Database\Query\Builder ? $query : $query->getQuery();
-        
+
         return [
             'total_activities' => $baseQuery->count(),
             'recent_activities' => $baseQuery->where('created_at', '>=', now()->subHours(24))->count(),
             'by_action' => $this->getActivityByAction($baseQuery),
             'by_date' => $this->getActivityByDate($baseQuery),
             'top_documents' => $this->getTopAccessedDocuments($baseQuery),
-            'top_users' => $this->getTopActiveUsers($baseQuery)
+            'top_users' => $this->getTopActiveUsers($baseQuery),
         ];
     }
 
@@ -153,7 +150,7 @@ class DocumentActivityService extends BaseService
             'last_activity' => DocumentAccessLog::where('document_id', $document->id)
                 ->latest('created_at')
                 ->value('created_at'),
-            'most_active_users' => $this->getMostActiveUsersForDocument($document->id)
+            'most_active_users' => $this->getMostActiveUsersForDocument($document->id),
         ];
     }
 
@@ -163,20 +160,20 @@ class DocumentActivityService extends BaseService
     public function getActivityTrends(array $filters, $user): array
     {
         $query = DocumentAccessLog::query();
-        
+
         // Apply filters
         $this->applyActivityFilters($query, $filters);
-        
+
         // Apply access control
         $this->applyActivityAccessControl($query, $user);
 
         $period = $filters['period'] ?? 'week';
-        
+
         return [
             'daily_trends' => $this->getDailyActivityTrends($query->clone(), $period),
             'action_trends' => $this->getActionTrends($query->clone(), $period),
             'user_engagement' => $this->getUserEngagementTrends($query->clone(), $period),
-            'peak_hours' => $this->getPeakActivityHours($query->clone())
+            'peak_hours' => $this->getPeakActivityHours($query->clone()),
         ];
     }
 
@@ -191,7 +188,7 @@ class DocumentActivityService extends BaseService
                 DB::raw('COUNT(*) as total_access'),
                 DB::raw('COUNT(DISTINCT user_id) as unique_users'),
                 DB::raw("COUNT(CASE WHEN access_type = 'download' THEN 1 END) as downloads"),
-                DB::raw('MAX(created_at) as last_access')
+                DB::raw('MAX(created_at) as last_access'),
             ])
             ->with('document:id,title,original_filename,file_size,created_at')
             ->groupBy('document_id')
@@ -199,7 +196,7 @@ class DocumentActivityService extends BaseService
 
         // Apply filters
         $this->applyActivityFilters($query, $filters);
-        
+
         // Apply access control
         $this->applyActivityAccessControl($query, $user);
 
@@ -211,8 +208,8 @@ class DocumentActivityService extends BaseService
             'statistics' => [
                 'total_documents_accessed' => $popularDocuments->count(),
                 'total_access_count' => $popularDocuments->sum('total_access'),
-                'average_access_per_document' => $popularDocuments->avg('total_access')
-            ]
+                'average_access_per_document' => $popularDocuments->avg('total_access'),
+            ],
         ];
     }
 
@@ -225,13 +222,13 @@ class DocumentActivityService extends BaseService
             ->with([
                 'document:id,title,original_filename',
                 'user:id,first_name,last_name,email',
-                'institution:id,name'
+                'institution:id,name',
             ])
             ->orderByDesc('created_at');
 
         // Apply filters
         $this->applyActivityFilters($query, $filters);
-        
+
         // Apply access control
         $this->applyActivityAccessControl($query, $user);
 
@@ -252,29 +249,29 @@ class DocumentActivityService extends BaseService
      */
     private function applyActivityFilters($query, array $filters): void
     {
-        if (!empty($filters['action'])) {
+        if (! empty($filters['action'])) {
             $query->where('access_type', $filters['action']);
         }
 
-        if (!empty($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->whereDate('created_at', '>=', $filters['date_from']);
         }
 
-        if (!empty($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->whereDate('created_at', '<=', $filters['date_to']);
         }
 
-        if (!empty($filters['institution_id'])) {
+        if (! empty($filters['institution_id'])) {
             $query->whereHas('document', function ($docQuery) use ($filters) {
                 $docQuery->where('institution_id', $filters['institution_id']);
             });
         }
 
-        if (!empty($filters['user_id'])) {
+        if (! empty($filters['user_id'])) {
             $query->where('user_id', $filters['user_id']);
         }
 
-        if (!empty($filters['document_id'])) {
+        if (! empty($filters['document_id'])) {
             $query->where('document_id', $filters['document_id']);
         }
     }
@@ -300,7 +297,7 @@ class DocumentActivityService extends BaseService
                     $docQuery->whereIn('institution_id', $institutionIds);
                 });
                 break;
-                
+
             case 'sektoradmin':
                 // Sector admins can see activities in their sector
                 $institutionIds = $this->permissionService->getUserAccessibleInstitutions($user);
@@ -308,7 +305,7 @@ class DocumentActivityService extends BaseService
                     $docQuery->whereIn('institution_id', $institutionIds);
                 });
                 break;
-                
+
             case 'schooladmin':
             case 'məktəbadmin':
                 // School admins can only see activities in their institution
@@ -316,7 +313,7 @@ class DocumentActivityService extends BaseService
                     $docQuery->where('institution_id', $userInstitutionId);
                 });
                 break;
-                
+
             default:
                 // Regular users can only see their own activities
                 $query->where('user_id', $user->id);
@@ -398,13 +395,13 @@ class DocumentActivityService extends BaseService
     /**
      * Prepare activity metadata
      */
-    private function prepareActivityMetadata(Document $document, $user, string $action, Request $request = null): array
+    private function prepareActivityMetadata(Document $document, $user, string $action, ?Request $request = null): array
     {
         $metadata = [
             'document_title' => $document->title,
             'document_size' => $document->file_size,
             'user_role' => $user->roles->first()?->name,
-            'action_timestamp' => now()->toISOString()
+            'action_timestamp' => now()->toISOString(),
         ];
 
         if ($request) {
@@ -441,7 +438,7 @@ class DocumentActivityService extends BaseService
     private function getDailyActivityTrends($query, string $period): array
     {
         $days = $this->getPeriodDays($period);
-        
+
         return $query
             ->select(DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
             ->where('created_at', '>=', now()->subDays($days))
@@ -457,7 +454,7 @@ class DocumentActivityService extends BaseService
     private function getActionTrends($query, string $period): array
     {
         $days = $this->getPeriodDays($period);
-        
+
         return $query
             ->select('access_type', DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
             ->where('created_at', '>=', now()->subDays($days))
@@ -474,7 +471,7 @@ class DocumentActivityService extends BaseService
     private function getUserEngagementTrends($query, string $period): array
     {
         $days = $this->getPeriodDays($period);
-        
+
         return $query
             ->select(
                 DB::raw('DATE(created_at) as date'),
@@ -535,10 +532,10 @@ class DocumentActivityService extends BaseService
                 '"' . ($activity->document->title ?? '') . '"',
                 '"' . ($activity->user->first_name ?? '') . ' ' . ($activity->user->last_name ?? '') . '"',
                 '"' . ($activity->institution->name ?? '') . '"',
-                $activity->ip_address ?? ''
+                $activity->ip_address ?? '',
             ]) . "\n";
         }
-        
+
         return $csv;
     }
 
@@ -555,14 +552,14 @@ class DocumentActivityService extends BaseService
                 'document' => $activity->document->title ?? '',
                 'user' => ($activity->user->first_name ?? '') . ' ' . ($activity->user->last_name ?? ''),
                 'institution' => $activity->institution->name ?? '',
-                'ip_address' => $activity->ip_address ?? ''
+                'ip_address' => $activity->ip_address ?? '',
             ];
         });
 
         return json_encode([
             'exported_at' => now()->toISOString(),
             'total_records' => $exportData->count(),
-            'data' => $exportData
+            'data' => $exportData,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 }

@@ -74,7 +74,7 @@ return new class extends Migration
 
     public function up(): void
     {
-        if (!Schema::hasTable('region_operator_permissions')) {
+        if (! Schema::hasTable('region_operator_permissions')) {
             return;
         }
 
@@ -92,21 +92,21 @@ return new class extends Migration
 
                         foreach ($targets as $targetField) {
                             $currentValue = $row->{$targetField} ?? null;
-                            if ($legacyValue && !$currentValue) {
+                            if ($legacyValue && ! $currentValue) {
                                 $updates[$targetField] = true;
-                            } elseif (!$legacyValue && $currentValue === null) {
+                            } elseif (! $legacyValue && $currentValue === null) {
                                 $updates[$targetField] = false;
                             }
                         }
                     }
 
                     foreach (self::CRUD_FIELDS as $field) {
-                        if (!array_key_exists($field, $updates) && ($row->{$field} === null)) {
+                        if (! array_key_exists($field, $updates) && ($row->{$field} === null)) {
                             $updates[$field] = false;
                         }
                     }
 
-                    if (!empty($updates)) {
+                    if (! empty($updates)) {
                         DB::table('region_operator_permissions')
                             ->where('id', $row->id)
                             ->update($updates);
@@ -117,7 +117,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (!Schema::hasTable('region_operator_permissions')) {
+        if (! Schema::hasTable('region_operator_permissions')) {
             return;
         }
 

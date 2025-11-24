@@ -3,15 +3,15 @@
 namespace App\Services\SurveyAnalytics;
 
 use App\Models\Survey;
+use App\Services\Analytics\HierarchicalAnalyticsService;
 use App\Services\SurveyAnalytics\Domains\Basic\BasicStatsService;
-use App\Services\SurveyAnalytics\Domains\Response\ResponseAnalyticsService;
-use App\Services\SurveyAnalytics\Domains\Demographic\DemographicAnalyticsService;
-use App\Services\SurveyAnalytics\Domains\Temporal\TemporalAnalyticsService;
 use App\Services\SurveyAnalytics\Domains\Completion\CompletionAnalyticsService;
+use App\Services\SurveyAnalytics\Domains\Demographic\DemographicAnalyticsService;
 use App\Services\SurveyAnalytics\Domains\Performance\PerformanceMetricsService;
 use App\Services\SurveyAnalytics\Domains\Question\QuestionAnalyticsService;
+use App\Services\SurveyAnalytics\Domains\Response\ResponseAnalyticsService;
+use App\Services\SurveyAnalytics\Domains\Temporal\TemporalAnalyticsService;
 use App\Services\SurveyTargetingService;
-use App\Services\Analytics\HierarchicalAnalyticsService;
 use Illuminate\Support\Facades\Auth;
 
 /**
@@ -28,19 +28,25 @@ use Illuminate\Support\Facades\Auth;
  * REFACTORED: 2025-11-14
  * FROM: Monolithic SurveyAnalyticsService (1,227 lines)
  * TO: Modular domain-driven architecture (7 services, ~150-250 lines each)
- *
- * @package App\Services\SurveyAnalytics
  */
 class SurveyAnalyticsFacade
 {
     protected BasicStatsService $basicStatsService;
+
     protected ResponseAnalyticsService $responseService;
+
     protected DemographicAnalyticsService $demographicService;
+
     protected TemporalAnalyticsService $temporalService;
+
     protected CompletionAnalyticsService $completionService;
+
     protected PerformanceMetricsService $performanceService;
+
     protected QuestionAnalyticsService $questionService;
+
     protected SurveyTargetingService $targetingService;
+
     protected HierarchicalAnalyticsService $hierarchicalService;
 
     public function __construct(
@@ -69,9 +75,6 @@ class SurveyAnalyticsFacade
      * Get comprehensive survey statistics
      *
      * BACKWARD COMPATIBLE: Matches original SurveyAnalyticsService::getSurveyStatistics()
-     *
-     * @param Survey $survey
-     * @return array
      */
     public function getSurveyStatistics(Survey $survey): array
     {
@@ -84,7 +87,7 @@ class SurveyAnalyticsFacade
             'temporal_stats' => $this->temporalService->getTemporalStats($survey),
             'completion_stats' => $this->completionService->getCompletionStats($survey),
             'question_stats' => $this->questionService->getQuestionStats($survey),
-            'performance_metrics' => $this->performanceService->getPerformanceMetrics($survey)
+            'performance_metrics' => $this->performanceService->getPerformanceMetrics($survey),
         ];
     }
 
@@ -92,9 +95,6 @@ class SurveyAnalyticsFacade
      * Get survey analytics with insights
      *
      * BACKWARD COMPATIBLE: Matches original SurveyAnalyticsService::getSurveyAnalytics()
-     *
-     * @param Survey $survey
-     * @return array
      */
     public function getSurveyAnalytics(Survey $survey): array
     {
@@ -109,14 +109,12 @@ class SurveyAnalyticsFacade
             'user_engagement' => $this->performanceService->getPerformanceMetrics($survey),
             'trend_analysis' => $this->temporalService->getTrendAnalysis($survey),
             'insights' => $this->generateInsights($survey),
-            'recommendations' => $this->generateRecommendations($survey)
+            'recommendations' => $this->generateRecommendations($survey),
         ];
     }
 
     /**
      * Get dashboard statistics
-     *
-     * @return array
      */
     public function getDashboardStatistics(): array
     {
@@ -128,9 +126,6 @@ class SurveyAnalyticsFacade
      * Generate insights from analytics data
      *
      * Analyzes patterns and provides actionable insights
-     *
-     * @param Survey $survey
-     * @return array
      */
     protected function generateInsights(Survey $survey): array
     {
@@ -143,7 +138,7 @@ class SurveyAnalyticsFacade
                 'type' => 'warning',
                 'category' => 'response_rate',
                 'message' => 'Low response rate detected. Consider extending survey duration or sending reminders.',
-                'severity' => 'medium'
+                'severity' => 'medium',
             ];
         }
 
@@ -154,17 +149,17 @@ class SurveyAnalyticsFacade
                 'type' => 'warning',
                 'category' => 'completion',
                 'message' => 'High dropout rate detected. Review survey length and question difficulty.',
-                'severity' => 'high'
+                'severity' => 'high',
             ];
         }
 
         // Dropout point insights
-        if (!empty($completionStats['dropout_points'])) {
+        if (! empty($completionStats['dropout_points'])) {
             $insights[] = [
                 'type' => 'alert',
                 'category' => 'dropout',
                 'message' => 'Significant dropout detected at specific questions. Review question ' . implode(', ', array_column($completionStats['dropout_points'], 'question_index')),
-                'severity' => 'high'
+                'severity' => 'high',
             ];
         }
 
@@ -175,7 +170,7 @@ class SurveyAnalyticsFacade
                 'type' => 'success',
                 'category' => 'engagement',
                 'message' => 'Excellent engagement score! Survey is performing well.',
-                'severity' => 'info'
+                'severity' => 'info',
             ];
         }
 
@@ -184,9 +179,6 @@ class SurveyAnalyticsFacade
 
     /**
      * Generate recommendations for survey improvement
-     *
-     * @param Survey $survey
-     * @return array
      */
     protected function generateRecommendations(Survey $survey): array
     {
@@ -205,8 +197,8 @@ class SurveyAnalyticsFacade
                 'suggestions' => [
                     'Send email reminders to non-respondents',
                     'Extend survey deadline',
-                    'Promote survey through multiple channels'
-                ]
+                    'Promote survey through multiple channels',
+                ],
             ];
         }
 
@@ -219,8 +211,8 @@ class SurveyAnalyticsFacade
                 'suggestions' => [
                     'Remove non-essential questions',
                     'Split into multiple shorter surveys',
-                    'Simplify complex questions'
-                ]
+                    'Simplify complex questions',
+                ],
             ];
         }
 
@@ -233,8 +225,8 @@ class SurveyAnalyticsFacade
                 'suggestions' => [
                     'Add question validation',
                     'Provide clearer instructions',
-                    'Reduce optional questions'
-                ]
+                    'Reduce optional questions',
+                ],
             ];
         }
 
@@ -245,8 +237,6 @@ class SurveyAnalyticsFacade
 
     /**
      * Get basic statistics service
-     *
-     * @return BasicStatsService
      */
     public function basicStats(): BasicStatsService
     {
@@ -255,8 +245,6 @@ class SurveyAnalyticsFacade
 
     /**
      * Get response analytics service
-     *
-     * @return ResponseAnalyticsService
      */
     public function responseAnalytics(): ResponseAnalyticsService
     {
@@ -265,8 +253,6 @@ class SurveyAnalyticsFacade
 
     /**
      * Get demographic analytics service
-     *
-     * @return DemographicAnalyticsService
      */
     public function demographicAnalytics(): DemographicAnalyticsService
     {
@@ -275,8 +261,6 @@ class SurveyAnalyticsFacade
 
     /**
      * Get temporal analytics service
-     *
-     * @return TemporalAnalyticsService
      */
     public function temporalAnalytics(): TemporalAnalyticsService
     {
@@ -285,8 +269,6 @@ class SurveyAnalyticsFacade
 
     /**
      * Get completion analytics service
-     *
-     * @return CompletionAnalyticsService
      */
     public function completionAnalytics(): CompletionAnalyticsService
     {
@@ -295,8 +277,6 @@ class SurveyAnalyticsFacade
 
     /**
      * Get performance metrics service
-     *
-     * @return PerformanceMetricsService
      */
     public function performanceMetrics(): PerformanceMetricsService
     {
@@ -305,8 +285,6 @@ class SurveyAnalyticsFacade
 
     /**
      * Get question analytics service
-     *
-     * @return QuestionAnalyticsService
      */
     public function questionAnalytics(): QuestionAnalyticsService
     {
@@ -327,9 +305,10 @@ class SurveyAnalyticsFacade
         $result = $this->targetingService->estimateRecipients($targetingRules, $user);
 
         $totalCount = $result['total_users'] ?? 0;
+
         return array_merge($result, [
             'estimated_responses' => $this->estimateResponseCount($totalCount, $targetingRules),
-            'estimated_duration' => $this->estimateSurveyDuration($totalCount)
+            'estimated_duration' => $this->estimateSurveyDuration($totalCount),
         ]);
     }
 
@@ -357,13 +336,13 @@ class SurveyAnalyticsFacade
                     'respondent' => $response->respondent ? [
                         'name' => $response->respondent->name,
                         'role' => $response->respondent->role->name ?? 'Unknown',
-                        'institution' => $response->respondent->institution->name ?? 'Unknown'
+                        'institution' => $response->respondent->institution->name ?? 'Unknown',
                     ] : null,
                     'responses' => $response->responses,
                     'is_complete' => $response->is_complete,
-                    'created_at' => $response->created_at
+                    'created_at' => $response->created_at,
                 ];
-            })
+            }),
         ];
 
         return $exportData;
@@ -482,7 +461,7 @@ class SurveyAnalyticsFacade
             'optimistic' => round($totalRecipients * 0.5),
             'expected' => $expectedCount,
             'pessimistic' => round($totalRecipients * 0.15),
-            'base_rate' => $baseRate
+            'base_rate' => $baseRate,
         ];
     }
 
@@ -496,8 +475,8 @@ class SurveyAnalyticsFacade
             'expected_completion_date' => now()->addDays(7)->format('Y-m-d'),
             'assumptions' => [
                 'avg_response_time_minutes' => $avgResponseTime,
-                'daily_response_rate' => $dailyResponseRate
-            ]
+                'daily_response_rate' => $dailyResponseRate,
+            ],
         ];
     }
 
@@ -505,22 +484,20 @@ class SurveyAnalyticsFacade
      * Estimate total targeted users
      *
      * LOGIC PRESERVED FROM: SurveyAnalyticsService::estimateTotalTargeted() (lines 830-848)
-     *
-     * @param Survey $survey
-     * @return int
      */
     protected function estimateTotalTargeted(Survey $survey): int
     {
         // If survey has target_institutions, count users in those institutions
-        if (!empty($survey->target_institutions)) {
+        if (! empty($survey->target_institutions)) {
             return \App\Models\User::whereIn('institution_id', $survey->target_institutions)
                 ->where('is_active', true)
                 ->count();
         }
 
         // If survey has targeting_rules, estimate from rules
-        if (!empty($survey->targeting_rules)) {
+        if (! empty($survey->targeting_rules)) {
             $query = \App\Models\User::where('is_active', true);
+
             // Note: applyTargetingRules would need to be implemented if targeting_rules are used
             return $query->count();
         }

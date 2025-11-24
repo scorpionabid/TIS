@@ -2,22 +2,25 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Cache;
+use App\Models\Institution;
 // use Illuminate\Support\Facades\Redis; // Disabled for local development without Redis
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use App\Models\Institution;
 use App\Models\User;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Cache;
 
 class SurveyResponseCacheService
 {
     private const CACHE_PREFIX = 'survey_response_approval:';
+
     private const DEFAULT_TTL = 300; // 5 minutes
+
     private const STATS_TTL = 60; // 1 minute for stats
+
     private const USER_PERMISSIONS_TTL = 600; // 10 minutes
+
     private const INSTITUTIONS_TTL = 1800; // 30 minutes
-    
+
     // File cache doesn't support tags, so we'll use simple cache invalidation
     private const CACHE_GROUPS = [
         'survey_responses' => 'survey_responses_*',
@@ -25,7 +28,7 @@ class SurveyResponseCacheService
         'response_details' => 'response_details_*',
         'surveys' => 'surveys_*',
         'institutions' => 'institutions_*',
-        'user_permissions' => 'user_permissions_*'
+        'user_permissions' => 'user_permissions_*',
     ];
 
     /**
@@ -34,7 +37,7 @@ class SurveyResponseCacheService
     public function cacheResponsesList(Survey $survey, array $filters, User $user, $data): void
     {
         $cacheKey = $this->getResponsesListCacheKey($survey->id, $filters, $user->id);
-        
+
         // Store with tags for easy invalidation (disabled for file cache)
         // File cache doesn't support tags, so we'll use simple cache keys
         Cache::put($cacheKey, $data, self::DEFAULT_TTL);
@@ -49,17 +52,17 @@ class SurveyResponseCacheService
     public function getCachedResponsesList(Survey $survey, array $filters, User $user)
     {
         $cacheKey = $this->getResponsesListCacheKey($survey->id, $filters, $user->id);
-        
+
         // Check if cache exists and is fresh
         $timestamp = Cache::get("{$cacheKey}:timestamp");
         if ($timestamp && (now()->timestamp - $timestamp) > self::DEFAULT_TTL) {
-            return null; // Cache is stale
+            return; // Cache is stale
         }
 
         return Cache::tags([
             'survey_responses',
             "survey_{$survey->id}",
-            "user_{$user->id}"
+            "user_{$user->id}",
         ])->get($cacheKey);
     }
 
@@ -69,11 +72,11 @@ class SurveyResponseCacheService
     public function cacheApprovalStats(Survey $survey, User $user, array $stats): void
     {
         $cacheKey = $this->getStatssCacheKey($survey->id, $user->id);
-        
+
         Cache::tags([
             'approval_stats',
             "survey_{$survey->id}",
-            "user_{$user->id}"
+            "user_{$user->id}",
         ])->put($cacheKey, $stats, self::STATS_TTL);
     }
 
@@ -83,10 +86,10 @@ class SurveyResponseCacheService
     public function getCachedApprovalStats(Survey $survey, User $user): ?array
     {
         $cacheKey = $this->getStatssCacheKey($survey->id, $user->id);
-        
+
         return Cache::tags([
             'approval_stats',
-            "survey_{$survey->id}"
+            "survey_{$survey->id}",
         ])->get($cacheKey);
     }
 
@@ -96,10 +99,10 @@ class SurveyResponseCacheService
     public function cacheUserPermissions(User $user, array $permissions): void
     {
         $cacheKey = "user_permissions:{$user->id}";
-        
+
         Cache::tags([
             'user_permissions',
-            "user_{$user->id}"
+            "user_{$user->id}",
         ])->put($cacheKey, $permissions, self::USER_PERMISSIONS_TTL);
     }
 
@@ -109,7 +112,7 @@ class SurveyResponseCacheService
     public function getCachedUserPermissions(User $user): ?array
     {
         $cacheKey = "user_permissions:{$user->id}";
-        
+
         return Cache::tags(['user_permissions'])->get($cacheKey);
     }
 
@@ -119,7 +122,7 @@ class SurveyResponseCacheService
     public function cacheInstitutionsHierarchy(): void
     {
         $institutions = Institution::select([
-            'id', 'name', 'type', 'level', 'parent_id'
+            'id', 'name', 'type', 'level', 'parent_id',
         ])->orderBy('level')->orderBy('name')->get()->toArray();
 
         Cache::tags(['institutions', 'hierarchy'])->put(
@@ -159,10 +162,10 @@ class SurveyResponseCacheService
     public function cacheResponseDetails(int $responseId, array $data): void
     {
         $cacheKey = "response_details:{$responseId}";
-        
+
         Cache::tags([
             'response_details',
-            "response_{$responseId}"
+            "response_{$responseId}",
         ])->put($cacheKey, $data, self::DEFAULT_TTL);
     }
 
@@ -172,7 +175,7 @@ class SurveyResponseCacheService
     public function getCachedResponseDetails(int $responseId): ?array
     {
         $cacheKey = "response_details:{$responseId}";
-        
+
         return Cache::tags(['response_details'])->get($cacheKey);
     }
 
@@ -203,13 +206,13 @@ class SurveyResponseCacheService
     {
         // Clear specific response cache
         Cache::tags(["response_{$response->id}"])->flush();
-        
+
         // Clear survey-related caches
         Cache::tags(["survey_{$response->survey_id}"])->flush();
-        
+
         // Clear stats caches
         Cache::tags(['approval_stats'])->flush();
-        
+
         // Clear responses list caches
         Cache::tags(['responses_list'])->flush();
     }
@@ -222,7 +225,7 @@ class SurveyResponseCacheService
         Cache::tags([
             "survey_{$survey->id}",
             'surveys',
-            'published'
+            'published',
         ])->flush();
     }
 
@@ -250,14 +253,14 @@ class SurveyResponseCacheService
         try {
             // Cache institutions hierarchy
             $this->cacheInstitutionsHierarchy();
-            
+
             // Cache published surveys
             $publishedSurveys = Survey::where('status', 'published')
                 ->where('end_date', '>=', now())
                 ->select(['id', 'title', 'description', 'start_date', 'end_date', 'target_institutions'])
                 ->get()->toArray();
             $this->cachePublishedSurveys($publishedSurveys);
-            
+
             \Log::info('Survey response caches warmed up successfully');
         } catch (\Exception $e) {
             \Log::error('Failed to warm up caches: ' . $e->getMessage());
@@ -272,7 +275,7 @@ class SurveyResponseCacheService
         try {
             $redis = Redis::connection();
             $info = $redis->info();
-            
+
             return [
                 'connected_clients' => $info['connected_clients'] ?? 0,
                 'used_memory' => $info['used_memory_human'] ?? '0B',
@@ -285,7 +288,7 @@ class SurveyResponseCacheService
         } catch (\Exception $e) {
             return [
                 'error' => 'Redis connection failed',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ];
         }
     }
@@ -301,7 +304,7 @@ class SurveyResponseCacheService
             'response_details',
             'surveys',
             'institutions',
-            'user_permissions'
+            'user_permissions',
         ])->flush();
     }
 
@@ -311,6 +314,7 @@ class SurveyResponseCacheService
     private function getResponsesListCacheKey(int $surveyId, array $filters, int $userId): string
     {
         $filterHash = md5(serialize($filters));
+
         return self::CACHE_PREFIX . "responses:{$surveyId}:{$userId}:{$filterHash}";
     }
 
@@ -330,7 +334,7 @@ class SurveyResponseCacheService
         $hits = $info['keyspace_hits'] ?? 0;
         $misses = $info['keyspace_misses'] ?? 0;
         $total = $hits + $misses;
-        
+
         return $total > 0 ? round(($hits / $total) * 100, 2) : 0.0;
     }
 
@@ -341,28 +345,28 @@ class SurveyResponseCacheService
     {
         $tags = [
             'survey_responses' => 'Survey Responses',
-            'approval_stats' => 'Approval Statistics', 
+            'approval_stats' => 'Approval Statistics',
             'response_details' => 'Response Details',
             'surveys' => 'Surveys',
             'institutions' => 'Institutions',
-            'user_permissions' => 'User Permissions'
+            'user_permissions' => 'User Permissions',
         ];
 
         $stats = [];
         foreach ($tags as $tag => $label) {
             try {
                 // This is a simple check - in production you'd want more detailed metrics
-                $hasCache = !empty(Cache::tags([$tag])->get($tag . '_check'));
+                $hasCache = ! empty(Cache::tags([$tag])->get($tag . '_check'));
                 $stats[$tag] = [
                     'label' => $label,
                     'status' => $hasCache ? 'active' : 'inactive',
-                    'last_updated' => Cache::get($tag . '_last_updated', 'never')
+                    'last_updated' => Cache::get($tag . '_last_updated', 'never'),
                 ];
             } catch (\Exception $e) {
                 $stats[$tag] = [
                     'label' => $label,
                     'status' => 'error',
-                    'error' => $e->getMessage()
+                    'error' => $e->getMessage(),
                 ];
             }
         }

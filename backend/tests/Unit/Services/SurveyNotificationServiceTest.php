@@ -49,7 +49,7 @@ class SurveyNotificationServiceTest extends TestCase
             )
             ->andReturn([]);
 
-        $helper = new InstitutionNotificationHelper();
+        $helper = new InstitutionNotificationHelper;
         $service = new SurveyNotificationService($notificationService, $helper);
         $service->notifySurveyPublished($survey);
 

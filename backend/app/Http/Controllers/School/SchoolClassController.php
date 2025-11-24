@@ -5,12 +5,13 @@ namespace App\Http\Controllers\School;
 use App\Http\Controllers\Controller;
 use App\Services\GradeManagementService;
 use App\Services\StudentEnrollmentService;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class SchoolClassController extends Controller
 {
     protected $gradeService;
+
     protected $enrollmentService;
 
     public function __construct(

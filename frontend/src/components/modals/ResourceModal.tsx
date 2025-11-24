@@ -49,7 +49,7 @@ export function ResourceModal({
         : 'documents';
 
     setActiveTab((prev) => (prev === derivedTab ? prev : derivedTab));
-  }, [resource?.type, resourceType, lockedTab]);
+  }, [resource, resourceType, lockedTab]);
 
   // Use the custom hook for all form logic
   const {

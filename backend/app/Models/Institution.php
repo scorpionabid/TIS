@@ -59,10 +59,10 @@ class Institution extends Model
     public function getAllChildrenIds(): array
     {
         $childrenIds = [];
-        
+
         // Include current institution
         $childrenIds[] = $this->id;
-        
+
         // Get direct children (include soft deleted)
         $directChildren = $this->children()->withTrashed()->pluck('id')->toArray();
         $childrenIds = array_merge($childrenIds, $directChildren);
@@ -75,7 +75,7 @@ class Institution extends Model
                 $childrenIds = array_merge($childrenIds, $grandChildren);
             }
         }
-        
+
         return array_unique($childrenIds);
     }
 
@@ -126,20 +126,20 @@ class Institution extends Model
     public function manager(): HasOne
     {
         return $this->hasOne(User::class, 'institution_id')
-                   ->whereHas('roles', function($q) {
-                       $q->whereIn('name', ['sektoradmin', 'məktəbadmin', 'regionadmin']);
-                   });
+            ->whereHas('roles', function ($q) {
+                $q->whereIn('name', ['sektoradmin', 'məktəbadmin', 'regionadmin']);
+            });
     }
 
     /**
      * Get the sector manager specifically (sektoradmin user).
      */
-    public function sectorManager(): HasOne  
+    public function sectorManager(): HasOne
     {
         return $this->hasOne(User::class, 'institution_id')
-                   ->whereHas('roles', function($q) {
-                       $q->where('name', 'sektoradmin');
-                   });
+            ->whereHas('roles', function ($q) {
+                $q->where('name', 'sektoradmin');
+            });
     }
 
     /**
@@ -245,12 +245,12 @@ class Institution extends Model
     {
         $ancestors = collect();
         $current = $this->parent;
-        
+
         while ($current) {
             $ancestors->push($current);
             $current = $current->parent;
         }
-        
+
         return $ancestors;
     }
 
@@ -262,7 +262,7 @@ class Institution extends Model
         $ancestors = $this->getAncestors()->reverse();
         $path = $ancestors->pluck('name')->toArray();
         $path[] = $this->name;
-        
+
         return implode(' > ', $path);
     }
 
@@ -313,18 +313,18 @@ class Institution extends Model
     {
         $driver = config('database.default');
         $connection = config("database.connections.{$driver}.driver");
-        
+
         if ($connection === 'sqlite') {
             // SQLite case-insensitive search using LIKE with UPPER/LOWER functions
             return $query->where(function ($q) use ($search) {
                 $q->where('name', 'LIKE', "%{$search}%")
-                  ->orWhere('short_name', 'LIKE', "%{$search}%");
+                    ->orWhere('short_name', 'LIKE', "%{$search}%");
             });
         } else {
             // PostgreSQL/MySQL supports ILIKE for case-insensitive search
             return $query->where(function ($q) use ($search) {
                 $q->where('name', 'ILIKE', "%{$search}%")
-                  ->orWhere('short_name', 'ILIKE', "%{$search}%");
+                    ->orWhere('short_name', 'ILIKE', "%{$search}%");
             });
         }
     }
@@ -368,6 +368,7 @@ class Institution extends Model
             foreach ($this as $institution) {
                 $deletedData[] = $institution->hardDeleteWithRelationships();
             }
+
             return $deletedData;
         }
 
@@ -384,7 +385,7 @@ class Institution extends Model
             \Log::info('SQLite foreign keys disabled for hard delete');
         }
 
-        \DB::transaction(function () use (&$deletedData, $dbConfig, $progressService, $operationId) {
+        \DB::transaction(function () use (&$deletedData, $progressService, $operationId) {
             // Create manual audit log BEFORE deletion to preserve audit trail
             $this->createManualAuditLog('hard_delete_initiated', $this->toArray(), null);
 
@@ -419,7 +420,7 @@ class Institution extends Model
                     $deletedData['children_deleted'][] = [
                         'id' => $child->id,
                         'name' => $child->name,
-                        'data' => $childDeleteData
+                        'data' => $childDeleteData,
                     ];
                 }
             }
@@ -438,7 +439,7 @@ class Institution extends Model
                 \DB::table('user_profiles')->where('institution_id', $this->id)->delete();
 
                 // Then force delete all users to avoid foreign key issues
-                $this->users()->each(function($user) {
+                $this->users()->each(function ($user) {
                     // Clear all user references systematically in correct order (FK constraints)
                     // 1. First delete user profile (has FK to users.id)
                     \DB::table('user_profiles')->where('user_id', $user->id)->delete();
@@ -500,7 +501,7 @@ class Institution extends Model
             // Grades - force delete
             $gradesCount = $this->grades()->count();
             if ($gradesCount > 0) {
-                $this->grades()->each(function($grade) {
+                $this->grades()->each(function ($grade) {
                     $grade->forceDelete();
                 });
                 $deletedData['grades'] = $gradesCount;
@@ -509,7 +510,7 @@ class Institution extends Model
             // Rooms - force delete
             $roomsCount = $this->rooms()->count();
             if ($roomsCount > 0) {
-                $this->rooms()->each(function($room) {
+                $this->rooms()->each(function ($room) {
                     $room->forceDelete();
                 });
                 $deletedData['rooms'] = $roomsCount;
@@ -518,7 +519,7 @@ class Institution extends Model
             // Departments - force delete
             $departmentsCount = $this->departments()->count();
             if ($departmentsCount > 0) {
-                $this->departments()->each(function($department) {
+                $this->departments()->each(function ($department) {
                     $department->forceDelete();
                 });
                 $deletedData['departments'] = $departmentsCount;
@@ -527,7 +528,7 @@ class Institution extends Model
             // Students - force delete
             $studentsCount = $this->students()->count();
             if ($studentsCount > 0) {
-                $this->students()->each(function($student) {
+                $this->students()->each(function ($student) {
                     $student->forceDelete();
                 });
                 $deletedData['students'] = $studentsCount;
@@ -603,7 +604,7 @@ class Institution extends Model
                 'id' => $this->id,
                 'name' => $this->name,
                 'type' => $this->type,
-                'level' => $this->level
+                'level' => $this->level,
             ],
             'direct_children_count' => $this->children()->withTrashed()->count(),
             'total_children_count' => $totalChildrenCount,
@@ -623,7 +624,7 @@ class Institution extends Model
             'has_sector' => $this->sector()->exists(),
             'deletion_mode' => [
                 'soft_delete' => 'Yalnız bu müəssisə silinəcək (alt müəssisələr və istifadəçilər varsa icazə verilməz)',
-                'hard_delete' => 'Bu müəssisə və bütün alt müəssisələri, istifadəçiləri və əlaqəli məlumatları həmişəlik silinəcək'
+                'hard_delete' => 'Bu müəssisə və bütün alt müəssisələri, istifadəçiləri və əlaqəli məlumatları həmişəlik silinəcək',
             ],
             'cascade_delete_tables' => [
                 'teacher_evaluations',
@@ -648,8 +649,8 @@ class Institution extends Model
                 'class_bulk_attendance',
                 'schedule_generation_settings',
                 'schedule_templates',
-                'schedule_template_usages'
-            ]
+                'schedule_template_usages',
+            ],
         ];
     }
 
@@ -660,7 +661,7 @@ class Institution extends Model
     {
         try {
             // Only log if user is authenticated
-            if (!\Auth::check()) {
+            if (! \Auth::check()) {
                 return;
             }
 
@@ -683,7 +684,7 @@ class Institution extends Model
                     'original_institution_id' => $this->id,
                     'original_institution_name' => $this->name,
                     'deletion_type' => 'hard_delete',
-                    'deletion_timestamp' => now()->toDateTimeString()
+                    'deletion_timestamp' => now()->toDateTimeString(),
                 ]),
                 'ip_address' => $request->ip(),
                 'user_agent' => $request->userAgent(),
@@ -715,7 +716,7 @@ class Institution extends Model
                 'activity_logs' => 'institution_id',
                 'audit_logs' => 'institution_id',
                 'security_events' => 'institution_id',
-                'session_logs' => 'institution_id'  // if exists
+                'session_logs' => 'institution_id',  // if exists
             ];
 
             foreach ($affectedTables as $table => $column) {

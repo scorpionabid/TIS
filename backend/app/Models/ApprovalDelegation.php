@@ -19,7 +19,7 @@ class ApprovalDelegation extends Model
         'status',
         'delegation_expires_at',
         'responded_at',
-        'response_comment'
+        'response_comment',
     ];
 
     protected $casts = [
@@ -59,7 +59,7 @@ class ApprovalDelegation extends Model
         return $query->where('status', 'pending')
             ->where(function ($q) {
                 $q->whereNull('delegation_expires_at')
-                  ->orWhere('delegation_expires_at', '>', now());
+                    ->orWhere('delegation_expires_at', '>', now());
             });
     }
 
@@ -71,7 +71,7 @@ class ApprovalDelegation extends Model
         return $query->where('status', 'pending')
             ->where(function ($q) {
                 $q->whereNull('delegation_expires_at')
-                  ->orWhere('delegation_expires_at', '>', now());
+                    ->orWhere('delegation_expires_at', '>', now());
             });
     }
 
@@ -106,8 +106,8 @@ class ApprovalDelegation extends Model
      */
     public function isExpired(): bool
     {
-        return $this->delegation_expires_at && 
-               $this->delegation_expires_at <= now() && 
+        return $this->delegation_expires_at &&
+               $this->delegation_expires_at <= now() &&
                $this->status === 'pending';
     }
 
@@ -116,7 +116,7 @@ class ApprovalDelegation extends Model
      */
     public function isActive(): bool
     {
-        return $this->status === 'pending' && !$this->isExpired();
+        return $this->status === 'pending' && ! $this->isExpired();
     }
 
     /**
@@ -124,14 +124,14 @@ class ApprovalDelegation extends Model
      */
     public function accept($comment = null): bool
     {
-        if (!$this->isActive()) {
+        if (! $this->isActive()) {
             return false;
         }
 
         return $this->update([
             'status' => 'accepted',
             'responded_at' => now(),
-            'response_comment' => $comment
+            'response_comment' => $comment,
         ]);
     }
 
@@ -140,14 +140,14 @@ class ApprovalDelegation extends Model
      */
     public function decline($comment = null): bool
     {
-        if (!$this->isActive()) {
+        if (! $this->isActive()) {
             return false;
         }
 
         return $this->update([
             'status' => 'declined',
             'responded_at' => now(),
-            'response_comment' => $comment
+            'response_comment' => $comment,
         ]);
     }
 
@@ -162,7 +162,7 @@ class ApprovalDelegation extends Model
 
         return $this->update([
             'status' => 'expired',
-            'responded_at' => now()
+            'responded_at' => now(),
         ]);
     }
 }

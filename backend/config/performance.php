@@ -7,7 +7,7 @@ return [
     | Performance Configuration
     |--------------------------------------------------------------------------
     |
-    | This file contains performance optimization settings for the ATİS 
+    | This file contains performance optimization settings for the ATİS
     | education management system.
     |
     */
@@ -16,7 +16,7 @@ return [
         'default_ttl' => 3600, // 1 hour
         'long_ttl' => 86400, // 24 hours
         'short_ttl' => 300, // 5 minutes
-        
+
         'keys' => [
             'institutions' => 'institutions_hierarchy',
             'roles' => 'user_roles_permissions',
@@ -38,12 +38,12 @@ return [
             'requests_per_minute' => 60,
             'burst_limit' => 10,
         ],
-        
+
         'pagination' => [
             'default_per_page' => 15,
             'max_per_page' => 100,
         ],
-        
+
         'compression' => [
             'enabled' => true,
             'min_length' => 1024, // bytes
@@ -71,7 +71,7 @@ return [
             'surveys' => ['questions', 'responses'],
             'documents' => ['shares', 'downloads'],
         ],
-        
+
         'query_optimization' => [
             'select_specific_columns' => true,
             'avoid_n_plus_1' => true,

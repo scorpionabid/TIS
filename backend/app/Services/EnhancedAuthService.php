@@ -2,17 +2,17 @@
 
 namespace App\Services;
 
-use App\Models\User;
-use App\Models\UserDevice;
-use App\Models\UserSession;
 use App\Models\AccountLockout;
 use App\Models\SecurityAlert;
 use App\Models\SessionActivity;
+use App\Models\User;
+use App\Models\UserDevice;
+use App\Models\UserSession;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Laravel\Sanctum\PersonalAccessToken;
-use Carbon\Carbon;
 
 class EnhancedAuthService
 {
@@ -23,13 +23,13 @@ class EnhancedAuthService
     {
         $login = $credentials['login'];
         $password = $credentials['password'];
-        
+
         // Check rate limiting
         $this->checkRateLimiting($request, $login);
-        
+
         // Find user
         $user = $this->findUser($login);
-        if (!$user) {
+        if (! $user) {
             $this->recordFailedAttempt($request, $login, 'user_not_found');
             throw new \Exception('İstifadəçi adı və ya parol yanlışdır.');
         }
@@ -41,13 +41,13 @@ class EnhancedAuthService
         }
 
         // Check account status
-        if (!$user->is_active) {
+        if (! $user->is_active) {
             $this->recordFailedAttempt($request, $login, 'account_inactive');
             throw new \Exception('Hesab deaktivdir. İdarə ilə əlaqə saxlayın.');
         }
 
         // Verify password
-        if (!Hash::check($password, $user->password)) {
+        if (! Hash::check($password, $user->password)) {
             $this->recordFailedAttempt($request, $login, 'wrong_password', $user);
             throw new \Exception('İstifadəçi adı və ya parol yanlışdır.');
         }
@@ -143,15 +143,15 @@ class EnhancedAuthService
     public function getSessionInfo(Request $request): array
     {
         $token = $request->bearerToken();
-        if (!$token) {
+        if (! $token) {
             throw new \Exception('No active session found.');
         }
 
         $session = UserSession::where('session_token', hash('sha256', $token))
-                             ->with(['device', 'user'])
-                             ->first();
+            ->with(['device', 'user'])
+            ->first();
 
-        if (!$session) {
+        if (! $session) {
             throw new \Exception('Session not found.');
         }
 
@@ -209,7 +209,7 @@ class EnhancedAuthService
     public function terminateDevice(User $user, string $deviceId): bool
     {
         $device = $user->devices()->where('device_id', $deviceId)->first();
-        if (!$device) {
+        if (! $device) {
             throw new \Exception('Device not found.');
         }
 
@@ -222,7 +222,7 @@ class EnhancedAuthService
     public function trustDevice(User $user, string $deviceId): bool
     {
         $device = $user->devices()->where('device_id', $deviceId)->first();
-        if (!$device) {
+        if (! $device) {
             throw new \Exception('Device not found.');
         }
 
@@ -236,13 +236,13 @@ class EnhancedAuthService
     {
         $ipRateLimitKey = 'login_ip:' . $request->ip();
         $userRateLimitKey = 'login_user:' . $login;
-        
+
         // Check IP-based rate limiting (15 attempts per 15 minutes)
         if (RateLimiter::tooManyAttempts($ipRateLimitKey, 15)) {
             $seconds = RateLimiter::availableIn($ipRateLimitKey);
             throw new \Exception("Bu IP ünvanından çox sayda cəhd edilib. {$seconds} saniyə sonra yenidən cəhd edin.");
         }
-        
+
         // Check user-based rate limiting (8 attempts per 15 minutes)
         if (RateLimiter::tooManyAttempts($userRateLimitKey, 8)) {
             $seconds = RateLimiter::availableIn($userRateLimitKey);
@@ -265,8 +265,8 @@ class EnhancedAuthService
     protected function findUser(string $login): ?User
     {
         return User::where('username', $login)
-                  ->orWhere('email', $login)
-                  ->first();
+            ->orWhere('email', $login)
+            ->first();
     }
 
     /**
@@ -349,9 +349,9 @@ class EnhancedAuthService
         ];
 
         return UserSession::createSession(
-            $user, 
-            $device, 
-            hash('sha256', $token->plainTextToken), 
+            $user,
+            $device,
+            hash('sha256', $token->plainTextToken),
             $context
         );
     }
@@ -398,11 +398,11 @@ class EnhancedAuthService
             ],
             'activity' => [
                 'today' => SessionActivity::where('user_id', $user->id)
-                                         ->whereDate('created_at', today())
-                                         ->count(),
+                    ->whereDate('created_at', today())
+                    ->count(),
                 'this_week' => SessionActivity::where('user_id', $user->id)
-                                              ->where('created_at', '>=', now()->startOfWeek())
-                                              ->count(),
+                    ->where('created_at', '>=', now()->startOfWeek())
+                    ->count(),
             ],
         ];
     }
@@ -413,16 +413,16 @@ class EnhancedAuthService
     public function checkSessionSecurity(Request $request): array
     {
         $token = $request->bearerToken();
-        if (!$token) {
+        if (! $token) {
             return ['status' => 'no_session'];
         }
 
         $session = UserSession::where('session_token', hash('sha256', $token))->first();
-        if (!$session) {
+        if (! $session) {
             return ['status' => 'invalid_session'];
         }
 
-        if (!$session->isActive()) {
+        if (! $session->isActive()) {
             return ['status' => 'expired_session'];
         }
 

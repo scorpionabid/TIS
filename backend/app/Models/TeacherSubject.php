@@ -2,12 +2,12 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Builder;
-use Carbon\Carbon;
 
 class TeacherSubject extends Model
 {
@@ -100,7 +100,7 @@ class TeacherSubject extends Model
     public function scheduleSessions(): HasMany
     {
         return $this->hasMany(ScheduleSession::class, 'teacher_id', 'teacher_id')
-                   ->where('subject_id', $this->subject_id);
+            ->where('subject_id', $this->subject_id);
     }
 
     /**
@@ -109,11 +109,11 @@ class TeacherSubject extends Model
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true)
-                    ->where('valid_from', '<=', today())
-                    ->where(function ($q) {
-                        $q->whereNull('valid_until')
-                          ->orWhere('valid_until', '>=', today());
-                    });
+            ->where('valid_from', '<=', today())
+            ->where(function ($q) {
+                $q->whereNull('valid_until')
+                    ->orWhere('valid_until', '>=', today());
+            });
     }
 
     /**
@@ -146,7 +146,7 @@ class TeacherSubject extends Model
     public function scopeAvailableForScheduling(Builder $query): Builder
     {
         return $query->active()
-                    ->where('max_hours_per_week', '>', 0);
+            ->where('max_hours_per_week', '>', 0);
     }
 
     /**
@@ -163,8 +163,8 @@ class TeacherSubject extends Model
     public function getGradeLevelsLabelsAttribute(): array
     {
         return collect($this->grade_levels)
-               ->map(fn($grade) => "Grade {$grade}")
-               ->toArray();
+            ->map(fn ($grade) => "Grade {$grade}")
+            ->toArray();
     }
 
     /**
@@ -173,8 +173,8 @@ class TeacherSubject extends Model
     public function getPreferredDaysLabelsAttribute(): array
     {
         return collect($this->preferred_days ?? [])
-               ->map(fn($day) => self::DAYS_OF_WEEK[$day] ?? $day)
-               ->toArray();
+            ->map(fn ($day) => self::DAYS_OF_WEEK[$day] ?? $day)
+            ->toArray();
     }
 
     /**
@@ -191,6 +191,7 @@ class TeacherSubject extends Model
     public function isAvailableOnDay(int $dayOfWeek): bool
     {
         $preferredDays = $this->preferred_days ?? [1, 2, 3, 4, 5]; // Default to weekdays
+
         return in_array($dayOfWeek, $preferredDays);
     }
 
@@ -216,8 +217,8 @@ class TeacherSubject extends Model
     public function getCurrentWeeklyWorkload(): array
     {
         $currentSessions = $this->scheduleSessions()
-                               ->whereHas('schedule', fn($q) => $q->where('status', 'active'))
-                               ->get();
+            ->whereHas('schedule', fn ($q) => $q->where('status', 'active'))
+            ->get();
 
         $totalHours = $currentSessions->sum('duration_minutes') / 60;
         $sessionsByDay = $currentSessions->groupBy('day_of_week');
@@ -227,7 +228,7 @@ class TeacherSubject extends Model
             'total_sessions' => $currentSessions->count(),
             'max_hours_per_week' => $this->max_hours_per_week,
             'hours_remaining' => max(0, $this->max_hours_per_week - $totalHours),
-            'utilization_percentage' => $this->max_hours_per_week > 0 ? 
+            'utilization_percentage' => $this->max_hours_per_week > 0 ?
                 ($totalHours / $this->max_hours_per_week) * 100 : 0,
             'sessions_by_day' => $sessionsByDay->map->count()->toArray(),
             'can_add_more_sessions' => $totalHours < $this->max_hours_per_week,
@@ -240,10 +241,10 @@ class TeacherSubject extends Model
     public function getDailyWorkload(string $dayOfWeek): array
     {
         $daySessions = $this->scheduleSessions()
-                           ->where('day_of_week', $dayOfWeek)
-                           ->whereHas('schedule', fn($q) => $q->where('status', 'active'))
-                           ->orderBy('start_time')
-                           ->get();
+            ->where('day_of_week', $dayOfWeek)
+            ->whereHas('schedule', fn ($q) => $q->where('status', 'active'))
+            ->orderBy('start_time')
+            ->get();
 
         $totalMinutes = $daySessions->sum('duration_minutes');
         $consecutiveBlocks = $this->calculateConsecutiveBlocks($daySessions);
@@ -279,10 +280,10 @@ class TeacherSubject extends Model
                 $currentBlock = [$session];
             } else {
                 $lastSession = end($currentBlock);
-                
+
                 // Check if this session is consecutive (within 15 minutes of last session end)
                 $timeDiff = Carbon::parse($session->start_time)->diffInMinutes(Carbon::parse($lastSession->end_time));
-                
+
                 if ($timeDiff <= 15) {
                     $currentBlock[] = $session;
                 } else {
@@ -293,7 +294,7 @@ class TeacherSubject extends Model
             }
         }
 
-        if (!empty($currentBlock)) {
+        if (! empty($currentBlock)) {
             $blocks[] = $currentBlock;
         }
 
@@ -319,7 +320,7 @@ class TeacherSubject extends Model
         $gradeLevel = $sessionData['grade_level'] ?? null;
 
         // Check if active and valid
-        if (!$this->is_active || $this->valid_until && $this->valid_until < today()) {
+        if (! $this->is_active || $this->valid_until && $this->valid_until < today()) {
             $conflicts[] = [
                 'type' => 'inactive',
                 'message' => 'Teacher-subject assignment is inactive or expired',
@@ -327,7 +328,7 @@ class TeacherSubject extends Model
         }
 
         // Check grade level compatibility
-        if ($gradeLevel && !$this->canTeachGrade($gradeLevel)) {
+        if ($gradeLevel && ! $this->canTeachGrade($gradeLevel)) {
             $conflicts[] = [
                 'type' => 'grade_level',
                 'message' => "Teacher cannot teach grade {$gradeLevel} for this subject",
@@ -335,10 +336,10 @@ class TeacherSubject extends Model
         }
 
         // Check day availability
-        if (!$this->isAvailableOnDay($dayOfWeek)) {
+        if (! $this->isAvailableOnDay($dayOfWeek)) {
             $conflicts[] = [
                 'type' => 'day_availability',
-                'message' => "Teacher prefers not to work on " . self::DAYS_OF_WEEK[$dayOfWeek],
+                'message' => 'Teacher prefers not to work on ' . self::DAYS_OF_WEEK[$dayOfWeek],
             ];
         }
 
@@ -352,7 +353,7 @@ class TeacherSubject extends Model
 
         // Check weekly workload
         $workload = $this->getCurrentWeeklyWorkload();
-        if (!$workload['can_add_more_sessions']) {
+        if (! $workload['can_add_more_sessions']) {
             $conflicts[] = [
                 'type' => 'weekly_overload',
                 'message' => "Teacher has reached maximum weekly hours ({$this->max_hours_per_week})",
@@ -361,7 +362,7 @@ class TeacherSubject extends Model
 
         // Check daily workload
         $dailyWorkload = $this->getDailyWorkload($dayOfWeek);
-        if (!$dailyWorkload['can_add_more_sessions']) {
+        if (! $dailyWorkload['can_add_more_sessions']) {
             $conflicts[] = [
                 'type' => 'daily_overload',
                 'message' => "Teacher has reached maximum daily classes ({$this->max_classes_per_day})",
@@ -370,10 +371,10 @@ class TeacherSubject extends Model
 
         // Check for existing session at same time
         $existingSession = $this->scheduleSessions()
-                               ->where('day_of_week', $dayOfWeek)
-                               ->where('time_slot_id', $timeSlotId)
-                               ->whereHas('schedule', fn($q) => $q->where('status', 'active'))
-                               ->first();
+            ->where('day_of_week', $dayOfWeek)
+            ->where('time_slot_id', $timeSlotId)
+            ->whereHas('schedule', fn ($q) => $q->where('status', 'active'))
+            ->first();
 
         if ($existingSession) {
             $conflicts[] = [
@@ -504,13 +505,13 @@ class TeacherSubject extends Model
     public static function getQualifiedTeachers(int $subjectId, int $gradeLevel): \Illuminate\Database\Eloquent\Collection
     {
         return self::with(['teacher', 'subject'])
-                  ->where('subject_id', $subjectId)
-                  ->canTeachGrade($gradeLevel)
-                  ->availableForScheduling()
-                  ->orderByDesc('performance_rating')
-                  ->orderByDesc('years_experience')
-                  ->orderBy('specialization_level')
-                  ->get();
+            ->where('subject_id', $subjectId)
+            ->canTeachGrade($gradeLevel)
+            ->availableForScheduling()
+            ->orderByDesc('performance_rating')
+            ->orderByDesc('years_experience')
+            ->orderBy('specialization_level')
+            ->get();
     }
 
     /**
@@ -519,17 +520,17 @@ class TeacherSubject extends Model
     public static function getTeacherExpertise(int $teacherId): array
     {
         $assignments = self::with('subject')
-                          ->where('teacher_id', $teacherId)
-                          ->active()
-                          ->get();
+            ->where('teacher_id', $teacherId)
+            ->active()
+            ->get();
 
         return [
             'total_subjects' => $assignments->count(),
             'primary_subjects' => $assignments->where('is_primary_subject', true)->count(),
             'subjects_by_level' => $assignments->groupBy('specialization_level')->map->count(),
             'grade_range' => [
-                'min' => $assignments->flatMap(fn($a) => $a->grade_levels)->min(),
-                'max' => $assignments->flatMap(fn($a) => $a->grade_levels)->max(),
+                'min' => $assignments->flatMap(fn ($a) => $a->grade_levels)->min(),
+                'max' => $assignments->flatMap(fn ($a) => $a->grade_levels)->max(),
             ],
             'total_max_hours' => $assignments->sum('max_hours_per_week'),
             'subjects' => $assignments->map(function ($assignment) {

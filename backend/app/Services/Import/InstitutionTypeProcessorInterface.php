@@ -2,8 +2,6 @@
 
 namespace App\Services\Import;
 
-use App\Models\InstitutionType;
-
 interface InstitutionTypeProcessorInterface
 {
     /**

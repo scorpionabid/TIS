@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\Grade;
-use App\Models\User;
 use App\Models\StudentEnrollment;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class ClassAnalyticsService extends BaseService
@@ -17,11 +17,11 @@ class ClassAnalyticsService extends BaseService
         $query = Grade::query();
 
         // Apply regional filtering
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             if ($user->hasRole('regionadmin')) {
                 $query->whereHas('institution', function ($q) use ($user) {
                     $q->where('parent_id', $user->institution_id)
-                      ->orWhere('id', $user->institution_id);
+                        ->orWhere('id', $user->institution_id);
                 });
             } elseif ($user->hasRole(['sektoradmin', 'məktəbadmin', 'müəllim'])) {
                 $query->where('institution_id', $user->institution_id);
@@ -94,26 +94,26 @@ class ClassAnalyticsService extends BaseService
             ->reduce(function ($carry, $class) {
                 $capacity = $class->room?->capacity ?? 30; // Default capacity
                 $currentCount = $class->getCurrentStudentCount();
-                
+
                 $carry['total_capacity'] += $capacity;
                 $carry['occupied_capacity'] += $currentCount;
                 $carry['available_capacity'] = $carry['total_capacity'] - $carry['occupied_capacity'];
-                $carry['utilization_rate'] = $carry['total_capacity'] > 0 
+                $carry['utilization_rate'] = $carry['total_capacity'] > 0
                     ? round(($carry['occupied_capacity'] / $carry['total_capacity']) * 100, 2)
                     : 0;
-                
+
                 // Track overcrowded classes
                 if ($currentCount > $capacity) {
                     $carry['overcrowded_classes']++;
                 }
-                
+
                 return $carry;
             }, [
-                'total_capacity' => 0, 
-                'occupied_capacity' => 0, 
+                'total_capacity' => 0,
+                'occupied_capacity' => 0,
                 'available_capacity' => 0,
                 'utilization_rate' => 0,
-                'overcrowded_classes' => 0
+                'overcrowded_classes' => 0,
             ]);
     }
 
@@ -130,7 +130,7 @@ class ClassAnalyticsService extends BaseService
                 $studentCount = $classes->sum(function ($class) {
                     return $class->getCurrentStudentCount();
                 });
-                
+
                 return [
                     'institution_name' => $institutionName,
                     'class_count' => $classes->count(),
@@ -164,9 +164,10 @@ class ClassAnalyticsService extends BaseService
             ->groupBy('homeroom_teacher_id')
             ->map(function ($teacherClasses) {
                 $teacher = $teacherClasses->first()->homeroomTeacher;
+
                 return [
                     'teacher_id' => $teacher->id,
-                    'teacher_name' => $teacher->profile 
+                    'teacher_name' => $teacher->profile
                         ? "{$teacher->profile->first_name} {$teacher->profile->last_name}"
                         : $teacher->username,
                     'class_count' => $teacherClasses->count(),
@@ -181,8 +182,8 @@ class ClassAnalyticsService extends BaseService
         return [
             'assigned_classes' => $assignedClasses,
             'unassigned_classes' => $unassignedClasses,
-            'assignment_rate' => $classes->count() > 0 
-                ? round(($assignedClasses / $classes->count()) * 100, 2) 
+            'assignment_rate' => $classes->count() > 0
+                ? round(($assignedClasses / $classes->count()) * 100, 2)
                 : 0,
             'teacher_workload' => $teacherWorkload,
         ];
@@ -195,7 +196,7 @@ class ClassAnalyticsService extends BaseService
     {
         $studentCount = $class->getCurrentStudentCount();
         $capacity = $class->room?->capacity ?? 30;
-        
+
         return [
             'enrollment' => [
                 'current_students' => $studentCount,
@@ -269,7 +270,7 @@ class ClassAnalyticsService extends BaseService
     {
         $studentCount = $class->getCurrentStudentCount();
         $capacity = $class->room?->capacity ?? 30;
-        
+
         return $capacity > 0 ? round(($studentCount / $capacity) * 100, 2) : 0;
     }
 
@@ -282,11 +283,11 @@ class ClassAnalyticsService extends BaseService
             ->where('is_active', true);
 
         // Apply regional filtering
-        if (!$user->hasRole('superadmin')) {
+        if (! $user->hasRole('superadmin')) {
             if ($user->hasRole('regionadmin')) {
                 $query->whereHas('institution', function ($q) use ($user) {
                     $q->where('parent_id', $user->institution_id)
-                      ->orWhere('id', $user->institution_id);
+                        ->orWhere('id', $user->institution_id);
                 });
             } elseif ($user->hasRole(['sektoradmin', 'məktəbadmin', 'müəllim'])) {
                 $query->where('institution_id', $user->institution_id);

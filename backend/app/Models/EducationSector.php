@@ -71,7 +71,7 @@ class EducationSector extends Model
     public function getStatisticsAttribute()
     {
         $institutions = $this->institutions();
-        
+
         return [
             'total_institutions' => $institutions->count(),
             'total_students' => $institutions->sum('student_count') ?? 0,

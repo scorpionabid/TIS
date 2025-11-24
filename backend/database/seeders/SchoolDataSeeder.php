@@ -2,37 +2,35 @@
 
 namespace Database\Seeders;
 
-use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\DB;
-use App\Models\User;
-use App\Models\Institution;
 use App\Models\AcademicYear;
 use App\Models\Grade;
+use App\Models\Institution;
 use App\Models\Subject;
-use Carbon\Carbon;
+use App\Models\User;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class SchoolDataSeeder extends Seeder
 {
     public function run()
     {
         $this->command->info('🏫 Seeding school data (grades, classes, schedules, attendance)...');
-        
+
         DB::beginTransaction();
-        
+
         try {
             // 1. Academic Structure (Grades, Classes)
             $this->seedAcademicStructure();
-            
+
             // 2. Schedule Management Data
             $this->seedScheduleData();
-            
+
             // 3. Attendance Data
             $this->seedAttendanceData();
-            
+
             DB::commit();
-            
+
             $this->command->info('✅ School data seeding completed successfully!');
-            
         } catch (\Exception $e) {
             DB::rollback();
             $this->command->error('❌ School data seeding failed: ' . $e->getMessage());
@@ -43,11 +41,11 @@ class SchoolDataSeeder extends Seeder
     private function seedAcademicStructure()
     {
         $this->command->info('🎓 Seeding academic structure...');
-        
+
         // Create simple grade levels for schools (directly to grades table)
         $schools = Institution::where('level', 4)->get();
         $currentYear = AcademicYear::where('is_active', true)->first();
-        
+
         if ($currentYear && $schools->count() > 0) {
             foreach ($schools as $school) {
                 // Create grades for each school (1A, 1B, 2A, 2B, etc.) - only first 6 grades to avoid too much data
@@ -68,7 +66,7 @@ class SchoolDataSeeder extends Seeder
                 }
             }
         }
-        
+
         // Create classes for each school (using direct DB insertion) - only first 6 grades
         if ($currentYear && $schools->count() > 0) {
             foreach ($schools as $school) {
@@ -97,11 +95,13 @@ class SchoolDataSeeder extends Seeder
     private function seedScheduleData()
     {
         $this->command->info('📅 Seeding schedule data...');
-        
+
         $currentYear = AcademicYear::where('is_active', true)->first();
         $schools = Institution::where('level', 4)->take(2)->get();
-        $superadmin = User::whereHas('roles', function($q) { $q->where('name', 'superadmin'); })->first();
-        
+        $superadmin = User::whereHas('roles', function ($q) {
+            $q->where('name', 'superadmin');
+        })->first();
+
         if ($currentYear && $superadmin) {
             foreach ($schools as $school) {
                 $scheduleData = [
@@ -113,9 +113,9 @@ class SchoolDataSeeder extends Seeder
                         ['period' => 5, 'start' => '12:40', 'end' => '13:25'],
                         ['period' => 6, 'start' => '13:35', 'end' => '14:20'],
                     ],
-                    'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
+                    'working_days' => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
                 ];
-                
+
                 DB::table('schedules')->updateOrInsert([
                     'institution_id' => $school->id,
                     'academic_year_id' => $currentYear->id,
@@ -142,28 +142,32 @@ class SchoolDataSeeder extends Seeder
     private function seedAttendanceData()
     {
         $this->command->info('👥 Seeding attendance data...');
-        
+
         $currentYear = AcademicYear::where('is_active', true)->first();
-        $teachers = User::whereHas('roles', function($q) { $q->where('name', 'müəllim'); })->get();
+        $teachers = User::whereHas('roles', function ($q) {
+            $q->where('name', 'müəllim');
+        })->get();
         $subjects = Subject::take(3)->get();
-        
+
         if ($currentYear && $teachers->count() > 0 && $subjects->count() > 0) {
             // Get some classes from the database
             $classes = DB::table('classes')->take(5)->get();
-            
+
             foreach ($classes as $class) {
                 // Create attendance records for the last 2 weeks
                 for ($i = 14; $i >= 0; $i--) {
                     $date = now()->subDays($i);
-                    
+
                     // Skip weekends
-                    if ($date->isWeekend()) continue;
-                    
+                    if ($date->isWeekend()) {
+                        continue;
+                    }
+
                     // Create multiple periods per day
                     for ($period = 1; $period <= 3; $period++) {
                         $subject = $subjects->random();
                         $teacher = $teachers->random();
-                        
+
                         DB::table('class_attendance')->updateOrInsert([
                             'class_id' => $class->id,
                             'subject_id' => $subject->id,
