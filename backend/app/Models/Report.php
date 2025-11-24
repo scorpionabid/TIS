@@ -2,10 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Institution;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\Schema;
 
 class Report extends Model
 {
@@ -17,20 +20,28 @@ class Report extends Model
      * @var array<string>
      */
     protected $fillable = [
-        'title',
+        'name',
         'description',
-        'creator_id',
-        'report_type',
-        'query_parameters',
-        'data_sources',
-        'visualization_config',
-        'access_level',
-        'format',
-        'schedule',
-        'last_generated_at',
-        'expiration_date',
-        'is_featured',
-        'metadata',
+        'institution_id',
+        'type',
+        'status',
+        'config',
+        'parameters',
+        'schedule_type',
+        'schedule_config',
+        'is_active',
+        'created_by',
+        'updated_by',
+        'result_data',
+        'result_files',
+        'file_path',
+        'file_size',
+        'generation_time',
+        'data_points_count',
+        'generation_started_at',
+        'generated_at',
+        'generation_completed_at',
+        'generation_failed_at',
     ];
 
     /**
@@ -41,14 +52,62 @@ class Report extends Model
     protected function casts(): array
     {
         return [
-            'query_parameters' => 'array',
-            'data_sources' => 'array',
-            'visualization_config' => 'array',
-            'last_generated_at' => 'datetime',
-            'expiration_date' => 'datetime',
-            'is_featured' => 'boolean',
-            'metadata' => 'array',
+            'config' => 'array',
+            'parameters' => 'array',
+            'schedule_config' => 'array',
+            'is_active' => 'boolean',
+            'result_data' => 'array',
+            'result_files' => 'array',
+            'generation_time' => 'integer',
+            'data_points_count' => 'integer',
+            'generation_started_at' => 'datetime',
+            'generated_at' => 'datetime',
+            'generation_completed_at' => 'datetime',
+            'generation_failed_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Sync legacy columns when persisting for backwards compatibility.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $report) {
+            if (Schema::hasColumn('reports', 'title') && $report->name) {
+                $report->setAttribute('title', $report->name);
+            }
+
+            if (Schema::hasColumn('reports', 'report_type') && $report->type) {
+                $report->setAttribute('report_type', $report->type);
+            }
+
+            if (Schema::hasColumn('reports', 'creator_id') && $report->created_by) {
+                $report->setAttribute('creator_id', $report->created_by);
+            }
+
+            if (Schema::hasColumn('reports', 'query_parameters')) {
+                $report->setAttribute(
+                    'query_parameters',
+                    json_encode($report->parameters ?? [])
+                );
+            }
+
+            if (Schema::hasColumn('reports', 'visualization_config')) {
+                $report->setAttribute(
+                    'visualization_config',
+                    json_encode($report->config ?? [])
+                );
+            }
+
+            if (Schema::hasColumn('reports', 'data_sources')) {
+                $config = $report->config ?? [];
+                $report->setAttribute('data_sources', json_encode($config['sources'] ?? []));
+            }
+
+            if ($report->description === null) {
+                $report->description = '';
+            }
+        });
     }
 
     /**
@@ -56,7 +115,23 @@ class Report extends Model
      */
     public function creator(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'creator_id');
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Get the user who last updated the report.
+     */
+    public function updater(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'updated_by');
+    }
+
+    /**
+     * Get the institution the report belongs to.
+     */
+    public function institution(): BelongsTo
+    {
+        return $this->belongsTo(Institution::class);
     }
 
     /**
@@ -88,11 +163,10 @@ class Report extends Model
      */
     public function needsRegeneration(): bool
     {
-        if (! $this->schedule || ! $this->last_generated_at) {
+        if (! $this->schedule_type || ! $this->generated_at) {
             return true;
         }
 
-        // Simple schedule check - in production, use a proper cron parser
         $scheduleMapping = [
             'daily' => 1,
             'weekly' => 7,
@@ -100,12 +174,12 @@ class Report extends Model
             'quarterly' => 90,
         ];
 
-        $days = $scheduleMapping[$this->schedule] ?? null;
+        $days = $scheduleMapping[$this->schedule_type] ?? null;
         if (! $days) {
             return false;
         }
 
-        return $this->last_generated_at->addDays($days)->isPast();
+        return $this->generated_at->addDays($days)->isPast();
     }
 
     /**
@@ -113,7 +187,8 @@ class Report extends Model
      */
     public function markAsGenerated(): void
     {
-        $this->last_generated_at = now();
+        $this->generated_at = now();
+        $this->generation_completed_at = now();
         $this->save();
     }
 
@@ -122,7 +197,7 @@ class Report extends Model
      */
     public function scopeByType($query, string $type)
     {
-        return $query->where('report_type', $type);
+        return $query->where('type', $type);
     }
 
     /**
@@ -138,7 +213,7 @@ class Report extends Model
      */
     public function scopeFeatured($query)
     {
-        return $query->where('is_featured', true);
+        return $query->where('is_active', true);
     }
 
     /**
@@ -146,10 +221,7 @@ class Report extends Model
      */
     public function scopeActive($query)
     {
-        return $query->where(function ($q) {
-            $q->whereNull('expiration_date')
-                ->orWhere('expiration_date', '>', now());
-        });
+        return $query->where('is_active', true);
     }
 
     /**
@@ -157,7 +229,7 @@ class Report extends Model
      */
     public function scopeCreatedBy($query, int $userId)
     {
-        return $query->where('creator_id', $userId);
+        return $query->where('created_by', $userId);
     }
 
     /**
@@ -165,6 +237,63 @@ class Report extends Model
      */
     public function scopeSearchByTitle($query, string $search)
     {
-        return $query->where('title', 'ILIKE', "%{$search}%");
+        return $query->where('name', 'ILIKE', "%{$search}%");
+    }
+
+    public function getNameAttribute($value): ?string
+    {
+        if ($value !== null) {
+            return $value;
+        }
+
+        return $this->attributes['title'] ?? null;
+    }
+
+    public function getTypeAttribute($value): ?string
+    {
+        if ($value !== null) {
+            return $value;
+        }
+
+        return $this->attributes['report_type'] ?? null;
+    }
+
+    public function getCreatedByAttribute($value): ?int
+    {
+        if ($value !== null) {
+            return $value;
+        }
+
+        return $this->attributes['creator_id'] ?? null;
+    }
+
+    public function getParametersAttribute($value): ?array
+    {
+        if ($value !== null) {
+            return is_string($value) ? json_decode($value, true) : $value;
+        }
+
+        if (array_key_exists('query_parameters', $this->attributes)) {
+            $raw = $this->attributes['query_parameters'];
+
+            return is_string($raw) ? json_decode($raw, true) : $raw;
+        }
+
+        return null;
+    }
+
+    public function getConfigAttribute($value): ?array
+    {
+        if ($value !== null) {
+            return is_string($value) ? json_decode($value, true) : $value;
+        }
+
+        if (array_key_exists('visualization_config', $this->attributes)) {
+            $raw = $this->attributes['visualization_config'];
+
+            return is_string($raw) ? json_decode($raw, true) : $raw;
+        }
+
+        return null;
     }
 }

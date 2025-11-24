@@ -567,7 +567,7 @@ class RegionAdminUserController extends Controller
 
             // Delete other records
             \DB::table('grades')->where('homeroom_teacher_id', $targetUser->id)->update(['homeroom_teacher_id' => null]);
-            \DB::table('reports')->where('creator_id', $targetUser->id)->delete();
+            \DB::table('reports')->where('created_by', $targetUser->id)->delete();
             \DB::table('indicator_values')->where('approved_by', $targetUser->id)->update(['approved_by' => null]);
             \DB::table('statistics')->where('verified_by', $targetUser->id)->update(['verified_by' => null]);
 

@@ -252,7 +252,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       setConnectionError('Failed to initialize Echo connection');
       scheduleReconnect();
     }
-  }, [getWebSocketConfig]);
+  }, [getWebSocketConfig, scheduleReconnect, setupEchoListeners]);
 
   // Setup Echo connection listeners
   const setupEchoListeners = useCallback((echoInstance: Echo) => {
@@ -285,7 +285,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       setIsEchoConnected(false);
       setIsConnected(false);
     });
-  }, []);
+  }, [scheduleReconnect]);
 
   // Connect to WebSocket (unified method for both Echo and legacy)
   const connect = useCallback(async () => {
@@ -361,26 +361,6 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     setTimeout(connect, 100);
   }, [disconnect, connect]);
 
-  // Subscribe to channel
-  const subscribe = useCallback((channel: string, callback: WebSocketEventHandler): (() => void) => {
-    const subscription: ChannelSubscription = { channel, callback };
-    subscriptions.current.push(subscription);
-
-    // Send subscription message to server if connected
-    if (socket?.readyState === WebSocket.OPEN) {
-      socket.send(JSON.stringify({
-        type: 'subscribe',
-        channel,
-        user_id: currentUser?.id
-      }));
-    }
-
-    // Return unsubscribe function
-    return () => {
-      unsubscribe(channel, callback);
-    };
-  }, [socket, currentUser?.id]);
-
   // Unsubscribe from channel
   const unsubscribe = useCallback((channel: string, callback: WebSocketEventHandler) => {
     subscriptions.current = subscriptions.current.filter(
@@ -399,6 +379,26 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       }
     }
   }, [socket, currentUser?.id]);
+
+  // Subscribe to channel
+  const subscribe = useCallback((channel: string, callback: WebSocketEventHandler): (() => void) => {
+    const subscription: ChannelSubscription = { channel, callback };
+    subscriptions.current.push(subscription);
+
+    // Send subscription message to server if connected
+    if (socket?.readyState === WebSocket.OPEN) {
+      socket.send(JSON.stringify({
+        type: 'subscribe',
+        channel,
+        user_id: currentUser?.id
+      }));
+    }
+
+    // Return unsubscribe function
+    return () => {
+      unsubscribe(channel, callback);
+    };
+  }, [socket, currentUser?.id, unsubscribe]);
 
   // Send message (unified for both Echo and legacy WebSocket)
   const send = useCallback((message: Record<string, unknown>) => {
