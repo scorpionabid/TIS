@@ -20,9 +20,17 @@ trait CreatesApplication
 
         $app->make(Kernel::class)->bootstrap();
 
-        // Set the default database connection to SQLite for testing
-        config(['database.default' => 'sqlite']);
-        config(['database.connections.sqlite.database' => ':memory:']);
+        // Set the default database connection to SQLite (file-based) for testing
+        $databasePath = database_path('testing.sqlite');
+        if (! file_exists($databasePath)) {
+            touch($databasePath);
+        }
+
+        config([
+            'database.default' => 'sqlite',
+            'database.connections.sqlite.database' => $databasePath,
+            'database.connections.sqlite.foreign_key_constraints' => true,
+        ]);
 
         // Enable foreign key constraints for SQLite
         if (config('database.default') === 'sqlite') {

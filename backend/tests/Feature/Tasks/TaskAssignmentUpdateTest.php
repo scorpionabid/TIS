@@ -5,13 +5,11 @@ namespace Tests\Feature\Tasks;
 use App\Models\Institution;
 use App\Models\Task;
 use App\Models\TaskAssignment;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class TaskAssignmentUpdateTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     protected function createTaskWithAssignment(): array

@@ -322,7 +322,7 @@ export const useInstitutionValidation = (institution?: Institution | null) => {
       setSimilarInstitutions([]);
       setShowSimilarWarning(false);
     }
-  }, [institution?.id, withRetry, retryCount.similarCheck]);
+  }, [institution, withRetry, retryCount.similarCheck]);
 
   const handleGenerateCode = React.useCallback(async (formControl: any) => {
     const formValues = formControl.getValues();

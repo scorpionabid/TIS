@@ -5,13 +5,11 @@ namespace Tests\Feature\Documents;
 use App\Models\DocumentCollection;
 use App\Models\FolderAuditLog;
 use App\Models\Institution;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class DocumentCollectionRegionalCreationTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     public function test_superadmin_can_create_regional_folders_from_templates(): void

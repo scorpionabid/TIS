@@ -12,12 +12,20 @@ interface InstitutionTargetingProps {
   availableInstitutions: Institution[];
 }
 
+const EMPTY_INSTITUTION_IDS: number[] = [];
+
 export function InstitutionTargeting({
   form,
   availableInstitutions,
 }: InstitutionTargetingProps) {
   const [searchTerm, setSearchTerm] = useState('');
-  const selectedIds: number[] = form.watch('target_institutions') || [];
+  const watchedInstitutionIds = form.watch('target_institutions');
+  const selectedIds: number[] = useMemo(() => {
+    if (Array.isArray(watchedInstitutionIds)) {
+      return watchedInstitutionIds;
+    }
+    return EMPTY_INSTITUTION_IDS;
+  }, [watchedInstitutionIds]);
   const selectedCount = selectedIds.length;
 
   const watchedDepartments = form.watch('target_departments') || [];

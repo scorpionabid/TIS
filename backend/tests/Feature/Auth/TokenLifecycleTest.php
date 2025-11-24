@@ -2,13 +2,11 @@
 
 namespace Tests\Feature\Auth;
 
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class TokenLifecycleTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     public function test_authenticated_user_can_logout_and_token_is_revoked(): void

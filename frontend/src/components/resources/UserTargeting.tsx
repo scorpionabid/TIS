@@ -15,6 +15,8 @@ interface UserTargetingProps {
   form: any;
 }
 
+const EMPTY_USER_IDS: number[] = [];
+
 const ROLE_LABELS: Record<string, string> = {
   superadmin: 'SuperAdmin',
   regionadmin: 'RegionAdmin',
@@ -144,7 +146,13 @@ export function UserTargeting({ form }: UserTargetingProps) {
     console.groupEnd();
   }, [assignableUsers, roleSummary]);
 
-  const selectedUserIds: number[] = form.watch('target_users') || [];
+  const watchedTargetUsers = form.watch('target_users');
+  const selectedUserIds: number[] = useMemo(() => {
+    if (Array.isArray(watchedTargetUsers)) {
+      return watchedTargetUsers;
+    }
+    return EMPTY_USER_IDS;
+  }, [watchedTargetUsers]);
 
   const filteredUsers = useMemo(() => {
     const query = userSearch.toLowerCase().trim();

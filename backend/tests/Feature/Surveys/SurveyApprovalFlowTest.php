@@ -5,13 +5,11 @@ namespace Tests\Feature\Surveys;
 use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class SurveyApprovalFlowTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     protected array $adminPermissions = [

@@ -4,13 +4,11 @@ namespace Tests\Feature\Surveys;
 
 use App\Models\Institution;
 use App\Models\Survey;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class SurveyAnalyticsTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     public function test_survey_statistics_and_overview_endpoints_return_metrics(): void

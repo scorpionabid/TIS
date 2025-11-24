@@ -33,7 +33,7 @@ class LinkNotificationTest extends TestCase
             'institution_id' => $school->id,
         ]);
 
-        $linkShare = new LinkShare([
+        $linkShare = LinkShare::factory()->create([
             'title' => 'Digital Resource Portal',
             'description' => 'Portal description',
             'url' => 'https://example.com/resource',
@@ -41,28 +41,27 @@ class LinkNotificationTest extends TestCase
             'share_scope' => 'institutional',
             'target_institutions' => [$school->id],
             'target_roles' => ['schooladmin'],
+            'shared_by' => $editor->id,
+            'institution_id' => $editor->institution_id,
+            'status' => 'active',
         ]);
-        $linkShare->id = 42;
-        $linkShare->setAttribute('institution_id', $editor->institution_id);
-        $linkShare->setRelation('sharedBy', $editor);
-        $linkShare->setRelation('institution', $editor->institution);
 
         $linkSharingService = Mockery::mock(LinkSharingService::class);
         $linkSharingService->shouldReceive('updateLinkShare')
             ->once()
             ->with(
-                $linkShare->id,
+                Mockery::on(fn ($model) => $model instanceof LinkShare && $model->id === $linkShare->id),
                 Mockery::type('array'),
                 Mockery::on(fn ($user) => $user->id === $editor->id)
             )
-            ->andReturn($linkShare);
+            ->andReturnUsing(fn ($model) => $model);
         $this->app->instance(LinkSharingService::class, $linkSharingService);
 
         $notificationService = Mockery::mock(NotificationService::class);
         $notificationService->shouldReceive('sendLinkNotification')
             ->once()
             ->with(
-                $linkShare,
+                Mockery::on(fn ($link) => $link instanceof LinkShare && $link->id === $linkShare->id),
                 'updated',
                 Mockery::on(fn ($users) => $users === [$targetUser->id]),
                 Mockery::on(fn ($data) => $data['link_title'] === $linkShare->title)

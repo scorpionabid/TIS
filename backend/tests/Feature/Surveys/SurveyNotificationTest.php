@@ -6,13 +6,11 @@ use App\Models\Institution;
 use App\Models\Notification;
 use App\Models\NotificationTemplate;
 use App\Models\Survey;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class SurveyNotificationTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     public function test_publishing_survey_creates_notifications_for_target_institution(): void

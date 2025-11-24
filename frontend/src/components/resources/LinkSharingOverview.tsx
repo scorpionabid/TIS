@@ -304,7 +304,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [overview?.link_id, overview?.sectors]);
+  }, [overview?.link_id, overview?.sectors, providedInstitutionMetadata]);
 
   const {
     sectorsToRender,

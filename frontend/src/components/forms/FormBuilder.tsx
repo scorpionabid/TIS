@@ -428,9 +428,12 @@ interface MultiSelectFieldProps {
   form: any;
 }
 
+const EMPTY_MULTISELECT_VALUES: string[] = [];
+
 const MultiSelectField: React.FC<MultiSelectFieldProps> = ({ field, formField, loading, form }) => {
   const [open, setOpen] = React.useState(false);
-  const selectedValues: string[] = Array.isArray(formField.value) ? formField.value : [];
+  const rawSelectedValues = Array.isArray(formField.value) ? formField.value : undefined;
+  const selectedValues: string[] = React.useMemo(() => rawSelectedValues ?? EMPTY_MULTISELECT_VALUES, [rawSelectedValues]);
 
   const selectedLabels = React.useMemo(() => {
     if (!field.options) return [];

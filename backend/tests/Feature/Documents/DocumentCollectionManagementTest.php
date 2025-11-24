@@ -5,13 +5,11 @@ namespace Tests\Feature\Documents;
 use App\Models\Document;
 use App\Models\DocumentCollection;
 use App\Models\Institution;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class DocumentCollectionManagementTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     protected function createFolderWithCreator(): array

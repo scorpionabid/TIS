@@ -4,13 +4,11 @@ namespace Tests\Unit\Services\Auth;
 
 use App\Models\SecurityEvent;
 use App\Services\Auth\LogoutService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class LogoutServiceTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     protected LogoutService $logoutService;

@@ -4,13 +4,11 @@ namespace Tests\Feature\Surveys;
 
 use App\Models\Institution;
 use App\Models\Survey;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class SurveyResponseFlowTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     public function test_target_user_can_start_and_save_survey_response(): void

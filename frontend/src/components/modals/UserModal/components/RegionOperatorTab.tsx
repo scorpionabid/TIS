@@ -58,15 +58,17 @@ export function RegionOperatorTab({
     : [];
 
   // Clear department selection when institution changes
+  const institutionId = formData.institution_id;
+  const departmentId = formData.department_id;
+
   useEffect(() => {
-    if (formData.institution_id && formData.department_id) {
-      const selectedDept = availableDepartments.find(d => d.id.toString() === formData.department_id);
+    if (institutionId && departmentId) {
+      const selectedDept = availableDepartments.find((d) => d.id.toString() === departmentId);
       if (selectedDept && selectedDept.institution_id !== selectedInstitutionId) {
-        // Clear department if it doesn't belong to selected institution
-        setFormData({ ...formData, department_id: '' });
+        setFormData((prev: any) => ({ ...prev, department_id: '' }));
       }
     }
-  }, [formData.institution_id]);
+  }, [institutionId, departmentId, availableDepartments, selectedInstitutionId, setFormData]);
 
   // Basic fields for RegionOperator (without permission checkboxes)
   const basicFields = [

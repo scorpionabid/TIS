@@ -12,6 +12,7 @@ use App\Services\NotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
 class LinkShareControllerRefactored extends BaseController
@@ -178,8 +179,34 @@ class LinkShareControllerRefactored extends BaseController
             ]);
 
             $user = Auth::user();
-            $linkShareModel = LinkShare::with(['sharedBy', 'institution'])->findOrFail($id);
+            Log::info('LinkShare update request received', [
+                'link_share_id' => $id,
+                'validated_payload' => $validated,
+                'user_id' => $user?->id,
+                'route' => $request->path(),
+            ]);
+            $linkShareModel = LinkShare::with(['sharedBy', 'institution'])->find($id);
+
+            if (!$linkShareModel) {
+                Log::error('LinkShare not found during update', [
+                    'link_share_id' => $id,
+                    'user_id' => $user?->id,
+                ]);
+
+                abort(404, "LinkShare #{$id} tapılmadı");
+            }
+
+            Log::info('LinkShare model loaded for update', [
+                'link_share_id' => $linkShareModel->id,
+                'has_sharedBy' => $linkShareModel->relationLoaded('sharedBy'),
+                'has_institution' => $linkShareModel->relationLoaded('institution'),
+            ]);
+
             $linkShare = $this->linkSharingService->updateLinkShare($linkShareModel, $validated, $user);
+            Log::info('LinkShare updated successfully', [
+                'link_share_id' => $linkShare->id,
+                'updated_fields' => array_keys($validated),
+            ]);
             $this->sendLinkShareNotification($linkShare, $validated, $user, 'updated');
 
             return $this->successResponse($linkShare, 'Bağlantı yeniləndi');

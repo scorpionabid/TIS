@@ -3,13 +3,11 @@
 namespace Tests\Feature\Institutions;
 
 use App\Models\Institution;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class InstitutionListingTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     public function test_superadmin_with_permission_can_list_institutions(): void

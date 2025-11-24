@@ -25,7 +25,7 @@ export const ProfileEditModalStandardized: React.FC<ProfileEditModalStandardized
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
 
   // Custom avatar upload component
-  const AvatarUploadComponent = ({ value, onChange }: { value?: string; onChange?: (value: string) => void }) => {
+  const AvatarUploadComponent = useCallback(({ value, onChange }: { value?: string; onChange?: (value: string) => void }) => {
     const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
       if (!file) return;
@@ -105,7 +105,7 @@ export const ProfileEditModalStandardized: React.FC<ProfileEditModalStandardized
         </div>
       </div>
     );
-  };
+  }, [avatarPreview, profileData, toast]);
 
   // Dynamic fields with avatar component
   const basicFields: FormField[] = useMemo(() => [
@@ -119,7 +119,7 @@ export const ProfileEditModalStandardized: React.FC<ProfileEditModalStandardized
       ...profileFields.avatar,
       component: <AvatarUploadComponent />
     },
-  ], []);
+  ], [AvatarUploadComponent]);
 
   const addressFields: FormField[] = useMemo(() => [
     profileFields.address,

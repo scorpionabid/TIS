@@ -172,10 +172,19 @@ export function useUserModalFields(params: {
       ),
     ];
   }, [
-    availableRoles, availableInstitutions, availableDepartments, loadingOptions,
-    selectedRole, selectedBirthDate, emailValidation, debouncedEmailCheck,
-    user, mode, isTeacherRole, isStudentRole, isRegionalOperatorRole,
-    setSelectedRole, setActiveTab, setSelectedBirthDate
+    availableRoles,
+    availableInstitutions,
+    availableDepartments,
+    loadingOptions,
+    selectedRole,
+    debouncedEmailCheck,
+    user,
+    mode,
+    isTeacherRole,
+    isStudentRole,
+    isRegionalOperatorRole,
+    setSelectedRole,
+    setActiveTab
   ]);
 
   // Get teacher fields (tab 2)

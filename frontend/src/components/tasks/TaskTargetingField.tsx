@@ -27,6 +27,8 @@ export interface TaskTargetingFieldProps {
   disabled?: boolean;
 }
 
+const EMPTY_TASK_SELECTED_VALUES: string[] = [];
+
 /**
  * TaskTargetingField - Tapşırıq üçün hədəf müəssisələrin seçimi
  *
@@ -45,9 +47,12 @@ export const TaskTargetingField: React.FC<TaskTargetingFieldProps> = ({
   const [searchTerm, setSearchTerm] = React.useState('');
 
   // Get selected values from form
-  const selectedValues: string[] = Array.isArray(formField.value)
-    ? formField.value.map((value: any) => String(value))
-    : [];
+  const selectedValues: string[] = React.useMemo(() => {
+    if (Array.isArray(formField.value)) {
+      return formField.value.map((value: any) => String(value));
+    }
+    return EMPTY_TASK_SELECTED_VALUES;
+  }, [formField.value]);
 
   // Watch departments to disable institution selection when departments are selected
   const watchedDepartments = form.watch('target_departments');

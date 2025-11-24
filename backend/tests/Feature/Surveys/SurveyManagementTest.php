@@ -4,13 +4,11 @@ namespace Tests\Feature\Surveys;
 
 use App\Models\Institution;
 use App\Models\Survey;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class SurveyManagementTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     public function test_superadmin_can_create_publish_and_retrieve_survey(): void

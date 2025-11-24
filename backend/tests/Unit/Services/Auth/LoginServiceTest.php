@@ -3,7 +3,6 @@
 namespace Tests\Unit\Services\Auth;
 
 use App\Services\Auth\LoginService;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
@@ -11,7 +10,6 @@ use Tests\TestCase;
 
 class LoginServiceTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     protected LoginService $loginService;

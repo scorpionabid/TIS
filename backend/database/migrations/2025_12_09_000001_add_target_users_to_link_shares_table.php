@@ -26,6 +26,10 @@ return new class extends Migration
      */
     public function down(): void
     {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            return;
+        }
+
         Schema::table('link_shares', function (Blueprint $table) {
             $table->dropColumn('target_users');
         });

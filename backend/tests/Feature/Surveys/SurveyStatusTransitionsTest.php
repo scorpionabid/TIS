@@ -3,13 +3,11 @@
 namespace Tests\Feature\Surveys;
 
 use App\Models\Institution;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 
 class SurveyStatusTransitionsTest extends TestCase
 {
-    use RefreshDatabase;
     use SeedsDefaultRolesAndPermissions;
 
     public function test_superadmin_can_cycle_through_survey_statuses(): void
