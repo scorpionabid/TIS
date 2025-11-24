@@ -39,9 +39,9 @@ class RegionAdminReportsService
             'active_users' => User::whereIn('institution_id', $institutionIds)
                 ->where('last_login_at', '>=', Carbon::now()->subDays(30))
                 ->count(),
-            'total_surveys' => Survey::where('created_by', $user->id)->count(),
+            'total_surveys' => Survey::where('creator_id', $user->id)->count(),
             'total_responses' => SurveyResponse::whereHas('survey', function ($query) use ($user) {
-                $query->where('created_by', $user->id);
+                $query->where('creator_id', $user->id);
             })->count(),
         ];
     }
@@ -93,14 +93,16 @@ class RegionAdminReportsService
      */
     public function getInstitutionPerformanceReports($userRegionId, $institutionType = null, $performanceMetric = 'activity_rate')
     {
-        $query = Institution::where('parent_id', $userRegionId);
+        $query = Institution::query();
 
         if ($institutionType === 'sector') {
-            $query->where('level', 3);
+            $query->where('parent_id', $userRegionId)->where('level', 3);
         } elseif ($institutionType === 'school') {
-            $query->whereHas('parent', function ($q) use ($userRegionId) {
+            $query->where('level', 4)->whereHas('parent', function ($q) use ($userRegionId) {
                 $q->where('parent_id', $userRegionId);
-            })->where('level', 4);
+            });
+        } else {
+            $query->where('parent_id', $userRegionId);
         }
 
         $institutions = $query->get()->map(function ($institution) {
@@ -148,14 +150,13 @@ class RegionAdminReportsService
      */
     public function generateSurveyReports($user, $startDate, $endDate)
     {
-        $surveys = Survey::where('created_by', $user->id)
+        $surveys = Survey::where('creator_id', $user->id)
             ->whereBetween('created_at', [$startDate, $endDate])
-            ->with(['targeting.institution'])
             ->get();
 
         $surveyData = $surveys->map(function ($survey) {
             $responseCount = SurveyResponse::where('survey_id', $survey->id)->count();
-            $targetCount = $survey->targeting->count() * 10; // Estimated
+            $targetCount = count($survey->target_institutions ?? []) * 10; // Estimated
 
             return [
                 'id' => $survey->id,

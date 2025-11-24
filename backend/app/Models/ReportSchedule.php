@@ -21,6 +21,7 @@ class ReportSchedule extends Model
         'day_of_month',
         'next_run',
         'last_run',
+        'run_count',
         'status',
         'created_by',
     ];
@@ -32,6 +33,7 @@ class ReportSchedule extends Model
         'last_run' => 'datetime',
         'day_of_week' => 'integer',
         'day_of_month' => 'integer',
+        'run_count' => 'integer',
     ];
 
     /**
