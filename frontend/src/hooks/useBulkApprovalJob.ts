@@ -26,6 +26,12 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
   const { subscribe, isConnected } = useWebSocket();
   const abortController = useRef<AbortController | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
+  const {
+    onProgress,
+    onComplete,
+    onError,
+    onCancel,
+  } = options;
   
   const [state, setState] = useState<BulkJobState>({
     isRunning: false,
@@ -35,12 +41,16 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
     error: null,
     canCancel: false
   });
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   // Handle progress updates
   const handleProgress = useCallback((progress: BulkJobProgress) => {
     setState(prev => ({ ...prev, progress }));
-    options.onProgress?.(progress);
-  }, [options.onProgress]);
+    onProgress?.(progress);
+  }, [onProgress]);
 
   // Handle completion
   const handleComplete = useCallback((result: BulkJobResult) => {
@@ -74,8 +84,8 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
       });
     }
 
-    options.onComplete?.(result);
-  }, [options.onComplete, toast]);
+    onComplete?.(result);
+  }, [onComplete, toast]);
 
   // Handle errors
   const handleError = useCallback((error: Error) => {
@@ -93,8 +103,8 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
       variant: "destructive",
     });
 
-    options.onError?.(error);
-  }, [options.onError, toast]);
+    onError?.(error);
+  }, [onError, toast]);
 
   // Start bulk approval job
   const startJob = useCallback(async (
@@ -102,7 +112,7 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
     action: 'approve' | 'reject' | 'return',
     comments?: string
   ) => {
-    if (state.isRunning) {
+    if (stateRef.current.isRunning) {
       throw new Error('Job is already running');
     }
 
@@ -176,10 +186,11 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
           // Return a promise that resolves when the job completes
           return new Promise((resolve, reject) => {
             const checkCompletion = () => {
-              if (state.result) {
-                resolve(state.result);
-              } else if (state.error) {
-                reject(state.error);
+              const currentState = stateRef.current;
+              if (currentState.result) {
+                resolve(currentState.result);
+              } else if (currentState.error) {
+                reject(currentState.error);
               } else {
                 setTimeout(checkCompletion, 100);
               }
@@ -207,7 +218,7 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
       handleError(error as Error);
       throw error;
     }
-  }, [state.isRunning, handleProgress, handleComplete, handleError]);
+  }, [handleProgress, handleComplete, handleError, isConnected, subscribe]);
 
   // Cancel running job
   const cancelJob = useCallback(async () => {
@@ -232,7 +243,7 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
         variant: "default",
       });
 
-      options.onCancel?.();
+      onCancel?.();
       
     } catch (error) {
       toast({
@@ -243,7 +254,7 @@ export function useBulkApprovalJob(options: UseBulkApprovalJobOptions = {}) {
       
       throw error;
     }
-  }, [state.jobId, state.canCancel, toast, options.onCancel]);
+  }, [state.jobId, state.canCancel, toast, onCancel]);
 
   // Reset job state
   const resetJob = useCallback(() => {

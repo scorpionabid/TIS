@@ -77,7 +77,7 @@ export const SchoolStudentManagerStandardized: React.FC<SchoolStudentManagerStan
         }
       },
     })),
-  }), [studentEntityConfig]);
+  }), []);
 
   // Enhanced custom logic with student-specific handlers
   const enhancedCustomLogic = React.useMemo(() => ({
@@ -124,7 +124,7 @@ export const SchoolStudentManagerStandardized: React.FC<SchoolStudentManagerStan
         variant: 'outline' as const,
       },
     ],
-  }), [studentCustomLogic]);
+  }), []);
 
   // Modal event handlers with error handling
   const handleUserSave = async (userData: any) => {

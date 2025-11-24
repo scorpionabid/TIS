@@ -77,7 +77,13 @@ export const GradeStudentsDialog: React.FC<GradeStudentsDialogProps> = ({
     enabled: open,
   });
 
-  const students = studentsResponse?.data?.students || [];
+  const rawStudents = studentsResponse?.data?.students;
+  const students = React.useMemo(() => {
+    if (Array.isArray(rawStudents)) {
+      return rawStudents;
+    }
+    return [];
+  }, [rawStudents]);
 
   // Update enrollment status mutation
   const updateStatusMutation = useMutation({

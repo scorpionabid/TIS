@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -72,11 +72,7 @@ export const RegionalSchedulesDashboard: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  const loadDashboardData = async () => {
+  const loadDashboardData = useCallback(async () => {
     setIsLoading(true);
     try {
       // Mock data - in real implementation, this would be API calls
@@ -168,7 +164,11 @@ export const RegionalSchedulesDashboard: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [loadDashboardData]);
 
   const filteredInstitutions = useMemo(() => {
     return institutions.filter(institution => {

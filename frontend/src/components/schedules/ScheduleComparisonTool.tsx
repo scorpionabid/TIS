@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -134,11 +134,7 @@ export const ScheduleComparisonTool: React.FC = () => {
   const [viewMode, setViewMode] = useState<'table' | 'chart' | 'radar'>('table');
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadAvailableSchedules();
-  }, []);
-
-  const loadAvailableSchedules = async () => {
+  const loadAvailableSchedules = useCallback(async () => {
     setIsLoading(true);
     try {
       // Mock data - in real implementation, this would be an API call
@@ -196,7 +192,11 @@ export const ScheduleComparisonTool: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    loadAvailableSchedules();
+  }, [loadAvailableSchedules]);
 
   const addScheduleToComparison = (schedule: Schedule) => {
     if (selectedSchedules.length >= 5) {

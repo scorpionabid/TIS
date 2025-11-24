@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -145,11 +145,7 @@ export const ScheduleBuilder: React.FC<ScheduleBuilderProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
-  useEffect(() => {
-    loadWorkloadData();
-  }, []);
-
-  const loadWorkloadData = async () => {
+  const loadWorkloadData = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -173,7 +169,11 @@ export const ScheduleBuilder: React.FC<ScheduleBuilderProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    loadWorkloadData();
+  }, [loadWorkloadData]);
 
   const handleSettingsNext = (settings: GenerationSettings) => {
     setGenerationSettings(settings);

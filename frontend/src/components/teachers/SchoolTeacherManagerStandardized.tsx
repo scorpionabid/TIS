@@ -134,7 +134,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
         ],
       }] : []),
     ],
-  }), [teacherEntityConfig, availableInstitutions]);
+  }), [availableInstitutions]);
 
   // Enhanced custom logic with modal rendering
   const enhancedCustomLogic = React.useMemo(() => ({
@@ -167,7 +167,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
       setTeacherModalOpen(true);
     },
     
-  }), [teacherCustomLogic]);
+  }), []);
 
   // Modal event handlers with error handling
   const handleUserSave = async (userData: any) => {

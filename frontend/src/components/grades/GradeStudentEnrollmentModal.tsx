@@ -63,7 +63,13 @@ export const GradeStudentEnrollmentModal: React.FC<GradeStudentEnrollmentModalPr
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  const availableStudents = studentsResponse?.data?.data || [];
+  const rawAvailableStudents = studentsResponse?.data?.data;
+  const availableStudents = useMemo<Student[]>(() => {
+    if (Array.isArray(rawAvailableStudents)) {
+      return rawAvailableStudents;
+    }
+    return [];
+  }, [rawAvailableStudents]);
 
   // Filter students based on search term
   const filteredStudents = useMemo(() => {

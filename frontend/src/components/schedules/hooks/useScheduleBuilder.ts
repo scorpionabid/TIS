@@ -16,6 +16,20 @@ import {
 import { subjectService } from '@/services/subjects';
 import { format, startOfWeek, addDays } from 'date-fns';
 
+const DEFAULT_TIME_SLOTS = [
+  '08:00-08:45',
+  '08:55-09:40',
+  '09:50-10:35',
+  '10:45-11:30',
+  '11:40-12:25',
+  '12:35-13:20',
+  '13:30-14:15',
+  '14:25-15:10',
+  '15:20-16:05',
+];
+
+const DEFAULT_WEEK_DAYS = ['Bazar ertəsi', 'Çərşənbə axşamı', 'Çərşənbə', 'Cümə axşamı', 'Cümə'];
+
 export const useScheduleBuilder = (scheduleId?: number, onSave?: (schedule: Schedule) => void) => {
   const [selectedWeek, setSelectedWeek] = useState(startOfWeek(new Date()));
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
@@ -98,22 +112,11 @@ export const useScheduleBuilder = (scheduleId?: number, onSave?: (schedule: Sche
     },
   });
 
-  const timeSlots = [
-    '08:00-08:45',
-    '08:55-09:40',
-    '09:50-10:35',
-    '10:45-11:30',
-    '11:40-12:25',
-    '12:35-13:20',
-    '13:30-14:15',
-    '14:25-15:10',
-    '15:20-16:05',
-  ];
-
-  const weekDays = ['Bazar ertəsi', 'Çərşənbə axşamı', 'Çərşənbə', 'Cümə axşamı', 'Cümə'];
+  const timeSlots = DEFAULT_TIME_SLOTS;
+  const weekDays = DEFAULT_WEEK_DAYS;
 
   const generateWeekDates = useCallback(() => {
-    return weekDays.map((_, index) => addDays(selectedWeek, index));
+    return DEFAULT_WEEK_DAYS.map((_, index) => addDays(selectedWeek, index));
   }, [selectedWeek]);
 
   const handleSlotClick = (day: number, timeSlot: string) => {

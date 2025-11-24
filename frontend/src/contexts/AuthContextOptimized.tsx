@@ -172,17 +172,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   });
 
   // Optimized auth check with stable dependencies
-  const debouncedAuthCheck = useCallback(
+  const debouncedAuthCheck = useRef(
     debounce(async (retryCount = 0) => {
       if (!isMountedRef.current) return;
       
       const startTime = performance.now();
-      
+      const token = getTokenRef.current();
+      const requiresBearerAuth = typeof apiClient.isBearerAuthEnabled === 'function'
+        ? apiClient.isBearerAuthEnabled()
+        : true;
+
       try {
-        const token = getTokenRef.current();
-        const requiresBearerAuth = typeof apiClient.isBearerAuthEnabled === 'function'
-          ? apiClient.isBearerAuthEnabled()
-          : true;
         log('info', `Checking authentication (attempt ${retryCount + 1})`, {
           hasToken: !!token,
           tokenLength: token?.length || 0,
@@ -246,43 +246,42 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           duration: `${duration.toFixed(2)}ms`
         });
 
-      } catch (error: any) {
-        const duration = performance.now() - startTime;
-        log('error', `Auth check failed (attempt ${retryCount + 1}) after ${duration.toFixed(2)}ms`, error.message);
+    } catch (error: any) {
+      const duration = performance.now() - startTime;
+      log('error', `Auth check failed (attempt ${retryCount + 1}) after ${duration.toFixed(2)}ms`, error.message);
 
-        const isTimeoutError = error.message?.includes('timeout');
-        const isNetworkError = error.message?.includes('fetch') || 
-                              error.message?.includes('NetworkError') ||
-                              error.message?.includes('Failed to fetch');
-        
-        const is401Error = error.message?.includes('401') || 
-                          error.message?.includes('Unauthenticated');
-        const requiresBearerAuth = typeof apiClient.isBearerAuthEnabled === 'function'
-          ? apiClient.isBearerAuthEnabled()
-          : true;
+      const isTimeoutError = error.message?.includes('timeout');
+      const isNetworkError = error.message?.includes('fetch') || 
+                            error.message?.includes('NetworkError') ||
+                            error.message?.includes('Failed to fetch');
+      
+      const is401Error = error.message?.includes('401') || 
+                        error.message?.includes('Unauthenticated');
+      const requiresBearerAuth = typeof apiClient.isBearerAuthEnabled === 'function'
+        ? apiClient.isBearerAuthEnabled()
+        : true;
 
-        if (is401Error) {
-          log('warn', 'Token is invalid/expired, clearing auth');
-          clearAuthRef.current();
-        } else if ((isNetworkError || isTimeoutError) && retryCount < 1 && isMountedRef.current) {
-          log('info', `Network/timeout error - retrying in ${(retryCount + 1) * 2000}ms`);
-          retryTimeoutRef.current = setTimeout(() => {
-            if (isMountedRef.current) {
-              debouncedAuthCheck(retryCount + 1);
-            }
-          }, (retryCount + 1) * 2000);
-          return;
-        } else if (requiresBearerAuth && !getTokenRef.current()) {
-          // No token exists, safe to set unauthenticated
+      if (is401Error) {
+        log('warn', 'Token is invalid/expired, clearing auth');
+        clearAuthRef.current();
+      } else if ((isNetworkError || isTimeoutError) && retryCount < 1) {
+        log('info', `Network/timeout error - retrying in ${(retryCount + 1) * 2000}ms`);
+        retryTimeoutRef.current = setTimeout(() => {
           if (isMountedRef.current) {
-            setIsAuthenticated(false);
-            applyCurrentUser(null);
+            debouncedAuthCheck.current?.(retryCount + 1);
           }
+        }, (retryCount + 1) * 2000);
+        return;
+      } else if (requiresBearerAuth && !getTokenRef.current()) {
+        // No token exists, safe to set unauthenticated
+        if (isMountedRef.current) {
+          setIsAuthenticated(false);
+          applyCurrentUser(null);
         }
-        // For other errors with valid token, keep current state
       }
-    }, 100), // Reduced from 300ms to 100ms for faster response
-    [] // Empty dependency array to prevent recreation
+      // For other errors with valid token, keep current state
+    }
+    }, 100) // Reduced from 300ms to 100ms for faster response
   );
 
   // Initial auth check on mount
@@ -290,7 +289,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isMountedRef.current = true;
     
     const checkAuth = async () => {
-      await debouncedAuthCheck();
+      await debouncedAuthCheck.current?.();
       if (isMountedRef.current) {
         setLoading(false);
       }
@@ -307,7 +306,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       if (retryTimeoutRef.current) {
         clearTimeout(retryTimeoutRef.current);
       }
-      debouncedAuthCheck.cancel?.(); // Cancel debounced function
+      debouncedAuthCheck.current?.cancel?.(); // Cancel debounced function
     };
   }, []); // Remove debouncedAuthCheck from dependencies to prevent loop
 

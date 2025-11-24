@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -137,16 +137,16 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }
   });
 
-  const getQuestionKey = (question: SurveyQuestion): string => {
+  const getQuestionKey = useCallback((question: SurveyQuestion): string => {
     if (question.id != null) {
       return question.id.toString();
     }
 
     const order = question.order ?? question.order_index ?? 0;
     return `${question.title}-${order}`;
-  };
+  }, []);
 
-  const isEmptyValue = (value: any): boolean => {
+  const isEmptyValue = useCallback((value: any): boolean => {
     if (value === undefined || value === null) {
       return true;
     }
@@ -164,9 +164,9 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }
 
     return false;
-  };
+  }, []);
 
-  const validateQuestionValue = (question: SurveyQuestion, value: any): string | undefined => {
+  const validateQuestionValue = useCallback((question: SurveyQuestion, value: any): string | undefined => {
     const isRequired = question.required || question.is_required;
 
     if (isRequired && isEmptyValue(value)) {
@@ -295,9 +295,9 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }
 
     return undefined;
-  };
+  }, [isEmptyValue]);
 
-  const validateAllQuestions = (questions: SurveyQuestion[], nextResponses: Record<string, any>) => {
+  const validateAllQuestions = useCallback((questions: SurveyQuestion[], nextResponses: Record<string, any>) => {
     const errors: Record<string, string> = {};
 
     questions.forEach((question) => {
@@ -312,7 +312,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
 
     setValidationErrors(errors);
     return errors;
-  };
+  }, [getQuestionKey, validateQuestionValue]);
 
   // Initialize responses from existing data
   useEffect(() => {
@@ -328,7 +328,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     if (surveyData && !responseId && !currentResponse && !startResponseMutation.isPending) {
       startResponseMutation.mutate();
     }
-  }, [surveyData, responseId, currentResponse]);
+  }, [surveyData, responseId, currentResponse, startResponseMutation]);
   
   // Load responses from started response (only for new responses without existing data)
   useEffect(() => {
@@ -363,7 +363,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }, autoSaveDelay);
 
     return () => clearTimeout(timer);
-  }, [hasUnsavedChanges, currentResponse, responses, autoSaveDelay, surveyData, saveResponseMutation.isPending]);
+  }, [hasUnsavedChanges, currentResponse, autoSaveDelay, saveResponseMutation.isPending, handleSave]);
 
   // Warn user about unsaved changes before leaving
   useEffect(() => {
@@ -411,7 +411,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     setHasUnsavedChanges(true);
   };
 
-  const handleSave = (autoSubmit: boolean = false, silent: boolean = false) => {
+  const handleSave = useCallback((autoSubmit: boolean = false, silent: boolean = false) => {
     if (!currentResponse || !surveyData?.questions) {
       return;
     }
@@ -430,7 +430,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
       autoSubmit,
       silent,
     });
-  };
+  }, [currentResponse, surveyData?.questions, responses, saveResponseMutation, toast, validateAllQuestions]);
 
   const handleSubmit = () => {
     if (!currentResponse || !surveyData?.questions) return;
@@ -444,7 +444,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     submitResponseMutation.mutate(currentResponse.id);
   };
 
-  const calculateProgress = (): number => {
+  const calculateProgress = useCallback((): number => {
     if (!surveyData?.questions) return 0;
 
     const totalQuestions = surveyData.questions.length;
@@ -461,9 +461,9 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }).length;
 
     return totalQuestions > 0 ? Math.round((answeredQuestions / totalQuestions) * 100) : 0;
-  };
+  }, [surveyData?.questions, responses, getQuestionKey, validateQuestionValue, isEmptyValue]);
   
-  const getUnansweredRequiredQuestions = (): SurveyQuestion[] => {
+  const getUnansweredRequiredQuestions = useCallback((): SurveyQuestion[] => {
     if (!surveyData?.questions) return [];
 
     return surveyData.questions.filter((question) => {
@@ -482,7 +482,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
 
       return isEmptyValue(response);
     });
-  };
+  }, [surveyData?.questions, responses, getQuestionKey, validateQuestionValue, isEmptyValue]);
 
   if (surveyLoading || responseLoading) {
     return (
