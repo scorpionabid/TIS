@@ -660,7 +660,7 @@ class UserCrudService
         $permissions = $user->regionOperatorPermissions;
 
         return $permissions
-            ? $permissions->only(RegionOperatorPermissionService::CRUD_FIELDS)
+            ? $permissions->only(RegionOperatorPermissionService::getCrudFields())
             : null;
     }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -42,7 +42,9 @@ export default function RegionAdminUsers() {
   const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
   const [selectedOperator, setSelectedOperator] = useState<RegionalUser | null>(null);
   const [userModalOpen, setUserModalOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<RegionalUser | null>(null);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserDetails, setSelectedUserDetails] = useState<any | null>(null);
+  const [selectedUserLoading, setSelectedUserLoading] = useState(false);
 
   // Fetch institutions for UserModalTabs
   const institutionsQuery = useQuery({
@@ -127,20 +129,62 @@ export default function RegionAdminUsers() {
 
   const handleOpenUserModal = (user?: RegionalUser) => {
     console.log('🔓 Opening UserModalTabs...', { user });
-    setSelectedUser(user || null);
+    if (user) {
+      setSelectedUserId(user.id);
+    } else {
+      setSelectedUserId(null);
+      setSelectedUserDetails(null);
+    }
     setUserModalOpen(true);
   };
 
   const handleCloseUserModal = () => {
     setUserModalOpen(false);
-    setSelectedUser(null);
+    setSelectedUserId(null);
+    setSelectedUserDetails(null);
   };
+
+  useEffect(() => {
+    console.log('📋 [RegionAdminUsers] useEffect triggered', {
+      userModalOpen,
+      selectedUserId,
+    });
+
+    if (!userModalOpen || !selectedUserId) {
+      console.log('📋 [RegionAdminUsers] Skipping - modal closed or no user selected');
+      return;
+    }
+
+    console.log('📋 [RegionAdminUsers] Fetching user details...');
+    setSelectedUserLoading(true);
+    regionAdminService
+      .getUser(selectedUserId)
+      .then((data) => {
+        console.log('📋 [RegionAdminUsers] ✅ Loaded user details', {
+          id: selectedUserId,
+          assignable_permissions: data?.assignable_permissions,
+          is_regionoperator: data?.roles?.[0]?.name === 'regionoperator',
+          region_operator_permissions: data?.region_operator_permissions,
+          full_user: data,
+        });
+        setSelectedUserDetails(data);
+        console.log('📋 [RegionAdminUsers] ✅ setSelectedUserDetails called');
+      })
+      .catch((error) => {
+        console.error('📋 [RegionAdminUsers] ❌ Failed to load user details', error);
+        setSelectedUserDetails(null);
+      })
+      .finally(() => {
+        console.log('📋 [RegionAdminUsers] ✅ Setting selectedUserLoading to FALSE');
+        setSelectedUserLoading(false);
+      });
+  }, [userModalOpen, selectedUserId]);
 
   const handleSaveUser = async (userData: any) => {
     try {
-      if (selectedUser) {
+      if (selectedUserId) {
         // Update existing user
-        await regionAdminService.updateUser(selectedUser.id, userData);
+        await regionAdminService.updateUser(selectedUserId, userData);
       } else {
         // Create new user
         await regionAdminService.createUser(userData);
@@ -524,7 +568,7 @@ export default function RegionAdminUsers() {
         open={userModalOpen}
         onClose={handleCloseUserModal}
         onSave={handleSaveUser}
-        user={selectedUser}
+        user={selectedUserDetails}
         currentUserRole={currentUser?.role?.name || 'regionadmin'}
         availableInstitutions={institutionsQuery.data || []}
         availableDepartments={departmentsQuery.data || []}
@@ -532,6 +576,7 @@ export default function RegionAdminUsers() {
         loadingOptions={institutionsQuery.isLoading || departmentsQuery.isLoading || rolesQuery.isLoading}
         permissionMetadata={permissionMetadataQuery.data || null}
         permissionMetadataLoading={permissionMetadataQuery.isLoading}
+        loadingUser={selectedUserLoading}
         currentUserPermissions={currentUser?.permissions || []}
       />
     </div>

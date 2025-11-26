@@ -13,6 +13,9 @@ RUN npm install
 # Copy application source
 COPY frontend/ .
 
+# Copy shared assets referenced via the @shared alias
+COPY shared /shared
+
 # Expose port
 EXPOSE 3000
 

@@ -74,7 +74,7 @@ class StoreUserRequest extends FormRequest
             'region_operator_permissions' => 'nullable|array',
         ];
 
-        foreach (RegionOperatorPermissionService::CRUD_FIELDS as $field) {
+        foreach (RegionOperatorPermissionService::getCrudFields() as $field) {
             $rules["region_operator_permissions.$field"] = 'sometimes|boolean';
             $rules[$field] = 'sometimes|boolean';
         }
@@ -100,7 +100,7 @@ class StoreUserRequest extends FormRequest
 
             if ($role && $role->name === 'regionoperator') {
                 // Verify at least one permission is selected
-                $hasPermissions = collect(RegionOperatorPermissionService::CRUD_FIELDS)
+                $hasPermissions = collect(RegionOperatorPermissionService::getCrudFields())
                     ->some(function ($field) {
                         // Check both nested and flat structures
                         return $this->input($field) === true ||

@@ -3,6 +3,7 @@
 namespace App\Services\RegionAdmin;
 
 use App\Models\User;
+use App\Services\PermissionValidationService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
@@ -12,9 +13,8 @@ class RegionAdminPermissionService
 {
     private ?array $normalizedModules = null;
 
-    private ?array $permissionIndex = null;
-
     public function __construct(
+        private readonly PermissionValidationService $permissionValidationService,
         private readonly array $config = []
     ) {}
 
@@ -30,7 +30,6 @@ class RegionAdminPermissionService
         }
 
         $modules = [];
-        $permissionIndex = [];
 
         foreach ($this->getConfig()['modules'] ?? [] as $key => $rawModule) {
             $moduleKey = $rawModule['key'] ?? $key;
@@ -53,18 +52,10 @@ class RegionAdminPermissionService
                 'dependencies' => $rawModule['dependencies'] ?? [],
             ];
 
-            foreach ($normalizedPermissions as $permission) {
-                $permissionIndex[$permission['key']] = [
-                    'module_key' => $moduleKey,
-                    'dependencies' => $module['dependencies'][$permission['key']] ?? [],
-                ];
-            }
-
             $modules[$moduleKey] = $module;
         }
 
         $this->normalizedModules = $modules;
-        $this->permissionIndex = $permissionIndex;
 
         return $modules;
     }
@@ -192,6 +183,29 @@ class RegionAdminPermissionService
             ->all();
     }
 
+    /**
+     * Get all permissions for a user (both direct and via roles)
+     * Used for displaying user's effective permissions in edit modal
+     */
+    public function getAllUserPermissions(User $user): array
+    {
+        return $user->getAllPermissions()
+            ->pluck('name')
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Get detailed permission breakdown for user
+     * Returns separated direct and role-based permissions for better UI control
+     *
+     * @return array{direct: array, via_roles: array, all: array, role_metadata: array}
+     */
+    public function getUserPermissionsDetailed(User $user): array
+    {
+        return \App\DTOs\UserPermissionsDTO::fromUser($user)->toArray();
+    }
+
     private function collectAllowedPermissionsForRole(string $roleName): Collection
     {
         $modules = $this->getNormalizedModules();
@@ -212,30 +226,23 @@ class RegionAdminPermissionService
 
     private function assertDependenciesSatisfied(array $permissions): void
     {
-        $missing = [];
+        $missing = $this->permissionValidationService->getMissingDependencies($permissions);
 
-        foreach ($permissions as $permission) {
-            $dependencies = $this->permissionIndex[$permission]['dependencies'] ?? [];
-            foreach ($dependencies as $dependency) {
-                if (! in_array($dependency, $permissions, true)) {
-                    $missing[$permission][] = $dependency;
-                }
-            }
+        if (empty($missing)) {
+            return;
         }
 
-        if (! empty($missing)) {
-            $messages = [];
-            foreach ($missing as $permission => $deps) {
-                $messages[] = __('":permission" seçimi üçün :dependencies lazımdır.', [
-                    'permission' => $permission,
-                    'dependencies' => implode(', ', $deps),
-                ]);
-            }
-
-            throw ValidationException::withMessages([
-                'assignable_permissions' => $messages,
+        $messages = [];
+        foreach ($missing as $permission => $deps) {
+            $messages[] = __('":permission" seçimi üçün :dependencies lazımdır.', [
+                'permission' => $permission,
+                'dependencies' => implode(', ', $deps),
             ]);
         }
+
+        throw ValidationException::withMessages([
+            'assignable_permissions' => $messages,
+        ]);
     }
 
     private function assertRequiredPermissionsPresent(array $permissions, string $roleName): void

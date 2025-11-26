@@ -44,12 +44,19 @@ export function RegionOperatorTab({
   );
 
   const selectedPermissionKeys = useMemo(() => {
-    const assignable = Array.isArray(formData.assignable_permissions)
+    // For RegionOperator, ONLY use assignable_permissions array
+    // Don't read individual can_* fields from formData to avoid duplication
+    const selection = Array.isArray(formData.assignable_permissions)
       ? formData.assignable_permissions
       : [];
-    const legacySelection = actionKeys.filter((key) => formData[key] === true);
-    return Array.from(new Set([...assignable, ...legacySelection]));
-  }, [actionKeys, formData]);
+
+    console.log('[RegionOperatorTab] Derived selection', {
+      assignable_permissions: selection,
+      count: selection.length,
+    });
+
+    return selection;
+  }, [formData]);
 
   // Filter departments based on selected institution
   const selectedInstitutionId = formData.institution_id ? parseInt(formData.institution_id) : null;
@@ -201,14 +208,15 @@ export function RegionOperatorTab({
   }, [permissionMetadata, fallbackMetadata]);
 
   const handlePermissionSelectionChange = (next: string[]) => {
-    const permissionUpdates = actionKeys.reduce((acc, key) => {
-      acc[key] = next.includes(key);
-      return acc;
-    }, {} as Record<string, boolean>);
+    console.log('🔍 [RegionOperatorTab] handlePermissionSelectionChange called', {
+      next,
+      count: next.length,
+    });
 
+    // For RegionOperator, ONLY update assignable_permissions array
+    // Don't set individual can_* fields to avoid duplication
     setFormData({
       ...formData,
-      ...permissionUpdates,
       assignable_permissions: next,
     });
   };
@@ -247,6 +255,7 @@ export function RegionOperatorTab({
       {/* Unified Permission Assignment Panel */}
       <PermissionAssignmentPanel
         metadata={panelMetadata}
+        userPermissions={user?.permissions || null}
         roleName="regionoperator"
         value={selectedPermissionKeys}
         onChange={handlePermissionSelectionChange}

@@ -4,11 +4,15 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PermissionMetadata, PermissionModuleMeta } from '@/services/regionAdmin';
-import { Sparkles, ShieldCheck, Search, ChevronDown, ChevronRight } from 'lucide-react';
+import { Sparkles, ShieldCheck, Search, ChevronDown, ChevronRight, AlertTriangle, CheckSquare, Square } from 'lucide-react';
+import { EnhancedPermissionCheckbox } from '@/components/permissions/EnhancedPermissionCheckbox';
+import { PermissionSource, UserPermissionsDetailed, PermissionWithMetadata } from '@/types/permissions';
 
 interface PermissionAssignmentPanelProps {
   metadata?: PermissionMetadata | null;
+  userPermissions?: UserPermissionsDetailed | null; // NEW: Detailed permissions
   roleName: string;
   value: string[];
   onChange: (next: string[]) => void;
@@ -17,6 +21,7 @@ interface PermissionAssignmentPanelProps {
 
 export function PermissionAssignmentPanel({
   metadata,
+  userPermissions,
   roleName,
   value,
   onChange,
@@ -25,6 +30,30 @@ export function PermissionAssignmentPanel({
   // ✅ ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const [searchTerm, setSearchTerm] = useState('');
   const [collapsedModules, setCollapsedModules] = useState<Set<string>>(new Set());
+
+  // Enrich permissions with metadata (source, readonly, etc.)
+  const enrichedPermissions = useMemo((): PermissionWithMetadata[] => {
+    if (!metadata) return [];
+
+    return metadata.modules
+      .filter(module => !module.roles || module.roles.length === 0 || module.roles.includes(roleName))
+      .flatMap(module =>
+        module.permissions.map(permission => {
+          const isRoleBased = userPermissions?.via_roles?.includes(permission.key) ?? false;
+          const isDirect = userPermissions?.direct?.includes(permission.key) ?? false;
+
+          return {
+            ...permission,
+            source: isDirect
+              ? PermissionSource.DIRECT
+              : isRoleBased
+                ? PermissionSource.ROLE
+                : PermissionSource.INHERITED,
+            readonly: isRoleBased && !isDirect,
+          };
+        })
+      );
+  }, [metadata, userPermissions, roleName]);
 
   const modules = useMemo(() => {
     if (!metadata) {
@@ -94,6 +123,17 @@ export function PermissionAssignmentPanel({
       };
     });
   }, [modules, value]);
+
+  // Statistics (MUST BE BEFORE CONDITIONAL RETURNS)
+  const stats = useMemo(() => {
+    const directCount = enrichedPermissions.filter(p => p.source === PermissionSource.DIRECT).length;
+    const roleCount = enrichedPermissions.filter(p => p.source === PermissionSource.ROLE).length;
+    const selectedDirect = value.filter(key =>
+      enrichedPermissions.find(p => p.key === key)?.source === PermissionSource.DIRECT
+    ).length;
+
+    return { directCount, roleCount, selectedDirect, total: enrichedPermissions.length };
+  }, [enrichedPermissions, value]);
 
   // ✅ CONDITIONAL RETURNS AFTER ALL HOOKS
   if (loading) {
@@ -170,18 +210,40 @@ export function PermissionAssignmentPanel({
   };
 
   return (
-    <Card className="border-dashed">
-      <CardHeader className="space-y-4">
-        <div className="flex flex-col gap-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ShieldCheck className="h-4 w-4" />
-            Səlahiyyət seçimi
-            <Badge variant="secondary">{value.length}</Badge>
-          </CardTitle>
-          <CardDescription>
-            {roleName} rolu üçün əlavə icazələri təyin edin. Seçim etməsəniz rolun default icazələri tətbiq olunacaq.
-          </CardDescription>
-        </div>
+    <div className="space-y-4">
+      {/* Stats header */}
+      {userPermissions && stats.roleCount > 0 && (
+        <Alert>
+          <AlertTriangle className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            🔒 <strong>{stats.roleCount}</strong> səlahiyyət bu istifadəçinin <strong>{roleName}</strong> rolundan gəlir və
+            dəyişdirilə bilməz (🔵 <strong>Role</strong> badge ilə göstərilir).
+            Əlavə səlahiyyətlər direct təyin edə bilərsiniz (🟢 <strong>Direct</strong> badge ilə göstəriləcək).
+          </AlertDescription>
+        </Alert>
+      )}
+
+      <Card className="border-dashed">
+        <CardHeader className="space-y-4">
+          <div className="flex flex-col gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldCheck className="h-4 w-4" />
+              Səlahiyyət seçimi
+              <Badge variant="secondary">{value.length}</Badge>
+            </CardTitle>
+            <CardDescription>
+              {userPermissions ? (
+                <div className="flex gap-4 mt-1 text-xs">
+                  <span>📊 Cəmi: {stats.total}</span>
+                  <span>🔵 Role: {stats.roleCount}</span>
+                  <span>🟢 Direct: {stats.directCount}</span>
+                  <span>✅ Seçilmiş: {value.length}</span>
+                </div>
+              ) : (
+                `${roleName} rolu üçün əlavə icazələri təyin edin. Seçim etməsəniz rolun default icazələri tətbiq olunacaq.`
+              )}
+            </CardDescription>
+          </div>
 
         <div className="flex flex-col gap-3 md:flex-row md:items-center">
           {templates.length > 0 && (
@@ -250,12 +312,12 @@ export function PermissionAssignmentPanel({
                   aria-expanded={!isCollapsed}
                 >
                   <div>
-                    <p className="text-sm font-semibold flex items-center gap-2">
-                      {module.label}
+                    <div className="text-sm font-semibold flex items-center gap-2">
+                      <span>{module.label}</span>
                       <Badge variant="secondary">
                         {selectedCount}/{module.permissions.length}
                       </Badge>
-                    </p>
+                    </div>
                     {module.description && (
                       <p className="text-xs text-muted-foreground">{module.description}</p>
                     )}
@@ -269,28 +331,46 @@ export function PermissionAssignmentPanel({
 
                 {!isCollapsed && (
                   <div className="space-y-2 p-4 border-t">
-                    {module.permissions.map((permission) => (
-                      <label
-                        key={permission.key}
-                        className="flex items-start gap-2 text-sm text-muted-foreground cursor-pointer"
-                      >
-                        <Checkbox
-                          checked={value.includes(permission.key)}
-                          onCheckedChange={(checked) =>
-                            togglePermission(permission.key, checked === true)
-                          }
-                          aria-label={permission.label}
-                        />
-                        <div>
-                          <p className="font-medium text-foreground text-sm">{permission.label}</p>
-                          {permission.description && (
-                            <p className="text-xs text-muted-foreground">
-                              {permission.description}
-                            </p>
-                          )}
-                        </div>
-                      </label>
-                    ))}
+                    {module.permissions.map((permission) => {
+                      // Find enriched permission metadata
+                      const enrichedPermission = enrichedPermissions.find(p => p.key === permission.key);
+
+                      if (enrichedPermission) {
+                        // Use EnhancedPermissionCheckbox with metadata
+                        return (
+                          <EnhancedPermissionCheckbox
+                            key={permission.key}
+                            permission={enrichedPermission}
+                            checked={value.includes(permission.key)}
+                            onChange={(checked) => togglePermission(permission.key, checked)}
+                          />
+                        );
+                      }
+
+                      // Fallback to regular checkbox if no enriched data
+                      return (
+                        <label
+                          key={permission.key}
+                          className="flex items-start gap-2 text-sm text-muted-foreground cursor-pointer"
+                        >
+                          <Checkbox
+                            checked={value.includes(permission.key)}
+                            onCheckedChange={(checked) =>
+                              togglePermission(permission.key, checked === true)
+                            }
+                            aria-label={permission.label}
+                          />
+                          <div>
+                            <p className="font-medium text-foreground text-sm">{permission.label}</p>
+                            {permission.description && (
+                              <p className="text-xs text-muted-foreground">
+                                {permission.description}
+                              </p>
+                            )}
+                          </div>
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -299,5 +379,6 @@ export function PermissionAssignmentPanel({
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 }

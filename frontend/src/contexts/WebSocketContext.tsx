@@ -98,6 +98,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const maxReconnectDelay = 30000;
   const pingInterval = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimer = useRef<NodeJS.Timeout | null>(null);
+  const scheduleReconnectRef = useRef<() => void>();
 
   // Get WebSocket configuration from backend
   const getWebSocketConfig = useCallback(async (): Promise<WebSocketConfig | null> => {
@@ -194,6 +195,38 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   }, [currentUser?.id]);
 
   // Initialize Laravel Echo connection
+  const setupEchoListeners = useCallback((echoInstance: Echo) => {
+    if (!echoInstance) return;
+
+    echoInstance.connector.pusher.connection.bind('connected', () => {
+      logger.info('Laravel Echo connected successfully');
+      setIsEchoConnected(true);
+      setIsConnected(true);
+      setIsConnecting(false);
+      setConnectionError(null);
+      reconnectAttempts.current = 0;
+    });
+
+    echoInstance.connector.pusher.connection.bind('disconnected', () => {
+      logger.warn('Laravel Echo disconnected');
+      setIsEchoConnected(false);
+      setIsConnected(false);
+      scheduleReconnectRef.current?.();
+    });
+
+    echoInstance.connector.pusher.connection.bind('error', (error: any) => {
+      logger.error('Laravel Echo connection error', error);
+      setIsEchoConnected(false);
+      setIsConnected(false);
+    });
+
+    echoInstance.connector.pusher.connection.bind('unavailable', () => {
+      logger.error('Laravel Echo connection unavailable');
+      setIsEchoConnected(false);
+      setIsConnected(false);
+    });
+  }, []);
+
   const initializeEcho = useCallback(async (authToken?: string): Promise<void> => {
     try {
       logger.info('Initializing Laravel Echo connection...');
@@ -250,42 +283,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     } catch (error) {
       logger.warn('Failed to initialize Laravel Echo connection - using polling instead', error);
       setConnectionError('Failed to initialize Echo connection');
-      scheduleReconnect();
+      scheduleReconnectRef.current?.();
     }
-  }, [getWebSocketConfig, scheduleReconnect, setupEchoListeners]);
-
-  // Setup Echo connection listeners
-  const setupEchoListeners = useCallback((echoInstance: Echo) => {
-    if (!echoInstance) return;
-
-    echoInstance.connector.pusher.connection.bind('connected', () => {
-      logger.info('Laravel Echo connected successfully');
-      setIsEchoConnected(true);
-      setIsConnected(true);
-      setIsConnecting(false);
-      setConnectionError(null);
-      reconnectAttempts.current = 0;
-    });
-
-    echoInstance.connector.pusher.connection.bind('disconnected', () => {
-      logger.warn('Laravel Echo disconnected');
-      setIsEchoConnected(false);
-      setIsConnected(false);
-      scheduleReconnect();
-    });
-
-    echoInstance.connector.pusher.connection.bind('error', (error: any) => {
-      logger.error('Laravel Echo connection error', error);
-      setIsEchoConnected(false);
-      setIsConnected(false);
-    });
-
-    echoInstance.connector.pusher.connection.bind('unavailable', () => {
-      logger.error('Laravel Echo connection unavailable');
-      setIsEchoConnected(false);
-      setIsConnected(false);
-    });
-  }, [scheduleReconnect]);
+  }, [getWebSocketConfig, setupEchoListeners]);
 
   // Connect to WebSocket (unified method for both Echo and legacy)
   const connect = useCallback(async () => {
@@ -331,6 +331,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     // Exponential backoff with jitter
     reconnectDelay.current = Math.min(reconnectDelay.current * 2 + Math.random() * 1000, maxReconnectDelay);
   }, [connect, websocketUnavailable]);
+
+  useEffect(() => {
+    scheduleReconnectRef.current = scheduleReconnect;
+  }, [scheduleReconnect]);
 
   // Disconnect WebSocket
   const disconnect = useCallback(() => {

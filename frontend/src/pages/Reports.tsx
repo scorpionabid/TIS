@@ -11,18 +11,27 @@ import { reportsService, ReportFilters } from "@/services/reports";
 import { useToast } from "@/hooks/use-toast";
 import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
 import { az } from "date-fns/locale";
-import { useAuth } from "@/contexts/AuthContext";
+import { useRoleCheck } from "@/hooks/useRoleCheck";
+import { USER_ROLES } from "@/constants/roles";
 
 export default function Reports() {
-  const { currentUser } = useAuth();
+  const { currentUser, hasAnyRole } = useRoleCheck();
   const [selectedReportType, setSelectedReportType] = useState<string>('overview');
   const [selectedDateRange, setSelectedDateRange] = useState<string>('this_month');
   const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState<string>(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const { toast } = useToast();
 
-  // Check access permissions
-  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role);
+  // Allowed roles and access helpers
+  const REPORT_ALLOWED_ROLES = [
+    USER_ROLES.SUPERADMIN,
+    USER_ROLES.REGIONADMIN,
+    USER_ROLES.SEKTORADMIN,
+    USER_ROLES.SCHOOLADMIN,
+  ];
+  const ADMIN_CREATION_ROLES = [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN];
+  const hasAccess = hasAnyRole(REPORT_ALLOWED_ROLES);
+  const canCreateReports = hasAnyRole(ADMIN_CREATION_ROLES);
 
   // Build filters based on selections
   const filters: ReportFilters = useMemo(() => {
@@ -80,7 +89,7 @@ export default function Reports() {
   const { data: userActivityResponse, isLoading: userActivityLoading } = useQuery({
     queryKey: ['reports-user-activity', filters, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => reportsService.getUserActivityReport(filters),
-    enabled: selectedReportType === 'user_activity' && ['superadmin', 'regionadmin'].includes(currentUser?.role || '') && hasAccess,
+    enabled: selectedReportType === 'user_activity' && hasAnyRole(ADMIN_CREATION_ROLES) && hasAccess,
     staleTime: 1000 * 60 * 5,
   });
 
@@ -162,7 +171,7 @@ export default function Reports() {
             <Download className="h-4 w-4" />
             PDF Export
           </Button>
-          {['superadmin', 'regionadmin'].includes(currentUser?.role || '') && (
+          {canCreateReports && (
             <Button className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Yeni Hesabat

@@ -512,7 +512,7 @@ class UserControllerRefactored extends BaseController
             'first_name' => $this->cleanUtf8($user->profile?->first_name ?? null),
             'last_name' => $this->cleanUtf8($user->profile?->last_name ?? null),
             'region_operator_permissions' => $user->regionOperatorPermissions
-                ? $user->regionOperatorPermissions->only(RegionOperatorPermissionService::CRUD_FIELDS)
+                ? $user->regionOperatorPermissions->only(RegionOperatorPermissionService::getCrudFields())
                 : null,
         ];
     }

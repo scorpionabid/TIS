@@ -21,7 +21,8 @@ import LinkTabContent from "@/components/resources/LinkTabContent";
 import StatsCard from "@/components/resources/StatsCard";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/contexts/AuthContext";
+import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { USER_ROLES } from '@/constants/roles';
 import { resourceService } from "@/services/resources";
 import { institutionService } from "@/services/institutions";
 import type { Institution } from "@/services/institutions";
@@ -29,7 +30,6 @@ import { userService } from "@/services/users";
 import { LinkBulkUploadResult } from "@/services/links";
 import { Resource, ResourceStats, ResourceFilters } from "@/types/resources";
 import RegionalFolderManager from "@/components/documents/RegionalFolderManager";
-import { hasAnyRole } from "@/utils/permissions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useLinkSharingOverview } from "@/hooks/resources/useLinkSharingOverview";
@@ -115,7 +115,7 @@ const persistLinkId = (linkId: number | null) => {
 
 
 export default function Resources() {
-  const { currentUser, hasPermission } = useAuth();
+  const { currentUser, hasPermission, hasAnyRole } = useRoleCheck();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -135,16 +135,15 @@ export default function Resources() {
   const canViewResources = canViewLinks || canViewDocuments || canManageFolders;
   const canCreateResources = canCreateLinks || canCreateDocuments;
 
-  const isAssignedOnlyRole = hasAnyRole(currentUser, ['müəllim', 'teacher', 'regionoperator']);
+  const isAssignedOnlyRole = hasAnyRole([USER_ROLES.MUELLIM, USER_ROLES.REGIONOPERATOR]);
   const shouldUseAssignedResources = !canCreateResources && isAssignedOnlyRole;
 
   const hasAdminResourceAccess = canCreateResources || canManageFolders;
-  const canLoadCreatorOptions = hasPermission ? hasPermission('users.read') : false;
-  const canFetchLinkStats = hasPermission ? hasPermission('links.read') : false;
-  const canFetchDocumentStats = hasPermission ? hasPermission('documents.read') : false;
-  const canFetchLinkList = hasPermission ? hasPermission('links.read') : false;
-  const canFetchDocumentList = hasPermission ? hasPermission('documents.read') : false;
-  const canBulkUploadLinks = hasPermission ? hasPermission('links.bulk') : false;
+  const canLoadCreators = hasPermission('users.read');
+  const canFetchLinkStats = canViewLinks;
+  const canFetchDocumentStats = canViewDocuments;
+  const canFetchDocumentList = canViewDocuments;
+  const canBulkUploadLinks = linksAccess.canManage || linksAccess.canCreate;
 
   const {
     userInstitutionId,
@@ -404,7 +403,6 @@ export default function Resources() {
     documents: 0,
   });
 
-  const canLoadCreators = hasPermission?.('users.read') ?? false;
   const shouldLoadFilterSources = isAuthenticated && canViewResources && hasAdminResourceAccess;
 
   const { data: remoteInstitutionOptions } = useQuery({

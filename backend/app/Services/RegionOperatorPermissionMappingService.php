@@ -131,7 +131,7 @@ class RegionOperatorPermissionMappingService
      */
     public function validateMappings(): array
     {
-        $allRoPermissions = RegionOperatorPermissionService::CRUD_FIELDS;
+        $allRoPermissions = RegionOperatorPermissionService::getCrudFields();
         $missing = [];
 
         foreach ($allRoPermissions as $roPermission) {

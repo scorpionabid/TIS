@@ -98,7 +98,7 @@ class AuthController extends Controller
         $userData['preferences'] = $preferences;
         $userData['region_operator_permissions'] = $user->regionOperatorPermissions
             ? $user->regionOperatorPermissions->only(
-                \App\Services\RegionOperatorPermissionService::CRUD_FIELDS
+                \App\Services\RegionOperatorPermissionService::getCrudFields()
             )
             : null;
 
