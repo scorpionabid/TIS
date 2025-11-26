@@ -1,0 +1,49 @@
+{
+  "modules": {
+    "surveys": {
+      "actions": {
+        "view": { "flag": "can_view_surveys", "assignable": "surveys.read" },
+        "create": { "flag": "can_create_surveys", "assignable": "surveys.create" },
+        "edit": { "flag": "can_edit_surveys", "assignable": "surveys.update" },
+        "delete": { "flag": "can_delete_surveys", "assignable": "surveys.delete" },
+        "publish": { "flag": "can_publish_surveys", "assignable": "surveys.publish" }
+      }
+    },
+    "tasks": {
+      "actions": {
+        "view": { "flag": "can_view_tasks", "assignable": "tasks.read" },
+        "create": { "flag": "can_create_tasks", "assignable": "tasks.create" },
+        "edit": { "flag": "can_edit_tasks", "assignable": "tasks.update" },
+        "delete": { "flag": "can_delete_tasks", "assignable": "tasks.delete" },
+        "manage": { "flag": "can_assign_tasks", "assignable": "tasks.assign" }
+      }
+    },
+    "documents": {
+      "actions": {
+        "view": { "flag": "can_view_documents", "assignable": "documents.read" },
+        "create": { "flag": "can_upload_documents", "assignable": "documents.create" },
+        "edit": { "flag": "can_edit_documents", "assignable": "documents.update" },
+        "delete": { "flag": "can_delete_documents", "assignable": "documents.delete" },
+        "share": { "flag": "can_share_documents", "assignable": "documents.share" }
+      }
+    },
+    "folders": {
+      "actions": {
+        "view": { "flag": "can_view_folders" },
+        "create": { "flag": "can_create_folders" },
+        "edit": { "flag": "can_edit_folders" },
+        "delete": { "flag": "can_delete_folders" },
+        "manage": { "flag": "can_manage_folder_access" }
+      }
+    },
+    "links": {
+      "actions": {
+        "view": { "flag": "can_view_links", "assignable": "links.read" },
+        "create": { "flag": "can_create_links", "assignable": "links.create" },
+        "edit": { "flag": "can_edit_links", "assignable": "links.update" },
+        "delete": { "flag": "can_delete_links", "assignable": "links.delete" },
+        "share": { "flag": "can_share_links", "assignable": "links.share" }
+      }
+    }
+  }
+}

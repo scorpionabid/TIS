@@ -35,6 +35,7 @@ interface UserModalTabsProps {
   permissionMetadata?: PermissionMetadata | null;
   permissionMetadataLoading?: boolean;
   currentUserPermissions: string[];
+  loadingUser?: boolean;
 }
 
 export function UserModalTabs({
@@ -50,7 +51,9 @@ export function UserModalTabs({
   permissionMetadata,
   permissionMetadataLoading = false,
   currentUserPermissions,
+  loadingUser = false,
 }: UserModalTabsProps) {
+  console.log('🚨🚨🚨 [UserModalTabs] FILE UPDATED - NEW VERSION LOADED! 🚨🚨🚨');
   console.log('🎯 UserModalTabs RENDERED!', {
     open,
     currentUserRole,
@@ -58,6 +61,12 @@ export function UserModalTabs({
     availableRoles: availableRoles,
     availableInstitutionsCount: availableInstitutions?.length,
     availableDepartmentsCount: availableDepartments?.length
+  });
+  console.log('🔍 [UserModalTabs] Props at component top:', {
+    open,
+    user: !!user,
+    userId: user?.id,
+    loadingUser,
   });
 
   const { toast } = useToast();
@@ -73,12 +82,42 @@ export function UserModalTabs({
   const visibleTabs = getVisibleRoleTabs(currentUserRole);
   console.log('👀 Visible tabs:', visibleTabs);
 
+  // DEBUG: Log dependencies BEFORE useEffect
+  console.log('🔍 [UserModalTabs] BEFORE useEffect - Dependencies:', {
+    open,
+    loadingUser,
+    user: !!user,
+    userId: user?.id,
+    userObject: user,
+  });
+
   // Initialize form data
   useEffect(() => {
-    if (!open) return;
+    console.log('✅✅✅ [UserModalTabs] useEffect TRIGGERED ✅✅✅', {
+      open,
+      loadingUser,
+      hasUser: !!user,
+      userId: user?.id,
+      timestamp: new Date().toISOString(),
+    });
+
+    if (!open) {
+      console.log('⚠️ [UserModalTabs] useEffect SKIPPED: modal not open', {open});
+      return;
+    }
+    if (loadingUser) {
+      console.log('⚠️ [UserModalTabs] useEffect SKIPPED: loading user', {loadingUser});
+      return;
+    }
+
+    console.log('🚀 [UserModalTabs] useEffect PASSED all checks, processing...');
 
     if (user) {
       console.log('[UserModalTabs] Hydrating form with user:', user);
+      console.log('[UserModalTabs] Incoming permissions snapshot:', {
+        assignable_permissions: user?.assignable_permissions,
+        region_operator_permissions: user?.region_operator_permissions,
+      });
       console.log('[UserModalTabs] User profile snapshot:', user?.profile);
       console.log('[UserModalTabs] Name fields snapshot:', {
         topLevelFirstName: user?.first_name,
@@ -92,19 +131,27 @@ export function UserModalTabs({
         ...DEFAULT_FORM_VALUES,
         ...transformed,
       };
+      console.log('[UserModalTabs] Hydrated form values:', hydratedForm);
       setFormData(hydratedForm);
-      setPermissionSelection(
-        Array.isArray(hydratedForm.assignable_permissions)
-          ? hydratedForm.assignable_permissions
-          : []
-      );
+
+      // For RegionOperator, assignable_permissions already contains MERGED CRUD + modern permissions
+      // Don't try to rebuild it from user object - trust the transformation!
+      const permissionSelection = Array.isArray(hydratedForm.assignable_permissions)
+        ? hydratedForm.assignable_permissions
+        : [];
+
+      console.log('[UserModalTabs] Permission selection after hydration:', {
+        count: permissionSelection.length,
+        permissions: permissionSelection,
+      });
+      setPermissionSelection(permissionSelection);
     } else {
       setFormData(DEFAULT_FORM_VALUES);
       setPermissionSelection([]);
     }
 
     setFormKey((prev) => prev + 1);
-  }, [open, user]);
+  }, [open, user, loadingUser]);
 
   // Set default tab on mount
   useEffect(() => {
@@ -237,8 +284,20 @@ export function UserModalTabs({
         role_id: roleMetadata.id.toString(),
         role_name: roleMetadata.name,
         role_display_name: roleMetadata.display_name || roleMetadata.name,
-        assignable_permissions: allowAssignablePermissions ? filteredPermissionSelection : [],
+        // For RegionOperator, get permissions from formData.assignable_permissions
+        // For other roles, use filteredPermissionSelection
+        assignable_permissions: roleMetadata.name === 'regionoperator'
+          ? (data.assignable_permissions || [])
+          : (allowAssignablePermissions ? filteredPermissionSelection : []),
       };
+
+      console.log('🔍 [UserModalTabs] handleSubmit - Before transform:', {
+        role_name: roleMetadata.name,
+        is_regionoperator: roleMetadata.name === 'regionoperator',
+        data_assignable_permissions: data.assignable_permissions,
+        finalData_assignable_permissions: finalData.assignable_permissions,
+        assignable_count: Array.isArray(finalData.assignable_permissions) ? finalData.assignable_permissions.length : 0,
+      });
 
       const isTeacherTab = roleConfig.targetRoleName.toLowerCase() === 'müəllim';
       // Transform to backend format
@@ -249,6 +308,26 @@ export function UserModalTabs({
         () => isTeacherTab,
         () => false  // student roles not yet supported
       );
+
+      console.log('🔍 [UserModalTabs] handleSubmit - After transform:', {
+        userData_role_name: userData.role_name,
+        userData_region_operator_permissions: userData.region_operator_permissions,
+        region_perms_count: userData.region_operator_permissions ? Object.keys(userData.region_operator_permissions).length : 0,
+        userData_assignable_permissions: userData.assignable_permissions,
+      });
+
+      if (roleMetadata.name === 'regionoperator') {
+        const regionPerms = userData.region_operator_permissions || {};
+        const enabledRegionPermCount = Object.values(regionPerms).filter(Boolean).length;
+        if (enabledRegionPermCount === 0) {
+          toast({
+            title: 'Səlahiyyət seçilməyib',
+            description: 'RegionOperator üçün ən azı bir əsas səlahiyyət (Sorğular, Tapşırıqlar, Sənədlər və s.) seçilməlidir.',
+            variant: 'destructive',
+          });
+          return;
+        }
+      }
 
       console.log('📤 UserModalTabs sending data to backend:', {
         selectedTab,
@@ -287,7 +366,7 @@ export function UserModalTabs({
     GraduationCap: <GraduationCap className="h-4 w-4" />,
   };
 
-  if (visibleTabs.length === 0) {
+    if (visibleTabs.length === 0) {
     return (
       <Dialog open={open} onOpenChange={onClose}>
         <DialogContent>
@@ -329,7 +408,12 @@ export function UserModalTabs({
           )}
         </DialogHeader>
 
-        <Tabs value={selectedTab} onValueChange={setSelectedTab}>
+        {loadingUser ? (
+          <div className="py-12 text-center text-muted-foreground">
+            İstifadəçi məlumatları yüklənir...
+          </div>
+        ) : (
+          <Tabs value={selectedTab} onValueChange={setSelectedTab}>
           <TabsList className="grid w-full grid-cols-2 gap-2 md:grid-cols-5">
             {visibleTabs.map(tabKey => {
               const config = ROLE_TAB_CONFIG[tabKey];
@@ -462,7 +546,8 @@ export function UserModalTabs({
               )}
             </div>
           </TabsContent>
-        </Tabs>
+          </Tabs>
+        )}
 
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
           <Button

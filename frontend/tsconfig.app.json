@@ -16,6 +16,7 @@
     "moduleDetection": "force",
     "noEmit": true,
     "jsx": "react-jsx",
+    "resolveJsonModule": true,
 
     /* Linting */
     "strict": false,
@@ -26,7 +27,8 @@
 
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@shared/*": ["../shared/*"]
     },
     "types": ["vite/client"]
   },

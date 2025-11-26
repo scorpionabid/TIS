@@ -15,40 +15,19 @@ class RegionOperatorPermissionService
     private const VALIDATION_ERROR_MESSAGE = 'RegionOperator üçün ən azı bir səlahiyyət seçilməlidir.';
 
     /**
-     * Complete list of CRUD permission fields supported by RegionOperator.
+     * Cached CRUD permission fields loaded from shared configuration.
      */
-    public const CRUD_FIELDS = [
-        // Surveys
-        'can_view_surveys',
-        'can_create_surveys',
-        'can_edit_surveys',
-        'can_delete_surveys',
-        'can_publish_surveys',
-        // Tasks
-        'can_view_tasks',
-        'can_create_tasks',
-        'can_edit_tasks',
-        'can_delete_tasks',
-        'can_assign_tasks',
-        // Documents
-        'can_view_documents',
-        'can_upload_documents',
-        'can_edit_documents',
-        'can_delete_documents',
-        'can_share_documents',
-        // Folders
-        'can_view_folders',
-        'can_create_folders',
-        'can_edit_folders',
-        'can_delete_folders',
-        'can_manage_folder_access',
-        // Links
-        'can_view_links',
-        'can_create_links',
-        'can_edit_links',
-        'can_delete_links',
-        'can_share_links',
-    ];
+    private array $crudFields;
+
+    public function __construct()
+    {
+        $this->crudFields = self::getCrudFields();
+    }
+
+    public static function getCrudFields(): array
+    {
+        return config('region_operator_permissions.fields', []);
+    }
 
     /**
      * Legacy coarse permissions -> CRUD field mapping (kept for backward compatibility).
@@ -99,7 +78,7 @@ class RegionOperatorPermissionService
         $permissions = [];
         $nested = (array) ($payload['region_operator_permissions'] ?? []);
 
-        foreach (self::CRUD_FIELDS as $field) {
+        foreach ($this->crudFields as $field) {
             if (array_key_exists($field, $nested)) {
                 $permissions[$field] = $this->toBool($nested[$field]);
 
@@ -172,6 +151,13 @@ class RegionOperatorPermissionService
     {
         $hasCrudPayload = $this->hasCrudPayload($payload);
 
+        Log::info('🔍 [RegionOperatorPermissionService] assertValidPayload START', [
+            'has_crud_payload' => $hasCrudPayload,
+            'require_payload' => $requirePayload,
+            'payload_keys' => array_keys($payload),
+            'region_operator_permissions' => $payload['region_operator_permissions'] ?? 'NOT SET',
+        ]);
+
         if ($requirePayload && ! $hasCrudPayload) {
             $this->logValidationFailure('missing_payload');
             throw ValidationException::withMessages([
@@ -181,6 +167,10 @@ class RegionOperatorPermissionService
 
         if ($hasCrudPayload && ! $this->hasAnyEnabledPermissions($payload)) {
             $this->logValidationFailure('empty_permissions');
+            Log::warning('RegionOperator permissions validation failed', [
+                'reason' => 'empty_permissions',
+                'extracted_permissions' => $this->extractPermissions($payload),
+            ]);
             throw ValidationException::withMessages([
                 'region_operator_permissions' => [self::VALIDATION_ERROR_MESSAGE],
             ]);
@@ -210,7 +200,7 @@ class RegionOperatorPermissionService
     {
         $nested = (array) ($payload['region_operator_permissions'] ?? []);
 
-        foreach (self::CRUD_FIELDS as $field) {
+        foreach ($this->crudFields as $field) {
             if (array_key_exists($field, $nested) || array_key_exists($field, $payload)) {
                 return true;
             }
@@ -235,7 +225,7 @@ class RegionOperatorPermissionService
 
     private function normalize(array $permissions): array
     {
-        $base = array_fill_keys(self::CRUD_FIELDS, false);
+        $base = array_fill_keys($this->crudFields, false);
 
         foreach ($permissions as $field => $value) {
             if (array_key_exists($field, $base)) {
@@ -267,7 +257,7 @@ class RegionOperatorPermissionService
 
     private function filterPermissions(array $permissions): array
     {
-        return array_intersect_key($permissions, array_flip(self::CRUD_FIELDS));
+        return array_intersect_key($permissions, array_flip($this->crudFields));
     }
 
     private function toBool($value): bool

@@ -25,7 +25,10 @@ export default defineConfig(({ mode }) => ({
       }
     },
     fs: {
-      allow: ['..']
+      allow: [
+        path.resolve(__dirname, '..'),
+        path.resolve(__dirname, '../shared'),
+      ]
     },
     middlewareMode: false,
     configureServer: (server) => {
@@ -84,6 +87,11 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@shared": path.resolve(__dirname, "../shared"),
     },
+  },
+  assetsInclude: ['**/*.json'],
+  json: {
+    stringify: false
   },
 }));

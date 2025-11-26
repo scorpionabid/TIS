@@ -258,7 +258,20 @@ class RegionAdminUserController extends Controller
 
             $this->syncRegionOperatorPermissions($request->all(), $newUser);
 
-            if ($data['role_name'] !== 'regionoperator') {
+            // Sync modern permissions for all roles (including RegionOperator)
+            if ($data['role_name'] === 'regionoperator') {
+                // For RegionOperator, extract modern permissions from assignable_permissions
+                $modernPermissions = $request->input('assignable_permissions', []);
+                if (!empty($modernPermissions)) {
+                    $this->regionAdminPermissionService->syncDirectPermissions($newUser, $modernPermissions);
+                    Log::info('🔍 [RegionAdminUserController] RegionOperator modern permissions synced (CREATE)', [
+                        'user_id' => $newUser->id,
+                        'permissions' => $modernPermissions,
+                        'count' => count($modernPermissions),
+                    ]);
+                }
+                $assignablePermissions = $modernPermissions;
+            } else {
                 $this->regionAdminPermissionService->syncDirectPermissions($newUser, $assignablePermissions);
             }
 
@@ -298,7 +311,31 @@ class RegionAdminUserController extends Controller
 
         $userData = $targetUser->toArray();
         $userData['profile'] = $targetUser->profile;
-        $userData['assignable_permissions'] = $this->regionAdminPermissionService->getDirectPermissions($targetUser);
+
+        // Add role_name for frontend role identification
+        $userData['role_name'] = $targetUser->roles->first()?->name ?? null;
+
+        // NEW: Detailed permission breakdown (direct vs role-based)
+        $userData['permissions'] = $this->regionAdminPermissionService->getUserPermissionsDetailed($targetUser);
+
+        // For RegionOperator, return only DIRECT permissions (not role-based)
+        // Because role-based permissions are shown via role selection, we only need user-specific direct assignments
+        if ($targetUser->hasRole('regionoperator')) {
+            // Get direct permissions from Spatie (not via roles)
+            $directPermissions = $targetUser->getDirectPermissions()->pluck('name')->toArray();
+            $userData['assignable_permissions'] = $directPermissions;
+
+            // Add CRUD permissions
+            $regionOperatorPerms = $targetUser->regionOperatorPermissions;
+            if ($regionOperatorPerms) {
+                $userData['region_operator_permissions'] = $regionOperatorPerms->only(
+                    RegionOperatorPermissionService::getCrudFields()
+                );
+            }
+        } else {
+            // For other roles, keep backward compatibility - return all permissions as flat array
+            $userData['assignable_permissions'] = $userData['permissions']['all'];
+        }
 
         // Ensure primary fields exist at top level for backward compatibility
         if (empty($userData['first_name']) && $targetUser->profile?->first_name) {
@@ -323,14 +360,6 @@ class RegionAdminUserController extends Controller
 
         if (empty($userData['last_name']) && ! empty($targetUser->username)) {
             $userData['last_name'] = $targetUser->username;
-        }
-
-        // Add permissions for RegionOperator role
-        if ($targetUser->hasRole('regionoperator')) {
-            $permissions = $targetUser->regionOperatorPermissions;
-            $userData['permissions'] = $permissions
-                ? $permissions->only(RegionOperatorPermissionService::CRUD_FIELDS)
-                : null;
         }
 
         return response()->json([
@@ -454,9 +483,32 @@ class RegionAdminUserController extends Controller
                 }
             }
 
+            Log::info('🔍 [RegionAdminUserController] UPDATE - Before syncRegionOperatorPermissions', [
+                'user_id' => $targetUser->id,
+                'old_role' => $oldRoleName,
+                'new_role' => $targetRoleName,
+                'is_regionoperator' => $targetRoleName === 'regionoperator',
+                'request_keys' => array_keys($request->all()),
+                'has_region_operator_permissions' => isset($request->all()['region_operator_permissions']),
+                'region_operator_permissions' => $request->all()['region_operator_permissions'] ?? 'NOT SET',
+                'assignable_permissions' => $assignablePermissions,
+            ]);
+
             $this->syncRegionOperatorPermissions($request->all(), $targetUser, $oldRoleName, $targetRoleName);
 
-            if ($targetRoleName !== 'regionoperator') {
+            // Sync modern permissions for all roles (including RegionOperator)
+            if ($targetRoleName === 'regionoperator') {
+                // For RegionOperator, extract modern permissions from assignable_permissions
+                $modernPermissions = $request->input('assignable_permissions', []);
+                if (!empty($modernPermissions)) {
+                    $this->regionAdminPermissionService->syncDirectPermissions($targetUser, $modernPermissions);
+                    Log::info('🔍 [RegionAdminUserController] RegionOperator modern permissions synced', [
+                        'user_id' => $targetUser->id,
+                        'permissions' => $modernPermissions,
+                        'count' => count($modernPermissions),
+                    ]);
+                }
+            } else {
                 $this->regionAdminPermissionService->syncDirectPermissions($targetUser, $assignablePermissions);
             }
 
@@ -693,7 +745,7 @@ class RegionAdminUserController extends Controller
             'region_operator_permissions' => 'nullable|array',
         ];
 
-        foreach (RegionOperatorPermissionService::CRUD_FIELDS as $field) {
+        foreach (RegionOperatorPermissionService::getCrudFields() as $field) {
             $rules["region_operator_permissions.$field"] = 'sometimes|boolean';
             $rules[$field] = 'sometimes|boolean';
         }
@@ -707,7 +759,18 @@ class RegionAdminUserController extends Controller
 
     private function syncRegionOperatorPermissions(array $payload, User $targetUser, ?string $oldRole = null, ?string $newRole = null): void
     {
+        Log::info('🔍 [syncRegionOperatorPermissions] START', [
+            'user_id' => $targetUser->id,
+            'old_role' => $oldRole,
+            'new_role' => $newRole,
+            'payload_keys' => array_keys($payload),
+        ]);
+
         $isRegionOperator = $this->regionOperatorPermissionService->shouldHandle($targetUser);
+
+        Log::info('🔍 [syncRegionOperatorPermissions] Role check', [
+            'is_regionoperator' => $isRegionOperator,
+        ]);
 
         if (! $isRegionOperator) {
             if ($oldRole === 'regionoperator' && $newRole !== 'regionoperator') {
@@ -724,8 +787,22 @@ class RegionAdminUserController extends Controller
             return;
         }
 
-        if ($this->regionOperatorPermissionService->hasCrudPayload($payload)) {
+        $hasCrudPayload = $this->regionOperatorPermissionService->hasCrudPayload($payload);
+
+        Log::info('🔍 [syncRegionOperatorPermissions] CRUD payload check', [
+            'has_crud_payload' => $hasCrudPayload,
+            'payload_keys' => array_keys($payload),
+            'region_operator_permissions' => $payload['region_operator_permissions'] ?? 'NOT SET',
+        ]);
+
+        if ($hasCrudPayload) {
             $permissions = $this->regionOperatorPermissionService->extractPermissions($payload);
+
+            Log::info('🔍 [syncRegionOperatorPermissions] Extracted permissions', [
+                'permissions' => $permissions,
+                'count' => count($permissions),
+            ]);
+
             $this->regionOperatorPermissionService->syncPermissions($targetUser, $permissions);
 
             Log::info('RegionOperator permissions updated via RegionAdminUserController', [

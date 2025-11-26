@@ -47,6 +47,7 @@ services:
       - ./frontend/src:/app/src
       - ./frontend/public:/app/public
       - ./frontend/index.html:/app/index.html
+      - ./shared:/app/../shared
       # node_modules managed inside container to avoid architecture conflicts
     depends_on:
       - backend
