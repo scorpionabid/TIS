@@ -204,3 +204,4 @@ frontend_backup_*/
 # Platform-specific package locks (keep cross-platform compatible)
 # Note: package-lock.json is tracked for consistency
 frontend/backend_backup_20250820_143825/
+DEPLOYMENT_SUCCESS_*.md
