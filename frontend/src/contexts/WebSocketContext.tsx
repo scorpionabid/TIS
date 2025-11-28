@@ -228,38 +228,6 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   }, []);
 
   // Initialize Laravel Echo connection
-  const setupEchoListeners = useCallback((echoInstance: Echo) => {
-    if (!echoInstance) return;
-
-    echoInstance.connector.pusher.connection.bind('connected', () => {
-      logger.info('Laravel Echo connected successfully');
-      setIsEchoConnected(true);
-      setIsConnected(true);
-      setIsConnecting(false);
-      setConnectionError(null);
-      reconnectAttempts.current = 0;
-    });
-
-    echoInstance.connector.pusher.connection.bind('disconnected', () => {
-      logger.warn('Laravel Echo disconnected');
-      setIsEchoConnected(false);
-      setIsConnected(false);
-      scheduleReconnectRef.current?.();
-    });
-
-    echoInstance.connector.pusher.connection.bind('error', (error: any) => {
-      logger.error('Laravel Echo connection error', error);
-      setIsEchoConnected(false);
-      setIsConnected(false);
-    });
-
-    echoInstance.connector.pusher.connection.bind('unavailable', () => {
-      logger.error('Laravel Echo connection unavailable');
-      setIsEchoConnected(false);
-      setIsConnected(false);
-    });
-  }, []);
-
   const initializeEcho = useCallback(async (authToken?: string): Promise<void> => {
     try {
       logger.info('Initializing Laravel Echo connection...');

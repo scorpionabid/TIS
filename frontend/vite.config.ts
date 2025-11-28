@@ -80,8 +80,4 @@ export default defineConfig(({ mode }) => ({
       "@shared": path.resolve(__dirname, "../shared"),
     },
   },
-  assetsInclude: ['**/*.json'],
-  json: {
-    stringify: false
-  },
 }));
