@@ -20,6 +20,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - ./backend/.env:/var/www/html/.env
       - ./backend/database:/var/www/html/database
       - ./backend/storage:/var/www/html/storage
       - ./backend/app:/var/www/html/app
@@ -39,8 +40,8 @@ services:
       dockerfile: docker/frontend/Dockerfile
     container_name: atis_frontend
     environment:
-      - VITE_API_BASE_URL=http://localhost:8000/api
-      - VITE_APP_URL=http://localhost:3000
+      - VITE_API_BASE_URL=https://atis.sim.edu.az/api
+      - VITE_APP_URL=https://atis.sim.edu.az
     ports:
       - "3000:3000"
     volumes:
@@ -59,8 +60,9 @@ services:
   redis:
     image: redis:7-alpine
     container_name: atis_redis
-    ports:
-      - "6379:6379"
+    # Ports removed - only accessible within Docker network
+    expose:
+      - "6379"
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru

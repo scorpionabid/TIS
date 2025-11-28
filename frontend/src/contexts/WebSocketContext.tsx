@@ -98,7 +98,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   const maxReconnectDelay = 30000;
   const pingInterval = useRef<NodeJS.Timeout | null>(null);
   const reconnectTimer = useRef<NodeJS.Timeout | null>(null);
-  const scheduleReconnectRef = useRef<() => void>();
+  const scheduleReconnectRef = useRef<(() => void) | null>(null);
 
   // Get WebSocket configuration from backend
   const getWebSocketConfig = useCallback(async (): Promise<WebSocketConfig | null> => {
@@ -193,6 +193,39 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       console.error('Error parsing WebSocket message:', error);
     }
   }, [currentUser?.id]);
+
+  // Setup Echo connection listeners
+  const setupEchoListeners = useCallback((echoInstance: Echo) => {
+    if (!echoInstance) return;
+
+    echoInstance.connector.pusher.connection.bind('connected', () => {
+      logger.info('Laravel Echo connected successfully');
+      setIsEchoConnected(true);
+      setIsConnected(true);
+      setIsConnecting(false);
+      setConnectionError(null);
+      reconnectAttempts.current = 0;
+    });
+
+    echoInstance.connector.pusher.connection.bind('disconnected', () => {
+      logger.warn('Laravel Echo disconnected');
+      setIsEchoConnected(false);
+      setIsConnected(false);
+      scheduleReconnectRef.current?.();
+    });
+
+    echoInstance.connector.pusher.connection.bind('error', (error: any) => {
+      logger.error('Laravel Echo connection error', error);
+      setIsEchoConnected(false);
+      setIsConnected(false);
+    });
+
+    echoInstance.connector.pusher.connection.bind('unavailable', () => {
+      logger.error('Laravel Echo connection unavailable');
+      setIsEchoConnected(false);
+      setIsConnected(false);
+    });
+  }, []);
 
   // Initialize Laravel Echo connection
   const setupEchoListeners = useCallback((echoInstance: Echo) => {
@@ -321,9 +354,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
 
     reconnectAttempts.current++;
     const delay = Math.min(reconnectDelay.current, maxReconnectDelay);
-    
+
     console.log(`Scheduling reconnection attempt ${reconnectAttempts.current} in ${delay}ms`);
-    
+
     reconnectTimer.current = setTimeout(() => {
       connect();
     }, delay);
@@ -332,6 +365,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     reconnectDelay.current = Math.min(reconnectDelay.current * 2 + Math.random() * 1000, maxReconnectDelay);
   }, [connect, websocketUnavailable]);
 
+  // Update ref when scheduleReconnect changes
   useEffect(() => {
     scheduleReconnectRef.current = scheduleReconnect;
   }, [scheduleReconnect]);

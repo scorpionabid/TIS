@@ -347,24 +347,6 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     toast.error(`Avto-saxlama alınmadı. Sistem ${Math.round(autoSaveDelay / 1000)} saniyəyə yenidən cəhd edəcək.`);
   }, [autoSaveFailureCount, autoSaveDelay, lastSaveSilentFailure, toast]);
 
-  // Auto-save with adaptive delay if there are unsaved changes
-  useEffect(() => {
-    if (
-      !hasUnsavedChanges ||
-      !currentResponse ||
-      currentResponse.status !== 'draft' ||
-      saveResponseMutation.isPending
-    ) {
-      return;
-    }
-
-    const timer = setTimeout(() => {
-      handleSave(false, true);
-    }, autoSaveDelay);
-
-    return () => clearTimeout(timer);
-  }, [hasUnsavedChanges, currentResponse, autoSaveDelay, saveResponseMutation.isPending, handleSave]);
-
   // Warn user about unsaved changes before leaving
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -431,6 +413,24 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
       silent,
     });
   }, [currentResponse, surveyData?.questions, responses, saveResponseMutation, toast, validateAllQuestions]);
+
+  // Auto-save with adaptive delay if there are unsaved changes
+  useEffect(() => {
+    if (
+      !hasUnsavedChanges ||
+      !currentResponse ||
+      currentResponse.status !== 'draft' ||
+      saveResponseMutation.isPending
+    ) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      handleSave(false, true);
+    }, autoSaveDelay);
+
+    return () => clearTimeout(timer);
+  }, [hasUnsavedChanges, currentResponse, autoSaveDelay, saveResponseMutation.isPending, handleSave]);
 
   const handleSubmit = () => {
     if (!currentResponse || !surveyData?.questions) return;
