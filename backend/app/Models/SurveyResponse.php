@@ -197,8 +197,8 @@ class SurveyResponse extends Model
             ? round(($answeredQuestions / $totalQuestions) * 100)
             : 0;
 
-        // Survey is complete when all questions answered AND no required questions are missing
-        $this->is_complete = $this->progress_percentage >= 100 && $unansweredRequired === 0;
+        // Survey is complete when all required questions are answered (optional questions don't block submission)
+        $this->is_complete = $unansweredRequired === 0;
     }
 
     /**

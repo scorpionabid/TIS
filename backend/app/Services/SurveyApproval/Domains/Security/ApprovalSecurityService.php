@@ -37,43 +37,55 @@ class ApprovalSecurityService
         // Support both single role (role_id) and Spatie Permission roles
         $roleName = $user->role->name ?? $user->roles->pluck('name')->first() ?? null;
 
+        \Log::info('🔐 [SECURITY] Applying access control', [
+            'user_id' => $user->id,
+            'role' => $roleName,
+            'institution_id' => $user->institution_id,
+        ]);
+
         // SuperAdmin: See all responses (case-insensitive)
         if ($roleName && strtolower($roleName) === 'superadmin') {
+            \Log::info('✅ [SECURITY] SuperAdmin - Full access granted');
             return;
         }
 
-        // RegionAdmin: See all responses in their region
-        if ($roleName === 'RegionAdmin') {
+        // RegionAdmin: See all responses in their region (case-insensitive)
+        if ($roleName && strtolower($roleName) === 'regionadmin') {
             $institutionIds = $this->getRegionInstitutionIds($user);
+            \Log::info('🌍 [SECURITY] RegionAdmin access', ['institution_ids' => $institutionIds]);
             $query->whereIn('institution_id', $institutionIds);
 
             return;
         }
 
-        // RegionOperator: See all responses in their region
-        if ($roleName === 'RegionOperator') {
+        // RegionOperator: See all responses in their region (case-insensitive)
+        if ($roleName && strtolower($roleName) === 'regionoperator') {
             $institutionIds = $this->getRegionInstitutionIds($user);
+            \Log::info('🌍 [SECURITY] RegionOperator access', ['institution_ids' => $institutionIds]);
             $query->whereIn('institution_id', $institutionIds);
 
             return;
         }
 
-        // SectorAdmin: See all responses in their sector
-        if ($roleName === 'SektorAdmin') {
+        // SektorAdmin: See all responses in their sector (case-insensitive)
+        if ($roleName && strtolower($roleName) === 'sektoradmin') {
             $institutionIds = $this->getSectorInstitutionIds($user);
+            \Log::info('🏢 [SECURITY] SektorAdmin access', ['institution_ids' => $institutionIds]);
             $query->whereIn('institution_id', $institutionIds);
 
             return;
         }
 
-        // SchoolAdmin: See only their institution's responses
-        if ($roleName === 'SchoolAdmin' || $roleName === 'PreschoolAdmin') {
+        // SchoolAdmin: See only their institution's responses (case-insensitive)
+        if ($roleName && (strtolower($roleName) === 'schooladmin' || strtolower($roleName) === 'preschooladmin')) {
+            \Log::info('🏫 [SECURITY] SchoolAdmin access', ['institution_id' => $user->institution_id]);
             $query->where('institution_id', $user->institution_id);
 
             return;
         }
 
         // Default: No access (safety fallback)
+        \Log::warning('⚠️ [SECURITY] No matching role - access denied', ['role' => $roleName]);
         $query->whereRaw('1 = 0'); // Returns empty result set
     }
 
@@ -148,28 +160,29 @@ class ApprovalSecurityService
     {
         // Support both single role (role_id) and Spatie Permission roles
         $roleName = $user->role->name ?? $user->roles->pluck('name')->first() ?? null;
+        $roleNameLower = $roleName ? strtolower($roleName) : null;
 
         // SuperAdmin: Can approve anything (case-insensitive)
-        if ($roleName && strtolower($roleName) === 'superadmin') {
+        if ($roleNameLower === 'superadmin') {
             return true;
         }
 
-        // RegionAdmin/RegionOperator: Can approve in their region
-        if (in_array($roleName, ['RegionAdmin', 'RegionOperator'])) {
+        // RegionAdmin/RegionOperator: Can approve in their region (case-insensitive)
+        if (in_array($roleNameLower, ['regionadmin', 'regionoperator'])) {
             $institutionIds = $this->getRegionInstitutionIds($user);
 
             return in_array($approvalRequest->institution_id, $institutionIds);
         }
 
-        // SektorAdmin: Can approve in their sector
-        if ($roleName === 'SektorAdmin') {
+        // SektorAdmin: Can approve in their sector (case-insensitive)
+        if ($roleNameLower === 'sektoradmin') {
             $institutionIds = $this->getSectorInstitutionIds($user);
 
             return in_array($approvalRequest->institution_id, $institutionIds);
         }
 
-        // SchoolAdmin/PreschoolAdmin: Can approve only their own institution
-        if (in_array($roleName, ['SchoolAdmin', 'PreschoolAdmin'])) {
+        // SchoolAdmin/PreschoolAdmin: Can approve only their own institution (case-insensitive)
+        if (in_array($roleNameLower, ['schooladmin', 'preschooladmin'])) {
             return $approvalRequest->institution_id === $user->institution_id;
         }
 

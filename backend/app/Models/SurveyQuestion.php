@@ -335,8 +335,19 @@ class SurveyQuestion extends Model
             return $errors;
         }
 
-        $availableOptions = array_column($this->options ?? [], 'id');
-        if (! in_array($response, $availableOptions)) {
+        // Support both formats: old (string array) and new (object array with id)
+        $options = $this->options ?? [];
+
+        // Check if options is array of objects with 'id' key (new format)
+        if (!empty($options) && is_array($options[0] ?? null) && isset($options[0]['id'])) {
+            // New format: object array with id
+            $availableOptions = array_column($options, 'id');
+        } else {
+            // Old format: simple string array - accept the response value directly
+            $availableOptions = $options;
+        }
+
+        if (! in_array($response, $availableOptions, true)) {
             $errors[] = 'Mövcud seçimlərdən birini seçin.';
         }
 
@@ -356,9 +367,20 @@ class SurveyQuestion extends Model
             return $errors;
         }
 
-        $availableOptions = array_column($this->options ?? [], 'id');
+        // Support both formats: old (string array) and new (object array with id)
+        $options = $this->options ?? [];
+
+        // Check if options is array of objects with 'id' key (new format)
+        if (!empty($options) && is_array($options[0] ?? null) && isset($options[0]['id'])) {
+            // New format: object array with id
+            $availableOptions = array_column($options, 'id');
+        } else {
+            // Old format: simple string array
+            $availableOptions = $options;
+        }
+
         foreach ($response as $choice) {
-            if (! in_array($choice, $availableOptions)) {
+            if (! in_array($choice, $availableOptions, true)) {
                 $errors[] = 'Bütün seçimlər mövcud seçimlərdən olmalıdır.';
                 break;
             }

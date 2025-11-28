@@ -59,9 +59,10 @@ const SurveyApprovalDashboard: React.FC = () => {
   const [selectedResponses, setSelectedResponses] = useState<number[]>([]);
   const [defaultTab, setDefaultTab] = useState<'details' | 'responses' | 'history'>('details');
   
-  // Filters state
+  // Filters state - default to showing only submitted responses
   const [filters, setFilters] = useState<ResponseFilters>({
     per_page: 25,
+    status: 'submitted', // Show only submitted responses by default in approvals page
   });
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -214,7 +215,7 @@ const SurveyApprovalDashboard: React.FC = () => {
     if (selectedSurvey?.id !== survey.id) {
       console.log('🔄 [DASHBOARD] Different survey selected - clearing selections');
       setSelectedResponses([]);
-      setFilters({ per_page: 25 }); // Reset filters
+      setFilters({ per_page: 25, status: 'submitted' }); // Reset filters with default status
       setSearchTerm('');
     } else {
       console.log('✅ [DASHBOARD] Same survey reselected - keeping selections');

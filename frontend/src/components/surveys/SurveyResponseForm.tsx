@@ -520,7 +520,8 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
   const survey: SurveyFormSchema = surveyData;
   const progress = calculateProgress();
   const unansweredRequired = getUnansweredRequiredQuestions();
-  const isComplete = progress === 100 && unansweredRequired.length === 0;
+  // Survey can be submitted when all required questions are answered (optional questions don't block submission)
+  const isComplete = unansweredRequired.length === 0;
   const canSubmit = isComplete && currentResponse?.status === 'draft';
 
   const getStatusBadge = () => {

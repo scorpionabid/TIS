@@ -41,6 +41,16 @@ class SurveyApprovalService extends BaseService
      */
     public function getResponsesForApproval(Survey $survey, Request $request, User $user): array
     {
+        \Log::info('🔍 [APPROVAL] Getting responses for approval', [
+            'survey_id' => $survey->id,
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'user_role' => $user->role->name ?? $user->roles->pluck('name')->first() ?? 'unknown',
+            'user_institution_id' => $user->institution_id,
+            'user_institution_name' => $user->institution?->name,
+            'filters' => $request->all(),
+        ]);
+
         $query = SurveyResponse::where('survey_id', $survey->id)
             ->with([
                 'institution:id,name,type,parent_id',
@@ -98,6 +108,14 @@ class SurveyApprovalService extends BaseService
         // Pagination
         $perPage = $request->get('per_page', 25);
         $responses = $query->orderBy('submitted_at', 'desc')->paginate($perPage);
+
+        \Log::info('✅ [APPROVAL] Query executed', [
+            'total_found' => $responses->total(),
+            'per_page' => $perPage,
+            'current_page' => $responses->currentPage(),
+            'response_ids' => $responses->pluck('id')->toArray(),
+            'institutions' => $responses->pluck('institution.name')->toArray(),
+        ]);
 
         // Ensure respondent names are properly loaded
         foreach ($responses->items() as $response) {

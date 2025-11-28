@@ -87,6 +87,11 @@ class SurveyResponseController extends BaseController
     public function save(Request $request, SurveyResponse $response): JsonResponse
     {
         try {
+            \Log::debug('Save request received', [
+                'response_id' => $response->id,
+                'request_data' => $request->all(),
+            ]);
+
             $validated = $request->validate([
                 'responses' => 'required|array',
                 'auto_submit' => 'nullable|boolean',
@@ -99,9 +104,13 @@ class SurveyResponseController extends BaseController
                 'Survey response saved successfully';
 
             return $this->successResponse(['response' => $updatedResponse], $message);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation failed', ['errors' => $e->errors()]);
+            return $this->errorResponse('Validation failed: ' . json_encode($e->errors()), 400);
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), $e->getMessage() === 'Cannot modify submitted responses' ? 422 : 403);
         } catch (\Exception $e) {
+            \Log::error('Save failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return $this->errorResponse('Failed to save survey response: ' . $e->getMessage());
         }
     }
