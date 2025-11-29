@@ -5,6 +5,7 @@ services:
       context: .
       dockerfile: docker/backend/Dockerfile
     container_name: atis_backend
+    restart: unless-stopped
     environment:
       - APP_ENV=local
       - APP_DEBUG=true
@@ -39,6 +40,7 @@ services:
       context: .
       dockerfile: docker/frontend/Dockerfile
     container_name: atis_frontend
+    restart: unless-stopped
     environment:
       - VITE_API_BASE_URL=https://atis.sim.edu.az/api
       - VITE_APP_URL=https://atis.sim.edu.az
@@ -56,6 +58,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: atis_redis
+    restart: unless-stopped
     # Ports removed - only accessible within Docker network
     expose:
       - "6379"
