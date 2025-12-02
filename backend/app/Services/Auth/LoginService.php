@@ -53,7 +53,8 @@ class LoginService
 
                 $this->logFailedAttempt($login, $user);
                 throw ValidationException::withMessages([
-                    'login' => 'İstifadəçi adı, email və ya şifrə yanlışdır.',
+                    'login' => ['İstifadəçi adı, email və ya şifrə yanlışdır.'],
+                    'code' => ['BAD_CREDENTIALS'],
                 ]);
             }
 
@@ -62,7 +63,8 @@ class LoginService
             // Check if user is active
             if (! $user->is_active) {
                 throw ValidationException::withMessages([
-                    'login' => 'Hesabınız deaktiv edilib. Zəhmət olmasa inzibatçı ilə əlaqə saxlayın.',
+                    'login' => ['Hesabınız deaktiv edilib. Zəhmət olmasa inzibatçı ilə əlaqə saxlayın.'],
+                    'code' => ['ACCOUNT_INACTIVE'],
                 ]);
             }
 
@@ -72,11 +74,13 @@ class LoginService
                     'requires_password_change' => true,
                     'user' => $user,
                     'token' => $this->createPasswordResetToken($user),
+                    'code' => 'PASSWORD_RESET_REQUIRED',
                 ];
             }
 
             // Authenticate the user
-            $token = $this->createAuthToken($user, $deviceName);
+            $remember = (bool) ($credentials['remember'] ?? false);
+            $token = $this->createAuthToken($user, $remember, $deviceName);
             $this->updateUserDevice($user, $deviceId, $deviceName);
             $this->logSuccessfulLogin($user);
 
@@ -99,10 +103,15 @@ class LoginService
             $userData['permissions'] = $permissions;
 
             return [
-                'token' => $token,
+                'token' => $token['token'],
                 'user' => $userData,
                 'requires_password_change' => false,
+                'session_id' => $token['session_id'] ?? null,
+                'expires_at' => $token['expires_at'] ?? null,
+                'remember' => $remember,
             ];
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             logger()->error('Login attempt failed with exception', [
                 'identifier_hash' => $identifierHash,
@@ -110,7 +119,8 @@ class LoginService
             ]);
 
             throw ValidationException::withMessages([
-                'login' => 'Giriş zamanı xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.',
+                'login' => ['Giriş zamanı xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.'],
+                'code' => ['AUTH_GENERAL'],
             ]);
         }
     }
@@ -118,13 +128,21 @@ class LoginService
     /**
      * Create a new authentication token for the user.
      */
-    protected function createAuthToken(User $user, ?string $deviceName = null): string
+    protected function createAuthToken(User $user, bool $remember, ?string $deviceName = null): array
     {
         $tokenName = $deviceName ?? 'auth_token';
-        $expirationMinutes = config('sanctum.expiration');
-        $expiresAt = is_numeric($expirationMinutes) ? now()->addMinutes((int) $expirationMinutes) : null;
+        $defaultExpiration = (int) config('sanctum.expiration', 1440);
+        $rememberExpiration = (int) config('sanctum.remember_expiration', 43200);
+        $expirationMinutes = $remember ? $rememberExpiration : $defaultExpiration;
+        $expiresAt = $expirationMinutes > 0 ? now()->addMinutes($expirationMinutes) : null;
 
-        return $user->createToken($tokenName, ['*'], $expiresAt)->plainTextToken;
+        $token = $user->createToken($tokenName, ['*'], $expiresAt);
+
+        return [
+            'token' => $token->plainTextToken,
+            'session_id' => (string) $token->accessToken->id,
+            'expires_at' => $token->accessToken->expires_at?->toISOString(),
+        ];
     }
 
     /**
@@ -244,5 +262,45 @@ class LoginService
         );
 
         return $token;
+    }
+
+    public function createSessionPayload(User $user, bool $remember = false, ?string $deviceName = null): array
+    {
+        $tokenData = $this->createAuthToken($user, $remember, $deviceName);
+        $userData = $this->buildUserPayload($user);
+
+        return [
+            'token' => $tokenData['token'],
+            'session_id' => $tokenData['session_id'] ?? null,
+            'expires_at' => $tokenData['expires_at'] ?? null,
+            'user' => $userData,
+            'remember' => $remember,
+            'requires_password_change' => false,
+        ];
+    }
+
+    protected function buildUserPayload(User $user): array
+    {
+        $user->load(['profile', 'roles', 'institution', 'regionOperatorPermissions']);
+
+        $roles = $user->getRoleNames()->toArray();
+        $permissions = $user->getAllPermissions()->pluck('name')->toArray();
+
+        logger()->debug('Login service - access context prepared', [
+            'user_id' => $user->id,
+            'role_count' => count($roles),
+            'permission_count' => count($permissions),
+        ]);
+
+        $userData = $user->toArray();
+        $userData['roles'] = $roles;
+        $userData['permissions'] = $permissions;
+        $userData['region_operator_permissions'] = $user->regionOperatorPermissions
+            ? $user->regionOperatorPermissions->only(
+                \App\Services\RegionOperatorPermissionService::getCrudFields()
+            )
+            : null;
+
+        return $userData;
     }
 }

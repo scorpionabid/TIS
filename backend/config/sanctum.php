@@ -51,6 +51,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Remember Me Expiration Minutes
+    |--------------------------------------------------------------------------
+    |
+    | Giriş zamanı “Bu cihazda yadda saxla” seçildikdə tokenlərin nə qədər
+    | müddət ərzində qüvvədə qalacağını buradan tənzimləyirik.
+    |
+    */
+    'remember_expiration' => env('SANCTUM_REMEMBER_EXPIRATION', 43200),
+
+    /*
+    |--------------------------------------------------------------------------
     | Token Prefix
     |--------------------------------------------------------------------------
     |

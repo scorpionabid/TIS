@@ -282,22 +282,48 @@ class AuthService {
       }
 
       const response = await apiClient.post<{
-        token: string;
-        user: any;
+        message?: string;
+        code?: string;
+        data?: {
+          token: string;
+          user: any;
+          expires_at?: string;
+          session_id?: string;
+          remember?: boolean;
+          requires_password_change?: boolean;
+        };
+        token?: string;
+        user?: any;
         expires_at?: string;
+        session_id?: string;
+        remember?: boolean;
+        requires_password_change?: boolean;
       }>('/login', loginData);
 
-      if (!response.data || !response.data.token || !response.data.user) {
+      const payload = response.data?.data ?? response.data;
+
+      if (!payload || !payload.user) {
         throw new Error('Invalid login response structure');
       }
 
-      const user = transformUserData(response.data.user);
+      const user = transformUserData(payload.user);
 
       const loginResponse: LoginResponse = {
-        token: response.data.token,
+        token: payload.token,
         user,
-        expires_at: response.data.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        expires_at: payload.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        session_id: payload.session_id,
+        remember: payload.remember ?? Boolean(credentials.remember),
+        requires_password_change: payload.requires_password_change ?? false,
       };
+
+      if (loginResponse.requires_password_change) {
+        return loginResponse;
+      }
+
+      if (!loginResponse.token) {
+        throw new Error('Invalid login response structure');
+      }
 
       apiClient.setToken(loginResponse.token);
       this.log('✅ Auth Service: Login successful');
@@ -372,21 +398,39 @@ class AuthService {
   async refreshToken(): Promise<LoginResponse> {
     try {
       const response = await apiClient.post<{
-        token: string;
-        user: any;
+        message?: string;
+        code?: string;
+        data?: {
+          token: string;
+          user: any;
+          expires_at?: string;
+          session_id?: string;
+          remember?: boolean;
+        };
+        token?: string;
+        user?: any;
         expires_at?: string;
-      }>('/refresh-token');
+        session_id?: string;
+        remember?: boolean;
+      }>('/refresh-token', {
+        remember: Boolean(options?.remember),
+        device_name: options?.deviceName ?? getDeviceName(),
+      });
       
-      if (!response.data || !response.data.token || !response.data.user) {
+      const payload = response.data?.data ?? response.data;
+
+      if (!payload || !payload.token || !payload.user) {
         throw new Error('Invalid refresh token response structure');
       }
 
-      const user = transformUserData(response.data.user);
+      const user = transformUserData(payload.user);
       
       const loginResponse: LoginResponse = {
-        token: response.data.token,
+        token: payload.token,
         user: user,
-        expires_at: response.data.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        expires_at: payload.expires_at || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        session_id: payload.session_id,
+        remember: payload.remember ?? Boolean(options?.remember),
       };
 
       apiClient.setToken(loginResponse.token);

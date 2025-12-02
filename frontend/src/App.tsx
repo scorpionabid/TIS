@@ -136,6 +136,7 @@ const LoginPage = () => {
   const [loginError, setLoginError] = useState<string | undefined>();
   const [retryCount, setRetryCount] = useState<number>(0);
   const [isRetrying, setIsRetrying] = useState<boolean>(false);
+  const [forceForgotPassword, setForceForgotPassword] = useState(false);
   const location = useLocation();
 
   if (isAuthenticated) {
@@ -145,8 +146,48 @@ const LoginPage = () => {
   }
 
   // Enhanced error categorization
-  const categorizeError = (error: unknown): { message: string; canRetry: boolean; isNetwork: boolean } => {
+  const categorizeError = (error: unknown): { message: string; canRetry: boolean; isNetwork: boolean; code?: string; retryAfter?: number } => {
     const errorMessage = error instanceof Error ? error.message : 'Giriş xətası';
+    const errorData = typeof error === 'object' && error !== null ? (error as any) : {};
+    const derivedCode = errorData.code || errorData?.errors?.code?.[0];
+    const rawRetryAfter = errorData.retryAfter ?? errorData.retry_after ?? errorData?.errors?.retry_after?.[0];
+    const retryAfter = typeof rawRetryAfter === 'number' ? rawRetryAfter : rawRetryAfter ? Number(rawRetryAfter) : undefined;
+
+    if (derivedCode === 'RATE_LIMITED') {
+      return {
+        message: retryAfter
+          ? `Çox sayda cəhd. ${retryAfter} saniyə sonra yenidən cəhd edin.`
+          : 'Çox sayda cəhd. Zəhmət olmasa bir az sonra yenidən cəhd edin.',
+        canRetry: false,
+        isNetwork: false,
+        code: derivedCode,
+        retryAfter,
+      };
+    }
+    if (derivedCode === 'BAD_CREDENTIALS') {
+      return {
+        message: 'İstifadəçi adı və ya şifrə yanlışdır.',
+        canRetry: false,
+        isNetwork: false,
+        code: derivedCode,
+      };
+    }
+    if (derivedCode === 'ACCOUNT_INACTIVE') {
+      return {
+        message: errorMessage || 'Hesabınız deaktiv edilib.',
+        canRetry: false,
+        isNetwork: false,
+        code: derivedCode,
+      };
+    }
+    if (derivedCode === 'PASSWORD_RESET_REQUIRED') {
+      return {
+        message: 'Şifrənizi yeniləməlisiniz. Zəhmət olmasa davam edin.',
+        canRetry: false,
+        isNetwork: false,
+        code: derivedCode,
+      };
+    }
 
     // Network/Connection errors (retriable)
     if (errorMessage.includes('fetch') ||
@@ -185,12 +226,14 @@ const LoginPage = () => {
     return {
       message: errorMessage,
       canRetry: false,
-      isNetwork: false
+      isNetwork: false,
+      code: derivedCode,
+      retryAfter,
     };
   };
 
   // Smart retry logic with exponential backoff
-  const handleRetry = async (email: string, password: string, attemptNumber: number = 1) => {
+  const handleRetry = async (email: string, password: string, remember: boolean, attemptNumber: number = 1) => {
     const maxRetries = 3;
     const baseDelay = 1000; // 1 second base delay
 
@@ -207,23 +250,20 @@ const LoginPage = () => {
         setIsRetrying(false);
       }
 
-      const success = await login({ email, password });
-
-      if (success) {
-        setRetryCount(0);
-        return true;
-      } else {
-        setLoginError('Giriş məlumatları yanlışdır');
-        return false;
-      }
+      await login({ email, password, remember });
+      setRetryCount(0);
+      return true;
     } catch (error) {
-      const { message, canRetry, isNetwork } = categorizeError(error);
+      const { message, canRetry, isNetwork, code } = categorizeError(error);
 
       if (canRetry && isNetwork && attemptNumber < maxRetries) {
         setRetryCount(attemptNumber);
-        return handleRetry(email, password, attemptNumber + 1);
+        return handleRetry(email, password, remember, attemptNumber + 1);
       } else {
         setLoginError(message);
+        if (code === 'PASSWORD_RESET_REQUIRED') {
+          setForceForgotPassword(true);
+        }
         setRetryCount(0);
         return false;
       }
@@ -232,14 +272,18 @@ const LoginPage = () => {
     }
   };
 
-  const handleLogin = async (email: string, password: string) => {
+  const handleLogin = async (email: string, password: string, remember: boolean) => {
     try {
       setLoginError(undefined);
       setRetryCount(0);
-      await handleRetry(email, password, 1);
+      setForceForgotPassword(false);
+      await handleRetry(email, password, remember, 1);
     } catch (error) {
-      const { message } = categorizeError(error);
+      const { message, code } = categorizeError(error);
       setLoginError(message);
+      if (code === 'PASSWORD_RESET_REQUIRED') {
+        setForceForgotPassword(true);
+      }
     }
   };
   
@@ -267,6 +311,8 @@ const LoginPage = () => {
       onErrorDismiss={handleErrorDismiss}
       retryCount={retryCount}
       showHelpfulHints={true}
+      forceForgotPassword={forceForgotPassword}
+      onForgotPasswordAutoOpen={() => setForceForgotPassword(false)}
     />
   );
 };

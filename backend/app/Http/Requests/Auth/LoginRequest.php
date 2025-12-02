@@ -24,12 +24,25 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'login' => 'required|string',
+            'login' => ['required', 'string', 'min:3', 'max:191', 'regex:/^[\p{L}0-9._@+\-]+$/u'],
             'password' => 'required|string|min:8',
             'remember' => 'boolean',
             'device_name' => 'sometimes|string|max:255',
             'device_id' => 'sometimes|string|max:255',
         ];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        if ($this->has('login')) {
+            $this->merge([
+                'login' => $this->normalizeLogin($this->input('login')),
+            ]);
+        }
+
+        if (! $this->has('remember')) {
+            $this->merge(['remember' => false]);
+        }
     }
 
     /**
@@ -62,9 +75,24 @@ class LoginRequest extends FormRequest
             ? "Bu IP ünvanından çox sayda cəhd edilib. {$seconds} saniyə sonra yenidən cəhd edin."
             : "Bu hesab üçün çox sayda cəhd edilib. {$seconds} saniyə sonra yenidən cəhd edin.";
 
-        throw ValidationException::withMessages([
-            'login' => $message,
-            'type' => $type . '_blocked',
-        ])->status(429);
+        $exception = ValidationException::withMessages([
+            'login' => [$message],
+            'code' => ['RATE_LIMITED'],
+            'retry_after' => [$seconds],
+            'type' => [$type . '_blocked'],
+        ]);
+
+        $exception->status = 429;
+
+        throw $exception;
+    }
+
+    protected function normalizeLogin(?string $value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        return mb_strtolower(trim(preg_replace('/\s+/', ' ', $value)));
     }
 }

@@ -146,6 +146,7 @@ export interface UserStatistics {
 export interface LoginCredentials {
   email: string;
   password: string;
+  remember?: boolean;
 }
 
 export interface LoginResponse {
@@ -153,6 +154,9 @@ export interface LoginResponse {
   access_token?: string; // Optional for backward compatibility with legacy APIs
   user: User;
   expires_at: string;
+  session_id?: string;
+  remember?: boolean;
+  requires_password_change?: boolean;
 }
 
 export interface ChangePasswordData {

@@ -56,9 +56,10 @@ class LoginServiceTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('login', $exception->errors());
             $this->assertSame(
-                'Giriş zamanı xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.',
+                'İstifadəçi adı, email və ya şifrə yanlışdır.',
                 $exception->errors()['login'][0] ?? null
             );
+            $this->assertSame('BAD_CREDENTIALS', $exception->errors()['code'][0] ?? null);
         }
     }
 
@@ -80,9 +81,10 @@ class LoginServiceTest extends TestCase
         } catch (ValidationException $exception) {
             $this->assertArrayHasKey('login', $exception->errors());
             $this->assertSame(
-                'Giriş zamanı xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.',
+                'Hesabınız deaktiv edilib. Zəhmət olmasa inzibatçı ilə əlaqə saxlayın.',
                 $exception->errors()['login'][0] ?? null
             );
+            $this->assertSame('ACCOUNT_INACTIVE', $exception->errors()['code'][0] ?? null);
         }
     }
 

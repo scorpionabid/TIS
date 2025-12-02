@@ -4,26 +4,40 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Checkbox } from "@/components/ui/checkbox";
 import { EyeIcon, EyeOffIcon, ShieldIcon, AlertTriangle, X } from "lucide-react";
 import { ForgotPasswordModal } from "./ForgotPasswordModal";
 
 interface LoginFormProps {
-  onLogin: (email: string, password: string) => Promise<void>;
+  onLogin: (email: string, password: string, remember: boolean) => Promise<void>;
   isLoading?: boolean;
   error?: string;
   loadingMessage?: string;
   onErrorDismiss?: () => void;
   retryCount?: number;
   showHelpfulHints?: boolean;
+  forceForgotPassword?: boolean;
+  onForgotPasswordAutoOpen?: () => void;
 }
 
-export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, onErrorDismiss, retryCount = 0, showHelpfulHints = true }: LoginFormProps) => {
+export const LoginForm = ({
+  onLogin,
+  isLoading = false,
+  error,
+  loadingMessage,
+  onErrorDismiss,
+  retryCount = 0,
+  showHelpfulHints = true,
+  forceForgotPassword = false,
+  onForgotPasswordAutoOpen,
+}: LoginFormProps) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [remember, setRemember] = useState(true);
 
   // Real-time email validation
   const validateEmail = (email: string) => {
@@ -76,9 +90,15 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
     return hints;
   };
 
+  const normalizeIdentifier = (value: string) => {
+    return value.replace(/\s+/g, " ").trim();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onLogin(email, password);
+    const normalizedEmail = normalizeIdentifier(email);
+    setEmail(normalizedEmail);
+    await onLogin(normalizedEmail, password, remember);
   };
 
   // Enhanced keyboard navigation
@@ -94,6 +114,13 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [error, onErrorDismiss]);
+
+  useEffect(() => {
+    if (forceForgotPassword) {
+      setShowForgotPassword(true);
+      onForgotPasswordAutoOpen?.();
+    }
+  }, [forceForgotPassword, onForgotPasswordAutoOpen]);
 
   // Handle input field navigation
   const handleEmailKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -266,10 +293,22 @@ export const LoginForm = ({ onLogin, isLoading = false, error, loadingMessage, o
               </Button>
             </form>
             
-            <div className="mt-4 text-center">
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="remember"
+                  checked={remember}
+                  onCheckedChange={(checked) => setRemember(Boolean(checked))}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="remember" className="text-sm text-muted-foreground">
+                  Bu cihazda yadda saxla
+                </Label>
+              </div>
               <Button
+                type="button"
                 variant="link"
-                className="text-sm text-muted-foreground hover:text-primary"
+                className="text-sm text-muted-foreground hover:text-primary p-0"
                 onClick={() => setShowForgotPassword(true)}
                 disabled={isLoading}
               >

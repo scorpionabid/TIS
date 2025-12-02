@@ -135,19 +135,18 @@ const Layout = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleLogin = async (email: string, password: string) => {
-    const success = await login({ email, password });
-    
-    if (success) {
+  const handleLogin = async (email: string, password: string, remember: boolean) => {
+    try {
+      await login({ email, password, remember });
       navigate("/");
       toast({
         title: "Uğurla giriş etdiniz",
-        description: `Xoş gəlmisiniz, ${currentUser?.name}`,
+        description: currentUser?.name ? `Xoş gəlmisiniz, ${currentUser.name}` : undefined,
       });
-    } else {
+    } catch (error: any) {
       toast({
         title: "Giriş xətası",
-        description: "E-poçt və ya şifrə yanlışdır",
+        description: error?.message || "Giriş xətası baş verdi",
         variant: "destructive",
       });
     }

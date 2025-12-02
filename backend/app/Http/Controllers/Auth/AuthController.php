@@ -48,6 +48,7 @@ class AuthController extends Controller
 
             return response()->json([
                 'message' => 'Uğurlu giriş',
+                'code' => 'LOGIN_SUCCESS',
                 'data' => $result,
             ]);
         } catch (ValidationException $e) {
@@ -55,7 +56,7 @@ class AuthController extends Controller
             RateLimiter::hit('login_ip:' . $request->ip(), 900);
             RateLimiter::hit('login_user:' . $request->login, 900);
 
-            throw $e;
+            return $this->formatValidationResponse($e);
         }
     }
 
@@ -152,15 +153,34 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
-        // Delete current token
         $request->user()->currentAccessToken()->delete();
 
-        // Create new token
-        $token = $user->createToken('auth-token')->plainTextToken;
+        $remember = $request->boolean('remember', false);
+        $sessionPayload = $this->loginService->createSessionPayload(
+            $user,
+            $remember,
+            $request->input('device_name')
+        );
 
         return response()->json([
             'message' => 'Token refreshed successfully',
-            'token' => $token,
+            'code' => 'TOKEN_REFRESHED',
+            'data' => $sessionPayload,
         ]);
+    }
+
+    protected function formatValidationResponse(ValidationException $exception): JsonResponse
+    {
+        $errors = $exception->errors();
+        $message = $errors['login'][0] ?? $exception->getMessage();
+        $code = $errors['code'][0] ?? 'VALIDATION_ERROR';
+        $retryAfter = $errors['retry_after'][0] ?? null;
+
+        return response()->json([
+            'message' => $message,
+            'code' => $code,
+            'errors' => $errors,
+            'retry_after' => $retryAfter,
+        ], $exception->status ?? 422);
     }
 }

@@ -438,6 +438,12 @@ class ApiClientOptimized {
         if (data.errors) {
           (enhancedError as any).errors = data.errors;
         }
+        if (data.code) {
+          (enhancedError as any).code = data.code;
+        }
+        if (typeof data.retry_after !== 'undefined') {
+          (enhancedError as any).retryAfter = data.retry_after;
+        }
         throw enhancedError;
       }
       

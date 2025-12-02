@@ -29,16 +29,27 @@ class TokenLifecycleTest extends TestCase
         $token = $user->createToken('api-device')->plainTextToken;
 
         $response = $this->withHeader('Authorization', "Bearer {$token}")
-            ->postJson('/api/refresh-token');
+            ->postJson('/api/refresh-token', [
+                'remember' => true,
+                'device_name' => 'phpunit-device',
+            ]);
 
         $response->assertOk()
+            ->assertJsonPath('code', 'TOKEN_REFRESHED')
             ->assertJsonStructure([
                 'message',
-                'token',
+                'code',
+                'data' => [
+                    'token',
+                    'session_id',
+                    'expires_at',
+                    'remember',
+                ],
             ])
-            ->assertJsonPath('message', 'Token refreshed successfully');
+            ->assertJsonPath('message', 'Token refreshed successfully')
+            ->assertJsonPath('data.remember', true);
 
-        $newToken = $response->json('token');
+        $newToken = $response->json('data.token');
         $this->assertNotEmpty($newToken);
         $this->assertNotSame($token, $newToken);
 

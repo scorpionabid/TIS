@@ -12,6 +12,13 @@ import { resetNavigationCache } from '@/hooks/useNavigationCache';
 // Single storage location for token and user data
 const AUTH_STORAGE_KEY = 'atis_auth_token';
 const USER_STORAGE_KEY = 'atis_current_user';
+const SESSION_META_STORAGE_KEY = 'atis_session_meta';
+
+interface SessionMetadata {
+  remember?: boolean;
+  expiresAt?: string | null;
+  sessionId?: string | null;
+}
 
 // Environment check for production optimizations
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -125,6 +132,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Refs for cleanup and preventing memory leaks
   const authCheckTimeoutRef = useRef<NodeJS.Timeout>();
   const retryTimeoutRef = useRef<NodeJS.Timeout>();
+  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
+  const sessionMetadataRef = useRef<SessionMetadata | null>(
+    typeof window !== 'undefined' ? storageHelpers.get<SessionMetadata | null>(SESSION_META_STORAGE_KEY) : null
+  );
   const isMountedRef = useRef(true);
 
   // Optimized token management using API client directly
@@ -142,9 +153,62 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     resetNavigationCache();
   }, []);
 
+  const persistSessionMetadata = useCallback((metadata: SessionMetadata | null) => {
+    if (!metadata) {
+      sessionMetadataRef.current = null;
+      storageHelpers.remove(SESSION_META_STORAGE_KEY);
+      return;
+    }
+
+    const cleaned: SessionMetadata = {
+      remember: Boolean(metadata.remember),
+      expiresAt: metadata.expiresAt || null,
+      sessionId: metadata.sessionId || null,
+    };
+
+    sessionMetadataRef.current = cleaned;
+    storageHelpers.set(SESSION_META_STORAGE_KEY, cleaned);
+  }, []);
+
+  const clearRefreshTimer = useCallback(() => {
+    if (refreshTimeoutRef.current) {
+      clearTimeout(refreshTimeoutRef.current);
+      refreshTimeoutRef.current = undefined;
+    }
+  }, []);
+
+  const scheduleTokenRefresh = useCallback((
+    expiresAt?: string | null,
+    remember?: boolean,
+    onExpire?: () => void
+  ) => {
+    clearRefreshTimer();
+    if (!expiresAt) {
+      return;
+    }
+
+    const expirationTime = new Date(expiresAt).getTime();
+    if (Number.isNaN(expirationTime)) {
+      return;
+    }
+
+    const leadTime = 5 * 60 * 1000;
+    const delay = expirationTime - Date.now() - leadTime;
+
+    if (delay <= 0) {
+      onExpire?.();
+      return;
+    }
+
+    refreshTimeoutRef.current = setTimeout(() => {
+      onExpire?.();
+    }, delay);
+  }, [clearRefreshTimer]);
+
   const clearAuth = useCallback(() => {
     apiClient.clearToken();
     storageHelpers.remove(USER_STORAGE_KEY);
+    storageHelpers.remove(AUTH_STORAGE_KEY);
 
     // CRITICAL: Clear React Query cache on logout to prevent cross-user data leakage
     // This ensures new user doesn't see previous user's cached data
@@ -152,6 +216,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     // Also clear API client cache
     apiClient.clearCache();
+    persistSessionMetadata(null);
+    clearRefreshTimer();
 
     if (isMountedRef.current) {
       setIsAuthenticated(false);
@@ -159,7 +225,51 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
 
     log('info', 'Authentication cleared - all caches purged');
-  }, [applyCurrentUser, queryClient]);
+  }, [applyCurrentUser, clearRefreshTimer, persistSessionMetadata, queryClient]);
+
+  const refreshAuthToken = useCallback(async (rememberOverride?: boolean) => {
+    const hasToken = getToken();
+    if (!hasToken) {
+      return;
+    }
+
+    const remember = rememberOverride ?? sessionMetadataRef.current?.remember ?? false;
+
+    try {
+      const response = await authService.refreshToken({ remember });
+
+      if (!response?.token || !response.user) {
+        return;
+      }
+
+      const mappedUser = {
+        ...response.user,
+        role: mapBackendRoleToFrontend(response.user.role),
+      };
+
+      setToken(response.token || response.access_token);
+      applyCurrentUser(mappedUser);
+      storageHelpers.set(USER_STORAGE_KEY, mappedUser);
+
+      persistSessionMetadata({
+        remember,
+        expiresAt: response.expires_at,
+        sessionId: response.session_id ?? sessionMetadataRef.current?.sessionId ?? null,
+      });
+
+      if (isMountedRef.current) {
+        scheduleTokenRefresh(response.expires_at, remember, () => refreshAuthToken(remember));
+      }
+    } catch (error: any) {
+      log('error', 'Token refresh failed', error?.message || error);
+      clearAuth();
+      toast({
+        title: 'Sessiya müddəti bitdi',
+        description: 'Zəhmət olmasa yenidən daxil olun.',
+        variant: 'destructive',
+      });
+    }
+  }, [applyCurrentUser, clearAuth, getToken, persistSessionMetadata, scheduleTokenRefresh, setToken, toast]);
 
   // Store auth functions in refs to avoid recreating debouncedAuthCheck
   const getTokenRef = useRef(getToken);
@@ -238,6 +348,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         // Update localStorage cache with timestamp
         storageHelpers.set(USER_STORAGE_KEY, mappedUser);
+        const storedMeta = sessionMetadataRef.current;
+        if (storedMeta?.expiresAt) {
+          scheduleTokenRefresh(
+            storedMeta.expiresAt,
+            storedMeta.remember,
+            () => refreshAuthToken(storedMeta.remember)
+          );
+        }
         
         const duration = performance.now() - startTime;
         log('info', 'Authentication successful', { 
@@ -315,20 +433,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         cleanupRetryTimeoutRef.current = undefined;
       }
       cleanupDebouncedRef.current?.cancel?.(); // Cancel debounced function
+      clearRefreshTimer();
     };
-  }, []); // Remove debouncedAuthCheck from dependencies to prevent loop
+  }, [clearRefreshTimer]); // Remove debouncedAuthCheck from dependencies to prevent loop
 
   const login = useCallback(async (credentials: LoginCredentials): Promise<boolean> => {
     try {
       setLoading(true);
 
-      // CRITICAL: Clear all caches BEFORE login to prevent previous user's data from leaking
-      // This is essential when switching between different SektorAdmin users
       queryClient.clear();
       apiClient.clearCache();
       log('info', 'Pre-login cache cleared');
 
       const response = await authService.login(credentials);
+
+      if (response.requires_password_change) {
+        log('warn', 'Password change required before granting access');
+        persistSessionMetadata(null);
+        storageHelpers.remove(AUTH_STORAGE_KEY);
+
+        toast({
+          title: 'Şifrə yenilənməlidir',
+          description: 'Zəhmət olmasa şifrənizi yeniləyin. "Şifrəni unutmusunuz?" seçimini istifadə edin.',
+          variant: 'destructive',
+        });
+
+        const passwordChangeError: any = new Error('PASSWORD_RESET_REQUIRED');
+        passwordChangeError.code = 'PASSWORD_RESET_REQUIRED';
+        passwordChangeError.resetToken = response.token;
+        passwordChangeError.email = credentials.email;
+        throw passwordChangeError;
+      }
 
       log('info', 'Login successful', { username: response.user.username });
 
@@ -336,14 +471,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         ...response.user,
         role: mapBackendRoleToFrontend(response.user.role)
       };
+      const rememberSession = response.remember ?? Boolean(credentials.remember);
 
-      // Store token and user data
       setToken(response.token || response.access_token);
       applyCurrentUser(mappedUser);
       setIsAuthenticated(true);
-
-      // Cache user data
       storageHelpers.set(USER_STORAGE_KEY, mappedUser);
+      persistSessionMetadata({
+        remember: rememberSession,
+        expiresAt: response.expires_at,
+        sessionId: response.session_id ?? null,
+      });
+      scheduleTokenRefresh(
+        response.expires_at,
+        rememberSession,
+        () => refreshAuthToken(rememberSession)
+      );
 
       toast({
         title: 'Uğurlu giriş',
@@ -361,11 +504,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         variant: 'destructive',
       });
 
-      return false;
+      throw error;
     } finally {
       setLoading(false);
     }
-  }, [applyCurrentUser, queryClient, setToken, toast]);
+  }, [applyCurrentUser, persistSessionMetadata, queryClient, refreshAuthToken, scheduleTokenRefresh, setToken, toast]);
 
   const logout = useCallback(async (): Promise<void> => {
     try {
@@ -420,6 +563,26 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
     return normalizedRole === role;
   }, [currentUser]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (!event.key) return;
+
+      if (
+        (event.key === AUTH_STORAGE_KEY || event.key === SESSION_META_STORAGE_KEY) &&
+        event.newValue === null
+      ) {
+        clearAuth();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, [clearAuth]);
 
   // Memoized context value to prevent unnecessary re-renders
   const value = React.useMemo<AuthContextType>(() => ({
