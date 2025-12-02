@@ -3,6 +3,10 @@
 namespace App\Http\Controllers\Grade;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Grade\DuplicateGradeRequest;
+use App\Http\Requests\Grade\FilterGradesRequest;
+use App\Http\Requests\Grade\StoreGradeRequest;
+use App\Http\Requests\Grade\UpdateGradeRequest;
 use App\Models\Grade;
 use App\Services\GradeManagementService;
 use App\Services\GradeNamingEngine;
@@ -46,7 +50,7 @@ class GradeUnifiedController extends Controller
      *
      * DELEGATED to GradeCRUDController::index() (Sprint 6 Phase 2)
      */
-    public function index(Request $request): JsonResponse
+    public function index(FilterGradesRequest $request): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
 
@@ -58,7 +62,7 @@ class GradeUnifiedController extends Controller
      *
      * DELEGATED to GradeCRUDController::store() (Sprint 6 Phase 2)
      */
-    public function store(Request $request): JsonResponse
+    public function store(StoreGradeRequest $request): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
 
@@ -70,11 +74,11 @@ class GradeUnifiedController extends Controller
      *
      * DELEGATED to GradeCRUDController::show() (Sprint 6 Phase 2)
      */
-    public function show(Request $request, Grade $grade): JsonResponse
+    public function show(Grade $grade): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
 
-        return $controller->show($request, $grade);
+        return $controller->show($grade);
     }
 
     /**
@@ -82,7 +86,7 @@ class GradeUnifiedController extends Controller
      *
      * DELEGATED to GradeCRUDController::update() (Sprint 6 Phase 2)
      */
-    public function update(Request $request, Grade $grade): JsonResponse
+    public function update(UpdateGradeRequest $request, Grade $grade): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
 
@@ -94,11 +98,11 @@ class GradeUnifiedController extends Controller
      *
      * DELEGATED to GradeCRUDController::destroy() (Sprint 6 Phase 2)
      */
-    public function destroy(Request $request, Grade $grade): JsonResponse
+    public function destroy(Grade $grade): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
 
-        return $controller->destroy($request, $grade);
+        return $controller->destroy($grade);
     }
 
     /**
@@ -593,7 +597,7 @@ class GradeUnifiedController extends Controller
      *
      * DELEGATED to GradeCRUDController::duplicate() (Sprint 6 Phase 4)
      */
-    public function duplicate(Request $request, Grade $grade): JsonResponse
+    public function duplicate(DuplicateGradeRequest $request, Grade $grade): JsonResponse
     {
         $controller = app(GradeCRUDController::class);
 
