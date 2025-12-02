@@ -67,10 +67,16 @@ class RegionAdminPermissionService
 
         $modules = collect($modulesConfig)
             ->map(function (array $module) use ($granted) {
-                $permissions = array_values(array_filter(
-                    $module['permissions'],
-                    fn ($permission) => in_array($permission['key'], $granted, true)
-                ));
+                $permissions = array_map(function (array $permission) use ($granted) {
+                    $key = $permission['key'];
+
+                    return [
+                        'key' => $key,
+                        'label' => $permission['label'] ?? $key,
+                        'description' => $permission['description'] ?? null,
+                        'shareable' => in_array($key, $granted, true),
+                    ];
+                }, $module['permissions'] ?? []);
 
                 if (empty($permissions)) {
                     return;
@@ -102,6 +108,8 @@ class RegionAdminPermissionService
         return [
             'modules' => $modules,
             'templates' => $templates,
+            'granted_permissions' => $granted,
+            'role_matrix' => $this->buildRolePermissionMatrix(),
         ];
     }
 
@@ -284,5 +292,83 @@ class RegionAdminPermissionService
             ->pluck('name')
             ->values()
             ->all();
+    }
+
+    /**
+     * Build holistic role-permission matrix for front-end UX.
+     */
+    private function buildRolePermissionMatrix(): array
+    {
+        $modules = $this->getNormalizedModules();
+        $roles = $this->getAssignableRoleNames($modules);
+
+        $matrix = [];
+        foreach ($roles as $role) {
+            $matrix[$role] = [
+                'allowed' => [],
+                'defaults' => [],
+                'required' => [],
+            ];
+        }
+
+        foreach ($modules as $module) {
+            $permissionKeys = array_column($module['permissions'] ?? [], 'key');
+            if (empty($permissionKeys)) {
+                continue;
+            }
+
+            $targetRoles = $module['roles'] ?? [];
+            if (empty($targetRoles)) {
+                $targetRoles = $roles;
+            } else {
+                $targetRoles = array_map('strtolower', $targetRoles);
+            }
+
+            foreach ($targetRoles as $role) {
+                if (! isset($matrix[$role])) {
+                    continue;
+                }
+
+                $matrix[$role]['allowed'] = array_values(array_unique(array_merge(
+                    $matrix[$role]['allowed'],
+                    $permissionKeys
+                )));
+
+                $defaults = $module['defaults'] ?? [];
+                if (! empty($defaults)) {
+                    $matrix[$role]['defaults'] = array_values(array_unique(array_merge(
+                        $matrix[$role]['defaults'],
+                        $defaults
+                    )));
+                }
+
+                $required = $module['required'] ?? [];
+                if (! empty($required)) {
+                    $matrix[$role]['required'] = array_values(array_unique(array_merge(
+                        $matrix[$role]['required'],
+                        $required
+                    )));
+                }
+            }
+        }
+
+        return $matrix;
+    }
+
+    private function getAssignableRoleNames(array $modules): array
+    {
+        $roles = collect($modules)
+            ->pluck('roles')
+            ->flatten()
+            ->filter()
+            ->map(fn ($role) => strtolower($role))
+            ->unique()
+            ->values()
+            ->all();
+
+        // Modules with empty role arrays apply to every assignable role we allow.
+        $defaultRoles = ['regionoperator', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim'];
+
+        return array_values(array_unique(array_merge($roles, $defaultRoles)));
     }
 }

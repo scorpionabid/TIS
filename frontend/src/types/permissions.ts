@@ -60,6 +60,7 @@ export interface PermissionWithMetadata {
   source: PermissionSource;
   readonly: boolean;
   dependencies?: string[];
+   shareable?: boolean;
 }
 
 /**

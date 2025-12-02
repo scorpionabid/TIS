@@ -546,6 +546,7 @@ export const UserManagement = memo(() => {
             availableDepartments={departmentsQuery.data || []}
             availableRoles={rolesQuery.data || []}
             loadingOptions={institutionsQuery.isLoading || departmentsQuery.isLoading || rolesQuery.isLoading}
+            currentUserPermissions={currentUser?.permissions || []}
           />
         </Suspense>
       )}

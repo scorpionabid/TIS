@@ -185,6 +185,7 @@ export function RegionOperatorTab({
         key: action.key,
         label: action.label,
         description: action.description,
+        shareable: true,
       })),
     }));
 
@@ -197,7 +198,20 @@ export function RegionOperatorTab({
         .map(([permissionKey]) => permissionKey),
     }));
 
-    return { modules, templates };
+    const allowed = modules.flatMap((module) => module.permissions.map((permission) => permission.key));
+
+    return {
+      modules,
+      templates,
+      granted_permissions: [],
+      role_matrix: {
+        regionoperator: {
+          allowed,
+          defaults: [],
+          required: [],
+        },
+      },
+    };
   }, []);
 
   const panelMetadata = useMemo<PermissionMetadata>(() => {
@@ -206,6 +220,13 @@ export function RegionOperatorTab({
     }
     return permissionMetadata;
   }, [permissionMetadata, fallbackMetadata]);
+
+  const regionOperatorRoleInfo =
+    permissionMetadata?.role_matrix?.regionoperator ??
+    panelMetadata.role_matrix?.regionoperator ??
+    null;
+
+  const shareablePermissions = permissionMetadata?.granted_permissions ?? [];
 
   const handlePermissionSelectionChange = (next: string[]) => {
     console.log('🔍 [RegionOperatorTab] handlePermissionSelectionChange called', {
@@ -260,6 +281,8 @@ export function RegionOperatorTab({
         value={selectedPermissionKeys}
         onChange={handlePermissionSelectionChange}
         loading={Boolean(permissionMetadataLoading && !permissionMetadata)}
+        grantedPermissions={shareablePermissions}
+        roleInfo={regionOperatorRoleInfo}
       />
 
     </div>

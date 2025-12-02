@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { PermissionMetadata, PermissionModuleMeta } from '@/services/regionAdmin';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { PermissionMetadata, PermissionModuleMeta, RolePermissionMatrixEntry } from '@/services/regionAdmin';
 import { Sparkles, ShieldCheck, Search, ChevronDown, ChevronRight, AlertTriangle, CheckSquare, Square } from 'lucide-react';
 import { EnhancedPermissionCheckbox } from '@/components/permissions/EnhancedPermissionCheckbox';
 import { PermissionSource, UserPermissionsDetailed, PermissionWithMetadata } from '@/types/permissions';
@@ -17,6 +17,8 @@ interface PermissionAssignmentPanelProps {
   value: string[];
   onChange: (next: string[]) => void;
   loading?: boolean;
+  grantedPermissions?: string[];
+  roleInfo?: RolePermissionMatrixEntry | null;
 }
 
 export function PermissionAssignmentPanel({
@@ -26,6 +28,8 @@ export function PermissionAssignmentPanel({
   value,
   onChange,
   loading = false,
+  grantedPermissions = [],
+  roleInfo = null,
 }: PermissionAssignmentPanelProps) {
   // ✅ ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const [searchTerm, setSearchTerm] = useState('');
@@ -41,6 +45,7 @@ export function PermissionAssignmentPanel({
         module.permissions.map(permission => {
           const isRoleBased = userPermissions?.via_roles?.includes(permission.key) ?? false;
           const isDirect = userPermissions?.direct?.includes(permission.key) ?? false;
+          const isShareable = permission.shareable !== false;
 
           return {
             ...permission,
@@ -49,7 +54,8 @@ export function PermissionAssignmentPanel({
               : isRoleBased
                 ? PermissionSource.ROLE
                 : PermissionSource.INHERITED,
-            readonly: isRoleBased && !isDirect,
+            readonly: !isShareable || (isRoleBased && !isDirect),
+            shareable: isShareable,
           };
         })
       );
@@ -87,18 +93,30 @@ export function PermissionAssignmentPanel({
       .filter((module) => module.permissions.length > 0 || !normalizedSearch);
   }, [metadata, roleName, searchTerm]);
 
+  const allowedPermissionKeys = useMemo(() => {
+    return new Set(
+      modules.flatMap((module) => module.permissions.map((permission) => permission.key))
+    );
+  }, [modules]);
+
+  const shareablePermissionKeys = useMemo(() => {
+    return new Set(
+      modules.flatMap((module) =>
+        module.permissions
+          .filter((permission) => permission.shareable !== false)
+          .map((permission) => permission.key)
+      )
+    );
+  }, [modules]);
+
   const templates = useMemo(() => {
     if (!metadata) {
       return [];
     }
 
-    const allowedPermissionSet = new Set(
-      modules.flatMap((module) => module.permissions.map((permission) => permission.key))
-    );
-
     return (metadata.templates || []).map((template) => {
       const filteredPermissions = template.permissions.filter((permission) =>
-        allowedPermissionSet.has(permission)
+        allowedPermissionKeys.has(permission) && shareablePermissionKeys.has(permission)
       );
 
       return {
@@ -107,7 +125,7 @@ export function PermissionAssignmentPanel({
         disabled: filteredPermissions.length === 0,
       };
     });
-  }, [metadata, modules]);
+  }, [metadata, allowedPermissionKeys, shareablePermissionKeys]);
 
   const moduleSummaries = useMemo(() => {
     return modules.map((module) => {
@@ -124,6 +142,14 @@ export function PermissionAssignmentPanel({
     });
   }, [modules, value]);
 
+  const nonShareableSelections = useMemo(() => {
+    if (!value?.length || shareablePermissionKeys.size === 0) {
+      // If RegionAdmin has zero shareable permissions, treat all selections as non-shareable
+      return value || [];
+    }
+    return value.filter((permission) => !shareablePermissionKeys.has(permission));
+  }, [value, shareablePermissionKeys]);
+
   // Statistics (MUST BE BEFORE CONDITIONAL RETURNS)
   const stats = useMemo(() => {
     const directCount = enrichedPermissions.filter(p => p.source === PermissionSource.DIRECT).length;
@@ -134,6 +160,18 @@ export function PermissionAssignmentPanel({
 
     return { directCount, roleCount, selectedDirect, total: enrichedPermissions.length };
   }, [enrichedPermissions, value]);
+
+  const grantedPreview = useMemo(() => {
+    if (!grantedPermissions?.length) {
+      return [];
+    }
+    return grantedPermissions.slice(0, 6);
+  }, [grantedPermissions]);
+
+  const remainingGranted = Math.max(
+    0,
+    (grantedPermissions?.length ?? 0) - grantedPreview.length
+  );
 
   // ✅ CONDITIONAL RETURNS AFTER ALL HOOKS
   if (loading) {
@@ -211,6 +249,62 @@ export function PermissionAssignmentPanel({
 
   return (
     <div className="space-y-4">
+      {grantedPermissions && grantedPermissions.length > 0 && (
+        <div className="rounded-lg border bg-muted/40 p-4">
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+            Sizin aktiv icazələriniz ({grantedPermissions.length})
+          </p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {grantedPreview.map((permission) => (
+              <Badge key={permission} variant="secondary" className="text-xs">
+                {permission}
+              </Badge>
+            ))}
+            {remainingGranted > 0 && (
+              <Badge variant="outline" className="text-xs">
+                +{remainingGranted}
+              </Badge>
+            )}
+          </div>
+        </div>
+      )}
+
+      {roleInfo && (
+        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+          <span>İcazə verə biləcəklər: <strong>{roleInfo.allowed.length}</strong></span>
+          {roleInfo.defaults.length > 0 && (
+            <span>Default: <strong>{roleInfo.defaults.length}</strong></span>
+          )}
+          {roleInfo.required.length > 0 && (
+            <span>Məcburi: <strong>{roleInfo.required.length}</strong></span>
+          )}
+        </div>
+      )}
+
+      {nonShareableSelections.length > 0 && (
+        <Alert variant="destructive">
+          <AlertTitle>Sizin hesabınızda olmayan icazələr</AlertTitle>
+          <AlertDescription className="text-xs mt-2 space-y-2">
+            <p>
+              Bu istifadəçidə {nonShareableSelections.length} icazə mövcuddur, lakin sizin RegionAdmin hesabınızda olmadığı üçün
+              redaktə edilə bilmir. Bu icazələri təyin etmək üçün əvvəlcə SuperAdmin vasitəsilə öz hesabınıza əlavə edilməlidir.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {nonShareableSelections.slice(0, 8).map((permission) => (
+                <Badge key={permission} variant="outline" className="text-xs">
+                  {permission}
+                </Badge>
+              ))}
+              {nonShareableSelections.length > 8 && (
+                <Badge variant="outline" className="text-xs">
+                  +{nonShareableSelections.length - 8}
+                </Badge>
+              )}
+            </div>
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Stats header */}
       {userPermissions && stats.roleCount > 0 && (
         <Alert>
@@ -330,24 +424,25 @@ export function PermissionAssignmentPanel({
                 </button>
 
                 {!isCollapsed && (
-                  <div className="space-y-2 p-4 border-t">
-                    {module.permissions.map((permission) => {
-                      // Find enriched permission metadata
-                      const enrichedPermission = enrichedPermissions.find(p => p.key === permission.key);
+              <div className="space-y-2 p-4 border-t">
+                {module.permissions.map((permission) => {
+                  // Find enriched permission metadata
+                  const enrichedPermission = enrichedPermissions.find(p => p.key === permission.key);
 
-                      if (enrichedPermission) {
-                        // Use EnhancedPermissionCheckbox with metadata
-                        return (
-                          <EnhancedPermissionCheckbox
-                            key={permission.key}
-                            permission={enrichedPermission}
-                            checked={value.includes(permission.key)}
-                            onChange={(checked) => togglePermission(permission.key, checked)}
-                          />
-                        );
-                      }
+                  if (enrichedPermission) {
+                    // Use EnhancedPermissionCheckbox with metadata
+                    return (
+                      <EnhancedPermissionCheckbox
+                        key={permission.key}
+                        permission={enrichedPermission}
+                        checked={value.includes(permission.key)}
+                        onChange={(checked) => togglePermission(permission.key, checked)}
+                        disabled={permission.shareable === false}
+                      />
+                    );
+                  }
 
-                      // Fallback to regular checkbox if no enriched data
+                  // Fallback to regular checkbox if no enriched data
                       return (
                         <label
                           key={permission.key}

@@ -61,6 +61,7 @@ export interface PermissionModuleMeta {
     key: string;
     label: string;
     description?: string;
+    shareable?: boolean;
   }>;
 }
 
@@ -71,9 +72,17 @@ export interface PermissionTemplateMeta {
   permissions: string[];
 }
 
+export interface RolePermissionMatrixEntry {
+  allowed: string[];
+  defaults: string[];
+  required: string[];
+}
+
 export interface PermissionMetadata {
   modules: PermissionModuleMeta[];
   templates: PermissionTemplateMeta[];
+  granted_permissions: string[];
+  role_matrix: Record<string, RolePermissionMatrixEntry>;
 }
 
 class RegionAdminService {
@@ -148,9 +157,18 @@ class RegionAdminService {
       : payload;
     console.log('[PermissionMeta] Raw payload', payload, 'metadata', metadata);
 
+    const modules = Array.isArray(metadata?.modules) ? metadata.modules : [];
+    const templates = Array.isArray(metadata?.templates) ? metadata.templates : [];
+    const granted = Array.isArray(metadata?.granted_permissions) ? metadata.granted_permissions : [];
+    const matrix = metadata?.role_matrix && typeof metadata.role_matrix === 'object'
+      ? metadata.role_matrix
+      : {};
+
     return {
-      modules: Array.isArray(metadata?.modules) ? metadata.modules : [],
-      templates: Array.isArray(metadata?.templates) ? metadata.templates : [],
+      modules,
+      templates,
+      granted_permissions: granted,
+      role_matrix: matrix,
     };
   }
 

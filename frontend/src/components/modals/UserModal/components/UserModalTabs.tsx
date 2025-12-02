@@ -221,6 +221,11 @@ export function UserModalTabs({
 
   const effectivePermissionMetadata = permissionMetadata ?? localPermissionMetadata ?? null;
   const effectivePermissionLoading = Boolean(permissionMetadataLoading || localPermissionLoading);
+  const permissionRoleMatrix = effectivePermissionMetadata?.role_matrix ?? {};
+  const shareablePermissions =
+    (effectivePermissionMetadata?.granted_permissions && effectivePermissionMetadata.granted_permissions.length > 0)
+      ? effectivePermissionMetadata.granted_permissions
+      : currentUserPermissions;
 
   const regionOperatorPermissionsSelected = useMemo(() => {
     const assignable = Array.isArray(formData.assignable_permissions)
@@ -235,11 +240,11 @@ export function UserModalTabs({
   }, [formData]);
 
   const allowedPermissionKeys = useMemo(() => {
-    if (!permissionMetadata || !allowAssignablePermissions) {
+    if (!effectivePermissionMetadata || !allowAssignablePermissions) {
       return new Set<string>();
     }
 
-    const modules = permissionMetadata.modules || [];
+    const modules = effectivePermissionMetadata.modules || [];
     const allowed = modules
       .filter(
         (module) =>
@@ -250,7 +255,7 @@ export function UserModalTabs({
       .flatMap((module) => module.permissions.map((permission) => permission.key));
 
     return new Set<string>(allowed);
-  }, [permissionMetadata, allowAssignablePermissions, targetRoleName]);
+  }, [effectivePermissionMetadata, allowAssignablePermissions, targetRoleName]);
 
   const filteredPermissionSelection = useMemo(() => {
     if (!allowAssignablePermissions || allowedPermissionKeys.size === 0) {
@@ -381,6 +386,17 @@ export function UserModalTabs({
     );
   }
 
+  const getRoleInfo = (roleName: string) => {
+    if (!roleName) {
+      return null;
+    }
+    const key = roleName.toLowerCase();
+    return permissionRoleMatrix?.[key] ?? null;
+  };
+
+  const shareablePreview = (shareablePermissions || []).slice(0, 6);
+  const shareableHiddenCount = Math.max(0, (shareablePermissions?.length || 0) - shareablePreview.length);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -394,15 +410,15 @@ export function UserModalTabs({
               : 'Rol seçib yeni istifadəçi yaradın. Hər rol öz tab-ında müəyyən form sahələri ilə təmin edilir.'
             }
           </DialogDescription>
-          {currentUserPermissions?.length > 0 && (
+          {shareablePermissions && shareablePermissions.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-3">
-              {currentUserPermissions.slice(0, 6).map((permission) => (
+              {shareablePreview.map((permission) => (
                 <Badge key={permission} variant="secondary">
                   {permission}
                 </Badge>
               ))}
-              {currentUserPermissions.length > 6 && (
-                <Badge variant="outline">+{currentUserPermissions.length - 6}</Badge>
+              {shareableHiddenCount > 0 && (
+                <Badge variant="outline">+{shareableHiddenCount}</Badge>
               )}
             </div>
           )}
@@ -450,6 +466,8 @@ export function UserModalTabs({
                   value={filteredPermissionSelection}
                   onChange={setPermissionSelection}
                   loading={effectivePermissionLoading}
+                  grantedPermissions={shareablePermissions}
+                  roleInfo={getRoleInfo(ROLE_TAB_CONFIG.regionadmin.targetRoleName)}
                 />
               )}
             </div>
@@ -492,6 +510,8 @@ export function UserModalTabs({
                   value={filteredPermissionSelection}
                   onChange={setPermissionSelection}
                   loading={effectivePermissionLoading}
+                  grantedPermissions={shareablePermissions}
+                  roleInfo={getRoleInfo(ROLE_TAB_CONFIG.teacher.targetRoleName)}
                 />
               )}
             </div>
@@ -517,6 +537,8 @@ export function UserModalTabs({
                   value={filteredPermissionSelection}
                   onChange={setPermissionSelection}
                   loading={effectivePermissionLoading}
+                  grantedPermissions={shareablePermissions}
+                  roleInfo={getRoleInfo(ROLE_TAB_CONFIG.sektoradmin.targetRoleName)}
                 />
               )}
             </div>
@@ -542,6 +564,8 @@ export function UserModalTabs({
                   value={filteredPermissionSelection}
                   onChange={setPermissionSelection}
                   loading={effectivePermissionLoading}
+                  grantedPermissions={shareablePermissions}
+                  roleInfo={getRoleInfo(ROLE_TAB_CONFIG.schooladmin.targetRoleName)}
                 />
               )}
             </div>
