@@ -21,7 +21,30 @@ export const mapQuestionForBackend = (question: Question) => ({
   is_required: question.required, // Backend alias
   order: question.order || 0,
   validation: question.validation,
+  table_headers: question.tableHeaders,
+  table_rows: question.tableRows,
 });
+
+const normalizeMatrixList = (value: any): string[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  return value
+    .map((item) => {
+      if (typeof item === 'string') {
+        return item;
+      }
+
+      if (typeof item === 'object' && item !== null) {
+        return item.label || item.value || item.name || item.title || '';
+      }
+
+      return '';
+    })
+    .map((str) => str?.toString().trim())
+    .filter((str) => Boolean(str && str.length > 0));
+};
 
 /**
  * Map a backend question to frontend Question format
@@ -44,6 +67,8 @@ export const mapQuestionFromBackend = (q: any): Question => {
     required: q.required || q.is_required, // Handle both field names
     order: q.order_index || q.order, // Handle both field names
     validation: q.validation_rules || q.validation,
+    tableHeaders: normalizeMatrixList(q.table_headers),
+    tableRows: normalizeMatrixList(q.table_rows),
   };
 };
 
@@ -84,6 +109,19 @@ export const validateSurveyData = (formData: CreateSurveyData, questions: Questi
         if (validOptions.length === 0) {
           errors.push(`Sual ${index + 1}: Ən azı bir seçim variantı daxil edilməlidir`);
         }
+      }
+    }
+
+    if (q.type === 'table_matrix') {
+      const rows = (q.tableRows || []).map(row => row.trim()).filter(Boolean);
+      const headers = (q.tableHeaders || []).map(header => header.trim()).filter(Boolean);
+
+      if (rows.length === 0) {
+        errors.push(`Sual ${index + 1}: Ən azı bir sətir daxil edilməlidir`);
+      }
+
+      if (headers.length === 0) {
+        errors.push(`Sual ${index + 1}: Ən azı bir sütun daxil edilməlidir`);
       }
     }
   });
@@ -127,6 +165,10 @@ export const questionNeedsNumberValidation = (type: string): boolean => {
  */
 export const questionNeedsFileValidation = (type: string): boolean => {
   return type === 'file_upload';
+};
+
+export const questionNeedsMatrixConfiguration = (type: string): boolean => {
+  return type === 'table_matrix';
 };
 
 /**

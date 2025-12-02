@@ -158,6 +158,21 @@ export const useSurveyForm = ({
       return;
     }
 
+    const sanitizeMatrixValues = (values?: string[]) =>
+      values?.map(value => value.trim()).filter(Boolean) || [];
+
+    const sanitizedRows = sanitizeMatrixValues(newQuestion.tableRows);
+    const sanitizedHeaders = sanitizeMatrixValues(newQuestion.tableHeaders);
+
+    if ((newQuestion.type === 'table_matrix') && (sanitizedRows.length === 0 || sanitizedHeaders.length === 0)) {
+      toast({
+        title: "Xəta",
+        description: "Cədvəl sualları üçün ən azı bir sətir və sütun daxil edilməlidir",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const question: Question = {
       id: generateQuestionId(),
       question: newQuestion.question!,
@@ -167,6 +182,8 @@ export const useSurveyForm = ({
       required: newQuestion.required || false,
       order: questions.length + 1,
       validation: newQuestion.validation,
+      tableRows: newQuestion.type === 'table_matrix' ? sanitizedRows : undefined,
+      tableHeaders: newQuestion.type === 'table_matrix' ? sanitizedHeaders : undefined,
     };
 
     setQuestions(prev => [...prev, question]);

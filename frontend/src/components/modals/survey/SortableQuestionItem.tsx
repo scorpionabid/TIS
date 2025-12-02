@@ -4,7 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { GripVertical, Edit, X } from 'lucide-react';
-import type { Question } from './SortableQuestionList';
+import type { Question } from '@/types/surveyModal';
 
 const questionTypes = [
   { value: 'text', label: 'Mətn sahəsi' },

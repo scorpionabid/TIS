@@ -15,22 +15,7 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { SortableQuestionItem } from './SortableQuestionItem';
-
-export interface Question {
-  id?: string;
-  question: string;
-  description?: string;
-  type: 'text' | 'number' | 'date' | 'single_choice' | 'multiple_choice' | 'file_upload' | 'rating' | 'table_matrix';
-  options?: string[];
-  required: boolean;
-  order: number;
-  validation?: {
-    min_value?: number;
-    max_value?: number;
-    max_file_size?: number;
-    allowed_file_types?: string[];
-  };
-}
+import type { Question } from '@/types/surveyModal';
 
 interface SortableQuestionListProps {
   questions: Question[];

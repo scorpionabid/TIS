@@ -20,6 +20,7 @@ import {
   questionNeedsOptions,
   questionNeedsNumberValidation,
   questionNeedsFileValidation,
+  questionNeedsMatrixConfiguration,
 } from '@/utils/surveyHelpers';
 import {
   QUESTION_TYPES,
@@ -60,6 +61,8 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     type: 'text',
     required: false,
     options: [],
+    tableRows: [],
+    tableHeaders: [],
   });
 
   const isEditMode = !!survey;
@@ -148,6 +151,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   const needsOptions = questionNeedsOptions(newQuestion.type as string);
   const needsNumberValidation = questionNeedsNumberValidation(newQuestion.type as string);
   const needsFileValidation = questionNeedsFileValidation(newQuestion.type as string);
+  const needsMatrixConfiguration = questionNeedsMatrixConfiguration(newQuestion.type as string);
 
   // Step validation functions
   const validateStep1 = useCallback((): boolean => {
@@ -243,6 +247,8 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
       type: 'text',
       required: false,
       options: [],
+      tableRows: [],
+      tableHeaders: [],
     });
   };
 
@@ -265,6 +271,48 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     setNewQuestion(prev => ({
       ...prev,
       options: prev.options?.filter((_, i) => i !== index) || []
+    }));
+  };
+
+  const addTableRow = () => {
+    setNewQuestion(prev => ({
+      ...prev,
+      tableRows: [...(prev.tableRows || []), `Sətir ${(prev.tableRows?.length ?? 0) + 1}`]
+    }));
+  };
+
+  const updateTableRow = (index: number, value: string) => {
+    setNewQuestion(prev => ({
+      ...prev,
+      tableRows: (prev.tableRows || []).map((row, i) => (i === index ? value : row))
+    }));
+  };
+
+  const removeTableRow = (index: number) => {
+    setNewQuestion(prev => ({
+      ...prev,
+      tableRows: prev.tableRows?.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addTableColumn = () => {
+    setNewQuestion(prev => ({
+      ...prev,
+      tableHeaders: [...(prev.tableHeaders || []), `Sütun ${(prev.tableHeaders?.length ?? 0) + 1}`]
+    }));
+  };
+
+  const updateTableColumn = (index: number, value: string) => {
+    setNewQuestion(prev => ({
+      ...prev,
+      tableHeaders: (prev.tableHeaders || []).map((header, i) => (i === index ? value : header))
+    }));
+  };
+
+  const removeTableColumn = (index: number) => {
+    setNewQuestion(prev => ({
+      ...prev,
+      tableHeaders: prev.tableHeaders?.filter((_, i) => i !== index)
     }));
   };
 
@@ -414,6 +462,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                 needsOptions={needsOptions}
                 needsNumberValidation={needsNumberValidation}
                 needsFileValidation={needsFileValidation}
+                needsMatrixConfiguration={needsMatrixConfiguration}
                 questionTypes={QUESTION_TYPES}
                 setQuestions={surveyForm.updateQuestionOrder}
                 setNewQuestion={setNewQuestion}
@@ -433,6 +482,12 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                 addOption={addOption}
                 updateOption={updateOption}
                 removeOption={removeOption}
+                addTableRow={addTableRow}
+                updateTableRow={updateTableRow}
+                removeTableRow={removeTableRow}
+                addTableColumn={addTableColumn}
+                updateTableColumn={updateTableColumn}
+                removeTableColumn={removeTableColumn}
                 toast={undefined as any} // Will use from hook internally
               />
             )}

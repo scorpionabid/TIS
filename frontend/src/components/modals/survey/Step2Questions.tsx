@@ -4,11 +4,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
-import { SortableQuestionList, type Question } from './SortableQuestionList';
+import { SortableQuestionList } from './SortableQuestionList';
 import { QuestionEditForm } from './QuestionEditForm';
 import type { Survey } from '@/types/surveys';
+import type { Question } from '@/types/surveyModal';
 
 interface Step2QuestionsProps {
   questions: Question[];
@@ -24,13 +26,14 @@ interface Step2QuestionsProps {
   needsOptions: boolean;
   needsNumberValidation: boolean;
   needsFileValidation: boolean;
+  needsMatrixConfiguration: boolean;
   questionTypes: Array<{ value: string; label: string }>;
   setQuestions: (questions: Question[]) => void;
   setNewQuestion: React.Dispatch<React.SetStateAction<Partial<Question>>>;
   getQuestionRestrictions: (id: string) => any;
   startEditingQuestion: (question: Question) => void;
   removeQuestion: (id: string) => void;
-  updateEditingQuestion: (field: string, value: any) => void;
+  updateEditingQuestion: (field: keyof Question, value: any) => void;
   addEditingQuestionOption: () => void;
   updateEditingQuestionOption: (index: number, value: string) => void;
   removeEditingQuestionOption: (index: number) => void;
@@ -40,6 +43,12 @@ interface Step2QuestionsProps {
   addOption: () => void;
   updateOption: (index: number, value: string) => void;
   removeOption: (index: number) => void;
+  addTableRow: () => void;
+  updateTableRow: (index: number, value: string) => void;
+  removeTableRow: (index: number) => void;
+  addTableColumn: () => void;
+  updateTableColumn: (index: number, value: string) => void;
+  removeTableColumn: (index: number) => void;
   toast: (options: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void;
 }
 
@@ -57,6 +66,7 @@ export function Step2Questions({
   needsOptions,
   needsNumberValidation,
   needsFileValidation,
+  needsMatrixConfiguration,
   questionTypes,
   setQuestions,
   setNewQuestion,
@@ -73,6 +83,12 @@ export function Step2Questions({
   addOption,
   updateOption,
   removeOption,
+  addTableRow,
+  updateTableRow,
+  removeTableRow,
+  addTableColumn,
+  updateTableColumn,
+  removeTableColumn,
   toast,
 }: Step2QuestionsProps) {
   return (
@@ -182,7 +198,31 @@ export function Step2Questions({
               <Label>Sual növü</Label>
               <Select
                 value={newQuestion.type || 'text'}
-                onValueChange={(value) => setNewQuestion(prev => ({ ...prev, type: value as any, options: [] }))}
+                onValueChange={(value) => setNewQuestion(prev => {
+                  const nextType = value as Question['type'];
+
+                  if (nextType === 'table_matrix') {
+                    return {
+                      ...prev,
+                      type: nextType,
+                      options: [],
+                      tableRows: prev.tableRows && prev.tableRows.length > 0
+                        ? prev.tableRows
+                        : ['Sətir 1', 'Sətir 2'],
+                      tableHeaders: prev.tableHeaders && prev.tableHeaders.length > 0
+                        ? prev.tableHeaders
+                        : ['Sütun 1', 'Sütun 2'],
+                    };
+                  }
+
+                  return {
+                    ...prev,
+                    type: nextType,
+                    options: ['single_choice', 'multiple_choice'].includes(nextType) ? prev.options || [] : [],
+                    tableRows: undefined,
+                    tableHeaders: undefined,
+                  };
+                })}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -315,6 +355,81 @@ export function Step2Questions({
                       <SelectItem value="pdf,doc,docx,xls,xlsx">Sənədlər</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Table/Matrix configuration */}
+          {needsMatrixConfiguration && (
+            <div className="space-y-4">
+              <div>
+                <Label>Cədvəl sətirləri</Label>
+                <div className="space-y-2 mt-2">
+                  {(newQuestion.tableRows || []).map((row, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs min-w-[24px] text-center">
+                        {index + 1}
+                      </Badge>
+                      <Input
+                        value={row}
+                        onChange={(e) => updateTableRow(index, e.target.value)}
+                        placeholder={`Sətir ${index + 1} adı`}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeTableRow(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addTableRow}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Sətir əlavə et
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label>Cədvəl sütunları</Label>
+                <div className="space-y-2 mt-2">
+                  {(newQuestion.tableHeaders || []).map((header, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs min-w-[24px] text-center">
+                        {index + 1}
+                      </Badge>
+                      <Input
+                        value={header}
+                        onChange={(e) => updateTableColumn(index, e.target.value)}
+                        placeholder={`Sütun ${index + 1} adı`}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeTableColumn(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addTableColumn}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Sütun əlavə et
+                  </Button>
                 </div>
               </div>
             </div>

@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Plus, X, Loader2 } from 'lucide-react';
-import type { Question } from './SortableQuestionList';
+import type { Question } from '@/types/surveyModal';
 
 const questionTypes = [
   { value: 'text', label: 'Mətn sahəsi' },
@@ -28,7 +28,7 @@ interface QuestionEditFormProps {
   MAX_QUESTION_LENGTH: number;
   MAX_DESCRIPTION_LENGTH: number;
   getQuestionRestrictions: (id: string) => any;
-  updateEditingQuestion: (field: string, value: any) => void;
+  updateEditingQuestion: (field: keyof Question, value: any) => void;
   addOptionToEditingQuestion: () => void;
   updateEditingQuestionOption: (index: number, value: string) => void;
   removeEditingQuestionOption: (index: number) => void;
@@ -52,6 +52,32 @@ export function QuestionEditForm({
   onCancel,
 }: QuestionEditFormProps) {
   const restrictions = getQuestionRestrictions(question.id || '');
+  const matrixRows = editingQuestion.tableRows || [];
+  const matrixColumns = editingQuestion.tableHeaders || [];
+
+  const addMatrixRow = () => {
+    updateEditingQuestion('tableRows', [...matrixRows, `Sətir ${matrixRows.length + 1}`]);
+  };
+
+  const updateMatrixRow = (index: number, value: string) => {
+    updateEditingQuestion('tableRows', matrixRows.map((row, i) => (i === index ? value : row)));
+  };
+
+  const removeMatrixRow = (index: number) => {
+    updateEditingQuestion('tableRows', matrixRows.filter((_, i) => i !== index));
+  };
+
+  const addMatrixColumn = () => {
+    updateEditingQuestion('tableHeaders', [...matrixColumns, `Sütun ${matrixColumns.length + 1}`]);
+  };
+
+  const updateMatrixColumn = (index: number, value: string) => {
+    updateEditingQuestion('tableHeaders', matrixColumns.map((col, i) => (i === index ? value : col)));
+  };
+
+  const removeMatrixColumn = (index: number) => {
+    updateEditingQuestion('tableHeaders', matrixColumns.filter((_, i) => i !== index));
+  };
 
   return (
     <div className="space-y-4 p-4 border rounded-lg border-blue-300 bg-blue-50">
@@ -180,14 +206,80 @@ export function QuestionEditForm({
             </div>
           ))}
 
-          {!restrictions?.can_remove_options && restrictions?.approved_responses_count > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded p-3">
-              <p className="text-xs text-amber-700">
-                <strong>Məhdud rejim:</strong> Bu sualın {restrictions.approved_responses_count} təsdiq edilmiş cavabı var.
-                Yeni seçimlər əlavə edə bilərsiniz, lakin mövcud seçimləri silə bilməzsiniz.
-              </p>
+      {!restrictions?.can_remove_options && restrictions?.approved_responses_count > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded p-3">
+          <p className="text-xs text-amber-700">
+            <strong>Məhdud rejim:</strong> Bu sualın {restrictions.approved_responses_count} təsdiq edilmiş cavabı var.
+            Yeni seçimlər əlavə edə bilərsiniz, lakin mövcud seçimləri silə bilməzsiniz.
+          </p>
+        </div>
+      )}
+    </div>
+  )}
+
+      {editingQuestion.type === 'table_matrix' && (
+        <div className="space-y-4">
+          <div>
+            <Label>Cədvəl sətirləri</Label>
+            <div className="space-y-2 mt-2">
+              {matrixRows.map((row, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <Badge variant="outline" className="text-xs min-w-[24px] text-center">
+                    {index + 1}
+                  </Badge>
+                  <Input
+                    value={row}
+                    onChange={(e) => updateMatrixRow(index, e.target.value)}
+                    placeholder={`Sətir ${index + 1}`}
+                    className="flex-1 bg-white"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeMatrixRow(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" onClick={addMatrixRow}>
+                <Plus className="h-4 w-4 mr-1" />
+                Sətir əlavə et
+              </Button>
             </div>
-          )}
+          </div>
+
+          <div>
+            <Label>Cədvəl sütunları</Label>
+            <div className="space-y-2 mt-2">
+              {matrixColumns.map((column, index) => (
+                <div key={index} className="flex items-center space-x-2">
+                  <Badge variant="outline" className="text-xs min-w-[24px] text-center">
+                    {index + 1}
+                  </Badge>
+                  <Input
+                    value={column}
+                    onChange={(e) => updateMatrixColumn(index, e.target.value)}
+                    placeholder={`Sütun ${index + 1}`}
+                    className="flex-1 bg-white"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeMatrixColumn(index)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" onClick={addMatrixColumn}>
+                <Plus className="h-4 w-4 mr-1" />
+                Sütun əlavə et
+              </Button>
+            </div>
+          </div>
         </div>
       )}
 

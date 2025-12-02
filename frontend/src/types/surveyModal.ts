@@ -20,6 +20,8 @@ export interface Question extends Partial<SurveyQuestion> {
     max_file_size?: number;
     allowed_file_types?: string[];
   };
+  tableRows?: string[];
+  tableHeaders?: string[];
 }
 
 export interface QuestionRestriction {

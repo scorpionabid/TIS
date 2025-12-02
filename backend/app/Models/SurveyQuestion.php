@@ -445,21 +445,143 @@ class SurveyQuestion extends Model
             return $errors;
         }
 
-        // Validate that all required table cells are filled
-        $headers = $this->table_headers ?? [];
-        $rows = $this->table_rows ?? [];
+        $rows = $this->normalizeMatrixRows();
 
-        foreach ($rows as $rowIndex => $row) {
-            foreach ($headers as $headerIndex => $header) {
-                if (! isset($response[$rowIndex][$headerIndex])) {
-                    $errors[] = 'Cədvəldə bütün xanalar doldurulmalıdır.';
+        if (empty($rows)) {
+            // Cədvəl strukturu qurulmayıbsa, əlavə validasiya aparmırıq
+            return $errors;
+        }
 
-                    return $errors;
-                }
+        $headers = $this->normalizeMatrixHeaders();
+
+        foreach ($rows as $rowMeta) {
+            $rowValue = $this->resolveMatrixRowValue($response, $rowMeta['keys']);
+
+            if ($rowValue === null || $rowValue === '') {
+                $errors[] = "\"{$rowMeta['label']}\" sətiri üçün seçim edilməyib.";
+                continue;
+            }
+
+            if (! empty($headers) && ! $this->isValidMatrixHeaderValue($rowValue, $headers)) {
+                $errors[] = 'Seçilən sütun cədvəl strukturu ilə uyğun gəlmir.';
             }
         }
 
         return $errors;
+    }
+
+    private function normalizeMatrixRows(): array
+    {
+        $rows = $this->table_rows ?? [];
+        $normalized = [];
+
+        foreach ($rows as $index => $row) {
+            $label = $this->extractMatrixLabel($row, $index, 'Sətir');
+
+            $keys = [$index, (string) $index];
+
+            if (is_array($row)) {
+                foreach (['id', 'key', 'value', 'label', 'name'] as $field) {
+                    if (isset($row[$field]) && $row[$field] !== '') {
+                        $keys[] = (string) $row[$field];
+                    }
+                }
+            } elseif (is_string($row) && $row !== '') {
+                $keys[] = $row;
+            }
+
+            $normalized[] = [
+                'label' => $label,
+                'keys' => array_values(array_unique(array_filter($keys, fn ($value) => $value !== '' && $value !== null))),
+            ];
+        }
+
+        return $normalized;
+    }
+
+    private function normalizeMatrixHeaders(): array
+    {
+        $headers = $this->table_headers ?? [];
+        $normalized = [];
+
+        foreach ($headers as $index => $header) {
+            $label = $this->extractMatrixLabel($header, $index, 'Sütun');
+            $keys = [$index, (string) $index];
+
+            if ($label !== '') {
+                $keys[] = $label;
+            }
+
+            if (is_array($header)) {
+                foreach (['id', 'key', 'value', 'label', 'name'] as $field) {
+                    if (isset($header[$field]) && $header[$field] !== '') {
+                        $keys[] = (string) $header[$field];
+                    }
+                }
+            }
+
+            $normalized[] = array_values(array_unique(array_filter($keys, fn ($value) => $value !== '' && $value !== null)));
+        }
+
+        return $normalized;
+    }
+
+    private function resolveMatrixRowValue(array $response, array $keys)
+    {
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $response)) {
+                $value = $response[$key];
+
+                return $this->extractMatrixCellValue($value);
+            }
+        }
+
+        return null;
+    }
+
+    private function extractMatrixLabel($item, int $index, string $prefix): string
+    {
+        if (is_array($item)) {
+            foreach (['label', 'value', 'name', 'title'] as $field) {
+                if (! empty($item[$field])) {
+                    return (string) $item[$field];
+                }
+            }
+        } elseif (is_string($item) && trim($item) !== '') {
+            return $item;
+        }
+
+        return "{$prefix} " . ($index + 1);
+    }
+
+    private function extractMatrixCellValue($value)
+    {
+        if (is_array($value)) {
+            foreach ($value as $cellValue) {
+                if ($cellValue !== null && $cellValue !== '') {
+                    return $cellValue;
+                }
+            }
+
+            return null;
+        }
+
+        return $value;
+    }
+
+    private function isValidMatrixHeaderValue($value, array $headers): bool
+    {
+        $normalizedValue = is_string($value) ? trim($value) : $value;
+
+        foreach ($headers as $headerKeys) {
+            foreach ($headerKeys as $headerValue) {
+                if ((string) $normalizedValue === (string) $headerValue) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
