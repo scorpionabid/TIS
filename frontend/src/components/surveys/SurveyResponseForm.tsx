@@ -467,20 +467,28 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     if (!surveyData?.questions) return [];
 
     return surveyData.questions.filter((question) => {
-      const key = getQuestionKey(question);
-      const response = responses[key];
-      const validationError = validateQuestionValue(question, response);
-
-      if (validationError) {
-        return true;
-      }
-
+      // First check if question is required - optional questions should NEVER block submission
       const isRequired = question.required || question.is_required;
       if (!isRequired) {
         return false;
       }
 
-      return isEmptyValue(response);
+      // For required questions, check if answered and valid
+      const key = getQuestionKey(question);
+      const response = responses[key];
+
+      // Check if empty
+      if (isEmptyValue(response)) {
+        return true;
+      }
+
+      // Check validation (only for required questions that have answers)
+      const validationError = validateQuestionValue(question, response);
+      if (validationError) {
+        return true;
+      }
+
+      return false;
     });
   }, [surveyData?.questions, responses, getQuestionKey, validateQuestionValue, isEmptyValue]);
 
