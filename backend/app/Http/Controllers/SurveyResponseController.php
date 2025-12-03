@@ -57,6 +57,8 @@ class SurveyResponseController extends BaseController
                 return $this->errorResponse('You do not have permission to view this response', 403);
             }
 
+            $response->load(['attachments.document']);
+
             return $this->successResponse(['response' => $response], 'Survey response details retrieved');
         } catch (\Exception $e) {
             return $this->errorResponse('Failed to retrieve survey response: ' . $e->getMessage());
@@ -71,6 +73,7 @@ class SurveyResponseController extends BaseController
             ]);
 
             $response = $this->responseService->startSurvey($survey->id, $validated);
+            $response->load(['attachments.document']);
 
             return $this->successResponse(
                 ['response' => $response],
@@ -193,6 +196,7 @@ class SurveyResponseController extends BaseController
             ]);
 
             $updatedResponse = $this->responseService->saveResponse($response->id, $validated);
+            $updatedResponse->load(['attachments.document']);
 
             $message = $updatedResponse->status === 'submitted' ?
                 'Survey response submitted successfully' :
@@ -217,6 +221,7 @@ class SurveyResponseController extends BaseController
             ]);
 
             $response = $this->responseService->startSurvey($survey->id, $validated);
+            $response->load(['attachments.document']);
 
             return $this->successResponse(
                 ['response' => $response],

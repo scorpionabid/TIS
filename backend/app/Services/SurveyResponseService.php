@@ -125,6 +125,7 @@ class SurveyResponseService extends BaseService
             ->first();
 
         if ($existingResponse) {
+            $existingResponse->load(['attachments.document']);
             // Always return existing response, regardless of completion status
             // Frontend will handle showing appropriate UI (edit vs view mode)
             return $existingResponse;
@@ -167,7 +168,7 @@ class SurveyResponseService extends BaseService
                 'department_id' => $data['department_id'] ?? null,
             ]);
 
-            return $response->load(['survey', 'institution', 'respondent.profile']);
+            return $response->load(['survey', 'institution', 'respondent.profile', 'attachments.document']);
         });
     }
 
@@ -191,7 +192,7 @@ class SurveyResponseService extends BaseService
             $responsesPayload = $data['responses'] ?? [];
 
             $this->validateResponsesAgainstSurvey(
-                $response->survey,
+                $response,
                 $responsesPayload,
                 (bool) ($data['auto_submit'] ?? false)
             );
@@ -219,7 +220,7 @@ class SurveyResponseService extends BaseService
                     'auto_submitted' => isset($data['auto_submit']) && $data['auto_submit'] && $response->is_complete,
                 ]);
 
-            return $response;
+            return $response->fresh()->load(['attachments.document']);
         });
     }
 
@@ -242,7 +243,7 @@ class SurveyResponseService extends BaseService
 
         return DB::transaction(function () use ($response) {
             $response->loadMissing(['survey.questions']);
-            $this->validateResponsesAgainstSurvey($response->survey, $response->responses ?? [], true);
+            $this->validateResponsesAgainstSurvey($response, $response->responses ?? [], true);
 
             $response->submit();
             $response->survey->increment('response_count');
@@ -337,17 +338,26 @@ class SurveyResponseService extends BaseService
         return $updatedResponse;
     }
 
-    private function validateResponsesAgainstSurvey(Survey $survey, array $responses, bool $enforceRequired = false): void
+    private function validateResponsesAgainstSurvey(SurveyResponse $response, array $responses, bool $enforceRequired = false): void
     {
         $errors = [];
 
-        $survey->loadMissing('questions');
+        $response->loadMissing(['survey.questions', 'attachments']);
+        $survey = $response->survey;
+        $attachments = $response->attachments?->keyBy('survey_question_id') ?? collect();
 
         foreach ($survey->questions as $question) {
             $key = (string) $question->id;
             $value = $responses[$key] ?? ($responses[$question->id] ?? null);
 
             $questionErrors = $question->validateResponse($value, $enforceRequired);
+
+            if ($question->type === 'file_upload') {
+                $hasAttachment = $attachments->has($question->id);
+                if ($enforceRequired && $question->is_required && ! $hasAttachment) {
+                    $questionErrors[] = 'Bu fayl yükləməsi tələb olunur.';
+                }
+            }
 
             if (! empty($questionErrors)) {
                 $errors[$key] = $questionErrors;

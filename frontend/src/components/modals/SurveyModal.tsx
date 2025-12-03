@@ -21,6 +21,7 @@ import {
   questionNeedsNumberValidation,
   questionNeedsFileValidation,
   questionNeedsMatrixConfiguration,
+  questionNeedsRatingConfiguration,
 } from '@/utils/surveyHelpers';
 import {
   QUESTION_TYPES,
@@ -63,6 +64,14 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
     options: [],
     tableRows: [],
     tableHeaders: [],
+    min_value: undefined,
+    max_value: undefined,
+    max_file_size: undefined,
+    allowed_file_types: undefined,
+    rating_min: undefined,
+    rating_max: undefined,
+    rating_min_label: undefined,
+    rating_max_label: undefined,
   });
 
   const isEditMode = !!survey;
@@ -152,6 +161,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   const needsNumberValidation = questionNeedsNumberValidation(newQuestion.type as string);
   const needsFileValidation = questionNeedsFileValidation(newQuestion.type as string);
   const needsMatrixConfiguration = questionNeedsMatrixConfiguration(newQuestion.type as string);
+  const needsRatingConfiguration = questionNeedsRatingConfiguration(newQuestion.type as string);
 
   // Step validation functions
   const validateStep1 = useCallback((): boolean => {
@@ -191,7 +201,19 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
           options: q.options || [],
           required: q.required || q.is_required || false,
           order: q.order || q.order_index || index,
-          validation: q.validation_rules || {}
+          validation: q.validation_rules || {},
+          min_value: q.min_value ?? q.validation_rules?.min_value,
+          max_value: q.max_value ?? q.validation_rules?.max_value,
+          min_length: q.min_length ?? q.validation_rules?.min_length,
+          max_length: q.max_length ?? q.validation_rules?.max_length,
+          allowed_file_types: q.allowed_file_types || q.validation_rules?.allowed_file_types,
+          max_file_size: q.max_file_size ?? q.validation_rules?.max_file_size,
+          rating_min: q.rating_min,
+          rating_max: q.rating_max,
+          rating_min_label: q.rating_min_label,
+          rating_max_label: q.rating_max_label,
+          tableRows: Array.isArray(q.table_rows) ? q.table_rows : undefined,
+          tableHeaders: Array.isArray(q.table_headers) ? q.table_headers : undefined,
         }));
         surveyForm.updateQuestionOrder(templateQuestions);
       }
@@ -249,6 +271,14 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
       options: [],
       tableRows: [],
       tableHeaders: [],
+      min_value: undefined,
+      max_value: undefined,
+      max_file_size: undefined,
+      allowed_file_types: undefined,
+      rating_min: undefined,
+      rating_max: undefined,
+      rating_min_label: undefined,
+      rating_max_label: undefined,
     });
   };
 
@@ -463,6 +493,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                 needsNumberValidation={needsNumberValidation}
                 needsFileValidation={needsFileValidation}
                 needsMatrixConfiguration={needsMatrixConfiguration}
+                needsRatingConfiguration={needsRatingConfiguration}
                 questionTypes={QUESTION_TYPES}
                 setQuestions={surveyForm.updateQuestionOrder}
                 setNewQuestion={setNewQuestion}

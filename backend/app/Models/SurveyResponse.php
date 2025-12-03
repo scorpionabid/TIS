@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Auth;
 
 class SurveyResponse extends Model
@@ -140,6 +141,14 @@ class SurveyResponse extends Model
     public function getResponseTo(string $questionId)
     {
         return $this->responses[$questionId] ?? null;
+    }
+
+    /**
+     * Attachments uploaded for this response.
+     */
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(SurveyResponseDocument::class)->with(['document', 'question']);
     }
 
     /**

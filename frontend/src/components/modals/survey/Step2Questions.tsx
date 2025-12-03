@@ -27,6 +27,7 @@ interface Step2QuestionsProps {
   needsNumberValidation: boolean;
   needsFileValidation: boolean;
   needsMatrixConfiguration: boolean;
+  needsRatingConfiguration: boolean;
   questionTypes: Array<{ value: string; label: string }>;
   setQuestions: (questions: Question[]) => void;
   setNewQuestion: React.Dispatch<React.SetStateAction<Partial<Question>>>;
@@ -67,6 +68,7 @@ export function Step2Questions({
   needsNumberValidation,
   needsFileValidation,
   needsMatrixConfiguration,
+  needsRatingConfiguration,
   questionTypes,
   setQuestions,
   setNewQuestion,
@@ -212,15 +214,35 @@ export function Step2Questions({
                       tableHeaders: prev.tableHeaders && prev.tableHeaders.length > 0
                         ? prev.tableHeaders
                         : ['Sütun 1', 'Sütun 2'],
+                      min_value: undefined,
+                      max_value: undefined,
+                      max_file_size: undefined,
+                      allowed_file_types: undefined,
+                      rating_min: undefined,
+                      rating_max: undefined,
+                      rating_min_label: undefined,
+                      rating_max_label: undefined,
                     };
                   }
+
+                  const resetOptions = ['single_choice', 'multiple_choice'].includes(nextType)
+                    ? prev.options || []
+                    : [];
 
                   return {
                     ...prev,
                     type: nextType,
-                    options: ['single_choice', 'multiple_choice'].includes(nextType) ? prev.options || [] : [],
-                    tableRows: undefined,
-                    tableHeaders: undefined,
+                    options: resetOptions,
+                    tableRows: nextType === 'table_matrix' ? prev.tableRows : undefined,
+                    tableHeaders: nextType === 'table_matrix' ? prev.tableHeaders : undefined,
+                    min_value: nextType === 'number' ? prev.min_value : undefined,
+                    max_value: nextType === 'number' ? prev.max_value : undefined,
+                    max_file_size: nextType === 'file_upload' ? (prev.max_file_size || 10 * 1024 * 1024) : undefined,
+                    allowed_file_types: nextType === 'file_upload' ? prev.allowed_file_types : undefined,
+                    rating_min: nextType === 'rating' ? (prev.rating_min ?? 1) : undefined,
+                    rating_max: nextType === 'rating' ? (prev.rating_max ?? 5) : undefined,
+                    rating_min_label: nextType === 'rating' ? (prev.rating_min_label ?? 'Pis') : undefined,
+                    rating_max_label: nextType === 'rating' ? (prev.rating_max_label ?? 'Əla') : undefined,
                   };
                 })}
               >
@@ -296,9 +318,10 @@ export function Step2Questions({
                   <Input
                     type="number"
                     placeholder="0"
+                    value={newQuestion.min_value ?? ''}
                     onChange={(e) => setNewQuestion(prev => ({
                       ...prev,
-                      validation: { ...prev.validation, min_value: e.target.value ? Number(e.target.value) : undefined }
+                      min_value: e.target.value === '' ? undefined : Number(e.target.value)
                     }))}
                   />
                 </div>
@@ -307,9 +330,10 @@ export function Step2Questions({
                   <Input
                     type="number"
                     placeholder="100"
+                    value={newQuestion.max_value ?? ''}
                     onChange={(e) => setNewQuestion(prev => ({
                       ...prev,
-                      validation: { ...prev.validation, max_value: e.target.value ? Number(e.target.value) : undefined }
+                      max_value: e.target.value === '' ? undefined : Number(e.target.value)
                     }))}
                   />
                 </div>
@@ -328,22 +352,28 @@ export function Step2Questions({
                     type="number"
                     min="1"
                     max="50"
-                    defaultValue="10"
-                    onChange={(e) => setNewQuestion(prev => ({
-                      ...prev,
-                      validation: { ...prev.validation, max_file_size: e.target.value ? Number(e.target.value) * 1024 * 1024 : undefined }
-                    }))}
+                    value={newQuestion.max_file_size ? Math.round(newQuestion.max_file_size / (1024 * 1024)) : ''}
+                    onChange={(e) => {
+                      const rawValue = e.target.value;
+                      setNewQuestion(prev => ({
+                        ...prev,
+                        max_file_size: rawValue ? Number(rawValue) * 1024 * 1024 : undefined
+                      }));
+                    }}
                   />
                 </div>
                 <div>
                   <Label className="text-xs">İcazəli formatlar</Label>
-                  <Select onValueChange={(value) => {
-                    const formats = value.split(',');
-                    setNewQuestion(prev => ({
-                      ...prev,
-                      validation: { ...prev.validation, allowed_file_types: formats }
-                    }));
-                  }}>
+                  <Select
+                    value={newQuestion.allowed_file_types?.join(',') || undefined}
+                    onValueChange={(value) => {
+                      const formats = value.split(',');
+                      setNewQuestion(prev => ({
+                        ...prev,
+                        allowed_file_types: formats
+                      }));
+                    }}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="Format seçin..." />
                     </SelectTrigger>
@@ -355,6 +385,61 @@ export function Step2Questions({
                       <SelectItem value="pdf,doc,docx,xls,xlsx">Sənədlər</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Rating configuration */}
+          {needsRatingConfiguration && (
+            <div className="space-y-2">
+              <Label>Qiymətləndirmə tənzimləmələri</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs">Minimum bal</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={newQuestion.rating_min ?? ''}
+                    onChange={(e) => setNewQuestion(prev => ({
+                      ...prev,
+                      rating_min: e.target.value === '' ? undefined : Number(e.target.value)
+                    }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Maksimum bal</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={newQuestion.rating_max ?? ''}
+                    onChange={(e) => setNewQuestion(prev => ({
+                      ...prev,
+                      rating_max: e.target.value === '' ? undefined : Number(e.target.value)
+                    }))}
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Minimum etiket</Label>
+                  <Input
+                    value={newQuestion.rating_min_label ?? ''}
+                    onChange={(e) => setNewQuestion(prev => ({
+                      ...prev,
+                      rating_min_label: e.target.value || undefined
+                    }))}
+                    placeholder="Məs: Pis"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Maksimum etiket</Label>
+                  <Input
+                    value={newQuestion.rating_max_label ?? ''}
+                    onChange={(e) => setNewQuestion(prev => ({
+                      ...prev,
+                      rating_max_label: e.target.value || undefined
+                    }))}
+                    placeholder="Məs: Əla"
+                  />
                 </div>
               </div>
             </div>

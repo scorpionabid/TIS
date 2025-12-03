@@ -164,6 +164,37 @@ export const useSurveyForm = ({
     const sanitizedRows = sanitizeMatrixValues(newQuestion.tableRows);
     const sanitizedHeaders = sanitizeMatrixValues(newQuestion.tableHeaders);
 
+    const shouldAttachNumberLimits = newQuestion.type === 'number';
+    const shouldAttachFileSettings = newQuestion.type === 'file_upload';
+    const shouldAttachRatingSettings = newQuestion.type === 'rating';
+
+    const validationMeta: Record<string, any> = { ...newQuestion.validation };
+    if (shouldAttachNumberLimits) {
+      if (newQuestion.min_value !== undefined) {
+        validationMeta.min_value = newQuestion.min_value;
+      }
+      if (newQuestion.max_value !== undefined) {
+        validationMeta.max_value = newQuestion.max_value;
+      }
+    }
+    if (shouldAttachFileSettings) {
+      if (newQuestion.max_file_size !== undefined) {
+        validationMeta.max_file_size = newQuestion.max_file_size;
+      }
+      if (newQuestion.allowed_file_types) {
+        validationMeta.allowed_file_types = newQuestion.allowed_file_types;
+      }
+    }
+    if (shouldAttachRatingSettings) {
+      if (newQuestion.rating_min !== undefined) {
+        validationMeta.rating_min = newQuestion.rating_min;
+      }
+      if (newQuestion.rating_max !== undefined) {
+        validationMeta.rating_max = newQuestion.rating_max;
+      }
+    }
+    const validationObject = Object.keys(validationMeta).length > 0 ? validationMeta : undefined;
+
     if ((newQuestion.type === 'table_matrix') && (sanitizedRows.length === 0 || sanitizedHeaders.length === 0)) {
       toast({
         title: "Xəta",
@@ -181,7 +212,15 @@ export const useSurveyForm = ({
       options: newQuestion.options || [],
       required: newQuestion.required || false,
       order: questions.length + 1,
-      validation: newQuestion.validation,
+      validation: validationObject,
+      min_value: shouldAttachNumberLimits ? newQuestion.min_value : undefined,
+      max_value: shouldAttachNumberLimits ? newQuestion.max_value : undefined,
+      max_file_size: shouldAttachFileSettings ? newQuestion.max_file_size : undefined,
+      allowed_file_types: shouldAttachFileSettings ? newQuestion.allowed_file_types : undefined,
+      rating_min: shouldAttachRatingSettings ? newQuestion.rating_min : undefined,
+      rating_max: shouldAttachRatingSettings ? newQuestion.rating_max : undefined,
+      rating_min_label: shouldAttachRatingSettings ? newQuestion.rating_min_label : undefined,
+      rating_max_label: shouldAttachRatingSettings ? newQuestion.rating_max_label : undefined,
       tableRows: newQuestion.type === 'table_matrix' ? sanitizedRows : undefined,
       tableHeaders: newQuestion.type === 'table_matrix' ? sanitizedHeaders : undefined,
     };

@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Save, Send, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { surveyService, SurveyResponse, SurveyQuestion, SurveyFormSchema } from '@/services/surveys';
+import { SurveyQuestionAttachmentDisplay } from '@/components/surveys/questions/types';
 import { useToast } from '@/hooks/use-toast';
 import { SurveyQuestionRenderer } from '@/components/surveys/questions';
 
@@ -24,6 +25,8 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+  const [attachments, setAttachments] = useState<Record<string, SurveyQuestionAttachmentDisplay | null>>({});
+  const [attachmentUploading, setAttachmentUploading] = useState<Record<string, boolean>>({});
   const [autoSaveFailureCount, setAutoSaveFailureCount] = useState(0);
   const [autoSaveDelay, setAutoSaveDelay] = useState(30000);
   const [lastSaveSilentFailure, setLastSaveSilentFailure] = useState(false);
@@ -146,6 +149,18 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     return `${question.title}-${order}`;
   }, []);
 
+  const getAttachmentKey = useCallback((question: SurveyQuestion): string => {
+    return question.id != null ? question.id.toString() : getQuestionKey(question);
+  }, [getQuestionKey]);
+
+  const resolveAttachmentDownloadUrl = useCallback((question: SurveyQuestion) => {
+    if (!currentResponse?.id || !question.id) {
+      return null;
+    }
+
+    return surveyService.getQuestionAttachmentDownloadUrl(currentResponse.id, question.id);
+  }, [currentResponse?.id]);
+
   const isEmptyValue = useCallback((value: any): boolean => {
     if (value === undefined || value === null) {
       return true;
@@ -259,18 +274,10 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
         break;
       }
       case 'file_upload': {
-        if (!value) {
-          break;
-        }
-        const allowedTypes = question.allowed_file_types;
-        if (allowedTypes && !allowedTypes.includes(value.type)) {
-          return 'İcazə verilməyən fayl növü seçildi.';
-        }
-        const maxSize = question.max_file_size ?? question.metadata?.max_size;
-        if (maxSize && value.size > maxSize) {
-          const sizeInMb = Math.round((value.size / (1024 * 1024)) * 10) / 10;
-          const maxInMb = Math.round((maxSize / (1024 * 1024)) * 10) / 10;
-          return `Fayl ölçüsü ${maxInMb} MB-dan çox ola bilməz (seçilən fayl: ${sizeInMb} MB).`;
+        const questionId = question.id != null ? question.id.toString() : undefined;
+        const hasAttachment = questionId ? Boolean(attachments[questionId]) : false;
+        if (isRequired && !hasAttachment) {
+          return 'Bu sahə üçün fayl yükləmək lazımdır.';
         }
         break;
       }
@@ -295,7 +302,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }
 
     return undefined;
-  }, [isEmptyValue]);
+  }, [attachments, isEmptyValue]);
 
   const validateAllQuestions = useCallback((questions: SurveyQuestion[], nextResponses: Record<string, any>) => {
     const errors: Record<string, string> = {};
@@ -315,13 +322,41 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
   }, [getQuestionKey, validateQuestionValue]);
 
   // Initialize responses from existing data
+  const buildAttachmentMap = useCallback((list?: SurveyResponse['attachments'], responseIdentifier?: number) => {
+    if (!list) {
+      return {} as Record<string, SurveyQuestionAttachmentDisplay | null>;
+    }
+
+    return list.reduce<Record<string, SurveyQuestionAttachmentDisplay | null>>((acc, attachment) => {
+      if (attachment.document && attachment.survey_question_id != null) {
+        acc[attachment.survey_question_id.toString()] = {
+          documentId: attachment.document.id,
+          filename: attachment.document.original_filename,
+          fileSize: attachment.document.file_size,
+          mimeType: attachment.document.mime_type,
+          downloadUrl: responseIdentifier && attachment.survey_question_id != null
+            ? surveyService.getQuestionAttachmentDownloadUrl(responseIdentifier, attachment.survey_question_id)
+            : null,
+        };
+      }
+      return acc;
+    }, {});
+  }, []);
+
   useEffect(() => {
     if (existingResponse?.response) {
       setCurrentResponse(existingResponse.response);
       setResponses(existingResponse.response.responses || {});
+      setAttachments(buildAttachmentMap(existingResponse.response.attachments, existingResponse.response.id));
       setHasUnsavedChanges(false); // Mark as saved when loading existing
     }
-  }, [existingResponse]);
+  }, [existingResponse, buildAttachmentMap]);
+
+  useEffect(() => {
+    if (currentResponse?.attachments) {
+      setAttachments(buildAttachmentMap(currentResponse.attachments, currentResponse.id));
+    }
+  }, [currentResponse?.attachments, buildAttachmentMap]);
 
   // Auto-start response if no existing response and no responseId provided
   useEffect(() => {
@@ -361,8 +396,91 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [hasUnsavedChanges, currentResponse]);
 
+  const handleUploadAttachment = useCallback(async (question: SurveyQuestion, file: File) => {
+    if (!currentResponse?.id || !question.id) {
+      return;
+    }
+
+    const key = getAttachmentKey(question);
+    setAttachmentUploading(prev => ({ ...prev, [key]: true }));
+
+    try {
+      const attachment = await surveyService.uploadQuestionAttachment(currentResponse.id, question.id, file);
+      if (attachment.document) {
+        setAttachments(prev => ({
+          ...prev,
+          [key]: {
+            documentId: attachment.document.id,
+            filename: attachment.document.original_filename,
+            fileSize: attachment.document.file_size,
+            mimeType: attachment.document.mime_type,
+            downloadUrl: surveyService.getQuestionAttachmentDownloadUrl(currentResponse.id, question.id),
+          },
+        }));
+
+        setResponses(prev => ({
+          ...prev,
+          [key]: {
+            document_id: attachment.document.id,
+            filename: attachment.document.original_filename,
+            file_size: attachment.document.file_size,
+          },
+        }));
+
+        setValidationErrors(prev => {
+          if (prev[key]) {
+            const next = { ...prev };
+            delete next[key];
+            return next;
+          }
+          return prev;
+        });
+
+        setHasUnsavedChanges(true);
+      }
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Fayl yüklənərkən xəta baş verdi');
+    } finally {
+      setAttachmentUploading(prev => ({ ...prev, [key]: false }));
+    }
+  }, [currentResponse?.id, getAttachmentKey, toast]);
+
+  const handleRemoveAttachment = useCallback(async (question: SurveyQuestion) => {
+    if (!currentResponse?.id || !question.id) {
+      return;
+    }
+
+    const key = getAttachmentKey(question);
+    if (!attachments[key]) {
+      return;
+    }
+
+    setAttachmentUploading(prev => ({ ...prev, [key]: true }));
+
+    try {
+      await surveyService.deleteQuestionAttachment(currentResponse.id, question.id);
+      setAttachments(prev => ({
+        ...prev,
+        [key]: null,
+      }));
+      setResponses(prev => ({
+        ...prev,
+        [key]: null,
+      }));
+      setHasUnsavedChanges(true);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Fayl silinərkən xəta baş verdi');
+    } finally {
+      setAttachmentUploading(prev => ({ ...prev, [key]: false }));
+    }
+  }, [attachments, currentResponse?.id, getAttachmentKey, toast]);
+
   const handleQuestionChange = (question: SurveyQuestion, value: any) => {
     const key = getQuestionKey(question);
+
+    if (question.type === 'file_upload') {
+      return;
+    }
 
     setResponses((prev) => {
       const nextResponses = {
@@ -612,6 +730,11 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
                 onChange={(value) => handleQuestionChange(question, value)}
                 disabled={currentResponse?.status !== 'draft'}
                 error={validationErrors[getQuestionKey(question)]}
+                fileAttachments={attachments}
+                onUploadAttachment={handleUploadAttachment}
+                onRemoveAttachment={handleRemoveAttachment}
+                attachmentUploads={attachmentUploading}
+                getAttachmentDownloadUrl={resolveAttachmentDownloadUrl}
               />
             </CardContent>
           </Card>

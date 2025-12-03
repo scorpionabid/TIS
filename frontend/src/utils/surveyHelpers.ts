@@ -21,6 +21,17 @@ export const mapQuestionForBackend = (question: Question) => ({
   is_required: question.required, // Backend alias
   order: question.order || 0,
   validation: question.validation,
+  metadata: question.metadata,
+  min_value: question.min_value,
+  max_value: question.max_value,
+  min_length: question.min_length,
+  max_length: question.max_length,
+  allowed_file_types: question.allowed_file_types,
+  max_file_size: question.max_file_size,
+  rating_min: question.rating_min,
+  rating_max: question.rating_max,
+  rating_min_label: question.rating_min_label,
+  rating_max_label: question.rating_max_label,
   table_headers: question.tableHeaders,
   table_rows: question.tableRows,
 });
@@ -58,6 +69,16 @@ export const mapQuestionFromBackend = (q: any): Question => {
     isArray: Array.isArray(q.options)
   });
 
+  const validation = { ...(q.validation_rules || q.validation || {}) } as Record<string, any>;
+  if (q.min_value !== undefined) validation.min_value = q.min_value;
+  if (q.max_value !== undefined) validation.max_value = q.max_value;
+  if (q.min_length !== undefined) validation.min_length = q.min_length;
+  if (q.max_length !== undefined) validation.max_length = q.max_length;
+  if (q.allowed_file_types) validation.allowed_file_types = q.allowed_file_types;
+  if (q.max_file_size !== undefined) validation.max_file_size = q.max_file_size;
+  if (q.rating_min !== undefined) validation.rating_min = q.rating_min;
+  if (q.rating_max !== undefined) validation.rating_max = q.rating_max;
+
   return {
     id: q.id?.toString(),
     question: q.title || q.question, // Backend might return 'title' field
@@ -66,7 +87,18 @@ export const mapQuestionFromBackend = (q: any): Question => {
     options: Array.isArray(q.options) ? q.options : [],
     required: q.required || q.is_required, // Handle both field names
     order: q.order_index || q.order, // Handle both field names
-    validation: q.validation_rules || q.validation,
+    validation: Object.keys(validation).length > 0 ? validation : undefined,
+    metadata: q.metadata,
+    min_value: q.min_value,
+    max_value: q.max_value,
+    min_length: q.min_length,
+    max_length: q.max_length,
+    allowed_file_types: Array.isArray(q.allowed_file_types) ? q.allowed_file_types : undefined,
+    max_file_size: q.max_file_size,
+    rating_min: q.rating_min,
+    rating_max: q.rating_max,
+    rating_min_label: q.rating_min_label,
+    rating_max_label: q.rating_max_label,
     tableHeaders: normalizeMatrixList(q.table_headers),
     tableRows: normalizeMatrixList(q.table_rows),
   };
@@ -169,6 +201,10 @@ export const questionNeedsFileValidation = (type: string): boolean => {
 
 export const questionNeedsMatrixConfiguration = (type: string): boolean => {
   return type === 'table_matrix';
+};
+
+export const questionNeedsRatingConfiguration = (type: string): boolean => {
+  return type === 'rating';
 };
 
 /**

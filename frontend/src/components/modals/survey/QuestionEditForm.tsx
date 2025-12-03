@@ -54,6 +54,47 @@ export function QuestionEditForm({
   const restrictions = getQuestionRestrictions(question.id || '');
   const matrixRows = editingQuestion.tableRows || [];
   const matrixColumns = editingQuestion.tableHeaders || [];
+  const isNumberQuestion = editingQuestion.type === 'number';
+  const isFileQuestion = editingQuestion.type === 'file_upload';
+  const isRatingQuestion = editingQuestion.type === 'rating';
+
+  const handleTypeChange = (nextType: Question['type']) => {
+    updateEditingQuestion('type', nextType);
+
+    if (nextType === 'table_matrix') {
+      if (!matrixRows.length) {
+        updateEditingQuestion('tableRows', ['Sətir 1', 'Sətir 2']);
+      }
+      if (!matrixColumns.length) {
+        updateEditingQuestion('tableHeaders', ['Sütun 1', 'Sütun 2']);
+      }
+    } else {
+      updateEditingQuestion('tableRows', undefined);
+      updateEditingQuestion('tableHeaders', undefined);
+    }
+
+    if (nextType !== 'number') {
+      updateEditingQuestion('min_value', undefined);
+      updateEditingQuestion('max_value', undefined);
+    }
+
+    if (nextType !== 'file_upload') {
+      updateEditingQuestion('max_file_size', undefined);
+      updateEditingQuestion('allowed_file_types', undefined);
+    }
+
+    if (nextType !== 'rating') {
+      updateEditingQuestion('rating_min', undefined);
+      updateEditingQuestion('rating_max', undefined);
+      updateEditingQuestion('rating_min_label', undefined);
+      updateEditingQuestion('rating_max_label', undefined);
+    } else {
+      updateEditingQuestion('rating_min', editingQuestion.rating_min ?? 1);
+      updateEditingQuestion('rating_max', editingQuestion.rating_max ?? 5);
+      updateEditingQuestion('rating_min_label', editingQuestion.rating_min_label ?? 'Pis');
+      updateEditingQuestion('rating_max_label', editingQuestion.rating_max_label ?? 'Əla');
+    }
+  };
 
   const addMatrixRow = () => {
     updateEditingQuestion('tableRows', [...matrixRows, `Sətir ${matrixRows.length + 1}`]);
@@ -126,7 +167,7 @@ export function QuestionEditForm({
         <Label>Sual növü</Label>
         <Select
           value={editingQuestion.type}
-          onValueChange={(value) => updateEditingQuestion('type', value)}
+          onValueChange={(value) => handleTypeChange(value as Question['type'])}
           disabled={isPublishedWithResponses}
         >
           <SelectTrigger className={isPublishedWithResponses ? "bg-gray-100" : "bg-white"}>
@@ -278,6 +319,113 @@ export function QuestionEditForm({
                 <Plus className="h-4 w-4 mr-1" />
                 Sütun əlavə et
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isNumberQuestion && (
+        <div className="space-y-2">
+          <Label>Rəqəm limitləri</Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs">Minimum dəyər</Label>
+              <Input
+                type="number"
+                value={editingQuestion.min_value ?? ''}
+                onChange={(e) => updateEditingQuestion('min_value', e.target.value === '' ? undefined : Number(e.target.value))}
+                className="bg-white"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Maksimum dəyər</Label>
+              <Input
+                type="number"
+                value={editingQuestion.max_value ?? ''}
+                onChange={(e) => updateEditingQuestion('max_value', e.target.value === '' ? undefined : Number(e.target.value))}
+                className="bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isFileQuestion && (
+        <div className="space-y-2">
+          <Label>Fayl yükləmə tənzimləmələri</Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs">Maksimum ölçü (MB)</Label>
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                value={editingQuestion.max_file_size ? Math.round(editingQuestion.max_file_size / (1024 * 1024)) : ''}
+                onChange={(e) => updateEditingQuestion('max_file_size', e.target.value === '' ? undefined : Number(e.target.value) * 1024 * 1024)}
+                className="bg-white"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">İcazəli formatlar (vergüllə)</Label>
+              <Input
+                value={(editingQuestion.allowed_file_types || []).join(',')}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const formats = value
+                    .split(',')
+                    .map(item => item.trim())
+                    .filter(Boolean);
+                  updateEditingQuestion('allowed_file_types', formats.length > 0 ? formats : undefined);
+                }}
+                placeholder="pdf,docx,xls"
+                className="bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isRatingQuestion && (
+        <div className="space-y-2">
+          <Label>Qiymətləndirmə tənzimləmələri</Label>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs">Minimum bal</Label>
+              <Input
+                type="number"
+                min={1}
+                value={editingQuestion.rating_min ?? ''}
+                onChange={(e) => updateEditingQuestion('rating_min', e.target.value === '' ? undefined : Number(e.target.value))}
+                className="bg-white"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Maksimum bal</Label>
+              <Input
+                type="number"
+                min={1}
+                value={editingQuestion.rating_max ?? ''}
+                onChange={(e) => updateEditingQuestion('rating_max', e.target.value === '' ? undefined : Number(e.target.value))}
+                className="bg-white"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Minimum etiket</Label>
+              <Input
+                value={editingQuestion.rating_min_label ?? ''}
+                onChange={(e) => updateEditingQuestion('rating_min_label', e.target.value || undefined)}
+                placeholder="Pis"
+                className="bg-white"
+              />
+            </div>
+            <div>
+              <Label className="text-xs">Maksimum etiket</Label>
+              <Input
+                value={editingQuestion.rating_max_label ?? ''}
+                onChange={(e) => updateEditingQuestion('rating_max_label', e.target.value || undefined)}
+                placeholder="Əla"
+                className="bg-white"
+              />
             </div>
           </div>
         </div>

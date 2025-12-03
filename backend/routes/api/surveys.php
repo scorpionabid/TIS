@@ -5,6 +5,7 @@ use App\Http\Controllers\SurveyAnalyticsController;
 use App\Http\Controllers\SurveyController;
 use App\Http\Controllers\SurveyNotificationController;
 use App\Http\Controllers\SurveyResponseController;
+use App\Http\Controllers\SurveyResponseAttachmentController;
 use App\Http\Controllers\SurveyStatusController;
 use App\Http\Controllers\SurveyTargetingController;
 use Illuminate\Support\Facades\Route;
@@ -100,6 +101,8 @@ Route::middleware('permission:survey_responses.write')->group(function () {
     Route::put('survey-responses/{response}/save', [SurveyResponseController::class, 'saveResponse']);
     Route::post('survey-responses/{response}/save-draft', [SurveyResponseController::class, 'saveDraft']);
     Route::post('survey-responses/{response}/reopen', [SurveyResponseController::class, 'reopen']);
+    Route::post('survey-responses/{response}/questions/{question}/attachment', [SurveyResponseAttachmentController::class, 'store']);
+    Route::delete('survey-responses/{response}/questions/{question}/attachment', [SurveyResponseAttachmentController::class, 'destroy']);
 });
 
 // REMOVED: Survey response approval routes - use survey-response-approval.php routes instead
@@ -139,6 +142,10 @@ Route::middleware('auth:sanctum')->prefix('my-surveys')->group(function () {
 // Survey Response Reports
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('survey-responses/{response}/report', [SurveyResponseController::class, 'downloadReport']);
+    Route::get(
+        'survey-responses/{response}/questions/{question}/attachment',
+        [SurveyResponseAttachmentController::class, 'download']
+    )->name('survey-responses.attachments.download');
 });
 
 // Survey Template Routes

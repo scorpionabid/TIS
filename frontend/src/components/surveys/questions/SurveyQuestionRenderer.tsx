@@ -8,6 +8,7 @@ import { RatingQuestionInput } from './RatingQuestionInput';
 import { DateQuestionInput } from './DateQuestionInput';
 import { FileUploadQuestionInput } from './FileUploadQuestionInput';
 import { TableMatrixQuestion } from './TableMatrixQuestion';
+import { SurveyQuestionAttachmentDisplay } from './types';
 
 interface SurveyQuestionRendererProps {
   question: SurveyQuestion;
@@ -15,6 +16,11 @@ interface SurveyQuestionRendererProps {
   onChange: (value: any) => void;
   disabled?: boolean;
   error?: string;
+  fileAttachments?: Record<string, SurveyQuestionAttachmentDisplay | null>;
+  onUploadAttachment?: (question: SurveyQuestion, file: File) => Promise<void>;
+  onRemoveAttachment?: (question: SurveyQuestion) => Promise<void>;
+  attachmentUploads?: Record<string, boolean>;
+  getAttachmentDownloadUrl?: (question: SurveyQuestion) => string | null;
 }
 
 export function SurveyQuestionRenderer({
@@ -23,8 +29,14 @@ export function SurveyQuestionRenderer({
   onChange,
   disabled = false,
   error,
+  fileAttachments,
+  onUploadAttachment,
+  onRemoveAttachment,
+  attachmentUploads,
+  getAttachmentDownloadUrl,
 }: SurveyQuestionRendererProps) {
   const commonProps = { question, value, onChange, disabled };
+  const questionKey = question.id != null ? question.id.toString() : question.title ?? '';
 
   const renderQuestion = () => {
     switch (question.type) {
@@ -41,7 +53,17 @@ export function SurveyQuestionRenderer({
       case 'date':
         return <DateQuestionInput {...commonProps} />;
       case 'file_upload':
-        return <FileUploadQuestionInput {...commonProps} />;
+        return (
+          <FileUploadQuestionInput
+            question={question}
+            attachment={fileAttachments?.[questionKey] || null}
+            onUploadFile={onUploadAttachment}
+            onRemoveFile={onRemoveAttachment}
+            disabled={disabled}
+            uploading={Boolean(attachmentUploads?.[questionKey])}
+            downloadUrl={getAttachmentDownloadUrl ? getAttachmentDownloadUrl(question) : null}
+          />
+        );
       case 'table_matrix':
         return <TableMatrixQuestion {...commonProps} />;
       default:

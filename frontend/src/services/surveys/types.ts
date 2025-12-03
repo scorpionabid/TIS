@@ -110,6 +110,23 @@ export interface SurveyResponse {
     username: string;
     name: string;
   };
+  attachments?: SurveyResponseAttachment[];
+}
+
+export interface SurveyResponseAttachmentDocument {
+  id: number;
+  original_filename: string;
+  file_size: number;
+  mime_type?: string;
+  created_at?: string;
+}
+
+export interface SurveyResponseAttachment {
+  id: number;
+  survey_question_id: number;
+  document: SurveyResponseAttachmentDocument | null;
+  uploaded_by: number;
+  created_at?: string;
 }
 
 export interface SurveyAnswer {

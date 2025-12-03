@@ -13,6 +13,7 @@ import type {
   SurveyStats,
   SurveyQuestionRestrictions,
   SurveyFormSchema,
+  SurveyResponseAttachment,
 } from './surveys/types';
 
 type UnknownRecord = Record<string, unknown>;
@@ -108,6 +109,35 @@ class SurveyService extends BaseService<Survey> {
   async getResponse(responseId: number): Promise<SurveyActionResponsePayload> {
     const response = await apiClient.get(`/survey-responses/${responseId}`);
     return response.data;
+  }
+
+  async uploadQuestionAttachment(
+    responseId: number,
+    questionId: number,
+    file: File
+  ): Promise<SurveyResponseAttachment> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await apiClient.post<{ attachment: SurveyResponseAttachment }>(
+      `/survey-responses/${responseId}/questions/${questionId}/attachment`,
+      formData
+    );
+
+    if (!response.data?.attachment) {
+      throw new Error('Attachment upload failed');
+    }
+
+    return response.data.attachment;
+  }
+
+  async deleteQuestionAttachment(responseId: number, questionId: number): Promise<void> {
+    await apiClient.delete(`/survey-responses/${responseId}/questions/${questionId}/attachment`);
+  }
+
+  getQuestionAttachmentDownloadUrl(responseId: number, questionId: number): string {
+    const baseUrl = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api').replace(/\/$/, '');
+    return `${baseUrl}/survey-responses/${responseId}/questions/${questionId}/attachment`;
   }
 
   async deleteResponse(responseId: number): Promise<UnknownRecord> {

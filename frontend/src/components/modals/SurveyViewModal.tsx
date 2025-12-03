@@ -218,22 +218,33 @@ export function SurveyViewModal({ open, onClose, survey }: SurveyViewModalProps)
                         </div>
                       )}
 
-                      {question.validation && (
-                        <div className="text-xs text-muted-foreground">
-                          {question.validation.min_length && (
-                            <span>Minimum uzunluq: {question.validation.min_length} </span>
-                          )}
-                          {question.validation.max_length && (
-                            <span>Maksimum uzunluq: {question.validation.max_length} </span>
-                          )}
-                          {question.validation.min_value && (
-                            <span>Minimum dəyər: {question.validation.min_value} </span>
-                          )}
-                          {question.validation.max_value && (
-                            <span>Maksimum dəyər: {question.validation.max_value}</span>
-                          )}
-                        </div>
-                      )}
+                      {(() => {
+                        const minLength = question.min_length ?? question.validation?.min_length;
+                        const maxLength = question.max_length ?? question.validation?.max_length;
+                        const minValue = question.min_value ?? question.validation?.min_value;
+                        const maxValue = question.max_value ?? question.validation?.max_value;
+
+                        if (!minLength && !maxLength && !minValue && !maxValue) {
+                          return null;
+                        }
+
+                        return (
+                          <div className="text-xs text-muted-foreground">
+                            {minLength && (
+                              <span>Minimum uzunluq: {minLength} </span>
+                            )}
+                            {maxLength && (
+                              <span>Maksimum uzunluq: {maxLength} </span>
+                            )}
+                            {minValue !== undefined && (
+                              <span>Minimum dəyər: {minValue} </span>
+                            )}
+                            {maxValue !== undefined && (
+                              <span>Maksimum dəyər: {maxValue}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}
