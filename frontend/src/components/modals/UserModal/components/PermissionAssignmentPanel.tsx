@@ -1,13 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { PermissionMetadata, PermissionModuleMeta, RolePermissionMatrixEntry } from '@/services/regionAdmin';
-import { Sparkles, ShieldCheck, Search, ChevronDown, ChevronRight, AlertTriangle, CheckSquare, Square } from 'lucide-react';
-import { EnhancedPermissionCheckbox } from '@/components/permissions/EnhancedPermissionCheckbox';
+import { Sparkles, ShieldCheck, Search, Check, Lock, Info } from 'lucide-react';
 import { PermissionSource, UserPermissionsDetailed, PermissionWithMetadata } from '@/types/permissions';
 
 interface PermissionAssignmentPanelProps {
@@ -17,7 +14,6 @@ interface PermissionAssignmentPanelProps {
   value: string[];
   onChange: (next: string[]) => void;
   loading?: boolean;
-  grantedPermissions?: string[];
   roleInfo?: RolePermissionMatrixEntry | null;
 }
 
@@ -28,12 +24,12 @@ export function PermissionAssignmentPanel({
   value,
   onChange,
   loading = false,
-  grantedPermissions = [],
   roleInfo = null,
 }: PermissionAssignmentPanelProps) {
   // ✅ ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   const [searchTerm, setSearchTerm] = useState('');
-  const [collapsedModules, setCollapsedModules] = useState<Set<string>>(new Set());
+  const [expandedModules, setExpandedModules] = useState<Set<string>>(new Set());
+  const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
 
   // Enrich permissions with metadata (source, readonly, etc.)
   const enrichedPermissions = useMemo((): PermissionWithMetadata[] => {
@@ -60,6 +56,18 @@ export function PermissionAssignmentPanel({
         })
       );
   }, [metadata, userPermissions, roleName]);
+
+  const permissionLabelMap = useMemo(() => {
+    const map = new Map<string, string>();
+    metadata?.modules?.forEach((module) => {
+      module.permissions.forEach((permission) => {
+        map.set(permission.key, permission.label ?? permission.key);
+      });
+    });
+    return map;
+  }, [metadata]);
+
+  const getPermissionLabel = (key: string) => permissionLabelMap.get(key) ?? key;
 
   const modules = useMemo(() => {
     if (!metadata) {
@@ -127,21 +135,6 @@ export function PermissionAssignmentPanel({
     });
   }, [metadata, allowedPermissionKeys, shareablePermissionKeys]);
 
-  const moduleSummaries = useMemo(() => {
-    return modules.map((module) => {
-      const selectedCount = module.permissions.filter((permission) =>
-        value.includes(permission.key)
-      ).length;
-
-      return {
-        key: module.key,
-        label: module.label,
-        selectedCount,
-        total: module.permissions.length,
-      };
-    });
-  }, [modules, value]);
-
   const nonShareableSelections = useMemo(() => {
     if (!value?.length || shareablePermissionKeys.size === 0) {
       // If RegionAdmin has zero shareable permissions, treat all selections as non-shareable
@@ -150,28 +143,34 @@ export function PermissionAssignmentPanel({
     return value.filter((permission) => !shareablePermissionKeys.has(permission));
   }, [value, shareablePermissionKeys]);
 
-  // Statistics (MUST BE BEFORE CONDITIONAL RETURNS)
-  const stats = useMemo(() => {
-    const directCount = enrichedPermissions.filter(p => p.source === PermissionSource.DIRECT).length;
-    const roleCount = enrichedPermissions.filter(p => p.source === PermissionSource.ROLE).length;
-    const selectedDirect = value.filter(key =>
-      enrichedPermissions.find(p => p.key === key)?.source === PermissionSource.DIRECT
-    ).length;
 
-    return { directCount, roleCount, selectedDirect, total: enrichedPermissions.length };
-  }, [enrichedPermissions, value]);
+  const handleTemplateSelect = (templateKey: string, permissions: string[]) => {
+    setActiveTemplate(templateKey);
+    const merged = Array.from(new Set([...value, ...permissions]));
+    onChange(merged);
+  };
 
-  const grantedPreview = useMemo(() => {
-    if (!grantedPermissions?.length) {
-      return [];
+  const togglePermission = (permission: string) => {
+    if (value.includes(permission)) {
+      onChange(value.filter((item) => item !== permission));
+    } else {
+      onChange([...value, permission]);
     }
-    return grantedPermissions.slice(0, 6);
-  }, [grantedPermissions]);
+  };
 
-  const remainingGranted = Math.max(
-    0,
-    (grantedPermissions?.length ?? 0) - grantedPreview.length
-  );
+  const toggleModuleExpansion = (moduleKey: string) => {
+    setExpandedModules((prev) => {
+      const next = new Set(prev);
+      if (next.has(moduleKey)) {
+        next.delete(moduleKey);
+      } else {
+        next.add(moduleKey);
+      }
+      return next;
+    });
+  };
+
+  const visibleTemplates = templates.filter((template) => !template.disabled).slice(0, 4);
 
   // ✅ CONDITIONAL RETURNS AFTER ALL HOOKS
   if (loading) {
@@ -221,259 +220,159 @@ export function PermissionAssignmentPanel({
     );
   }
 
-  const togglePermission = (permission: string, checked: boolean) => {
-    if (checked) {
-      onChange(Array.from(new Set([...value, permission])));
-    } else {
-      onChange(value.filter((item) => item !== permission));
-    }
-  };
-
-  const applyTemplate = (templatePermissions: string[]) => {
-    if (!templatePermissions?.length) {
-      return;
-    }
-    const merged = Array.from(new Set([...value, ...templatePermissions]));
-    onChange(merged);
-  };
-
-  const toggleModuleCollapse = (moduleKey: string) => {
-    const next = new Set(collapsedModules);
-    if (next.has(moduleKey)) {
-      next.delete(moduleKey);
-    } else {
-      next.add(moduleKey);
-    }
-    setCollapsedModules(next);
-  };
-
   return (
-    <div className="space-y-4">
-      {grantedPermissions && grantedPermissions.length > 0 && (
-        <div className="rounded-lg border bg-muted/40 p-4">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-            Sizin aktiv icazələriniz ({grantedPermissions.length})
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {grantedPreview.map((permission) => (
-              <Badge key={permission} variant="secondary" className="text-xs">
-                {permission}
-              </Badge>
-            ))}
-            {remainingGranted > 0 && (
-              <Badge variant="outline" className="text-xs">
-                +{remainingGranted}
-              </Badge>
-            )}
+    <div className="space-y-6">
+        <div className="flex items-center gap-3 text-xs text-muted-foreground">
+          <Badge variant="secondary" className="text-[10px]">1</Badge>
+          Şablon seçin
+          <Badge variant="outline" className="text-[10px]">2</Badge>
+          Modulları tənzimlə
+          <Badge variant="outline" className="text-[10px]">3</Badge>
+          Yekun yoxlayın
+        </div>
+
+        {roleInfo && (
+          <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
+            <span>Default icazələr: <strong>{roleInfo.defaults.length}</strong></span>
+            <span>Məcburi icazələr: <strong>{roleInfo.required.length}</strong></span>
           </div>
-        </div>
-      )}
+        )}
 
-      {roleInfo && (
-        <div className="flex flex-wrap gap-4 text-xs text-muted-foreground">
-          <span>İcazə verə biləcəklər: <strong>{roleInfo.allowed.length}</strong></span>
-          {roleInfo.defaults.length > 0 && (
-            <span>Default: <strong>{roleInfo.defaults.length}</strong></span>
-          )}
-          {roleInfo.required.length > 0 && (
-            <span>Məcburi: <strong>{roleInfo.required.length}</strong></span>
-          )}
-        </div>
-      )}
-
-      {nonShareableSelections.length > 0 && (
-        <Alert variant="destructive">
-          <AlertTitle>Sizin hesabınızda olmayan icazələr</AlertTitle>
-          <AlertDescription className="text-xs mt-2 space-y-2">
-            <p>
-              Bu istifadəçidə {nonShareableSelections.length} icazə mövcuddur, lakin sizin RegionAdmin hesabınızda olmadığı üçün
-              redaktə edilə bilmir. Bu icazələri təyin etmək üçün əvvəlcə SuperAdmin vasitəsilə öz hesabınıza əlavə edilməlidir.
+        {visibleTemplates.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-xs font-semibold flex items-center gap-1 text-muted-foreground">
+              <Sparkles className="h-3 w-3 text-amber-500" />
+              Hazır şablonlar
             </p>
             <div className="flex flex-wrap gap-2">
-              {nonShareableSelections.slice(0, 8).map((permission) => (
-                <Badge key={permission} variant="outline" className="text-xs">
-                  {permission}
-                </Badge>
+              {visibleTemplates.map((template) => (
+                <Button
+                  key={template.key}
+                  type="button"
+                  size="sm"
+                  variant={activeTemplate === template.key ? 'default' : 'outline'}
+                  onClick={() => handleTemplateSelect(template.key, template.permissions)}
+                >
+                  {template.label}
+                </Button>
               ))}
-              {nonShareableSelections.length > 8 && (
-                <Badge variant="outline" className="text-xs">
-                  +{nonShareableSelections.length - 8}
-                </Badge>
-              )}
-            </div>
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Stats header */}
-      {userPermissions && stats.roleCount > 0 && (
-        <Alert>
-          <AlertTriangle className="h-4 w-4" />
-          <AlertDescription className="text-sm">
-            🔒 <strong>{stats.roleCount}</strong> səlahiyyət bu istifadəçinin <strong>{roleName}</strong> rolundan gəlir və
-            dəyişdirilə bilməz (🔵 <strong>Role</strong> badge ilə göstərilir).
-            Əlavə səlahiyyətlər direct təyin edə bilərsiniz (🟢 <strong>Direct</strong> badge ilə göstəriləcək).
-          </AlertDescription>
-        </Alert>
-      )}
-
-      <Card className="border-dashed">
-        <CardHeader className="space-y-4">
-          <div className="flex flex-col gap-2">
-            <CardTitle className="flex items-center gap-2 text-base">
-              <ShieldCheck className="h-4 w-4" />
-              Səlahiyyət seçimi
-              <Badge variant="secondary">{value.length}</Badge>
-            </CardTitle>
-            <CardDescription>
-              {userPermissions ? (
-                <div className="flex gap-4 mt-1 text-xs">
-                  <span>📊 Cəmi: {stats.total}</span>
-                  <span>🔵 Role: {stats.roleCount}</span>
-                  <span>🟢 Direct: {stats.directCount}</span>
-                  <span>✅ Seçilmiş: {value.length}</span>
-                </div>
-              ) : (
-                `${roleName} rolu üçün əlavə icazələri təyin edin. Seçim etməsəniz rolun default icazələri tətbiq olunacaq.`
-              )}
-            </CardDescription>
-          </div>
-
-        <div className="flex flex-col gap-3 md:flex-row md:items-center">
-          {templates.length > 0 && (
-            <div className="space-y-2 md:space-y-0 md:flex md:items-center md:gap-2">
-              <p className="text-xs font-medium flex items-center gap-1 text-muted-foreground">
-                <Sparkles className="h-3 w-3 text-amber-500" />
-                Hazır şablonlar
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {templates.map((template) => (
-                  <Button
-                    key={template.key}
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    disabled={template.disabled}
-                    onClick={() => applyTemplate(template.permissions)}
-                  >
-                    {template.label}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Səlahiyyət axtarın..."
-                className="pl-8"
-                aria-label="Səlahiyyət axtarışı"
-              />
             </div>
           </div>
+        )}
+
+        <div className="relative">
+          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            value={searchTerm}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Səlahiyyət axtarın..."
+            className="pl-8"
+            aria-label="Səlahiyyət axtarışı"
+          />
         </div>
 
-        <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-          {moduleSummaries.map((summary) => (
-            <div key={summary.key} className="flex items-center gap-1">
-              <span className="font-semibold text-foreground">{summary.label}</span>
-              <Badge variant="outline">
-                {summary.selectedCount}/{summary.total}
-              </Badge>
-            </div>
-          ))}
-        </div>
-      </CardHeader>
-
-      <CardContent className="space-y-4">
-        <div className="grid gap-4 md:grid-cols-2">
-          {modules.map((module: PermissionModuleMeta) => {
-            const isCollapsed = collapsedModules.has(module.key);
-            const selectedCount = module.permissions.filter((permission) =>
-              value.includes(permission.key)
-            ).length;
+        <div className="grid gap-3 md:grid-cols-2">
+          {modules.map((module) => {
+            const moduleSelectedCount = module.permissions.filter((permission) => value.includes(permission.key)).length;
+            const showAll = expandedModules.has(module.key);
+            const permissionList = showAll ? module.permissions : module.permissions.slice(0, 4);
 
             return (
-              <div key={module.key} className="rounded-lg border bg-background">
-                <button
-                  type="button"
-                  className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/50"
-                  onClick={() => toggleModuleCollapse(module.key)}
-                  aria-expanded={!isCollapsed}
-                >
-                  <div>
-                    <div className="text-sm font-semibold flex items-center gap-2">
-                      <span>{module.label}</span>
-                      <Badge variant="secondary">
-                        {selectedCount}/{module.permissions.length}
-                      </Badge>
+              <Card key={module.key} className="overflow-hidden">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-sm">{module.label}</CardTitle>
+                      {module.description && (
+                        <CardDescription>{module.description}</CardDescription>
+                      )}
                     </div>
-                    {module.description && (
-                      <p className="text-xs text-muted-foreground">{module.description}</p>
-                    )}
+                    <Badge variant="outline" className="text-[10px]">
+                      {moduleSelectedCount}/{module.permissions.length}
+                    </Badge>
                   </div>
-                  {isCollapsed ? (
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                  )}
-                </button>
-
-                {!isCollapsed && (
-              <div className="space-y-2 p-4 border-t">
-                {module.permissions.map((permission) => {
-                  // Find enriched permission metadata
-                  const enrichedPermission = enrichedPermissions.find(p => p.key === permission.key);
-
-                  if (enrichedPermission) {
-                    // Use EnhancedPermissionCheckbox with metadata
-                    return (
-                      <EnhancedPermissionCheckbox
-                        key={permission.key}
-                        permission={enrichedPermission}
-                        checked={value.includes(permission.key)}
-                        onChange={(checked) => togglePermission(permission.key, checked)}
-                        disabled={permission.shareable === false}
-                      />
-                    );
-                  }
-
-                  // Fallback to regular checkbox if no enriched data
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {permissionList.map((permission) => {
+                      const isSelected = value.includes(permission.key);
+                      const isReadonly = permission.shareable === false;
                       return (
-                        <label
+                        <button
                           key={permission.key}
-                          className="flex items-start gap-2 text-sm text-muted-foreground cursor-pointer"
+                          type="button"
+                          className={`text-xs rounded-full px-3 py-1 border flex items-center gap-1 transition ${
+                            isSelected
+                              ? 'bg-primary text-primary-foreground border-primary'
+                              : 'bg-background text-foreground border-border'
+                          } ${isReadonly ? 'opacity-60 cursor-not-allowed' : 'hover:bg-accent'}`}
+                          onClick={() => !isReadonly && togglePermission(permission.key)}
+                          aria-pressed={isSelected}
+                          disabled={isReadonly}
                         >
-                          <Checkbox
-                            checked={value.includes(permission.key)}
-                            onCheckedChange={(checked) =>
-                              togglePermission(permission.key, checked === true)
-                            }
-                            aria-label={permission.label}
-                          />
-                          <div>
-                            <p className="font-medium text-foreground text-sm">{permission.label}</p>
-                            {permission.description && (
-                              <p className="text-xs text-muted-foreground">
-                                {permission.description}
-                              </p>
-                            )}
-                          </div>
-                        </label>
+                          {isReadonly ? <Lock className="h-3 w-3" /> : isSelected ? <Check className="h-3 w-3" /> : null}
+                          {permission.label}
+                        </button>
                       );
                     })}
                   </div>
-                )}
-              </div>
+                  {module.permissions.length > 4 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="xs"
+                      onClick={() => toggleModuleExpansion(module.key)}
+                      className="text-xs"
+                    >
+                      {showAll ? 'Daha az göstər' : `+${module.permissions.length - 4} daha çox`}
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
             );
           })}
         </div>
-      </CardContent>
-    </Card>
+
+        {nonShareableSelections.length > 0 && (
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <Lock className="h-3 w-3" />
+            Bu istifadəçidə {nonShareableSelections.length} icazə var, lakin sizin hesabınızda olmadığı üçün read-only kimi göstərilir.
+          </div>
+        )}
+
+        <Card className="border bg-muted/30">
+          <CardHeader className="flex-row items-center justify-between">
+            <div>
+              <CardTitle className="text-sm">Seçilmiş səlahiyyətlər</CardTitle>
+              <CardDescription>
+                {value.length === 0
+                  ? 'Hələ seçim etməmisiniz'
+                  : `Toplam ${value.length} səlahiyyət seçildi`}
+              </CardDescription>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs"
+              onClick={() => window.open('/docs/ROLE_SYSTEM_GUIDE.md', '_blank', 'noopener,noreferrer')}
+            >
+              <Info className="h-3 w-3 mr-1" />
+              Tez bələdçi
+            </Button>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2 max-h-40 overflow-auto">
+            {value.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Seçim etmədən davam etmək tövsiyə olunmur.</p>
+            ) : (
+              value.map((permission) => (
+                <Badge key={permission} variant="outline" className="text-xs">
+                  {getPermissionLabel(permission)}
+                </Badge>
+              ))
+            )}
+          </CardContent>
+        </Card>
     </div>
   );
 }

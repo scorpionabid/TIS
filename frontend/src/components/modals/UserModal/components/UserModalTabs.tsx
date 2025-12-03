@@ -21,6 +21,7 @@ import { DEFAULT_FORM_VALUES, SUCCESS_MESSAGES, ERROR_MESSAGES, CRUD_PERMISSIONS
 import { transformFormDataToBackend, transformBackendDataToForm } from '../utils/fieldTransformers';
 import { PermissionAssignmentPanel } from './PermissionAssignmentPanel';
 import { regionAdminService, PermissionMetadata } from '@/services/regionAdmin';
+import { Info } from 'lucide-react';
 
 interface UserModalTabsProps {
   open: boolean;
@@ -222,10 +223,6 @@ export function UserModalTabs({
   const effectivePermissionMetadata = permissionMetadata ?? localPermissionMetadata ?? null;
   const effectivePermissionLoading = Boolean(permissionMetadataLoading || localPermissionLoading);
   const permissionRoleMatrix = effectivePermissionMetadata?.role_matrix ?? {};
-  const shareablePermissions =
-    (effectivePermissionMetadata?.granted_permissions && effectivePermissionMetadata.granted_permissions.length > 0)
-      ? effectivePermissionMetadata.granted_permissions
-      : currentUserPermissions;
 
   const regionOperatorPermissionsSelected = useMemo(() => {
     const assignable = Array.isArray(formData.assignable_permissions)
@@ -394,9 +391,6 @@ export function UserModalTabs({
     return permissionRoleMatrix?.[key] ?? null;
   };
 
-  const shareablePreview = (shareablePermissions || []).slice(0, 6);
-  const shareableHiddenCount = Math.max(0, (shareablePermissions?.length || 0) - shareablePreview.length);
-
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
@@ -410,18 +404,9 @@ export function UserModalTabs({
               : 'Rol seçib yeni istifadəçi yaradın. Hər rol öz tab-ında müəyyən form sahələri ilə təmin edilir.'
             }
           </DialogDescription>
-          {shareablePermissions && shareablePermissions.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-3">
-              {shareablePreview.map((permission) => (
-                <Badge key={permission} variant="secondary">
-                  {permission}
-                </Badge>
-              ))}
-              {shareableHiddenCount > 0 && (
-                <Badge variant="outline">+{shareableHiddenCount}</Badge>
-              )}
-            </div>
-          )}
+          <p className="text-xs text-muted-foreground mt-2">
+            Səlahiyyətlərə dəyişiklik etmək üçün aşağıdakı paneldən istifadə edin. Dəqiq bələdçi üçün paneldəki “Tez bələdçi” linkinə keçin.
+          </p>
         </DialogHeader>
 
         {loadingUser ? (
@@ -466,7 +451,6 @@ export function UserModalTabs({
                   value={filteredPermissionSelection}
                   onChange={setPermissionSelection}
                   loading={effectivePermissionLoading}
-                  grantedPermissions={shareablePermissions}
                   roleInfo={getRoleInfo(ROLE_TAB_CONFIG.regionadmin.targetRoleName)}
                 />
               )}
@@ -510,7 +494,6 @@ export function UserModalTabs({
                   value={filteredPermissionSelection}
                   onChange={setPermissionSelection}
                   loading={effectivePermissionLoading}
-                  grantedPermissions={shareablePermissions}
                   roleInfo={getRoleInfo(ROLE_TAB_CONFIG.teacher.targetRoleName)}
                 />
               )}
@@ -537,7 +520,6 @@ export function UserModalTabs({
                   value={filteredPermissionSelection}
                   onChange={setPermissionSelection}
                   loading={effectivePermissionLoading}
-                  grantedPermissions={shareablePermissions}
                   roleInfo={getRoleInfo(ROLE_TAB_CONFIG.sektoradmin.targetRoleName)}
                 />
               )}
@@ -564,7 +546,6 @@ export function UserModalTabs({
                   value={filteredPermissionSelection}
                   onChange={setPermissionSelection}
                   loading={effectivePermissionLoading}
-                  grantedPermissions={shareablePermissions}
                   roleInfo={getRoleInfo(ROLE_TAB_CONFIG.schooladmin.targetRoleName)}
                 />
               )}

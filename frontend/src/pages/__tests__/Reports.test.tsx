@@ -5,15 +5,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import Reports from '../Reports';
-import { useAuth } from '@/contexts/AuthContext';
 import { reportsService, type ReportOverviewStats } from '@/services/reports';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 
 const toastMock = vi.fn();
 
-vi.mock('@/contexts/AuthContext', () => ({
-  useAuth: vi.fn(),
+vi.mock('@/hooks/useRoleCheck', () => ({
+  useRoleCheck: vi.fn(),
 }));
-
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
     toast: toastMock,
@@ -33,7 +32,7 @@ vi.mock('@/services/reports', () => ({
   },
 }));
 
-const mockedUseAuth = useAuth as unknown as ReturnType<typeof vi.fn>;
+const mockedUseRoleCheck = useRoleCheck as unknown as ReturnType<typeof vi.fn>;
 const mockedReportsService = reportsService as unknown as {
   getOverviewStats: ReturnType<typeof vi.fn>;
   getInstitutionalPerformance: ReturnType<typeof vi.fn>;
@@ -134,8 +133,9 @@ describe('Reports page', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockedUseAuth.mockReturnValue({
+    mockedUseRoleCheck.mockReturnValue({
       currentUser: authorizedUser,
+      hasAnyRole: (roles: string[]) => roles.includes(authorizedUser.role),
     });
     mockedReportsService.getOverviewStats.mockResolvedValue({
       status: 'success',
@@ -147,8 +147,9 @@ describe('Reports page', () => {
   });
 
   it('blocks unauthorized roles from accessing reports', () => {
-    mockedUseAuth.mockReturnValue({
+    mockedUseRoleCheck.mockReturnValue({
       currentUser: { role: 'teacher' },
+      hasAnyRole: () => false,
     });
 
     renderWithQueryClient();

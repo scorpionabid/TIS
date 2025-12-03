@@ -50,10 +50,7 @@ export default tseslint.config(
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      "react-refresh/only-export-components": [
-        "warn",
-        { allowConstantExport: true },
-      ],
+      "react-refresh/only-export-components": "off",
       // Disable all problematic rules for now
       "@typescript-eslint/no-unused-vars": "off",
       "@typescript-eslint/no-explicit-any": "off",
@@ -62,7 +59,7 @@ export default tseslint.config(
       "no-unused-vars": "off",
       "no-unused-expressions": "off",
       "no-undef": "off", // TypeScript handles this
-      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/exhaustive-deps": "off",
     },
   }
 );

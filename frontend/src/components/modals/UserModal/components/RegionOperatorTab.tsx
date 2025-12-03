@@ -226,8 +226,6 @@ export function RegionOperatorTab({
     panelMetadata.role_matrix?.regionoperator ??
     null;
 
-  const shareablePermissions = permissionMetadata?.granted_permissions ?? [];
-
   const handlePermissionSelectionChange = (next: string[]) => {
     console.log('🔍 [RegionOperatorTab] handlePermissionSelectionChange called', {
       next,
@@ -273,7 +271,6 @@ export function RegionOperatorTab({
         />
       </div>
 
-      {/* Unified Permission Assignment Panel */}
       <PermissionAssignmentPanel
         metadata={panelMetadata}
         userPermissions={user?.permissions || null}
@@ -281,10 +278,8 @@ export function RegionOperatorTab({
         value={selectedPermissionKeys}
         onChange={handlePermissionSelectionChange}
         loading={Boolean(permissionMetadataLoading && !permissionMetadata)}
-        grantedPermissions={shareablePermissions}
         roleInfo={regionOperatorRoleInfo}
       />
-
     </div>
   );
 }
