@@ -33,9 +33,9 @@ class LoginService
                 'device_context' => $hasDeviceContext,
             ]);
 
-            // Find user by username or email
-            $user = User::where('username', $login)
-                ->orWhere('email', $login)
+            // Find user by username or email (case-insensitive)
+            $user = User::whereRaw('LOWER(username) = ?', [mb_strtolower($login)])
+                ->orWhereRaw('LOWER(email) = ?', [mb_strtolower($login)])
                 ->first();
 
             logger()->debug('Login user lookup', [
