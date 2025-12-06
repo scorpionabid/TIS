@@ -30,11 +30,11 @@ class RegionAdminSurveyService
     public function calculateBasicSurveyStats($user)
     {
         return [
-            'total' => Survey::where('created_by', $user->id)->count(),
-            'published' => Survey::where('created_by', $user->id)->where('status', 'published')->count(),
-            'draft' => Survey::where('created_by', $user->id)->where('status', 'draft')->count(),
+            'total' => Survey::where('creator_id', $user->id)->count(),
+            'published' => Survey::where('creator_id', $user->id)->where('status', 'published')->count(),
+            'draft' => Survey::where('creator_id', $user->id)->where('status', 'draft')->count(),
             'total_responses' => SurveyResponse::whereHas('survey', function ($query) use ($user) {
-                $query->where('created_by', $user->id);
+                $query->where('creator_id', $user->id);
             })->count(),
         ];
     }
@@ -51,13 +51,13 @@ class RegionAdminSurveyService
             ->map(function ($sector) use ($user) {
                 $schoolIds = $sector->children->pluck('id');
 
-                $surveys = Survey::where('created_by', $user->id)
+                $surveys = Survey::where('creator_id', $user->id)
                     ->whereHas('targeting', function ($query) use ($schoolIds) {
                         $query->whereIn('institution_id', $schoolIds);
                     })->count();
 
                 $responses = SurveyResponse::whereHas('survey', function ($query) use ($user, $schoolIds) {
-                    $query->where('created_by', $user->id)
+                    $query->where('creator_id', $user->id)
                         ->whereHas('targeting', function ($q) use ($schoolIds) {
                             $q->whereIn('institution_id', $schoolIds);
                         });
@@ -81,7 +81,7 @@ class RegionAdminSurveyService
         $search = $request->get('search');
         $statusFilter = $request->get('status');
 
-        $query = Survey::where('created_by', $user->id)
+        $query = Survey::where('creator_id', $user->id)
             ->with(['creator', 'targeting.institution']);
 
         // Apply search filter
@@ -108,7 +108,7 @@ class RegionAdminSurveyService
                 'title' => $survey->title,
                 'description' => $survey->description,
                 'status' => $survey->status,
-                'created_by' => $survey->creator->username ?? 'Unknown',
+                'creator_id' => $survey->creator->username ?? 'Unknown',
                 'created_at' => $survey->created_at->format('Y-m-d H:i:s'),
                 'updated_at' => $survey->updated_at->format('Y-m-d H:i:s'),
                 'start_date' => $survey->start_date,
@@ -144,7 +144,7 @@ class RegionAdminSurveyService
             $monthStart = Carbon::now()->subMonths($i)->startOfMonth();
             $monthEnd = Carbon::now()->subMonths($i)->endOfMonth();
 
-            $surveysCreated = Survey::where('created_by', $user->id)
+            $surveysCreated = Survey::where('creator_id', $user->id)
                 ->whereBetween('created_at', [$monthStart, $monthEnd])
                 ->count();
 
@@ -170,7 +170,7 @@ class RegionAdminSurveyService
             $dayEnd = $date->copy()->endOfDay();
 
             $responsesCount = SurveyResponse::whereHas('survey', function ($query) use ($user) {
-                $query->where('created_by', $user->id);
+                $query->where('creator_id', $user->id);
             })->whereBetween('created_at', [$dayStart, $dayEnd])->count();
 
             $responseTrends[] = [
@@ -187,7 +187,7 @@ class RegionAdminSurveyService
      */
     public function getTopPerformingSurveys($user)
     {
-        return Survey::where('created_by', $user->id)
+        return Survey::where('creator_id', $user->id)
             ->where('status', 'published')
             ->get()
             ->map(function ($survey) {
@@ -211,11 +211,11 @@ class RegionAdminSurveyService
     public function calculateTrendSummary($user, $completionRates)
     {
         return [
-            'total_surveys_last_month' => Survey::where('created_by', $user->id)
+            'total_surveys_last_month' => Survey::where('creator_id', $user->id)
                 ->where('created_at', '>=', Carbon::now()->subMonth())
                 ->count(),
             'total_responses_last_month' => SurveyResponse::whereHas('survey', function ($query) use ($user) {
-                $query->where('created_by', $user->id);
+                $query->where('creator_id', $user->id);
             })->where('created_at', '>=', Carbon::now()->subMonth())->count(),
             'average_completion_rate' => $completionRates->avg('completion_rate') ?? 0,
         ];
@@ -239,10 +239,10 @@ class RegionAdminSurveyService
      */
     public function calculatePerformanceMetrics($user)
     {
-        $totalSurveys = Survey::where('created_by', $user->id)->count();
-        $publishedSurveys = Survey::where('created_by', $user->id)->where('status', 'published')->count();
+        $totalSurveys = Survey::where('creator_id', $user->id)->count();
+        $publishedSurveys = Survey::where('creator_id', $user->id)->where('status', 'published')->count();
         $totalResponses = SurveyResponse::whereHas('survey', function ($query) use ($user) {
-            $query->where('created_by', $user->id);
+            $query->where('creator_id', $user->id);
         })->count();
 
         return [

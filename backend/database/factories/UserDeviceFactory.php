@@ -29,6 +29,7 @@ class UserDeviceFactory extends Factory
         $resolutions = ['1920x1080', '1366x768', '1536x864', '1440x900'];
         $languages = ['en-US', 'az-AZ', 'ru-RU', 'tr-TR'];
         $cities = ['Baku', 'Ganja', 'Sumqayit', 'Lankaran', 'Shaki'];
+        $countryCodes = ['AZ', 'TR', 'US', 'RU', 'GE'];
 
         return [
             'user_id' => User::factory(),
@@ -55,7 +56,7 @@ class UserDeviceFactory extends Factory
             ],
             'last_ip_address' => $this->faker->ipv4,
             'registration_ip' => $this->faker->ipv4,
-            'last_location_country' => 'Azerbaijan',
+            'last_location_country' => $this->faker->randomElement($countryCodes),
             'last_location_city' => $this->faker->randomElement($cities),
             'is_trusted' => $this->faker->boolean(70), // 70% chance of being trusted
             'is_active' => $this->faker->boolean(90), // 90% chance of being active

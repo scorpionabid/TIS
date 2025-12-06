@@ -55,7 +55,7 @@ return new class extends Migration
 
         // Add index for better JSON query performance
         if (DB::getDriverName() === 'pgsql') {
-            DB::statement('CREATE INDEX IF NOT EXISTS users_departments_gin_idx ON users USING gin (departments)');
+            DB::statement('CREATE INDEX IF NOT EXISTS users_departments_gin_idx ON users USING gin ((departments::jsonb))');
         }
     }
 

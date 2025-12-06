@@ -5,7 +5,9 @@ namespace App\Services\LinkSharing\Domains\Query;
 use App\Models\Institution;
 use App\Models\LinkShare;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
+use Illuminate\Database\Query\Grammars\Grammar;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
@@ -17,6 +19,10 @@ use Illuminate\Support\Facades\DB;
  */
 class LinkQueryBuilder
 {
+    protected ?string $databaseDriver = null;
+    protected ?Grammar $queryGrammar = null;
+    protected array $linkShareColumnCache = [];
+
     public function __construct(
         protected LinkPermissionService $permissionService
     ) {}
@@ -38,12 +44,12 @@ class LinkQueryBuilder
 
         // Apply search
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('tags', 'like', "%{$search}%");
-            });
+            $searchColumns = ['title', 'description'];
+            if ($this->linkShareColumnExists('tags')) {
+                $searchColumns[] = 'tags';
+            }
+
+            $this->applyCaseInsensitiveSearch($query, $searchColumns, $request->search);
         }
 
         // Apply sorting
@@ -53,7 +59,7 @@ class LinkQueryBuilder
         if ($sortField === 'popularity') {
             $query->orderBy('access_count', $direction);
         } elseif ($sortField === 'priority') {
-            $query->orderByRaw('FIELD(priority, "high", "normal", "low")');
+            $this->orderByPriority($query, $direction);
         } else {
             $query->orderBy($sortField, $direction);
         }
@@ -159,10 +165,10 @@ class LinkQueryBuilder
         }
 
         // Tags filter (if exists)
-        if ($request->filled('tags')) {
+        if ($request->filled('tags') && $this->linkShareColumnExists('tags')) {
             $tags = is_array($request->tags) ? $request->tags : explode(',', $request->tags);
             foreach ($tags as $tag) {
-                $query->where('tags', 'like', "%{$tag}%");
+                $this->applyCaseInsensitiveLike($query, 'tags', $tag);
             }
         }
 
@@ -215,12 +221,12 @@ class LinkQueryBuilder
 
         // Apply search
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('title', 'like', "%{$search}%")
-                    ->orWhere('description', 'like', "%{$search}%")
-                    ->orWhere('tags', 'like', "%{$search}%");
-            });
+            $searchColumns = ['title', 'description'];
+            if ($this->linkShareColumnExists('tags')) {
+                $searchColumns[] = 'tags';
+            }
+
+            $this->applyCaseInsensitiveSearch($query, $searchColumns, $request->search);
         }
 
         // Get all results
@@ -464,12 +470,7 @@ class LinkQueryBuilder
             }
 
             if ($request->filled('search')) {
-                $search = $request->search;
-                $linksQuery->where(function ($q) use ($search) {
-                    $q->where('title', 'like', "%{$search}%")
-                        ->orWhere('description', 'like', "%{$search}%")
-                        ->orWhere('url', 'like', "%{$search}%");
-                });
+                $this->applyCaseInsensitiveSearch($linksQuery, ['title', 'description', 'url'], $request->search);
             }
 
             $links = $linksQuery->orderBy('created_at', 'desc')->get();
@@ -529,12 +530,11 @@ class LinkQueryBuilder
                     });
 
                 if ($request->filled('search')) {
-                    $search = $request->search;
-                    $documentsQuery->where(function ($q) use ($search) {
-                        $q->where('title', 'like', "%{$search}%")
-                            ->orWhere('description', 'like', "%{$search}%")
-                            ->orWhere('original_filename', 'like', "%{$search}%");
-                    });
+                    $this->applyCaseInsensitiveSearch(
+                        $documentsQuery,
+                        ['title', 'description', 'original_filename'],
+                        $request->search
+                    );
                 }
 
                 $documents = $documentsQuery->orderBy('created_at', 'desc')->get();
@@ -596,5 +596,81 @@ class LinkQueryBuilder
 
             return [];
         }
+    }
+
+    private function applyCaseInsensitiveSearch($query, array $columns, string $term): void
+    {
+        $term = trim($term);
+        if ($term === '') {
+            return;
+        }
+
+        $query->where(function ($searchQuery) use ($columns, $term) {
+            foreach ($columns as $index => $column) {
+                $boolean = $index === 0 ? 'and' : 'or';
+                $this->applyCaseInsensitiveLike($searchQuery, $column, $term, $boolean);
+            }
+        });
+    }
+
+    private function applyCaseInsensitiveLike($query, string $column, string $term, string $boolean = 'and'): void
+    {
+        $term = trim($term);
+
+        if ($term === '') {
+            return;
+        }
+
+        if ($this->getDatabaseDriver() === 'pgsql') {
+            $query->where($column, 'ILIKE', '%' . $term . '%', $boolean);
+
+            return;
+        }
+
+        $wrapped = $this->getQueryGrammar()->wrap($column);
+        $query->whereRaw("LOWER({$wrapped}) LIKE ?", ['%' . mb_strtolower($term) . '%'], $boolean);
+    }
+
+    private function getDatabaseDriver(): string
+    {
+        if ($this->databaseDriver === null) {
+            $this->databaseDriver = DB::connection()->getDriverName();
+        }
+
+        return $this->databaseDriver;
+    }
+
+    private function getQueryGrammar(): Grammar
+    {
+        if ($this->queryGrammar === null) {
+            $this->queryGrammar = DB::connection()->getQueryGrammar();
+        }
+
+        return $this->queryGrammar;
+    }
+
+    private function linkShareColumnExists(string $column): bool
+    {
+        if (! array_key_exists($column, $this->linkShareColumnCache)) {
+            $this->linkShareColumnCache[$column] = Schema::hasColumn('link_shares', $column);
+        }
+
+        return $this->linkShareColumnCache[$column];
+    }
+
+    /**
+     * Cross-database priority ordering helper (replaces MySQL FIELD()).
+     */
+    private function orderByPriority($query, string $direction): void
+    {
+        $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
+
+        $caseExpression = "CASE priority "
+            . "WHEN 'high' THEN 1 "
+            . "WHEN 'normal' THEN 2 "
+            . "WHEN 'low' THEN 3 "
+            . "ELSE 4 END";
+
+        $query->orderByRaw("{$caseExpression} {$direction}");
     }
 }

@@ -325,7 +325,7 @@ class RegionalScheduleController extends Controller
         $scheduleStats = Schedule::whereIn('institution_id', $institutions->pluck('id'))
             ->select([
                 DB::raw('COUNT(*) as total_schedules'),
-                DB::raw('COUNT(CASE WHEN status = "active" THEN 1 END) as active_schedules'),
+                DB::raw("COUNT(CASE WHEN status = 'active' THEN 1 END) as active_schedules"),
                 DB::raw('AVG(performance_rating) as average_performance'),
                 DB::raw('COUNT(CASE WHEN performance_rating < 3 THEN 1 END) as critical_issues'),
             ])
@@ -355,7 +355,7 @@ class RegionalScheduleController extends Controller
             $scheduleStats = Schedule::where('institution_id', $institution->id)
                 ->select([
                     DB::raw('COUNT(*) as total_schedules'),
-                    DB::raw('COUNT(CASE WHEN status = "active" THEN 1 END) as active_schedules'),
+                    DB::raw("COUNT(CASE WHEN status = 'active' THEN 1 END) as active_schedules"),
                     DB::raw('AVG(performance_rating) as avg_performance'),
                     DB::raw('MAX(updated_at) as last_update'),
                 ])

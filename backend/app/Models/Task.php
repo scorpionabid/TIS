@@ -24,7 +24,7 @@ class Task extends Model
         'completed_at',
         'created_by',
         'assigned_to',
-        'assigned_institution_id',
+        'assigned_to_institution_id',
         'target_institutions',
         'target_departments',
         'target_roles',
@@ -117,7 +117,7 @@ class Task extends Model
      */
     public function assignedInstitution(): BelongsTo
     {
-        return $this->belongsTo(Institution::class, 'assigned_institution_id');
+        return $this->belongsTo(Institution::class, 'assigned_to_institution_id');
     }
 
     /**
@@ -243,7 +243,7 @@ class Task extends Model
     {
         return $query->where(function ($q) use ($institutionId) {
             // Direct assignment
-            $q->where('assigned_institution_id', $institutionId)
+            $q->where('assigned_to_institution_id', $institutionId)
               // Direct targeting
                 ->orWhereJsonContains('target_institutions', $institutionId)
               // Global scope

@@ -338,10 +338,12 @@ class DocumentActivityService extends BaseService
      */
     private function getActivityByDate($query, int $days = 7): array
     {
+        $dateExpression = $this->getDateExpression();
+
         return $query->clone()
-            ->select(DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
+            ->select(DB::raw("{$dateExpression} as date"), DB::raw('COUNT(*) as count'))
             ->where('created_at', '>=', now()->subDays($days))
-            ->groupBy('date')
+            ->groupBy(DB::raw($dateExpression))
             ->orderBy('date')
             ->pluck('count', 'date')
             ->toArray();
@@ -438,11 +440,12 @@ class DocumentActivityService extends BaseService
     private function getDailyActivityTrends($query, string $period): array
     {
         $days = $this->getPeriodDays($period);
+        $dateExpression = $this->getDateExpression();
 
         return $query
-            ->select(DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
+            ->select(DB::raw("{$dateExpression} as date"), DB::raw('COUNT(*) as count'))
             ->where('created_at', '>=', now()->subDays($days))
-            ->groupBy('date')
+            ->groupBy(DB::raw($dateExpression))
             ->orderBy('date')
             ->get()
             ->toArray();
@@ -454,11 +457,12 @@ class DocumentActivityService extends BaseService
     private function getActionTrends($query, string $period): array
     {
         $days = $this->getPeriodDays($period);
+        $dateExpression = $this->getDateExpression();
 
         return $query
-            ->select('access_type', DB::raw('DATE(created_at) as date'), DB::raw('COUNT(*) as count'))
+            ->select('access_type', DB::raw("{$dateExpression} as date"), DB::raw('COUNT(*) as count'))
             ->where('created_at', '>=', now()->subDays($days))
-            ->groupBy('access_type', 'date')
+            ->groupBy('access_type', DB::raw($dateExpression))
             ->orderBy('date')
             ->get()
             ->groupBy('access_type')
@@ -471,15 +475,16 @@ class DocumentActivityService extends BaseService
     private function getUserEngagementTrends($query, string $period): array
     {
         $days = $this->getPeriodDays($period);
+        $dateExpression = $this->getDateExpression();
 
         return $query
             ->select(
-                DB::raw('DATE(created_at) as date'),
+                DB::raw("{$dateExpression} as date"),
                 DB::raw('COUNT(DISTINCT user_id) as unique_users'),
                 DB::raw('COUNT(*) as total_activities')
             )
             ->where('created_at', '>=', now()->subDays($days))
-            ->groupBy('date')
+            ->groupBy(DB::raw($dateExpression))
             ->orderBy('date')
             ->get()
             ->toArray();
@@ -490,9 +495,11 @@ class DocumentActivityService extends BaseService
      */
     private function getPeakActivityHours($query): array
     {
+        $hourExpression = $this->getHourExpression();
+
         return $query
-            ->select(DB::raw('HOUR(created_at) as hour'), DB::raw('COUNT(*) as count'))
-            ->groupBy('hour')
+            ->select(DB::raw("{$hourExpression} as hour"), DB::raw('COUNT(*) as count'))
+            ->groupBy(DB::raw($hourExpression))
             ->orderBy('hour')
             ->get()
             ->toArray();
@@ -515,6 +522,41 @@ class DocumentActivityService extends BaseService
             default:
                 return 7;
         }
+    }
+
+    /**
+     * Normalized date expression for grouping.
+     */
+    private function getDateExpression(string $column = 'created_at'): string
+    {
+        return match ($this->getDatabaseDriver()) {
+            'pgsql' => "DATE_TRUNC('day', {$column})::date",
+            'sqlite' => "DATE({$column})",
+            default => "DATE({$column})",
+        };
+    }
+
+    /**
+     * Normalized hour expression for grouping.
+     */
+    private function getHourExpression(string $column = 'created_at'): string
+    {
+        return match ($this->getDatabaseDriver()) {
+            'pgsql' => "DATE_PART('hour', {$column})",
+            'sqlite' => "CAST(STRFTIME('%H', {$column}) AS INTEGER)",
+            default => "HOUR({$column})",
+        };
+    }
+
+    private function getDatabaseDriver(): string
+    {
+        static $driver;
+
+        if (! $driver) {
+            $driver = DB::connection()->getDriverName();
+        }
+
+        return $driver;
     }
 
     /**

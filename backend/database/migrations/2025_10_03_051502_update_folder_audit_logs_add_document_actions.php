@@ -21,6 +21,10 @@ return new class extends Migration
                 // SQLite doesn't enforce enum, so this is just for consistency
                 // The validation will be handled in the model/controller
             });
+        } elseif ($driver === 'pgsql') {
+            // Column is already stored as text/json, so enum enforcement does not apply.
+            // Application-level validation covers acceptable values.
+            return;
         } else {
             // MySQL/PostgreSQL: Alter the action enum to include new values
             DB::statement("ALTER TABLE folder_audit_logs MODIFY COLUMN action ENUM('created', 'updated', 'deleted', 'renamed', 'bulk_downloaded', 'documents_deleted', 'document_uploaded', 'document_deleted') NOT NULL");
@@ -40,6 +44,8 @@ return new class extends Migration
             Schema::table('folder_audit_logs', function (Blueprint $table) {
                 // No-op for SQLite
             });
+        } elseif ($driver === 'pgsql') {
+            return;
         } else {
             // MySQL/PostgreSQL: Revert to original enum values
             DB::statement("ALTER TABLE folder_audit_logs MODIFY COLUMN action ENUM('created', 'updated', 'deleted', 'renamed', 'bulk_downloaded', 'documents_deleted') NOT NULL");

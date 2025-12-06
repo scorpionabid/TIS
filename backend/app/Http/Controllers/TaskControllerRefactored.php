@@ -121,7 +121,7 @@ class TaskControllerRefactored extends Controller
                         });
 
                     if ($institutionId) {
-                        $assignedQuery->orWhere('assigned_institution_id', $institutionId)
+                        $assignedQuery->orWhere('assigned_to_institution_id', $institutionId)
                             ->orWhereJsonContains('target_institutions', $institutionId);
                     }
                 });

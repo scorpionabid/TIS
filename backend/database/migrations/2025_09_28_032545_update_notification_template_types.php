@@ -77,7 +77,10 @@ return new class extends Migration
                     'survey_approved',
                     'survey_rejected',
                     'link_shared',
+                    'link_updated',
                     'document_shared',
+                    'document_uploaded',
+                    'document_updated',
                     'system_alert',
                     'maintenance',
                     'security_alert'
@@ -103,7 +106,10 @@ return new class extends Migration
                     'survey_approved',
                     'survey_rejected',
                     'link_shared',
+                    'link_updated',
                     'document_shared',
+                    'document_uploaded',
+                    'document_updated',
                     'system_alert',
                     'maintenance',
                     'security_alert'

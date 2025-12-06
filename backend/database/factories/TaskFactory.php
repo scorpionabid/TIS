@@ -40,7 +40,7 @@ class TaskFactory extends Factory
             'completed_at' => $this->faker->optional(0.3)->dateTimeBetween('-1 month', 'now'),
             'created_by' => User::factory(),
             'assigned_to' => User::factory(),
-            'assigned_institution_id' => Institution::factory(),
+            'assigned_to_institution_id' => Institution::factory(),
             'target_scope' => $this->faker->randomElement($targetScopes),
             'target_institutions' => $this->faker->optional(0.5, [])->randomElements(
                 range(1, 10),

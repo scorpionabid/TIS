@@ -9,8 +9,13 @@ services:
       - APP_ENV=local
       - APP_DEBUG=true
       - APP_KEY=base64:8dQ8Gu3WqV8Vn9K7Mj2Nz5P6Q7R8S9T0U1V2W3X4Y5Z=
-      - DB_CONNECTION=sqlite
-      - DB_DATABASE=/var/www/html/database/database.sqlite
+      - DB_CONNECTION=pgsql
+      - DB_HOST=host.docker.internal
+      - DB_PORT=5433
+      - DB_DATABASE=atis_dev
+      - DB_USERNAME=atis_dev_user
+      - DB_PASSWORD=atis_dev_pass_123
+      - DB_SQLITE_DATABASE=/var/www/html/database/database.sqlite
       - CACHE_STORE=redis
       - REDIS_CLIENT=phpredis
       - REDIS_HOST=redis
@@ -20,6 +25,9 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - ./backend/.env:/var/www/html/.env
+      - ./backend/.env.testing:/var/www/html/.env.testing
+      - ./backend/phpunit.xml:/var/www/html/phpunit.xml
       - ./backend/database:/var/www/html/database
       - ./backend/storage:/var/www/html/storage
       - ./backend/app:/var/www/html/app

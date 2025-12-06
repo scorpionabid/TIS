@@ -32,21 +32,21 @@ class TaskPermissionService extends BaseService
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
 
-            return in_array($task->assigned_institution_id, $childIds, true) ||
-                   $task->assigned_institution_id === $userInstitution->id ||
+            return in_array($task->assigned_to_institution_id, $childIds, true) ||
+                   $task->assigned_to_institution_id === $userInstitution->id ||
                    $this->taskTargetsInstitutions($task, $childIds, 'regionadmin');
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
 
-            return in_array($task->assigned_institution_id, $childIds, true) ||
-                   $task->assigned_institution_id === $userInstitution->id ||
+            return in_array($task->assigned_to_institution_id, $childIds, true) ||
+                   $task->assigned_to_institution_id === $userInstitution->id ||
                    $this->taskTargetsInstitutions($task, $childIds, 'sektoradmin');
         }
 
         if ($user->hasRole('schooladmin')) {
-            return $task->assigned_institution_id === $userInstitution->id;
+            return $task->assigned_to_institution_id === $userInstitution->id;
         }
 
         // Check if task is directly assigned to user
@@ -80,14 +80,14 @@ class TaskPermissionService extends BaseService
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
 
-            return in_array($task->assigned_institution_id, $childIds, true) ||
+            return in_array($task->assigned_to_institution_id, $childIds, true) ||
                    $this->taskTargetsInstitutions($task, $childIds, 'regionadmin');
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
 
-            return in_array($task->assigned_institution_id, $childIds, true) ||
+            return in_array($task->assigned_to_institution_id, $childIds, true) ||
                    $this->taskTargetsInstitutions($task, $childIds, 'sektoradmin');
         }
 
@@ -117,14 +117,14 @@ class TaskPermissionService extends BaseService
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
             $childIds = $userInstitution->getAllChildrenIds();
 
-            return in_array($task->assigned_institution_id, $childIds, true) ||
+            return in_array($task->assigned_to_institution_id, $childIds, true) ||
                    $this->taskTargetsInstitutions($task, $childIds, 'regionadmin');
         }
 
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
 
-            return in_array($task->assigned_institution_id, $childIds, true) ||
+            return in_array($task->assigned_to_institution_id, $childIds, true) ||
                    $this->taskTargetsInstitutions($task, $childIds, 'sektoradmin');
         }
 
@@ -201,14 +201,14 @@ class TaskPermissionService extends BaseService
 
             if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
                 $childIds = $userInstitution->getAllChildrenIds();
-                $q->orWhereIn('assigned_institution_id', $childIds);
+                $q->orWhereIn('assigned_to_institution_id', $childIds);
                 $this->appendTargetInstitutionFilterToQuery($q, $childIds);
             } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
                 $childIds = $userInstitution->getAllChildrenIds();
-                $q->orWhereIn('assigned_institution_id', $childIds);
+                $q->orWhereIn('assigned_to_institution_id', $childIds);
                 $this->appendTargetInstitutionFilterToQuery($q, $childIds);
             } elseif ($user->hasRole('schooladmin')) {
-                $q->orWhere('assigned_institution_id', $userInstitution->id);
+                $q->orWhere('assigned_to_institution_id', $userInstitution->id);
                 $q->orWhereJsonContains('target_institutions', $userInstitution->id);
             }
 

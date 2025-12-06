@@ -33,13 +33,21 @@ return new class extends Migration
             }
 
             // Index for workplace type
-            $table->index('workplace_type', 'idx_user_profiles_workplace_type');
+            if (Schema::hasColumn('user_profiles', 'workplace_type')) {
+                $table->index('workplace_type', 'idx_user_profiles_workplace_type');
+            }
 
             // Index for assessment type
-            $table->index('assessment_type', 'idx_user_profiles_assessment_type');
+            if (Schema::hasColumn('user_profiles', 'assessment_type')) {
+                $table->index('assessment_type', 'idx_user_profiles_assessment_type');
+            }
 
             // Composite index for user + position lookup
-            $table->index(['user_id', 'position_type'], 'idx_user_profiles_user_position');
+            if (Schema::hasColumn('user_profiles', 'position_type')) {
+                $table->index(['user_id', 'position_type'], 'idx_user_profiles_user_position');
+            } else {
+                $table->index(['user_id'], 'idx_user_profiles_user_position');
+            }
         });
 
         Schema::table('institutions', function (Blueprint $table) {
@@ -81,9 +89,15 @@ return new class extends Migration
             if (Schema::hasIndex('user_profiles', 'idx_user_profiles_position_type')) {
                 $table->dropIndex('idx_user_profiles_position_type');
             }
-            $table->dropIndex('idx_user_profiles_workplace_type');
-            $table->dropIndex('idx_user_profiles_assessment_type');
-            $table->dropIndex('idx_user_profiles_user_position');
+            if (Schema::hasIndex('user_profiles', 'idx_user_profiles_workplace_type')) {
+                $table->dropIndex('idx_user_profiles_workplace_type');
+            }
+            if (Schema::hasIndex('user_profiles', 'idx_user_profiles_assessment_type')) {
+                $table->dropIndex('idx_user_profiles_assessment_type');
+            }
+            if (Schema::hasIndex('user_profiles', 'idx_user_profiles_user_position')) {
+                $table->dropIndex('idx_user_profiles_user_position');
+            }
         });
 
         Schema::table('institutions', function (Blueprint $table) {

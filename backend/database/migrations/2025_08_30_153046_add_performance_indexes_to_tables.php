@@ -113,34 +113,70 @@ return new class extends Migration
         });
 
         // Notifications optimization
-        Schema::table('notifications', function (Blueprint $table) {
-            // Recipient, read status and date index
-            $table->index(['recipient_id', 'is_read', 'created_at'], 'notifications_recipient_read_date_idx');
+        if (Schema::hasTable('notifications')) {
+            Schema::table('notifications', function (Blueprint $table) {
+                // Determine which column represents the recipient/target
+                if (Schema::hasColumn('notifications', 'recipient_id')) {
+                    try {
+                        $table->index(['recipient_id', 'is_read', 'created_at'], 'notifications_recipient_read_date_idx');
+                    } catch (\Throwable $e) {
+                        //
+                    }
+                } elseif (Schema::hasColumn('notifications', 'user_id')) {
+                    try {
+                        $table->index(['user_id', 'is_read', 'created_at'], 'notifications_user_read_date_idx');
+                    } catch (\Throwable $e) {
+                        //
+                    }
+                }
 
-            // Notification type index
-            $table->index(['type'], 'notifications_type_idx');
-        });
+                // Notification type index (single column)
+                try {
+                    $table->index(['type'], 'notifications_type_idx');
+                } catch (\Throwable $e) {
+                    //
+                }
+            });
+        }
 
         // Departments optimization
         Schema::table('departments', function (Blueprint $table) {
             // Institution and type index
-            $table->index(['institution_id', 'type'], 'departments_institution_type_idx');
+            if (Schema::hasColumn('departments', 'type')) {
+                $table->index(['institution_id', 'type'], 'departments_institution_type_idx');
+            } elseif (Schema::hasColumn('departments', 'department_type')) {
+                $table->index(['institution_id', 'department_type'], 'departments_institution_type_idx');
+            }
 
             // Parent department index
-            $table->index(['parent_id'], 'departments_parent_idx');
+            if (Schema::hasColumn('departments', 'parent_id')) {
+                $table->index(['parent_id'], 'departments_parent_idx');
+            } elseif (Schema::hasColumn('departments', 'parent_department_id')) {
+                $table->index(['parent_department_id'], 'departments_parent_idx');
+            }
         });
 
         // Activity logs optimization (if exists)
         if (Schema::hasTable('activity_logs')) {
             Schema::table('activity_logs', function (Blueprint $table) {
                 // User and date index
-                $table->index(['user_id', 'created_at'], 'activity_logs_user_date_idx');
+                if (Schema::hasColumn('activity_logs', 'user_id') && Schema::hasColumn('activity_logs', 'created_at')) {
+                    $table->index(['user_id', 'created_at'], 'activity_logs_user_date_idx');
+                }
 
                 // Action type index
-                $table->index(['action'], 'activity_logs_action_idx');
+                if (Schema::hasColumn('activity_logs', 'action')) {
+                    $table->index(['action'], 'activity_logs_action_idx');
+                } elseif (Schema::hasColumn('activity_logs', 'activity_type')) {
+                    $table->index(['activity_type'], 'activity_logs_action_idx');
+                }
 
                 // Subject type and id index
-                $table->index(['subject_type', 'subject_id'], 'activity_logs_subject_idx');
+                if (Schema::hasColumn('activity_logs', 'subject_type') && Schema::hasColumn('activity_logs', 'subject_id')) {
+                    $table->index(['subject_type', 'subject_id'], 'activity_logs_subject_idx');
+                } elseif (Schema::hasColumn('activity_logs', 'entity_type') && Schema::hasColumn('activity_logs', 'entity_id')) {
+                    $table->index(['entity_type', 'entity_id'], 'activity_logs_subject_idx');
+                }
             });
         }
 
@@ -158,13 +194,32 @@ return new class extends Migration
         if (Schema::hasTable('attendance_records')) {
             Schema::table('attendance_records', function (Blueprint $table) {
                 // Student and date index
-                $table->index(['student_id', 'date'], 'attendance_records_student_date_idx');
+                if (Schema::hasColumn('attendance_records', 'student_id')) {
+                    if (Schema::hasColumn('attendance_records', 'date')) {
+                        $table->index(['student_id', 'date'], 'attendance_records_student_date_idx');
+                    } elseif (Schema::hasColumn('attendance_records', 'attendance_date')) {
+                        $table->index(['student_id', 'attendance_date'], 'attendance_records_student_date_idx');
+                    }
+                }
 
                 // Institution and date index
-                $table->index(['institution_id', 'date'], 'attendance_records_institution_date_idx');
+                if (Schema::hasColumn('attendance_records', 'institution_id')) {
+                    $dateColumn = null;
+                    if (Schema::hasColumn('attendance_records', 'date')) {
+                        $dateColumn = 'date';
+                    } elseif (Schema::hasColumn('attendance_records', 'attendance_date')) {
+                        $dateColumn = 'attendance_date';
+                    }
+
+                    if ($dateColumn) {
+                        $table->index(['institution_id', $dateColumn], 'attendance_records_institution_date_idx');
+                    }
+                }
 
                 // Status index
-                $table->index(['status'], 'attendance_records_status_idx');
+                if (Schema::hasColumn('attendance_records', 'status')) {
+                    $table->index(['status'], 'attendance_records_status_idx');
+                }
             });
         }
     }
@@ -226,23 +281,55 @@ return new class extends Migration
         });
 
         // Notifications indexes
-        Schema::table('notifications', function (Blueprint $table) {
-            $table->dropIndex('notifications_recipient_read_date_idx');
-            $table->dropIndex('notifications_type_idx');
-        });
+        if (Schema::hasTable('notifications')) {
+            Schema::table('notifications', function (Blueprint $table) {
+                try {
+                    $table->dropIndex('notifications_recipient_read_date_idx');
+                } catch (\Throwable $e) {
+                    //
+                }
+
+                try {
+                    $table->dropIndex('notifications_user_read_date_idx');
+                } catch (\Throwable $e) {
+                    //
+                }
+
+                try {
+                    $table->dropIndex('notifications_type_idx');
+                } catch (\Throwable $e) {
+                    //
+                }
+            });
+        }
 
         // Departments indexes
         Schema::table('departments', function (Blueprint $table) {
-            $table->dropIndex('departments_institution_type_idx');
-            $table->dropIndex('departments_parent_idx');
+            if (Schema::hasColumn('departments', 'institution_id')) {
+                try {
+                    $table->dropIndex('departments_institution_type_idx');
+                } catch (\Throwable $e) {
+                    //
+                }
+            }
+
+            try {
+                $table->dropIndex('departments_parent_idx');
+            } catch (\Throwable $e) {
+                //
+            }
         });
 
         // Activity logs indexes (if exists)
         if (Schema::hasTable('activity_logs')) {
             Schema::table('activity_logs', function (Blueprint $table) {
-                $table->dropIndex('activity_logs_user_date_idx');
-                $table->dropIndex('activity_logs_action_idx');
-                $table->dropIndex('activity_logs_subject_idx');
+                foreach (['activity_logs_user_date_idx', 'activity_logs_action_idx', 'activity_logs_subject_idx'] as $index) {
+                    try {
+                        $table->dropIndex($index);
+                    } catch (\Throwable $e) {
+                        //
+                    }
+                }
             });
         }
 
@@ -256,9 +343,17 @@ return new class extends Migration
 
         if (Schema::hasTable('attendance_records')) {
             Schema::table('attendance_records', function (Blueprint $table) {
-                $table->dropIndex('attendance_records_student_date_idx');
-                $table->dropIndex('attendance_records_institution_date_idx');
-                $table->dropIndex('attendance_records_status_idx');
+                foreach ([
+                    'attendance_records_student_date_idx',
+                    'attendance_records_institution_date_idx',
+                    'attendance_records_status_idx',
+                ] as $index) {
+                    try {
+                        $table->dropIndex($index);
+                    } catch (\Throwable $e) {
+                        //
+                    }
+                }
             });
         }
     }

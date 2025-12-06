@@ -8,6 +8,7 @@ use App\Models\DataApprovalRequest;
 use App\Models\Survey;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ApprovalAnalyticsService extends BaseService
 {
@@ -337,13 +338,15 @@ class ApprovalAnalyticsService extends BaseService
             $this->applyUserAccessControl($query, $user);
         }
 
-        // Monthly trends
-        $monthlyTrends = $query->selectRaw('
-            strftime("%Y-%m", created_at) as month,
-            COUNT(*) as total,
-            SUM(CASE WHEN current_status = "approved" THEN 1 ELSE 0 END) as approved,
-            SUM(CASE WHEN current_status = "rejected" THEN 1 ELSE 0 END) as rejected
-        ')
+        $monthExpression = $this->getDateGroupingExpression('month');
+
+        $monthlyTrends = (clone $query)
+            ->selectRaw("
+                {$monthExpression} as month,
+                COUNT(*) as total,
+                SUM(CASE WHEN current_status = ? THEN 1 ELSE 0 END) as approved,
+                SUM(CASE WHEN current_status = ? THEN 1 ELSE 0 END) as rejected
+            ", ['approved', 'rejected'])
             ->groupBy('month')
             ->orderBy('month')
             ->get()
@@ -353,13 +356,20 @@ class ApprovalAnalyticsService extends BaseService
                 return $item;
             });
 
-        // Weekly trends (last 8 weeks)
-        $weeklyTrends = DataApprovalRequest::where('created_at', '>=', Carbon::now()->subWeeks(8))
-            ->selectRaw('
-                strftime("%Y%W", created_at) as week,
+        $weekExpression = $this->getDateGroupingExpression('week');
+
+        $weeklyQuery = DataApprovalRequest::where('created_at', '>=', Carbon::now()->subWeeks(8));
+
+        if (! $user->hasRole('superadmin')) {
+            $this->applyUserAccessControl($weeklyQuery, $user);
+        }
+
+        $weeklyTrends = $weeklyQuery
+            ->selectRaw("
+                {$weekExpression} as week,
                 COUNT(*) as total,
-                SUM(CASE WHEN current_status = "approved" THEN 1 ELSE 0 END) as approved
-            ')
+                SUM(CASE WHEN current_status = ? THEN 1 ELSE 0 END) as approved
+            ", ['approved'])
             ->groupBy('week')
             ->orderBy('week')
             ->get();
@@ -633,5 +643,20 @@ class ApprovalAnalyticsService extends BaseService
         }
 
         return false;
+    }
+
+    private function getDateGroupingExpression(string $type, string $column = 'created_at'): string
+    {
+        $driver = DataApprovalRequest::query()->getModel()->getConnection()->getDriverName();
+
+        if ($driver === 'pgsql') {
+            return $type === 'month'
+                ? "TO_CHAR({$column}, 'YYYY-MM')"
+                : "TO_CHAR({$column}, 'IYYYIW')";
+        }
+
+        return $type === 'month'
+            ? "strftime('%Y-%m', {$column})"
+            : "strftime('%Y%W', {$column})";
     }
 }

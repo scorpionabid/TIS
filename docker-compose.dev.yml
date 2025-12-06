@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres_dev:
+    image: postgres:16-alpine
+    container_name: atis_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: atis_dev
+      POSTGRES_USER: atis_dev_user
+      POSTGRES_PASSWORD: atis_dev_pass_123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atis_dev_user -d atis_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin_dev:
+    image: dpage/pgadmin4:latest
+    container_name: atis_pgadmin_dev
+    restart: unless-stopped
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@atis.local
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres_dev
+    volumes:
+      - pgadmin_dev_data:/var/lib/pgadmin
+
+volumes:
+  postgres_dev_data:
+  pgadmin_dev_data:

@@ -5,6 +5,7 @@ namespace App\Services\LinkSharing\Domains\Statistics;
 use App\Models\LinkAccessLog;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
 use Exception;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Link Statistics Service
@@ -28,27 +29,31 @@ class LinkStatisticsService
             throw new Exception('Bu link statistikalarını görmək icazəniz yoxdur', 403);
         }
 
+        $timestampColumn = $this->getAccessTimestampColumn();
+
         $stats = [
             'total_access' => $linkShare->access_count,
             'unique_users' => LinkAccessLog::where('link_share_id', $linkShare->id)
                 ->distinct('user_id')
                 ->count('user_id'),
             'access_today' => LinkAccessLog::where('link_share_id', $linkShare->id)
-                ->whereDate('accessed_at', today())
+                ->whereDate($timestampColumn, today())
                 ->count(),
             'access_this_week' => LinkAccessLog::where('link_share_id', $linkShare->id)
-                ->whereBetween('accessed_at', [now()->startOfWeek(), now()->endOfWeek()])
+                ->whereBetween($timestampColumn, [now()->startOfWeek(), now()->endOfWeek()])
                 ->count(),
             'access_this_month' => LinkAccessLog::where('link_share_id', $linkShare->id)
-                ->whereMonth('accessed_at', now()->month)
+                ->whereMonth($timestampColumn, now()->month)
                 ->count(),
         ];
 
         // Get access by day for the last 30 days
+        $dateExpression = $this->getDateExpression($timestampColumn);
+
         $dailyAccess = LinkAccessLog::where('link_share_id', $linkShare->id)
-            ->where('accessed_at', '>=', now()->subDays(30))
-            ->selectRaw('DATE(accessed_at) as date, COUNT(*) as count')
-            ->groupBy('date')
+            ->where($timestampColumn, '>=', now()->subDays(30))
+            ->selectRaw("{$dateExpression} as date, COUNT(*) as count")
+            ->groupBy(DB::raw($dateExpression))
             ->orderBy('date')
             ->pluck('count', 'date')
             ->toArray();
@@ -67,5 +72,33 @@ class LinkStatisticsService
             'daily_access' => $dailyAccess,
             'access_by_role' => $accessByRole,
         ];
+    }
+
+    private function getDateExpression(string $column): string
+    {
+        return match (DB::connection()->getDriverName()) {
+            'sqlite' => "DATE({$column})",
+            'pgsql' => "DATE_TRUNC('day', {$column})::date",
+            default => "DATE({$column})",
+        };
+    }
+
+    private function getAccessTimestampColumn(): string
+    {
+        static $columnName;
+
+        if ($columnName) {
+            return $columnName;
+        }
+
+        $model = new LinkAccessLog();
+        $connectionName = $model->getConnectionName() ?: config('database.default');
+        $schemaBuilder = DB::connection($connectionName)->getSchemaBuilder();
+
+        $columnName = $schemaBuilder->hasColumn($model->getTable(), 'accessed_at')
+            ? 'accessed_at'
+            : 'created_at';
+
+        return $columnName;
     }
 }

@@ -609,10 +609,10 @@ class SurveyApprovalService extends BaseService
             // Single query to get all stats with aggregation
             $stats = $baseQuery->select(
                 DB::raw('COUNT(*) as total'),
-                DB::raw('COUNT(CASE WHEN status = "submitted" THEN 1 END) as pending'),
-                DB::raw('COUNT(CASE WHEN status = "approved" THEN 1 END) as approved'),
-                DB::raw('COUNT(CASE WHEN status = "rejected" THEN 1 END) as rejected'),
-                DB::raw('COUNT(CASE WHEN status = "draft" THEN 1 END) as draft')
+                DB::raw("COUNT(CASE WHEN status = 'submitted' THEN 1 END) as pending"),
+                DB::raw("COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved"),
+                DB::raw("COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected"),
+                DB::raw("COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft")
             )->first();
 
             $total = $stats->total ?? 0;

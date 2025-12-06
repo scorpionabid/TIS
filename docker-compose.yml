@@ -10,8 +10,12 @@ services:
       - APP_ENV=local
       - APP_DEBUG=true
       - APP_KEY=base64:8dQ8Gu3WqV8Vn9K7Mj2Nz5P6Q7R8S9T0U1V2W3X4Y5Z=
-      - DB_CONNECTION=sqlite
-      - DB_DATABASE=/var/www/html/database/database.sqlite
+      - DB_CONNECTION=pgsql
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_DATABASE=atis_dev
+      - DB_USERNAME=atis_dev_user
+      - DB_PASSWORD=atis_dev_pass_123
       - CACHE_STORE=redis
       - REDIS_CLIENT=phpredis
       - REDIS_HOST=redis
@@ -29,6 +33,8 @@ services:
       - ./backend/config:/var/www/html/config
       - ./backend/tests:/var/www/html/tests
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
     networks:
@@ -73,6 +79,29 @@ services:
       timeout: 5s
       retries: 5
 
+  # PostgreSQL Database Server
+  postgres:
+    image: postgres:16-alpine
+    container_name: atis_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=atis_dev
+      - POSTGRES_USER=atis_dev_user
+      - POSTGRES_PASSWORD=atis_dev_pass_123
+      - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=C
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    networks:
+      - atis_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atis_dev_user -d atis_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 networks:
   atis_network:
     driver: bridge
@@ -81,4 +110,6 @@ volumes:
   redis_data:
     driver: local
   frontend_node_modules:
+    driver: local
+  postgres_data:
     driver: local

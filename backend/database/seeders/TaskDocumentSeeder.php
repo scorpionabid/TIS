@@ -117,7 +117,7 @@ class TaskDocumentSeeder extends Seeder
                 'status' => $taskData['status'],
                 'assigned_to' => $taskData['assigned_to'],
                 'created_by' => $taskData['created_by'],
-                'assigned_institution_id' => $institution->id,
+                'assigned_to_institution_id' => $institution->id,
                 'deadline' => now()->addDays(rand(1, 14)),
                 'progress' => $taskData['status'] === 'completed' ? 100 : rand(10, 60),
                 'target_scope' => 'specific',

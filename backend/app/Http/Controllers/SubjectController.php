@@ -338,7 +338,7 @@ class SubjectController extends BaseController
             'total_subjects' => Subject::count(),
             'active_subjects' => Subject::active()->count(),
             'subjects_by_category' => Subject::active()
-                ->selectRaw('COALESCE(category, "core") as category, COUNT(*) as count')
+                ->selectRaw("COALESCE(category, 'core') as category, COUNT(*) as count")
                 ->groupBy('category')
                 ->pluck('count', 'category'),
             'subjects_by_grade_range' => [],

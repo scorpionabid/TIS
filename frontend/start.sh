@@ -5,6 +5,7 @@
 
 set -e
 
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -74,16 +75,6 @@ start_docker() {
     docker container prune -f --filter "until=1h" 2>/dev/null || true
     docker image prune -f --filter "dangling=true" 2>/dev/null || true
     
-    # Fix database path in backend .env for container
-    print_status "Container mühitini hazırla..."
-    if [ -f backend/.env ]; then
-        # Ensure database path is correct for container
-        if grep -q "DB_DATABASE=/Users/" backend/.env || grep -q "DB_DATABASE=$(pwd)" backend/.env; then
-            print_status "Database yolunu container üçün düzəlt..."
-            sed -i.bak 's|DB_DATABASE=.*|DB_DATABASE=/var/www/html/database/database.sqlite|' backend/.env
-        fi
-    fi
-    
     # Try to use existing images first, then build if needed
     print_status "Konteynerləri sürətli başlat..."
     if ! docker-compose -f docker-compose.simple.yml up -d --no-build 2>/dev/null; then
@@ -97,25 +88,23 @@ start_docker() {
     print_status "Servislər hazır olmasını gözlə..."
     sleep 10
     
-    # Wait for database to be ready and fix paths if needed
-    print_status "Database connection-u yoxla və düzəlt..."
-    
-    # Always fix database path in container - this is critical
-    docker exec atis_backend sed -i 's|DB_DATABASE=.*|DB_DATABASE=/var/www/html/database/database.sqlite|' /var/www/html/.env 2>/dev/null || true
-    
-    max_attempts=5
-    attempt=1
-    while [ $attempt -le $max_attempts ]; do
-        if docker exec atis_backend php -r "echo 'Testing DB connection...'; try { \$pdo = new PDO('sqlite:/var/www/html/database/database.sqlite'); echo 'OK'; } catch(\Exception \$e) { echo 'ERROR: ' . \$e->getMessage(); exit(1); }" 2>/dev/null; then
-            print_success "Database hazırdır"
-            break
-        else
-            print_status "Database yolunu yenidən düzəldir... (cəhd $attempt/$max_attempts)"
-            docker exec atis_backend sed -i 's|DB_DATABASE=.*|DB_DATABASE=/var/www/html/database/database.sqlite|' /var/www/html/.env 2>/dev/null || true
-            sleep 3
-        fi
-        attempt=$((attempt + 1))
-    done
+        
+        max_attempts=5
+        attempt=1
+        while [ $attempt -le $max_attempts ]; do
+            if docker exec atis_backend php -r "echo 'Testing DB connection...'; try { \$pdo = new PDO('sqlite:/var/www/html/database/database.sqlite'); echo 'OK'; } catch(\Exception \$e) { echo 'ERROR: ' . \$e->getMessage(); exit(1); }" 2>/dev/null; then
+                print_success "Database hazırdır"
+                break
+            else
+                print_status "Database yolunu yenidən düzəldir... (cəhd $attempt/$max_attempts)"
+                docker exec atis_backend sed -i 's|DB_DATABASE=.*|DB_DATABASE=/var/www/html/database/database.sqlite|' /var/www/html/.env 2>/dev/null || true
+                sleep 3
+            fi
+            attempt=$((attempt + 1))
+        done
+    else
+        print_status "PostgreSQL konfiqurasiyası aşkarlandı, SQLite override-ları ötürülür"
+    fi
     
     # Run migrations and seeders if needed
     print_status "Database migration və seeding yoxla..."

@@ -156,6 +156,14 @@ class LoginService
 
         $ipAddress = request()->ip() ?? '127.0.0.1';
         $userAgent = request()->userAgent() ?? '';
+        $timezoneHeader = request()->header('Time-Zone');
+        $normalizedTimezone = $timezoneHeader ? mb_substr($timezoneHeader, 0, 50) : null;
+        $languageHeader = request()->header('Accept-Language');
+        $normalizedLanguage = null;
+        if ($languageHeader) {
+            $primaryLanguage = explode(',', $languageHeader)[0] ?? $languageHeader;
+            $normalizedLanguage = mb_substr(trim($primaryLanguage), 0, 10);
+        }
         $now = now();
         $normalizedName = mb_substr($deviceName ?? 'web-browser', 0, 255);
 
@@ -183,8 +191,8 @@ class LoginService
             'platform' => null,
             'user_agent' => $userAgent,
             'screen_resolution' => null,
-            'timezone' => request()->header('Time-Zone') ?? null,
-            'language' => request()->header('Accept-Language') ?? null,
+            'timezone' => $normalizedTimezone,
+            'language' => $normalizedLanguage,
             'device_fingerprint' => [
                 'language' => request()->getPreferredLanguage(),
                 'user_agent_hash' => $userAgent ? hash('sha256', $userAgent) : null,

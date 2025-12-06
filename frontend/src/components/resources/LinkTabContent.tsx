@@ -1,11 +1,11 @@
-import React from 'react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Button } from '@/components/ui/button';
-import { Loader2, AlertCircle } from 'lucide-react';
-import LinkSelectionCard from '@/components/resources/LinkSelectionCard';
-import LinkSharingOverview from '@/components/resources/LinkSharingOverview';
-import { LinkSharingOverview as LinkSharingOverviewType } from '@/services/resources';
-import type { Resource } from '@/types/resources';
+import React from "react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Loader2, AlertCircle } from "lucide-react";
+import LinkSelectionCard from "@/components/resources/LinkSelectionCard";
+import LinkSharingOverview from "@/components/resources/LinkSharingOverview";
+import { LinkSharingOverview as LinkSharingOverviewType } from "@/services/resources";
+import type { Resource } from "@/types/resources";
 
 interface InstitutionMeta {
   id: number;
@@ -21,7 +21,10 @@ interface LinkTabContentProps {
   filteredLinkCount: number;
   isRefreshing: boolean;
   isLinkLoading: boolean;
-  onResourceAction: (resource: Resource, action: 'edit' | 'delete') => Promise<void> | void;
+  onResourceAction: (
+    resource: Resource,
+    action: "edit" | "delete"
+  ) => Promise<void> | void;
   selectedLink: Resource | null;
   onSelectLink: (link: Resource) => void;
   linkSharingOverview: LinkSharingOverviewType | null | undefined;
@@ -60,7 +63,7 @@ export const LinkTabContent: React.FC<LinkTabContentProps> = ({
             <AlertDescription>
               {error instanceof Error
                 ? error.message
-                : 'Link məlumatlarını yükləyərkən gözlənilməz xəta baş verdi.'}
+                : "Link məlumatlarını yükləyərkən gözlənilməz xəta baş verdi."}
             </AlertDescription>
             {onRetryLinks && (
               <div>
@@ -99,6 +102,7 @@ export const LinkTabContent: React.FC<LinkTabContentProps> = ({
           onRetry={onRetrySharingOverview}
           institutionMetadata={institutionMetadata}
           restrictedInstitutionIds={restrictedInstitutionIds}
+          onResourceAction={onResourceAction}
         />
       </div>
     </>

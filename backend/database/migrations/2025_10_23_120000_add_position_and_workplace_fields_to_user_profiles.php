@@ -58,8 +58,9 @@ return new class extends Migration
             }
 
             // Add indexes only if they don't exist
-            if (! $this->indexExists('user_profiles', 'user_profiles_position_type_index')) {
-                $table->index('position_type');
+            if (Schema::hasColumn('user_profiles', 'position_type')
+                && ! $this->indexExists('user_profiles', 'user_profiles_position_type_index')) {
+                $table->index('position_type', 'user_profiles_position_type_index');
             }
             if (! $this->indexExists('user_profiles', 'user_profiles_primary_institution_id_index')) {
                 $table->index('primary_institution_id');
@@ -95,24 +96,29 @@ return new class extends Migration
     {
         Schema::table('user_profiles', function (Blueprint $table) {
             // Drop indexes
-            $table->dropIndex(['position_type']);
-            $table->dropIndex(['primary_institution_id']);
-            $table->dropIndex(['employment_status']);
-            $table->dropIndex(['position_type', 'primary_institution_id']);
+            foreach (['user_profiles_position_type_index', 'user_profiles_primary_institution_id_index', 'user_profiles_employment_status_index'] as $indexName) {
+                if ($this->indexExists('user_profiles', $indexName)) {
+                    $table->dropIndex($indexName);
+                }
+            }
 
-            // Drop foreign key
-            $table->dropForeign(['primary_institution_id']);
+            if (Schema::hasColumn('user_profiles', 'primary_institution_id')) {
+                $table->dropForeign(['primary_institution_id']);
+            }
 
-            // Drop columns
-            $table->dropColumn([
-                'position_type',
-                'specialty_score',
-                'primary_institution_id',
-                'has_additional_workplaces',
-                'employment_status',
-                'contract_start_date',
-                'contract_end_date',
+            $dropColumns = array_filter([
+                Schema::hasColumn('user_profiles', 'position_type') ? 'position_type' : null,
+                Schema::hasColumn('user_profiles', 'specialty_score') ? 'specialty_score' : null,
+                Schema::hasColumn('user_profiles', 'primary_institution_id') ? 'primary_institution_id' : null,
+                Schema::hasColumn('user_profiles', 'has_additional_workplaces') ? 'has_additional_workplaces' : null,
+                Schema::hasColumn('user_profiles', 'employment_status') ? 'employment_status' : null,
+                Schema::hasColumn('user_profiles', 'contract_start_date') ? 'contract_start_date' : null,
+                Schema::hasColumn('user_profiles', 'contract_end_date') ? 'contract_end_date' : null,
             ]);
+
+            if (! empty($dropColumns)) {
+                $table->dropColumn($dropColumns);
+            }
         });
     }
 };

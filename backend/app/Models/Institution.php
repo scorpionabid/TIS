@@ -60,11 +60,13 @@ class Institution extends Model
     {
         $childrenIds = [];
 
-        // Include current institution
-        $childrenIds[] = $this->id;
+        // Include current institution (cast to int for PostgreSQL compatibility)
+        $childrenIds[] = (int) $this->id;
 
         // Get direct children (include soft deleted)
         $directChildren = $this->children()->withTrashed()->pluck('id')->toArray();
+        // Ensure all IDs are integers
+        $directChildren = array_map('intval', $directChildren);
         $childrenIds = array_merge($childrenIds, $directChildren);
 
         // Recursively get children of children
@@ -76,7 +78,8 @@ class Institution extends Model
             }
         }
 
-        return array_unique($childrenIds);
+        // Return unique IDs, all cast to integers
+        return array_map('intval', array_unique($childrenIds));
     }
 
     /**

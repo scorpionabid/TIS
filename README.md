@@ -12,6 +12,7 @@
 **ATİS** - Azərbaycan təhsil sisteminin rəqəmsal transformasiyası üçün tam funksional, ierarxik idarəetmə platformasıdır. Sistem **700+ təhsil müəssisəsini** əhatə edərək, məlumat toplama, təhlil və strateji planlaşdırma proseslərini avtomatlaşdırır.
 
 ### ✅ **Production Status: READY FOR DEPLOYMENT**
+
 - **100% Test Coverage** - Bütün funksionallığı test edilmişdir
 - **Security Validated** - Heç bir təhlükəsizlik zəifliyi tapılmamışdır
 - **Performance Optimized** - 27ms ortalama API cavab müddəti
@@ -22,6 +23,7 @@
 ## 🏛️ **Sistem Hierarkiyası**
 
 ### **4-Səviyyəli Təhsil Strukturu**
+
 ```
 Təhsil Nazirliyi
 └── Regional İdarələr (10+ region)
@@ -30,8 +32,9 @@ Təhsil Nazirliyi
 ```
 
 ### **12 İstifadəçi Rolu**
+
 - **SuperAdmin** - Sistem administratoru
-- **RegionAdmin** - Regional rəhbər  
+- **RegionAdmin** - Regional rəhbər
 - **RegionOperator** - Regional əməliyyat specialisti
 - **SektorAdmin** - Sektor rəhbəri
 - **MəktəbAdmin** - Məktəb/bağça rəhbəri
@@ -48,6 +51,7 @@ Təhsil Nazirliyi
 ## 💻 **Texnoloji Stek**
 
 ### **Backend - Laravel 11 + PHP 8.2**
+
 ```php
 // Əsas xüsusiyyətlər
 ✅ Laravel Sanctum authentication (JWT)
@@ -59,6 +63,7 @@ Təhsil Nazirliyi
 ```
 
 ### **Frontend - React 19 + TypeScript**
+
 ```typescript
 // Modern stack
 ✅ React 19 with concurrent features
@@ -70,6 +75,7 @@ Təhsil Nazirliyi
 ```
 
 ### **Infrastructure - Docker**
+
 ```yaml
 # Production-ready containerization
 ✅ Multi-service Docker Compose
@@ -84,11 +90,13 @@ Təhsil Nazirliyi
 ## 🚀 **Quick Start**
 
 ### **Tələblər**
+
 - Docker Desktop 20.10+
 - Git
 - 8GB RAM (16GB tövsiyə)
 
 ### **1-Click Setup**
+
 ```bash
 # Repository klonlayın
 git clone https://github.com/your-org/atis.git
@@ -102,13 +110,17 @@ cp frontend/.env.example frontend/.env
 ./start.sh
 ```
 
+> ℹ️ **Windows developer skriptləri** indi `for-windows-dev/` qovluğundadır (`start-windows.bat`, `stop-windows.bat`, `setup-php-windows.bat`, `docker-compose.windows.example.yml`).
+
 ### **Access Points**
+
 - 🌐 **Frontend**: http://localhost:3000
-- 🔧 **Backend API**: http://localhost:8000/api  
+- 🔧 **Backend API**: http://localhost:8000/api
 - 📊 **Database**: localhost:5432 (PostgreSQL)
 - 💾 **Cache**: localhost:6379 (Redis)
 
 ### **Test Credentials**
+
 ```
 SuperAdmin: superadmin@atis.az / admin123
 RegionAdmin: admin@atis.az / admin123
@@ -117,48 +129,59 @@ Teacher: test@example.com / test123
 
 ---
 
-## 🔧 **Development Commands**
+## 🧪 PostgreSQL Developer Hazırlığı
 
-### **Backend (Laravel)**
-```bash
-cd backend
+> Prod mühitində PostgreSQL-ə keçid planlaşdırıldığından, dev mühiti əvvəlcə Postgres ilə test olunmalıdır. Detallı plan: `documentation/POSTGRES_DEV_PLAN.md`.
 
-# Start development server
-php artisan serve --host=127.0.0.1 --port=8000
+1. **PostgreSQL konteynerini başladın**
 
-# Database operations
-php artisan migrate
-php artisan db:seed --class=SuperAdminSeeder
-php artisan db:seed --class=InstitutionHierarchySeeder
+   ```bash
+   docker-compose -f docker-compose.dev.yml up -d
+   ```
 
-# Testing
-php artisan test
-composer test
+   - Postgres portu `5433`, pgAdmin portu `5050`.
 
-# Clear cache
-php artisan cache:clear && php artisan config:clear
-```
+2. **Laravel üçün dev env faylı**
 
-### **Frontend (React)**
-```bash
-cd frontend
+   ```bash
+   cp backend/.env.dev.example backend/.env
+   ```
 
-# Start development server
-npm run dev
+   və ya ayrıca `.env.dev` istifadə edin.
 
-# Build for production
-npm run build
+3. **Docker xidmətlərini Postgres ilə başladın**
 
-# Testing
-npm run test
-npm run lint
-```
+   ```bash
+   ./start.sh
+   ```
+
+   Skript artıq `.env` faylındakı `DB_CONNECTION=pgsql` konfiqurasiyasına toxunmur; frontend üçün də eyni (`frontend/start.sh`).
+
+4. **Migrations & testlər**
+
+   ```bash
+   php artisan migrate:fresh --seed --database=pgsql
+   php artisan test --env=pgsql
+   ```
+
+5. **Nəticələri sənədləşdirin**
+
+   - Tapılan SQLite-asılılıqları və düzəlişləri `documentation/ops/postgres-migration-issues.md` faylında izləyin (planlaşdırılıb).
+
+6. **Data köçürmə skriptini sınayın**
+   ```bash
+   php artisan migrate:sqlite-to-postgres --source=sqlite --target=pgsql --batch-size=500 --verify
+   ```
+   - Komanda FK-ləri deaktiv/aktiv edir, boolean tiplərini avtomatik çevirir və Postgres seq dəyərlərini yeniləyir.
+
+Prod keçidi üçün əməliyyat planı: `documentation/ops/POSTGRESQL_MIGRATION_PLAN.md`.
 
 ---
 
 ## 📊 **Əsas Xüsusiyyətlər**
 
 ### **1. 🔐 Authentication & Authorization**
+
 - JWT token-based səmərəli authentication
 - 120 dəqiqəlik session timeout
 - Multi-device login dəstəyi
@@ -166,25 +189,29 @@ npm run lint
 - Role-based permission management
 
 ### **2. 📋 Survey Management System**
+
 ```typescript
 // Real survey workflow
-RegionAdmin yaradır → MəktəbAdmins cavab verir → 
+RegionAdmin yaradır → MəktəbAdmins cavab verir →
 SektorAdmin təsdiq edir → RegionAdmin analiz edir
 ```
 
 ### **3. 📝 Task Management**
+
 - Hierarchical task assignment
 - Regional → Sektor → Məktəb axını
 - Real-time progress tracking
 - Approval workflow integration
 
 ### **4. 🏫 Institution Management**
+
 - 4-səviyyəli ierarxiya
 - 29 institution (test environment)
 - 503 students data
 - Cross-institutional data isolation
 
 ### **5. 📄 Document Management**
+
 - File upload/download system
 - Time-based access control
 - Role-based storage limits
@@ -195,6 +222,7 @@ SektorAdmin təsdiq edir → RegionAdmin analiz edir
 ## 📈 **Performance Metrics**
 
 ### **Production-Ready Performance**
+
 - ⚡ **API Response**: 27ms average
 - 🔄 **Complex Queries**: 28.95ms (500+ records)
 - 💾 **Memory Usage**: 42.5MB peak
@@ -202,6 +230,7 @@ SektorAdmin təsdiq edir → RegionAdmin analiz edir
 - 📊 **Processing Speed**: 84,211 records/second
 
 ### **Security Assessment**
+
 - 🛡️ **Authentication**: 100% secure (0 bypass vulnerabilities)
 - 🔒 **Authorization**: Role boundaries properly enforced
 - 🔐 **Data Protection**: Cross-institutional isolation maintained
@@ -212,6 +241,7 @@ SektorAdmin təsdiq edir → RegionAdmin analiz edir
 ## 🏗️ **Database Architecture**
 
 ### **Migration Status**
+
 ```sql
 -- Successfully executed
 ✅ 120+ migrations completed
@@ -221,14 +251,15 @@ SektorAdmin təsdiq edir → RegionAdmin analiz edir
 ```
 
 ### **Core Tables**
-| Table | Purpose | Records |
-|-------|---------|---------|
-| `users` | İstifadəçi məlumatları | 6+ users |
-| `institutions` | Təhsil müəssisələri | 29 institutions |
-| `surveys` | Sorğu sistemi | Production ready |
-| `survey_responses` | Sorğu cavabları | Real data flow |
-| `tasks` | Tapşırıq sistemi | Hierarchical tasks |
-| `students` | Şagird məlumatları | 503 students |
+
+| Table              | Purpose                | Records            |
+| ------------------ | ---------------------- | ------------------ |
+| `users`            | İstifadəçi məlumatları | 6+ users           |
+| `institutions`     | Təhsil müəssisələri    | 29 institutions    |
+| `surveys`          | Sorğu sistemi          | Production ready   |
+| `survey_responses` | Sorğu cavabları        | Real data flow     |
+| `tasks`            | Tapşırıq sistemi       | Hierarchical tasks |
+| `students`         | Şagird məlumatları     | 503 students       |
 
 ---
 
@@ -237,10 +268,11 @@ SektorAdmin təsdiq edir → RegionAdmin analiz edir
 ### **Test Edilmiş İş Axınları**
 
 #### **1. Regional Survey Workflow** ✅
+
 ```mermaid
 RegionAdmin → Creates comprehensive survey
     ↓
-MəktəbAdmin → Provides detailed school data  
+MəktəbAdmin → Provides detailed school data
     ↓
 SektorAdmin → Reviews and approves response
     ↓
@@ -250,11 +282,13 @@ RegionAdmin → Analyzes results and generates insights
 **Nəticə**: 100% uğurlu workflow, <30 dəqiqə tam dövrə
 
 #### **2. Task Assignment Workflow** ✅
+
 - Regional → Sektor → Məktəb hierarchical assignments
 - Progress tracking and approval system
 - Real-time status updates
 
 #### **3. Data Approval Process** ✅
+
 - Multi-level approval chains
 - Quality control mechanisms
 - Audit trail maintenance
@@ -264,6 +298,7 @@ RegionAdmin → Analyzes results and generates insights
 ## 🚀 **Production Deployment**
 
 ### **Environment Configuration**
+
 ```bash
 # Critical production settings
 APP_ENV=production
@@ -275,6 +310,7 @@ QUEUE_CONNECTION=redis
 ```
 
 ### **Docker Production**
+
 ```bash
 # Production deployment
 docker-compose -f docker-compose.prod.yml up -d
@@ -287,6 +323,7 @@ docker-compose -f docker-compose.prod.yml up -d
 ```
 
 ### **Server Requirements**
+
 - **CPU**: 4+ cores
 - **RAM**: 8GB minimum (16GB recommended)
 - **Storage**: 100GB+ SSD
@@ -298,17 +335,19 @@ docker-compose -f docker-compose.prod.yml up -d
 ## 📊 **System Health Monitoring**
 
 ### **KPIs & Metrics**
+
 ```typescript
 interface SystemHealth {
-  uptime: ">99.5%";           // System availability
-  responseTime: "<200ms";      // API response time
-  dataIntegrity: "100%";       // Data consistency
-  securityScore: "100%";       // Security assessment
-  userSatisfaction: ">4.5/5";  // User feedback
+  uptime: ">99.5%"; // System availability
+  responseTime: "<200ms"; // API response time
+  dataIntegrity: "100%"; // Data consistency
+  securityScore: "100%"; // Security assessment
+  userSatisfaction: ">4.5/5"; // User feedback
 }
 ```
 
 ### **Monitoring Stack**
+
 - Real-time performance metrics
 - Security event logging
 - User activity tracking
@@ -320,21 +359,19 @@ interface SystemHealth {
 ## 🧪 **Testing Coverage**
 
 ### **Completed Test Phases**
+
 - **FAZA 1**: Foundation Tests (100% ✅)
   - Authentication & Session Management
   - Role-Based Access Control
   - Institution Hierarchy
-  
 - **FAZA 2**: Workflow Tests (100% ✅)
   - Survey Creation & Distribution
   - Task Management System
   - Cross-Role Collaboration
-  
 - **FAZA 3**: Integration & Security (100% ✅)
   - API Integration & Data Consistency
   - Security Vulnerability Testing
   - Performance Under Load
-  
 - **FAZA 4**: Performance & Load Testing (100% ✅)
   - High-Volume Data Processing
   - Stress Testing & Breaking Points
@@ -347,18 +384,21 @@ interface SystemHealth {
 ## 🎯 **Next Steps & Roadmap**
 
 ### **Immediate (1 həftə)**
+
 1. 🚀 **Production Server Setup**
 2. 🔒 **SSL Certificate Installation**
 3. 📊 **Monitoring Dashboard Setup**
 4. 🛡️ **Security Hardening**
 
 ### **Short-term (1 ay)**
+
 1. 👥 **User Training Program**
 2. 📊 **Data Migration Tools**
 3. 📞 **Support System Setup**
 4. 📈 **Performance Optimization**
 
 ### **Medium-term (2-6 ay)**
+
 1. 📱 **Mobile Application**
 2. 📊 **Advanced Analytics**
 3. 🤖 **AI-Powered Insights**
@@ -369,12 +409,14 @@ interface SystemHealth {
 ## 📞 **Support & Documentation**
 
 ### **Technical Support**
+
 - 📧 **Email**: support@atis.edu.az
 - 📱 **Phone**: +994 12 XXX-XX-XX
 - 💬 **Live Chat**: Available 24/7
 - 📚 **Documentation**: `/docs` folder
 
 ### **Resources**
+
 - 🔧 **API Documentation**: Swagger/OpenAPI
 - 👨‍💻 **Developer Guide**: Comprehensive setup instructions
 - 📊 **User Manuals**: Role-specific usage guides
@@ -392,6 +434,7 @@ interface SystemHealth {
 - **License**: Proprietary - Azərbaycan Təhsil Nazirliyi
 
 ### **Development Team**
+
 - 🏗️ **Architecture & Backend**: Laravel + PostgreSQL
 - 🎨 **Frontend & UX**: React + TypeScript
 - 🔧 **DevOps & Infrastructure**: Docker + Nginx

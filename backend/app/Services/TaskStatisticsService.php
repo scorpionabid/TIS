@@ -208,7 +208,7 @@ class TaskStatisticsService extends BaseService
             return [];
         }
 
-        $query = Task::whereIn('assigned_institution_id', $institutionIds);
+        $query = Task::whereIn('assigned_to_institution_id', $institutionIds);
 
         // Apply date filter if provided
         if (! empty($filters['date_from'])) {
@@ -219,22 +219,22 @@ class TaskStatisticsService extends BaseService
         }
 
         $institutionalStats = $query->selectRaw('
-            assigned_institution_id,
+            assigned_to_institution_id,
             COUNT(*) as total_tasks,
             SUM(CASE WHEN status = "completed" THEN 1 ELSE 0 END) as completed_tasks,
             SUM(CASE WHEN status = "in_progress" THEN 1 ELSE 0 END) as in_progress_tasks,
             SUM(CASE WHEN deadline < NOW() AND status NOT IN ("completed", "cancelled") THEN 1 ELSE 0 END) as overdue_tasks,
             AVG(progress) as avg_progress
         ')
-            ->groupBy('assigned_institution_id')
+            ->groupBy('assigned_to_institution_id')
             ->get();
 
         return $institutionalStats->map(function ($stat) use ($targetableInstitutions) {
-            $institution = collect($targetableInstitutions)->firstWhere('id', $stat->assigned_institution_id);
+            $institution = collect($targetableInstitutions)->firstWhere('id', $stat->assigned_to_institution_id);
 
             return [
                 'institution' => [
-                    'id' => $stat->assigned_institution_id,
+                    'id' => $stat->assigned_to_institution_id,
                     'name' => $institution['name'] ?? 'N/A',
                     'type' => $institution['type'] ?? 'N/A',
                     'level' => $institution['level'] ?? 0,
@@ -268,7 +268,7 @@ class TaskStatisticsService extends BaseService
         $scopeIds = $this->permissionService->getUserInstitutionScope($user);
 
         $query = TaskAssignment::whereHas('task', function ($q) use ($scopeIds) {
-            $q->whereIn('assigned_institution_id', $scopeIds);
+            $q->whereIn('assigned_to_institution_id', $scopeIds);
         })
             ->whereNotNull('assigned_user_id');
 

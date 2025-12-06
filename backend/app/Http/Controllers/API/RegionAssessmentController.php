@@ -7,6 +7,7 @@ use App\Models\AssessmentEntry;
 use App\Models\Institution;
 use App\Models\RegionPerformanceCache;
 use Carbon\Carbon;
+use Illuminate\Database\Query\Grammars\Grammar;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,6 +15,9 @@ use Illuminate\Support\Facades\DB;
 
 class RegionAssessmentController extends Controller
 {
+    private ?string $databaseDriver = null;
+    private ?Grammar $queryGrammar = null;
+
     /**
      * Get region performance data for RegionAdmin dashboard
      */
@@ -118,7 +122,7 @@ class RegionAssessmentController extends Controller
         }
 
         if ($request->search) {
-            $query->where('name', 'ILIKE', '%' . $request->search . '%');
+            $this->applyCaseInsensitiveSearch($query, ['institutions.name'], $request->search);
         }
 
         $institutions = $query->orderBy('average_score', 'desc')
@@ -205,9 +209,11 @@ class RegionAssessmentController extends Controller
         $months = $request->months ?? 12;
         $startDate = now()->subMonths($months);
 
+        $monthBucket = $this->getMonthlyBucketExpression('assessment_entries.assessment_date');
+
         $query = DB::table('assessment_entries')
             ->select([
-                DB::raw("DATE_TRUNC('month', assessment_date) as month"),
+                DB::raw("{$monthBucket} as month"),
                 DB::raw('AVG(percentage_score) as average_score'),
                 DB::raw('COUNT(*) as assessment_count'),
                 DB::raw('COUNT(DISTINCT student_id) as student_count'),
@@ -224,7 +230,7 @@ class RegionAssessmentController extends Controller
             $query->where('assessment_entries.assessment_type_id', $request->assessment_type_id);
         }
 
-        $trends = $query->groupBy(DB::raw("DATE_TRUNC('month', assessment_date)"))
+        $trends = $query->groupBy(DB::raw($monthBucket))
             ->orderBy('month')
             ->get()
             ->map(function ($item) {
@@ -428,6 +434,62 @@ class RegionAssessmentController extends Controller
             'monthly_trends' => [], // Would be populated with historical data
             'subject_performance' => [], // Would be populated with subject breakdown
         ];
+    }
+
+    private function applyCaseInsensitiveSearch($query, array $columns, string $term): void
+    {
+        $term = trim($term);
+
+        if ($term === '') {
+            return;
+        }
+
+        $driver = $this->getDatabaseDriver();
+        $grammar = $this->getQueryGrammar();
+
+        $query->where(function ($searchQuery) use ($columns, $term, $driver, $grammar) {
+            foreach ($columns as $index => $column) {
+                $boolean = $index === 0 ? 'and' : 'or';
+
+                if ($driver === 'pgsql') {
+                    $searchQuery->where($column, 'ILIKE', '%' . $term . '%', $boolean);
+                } else {
+                    $wrapped = $grammar->wrap($column);
+                    $searchQuery->whereRaw(
+                        "LOWER({$wrapped}) LIKE ?",
+                        ['%' . mb_strtolower($term) . '%'],
+                        $boolean
+                    );
+                }
+            }
+        });
+    }
+
+    private function getMonthlyBucketExpression(string $column = 'assessment_date'): string
+    {
+        return match ($this->getDatabaseDriver()) {
+            'pgsql' => "DATE_TRUNC('month', {$column})",
+            'sqlite' => "DATE(STRFTIME('%Y-%m-01', {$column}))",
+            default => "DATE_FORMAT({$column}, '%Y-%m-01')",
+        };
+    }
+
+    private function getDatabaseDriver(): string
+    {
+        if ($this->databaseDriver === null) {
+            $this->databaseDriver = DB::connection()->getDriverName();
+        }
+
+        return $this->databaseDriver;
+    }
+
+    private function getQueryGrammar(): Grammar
+    {
+        if ($this->queryGrammar === null) {
+            $this->queryGrammar = DB::connection()->getQueryGrammar();
+        }
+
+        return $this->queryGrammar;
     }
 
     private function formatPerformanceDistribution(array $distribution): array

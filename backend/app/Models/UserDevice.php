@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Request;
 use Illuminate\Support\Str;
 
@@ -431,13 +432,26 @@ class UserDevice extends Model
             'total_sessions' => $this->sessions()->count(),
             'active_sessions' => $this->activeSessions()->count(),
             'last_login' => $this->sessions()->latest()->first()?->started_at,
-            'total_login_time' => $this->sessions()
-                ->whereNotNull('terminated_at')
-                ->selectRaw('SUM(TIMESTAMPDIFF(MINUTE, started_at, terminated_at)) as total_minutes')
-                ->first()?->total_minutes ?? 0,
+            'total_login_time' => (int) round(
+                $this->sessions()
+                    ->whereNotNull('terminated_at')
+                    ->selectRaw($this->sessionDurationExpression() . ' as total_minutes')
+                    ->first()?->total_minutes ?? 0
+            ),
             'is_online' => $this->isOnline(),
             'registration_age_days' => $this->registered_at->diffInDays(now()),
             'trust_status' => $this->is_trusted ? 'trusted' : 'untrusted',
         ];
+    }
+
+    private function sessionDurationExpression(): string
+    {
+        $driver = DB::connection($this->getConnectionName())->getDriverName();
+
+        return match ($driver) {
+            'pgsql' => "ROUND(SUM(EXTRACT(EPOCH FROM (terminated_at - started_at)) / 60.0))",
+            'sqlite' => "ROUND(SUM((strftime('%s', terminated_at) - strftime('%s', started_at)) / 60.0))",
+            default => "SUM(TIMESTAMPDIFF(MINUTE, started_at, terminated_at))",
+        };
     }
 }

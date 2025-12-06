@@ -57,7 +57,7 @@ class TaskAssignmentService extends BaseService
                 'assigned_to' => ! empty($selectedUserIds)
                     ? $selectedUserIds[0]
                     : ($data['assigned_to'] ?? null),
-                'assigned_institution_id' => $data['target_institution_id'] ?? null,
+                'assigned_to_institution_id' => $data['target_institution_id'] ?? null,
                 'target_institutions' => $targetInstitutionIds,
                 'target_departments' => $data['target_departments'] ?? null,
                 'target_roles' => $this->normalizeStringArray($data['target_roles'] ?? []),

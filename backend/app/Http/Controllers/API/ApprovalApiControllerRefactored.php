@@ -700,11 +700,11 @@ class ApprovalApiControllerRefactored extends BaseController
             if ($user->hasRole('sektoradmin')) {
                 // Sector admin sees tasks from schools under their sector
                 $schoolIds = Institution::where('parent_id', $institution->id)->pluck('id');
-                $query->whereIn('assigned_institution_id', $schoolIds);
+                $query->whereIn('assigned_to_institution_id', $schoolIds);
             } elseif ($user->hasRole('regionadmin')) {
                 // Region admin sees tasks from sectors and schools under their region
                 $institutionIds = $this->getHierarchicalInstitutionIds($user, $institution);
-                $query->whereIn('assigned_institution_id', $institutionIds);
+                $query->whereIn('assigned_to_institution_id', $institutionIds);
             }
 
             $tasks = $query->where('status', 'completed')
@@ -828,14 +828,14 @@ class ApprovalApiControllerRefactored extends BaseController
 
         // RegionAdmin can approve tasks assigned to institutions in their hierarchy
         if ($user->hasRole('regionadmin')) {
-            return $this->isInUserHierarchy($user, $task->assigned_institution_id);
+            return $this->isInUserHierarchy($user, $task->assigned_to_institution_id);
         }
 
         // SektorAdmin can approve tasks from schools under their sector
         if ($user->hasRole('sektoradmin')) {
             $schoolIds = Institution::where('parent_id', $user->institution_id)->pluck('id');
 
-            return $schoolIds->contains($task->assigned_institution_id);
+            return $schoolIds->contains($task->assigned_to_institution_id);
         }
 
         return false;

@@ -90,7 +90,16 @@ return new class extends Migration
             return false;
         }
 
-        // For PostgreSQL and MySQL
+        if (DB::getDriverName() === 'pgsql') {
+            $indexes = DB::select(
+                "SELECT 1 FROM pg_indexes WHERE schemaname = ANY (current_schemas(false)) AND tablename = ? AND indexname = ?",
+                [$table, $indexName]
+            );
+
+            return count($indexes) > 0;
+        }
+
+        // For MySQL (default)
         $indexes = DB::select("SHOW INDEX FROM $table WHERE Key_name = ?", [$indexName]);
 
         return count($indexes) > 0;

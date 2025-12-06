@@ -271,7 +271,7 @@ class RegionOperatorDashboardService
                 'progress',
                 'assigned_to',
                 'created_by',
-                'assigned_institution_id',
+                'assigned_to_institution_id',
                 'completed_at',
             ]);
         }])
@@ -304,7 +304,7 @@ class RegionOperatorDashboardService
                 'progress',
                 'assigned_to',
                 'created_by',
-                'assigned_institution_id',
+                'assigned_to_institution_id',
                 'completed_at',
             ])
             ->where('assigned_to', $user->id)

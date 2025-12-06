@@ -7,6 +7,7 @@ use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\Task;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
@@ -21,13 +22,13 @@ class SuperAdminDashboardController extends Controller
     {
         try {
             $analytics = Cache::remember('superadmin_analytics', 300, function () {
-                // Get user stats with SQLite-compatible syntax
-                $userStats = DB::select("
-                    SELECT 
-                        (SELECT COUNT(*) FROM users) as total,
-                        (SELECT COUNT(*) FROM users WHERE is_active = 1) as active,
-                        (SELECT COUNT(*) FROM users WHERE created_at >= datetime('now', '-7 days')) as recent_registrations
-                ")[0];
+                $recentThreshold = Carbon::now()->subDays(7);
+
+                $userStats = [
+                    'total' => User::count(),
+                    'active' => User::where('is_active', true)->count(),
+                    'recent_registrations' => User::where('created_at', '>=', $recentThreshold)->count(),
+                ];
 
                 $roleStats = DB::table('users')
                     ->join('model_has_roles', 'users.id', '=', 'model_has_roles.model_id')
@@ -41,10 +42,10 @@ class SuperAdminDashboardController extends Controller
 
                 return [
                     'users' => [
-                        'total' => $userStats->total,
-                        'active' => $userStats->active,
+                        'total' => $userStats['total'],
+                        'active' => $userStats['active'],
                         'by_role' => $roleStats,
-                        'recent_registrations' => $userStats->recent_registrations,
+                        'recent_registrations' => $userStats['recent_registrations'],
                     ],
                     'institutions' => [
                         'total' => Institution::count(),
@@ -346,10 +347,19 @@ class SuperAdminDashboardController extends Controller
     private function getDatabaseSize(): string
     {
         try {
-            if (config('database.default') === 'sqlite') {
+            $connection = DB::connection();
+            $driver = $connection->getDriverName();
+
+            if ($driver === 'sqlite') {
                 $path = database_path('database.sqlite');
                 if (file_exists($path)) {
                     return $this->formatBytes(filesize($path));
+                }
+            } elseif ($driver === 'pgsql') {
+                $sizeResult = $connection->selectOne("SELECT pg_database_size(current_database()) as size");
+
+                if ($sizeResult && isset($sizeResult->size)) {
+                    return $this->formatBytes((int) $sizeResult->size);
                 }
             }
 

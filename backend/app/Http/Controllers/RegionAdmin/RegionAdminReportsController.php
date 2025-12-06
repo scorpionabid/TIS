@@ -45,9 +45,9 @@ class RegionAdminReportsController extends Controller
             'active_users' => User::whereIn('institution_id', $institutionIds)
                 ->where('last_login_at', '>=', Carbon::now()->subDays(30))
                 ->count(),
-            'total_surveys' => Survey::where('created_by', $user->id)->count(),
+            'total_surveys' => Survey::where('creator_id', $user->id)->count(),
             'total_responses' => SurveyResponse::whereHas('survey', function ($query) use ($user) {
-                $query->where('created_by', $user->id);
+                $query->where('creator_id', $user->id);
             })->count(),
         ];
 
@@ -170,7 +170,7 @@ class RegionAdminReportsController extends Controller
         $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
 
         // Survey statistics within date range
-        $surveys = Survey::where('created_by', $user->id)
+        $surveys = Survey::where('creator_id', $user->id)
             ->whereBetween('created_at', [$startDate, $endDate])
             ->with(['targeting.institution'])
             ->get();

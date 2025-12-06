@@ -20,22 +20,41 @@ trait CreatesApplication
 
         $app->make(Kernel::class)->bootstrap();
 
-        // Set the default database connection to SQLite (file-based) for testing
-        $databasePath = database_path('testing.sqlite');
-        if (! file_exists($databasePath)) {
-            touch($databasePath);
+        $defaultConnection = env('DB_CONNECTION', config('database.default'));
+
+        if (env('TESTS_DEBUG_DB', false)) {
+            fwrite(
+                STDERR,
+                sprintf(
+                    "[TestBootstrap] env(DB_CONNECTION)=%s config_default=%s%s",
+                    $defaultConnection,
+                    config('database.default'),
+                    PHP_EOL
+                )
+            );
         }
 
-        config([
-            'database.default' => 'sqlite',
-            'database.connections.sqlite.database' => $databasePath,
-            'database.connections.sqlite.foreign_key_constraints' => true,
-        ]);
+        if ($defaultConnection === 'sqlite') {
+            $databasePath = env('DB_DATABASE', database_path('testing.sqlite'));
 
-        // Enable foreign key constraints for SQLite
-        if (config('database.default') === 'sqlite') {
+            if ($databasePath !== ':memory:') {
+                // Always recreate the SQLite testing database to avoid stale / corrupted files
+                if (file_exists($databasePath)) {
+                    @unlink($databasePath);
+                }
+                touch($databasePath);
+            }
+
+            config([
+                'database.default' => 'sqlite',
+                'database.connections.sqlite.database' => $databasePath,
+                'database.connections.sqlite.foreign_key_constraints' => true,
+            ]);
+
             $db = app()->make('db');
             $db->connection()->getPdo()->exec('PRAGMA foreign_keys=on');
+        } else {
+            config(['database.default' => $defaultConnection]);
         }
 
         return $app;

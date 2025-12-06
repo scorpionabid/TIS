@@ -217,7 +217,7 @@ class DocumentService
             DocumentAccessLog::create([
                 'document_id' => $document->id,
                 'user_id' => Auth::id(),
-                'action' => $action,
+                'access_type' => $action,
                 'ip_address' => request()->ip(),
                 'user_agent' => request()->userAgent(),
             ]);

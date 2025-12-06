@@ -46,7 +46,7 @@ class InstitutionFactory extends Factory
             'type' => $type,
             'institution_type_id' => $this->resolveInstitutionTypeId($type),
             'level' => $this->faker->numberBetween(1, 4),
-            'institution_code' => strtoupper($this->faker->lexify('???')),
+            'institution_code' => $this->generateCode('INST', 6),
             'region_code' => $this->faker->regexify('[A-Z]{2}[0-9]{2}'),
             'short_name' => $this->faker->lexify('???'),
             'established_date' => $this->faker->date(),
@@ -129,7 +129,7 @@ class InstitutionFactory extends Factory
             'name' => $this->faker->city() . ' Regional Office',
             'type' => 'region',
             'level' => 2,
-            'institution_code' => 'REG' . $this->faker->numberBetween(1, 10),
+            'institution_code' => $this->generateCode('REG', 4),
         ]);
     }
 
@@ -142,7 +142,7 @@ class InstitutionFactory extends Factory
             'name' => $this->faker->city() . ' Sector',
             'type' => 'sektor',
             'level' => 3,
-            'institution_code' => 'SEC' . $this->faker->numberBetween(1, 20),
+            'institution_code' => $this->generateCode('SEC', 4),
         ]);
     }
 
@@ -155,7 +155,7 @@ class InstitutionFactory extends Factory
             'name' => $this->faker->numberBetween(1, 100) . ' nömrəli orta məktəb',
             'type' => 'school',
             'level' => 4,
-            'institution_code' => 'SCH' . $this->faker->numberBetween(1, 999),
+            'institution_code' => $this->generateCode('SCH', 5),
         ]);
     }
 
@@ -167,5 +167,16 @@ class InstitutionFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'is_active' => false,
         ]);
+    }
+
+    /**
+     * Generate a mostly unique institution code with the given prefix.
+     */
+    protected function generateCode(string $prefix, int $digits): string
+    {
+        $max = (10 ** $digits) - 1;
+        $number = $this->faker->unique()->numberBetween(1, $max);
+
+        return sprintf('%s%0' . $digits . 'd', strtoupper($prefix), $number);
     }
 }

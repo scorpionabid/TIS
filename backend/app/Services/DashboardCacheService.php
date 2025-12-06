@@ -3,10 +3,11 @@
 namespace App\Services;
 
 use App\Models\Document;
-use App\Models\Institution;
+use App.Models\Institution;
 use App\Models\Survey;
 use App\Models\Task;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
@@ -100,17 +101,17 @@ class DashboardCacheService
      */
     protected function getUserTrends(): array
     {
-        // SQLite compatible query for user trends
-        return DB::select("
-            SELECT 
-                DATE(created_at) as date,
-                COUNT(*) as registrations
-            FROM users 
-            WHERE created_at >= datetime('now', '-30 days')
-            GROUP BY DATE(created_at)
-            ORDER BY date DESC
-            LIMIT 30
-        ");
+        $since = Carbon::now()->subDays(30);
+
+        return User::query()
+            ->selectRaw('DATE(created_at) as date, COUNT(*) as registrations')
+            ->where('created_at', '>=', $since)
+            ->groupBy(DB::raw('DATE(created_at)'))
+            ->orderByDesc('date')
+            ->limit(30)
+            ->get()
+            ->map(fn ($row) => (array) $row)
+            ->toArray();
     }
 
     /**
@@ -118,14 +119,14 @@ class DashboardCacheService
      */
     protected function getActivitySummary(): array
     {
-        // SQLite compatible query for activity summary
-        return DB::select("
-            SELECT 
-                (SELECT COUNT(*) FROM surveys WHERE created_at >= datetime('now', '-7 days')) as surveys_this_week,
-                (SELECT COUNT(*) FROM tasks WHERE created_at >= datetime('now', '-7 days')) as tasks_this_week,
-                (SELECT COUNT(*) FROM documents WHERE created_at >= datetime('now', '-7 days')) as documents_this_week,
-                (SELECT COUNT(*) FROM users WHERE last_login_at >= datetime('now', '-7 days')) as active_users_this_week
-        ")[0];
+        $since = Carbon::now()->subDays(7);
+
+        return (object) [
+            'surveys_this_week' => Survey::where('created_at', '>=', $since)->count(),
+            'tasks_this_week' => Task::where('created_at', '>=', $since)->count(),
+            'documents_this_week' => Document::where('created_at', '>=', $since)->count(),
+            'active_users_this_week' => User::where('last_login_at', '>=', $since)->count(),
+        ];
     }
 
     /**

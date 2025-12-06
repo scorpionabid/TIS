@@ -1,10 +1,11 @@
 FROM php:8.3-cli-alpine
 
-# Install system dependencies including SQLite, GD, ZIP and Redis
+# Install system dependencies including PostgreSQL, SQLite, GD, ZIP and Redis
 RUN apk add --no-cache \
     curl \
     zip \
     unzip \
+    postgresql-dev \
     sqlite-dev \
     libpng-dev \
     libjpeg-turbo-dev \
@@ -13,6 +14,7 @@ RUN apk add --no-cache \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo \
+        pdo_pgsql \
         pdo_sqlite \
         gd \
         zip

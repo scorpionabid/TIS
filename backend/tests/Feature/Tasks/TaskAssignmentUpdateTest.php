@@ -41,7 +41,7 @@ class TaskAssignmentUpdateTest extends TestCase
             'status' => 'pending',
             'created_by' => $creator->id,
             'assigned_to' => $assignee->id,
-            'assigned_institution_id' => $school->id,
+            'assigned_to_institution_id' => $school->id,
             'target_institutions' => [$school->id],
             'progress' => 0,
         ]);

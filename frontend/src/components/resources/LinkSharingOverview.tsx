@@ -1,15 +1,15 @@
-import React, { useEffect, useState, useMemo, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
+import React, { useEffect, useState, useMemo, useRef } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@/components/ui/tooltip';
+} from "@/components/ui/tooltip";
 import {
   AlertCircle,
   Building2,
@@ -20,13 +20,14 @@ import {
   CheckCircle2,
   XCircle,
   Info,
-  ExternalLink
-} from 'lucide-react';
-import type { Resource } from '@/types/resources';
-import type { LinkSharingOverview } from '@/services/resources';
-import { useAuth } from '@/contexts/AuthContext';
-import { institutionService } from '@/services/institutions';
-import type { Institution } from '@/services/institutions';
+  ExternalLink,
+  Edit,
+} from "lucide-react";
+import type { Resource } from "@/types/resources";
+import type { LinkSharingOverview } from "@/services/resources";
+import { useAuth } from "@/contexts/AuthContext";
+import { institutionService } from "@/services/institutions";
+import type { Institution } from "@/services/institutions";
 
 interface SchoolWithAccess {
   id: number;
@@ -50,7 +51,8 @@ interface SectorWithAccess {
   schools: SchoolWithAccess[];
 }
 
-interface LinkSharingOverviewWithAccess extends Omit<LinkSharingOverview, 'sectors'> {
+interface LinkSharingOverviewWithAccess
+  extends Omit<LinkSharingOverview, "sectors"> {
   sectors: SectorWithAccess[];
   accessed_count?: number;
   not_accessed_count?: number;
@@ -72,6 +74,7 @@ interface LinkSharingOverviewProps {
   onRetry?: () => void;
   institutionMetadata?: Record<number, ProvidedInstitutionMeta>;
   restrictedInstitutionIds?: number[] | null;
+  onResourceAction?: (resource: Resource, action: "edit" | "delete") => void;
 }
 
 type InstitutionMeta = {
@@ -82,9 +85,11 @@ type InstitutionMeta = {
   level?: number | null;
 };
 
-const normalizeInstitution = (input: Institution | { data?: Institution } | null | undefined): Institution | null => {
+const normalizeInstitution = (
+  input: Institution | { data?: Institution } | null | undefined
+): Institution | null => {
   if (!input) return null;
-  if (typeof input === 'object' && 'data' in input) {
+  if (typeof input === "object" && "data" in input) {
     return input.data ? (input.data as Institution) : null;
   }
   return input as Institution;
@@ -97,10 +102,15 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
   onRetry,
   institutionMetadata: providedInstitutionMetadata = {},
   restrictedInstitutionIds,
+  onResourceAction,
 }) => {
   const { currentUser } = useAuth();
-  const [expandedSectors, setExpandedSectors] = useState<Set<number | 'ungrouped'>>(new Set());
-  const [institutionMeta, setInstitutionMeta] = useState<Record<number, InstitutionMeta>>({});
+  const [expandedSectors, setExpandedSectors] = useState<
+    Set<number | "ungrouped">
+  >(new Set());
+  const [institutionMeta, setInstitutionMeta] = useState<
+    Record<number, InstitutionMeta>
+  >({});
   const institutionMetaRef = useRef<Record<number, InstitutionMeta>>({});
   const failedInstitutionIds = useRef<Set<number>>(new Set()); // Cache for 404 institution IDs to prevent infinite loops
   const restrictedInstitutionSet = useMemo(() => {
@@ -148,7 +158,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     setExpandedSectors(new Set());
   }, [overview?.link_id]);
 
-  const toggleSector = (sectorId: number | 'ungrouped') => {
+  const toggleSector = (sectorId: number | "ungrouped") => {
     setExpandedSectors((prev) => {
       const next = new Set(prev);
       if (next.has(sectorId)) {
@@ -167,11 +177,11 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
     const ids = new Set<number>();
     overview.sectors.forEach((sector) => {
-      if (typeof sector.id === 'number') {
+      if (typeof sector.id === "number") {
         ids.add(sector.id);
       }
       sector.schools.forEach((school) => {
-        if (typeof school.id === 'number') {
+        if (typeof school.id === "number") {
           ids.add(school.id);
         }
       });
@@ -181,7 +191,9 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       return;
     }
 
-    const baseMeta: Record<number, InstitutionMeta> = { ...institutionMetaRef.current };
+    const baseMeta: Record<number, InstitutionMeta> = {
+      ...institutionMetaRef.current,
+    };
     Object.values(providedInstitutionMetadata || {}).forEach((meta) => {
       if (!meta?.id) return;
       baseMeta[meta.id] = baseMeta[meta.id] || {
@@ -193,8 +205,8 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       };
     });
 
-    const missingIds = Array.from(ids).filter((id) =>
-      !baseMeta[id] && !failedInstitutionIds.current.has(id) // Skip already failed IDs
+    const missingIds = Array.from(ids).filter(
+      (id) => !baseMeta[id] && !failedInstitutionIds.current.has(id) // Skip already failed IDs
     );
     if (missingIds.length === 0) {
       return;
@@ -202,7 +214,9 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
     let isCancelled = false;
 
-    const fetchDetail = async (institutionId: number): Promise<InstitutionMeta | null> => {
+    const fetchDetail = async (
+      institutionId: number
+    ): Promise<InstitutionMeta | null> => {
       // Skip if this institution ID has already failed (404) - prevent infinite retry loops
       if (failedInstitutionIds.current.has(institutionId)) {
         return {
@@ -219,7 +233,10 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
         if (!normalized) return null;
         return {
           id: institutionId,
-          name: normalized.name || normalized.short_name || `Müəssisə #${institutionId}`,
+          name:
+            normalized.name ||
+            normalized.short_name ||
+            `Müəssisə #${institutionId}`,
           utis_code: normalized.utis_code,
           level: normalized.level ?? null,
           parent_id: normalized.parent_id ?? normalized.parent?.id ?? null,
@@ -228,9 +245,15 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
         // Cache 404 errors to prevent retry loops
         if (error?.response?.status === 404 || error?.status === 404) {
           failedInstitutionIds.current.add(institutionId);
-          console.warn('Institution not found (404) - caching to prevent retries:', institutionId);
+          console.warn(
+            "Institution not found (404) - caching to prevent retries:",
+            institutionId
+          );
         } else {
-          console.warn('Failed to fetch institution detail for LinkSharingOverview', { institutionId, error });
+          console.warn(
+            "Failed to fetch institution detail for LinkSharingOverview",
+            { institutionId, error }
+          );
         }
         return {
           id: institutionId,
@@ -252,7 +275,8 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
           if (Number.isNaN(numericId)) return;
           entries[numericId] = {
             id: numericId,
-            name: summary?.name || summary?.short_name || `Müəssisə #${numericId}`,
+            name:
+              summary?.name || summary?.short_name || `Müəssisə #${numericId}`,
             utis_code: summary?.utis_code,
             level: summary?.level ?? null,
             parent_id: summary?.parent_id ?? summary?.parentId ?? null,
@@ -260,11 +284,15 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
         });
 
         const detailFetchIds = Object.values(entries)
-          .filter((entry) => entry.level === null || entry.parent_id === undefined)
+          .filter(
+            (entry) => entry.level === null || entry.parent_id === undefined
+          )
           .map((entry) => entry.id);
 
         if (detailFetchIds.length > 0) {
-          const detailedEntries = await Promise.all(detailFetchIds.map(fetchDetail));
+          const detailedEntries = await Promise.all(
+            detailFetchIds.map(fetchDetail)
+          );
           detailedEntries.forEach((detail) => {
             if (!detail) return;
             entries[detail.id] = { ...entries[detail.id], ...detail };
@@ -273,20 +301,29 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
         const pendingParents = new Set<number>();
         Object.values(entries).forEach((entry) => {
-          if (entry.parent_id && !entries[entry.parent_id] && !failedInstitutionIds.current.has(entry.parent_id)) {
+          if (
+            entry.parent_id &&
+            !entries[entry.parent_id] &&
+            !failedInstitutionIds.current.has(entry.parent_id)
+          ) {
             pendingParents.add(entry.parent_id);
           }
         });
 
         if (pendingParents.size > 0) {
-          const parentDetails = await Promise.all(Array.from(pendingParents).map(fetchDetail));
+          const parentDetails = await Promise.all(
+            Array.from(pendingParents).map(fetchDetail)
+          );
           parentDetails.forEach((detail) => {
             if (!detail) return;
             entries[detail.id] = detail;
           });
         }
       } catch (error) {
-        console.error('Failed to load institution metadata for link sharing overview', error);
+        console.error(
+          "Failed to load institution metadata for link sharing overview",
+          error
+        );
         summariesFailed = true;
       }
 
@@ -326,10 +363,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     };
   }, [overview?.link_id, overview?.sectors, providedInstitutionMetadata]);
 
-  const {
-    sectorsToRender,
-    derivedTotals,
-  } = useMemo(() => {
+  const { sectorsToRender, derivedTotals } = useMemo(() => {
     if (!overview?.sectors) {
       return {
         sectorsToRender: [],
@@ -344,21 +378,25 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     }
 
     type NormalizedSector = SectorWithAccess;
-    const sectorMap = new Map<number | 'ungrouped', NormalizedSector>();
+    const sectorMap = new Map<number | "ungrouped", NormalizedSector>();
 
     overview.sectors.forEach((sector) => {
       const fallbackSectorId = sector.id ?? null;
       sector.schools.forEach((school) => {
         const schoolMeta = school.id ? institutionMeta[school.id] : undefined;
         const actualSectorId = schoolMeta?.parent_id ?? fallbackSectorId;
-        const key = actualSectorId ?? 'ungrouped';
-        const numericSchoolId = typeof school.id === 'number' ? school.id : Number(school.id);
-        const sectorAllowed = !restrictedInstitutionSet || (
-          typeof actualSectorId === 'number' && restrictedInstitutionSet.has(actualSectorId)
-        );
-        const schoolAllowed = !restrictedInstitutionSet || (
-          typeof numericSchoolId === 'number' && !Number.isNaN(numericSchoolId) && restrictedInstitutionSet.has(numericSchoolId)
-        );
+        const key = actualSectorId ?? "ungrouped";
+        const numericSchoolId =
+          typeof school.id === "number" ? school.id : Number(school.id);
+        const sectorAllowed =
+          !restrictedInstitutionSet ||
+          (typeof actualSectorId === "number" &&
+            restrictedInstitutionSet.has(actualSectorId));
+        const schoolAllowed =
+          !restrictedInstitutionSet ||
+          (typeof numericSchoolId === "number" &&
+            !Number.isNaN(numericSchoolId) &&
+            restrictedInstitutionSet.has(numericSchoolId));
 
         if (restrictedInstitutionSet && !sectorAllowed && !schoolAllowed) {
           return;
@@ -366,11 +404,20 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
         let targetSector = sectorMap.get(key);
         if (!targetSector) {
-          const sectorMeta = typeof actualSectorId === 'number' ? institutionMeta[actualSectorId] : undefined;
-          const regionMeta = sectorMeta?.parent_id ? institutionMeta[sectorMeta.parent_id] : undefined;
+          const sectorMeta =
+            typeof actualSectorId === "number"
+              ? institutionMeta[actualSectorId]
+              : undefined;
+          const regionMeta = sectorMeta?.parent_id
+            ? institutionMeta[sectorMeta.parent_id]
+            : undefined;
           targetSector = {
-            id: typeof actualSectorId === 'number' ? actualSectorId : null,
-            name: sectorMeta?.name || (typeof actualSectorId === 'number' ? sector.name : 'Sektor müəyyən edilməyib'),
+            id: typeof actualSectorId === "number" ? actualSectorId : null,
+            name:
+              sectorMeta?.name ||
+              (typeof actualSectorId === "number"
+                ? sector.name
+                : "Sektor müəyyən edilməyib"),
             region_id: regionMeta?.id ?? sector.region_id ?? null,
             region_name: regionMeta?.name || sector.region_name || null,
             is_full_coverage: sector.is_full_coverage,
@@ -388,20 +435,30 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     const normalized = Array.from(sectorMap.values())
       .filter((sector) => sector.school_count > 0)
       .sort((a, b) => {
-      const regionComparison = (a.region_name || '').localeCompare(b.region_name || '', 'az');
-      if (regionComparison !== 0) {
-        return regionComparison;
-      }
-      return (a.name || '').localeCompare(b.name || '', 'az');
-    });
+        const regionComparison = (a.region_name || "").localeCompare(
+          b.region_name || "",
+          "az"
+        );
+        if (regionComparison !== 0) {
+          return regionComparison;
+        }
+        return (a.name || "").localeCompare(b.name || "", "az");
+      });
 
-    const totalSchools = normalized.reduce((sum, sector) => sum + sector.school_count, 0);
+    const totalSchools = normalized.reduce(
+      (sum, sector) => sum + sector.school_count,
+      0
+    );
     const accessedCount = normalized.reduce(
-      (sum, sector) => sum + sector.schools.filter((school) => school.has_accessed).length,
+      (sum, sector) =>
+        sum + sector.schools.filter((school) => school.has_accessed).length,
       0
     );
     const notAccessedCount = totalSchools - accessedCount;
-    const accessRate = totalSchools > 0 ? Number(((accessedCount / totalSchools) * 100).toFixed(1)) : 0;
+    const accessRate =
+      totalSchools > 0
+        ? Number(((accessedCount / totalSchools) * 100).toFixed(1))
+        : 0;
 
     return {
       sectorsToRender: normalized,
@@ -420,8 +477,8 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     const sourceSectors = restrictedInstitutionSet
       ? sectorsToRender
       : sectorsToRender.length > 0
-        ? sectorsToRender
-        : overview?.sectors || [];
+      ? sectorsToRender
+      : overview?.sectors || [];
 
     const allNotAccessed: Array<{
       id: number;
@@ -430,8 +487,8 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       sector_name: string;
     }> = [];
 
-    sourceSectors.forEach(sector => {
-      sector.schools.forEach(school => {
+    sourceSectors.forEach((sector) => {
+      sector.schools.forEach((school) => {
         if (!school.has_accessed) {
           allNotAccessed.push({
             id: school.id,
@@ -458,22 +515,29 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
     const userRole = currentUser?.roles?.[0]?.name?.toLowerCase();
     const userInstitutionId = currentUser?.institution_id;
 
-    if (userRole === 'sektoradmin' && userInstitutionId) {
-      return allNotAccessed.filter(inst => inst.sector_id === userInstitutionId);
+    if (userRole === "sektoradmin" && userInstitutionId) {
+      return allNotAccessed.filter(
+        (inst) => inst.sector_id === userInstitutionId
+      );
     }
 
     return allNotAccessed;
-  }, [sectorsToRender, overview?.sectors, currentUser, restrictedInstitutionSet]);
+  }, [
+    sectorsToRender,
+    overview?.sectors,
+    currentUser,
+    restrictedInstitutionSet,
+  ]);
 
   const formatDate = (dateString: string | null) => {
-    if (!dateString) return '—';
+    if (!dateString) return "—";
     try {
-      return new Date(dateString).toLocaleDateString('az-AZ', {
-        day: '2-digit',
-        month: '2-digit',
-        year: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit'
+      return new Date(dateString).toLocaleDateString("az-AZ", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
       });
     } catch {
       return dateString;
@@ -524,7 +588,9 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
         <CardContent>
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
-            <AlertDescription>Məlumatı əldə etmək mümkün olmadı.</AlertDescription>
+            <AlertDescription>
+              Məlumatı əldə etmək mümkün olmadı.
+            </AlertDescription>
           </Alert>
         </CardContent>
       </Card>
@@ -533,17 +599,29 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
   const hasUserTargets = (overview.target_users?.length ?? 0) > 0;
   const hasSectors = (overview.sectors?.length ?? 0) > 0;
-  const preferDerived = Boolean(restrictedInstitutionSet || sectorsToRender.length > 0);
-  const totalSectors = preferDerived ? derivedTotals.totalSectors : derivedTotals.totalSectors || overview.total_sectors || 0;
-  const totalSchools = preferDerived ? derivedTotals.totalSchools : derivedTotals.totalSchools || overview.total_schools || 0;
-  const accessedCount = preferDerived ? derivedTotals.accessedCount : derivedTotals.accessedCount ?? overview.accessed_count;
-  const notAccessedCount = preferDerived ? derivedTotals.notAccessedCount : derivedTotals.notAccessedCount ?? overview.not_accessed_count;
-  const accessRate = preferDerived ? derivedTotals.accessRate : derivedTotals.accessRate || overview.access_rate || 0;
+  const preferDerived = Boolean(
+    restrictedInstitutionSet || sectorsToRender.length > 0
+  );
+  const totalSectors = preferDerived
+    ? derivedTotals.totalSectors
+    : derivedTotals.totalSectors || overview.total_sectors || 0;
+  const totalSchools = preferDerived
+    ? derivedTotals.totalSchools
+    : derivedTotals.totalSchools || overview.total_schools || 0;
+  const accessedCount = preferDerived
+    ? derivedTotals.accessedCount
+    : derivedTotals.accessedCount ?? overview.accessed_count;
+  const notAccessedCount = preferDerived
+    ? derivedTotals.notAccessedCount
+    : derivedTotals.notAccessedCount ?? overview.not_accessed_count;
+  const accessRate = preferDerived
+    ? derivedTotals.accessRate
+    : derivedTotals.accessRate || overview.access_rate || 0;
   const sectorsForDisplay = restrictedInstitutionSet
     ? sectorsToRender
     : sectorsToRender.length > 0
-      ? sectorsToRender
-      : overview.sectors || [];
+    ? sectorsToRender
+    : overview.sectors || [];
 
   if (!hasSectors && !hasUserTargets) {
     return (
@@ -579,7 +657,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
             <div className="flex flex-col gap-1">
               <CardTitle>Paylaşılan müəssisələr</CardTitle>
               <p className="text-sm text-muted-foreground">
-                {overview.link_title} ({overview.share_scope || '—'})
+                {overview.link_title} ({overview.share_scope || "—"})
               </p>
             </div>
 
@@ -592,7 +670,10 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
                 {totalSchools} məktəb
               </Badge>
               {accessedCount !== undefined && (
-                <Badge variant="secondary" className="bg-emerald-50 text-emerald-700">
+                <Badge
+                  variant="secondary"
+                  className="bg-emerald-50 text-emerald-700"
+                >
                   <CheckCircle2 className="h-3 w-3 mr-1" />
                   {accessedCount} açılıb
                 </Badge>
@@ -619,15 +700,21 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
           <CardContent className="space-y-4">
             {sectorsForDisplay.map((sector) => {
-              const sectorKey = sector.id ?? 'ungrouped';
+              const sectorKey = sector.id ?? "ungrouped";
               const isExpanded = expandedSectors.has(sectorKey);
 
               // Calculate sector access stats
-              const sectorAccessedCount = sector.schools.filter(s => s.has_accessed).length;
-              const sectorNotAccessedCount = sector.schools.length - sectorAccessedCount;
+              const sectorAccessedCount = sector.schools.filter(
+                (s) => s.has_accessed
+              ).length;
+              const sectorNotAccessedCount =
+                sector.schools.length - sectorAccessedCount;
 
               return (
-                <div key={sectorKey} className="border rounded-lg overflow-hidden">
+                <div
+                  key={sectorKey}
+                  className="border rounded-lg overflow-hidden"
+                >
                   <button
                     type="button"
                     onClick={() => toggleSector(sectorKey)}
@@ -640,27 +727,43 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
                         ) : (
                           <ChevronRight className="h-4 w-4 text-muted-foreground" />
                         )}
-                        <span className="font-semibold">{sector.name || 'Sektor müəyyən edilməyib'}</span>
+                        <span className="font-semibold">
+                          {sector.name || "Sektor müəyyən edilməyib"}
+                        </span>
                       </div>
                       <div className="text-xs text-muted-foreground flex flex-wrap gap-3">
-                        {sector.region_name && <span>Region: {sector.region_name}</span>}
+                        {sector.region_name && (
+                          <span>Region: {sector.region_name}</span>
+                        )}
                         <span>
-                          Status: {sector.is_full_coverage ? 'Bütün məktəblər' : 'Seçilmiş məktəblər'}
+                          Status:{" "}
+                          {sector.is_full_coverage
+                            ? "Bütün məktəblər"
+                            : "Seçilmiş məktəblər"}
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       {sectorAccessedCount > 0 && (
-                        <Badge variant="outline" className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200">
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-emerald-50 text-emerald-700 border-emerald-200"
+                        >
                           {sectorAccessedCount} ✓
                         </Badge>
                       )}
                       {sectorNotAccessedCount > 0 && (
-                        <Badge variant="outline" className="text-xs bg-red-50 text-red-700 border-red-200">
+                        <Badge
+                          variant="outline"
+                          className="text-xs bg-red-50 text-red-700 border-red-200"
+                        >
                           {sectorNotAccessedCount} ✗
                         </Badge>
                       )}
-                      <Badge variant="secondary" className="bg-primary/10 text-primary">
+                      <Badge
+                        variant="secondary"
+                        className="bg-primary/10 text-primary"
+                      >
                         {sector.school_count} məktəb
                       </Badge>
                     </div>
@@ -678,28 +781,42 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
                               <tr className="text-left text-muted-foreground">
                                 <th className="pb-2 font-medium">Məktəb</th>
                                 <th className="pb-2 font-medium">Link</th>
-                                <th className="pb-2 font-medium">Linkə keçid</th>
+                                <th className="pb-2 font-medium">
+                                  Linkə keçid
+                                </th>
+                                {onResourceAction && selectedLink && (
+                                  <th className="pb-2 font-medium text-right">
+                                    Düzəliş
+                                  </th>
+                                )}
                               </tr>
                             </thead>
                             <tbody>
                               {sector.schools.map((school) => (
-                                <tr key={school.id} className="border-t text-sm">
+                                <tr
+                                  key={school.id}
+                                  className="border-t text-sm"
+                                >
                                   <td className="py-2 flex items-center gap-2">
                                     <School className="h-3.5 w-3.5 text-muted-foreground" />
                                     {school.name}
                                   </td>
-                                  <td className="py-2">{overview.link_title}</td>
                                   <td className="py-2">
-                                    {(school.link_url || selectedLink?.url) ? (
+                                    {overview.link_title}
+                                  </td>
+                                  <td className="py-2">
+                                    {school.link_url || selectedLink?.url ? (
                                       <div className="flex items-center gap-1">
                                         <a
-                                          href={school.link_url || selectedLink.url}
+                                          href={
+                                            school.link_url || selectedLink.url
+                                          }
                                           target="_blank"
                                           rel="noopener noreferrer"
                                           className={`inline-flex items-center gap-1 hover:underline ${
                                             school.has_accessed
-                                              ? 'text-green-600 hover:text-green-700'
-                                              : 'text-red-600 hover:text-red-700'
+                                              ? "text-green-600 hover:text-green-700"
+                                              : "text-red-600 hover:text-red-700"
                                           }`}
                                         >
                                           {school.has_accessed ? (
@@ -707,34 +824,82 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
                                           ) : (
                                             <XCircle className="h-3.5 w-3.5" />
                                           )}
-                                          {school.has_accessed ? 'Açılıb' : 'Açılmayıb'}
+                                          {school.has_accessed
+                                            ? "Açılıb"
+                                            : "Açılmayıb"}
                                           <ExternalLink className="h-3 w-3 ml-0.5" />
                                         </a>
-                                        {school.has_accessed && school.access_count > 0 && (
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <button type="button" className="ml-1">
-                                                <Info className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                                              </button>
-                                            </TooltipTrigger>
-                                            <TooltipContent>
-                                              <div className="text-xs space-y-1">
-                                                <p><strong>{school.access_count}</strong> dəfə açılıb</p>
-                                                {school.first_accessed_at && (
-                                                  <p>İlk: {formatDate(school.first_accessed_at)}</p>
-                                                )}
-                                                {school.last_accessed_at && (
-                                                  <p>Son: {formatDate(school.last_accessed_at)}</p>
-                                                )}
-                                              </div>
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        )}
+                                        {school.has_accessed &&
+                                          school.access_count > 0 && (
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <button
+                                                  type="button"
+                                                  className="ml-1"
+                                                >
+                                                  <Info className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                </button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>
+                                                <div className="text-xs space-y-1">
+                                                  <p>
+                                                    <strong>
+                                                      {school.access_count}
+                                                    </strong>{" "}
+                                                    dəfə açılıb
+                                                  </p>
+                                                  {school.first_accessed_at && (
+                                                    <p>
+                                                      İlk:{" "}
+                                                      {formatDate(
+                                                        school.first_accessed_at
+                                                      )}
+                                                    </p>
+                                                  )}
+                                                  {school.last_accessed_at && (
+                                                    <p>
+                                                      Son:{" "}
+                                                      {formatDate(
+                                                        school.last_accessed_at
+                                                      )}
+                                                    </p>
+                                                  )}
+                                                </div>
+                                              </TooltipContent>
+                                            </Tooltip>
+                                          )}
                                       </div>
                                     ) : (
-                                      <span className="text-muted-foreground">URL mövcud deyil</span>
+                                      <span className="text-muted-foreground">
+                                        URL mövcud deyil
+                                      </span>
                                     )}
                                   </td>
+                                  {onResourceAction && selectedLink && (
+                                    <td className="py-2 text-right">
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() =>
+                                              onResourceAction(
+                                                selectedLink,
+                                                "edit"
+                                              )
+                                            }
+                                            className="h-7 w-7 text-primary hover:text-primary"
+                                          >
+                                            <Edit className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          Düzəliş et
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </td>
+                                  )}
                                 </tr>
                               ))}
                             </tbody>
@@ -763,7 +928,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
             </CardHeader>
             <CardContent>
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {notAccessedInstitutions.map(inst => (
+                {notAccessedInstitutions.map((inst) => (
                   <div
                     key={inst.id}
                     className="flex items-center justify-between p-2 border rounded-lg bg-red-50/50"
@@ -772,10 +937,15 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
                       <School className="h-3.5 w-3.5 text-muted-foreground" />
                       <div>
                         <p className="font-medium text-sm">{inst.name}</p>
-                        <p className="text-xs text-muted-foreground">{inst.sector_name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {inst.sector_name}
+                        </p>
                       </div>
                     </div>
-                    <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50">
+                    <Badge
+                      variant="outline"
+                      className="text-red-600 border-red-200 bg-red-50"
+                    >
                       <XCircle className="h-3 w-3 mr-1" />
                       Açılmayıb
                     </Badge>
@@ -790,7 +960,9 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
         {hasUserTargets && (
           <Card className="mt-4">
             <CardHeader>
-              <CardTitle className="text-base">Birbaşa paylaşılan istifadəçilər</CardTitle>
+              <CardTitle className="text-base">
+                Birbaşa paylaşılan istifadəçilər
+              </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               {overview.target_users?.map((user) => (
@@ -807,7 +979,11 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
                   {user.roles && user.roles.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {user.roles.map((role) => (
-                        <Badge key={`${user.id}-${role}`} variant="outline" className="text-xs">
+                        <Badge
+                          key={`${user.id}-${role}`}
+                          variant="outline"
+                          className="text-xs"
+                        >
                           {role}
                         </Badge>
                       ))}

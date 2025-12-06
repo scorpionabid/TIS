@@ -163,6 +163,14 @@ class RegionAdminInstitutionController extends Controller
     }
 
     /**
+     * Alias for routes expecting getInstitutionDetails
+     */
+    public function getInstitutionDetails(Request $request, $id): JsonResponse
+    {
+        return $this->show($request, $id);
+    }
+
+    /**
      * Update an institution within RegionAdmin's scope
      */
     public function update(Request $request, $id): JsonResponse
@@ -217,6 +225,14 @@ class RegionAdminInstitutionController extends Controller
     }
 
     /**
+     * Alias for routes expecting updateInstitution
+     */
+    public function updateInstitution(Request $request, $id): JsonResponse
+    {
+        return $this->update($request, $id);
+    }
+
+    /**
      * Delete an institution within RegionAdmin's scope
      */
     public function destroy(Request $request, $id): JsonResponse
@@ -263,6 +279,14 @@ class RegionAdminInstitutionController extends Controller
                 'error' => $e->getMessage(),
             ], 500);
         }
+    }
+
+    /**
+     * Alias for routes expecting deleteInstitution
+     */
+    public function deleteInstitution(Request $request, $id): JsonResponse
+    {
+        return $this->destroy($request, $id);
     }
 
     /**

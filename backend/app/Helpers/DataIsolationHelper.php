@@ -85,7 +85,7 @@ class DataIsolationHelper
                 return $query->where(function ($q) use ($allowedInstitutionIds) {
                     $q->whereHas('targets', function ($subQ) use ($allowedInstitutionIds) {
                         $subQ->whereIn('institution_id', $allowedInstitutionIds);
-                    })->orWhere('created_by', auth()->id());
+                    })->orWhere('creator_id', auth()->id());
                 });
 
             default:
@@ -209,7 +209,7 @@ class DataIsolationHelper
                 return $query->where(function ($q) use ($allowedInstitutionIds) {
                     $q->whereHas('targets', function ($subQ) use ($allowedInstitutionIds) {
                         $subQ->whereIn('institution_id', $allowedInstitutionIds);
-                    })->orWhere('created_by', auth()->id());
+                    })->orWhere('creator_id', auth()->id());
                 });
 
             case 'students':
@@ -260,7 +260,7 @@ class DataIsolationHelper
                 return $query->where(function ($q) use ($userSchool) {
                     $q->whereHas('targets', function ($subQ) use ($userSchool) {
                         $subQ->where('institution_id', $userSchool->id);
-                    })->orWhere('created_by', auth()->id());
+                    })->orWhere('creator_id', auth()->id());
                 });
 
             case 'students':

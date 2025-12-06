@@ -10,7 +10,10 @@ use Illuminate\Support\Facades\Log;
 
 abstract class TestCase extends BaseTestCase
 {
-    use CreatesApplication, RefreshDatabase;
+    use CreatesApplication, RefreshDatabase {
+        RefreshDatabase::refreshTestDatabase as traitRefreshDatabase;
+        RefreshDatabase::beginDatabaseTransaction as traitBeginDatabaseTransaction;
+    }
 
     /**
      * Setup the test environment.
@@ -31,8 +34,14 @@ abstract class TestCase extends BaseTestCase
      */
     protected function refreshTestDatabase()
     {
-        $this->artisan('migrate:fresh', $this->migrateFreshUsing());
-        $this->app[Kernel::class]->setArtisan(null);
+        if ($this->isSqliteConnection()) {
+            $this->artisan('migrate:fresh', $this->migrateFreshUsing());
+            $this->app[Kernel::class]->setArtisan(null);
+
+            return;
+        }
+
+        $this->traitRefreshDatabase();
     }
 
     /**
@@ -40,6 +49,16 @@ abstract class TestCase extends BaseTestCase
      */
     public function beginDatabaseTransaction()
     {
-        // Intentionally left blank to avoid nested transaction issues in tests.
+        if ($this->isSqliteConnection()) {
+            // Intentionally left blank to avoid nested transaction issues in tests.
+            return;
+        }
+
+        $this->traitBeginDatabaseTransaction();
+    }
+
+    protected function isSqliteConnection(): bool
+    {
+        return config('database.default') === 'sqlite';
     }
 }

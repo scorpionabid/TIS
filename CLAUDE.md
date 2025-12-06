@@ -78,12 +78,14 @@ composer test          # Additional PHP tests
 
 **⚠️ ATİS System LOCAL development DEACTIVATED!**
 **🚀 PRODUCTION STATUS: ATİS is LIVE with real institutional data**
+**✅ DOCKER STATUS: Fully configured with PostgreSQL 16-alpine**
 
 - ❌ Local PostgreSQL: **REMOVED**
-- ❌ Local SQLite database: **REMOVED**
+- ❌ Local SQLite database: **REMOVED** (Development artıq PostgreSQL istifadə edir)
 - ❌ Local PHP artisan serve: **DO NOT USE**
 - ❌ Local npm run dev: **DO NOT USE**
 - ⚠️ **PRODUCTION DATA PROTECTION**: Development environment must NOT connect to production database
+- ✅ **DOCKER POSTGRESQL**: Backend image `pdo_pgsql` extension ilə hazırlanmışdır (2025-12-06)
 
 ### ✅ ONLY Docker Development Allowed
 
@@ -91,29 +93,55 @@ composer test          # Additional PHP tests
 # START SYSTEM (ONLY WAY)
 ./start.sh
 
-# STOP SYSTEM (ONLY WAY)  
+# STOP SYSTEM (ONLY WAY)
 ./stop.sh
 
 # Manual port cleanup (emergency only)
 lsof -ti:8000,8001,8002,3000 | xargs kill -9 2>/dev/null || true
 
 # Container operations
-docker-compose -f docker-compose.simple.yml ps
-docker-compose -f docker-compose.simple.yml logs backend
-docker-compose -f docker-compose.simple.yml logs frontend
+docker compose ps
+docker compose logs backend
+docker compose logs frontend
+docker compose logs postgres
+
+# Health check
+curl -s http://localhost:8000/api/health | python3 -m json.tool
 ```
 
 ### 🐳 Docker Container Commands
 ```bash
 # Backend commands (inside container)
 docker exec atis_backend php artisan migrate
+docker exec atis_backend php artisan migrate:status
+docker exec atis_backend php artisan db:seed
 docker exec atis_backend php artisan tinker
 docker exec atis_backend composer install
 
 # Frontend commands (inside container)
 docker exec atis_frontend npm install
 docker exec atis_frontend npm run build
+
+# PostgreSQL commands (inside container)
+docker exec atis_postgres psql -U atis_dev_user -d atis_dev -c "SELECT COUNT(*) FROM users;"
+docker exec atis_postgres pg_isready -U atis_dev_user -d atis_dev
 ```
+
+### 🔧 Docker Infrastructure Status (Updated 2025-12-06)
+
+**4-Container Stack:**
+```
+✅ atis_backend    - Laravel 11 + PHP 8.3 + pdo_pgsql (port 8000)
+✅ atis_frontend   - React 19 + Vite (port 3000)
+✅ atis_postgres   - PostgreSQL 16-alpine (port 5433→5432)
+✅ atis_redis      - Redis 7-alpine (cache & sessions)
+```
+
+**Critical Changes:**
+- Backend Dockerfile yeniləndi: `postgresql-dev` və `pdo_pgsql` extension əlavə edildi
+- DB_CONNECTION=pgsql (default)
+- PostgreSQL data persistent volume-də saxlanılır
+- docker compose down/up etdikdə data qalır
 
 ## 🗄️ PRODUCTION DATABASE MANAGEMENT
 

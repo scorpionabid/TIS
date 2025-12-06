@@ -33,7 +33,7 @@ class TaskApprovalController extends Controller
             // Tasks that are either assigned to schools or target schools in this sector
             $query->select('id')->from('tasks')
                 ->where(function ($q) use ($schoolIds) {
-                    $q->whereIn('assigned_institution_id', $schoolIds)
+                    $q->whereIn('assigned_to_institution_id', $schoolIds)
                         ->orWhere(function ($subQ) use ($schoolIds) {
                             foreach ($schoolIds as $schoolId) {
                                 $subQ->orWhereJsonContains('target_institutions', $schoolId);
@@ -102,7 +102,7 @@ class TaskApprovalController extends Controller
         $schoolIds = Institution::where('parent_id', $sector->id)->pluck('id');
 
         $task = Task::where(function ($q) use ($schoolIds) {
-            $q->whereIn('assigned_institution_id', $schoolIds)
+            $q->whereIn('assigned_to_institution_id', $schoolIds)
                 ->orWhere(function ($subQ) use ($schoolIds) {
                     foreach ($schoolIds as $schoolId) {
                         $subQ->orWhereJsonContains('target_institutions', $schoolId);
@@ -202,7 +202,7 @@ class TaskApprovalController extends Controller
         $schoolIds = Institution::where('parent_id', $sector->id)->pluck('id');
 
         $task = Task::where(function ($q) use ($schoolIds) {
-            $q->whereIn('assigned_institution_id', $schoolIds)
+            $q->whereIn('assigned_to_institution_id', $schoolIds)
                 ->orWhere(function ($subQ) use ($schoolIds) {
                     foreach ($schoolIds as $schoolId) {
                         $subQ->orWhereJsonContains('target_institutions', $schoolId);
@@ -271,7 +271,7 @@ class TaskApprovalController extends Controller
         $schoolIds = Institution::where('parent_id', $sector->id)->pluck('id');
 
         $task = Task::where(function ($q) use ($schoolIds) {
-            $q->whereIn('assigned_institution_id', $schoolIds)
+            $q->whereIn('assigned_to_institution_id', $schoolIds)
                 ->orWhere(function ($subQ) use ($schoolIds) {
                     foreach ($schoolIds as $schoolId) {
                         $subQ->orWhereJsonContains('target_institutions', $schoolId);
@@ -331,7 +331,7 @@ class TaskApprovalController extends Controller
         // Get task statistics
         $stats = [
             'total_tasks' => Task::where(function ($q) use ($schoolIds) {
-                $q->whereIn('assigned_institution_id', $schoolIds)
+                $q->whereIn('assigned_to_institution_id', $schoolIds)
                     ->orWhere(function ($subQ) use ($schoolIds) {
                         foreach ($schoolIds as $schoolId) {
                             $subQ->orWhereJsonContains('target_institutions', $schoolId);
@@ -340,7 +340,7 @@ class TaskApprovalController extends Controller
             })->count(),
 
             'pending_approval' => Task::where(function ($q) use ($schoolIds) {
-                $q->whereIn('assigned_institution_id', $schoolIds)
+                $q->whereIn('assigned_to_institution_id', $schoolIds)
                     ->orWhere(function ($subQ) use ($schoolIds) {
                         foreach ($schoolIds as $schoolId) {
                             $subQ->orWhereJsonContains('target_institutions', $schoolId);
@@ -349,7 +349,7 @@ class TaskApprovalController extends Controller
             })->where('status', 'review')->where('requires_approval', true)->count(),
 
             'approved_tasks' => Task::where(function ($q) use ($schoolIds) {
-                $q->whereIn('assigned_institution_id', $schoolIds)
+                $q->whereIn('assigned_to_institution_id', $schoolIds)
                     ->orWhere(function ($subQ) use ($schoolIds) {
                         foreach ($schoolIds as $schoolId) {
                             $subQ->orWhereJsonContains('target_institutions', $schoolId);
@@ -358,7 +358,7 @@ class TaskApprovalController extends Controller
             })->where('status', 'completed')->whereNotNull('approved_by')->count(),
 
             'in_progress_tasks' => Task::where(function ($q) use ($schoolIds) {
-                $q->whereIn('assigned_institution_id', $schoolIds)
+                $q->whereIn('assigned_to_institution_id', $schoolIds)
                     ->orWhere(function ($subQ) use ($schoolIds) {
                         foreach ($schoolIds as $schoolId) {
                             $subQ->orWhereJsonContains('target_institutions', $schoolId);
@@ -367,7 +367,7 @@ class TaskApprovalController extends Controller
             })->where('status', 'in_progress')->count(),
 
             'overdue_tasks' => Task::where(function ($q) use ($schoolIds) {
-                $q->whereIn('assigned_institution_id', $schoolIds)
+                $q->whereIn('assigned_to_institution_id', $schoolIds)
                     ->orWhere(function ($subQ) use ($schoolIds) {
                         foreach ($schoolIds as $schoolId) {
                             $subQ->orWhereJsonContains('target_institutions', $schoolId);
