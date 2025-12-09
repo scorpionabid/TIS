@@ -187,7 +187,7 @@ class LinkShareControllerRefactored extends BaseController
             ]);
             $linkShareModel = LinkShare::with(['sharedBy', 'institution'])->find($id);
 
-            if (!$linkShareModel) {
+            if (! $linkShareModel) {
                 Log::error('LinkShare not found during update', [
                     'link_share_id' => $id,
                     'user_id' => $user?->id,

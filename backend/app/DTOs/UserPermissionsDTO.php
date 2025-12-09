@@ -13,9 +13,9 @@ use App\Models\User;
 class UserPermissionsDTO
 {
     /**
-     * @param array $direct Direct assigned permissions (editable)
-     * @param array $viaRoles Permissions inherited from roles (readonly)
-     * @param array $all Combined list of all permissions
+     * @param array $direct       Direct assigned permissions (editable)
+     * @param array $viaRoles     Permissions inherited from roles (readonly)
+     * @param array $all          Combined list of all permissions
      * @param array $roleMetadata Metadata about user's roles
      */
     public function __construct(
@@ -49,7 +49,7 @@ class UserPermissionsDTO
             ->all();
 
         // Get role metadata
-        $roleMetadata = $user->roles->map(fn($role) => [
+        $roleMetadata = $user->roles->map(fn ($role) => [
             'id' => $role->id,
             'name' => $role->name,
             'display_name' => $role->display_name,

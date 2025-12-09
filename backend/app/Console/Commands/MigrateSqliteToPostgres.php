@@ -65,7 +65,7 @@ class MigrateSqliteToPostgres extends Command
             $tables = $this->getAllTables($source);
         }
 
-        if (!empty($skipTables)) {
+        if (! empty($skipTables)) {
             $this->components->info('Skipping tables: ' . implode(', ', $skipTables));
 
             $tables = collect($tables)
@@ -123,11 +123,11 @@ class MigrateSqliteToPostgres extends Command
         }
 
         if ($driver === 'pgsql') {
-            $tables = DB::connection($connection)->select("
+            $tables = DB::connection($connection)->select('
                 SELECT tablename
                 FROM pg_catalog.pg_tables
                 WHERE schemaname = current_schema()
-            ");
+            ');
 
             return collect($tables)->pluck('tablename')->sort()->values()->all();
         }
@@ -162,6 +162,7 @@ class MigrateSqliteToPostgres extends Command
 
         if (empty($commonColumns)) {
             $this->components->warn("No common columns found for table {$table}");
+
             return;
         }
 
@@ -245,11 +246,11 @@ class MigrateSqliteToPostgres extends Command
         $driver = DB::connection($connection)->getDriverName();
 
         if ($driver === 'pgsql') {
-            $rows = DB::connection($connection)->select("
+            $rows = DB::connection($connection)->select('
                 SELECT column_name, data_type
                 FROM information_schema.columns
                 WHERE table_name = ? AND table_schema = current_schema()
-            ", [$table]);
+            ', [$table]);
 
             return collect($rows)
                 ->mapWithKeys(fn ($row) => [$row->column_name => strtolower($row->data_type)])
@@ -306,7 +307,7 @@ class MigrateSqliteToPostgres extends Command
 
         $primaryKey = $this->getPrimaryKeyColumn($connection, $table) ?? 'id';
         $sequence = DB::connection($connection)
-            ->selectOne("SELECT pg_get_serial_sequence(?, ?) as seq", [$table, $primaryKey]);
+            ->selectOne('SELECT pg_get_serial_sequence(?, ?) as seq', [$table, $primaryKey]);
 
         if ($sequence && $sequence->seq) {
             $maxValue = DB::connection($connection)->table($table)->max($primaryKey);
@@ -315,7 +316,7 @@ class MigrateSqliteToPostgres extends Command
                 return;
             }
 
-            DB::connection($connection)->statement("SELECT setval(?, ?, true)", [$sequence->seq, $maxValue]);
+            DB::connection($connection)->statement('SELECT setval(?, ?, true)', [$sequence->seq, $maxValue]);
         }
     }
 
@@ -359,7 +360,7 @@ class MigrateSqliteToPostgres extends Command
     /**
      * Handle per-table data fixes.
      *
-     * @param array<string, mixed> $row
+     * @param  array<string, mixed> $row
      * @return array<string, mixed>
      */
     protected function convertSpecialCases(string $table, array $row): array

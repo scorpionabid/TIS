@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\DB;
 class RegionAssessmentController extends Controller
 {
     private ?string $databaseDriver = null;
+
     private ?Grammar $queryGrammar = null;
 
     /**

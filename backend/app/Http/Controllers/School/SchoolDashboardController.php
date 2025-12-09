@@ -177,7 +177,7 @@ class SchoolDashboardController extends Controller
         // Get recent activities (last 30 days)
         $activities = \App\Models\ActivityLog::where('institution_id', $school->id)
             ->where('created_at', '>=', \Carbon\Carbon::now()->subDays(30))
-            ->with(['user:id,name,email'])
+            ->with(['user:id,email', 'user.profile:user_id,first_name,last_name'])
             ->orderBy('created_at', 'desc')
             ->limit(50)
             ->get();
@@ -241,10 +241,10 @@ class SchoolDashboardController extends Controller
             ->where('students.institution_id', $school->id)
             ->whereYear('attendance_records.attendance_date', $date->year)
             ->whereMonth('attendance_records.attendance_date', $date->month)
-            ->selectRaw('
-                COUNT(*) as total_records,
-                SUM(CASE WHEN attendance_records.status = "present" THEN 1 ELSE 0 END) as present_count
-            ')
+            ->selectRaw(
+                "COUNT(*) as total_records, " .
+                "SUM(CASE WHEN attendance_records.status = 'present' THEN 1 ELSE 0 END) as present_count"
+            )
             ->first();
 
         if ($attendanceData && $attendanceData->total_records > 0) {
@@ -303,9 +303,9 @@ class SchoolDashboardController extends Controller
         }
 
         $deadlines = Task::where('assigned_to_institution_id', $school->id)
-            ->where('due_date', '>=', Carbon::now())
+            ->where('deadline', '>=', Carbon::now())
             ->where('status', '!=', 'completed')
-            ->orderBy('due_date', 'asc')
+            ->orderBy('deadline', 'asc')
             ->limit($limit)
             ->get()
             ->map(function ($task) {
@@ -313,11 +313,11 @@ class SchoolDashboardController extends Controller
                     'id' => $task->id,
                     'title' => $task->title,
                     'description' => $task->description,
-                    'due_date' => $task->due_date,
+                    'due_date' => $task->deadline,
                     'priority' => $task->priority ?? 'medium',
                     'type' => 'task',
                     'status' => $task->status,
-                    'days_until_due' => Carbon::parse($task->due_date)->diffInDays(Carbon::now()),
+                    'days_until_due' => Carbon::parse($task->deadline)->diffInDays(Carbon::now()),
                 ];
             });
 

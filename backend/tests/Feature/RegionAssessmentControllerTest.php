@@ -32,7 +32,7 @@ class RegionAssessmentControllerTest extends TestCase
 
         $this->actingAs($user, 'sanctum');
 
-        $controller = new RegionAssessmentController();
+        $controller = new RegionAssessmentController;
         $request = Request::create('/fake', 'GET', ['search' => 'stem', 'per_page' => 10]);
 
         $response = $controller->getRegionInstitutions($region->id, $request);

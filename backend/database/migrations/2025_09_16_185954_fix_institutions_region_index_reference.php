@@ -60,7 +60,7 @@ return new class extends Migration
 
         if (DB::getDriverName() === 'pgsql') {
             $indexes = DB::select(
-                "SELECT 1 FROM pg_indexes WHERE schemaname = ANY (current_schemas(false)) AND tablename = ? AND indexname = ?",
+                'SELECT 1 FROM pg_indexes WHERE schemaname = ANY (current_schemas(false)) AND tablename = ? AND indexname = ?',
                 [$table, $indexName]
             );
 

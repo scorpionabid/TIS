@@ -8,7 +8,6 @@ use App\Models\DataApprovalRequest;
 use App\Models\Survey;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class ApprovalAnalyticsService extends BaseService
 {

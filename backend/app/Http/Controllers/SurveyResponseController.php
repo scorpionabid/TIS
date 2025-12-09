@@ -109,11 +109,13 @@ class SurveyResponseController extends BaseController
             return $this->successResponse(['response' => $updatedResponse], $message);
         } catch (\Illuminate\Validation\ValidationException $e) {
             \Log::error('Validation failed', ['errors' => $e->errors()]);
+
             return $this->errorResponse('Validation failed: ' . json_encode($e->errors()), 400);
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), $e->getMessage() === 'Cannot modify submitted responses' ? 422 : 403);
         } catch (\Exception $e) {
             \Log::error('Save failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+
             return $this->errorResponse('Failed to save survey response: ' . $e->getMessage());
         }
     }

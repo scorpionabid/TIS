@@ -126,6 +126,7 @@ class SurveyResponseService extends BaseService
 
         if ($existingResponse) {
             $existingResponse->load(['attachments.document']);
+
             // Always return existing response, regardless of completion status
             // Frontend will handle showing appropriate UI (edit vs view mode)
             return $existingResponse;

@@ -64,10 +64,10 @@ class SchoolDashboardService
             ->join('students', 'attendance_records.student_id', '=', 'students.id')
             ->where('students.institution_id', $school->id)
             ->where('attendance_records.attendance_date', $today)
-            ->selectRaw('
-                COUNT(*) as total_records,
-                SUM(CASE WHEN attendance_records.status = "present" THEN 1 ELSE 0 END) as present_count
-            ')
+            ->selectRaw(
+                "COUNT(*) as total_records, " .
+                "SUM(CASE WHEN attendance_records.status = 'present' THEN 1 ELSE 0 END) as present_count"
+            )
             ->first();
 
         if ($attendanceData && $attendanceData->total_records > 0) {
@@ -87,7 +87,7 @@ class SchoolDashboardService
     private function getOverdueTasks(Institution $school): int
     {
         return Task::where('assigned_to_institution_id', $school->id)
-            ->where('due_date', '<', Carbon::now())
+            ->where('deadline', '<', Carbon::now())
             ->where('status', '!=', 'completed')
             ->count();
     }
@@ -95,7 +95,7 @@ class SchoolDashboardService
     private function getUpcomingDeadlines(Institution $school): int
     {
         return Task::where('assigned_to_institution_id', $school->id)
-            ->whereBetween('due_date', [Carbon::now(), Carbon::now()->addDays(7)])
+            ->whereBetween('deadline', [Carbon::now(), Carbon::now()->addDays(7)])
             ->where('status', '!=', 'completed')
             ->count();
     }
@@ -109,9 +109,13 @@ class SchoolDashboardService
 
     private function getTotalStaff(Institution $school): int
     {
+        $staffRoles = ['teacher', 'admin', 'staff'];
+
         return User::where('institution_id', $school->id)
-            ->whereIn('role', ['teacher', 'admin', 'staff'])
             ->where('is_active', true)
+            ->whereHas('role', function ($query) use ($staffRoles) {
+                $query->whereIn('name', $staffRoles);
+            })
             ->count();
     }
 
@@ -140,7 +144,7 @@ class SchoolDashboardService
         // Count tasks with deadline today
         $tasksCount = Task::where('assigned_to_institution_id', $school->id)
             ->where('status', '!=', 'completed')
-            ->whereDate('due_date', '<=', $todayEnd)
+            ->whereDate('deadline', '<=', $todayEnd)
             ->count();
 
         return $surveysCount + $tasksCount;
@@ -226,17 +230,17 @@ class SchoolDashboardService
         // Get urgent tasks (deadline today or overdue)
         $urgentTasks = Task::where('assigned_to_institution_id', $school->id)
             ->where('status', '!=', 'completed')
-            ->whereDate('due_date', '<=', $todayEnd)
+            ->whereDate('deadline', '<=', $todayEnd)
             ->get()
             ->map(function ($task) {
-                $hoursRemaining = Carbon::parse($task->due_date)->diffInHours(Carbon::now(), false);
+                $hoursRemaining = Carbon::parse($task->deadline)->diffInHours(Carbon::now(), false);
 
                 return [
                     'id' => $task->id,
                     'type' => 'task',
                     'title' => $task->title,
                     'description' => $task->description,
-                    'deadline' => $task->due_date,
+                    'deadline' => $task->deadline,
                     'hours_remaining' => abs($hoursRemaining),
                     'is_overdue' => $hoursRemaining < 0,
                     'priority' => $task->priority ?? 'medium',

@@ -46,6 +46,7 @@ class ApprovalSecurityService
         // SuperAdmin: See all responses (case-insensitive)
         if ($roleName && strtolower($roleName) === 'superadmin') {
             \Log::info('✅ [SECURITY] SuperAdmin - Full access granted');
+
             return;
         }
 

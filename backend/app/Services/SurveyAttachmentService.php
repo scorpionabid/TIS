@@ -11,9 +11,7 @@ use Illuminate\Support\Facades\Storage;
 
 class SurveyAttachmentService extends BaseService
 {
-    public function __construct(private readonly DocumentService $documentService)
-    {
-    }
+    public function __construct(private readonly DocumentService $documentService) {}
 
     /**
      * Upload or replace an attachment for a survey question response.
@@ -90,7 +88,7 @@ class SurveyAttachmentService extends BaseService
         ]));
 
         return [
-            'title' => trim(($surveyTitle ? $surveyTitle . ' - ' : '') . ($questionTitle ?: 'Fayl')), 
+            'title' => trim(($surveyTitle ? $surveyTitle . ' - ' : '') . ($questionTitle ?: 'Fayl')),
             'description' => 'Sorğu fayl yükləməsi',
             'category' => 'forms',
             'access_level' => 'institution',

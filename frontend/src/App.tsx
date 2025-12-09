@@ -385,7 +385,11 @@ const App = () => {
               <Route path="survey-response/:surveyId/:responseId" element={<LazyWrapper><SurveyResponse /></LazyWrapper>} />
               <Route path="approvals" element={
                 <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]}>
+                  <RoleProtectedRoute
+                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]}
+                    requiredPermissions={['approvals.read']}
+                    permissionMatch="any"
+                  >
                     <Approvals />
                   </RoleProtectedRoute>
                 </LazyWrapper>

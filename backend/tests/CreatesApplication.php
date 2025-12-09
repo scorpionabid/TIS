@@ -26,7 +26,7 @@ trait CreatesApplication
             fwrite(
                 STDERR,
                 sprintf(
-                    "[TestBootstrap] env(DB_CONNECTION)=%s config_default=%s%s",
+                    '[TestBootstrap] env(DB_CONNECTION)=%s config_default=%s%s',
                     $defaultConnection,
                     config('database.default'),
                     PHP_EOL

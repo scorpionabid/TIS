@@ -14,9 +14,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SurveyResponseAttachmentController extends BaseController
 {
-    public function __construct(private readonly SurveyAttachmentService $attachmentService)
-    {
-    }
+    public function __construct(private readonly SurveyAttachmentService $attachmentService) {}
 
     public function store(Request $request, SurveyResponse $response, SurveyQuestion $question): JsonResponse
     {
@@ -39,6 +37,7 @@ class SurveyResponseAttachmentController extends BaseController
 
         try {
             $attachment = $this->attachmentService->uploadAttachment($response, $question, $file, $request->user());
+
             return response()->json([
                 'success' => true,
                 'message' => 'Fayl uğurla yükləndi',

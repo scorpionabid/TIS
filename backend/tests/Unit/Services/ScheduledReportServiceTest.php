@@ -5,7 +5,6 @@ namespace Tests\Unit\Services;
 use App\Models\ReportSchedule;
 use App\Services\ScheduledReportService;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\Artisan;
 use Tests\Support\SeedsDefaultRolesAndPermissions;
 use Tests\TestCase;
 

@@ -122,7 +122,7 @@ class ClassBulkAttendance extends Model
     public static function getOrCreate($gradeId, $date, $academicYearId, $recordedBy)
     {
         $grade = Grade::with('institution')->findOrFail($gradeId);
-        $totalStudents = $grade->student_count ?? 30; // Use student_count field or default
+        $totalStudents = (int) ($grade->student_count ?? 0);
 
         return static::firstOrCreate([
             'grade_id' => $gradeId,

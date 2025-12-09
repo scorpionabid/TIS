@@ -18,7 +18,7 @@ class CreatePostgresSchemaFromSqlite extends Command
         $source = $this->option('source');
         $target = $this->option('target');
 
-        $this->components->info("Creating PostgreSQL schema from SQLite database structure");
+        $this->components->info('Creating PostgreSQL schema from SQLite database structure');
 
         try {
             // Get all tables from SQLite
@@ -26,10 +26,11 @@ class CreatePostgresSchemaFromSqlite extends Command
 
             if (empty($tables)) {
                 $this->components->error('No tables found in SQLite database');
+
                 return self::FAILURE;
             }
 
-            $this->components->info("Found " . count($tables) . " tables in SQLite");
+            $this->components->info('Found ' . count($tables) . ' tables in SQLite');
 
             $progressBar = $this->output->createProgressBar(count($tables));
             $progressBar->setFormat('verbose');
@@ -55,9 +56,9 @@ class CreatePostgresSchemaFromSqlite extends Command
             $this->showSummary($target);
 
             return self::SUCCESS;
-
         } catch (\Throwable $e) {
             $this->components->error("Failed: {$e->getMessage()}");
+
             return self::FAILURE;
         }
     }
@@ -98,7 +99,7 @@ class CreatePostgresSchemaFromSqlite extends Command
             $def .= $pgType;
 
             // Handle NOT NULL
-            if ($column['notnull'] && !$column['pk']) {
+            if ($column['notnull'] && ! $column['pk']) {
                 $def .= ' NOT NULL';
             }
 
@@ -118,8 +119,8 @@ class CreatePostgresSchemaFromSqlite extends Command
         }
 
         // Add primary key
-        $pkColumns = collect($columns)->filter(fn($col) => $col['pk'])->pluck('name')->all();
-        if (!empty($pkColumns)) {
+        $pkColumns = collect($columns)->filter(fn ($col) => $col['pk'])->pluck('name')->all();
+        if (! empty($pkColumns)) {
             $columnDefinitions[] = 'PRIMARY KEY ("' . implode('", "', $pkColumns) . '")';
         }
 
@@ -181,9 +182,9 @@ class CreatePostgresSchemaFromSqlite extends Command
     protected function showSummary(string $connection): void
     {
         $tables = DB::connection($connection)->select(
-            "SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = current_schema()"
+            'SELECT tablename FROM pg_catalog.pg_tables WHERE schemaname = current_schema()'
         );
 
-        $this->components->info("Total tables in PostgreSQL: " . count($tables));
+        $this->components->info('Total tables in PostgreSQL: ' . count($tables));
     }
 }

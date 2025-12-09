@@ -449,9 +449,9 @@ class UserDevice extends Model
         $driver = DB::connection($this->getConnectionName())->getDriverName();
 
         return match ($driver) {
-            'pgsql' => "ROUND(SUM(EXTRACT(EPOCH FROM (terminated_at - started_at)) / 60.0))",
+            'pgsql' => 'ROUND(SUM(EXTRACT(EPOCH FROM (terminated_at - started_at)) / 60.0))',
             'sqlite' => "ROUND(SUM((strftime('%s', terminated_at) - strftime('%s', started_at)) / 60.0))",
-            default => "SUM(TIMESTAMPDIFF(MINUTE, started_at, terminated_at))",
+            default => 'SUM(TIMESTAMPDIFF(MINUTE, started_at, terminated_at))',
         };
     }
 }

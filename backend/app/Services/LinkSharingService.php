@@ -360,7 +360,7 @@ class LinkSharingService extends BaseService
         // Fetch all school-specific links with same title
         // Case 1: School created the link itself (institution_id = school ID)
         // Case 2: Link shared specifically to this one school (target_institutions contains only this school)
-        if (!empty($allSchoolIds)) {
+        if (! empty($allSchoolIds)) {
             // Case 1: Links created by schools themselves
             $schoolLinks = LinkShare::whereIn('institution_id', $allSchoolIds)
                 ->where('title', $linkShare->title)
@@ -368,7 +368,7 @@ class LinkSharingService extends BaseService
                 ->keyBy('institution_id');
 
             foreach ($schoolLinks as $institutionId => $link) {
-                $schoolSpecificLinks[(int)$institutionId] = $link->url;
+                $schoolSpecificLinks[(int) $institutionId] = $link->url;
             }
 
             // Case 2: Links shared to individual schools (bulk imported by regionadmin)
@@ -381,9 +381,9 @@ class LinkSharingService extends BaseService
                 $targets = $link->target_institutions ?? [];
                 // If this link is shared to exactly 1 school from our list
                 if (count($targets) === 1 && in_array($targets[0], $allSchoolIds)) {
-                    $schoolId = (int)$targets[0];
+                    $schoolId = (int) $targets[0];
                     // Only set if not already set by Case 1 (school's own link has priority)
-                    if (!isset($schoolSpecificLinks[$schoolId])) {
+                    if (! isset($schoolSpecificLinks[$schoolId])) {
                         $schoolSpecificLinks[$schoolId] = $link->url;
                     }
                 }
@@ -607,12 +607,13 @@ class LinkSharingService extends BaseService
 
         // Get school-specific links mapping for all schools (for grouped links by title)
         $schoolSpecificLinksMap = [];
-        $allTargetSchoolIds = array_filter($allTargetIds, function($id) use ($targetInstitutions) {
+        $allTargetSchoolIds = array_filter($allTargetIds, function ($id) use ($targetInstitutions) {
             $inst = $targetInstitutions->firstWhere('id', $id);
+
             return $inst && $inst->level == 4;
         });
 
-        if (!empty($allTargetSchoolIds)) {
+        if (! empty($allTargetSchoolIds)) {
             // Case 1: Links created by schools themselves
             $schoolLinks = LinkShare::whereIn('institution_id', $allTargetSchoolIds)
                 ->where('title', $linkTitle)
@@ -620,7 +621,7 @@ class LinkSharingService extends BaseService
                 ->keyBy('institution_id');
 
             foreach ($schoolLinks as $institutionId => $link) {
-                $schoolSpecificLinksMap[(int)$institutionId] = $link->url;
+                $schoolSpecificLinksMap[(int) $institutionId] = $link->url;
             }
 
             // Case 2: Links shared to individual schools (bulk imported by regionadmin)
@@ -631,8 +632,8 @@ class LinkSharingService extends BaseService
             foreach ($bulkLinks as $link) {
                 $targets = $link->target_institutions ?? [];
                 if (count($targets) === 1 && in_array($targets[0], $allTargetSchoolIds)) {
-                    $schoolId = (int)$targets[0];
-                    if (!isset($schoolSpecificLinksMap[$schoolId])) {
+                    $schoolId = (int) $targets[0];
+                    if (! isset($schoolSpecificLinksMap[$schoolId])) {
                         $schoolSpecificLinksMap[$schoolId] = $link->url;
                     }
                 }

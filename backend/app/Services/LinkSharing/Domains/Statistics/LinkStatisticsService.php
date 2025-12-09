@@ -91,7 +91,7 @@ class LinkStatisticsService
             return $columnName;
         }
 
-        $model = new LinkAccessLog();
+        $model = new LinkAccessLog;
         $connectionName = $model->getConnectionName() ?: config('database.default');
         $schemaBuilder = DB::connection($connectionName)->getSchemaBuilder();
 

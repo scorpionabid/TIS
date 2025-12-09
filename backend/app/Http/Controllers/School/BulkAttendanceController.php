@@ -29,7 +29,19 @@ class BulkAttendanceController extends BaseController
             }
 
             $date = $request->get('date', now()->format('Y-m-d'));
-            $academicYear = AcademicYear::current()->first();
+            $academicYear = $this->resolveAcademicYear();
+
+            if (! $academicYear) {
+                Log::warning('Bulk attendance requested without academic year', [
+                    'user_id' => $user->id,
+                    'school_id' => $school->id,
+                ]);
+
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Aktiv tədris ili tapılmadı. Zəhmət olmasa tədris ili yaradın və ya aktivləşdirin.',
+                ], 422);
+            }
 
             // Get all classes for this school
             $classes = Grade::with(['homeroomTeacher', 'room'])
@@ -46,7 +58,8 @@ class BulkAttendanceController extends BaseController
 
             // Transform classes data
             $classesData = $classes->map(function ($class) use ($existingRecords) {
-                $studentCount = $class->student_count ?? 30; // Use student_count field or default to 30
+                $studentCount = (int) ($class->student_count ?? 0);
+                $requiresStudentCount = $studentCount <= 0;
                 $existingRecord = $existingRecords->get($class->id);
 
                 return [
@@ -55,6 +68,7 @@ class BulkAttendanceController extends BaseController
                     'level' => $class->class_level,
                     'description' => $class->description,
                     'total_students' => $studentCount,
+                    'requires_student_count' => $requiresStudentCount,
                     'homeroom_teacher' => $class->homeroomTeacher ? [
                         'id' => $class->homeroomTeacher->id,
                         'name' => $class->homeroomTeacher->name,
@@ -89,10 +103,10 @@ class BulkAttendanceController extends BaseController
                 'data' => [
                     'classes' => $classesData,
                     'date' => $date,
-                    'academic_year' => $academicYear ? [
+                    'academic_year' => [
                         'id' => $academicYear->id,
                         'name' => $academicYear->name,
-                    ] : null,
+                    ],
                     'school' => [
                         'id' => $school->id,
                         'name' => $school->name,
@@ -143,6 +157,7 @@ class BulkAttendanceController extends BaseController
             $attendanceDate = Carbon::parse($request->attendance_date);
             $academicYear = AcademicYear::findOrFail($request->academic_year_id);
             $savedRecords = [];
+            $failedRecords = [];
 
             foreach ($request->classes as $classData) {
                 // Verify class belongs to this school
@@ -154,6 +169,18 @@ class BulkAttendanceController extends BaseController
                     continue; // Skip classes not belonging to this school
                 }
 
+                $studentCount = (int) ($grade->student_count ?? 0);
+                if ($studentCount <= 0) {
+                    $failedRecords[] = [
+                        'grade_id' => $grade->id,
+                        'grade_name' => $grade->name,
+                        'reason' => 'Sinif üçün şagird sayı təyin edilməyib',
+                        'type' => 'missing_student_count',
+                    ];
+
+                    continue;
+                }
+
                 // Get or create record
                 $record = ClassBulkAttendance::getOrCreate(
                     $grade->id,
@@ -161,6 +188,11 @@ class BulkAttendanceController extends BaseController
                     $academicYear->id,
                     $user->id
                 );
+
+                // Ensure total students is up to date
+                if ($record->total_students !== $studentCount) {
+                    $record->total_students = $studentCount;
+                }
 
                 // Update the record based on session
                 $session = $classData['session'];
@@ -187,9 +219,22 @@ class BulkAttendanceController extends BaseController
 
                 // Validate counts
                 if (! $record->isValidAttendanceCount()) {
-                    return response()->json([
-                        'error' => "Sinif {$grade->name} üçün davamiyyət sayı yanlışdır (ümumi şagird sayından çoxdur)",
-                    ], 400);
+                    $failedRecords[] = [
+                        'grade_id' => $grade->id,
+                        'grade_name' => $grade->name,
+                        'reason' => 'Ümumi işarələnən şagird sayı sinifdəki şagird sayından çoxdur',
+                        'type' => 'invalid_totals',
+                        'details' => [
+                            'total_students' => $record->total_students,
+                            'morning_total' => $record->morning_present + $record->morning_excused + $record->morning_unexcused,
+                            'evening_total' => $record->evening_present + $record->evening_excused + $record->evening_unexcused,
+                        ],
+                    ];
+
+                    // Revert unsaved changes for this record to avoid persisting invalid data
+                    $record->refresh();
+
+                    continue;
                 }
 
                 // Calculate rates
@@ -199,20 +244,39 @@ class BulkAttendanceController extends BaseController
                 $savedRecords[] = $record;
             }
 
+            $status = match (true) {
+                count($savedRecords) > 0 && count($failedRecords) === 0 => 'completed',
+                count($savedRecords) > 0 && count($failedRecords) > 0 => 'partial',
+                default => 'failed',
+            };
+
+            $responseMessage = match ($status) {
+                'completed' => count($savedRecords) . ' sinifdə davamiyyət qeyd edildi',
+                'partial' => count($savedRecords) . ' sinifdə davamiyyət saxlanıldı, ' . count($failedRecords) . ' sinifdə səhv tapıldı',
+                default => 'Heç bir sinif üçün davamiyyət saxlanılmadı',
+            };
+
+            $httpStatus = $status === 'completed' ? 200 : 207;
+
             return response()->json([
-                'success' => true,
-                'message' => count($savedRecords) . ' sinifdə davamiyyət qeyd edildi',
-                'data' => collect($savedRecords)->map(function ($record) {
-                    return [
-                        'id' => $record->id,
-                        'grade_name' => $record->grade->name,
-                        'morning_attendance_rate' => $record->morning_attendance_rate,
-                        'evening_attendance_rate' => $record->evening_attendance_rate,
-                        'daily_attendance_rate' => $record->daily_attendance_rate,
-                        'is_complete' => $record->is_complete,
-                    ];
-                }),
-            ]);
+                'success' => $status === 'completed',
+                'status' => $status,
+                'message' => $responseMessage,
+                'data' => [
+                    'saved' => collect($savedRecords)->map(function ($record) {
+                        return [
+                            'id' => $record->id,
+                            'grade_id' => $record->grade_id,
+                            'grade_name' => optional($record->grade)->name,
+                            'morning_attendance_rate' => $record->morning_attendance_rate,
+                            'evening_attendance_rate' => $record->evening_attendance_rate,
+                            'daily_attendance_rate' => $record->daily_attendance_rate,
+                            'is_complete' => $record->is_complete,
+                        ];
+                    })->values(),
+                    'errors' => $failedRecords,
+                ],
+            ], $httpStatus);
         } catch (\Exception $e) {
             Log::error('Bulk attendance store error: ' . $e->getMessage());
 
@@ -371,34 +435,81 @@ class BulkAttendanceController extends BaseController
                 ->orderBy('grade_id')
                 ->get();
 
-            $exportData = $records->map(function ($record) {
-                return [
-                    'Tarix' => $record->attendance_date->format('d.m.Y'),
-                    'Sinif' => $record->grade->name,
-                    'Ümumi Şagird' => $record->total_students,
-                    'Səhər - Dərsdə' => $record->morning_present,
-                    'Səhər - Üzürlü' => $record->morning_excused,
-                    'Səhər - Üzürsüz' => $record->morning_unexcused,
-                    'Axşam - Dərsdə' => $record->evening_present,
-                    'Axşam - Üzürlü' => $record->evening_excused,
-                    'Axşam - Üzürsüz' => $record->evening_unexcused,
-                    'Səhər Davamiyyəti (%)' => $record->morning_attendance_rate,
-                    'Axşam Davamiyyəti (%)' => $record->evening_attendance_rate,
-                    'Günlük Davamiyyət (%)' => $record->daily_attendance_rate,
-                    'Tamamlanıb' => $record->is_complete ? 'Bəli' : 'Xeyr',
-                    'Qeyd edən' => $record->recordedBy->name,
-                ];
-            });
+            if ($records->isEmpty()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Seçilmiş aralıq üçün davamiyyət tapılmadı',
+                ], 404);
+            }
 
-            return response()->json([
-                'success' => true,
-                'data' => $exportData,
-                'filename' => 'toplu_davamiyyət_' . $startDate . '_' . $endDate . '.csv',
-            ]);
+            $filename = 'toplu_davamiyyet_' . $startDate . '_' . $endDate . '.csv';
+            $headers = [
+                'Content-Type' => 'text/csv; charset=UTF-8',
+                'Cache-Control' => 'no-store, no-cache',
+            ];
+
+            $columns = [
+                'Tarix',
+                'Sinif',
+                'Şagird sayı',
+                'Səhər - Dərsdə',
+                'Səhər - Üzürlü',
+                'Səhər - Üzürsüz',
+                'Axşam - Dərsdə',
+                'Axşam - Üzürlü',
+                'Axşam - Üzürsüz',
+                'Səhər Davamiyyəti (%)',
+                'Axşam Davamiyyəti (%)',
+                'Günlük Davamiyyət (%)',
+                'Tamamlanıb',
+                'Qeyd edən',
+            ];
+
+            $callback = function () use ($records, $columns) {
+                $handle = fopen('php://output', 'w');
+
+                // UTF-8 BOM for Excel compatibility
+                fwrite($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+                fputcsv($handle, $columns, ';');
+
+                foreach ($records as $record) {
+                    fputcsv($handle, [
+                        $record->attendance_date->format('d.m.Y'),
+                        optional($record->grade)->name,
+                        $record->total_students,
+                        $record->morning_present,
+                        $record->morning_excused,
+                        $record->morning_unexcused,
+                        $record->evening_present,
+                        $record->evening_excused,
+                        $record->evening_unexcused,
+                        $record->morning_attendance_rate,
+                        $record->evening_attendance_rate,
+                        $record->daily_attendance_rate,
+                        $record->is_complete ? 'Bəli' : 'Xeyr',
+                        optional($record->recordedBy)->name,
+                    ], ';');
+                }
+
+                fclose($handle);
+            };
+
+            return response()->streamDownload($callback, $filename, $headers);
         } catch (\Exception $e) {
             Log::error('Export error: ' . $e->getMessage());
 
             return response()->json(['error' => 'Səhv baş verdi: ' . $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Resolve the academic year for attendance operations.
+     */
+    private function resolveAcademicYear(): ?AcademicYear
+    {
+        return AcademicYear::current()->first()
+            ?? AcademicYear::active()->orderByDesc('start_date')->first()
+            ?? AcademicYear::orderByDesc('start_date')->first();
     }
 }

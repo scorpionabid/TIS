@@ -339,7 +339,7 @@ class SurveyQuestion extends Model
         $options = $this->options ?? [];
 
         // Check if options is array of objects with 'id' key (new format)
-        if (!empty($options) && is_array($options[0] ?? null) && isset($options[0]['id'])) {
+        if (! empty($options) && is_array($options[0] ?? null) && isset($options[0]['id'])) {
             // New format: object array with id
             $availableOptions = array_column($options, 'id');
         } else {
@@ -371,7 +371,7 @@ class SurveyQuestion extends Model
         $options = $this->options ?? [];
 
         // Check if options is array of objects with 'id' key (new format)
-        if (!empty($options) && is_array($options[0] ?? null) && isset($options[0]['id'])) {
+        if (! empty($options) && is_array($options[0] ?? null) && isset($options[0]['id'])) {
             // New format: object array with id
             $availableOptions = array_column($options, 'id');
         } else {
@@ -459,6 +459,7 @@ class SurveyQuestion extends Model
 
             if ($rowValue === null || $rowValue === '') {
                 $errors[] = "\"{$rowMeta['label']}\" sətiri üçün seçim edilməyib.";
+
                 continue;
             }
 
@@ -536,7 +537,6 @@ class SurveyQuestion extends Model
             }
         }
 
-        return null;
     }
 
     private function extractMatrixLabel($item, int $index, string $prefix): string
@@ -563,7 +563,7 @@ class SurveyQuestion extends Model
                 }
             }
 
-            return null;
+            return;
         }
 
         return $value;

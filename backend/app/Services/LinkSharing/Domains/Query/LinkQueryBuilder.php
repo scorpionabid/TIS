@@ -7,9 +7,9 @@ use App\Models\LinkShare;
 use App\Services\LinkSharing\Domains\Permission\LinkPermissionService;
 use Illuminate\Database\Query\Grammars\Grammar;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Link Query Builder
@@ -20,7 +20,9 @@ use Illuminate\Support\Facades\DB;
 class LinkQueryBuilder
 {
     protected ?string $databaseDriver = null;
+
     protected ?Grammar $queryGrammar = null;
+
     protected array $linkShareColumnCache = [];
 
     public function __construct(
@@ -665,11 +667,11 @@ class LinkQueryBuilder
     {
         $direction = strtolower($direction) === 'asc' ? 'asc' : 'desc';
 
-        $caseExpression = "CASE priority "
+        $caseExpression = 'CASE priority '
             . "WHEN 'high' THEN 1 "
             . "WHEN 'normal' THEN 2 "
             . "WHEN 'low' THEN 3 "
-            . "ELSE 4 END";
+            . 'ELSE 4 END';
 
         $query->orderByRaw("{$caseExpression} {$direction}");
     }

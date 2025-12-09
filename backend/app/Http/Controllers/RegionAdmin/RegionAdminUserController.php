@@ -262,7 +262,7 @@ class RegionAdminUserController extends Controller
             if ($data['role_name'] === 'regionoperator') {
                 // For RegionOperator, extract modern permissions from assignable_permissions
                 $modernPermissions = $request->input('assignable_permissions', []);
-                if (!empty($modernPermissions)) {
+                if (! empty($modernPermissions)) {
                     $this->regionAdminPermissionService->syncDirectPermissions($newUser, $modernPermissions);
                     Log::info('🔍 [RegionAdminUserController] RegionOperator modern permissions synced (CREATE)', [
                         'user_id' => $newUser->id,
@@ -500,7 +500,7 @@ class RegionAdminUserController extends Controller
             if ($targetRoleName === 'regionoperator') {
                 // For RegionOperator, extract modern permissions from assignable_permissions
                 $modernPermissions = $request->input('assignable_permissions', []);
-                if (!empty($modernPermissions)) {
+                if (! empty($modernPermissions)) {
                     $this->regionAdminPermissionService->syncDirectPermissions($targetUser, $modernPermissions);
                     Log::info('🔍 [RegionAdminUserController] RegionOperator modern permissions synced', [
                         'user_id' => $targetUser->id,

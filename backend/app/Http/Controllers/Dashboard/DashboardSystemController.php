@@ -87,7 +87,7 @@ class DashboardSystemController extends Controller
             $level = $request->get('level');
             $since = $request->get('since', now()->subDays(7));
 
-            $query = ActivityLog::with(['user:id,name,email', 'institution:id,name'])
+            $query = ActivityLog::with(['user:id,email', 'institution:id,name'])
                 ->where('created_at', '>=', $since)
                 ->orderBy('created_at', 'desc');
 
@@ -116,7 +116,7 @@ class DashboardSystemController extends Controller
                     'description' => $activity->description,
                     'user' => $activity->user ? [
                         'id' => $activity->user->id,
-                        'name' => $activity->user->name,
+                        'name' => $activity->user->display_name ?? $activity->user->profile?->display_name ?? $activity->user->email,
                         'email' => $activity->user->email,
                     ] : null,
                     'institution' => $activity->institution ? [

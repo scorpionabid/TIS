@@ -356,7 +356,7 @@ class SuperAdminDashboardController extends Controller
                     return $this->formatBytes(filesize($path));
                 }
             } elseif ($driver === 'pgsql') {
-                $sizeResult = $connection->selectOne("SELECT pg_database_size(current_database()) as size");
+                $sizeResult = $connection->selectOne('SELECT pg_database_size(current_database()) as size');
 
                 if ($sizeResult && isset($sizeResult->size)) {
                     return $this->formatBytes((int) $sizeResult->size);

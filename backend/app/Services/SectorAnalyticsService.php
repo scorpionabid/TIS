@@ -128,9 +128,9 @@ class SectorAnalyticsService extends BaseService
                         $q->whereHas('roles', function ($r) {
                             $r->where('name', 'teacher');
                         });
-                    }
+                    },
                 ]);
-            }
+            },
         ])->get();
 
         $totalSchools = 0;
@@ -176,9 +176,9 @@ class SectorAnalyticsService extends BaseService
                         $q->whereHas('roles', function ($r) {
                             $r->where('name', 'teacher');
                         });
-                    }
+                    },
                 ]);
-            }
+            },
         ])->get();
 
         $metrics = [
@@ -227,7 +227,7 @@ class SectorAnalyticsService extends BaseService
             'parent',
             'children' => function ($query) {
                 $query->withCount('students');
-            }
+            },
         ])
             ->get()
             ->groupBy('parent_id')
@@ -416,9 +416,9 @@ class SectorAnalyticsService extends BaseService
                         $q->whereHas('roles', function ($r) {
                             $r->where('name', 'teacher');
                         });
-                    }
+                    },
                 ]);
-            }
+            },
         ])->get();
 
         $performance = [];
@@ -556,7 +556,7 @@ class SectorAnalyticsService extends BaseService
     private function calculateEducationalMetrics(Institution $sector): array
     {
         // Load children with counts if not already loaded
-        if (!$sector->relationLoaded('children')) {
+        if (! $sector->relationLoaded('children')) {
             $sector->load([
                 'children' => function ($query) {
                     $query->withCount([
@@ -565,9 +565,9 @@ class SectorAnalyticsService extends BaseService
                             $q->whereHas('roles', function ($r) {
                                 $r->where('name', 'teacher');
                             });
-                        }
+                        },
                     ]);
-                }
+                },
             ]);
         }
 

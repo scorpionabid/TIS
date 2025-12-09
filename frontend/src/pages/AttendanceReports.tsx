@@ -1,36 +1,32 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   FileText, 
   Download, 
   Filter, 
   TrendingUp, 
   TrendingDown, 
-  Users, 
-  School, 
   CalendarIcon,
   BarChart3,
-  PieChart,
-  CheckCircle,
-  XCircle,
-  Clock,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import { attendanceService } from '@/services/attendance';
 import { institutionService } from '@/services/institutions';
-import { format } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { USER_ROLES } from '@/constants/roles';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { TablePagination } from '@/components/common/TablePagination';
 
 interface AttendanceRecord {
   id: number;
@@ -56,6 +52,9 @@ interface AttendanceStats {
   total_records: number;
 }
 
+const DEFAULT_PER_PAGE = 20;
+const AGGREGATION_FETCH_LIMIT = 500;
+
 export default function AttendanceReports() {
   const { currentUser } = useAuth();
   const {
@@ -63,30 +62,45 @@ export default function AttendanceReports() {
     isSuperAdmin,
     isRegionAdmin,
     isSektorAdmin,
-    isSchoolAdmin,
-    isTeacher
+    isSchoolAdmin
   } = useRoleCheck();
 
   // Security check - only educational administrative roles can access attendance reports
   const allowedRoles = [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM];
   const hasAccess = canAccess(allowedRoles);
 
+  // Derived defaults
+  const defaultDateRange = useMemo(() => {
+    const now = new Date();
+    return {
+      start: format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd'),
+      end: format(now, 'yyyy-MM-dd')
+    };
+  }, []);
+
   // State hooks - all at the top
   const [selectedSchool, setSelectedSchool] = useState<string>('all');
   const [selectedClass, setSelectedClass] = useState<string>('all');
   const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  const [startDate, setStartDate] = useState<string>(
-    format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd')
-  );
-  const [endDate, setEndDate] = useState<string>(
-    format(new Date(), 'yyyy-MM-dd')
-  );
+  const [startDate, setStartDate] = useState<string>(defaultDateRange.start);
+  const [endDate, setEndDate] = useState<string>(defaultDateRange.end);
+  type DatePresetKey = 'today' | 'thisWeek' | 'thisMonth' | 'last30' | 'custom';
+  type PresetOption = Exclude<DatePresetKey, 'custom'>;
+  const [activeDatePreset, setActiveDatePreset] = useState<DatePresetKey>('thisMonth');
+  const [page, setPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(DEFAULT_PER_PAGE);
+  const [isExporting, setIsExporting] = useState<boolean>(false);
+  const isDailyView = reportType === 'daily';
 
   // Get current user's institution for filtering
   const userInstitutionId = currentUser?.institution?.id;
 
+  useEffect(() => {
+    setPage(1);
+  }, [selectedSchool, selectedClass, startDate, endDate, reportType]);
+
   // Load schools data (only for higher admins) - use enabled prop
-  const { data: schoolsResponse } = useQuery({
+  const { data: schoolsResponse, error: schoolsError } = useQuery({
     queryKey: ['institutions', 'schools', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => institutionService.getAll(),
     enabled: hasAccess && (isSuperAdmin || isRegionAdmin || isSektorAdmin)
@@ -100,9 +114,83 @@ export default function AttendanceReports() {
     );
   }, [schoolsResponse]);
 
+  const targetSchoolIdForClasses = isSchoolAdmin
+    ? userInstitutionId
+    : selectedSchool !== 'all'
+    ? parseInt(selectedSchool, 10)
+    : undefined;
+
+  const datePresets: { id: PresetOption; label: string; getRange: () => { start: string; end: string } }[] = useMemo(
+    () => [
+      {
+        id: 'today',
+        label: 'Bugün',
+        getRange: () => {
+          const today = format(new Date(), 'yyyy-MM-dd');
+          return { start: today, end: today };
+        }
+      },
+      {
+        id: 'thisWeek',
+        label: 'Bu həftə',
+        getRange: () => {
+          const start = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+          const end = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
+          return { start, end };
+        }
+      },
+      {
+        id: 'thisMonth',
+        label: 'Bu ay',
+        getRange: () => {
+          const now = new Date();
+          const start = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
+          const end = format(new Date(), 'yyyy-MM-dd');
+          return { start, end };
+        }
+      },
+      {
+        id: 'last30',
+        label: 'Son 30 gün',
+        getRange: () => {
+          const end = format(new Date(), 'yyyy-MM-dd');
+          const start = format(subDays(new Date(), 29), 'yyyy-MM-dd');
+          return { start, end };
+        }
+      }
+    ],
+    []
+  );
+
+  const handlePresetSelect = (presetId: PresetOption) => {
+    const preset = datePresets.find((item) => item.id === presetId);
+    if (!preset) return;
+    const range = preset.getRange();
+    setActiveDatePreset(presetId);
+    setStartDate(range.start);
+    setEndDate(range.end);
+  };
+
   // Load attendance data - use enabled prop
-  const { data: attendanceResponse, isLoading: attendanceLoading, refetch } = useQuery({
-    queryKey: ['attendance-reports', selectedSchool, selectedClass, startDate, endDate, reportType, currentUser?.role, currentUser?.institution?.id],
+  const {
+    data: attendanceResponse,
+    isLoading: attendanceLoading,
+    isFetching: attendanceFetching,
+    error: attendanceError,
+    refetch
+  } = useQuery({
+    queryKey: [
+      'attendance-reports',
+      selectedSchool,
+      selectedClass,
+      startDate,
+      endDate,
+      reportType,
+      currentUser?.role,
+      currentUser?.institution?.id,
+      isDailyView ? page : 'all',
+      isDailyView ? perPage : AGGREGATION_FETCH_LIMIT
+    ],
     queryFn: () => {
       const filters: any = {
         start_date: startDate,
@@ -120,13 +208,28 @@ export default function AttendanceReports() {
         filters.class_name = selectedClass;
       }
 
+      if (isDailyView) {
+        filters.page = page;
+        filters.per_page = perPage;
+      } else {
+        filters.page = 1;
+        filters.per_page = AGGREGATION_FETCH_LIMIT;
+      }
+
       return attendanceService.getAttendanceRecords(filters);
     },
-    enabled: hasAccess
+    enabled: hasAccess,
+    keepPreviousData: true,
+    staleTime: 60 * 1000,
+    retry: 1,
   });
 
   // Load attendance stats - use enabled prop
-  const { data: statsResponse } = useQuery({
+  const {
+    data: statsResponse,
+    isLoading: statsLoading,
+    error: statsError
+  } = useQuery({
     queryKey: ['attendance-stats-reports', selectedSchool, startDate, endDate, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => {
       const filters: any = {
@@ -142,10 +245,26 @@ export default function AttendanceReports() {
 
       return attendanceService.getAttendanceStats(filters);
     },
-    enabled: hasAccess
+    enabled: hasAccess,
+    keepPreviousData: true,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 
   const attendanceData = attendanceResponse?.data || [];
+  const attendanceMeta = attendanceResponse?.meta;
+  const totalRecords = attendanceMeta?.total ?? attendanceData.length;
+  const paginationPerPage = attendanceMeta?.per_page ?? perPage;
+  const paginationCurrentPage = attendanceMeta?.current_page ?? page;
+  const paginationTotalPages =
+    attendanceMeta?.last_page ?? Math.max(1, Math.ceil(totalRecords / (paginationPerPage || 1)));
+  const paginationStartIndex = attendanceMeta?.from
+    ? Math.max(attendanceMeta.from - 1, 0)
+    : (paginationCurrentPage - 1) * paginationPerPage;
+  const paginationEndIndex = attendanceMeta?.to ?? Math.min(paginationStartIndex + attendanceData.length, totalRecords);
+  const shouldShowPagination = isDailyView && totalRecords > paginationPerPage;
+  const isRefetchingAttendance = attendanceFetching && !attendanceLoading;
+
   const attendanceStats = statsResponse?.data || {
     total_students: 0,
     average_attendance: 0,
@@ -153,12 +272,155 @@ export default function AttendanceReports() {
     total_days: 0,
     total_records: 0
   };
+  const trendCopy: Record<'up' | 'down' | 'stable', { label: string; description: string }> = {
+    up: {
+      label: 'Artan trend',
+      description: 'Son dövrdə davamiyyət göstəriciləri yüksəlir.'
+    },
+    down: {
+      label: 'Azalan trend',
+      description: 'Son dövrdə davamiyyət əvvəlki aralığa nisbətən zəifləyib.'
+    },
+    stable: {
+      label: 'Sabit trend',
+      description: 'Davamiyyət göstəricilərində ciddi dəyişiklik yoxdur.'
+    }
+  };
+  const activeTrendCopy = trendCopy[attendanceStats.trend_direction];
 
-  // Get unique classes from filtered data
-  const availableClasses = useMemo(() => {
+  // Determine school label for grouped records
+  const activeSchoolName = useMemo(() => {
+    if (isSchoolAdmin && currentUser?.institution?.name) {
+      return currentUser.institution.name;
+    }
+
+    if (!isSchoolAdmin && selectedSchool !== 'all') {
+      const found = schools.find((school) => school.id.toString() === selectedSchool);
+      return found?.name ?? 'Seçilmiş məktəb';
+    }
+
+    return 'Bütün məktəblər';
+  }, [isSchoolAdmin, currentUser, selectedSchool, schools]);
+
+  // Load class options for the selected school scope
+  const {
+    data: fetchedClassOptions,
+    isLoading: classOptionsLoading,
+    error: classOptionsError
+  } = useQuery({
+    queryKey: ['attendance-class-options', targetSchoolIdForClasses ?? 'all'],
+    queryFn: () => attendanceService.getSchoolClasses(targetSchoolIdForClasses),
+    enabled: hasAccess && (!!targetSchoolIdForClasses || !isSchoolAdmin),
+    staleTime: 5 * 60 * 1000,
+    retry: 1
+  });
+
+  // Get unique classes from filtered data as fallback
+  const fallbackClasses = useMemo(() => {
     const classes = [...new Set(attendanceData.map((record: AttendanceRecord) => record.class_name))];
     return classes.sort();
   }, [attendanceData]);
+
+  const classOptions = useMemo(() => {
+    const optionSet = new Set<string>();
+    (fetchedClassOptions || []).forEach((cls) => {
+      if (cls) optionSet.add(cls);
+    });
+    fallbackClasses.forEach((cls) => {
+      if (cls) optionSet.add(cls);
+    });
+    if (selectedClass !== 'all') {
+      optionSet.add(selectedClass);
+    }
+    return Array.from(optionSet).sort((a, b) => a.localeCompare(b, 'az', { numeric: true }));
+  }, [fetchedClassOptions, fallbackClasses, selectedClass]);
+
+  const classLabel = selectedClass !== 'all' ? selectedClass : 'Bütün siniflər';
+
+  const groupedAttendance = useMemo(() => {
+    const parsedRecords = attendanceData
+      .map((record: AttendanceRecord) => ({
+        ...record,
+        dateObj: new Date(record.date),
+      }))
+      .filter((record) => !Number.isNaN(record.dateObj.getTime()));
+
+    const aggregate = (groupType: 'weekly' | 'monthly') => {
+      const buckets = new Map<
+        string,
+        {
+          start: Date;
+          end: Date;
+          totalStart: number;
+          totalEnd: number;
+          totalRate: number;
+          count: number;
+        }
+      >();
+
+      parsedRecords.forEach((record) => {
+        const rangeStart =
+          groupType === 'weekly'
+            ? startOfWeek(record.dateObj, { weekStartsOn: 1 })
+            : startOfMonth(record.dateObj);
+        const rangeEnd =
+          groupType === 'weekly'
+            ? endOfWeek(record.dateObj, { weekStartsOn: 1 })
+            : endOfMonth(record.dateObj);
+        const key =
+          groupType === 'weekly'
+            ? format(rangeStart, 'yyyy-MM-dd')
+            : format(rangeStart, 'yyyy-MM');
+
+        if (!buckets.has(key)) {
+          buckets.set(key, {
+            start: rangeStart,
+            end: rangeEnd,
+            totalStart: 0,
+            totalEnd: 0,
+            totalRate: 0,
+            count: 0,
+          });
+        }
+
+        const bucket = buckets.get(key)!;
+        bucket.totalStart += record.start_count;
+        bucket.totalEnd += record.end_count;
+        bucket.totalRate += record.attendance_rate;
+        bucket.count += 1;
+      });
+
+      return Array.from(buckets.entries())
+        .sort((a, b) => b[1].start.getTime() - a[1].start.getTime())
+        .map(([, bucket], index) => ({
+          id: index + 1,
+          date: bucket.start.toISOString(),
+          dateLabel:
+            groupType === 'weekly'
+              ? `${format(bucket.start, 'dd.MM', { locale: az })} - ${format(bucket.end, 'dd.MM.yyyy', { locale: az })}`
+              : format(bucket.start, 'MMMM yyyy', { locale: az }),
+          school_name: activeSchoolName,
+          class_name: classLabel,
+          start_count: bucket.totalStart,
+          end_count: bucket.totalEnd,
+          attendance_rate: bucket.count > 0 ? Math.round(bucket.totalRate / bucket.count) : 0,
+          notes: `${bucket.count} qeyd`,
+        }));
+    };
+
+    return {
+      daily: attendanceData,
+      weekly: aggregate('weekly'),
+      monthly: aggregate('monthly'),
+    };
+  }, [attendanceData, activeSchoolName, classLabel]);
+
+  const displayRecords =
+    reportType === 'weekly'
+      ? groupedAttendance.weekly
+      : reportType === 'monthly'
+      ? groupedAttendance.monthly
+      : groupedAttendance.daily;
 
   // Security check after all hooks
   if (!hasAccess) {
@@ -176,6 +438,8 @@ export default function AttendanceReports() {
   }
 
   const handleExportReport = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
     try {
       const filters: any = {
         start_date: startDate,
@@ -203,16 +467,26 @@ export default function AttendanceReports() {
       
       toast.success('Hesabat uğurla export edildi');
     } catch (error) {
-      toast.error('Export zamanı xəta baş verdi');
+      toast.error(getErrorMessage(error));
+    } finally {
+      setIsExporting(false);
     }
   };
 
   const handleResetFilters = () => {
     setSelectedSchool('all');
     setSelectedClass('all');
-    setStartDate(format(new Date(new Date().getFullYear(), new Date().getMonth(), 1), 'yyyy-MM-dd'));
-    setEndDate(format(new Date(), 'yyyy-MM-dd'));
+    handlePresetSelect('thisMonth');
     setReportType('daily');
+    setPage(1);
+    setPerPage(DEFAULT_PER_PAGE);
+  };
+
+  const getErrorMessage = (error: unknown) => {
+    if (!error) return '';
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    return 'Gözlənilməz xəta baş verdi.';
   };
 
   return (
@@ -229,79 +503,127 @@ export default function AttendanceReports() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => refetch()}>
-            <BarChart3 className="h-4 w-4 mr-2" />
-            Yenilə
+          <Button
+            variant="outline"
+            onClick={() => refetch()}
+            disabled={attendanceLoading || isRefetchingAttendance}
+          >
+            {isRefetchingAttendance ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <BarChart3 className="h-4 w-4 mr-2" />
+            )}
+            {isRefetchingAttendance ? 'Yenilənir...' : 'Yenilə'}
           </Button>
-          <Button onClick={handleExportReport}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
+          <Button onClick={handleExportReport} disabled={isExporting || attendanceData.length === 0}>
+            {isExporting ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4 mr-2" />
+            )}
+            {isExporting ? 'Export olunur...' : 'Export'}
           </Button>
         </div>
       </div>
 
+      {attendanceError && (
+        <Alert variant="destructive">
+          <AlertTitle>Davamiyyət məlumatı yüklənmədi</AlertTitle>
+          <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <span>{getErrorMessage(attendanceError)}</span>
+            <Button size="sm" onClick={() => refetch()} variant="secondary">
+              Yenidən cəhd et
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {schoolsError && (
+        <Alert variant="destructive">
+          <AlertTitle>Məktəblər siyahısı yüklənmədi</AlertTitle>
+          <AlertDescription>{getErrorMessage(schoolsError)}</AlertDescription>
+        </Alert>
+      )}
+      {classOptionsError && (
+        <Alert variant="destructive">
+          <AlertTitle>Sinif siyahısı yüklənə bilmədi</AlertTitle>
+          <AlertDescription>{getErrorMessage(classOptionsError)}</AlertDescription>
+        </Alert>
+      )}
+
       {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ümumi Qeyd</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{attendanceStats.total_records}</div>
-            <p className="text-xs text-muted-foreground">
-              {attendanceStats.total_days} gün
-            </p>
-          </CardContent>
-        </Card>
+      {statsError ? (
+        <Alert variant="destructive">
+          <AlertTitle>Statistika yüklənmədi</AlertTitle>
+          <AlertDescription>{getErrorMessage(statsError)}</AlertDescription>
+        </Alert>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Ümumi Qeyd</CardTitle>
+              <FileText className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{attendanceStats.total_records}</div>
+              <p className="text-xs text-muted-foreground">
+                {attendanceStats.total_days} gün
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Orta Davamiyyət</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{attendanceStats.average_attendance}%</div>
-            <p className="text-xs text-muted-foreground">
-              {attendanceStats.total_students} şagird
-            </p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Orta Davamiyyət</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {statsLoading && !statsResponse ? <Loader2 className="h-5 w-5 animate-spin" /> : `${attendanceStats.average_attendance}%`}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {attendanceStats.total_students} şagird
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Trend</CardTitle>
-            {attendanceStats.trend_direction === 'up' ? (
-              <TrendingUp className="h-4 w-4 text-green-600" />
-            ) : attendanceStats.trend_direction === 'down' ? (
-              <TrendingDown className="h-4 w-4 text-red-600" />
-            ) : (
-              <BarChart3 className="h-4 w-4 text-blue-600" />
-            )}
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${
-              attendanceStats.trend_direction === 'up' ? 'text-green-600' : 
-              attendanceStats.trend_direction === 'down' ? 'text-red-600' : 'text-blue-600'
-            }`}>
-              {attendanceStats.trend_direction === 'up' ? '+2.3%' : 
-               attendanceStats.trend_direction === 'down' ? '-1.2%' : 'Sabit'}
-            </div>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Trend</CardTitle>
+              {attendanceStats.trend_direction === 'up' ? (
+                <TrendingUp className="h-4 w-4 text-green-600" />
+              ) : attendanceStats.trend_direction === 'down' ? (
+                <TrendingDown className="h-4 w-4 text-red-600" />
+              ) : (
+                <BarChart3 className="h-4 w-4 text-blue-600" />
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className={`text-xl font-semibold ${
+                attendanceStats.trend_direction === 'up' ? 'text-green-600' : 
+                attendanceStats.trend_direction === 'down' ? 'text-red-600' : 'text-blue-600'
+              }`}>
+                {activeTrendCopy.label}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {activeTrendCopy.description}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Dövr</CardTitle>
-            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {format(new Date(startDate), 'dd.MM', { locale: az })} - {format(new Date(endDate), 'dd.MM', { locale: az })}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Dövr</CardTitle>
+              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {format(new Date(startDate), 'dd.MM', { locale: az })} - {format(new Date(endDate), 'dd.MM', { locale: az })}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Filters */}
       <Card>
@@ -337,11 +659,11 @@ export default function AttendanceReports() {
               <Label>Sinif</Label>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Sinif seçin" />
+                  <SelectValue placeholder={classOptionsLoading ? 'Yüklənir...' : 'Sinif seçin'} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Bütün siniflər</SelectItem>
-                  {availableClasses.map((className) => (
+                  {classOptions.map((className) => (
                     <SelectItem key={className} value={className}>
                       {className}
                     </SelectItem>
@@ -369,7 +691,10 @@ export default function AttendanceReports() {
               <Input
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
+                onChange={(e) => {
+                  setActiveDatePreset('custom');
+                  setStartDate(e.target.value);
+                }}
               />
             </div>
 
@@ -378,9 +703,38 @@ export default function AttendanceReports() {
               <Input
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
+                onChange={(e) => {
+                  setActiveDatePreset('custom');
+                  setEndDate(e.target.value);
+                }}
                 min={startDate}
               />
+            </div>
+
+            <div className="space-y-2 md:col-span-6">
+              <Label>Hazır intervallar</Label>
+              <div className="flex flex-wrap gap-2">
+                {datePresets.map((preset) => (
+                  <Button
+                    key={preset.id}
+                    type="button"
+                    variant={activeDatePreset === preset.id ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => handlePresetSelect(preset.id)}
+                  >
+                    {preset.label}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  variant={activeDatePreset === 'custom' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setActiveDatePreset('custom')}
+                  disabled={activeDatePreset === 'custom'}
+                >
+                  Fərdi
+                </Button>
+              </div>
             </div>
 
             <div className="flex items-end">
@@ -397,7 +751,7 @@ export default function AttendanceReports() {
         <CardHeader>
           <CardTitle>Davamiyyət Qeydləri</CardTitle>
           <p className="text-sm text-muted-foreground">
-            {attendanceData.length} qeyd tapıldı
+            {displayRecords.length} {reportType === 'daily' ? 'günlük' : reportType === 'weekly' ? 'həftəlik' : 'aylıq'} qeyd tapıldı
           </p>
         </CardHeader>
         <CardContent>
@@ -427,17 +781,22 @@ export default function AttendanceReports() {
                       <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
                     </TableRow>
                   ))
-                ) : attendanceData.length === 0 ? (
+                ) : displayRecords.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={isSchoolAdmin ? 6 : 7} className="text-center py-8 text-muted-foreground">
                       Seçilmiş kriteriyalara uyğun məlumat tapılmadı
                     </TableCell>
                   </TableRow>
                 ) : (
-                  attendanceData.map((record: AttendanceRecord) => (
-                    <TableRow key={record.id}>
+                  displayRecords.map((record: AttendanceRecord & { dateLabel?: string }, index: number) => {
+                    const formattedDate = record.dateLabel
+                      ? record.dateLabel
+                      : format(new Date(record.date), 'dd.MM.yyyy', { locale: az });
+
+                    return (
+                    <TableRow key={`${reportType}-${record.id ?? index}`}>
                       <TableCell>
-                        {format(new Date(record.date), 'dd.MM.yyyy', { locale: az })}
+                        {formattedDate}
                       </TableCell>
                       {!isSchoolAdmin && (
                         <TableCell className="font-medium">
@@ -460,11 +819,27 @@ export default function AttendanceReports() {
                       </TableCell>
                       <TableCell>{record.notes || '-'}</TableCell>
                     </TableRow>
-                  ))
+                  );
+                  })
                 )}
               </TableBody>
             </Table>
           </div>
+          {shouldShowPagination && (
+            <TablePagination
+              currentPage={paginationCurrentPage}
+              totalPages={paginationTotalPages}
+              totalItems={totalRecords}
+              itemsPerPage={paginationPerPage}
+              startIndex={paginationStartIndex}
+              endIndex={paginationEndIndex}
+              onPageChange={setPage}
+              onItemsPerPageChange={(value) => {
+                setPerPage(value);
+                setPage(1);
+              }}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

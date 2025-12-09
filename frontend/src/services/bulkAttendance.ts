@@ -1,4 +1,4 @@
-import { apiClient } from './api';
+import { apiClient } from "./api";
 
 // Types for bulk attendance
 export interface ClassAttendanceData {
@@ -11,7 +11,7 @@ export interface ClassAttendanceData {
   evening_unexcused?: number;
   morning_notes?: string;
   evening_notes?: string;
-  session: 'morning' | 'evening' | 'both';
+  session: "morning" | "evening" | "both";
 }
 
 export interface BulkAttendanceRequest {
@@ -44,6 +44,7 @@ export interface ClassWithAttendance {
   level: string;
   description?: string;
   total_students: number;
+  requires_student_count?: boolean;
   homeroom_teacher?: {
     id: number;
     name: string;
@@ -71,6 +72,36 @@ export interface BulkAttendanceResponse {
     };
   };
   message: string;
+}
+
+export interface BulkAttendanceErrorItem {
+  grade_id: number;
+  grade_name: string;
+  reason: string;
+  type: "missing_student_count" | "invalid_totals";
+  details?: {
+    total_students: number;
+    morning_total: number;
+    evening_total: number;
+  };
+}
+
+export interface BulkAttendanceSaveResponse {
+  success: boolean;
+  status: "completed" | "partial" | "failed";
+  message: string;
+  data: {
+    saved: Array<{
+      id: number;
+      grade_id: number;
+      grade_name?: string;
+      morning_attendance_rate: number;
+      evening_attendance_rate: number;
+      daily_attendance_rate: number;
+      is_complete: boolean;
+    }>;
+    errors: BulkAttendanceErrorItem[];
+  };
 }
 
 export interface DailyReportSummary {
@@ -111,16 +142,22 @@ export interface DailyReportResponse {
 }
 
 class BulkAttendanceService {
-  private baseUrl = '/schooladmin/bulk-attendance';
+  private baseUrl = "/schooladmin/bulk-attendance";
 
-  private async get(endpoint: string, params?: any) {
+  private async get<T>(
+    endpoint: string,
+    params?: Record<string, any>,
+    options?: { cache?: boolean; cacheTtl?: number }
+  ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    return await apiClient.get(url, { params });
+    const response = await apiClient.get<T>(url, params, options);
+    return response as unknown as T;
   }
 
-  private async post(endpoint: string, data: any) {
+  private async post<T>(endpoint: string, data: any): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    return await apiClient.post(url, data);
+    const response = await apiClient.post<T>(url, data);
+    return response as unknown as T;
   }
 
   /**
@@ -128,25 +165,16 @@ class BulkAttendanceService {
    */
   async getClassesForDate(date?: string): Promise<BulkAttendanceResponse> {
     const params = date ? { date } : {};
-    return this.get('', params);
+    return this.get<BulkAttendanceResponse>("", params, { cache: false });
   }
 
   /**
    * Save or update bulk attendance data
    */
-  async saveBulkAttendance(data: BulkAttendanceRequest): Promise<{
-    success: boolean;
-    message: string;
-    data: {
-      id: number;
-      grade_name: string;
-      morning_attendance_rate: number;
-      evening_attendance_rate: number;
-      daily_attendance_rate: number;
-      is_complete: boolean;
-    }[];
-  }> {
-    return this.post('', data);
+  async saveBulkAttendance(
+    data: BulkAttendanceRequest
+  ): Promise<BulkAttendanceSaveResponse> {
+    return this.post<BulkAttendanceSaveResponse>("", data);
   }
 
   /**
@@ -154,29 +182,36 @@ class BulkAttendanceService {
    */
   async getDailyReport(date?: string): Promise<DailyReportResponse> {
     const params = date ? { date } : {};
-    return this.get('/daily-report', params);
+    return this.get<DailyReportResponse>("/daily-report", params, {
+      cache: false,
+    });
   }
 
   /**
    * Get weekly attendance summary
    */
-  async getWeeklySummary(startDate?: string, endDate?: string): Promise<{
+  async getWeeklySummary(
+    startDate?: string,
+    endDate?: string
+  ): Promise<{
     success: boolean;
     data: {
-      summaries: { [date: string]: {
-        date: string;
-        total_classes: number;
-        completed_classes: number;
-        total_students: number;
-        morning_present_total: number;
-        evening_present_total: number;
-        overall_daily_rate: number;
-        classes: Array<{
-          grade_name: string;
-          daily_attendance_rate: number;
-          is_complete: boolean;
-        }>;
-      }};
+      summaries: {
+        [date: string]: {
+          date: string;
+          total_classes: number;
+          completed_classes: number;
+          total_students: number;
+          morning_present_total: number;
+          evening_present_total: number;
+          overall_daily_rate: number;
+          classes: Array<{
+            grade_name: string;
+            daily_attendance_rate: number;
+            is_complete: boolean;
+          }>;
+        };
+      };
       period: {
         start_date: string;
         end_date: string;
@@ -190,21 +225,30 @@ class BulkAttendanceService {
     const params: any = {};
     if (startDate) params.start_date = startDate;
     if (endDate) params.end_date = endDate;
-    return this.get('/weekly-summary', params);
+    return this.get("/weekly-summary", params, { cache: false });
   }
 
   /**
-   * Export attendance data
+   * Export attendance data as CSV
    */
-  async exportData(startDate?: string, endDate?: string): Promise<{
-    success: boolean;
-    data: any[];
-    filename: string;
-  }> {
+  async exportCsv(startDate?: string, endDate?: string): Promise<Blob> {
     const params: any = {};
     if (startDate) params.start_date = startDate;
     if (endDate) params.end_date = endDate;
-    return this.get('/export', params);
+    const response = await apiClient.get<Blob>(
+      "/schooladmin/bulk-attendance/export",
+      params,
+      {
+        responseType: "blob",
+        cache: false,
+      }
+    );
+
+    if (response.data instanceof Blob) {
+      return response.data;
+    }
+
+    throw new Error("Export cavabı müvafiq CSV məlumatı qaytarmadı");
   }
 
   /**
@@ -224,10 +268,10 @@ class BulkAttendanceService {
     const data: BulkAttendanceRequest = {
       attendance_date: date,
       academic_year_id: academicYearId,
-      classes: classesData.map(cls => ({
+      classes: classesData.map((cls) => ({
         ...cls,
-        session: 'morning' as const
-      }))
+        session: "morning" as const,
+      })),
     };
     return this.saveBulkAttendance(data);
   }
@@ -249,10 +293,10 @@ class BulkAttendanceService {
     const data: BulkAttendanceRequest = {
       attendance_date: date,
       academic_year_id: academicYearId,
-      classes: classesData.map(cls => ({
+      classes: classesData.map((cls) => ({
         ...cls,
-        session: 'evening' as const
-      }))
+        session: "evening" as const,
+      })),
     };
     return this.saveBulkAttendance(data);
   }
@@ -278,10 +322,10 @@ class BulkAttendanceService {
     const data: BulkAttendanceRequest = {
       attendance_date: date,
       academic_year_id: academicYearId,
-      classes: classesData.map(cls => ({
+      classes: classesData.map((cls) => ({
         ...cls,
-        session: 'both' as const
-      }))
+        session: "both" as const,
+      })),
     };
     return this.saveBulkAttendance(data);
   }
@@ -296,10 +340,12 @@ class BulkAttendanceService {
     unexcused: number
   ): boolean {
     const totalMarked = present + excused + unexcused;
-    return totalMarked <= totalStudents && 
-           present >= 0 && 
-           excused >= 0 && 
-           unexcused >= 0;
+    return (
+      totalMarked <= totalStudents &&
+      present >= 0 &&
+      excused >= 0 &&
+      unexcused >= 0
+    );
   }
 
   /**
@@ -313,26 +359,32 @@ class BulkAttendanceService {
    * Get attendance summary for a class
    */
   getAttendanceSummary(attendance: AttendanceRecord, totalStudents: number) {
-    const morningTotal = attendance.morning_present + attendance.morning_excused + attendance.morning_unexcused;
-    const eveningTotal = attendance.evening_present + attendance.evening_excused + attendance.evening_unexcused;
-    
+    const morningTotal =
+      attendance.morning_present +
+      attendance.morning_excused +
+      attendance.morning_unexcused;
+    const eveningTotal =
+      attendance.evening_present +
+      attendance.evening_excused +
+      attendance.evening_unexcused;
+
     return {
       morning: {
         present: attendance.morning_present,
         absent: attendance.morning_excused + attendance.morning_unexcused,
         rate: attendance.morning_attendance_rate,
-        recorded: morningTotal > 0
+        recorded: morningTotal > 0,
       },
       evening: {
         present: attendance.evening_present,
         absent: attendance.evening_excused + attendance.evening_unexcused,
         rate: attendance.evening_attendance_rate,
-        recorded: eveningTotal > 0
+        recorded: eveningTotal > 0,
       },
       daily: {
         rate: attendance.daily_attendance_rate,
-        isComplete: attendance.is_complete
-      }
+        isComplete: attendance.is_complete,
+      },
     };
   }
 }
