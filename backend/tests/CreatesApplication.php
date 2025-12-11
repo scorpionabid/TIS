@@ -34,6 +34,8 @@ trait CreatesApplication
             );
         }
 
+        // Note: .env.testing configures DB_CONNECTION=pgsql
+        // Tests run against PostgreSQL in Docker. SQLite support kept for legacy/local development if needed.
         if ($defaultConnection === 'sqlite') {
             $databasePath = env('DB_DATABASE', database_path('testing.sqlite'));
 
