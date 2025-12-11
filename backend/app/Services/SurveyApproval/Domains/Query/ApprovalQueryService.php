@@ -457,7 +457,7 @@ class ApprovalQueryService
     }
 
     /**
-     * Get region institution IDs
+     * Get region institution IDs (recursive - all levels)
      */
     protected function getRegionInstitutionIds(User $user): array
     {
@@ -465,21 +465,12 @@ class ApprovalQueryService
             return [];
         }
 
-        $regionId = $user->institution_id;
-
-        return \App\Models\Institution::where('parent_id', $regionId)
-            ->orWhere('id', $regionId)
-            ->orWhereIn('parent_id', function ($query) use ($regionId) {
-                $query->select('id')
-                    ->from('institutions')
-                    ->where('parent_id', $regionId);
-            })
-            ->pluck('id')
-            ->toArray();
+        // Use Institution model's recursive method to get ALL children
+        return $user->institution->getAllChildrenIds();
     }
 
     /**
-     * Get sector institution IDs
+     * Get sector institution IDs (recursive - all levels)
      */
     protected function getSectorInstitutionIds(User $user): array
     {
@@ -487,12 +478,8 @@ class ApprovalQueryService
             return [$user->institution_id];
         }
 
-        $sectorId = $user->institution_id;
-
-        return \App\Models\Institution::where('parent_id', $sectorId)
-            ->orWhere('id', $sectorId)
-            ->pluck('id')
-            ->toArray();
+        // Use Institution model's recursive method to get ALL children
+        return $user->institution->getAllChildrenIds();
     }
 
     /**

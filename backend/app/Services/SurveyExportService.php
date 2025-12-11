@@ -154,26 +154,28 @@ class SurveyExportService
     }
 
     /**
-     * Get region institution IDs
+     * Get region institution IDs (recursive - all levels)
      */
     private function getRegionInstitutionIds(User $user): array
     {
-        return DB::table('institutions')
-            ->where('parent_id', $user->institution_id)
-            ->orWhere('id', $user->institution_id)
-            ->pluck('id')
-            ->toArray();
+        if (! $user->institution) {
+            return [];
+        }
+
+        // Use Institution model's recursive method to get ALL children
+        return $user->institution->getAllChildrenIds();
     }
 
     /**
-     * Get sector institution IDs
+     * Get sector institution IDs (recursive - all levels)
      */
     private function getSectorInstitutionIds(User $user): array
     {
-        return DB::table('institutions')
-            ->where('parent_id', $user->institution_id)
-            ->orWhere('id', $user->institution_id)
-            ->pluck('id')
-            ->toArray();
+        if (! $user->institution) {
+            return [$user->institution_id];
+        }
+
+        // Use Institution model's recursive method to get ALL children
+        return $user->institution->getAllChildrenIds();
     }
 }

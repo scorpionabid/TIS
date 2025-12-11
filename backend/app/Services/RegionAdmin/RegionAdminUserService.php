@@ -10,17 +10,18 @@ use Illuminate\Http\Request;
 class RegionAdminUserService
 {
     /**
-     * Get all institution IDs for a region admin
+     * Get all institution IDs for a region admin (recursive - all levels)
      */
     public function getRegionInstitutionIds($userRegionId)
     {
-        return Institution::where(function ($query) use ($userRegionId) {
-            $query->where('id', $userRegionId)
-                ->orWhere('parent_id', $userRegionId)
-                ->orWhereHas('parent', function ($q) use ($userRegionId) {
-                    $q->where('parent_id', $userRegionId);
-                });
-        })->pluck('id');
+        $institution = Institution::find($userRegionId);
+
+        if (! $institution) {
+            return collect([]);
+        }
+
+        // Use Institution model's recursive method to get ALL children
+        return collect($institution->getAllChildrenIds());
     }
 
     /**

@@ -203,7 +203,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'approvals',
             label: 'Təsdiq Paneli',
             path: '/approvals',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]
           },
         ]
       },

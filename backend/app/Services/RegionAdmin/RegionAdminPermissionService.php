@@ -92,12 +92,19 @@ class RegionAdminPermissionService
 
         $templates = collect($this->getConfig()['templates'] ?? [])
             ->map(function (array $template, $key) use ($granted) {
-                $template['permissions'] = array_values(array_filter(
-                    $template['permissions'],
+                $originalPermissions = $template['permissions'] ?? [];
+                $available = array_values(array_filter(
+                    $originalPermissions,
                     fn ($permission) => in_array($permission, $granted, true)
                 ));
 
+                $template['permissions'] = $available;
                 $template['key'] = $template['key'] ?? $key;
+                $template['total_permissions'] = count($originalPermissions);
+                $template['available_permissions'] = count($available);
+                $template['coverage_percent'] = $template['total_permissions'] > 0
+                    ? intval(floor(($template['available_permissions'] / $template['total_permissions']) * 100))
+                    : 0;
 
                 return $template;
             })
@@ -174,13 +181,43 @@ class RegionAdminPermissionService
 
     public function syncDirectPermissions(User $user, array $permissions): void
     {
+        // Compute before/after diffs for audit
+        $old = $this->getDirectPermissions($user);
+        $added = array_values(array_filter(array_unique(array_diff($permissions, $old))));
+        $removed = array_values(array_filter(array_unique(array_diff($old, $permissions))));
+
         Log::info('RegionAdmin sync direct permissions', [
             'admin_id' => auth()->id(),
             'target_user' => $user->id,
             'permission_count' => count($permissions),
+            'added_count' => count($added),
+            'removed_count' => count($removed),
+            'added' => $added,
+            'removed' => $removed,
         ]);
 
+        // Perform the actual sync
         $user->syncPermissions($permissions);
+
+        // Record an audit log entry for the permission change
+        try {
+            \App\Models\AuditLog::createAudit([
+                'user_id' => auth()->id(),
+                'event' => 'admin_permission_change',
+                'auditable_type' => 'user',
+                'auditable_id' => $user->id,
+                'old_values' => ['direct_permissions' => $old],
+                'new_values' => ['direct_permissions' => $permissions],
+                'tags' => ['permissions', 'regionadmin'],
+                'institution_id' => $user->institution_id,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to write permission audit log', [
+                'error' => $e->getMessage(),
+                'admin_id' => auth()->id(),
+                'target_user' => $user->id,
+            ]);
+        }
     }
 
     public function getDirectPermissions(User $user): array
@@ -212,6 +249,77 @@ class RegionAdminPermissionService
     public function getUserPermissionsDetailed(User $user): array
     {
         return \App\DTOs\UserPermissionsDTO::fromUser($user)->toArray();
+    }
+
+    /**
+     * Dry-run validation for permission changes. Does not persist changes.
+     * Returns added/removed and lists of issues (missing_dependencies, missing_required, not_allowed, admin_missing_permissions)
+     *
+     * @param User|null $targetUser The user being edited (null for new user)
+     * @param array $proposedPermissions The desired direct permissions
+     * @param string|null $roleName The target role name (if known)
+     * @param User $admin The admin performing the change (for checking granted permissions)
+     * @return array
+     */
+    public function dryRunValidate(?User $targetUser, array $proposedPermissions, ?string $roleName, User $admin): array
+    {
+        $current = [];
+        if ($targetUser) {
+            $current = $this->getDirectPermissions($targetUser);
+        }
+
+        $added = array_values(array_filter(array_unique(array_diff($proposedPermissions, $current))));
+        $removed = array_values(array_filter(array_unique(array_diff($current, $proposedPermissions))));
+
+        // Missing dependencies (using permissionValidationService)
+        $missingDependencies = $this->permissionValidationService->getMissingDependencies($proposedPermissions);
+
+        // Missing required permissions for the role (do not throw)
+        $modules = $this->getNormalizedModules();
+        $missingRequired = [];
+        if ($roleName) {
+            foreach ($modules as $module) {
+                $roles = $module['roles'] ?? [];
+                if (! empty($roles) && ! in_array($roleName, $roles, true)) {
+                    continue;
+                }
+                foreach ($module['required'] ?? [] as $requiredPermission) {
+                    if (! in_array($requiredPermission, $proposedPermissions, true)) {
+                        $missingRequired[] = $requiredPermission;
+                    }
+                }
+            }
+            $missingRequired = array_values(array_unique($missingRequired));
+        }
+
+        // Permissions not allowed for role
+        $notAllowed = [];
+        if ($roleName) {
+            $allowed = $this->collectAllowedPermissionsForRole($roleName)->values()->all();
+            foreach ($proposedPermissions as $p) {
+                if (! in_array($p, $allowed, true)) {
+                    $notAllowed[] = $p;
+                }
+            }
+        }
+
+        // Admin missing permissions (admin must have granted permissions to assign)
+        $adminGranted = $this->getUserPermissionNames($admin);
+        $adminMissing = [];
+        foreach ($proposedPermissions as $p) {
+            if (! in_array($p, $adminGranted, true)) {
+                $adminMissing[] = $p;
+            }
+        }
+
+        return [
+            'added' => $added,
+            'removed' => $removed,
+            'missing_dependencies' => $missingDependencies,
+            'missing_required' => $missingRequired,
+            'not_allowed' => array_values(array_unique($notAllowed)),
+            'admin_missing_permissions' => array_values(array_unique($adminMissing)),
+        ];
     }
 
     private function collectAllowedPermissionsForRole(string $roleName): Collection

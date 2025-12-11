@@ -199,18 +199,9 @@ class ApprovalSecurityService
             return [];
         }
 
-        $regionId = $user->institution_id;
-
-        // Get all institutions under this region (including sectors and schools)
-        return \App\Models\Institution::where('parent_id', $regionId)
-            ->orWhere('id', $regionId)
-            ->orWhereIn('parent_id', function ($query) use ($regionId) {
-                $query->select('id')
-                    ->from('institutions')
-                    ->where('parent_id', $regionId);
-            })
-            ->pluck('id')
-            ->toArray();
+        // Use Institution model's recursive method to get ALL children
+        // This ensures we capture all levels of hierarchy (region → sector → school → building, etc.)
+        return $user->institution->getAllChildrenIds();
     }
 
     /**
@@ -222,13 +213,9 @@ class ApprovalSecurityService
             return [$user->institution_id];
         }
 
-        $sectorId = $user->institution_id;
-
-        // Get all schools under this sector
-        return \App\Models\Institution::where('parent_id', $sectorId)
-            ->orWhere('id', $sectorId)
-            ->pluck('id')
-            ->toArray();
+        // Use Institution model's recursive method to get ALL children
+        // This ensures we capture all levels of hierarchy (sector → school → building, etc.)
+        return $user->institution->getAllChildrenIds();
     }
 
     /**
