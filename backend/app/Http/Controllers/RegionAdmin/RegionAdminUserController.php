@@ -333,8 +333,20 @@ class RegionAdminUserController extends Controller
                 );
             }
         } else {
-            // For other roles, keep backward compatibility - return all permissions as flat array
-            $userData['assignable_permissions'] = $userData['permissions']['all'];
+            // For other roles, prefer returning only DIRECT permissions for editable array.
+            // Keep back-compat fields so older frontends continue to function until rollout completes.
+            $direct = $userData['permissions']['direct'] ?? [];
+            $viaRoles = $userData['permissions']['via_roles'] ?? [];
+            $all = $userData['permissions']['all'] ?? array_values(array_unique(array_merge($direct, $viaRoles)));
+
+            // Editable list should contain only direct permissions.
+            $userData['assignable_permissions'] = $direct;
+
+            // Provide inherited permissions separately for the UI to render read-only badges.
+            $userData['inherited_permissions'] = $viaRoles;
+
+            // Temporary back-compat field containing the previous behaviour (direct + inherited)
+            $userData['assignable_permissions_all'] = $all;
         }
 
         // Ensure primary fields exist at top level for backward compatibility
@@ -672,9 +684,44 @@ class RegionAdminUserController extends Controller
             'templates' => count($metadata['templates'] ?? []),
         ]);
 
+        // Attach feature flags so frontend can toggle preview UI during rollout
+        $features = [
+            'permission_preview' => config('feature_flags.permission_preview', true),
+        ];
+
         return response()->json([
             'success' => true,
             'data' => $metadata,
+            'features' => $features,
+        ]);
+    }
+
+    /**
+     * Dry-run permission validation endpoint. Accepts optional user_id (null for new users)
+     * and a list of proposed assignable_permissions.
+     */
+    public function validatePermissions(Request $request): JsonResponse
+    {
+        $admin = $request->user();
+
+        $payload = $request->all();
+        $userId = $payload['user_id'] ?? null;
+        $roleName = $payload['role_name'] ?? null;
+        $proposed = $this->regionAdminPermissionService->extractRequestedPermissions($request);
+
+        $targetUser = null;
+        if ($userId) {
+            $targetUser = User::find($userId);
+            if (! $targetUser) {
+                return response()->json(['success' => false, 'message' => 'Target user not found'], 404);
+            }
+        }
+
+        $result = $this->regionAdminPermissionService->dryRunValidate($targetUser, $proposed, $roleName, $admin);
+
+        return response()->json([
+            'success' => true,
+            'data' => $result,
         ]);
     }
 

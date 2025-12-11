@@ -18,10 +18,16 @@ const Approvals: React.FC = () => {
     }
 
     const approvalRoles = ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'];
+    const approvalPermissions = ['approvals.read', 'approvals.approve'];
 
     // Check user.role
     if (user.role && approvalRoles.includes(user.role)) {
       return true;
+    }
+
+    // Fallback to permission-based access (e.g., regionoperator with approvals.read)
+    if (Array.isArray(user.permissions)) {
+      return user.permissions.some((permission) => approvalPermissions.includes(permission));
     }
 
     return false;

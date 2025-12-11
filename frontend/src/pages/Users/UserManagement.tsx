@@ -1,6 +1,12 @@
 import { useState, Suspense, lazy, memo, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { User, CreateUserData, UpdateUserData, userService } from "@/services/users";
+import { usePermissionMetadata } from "@/hooks/usePermissionMetadata";
+import {
+  User,
+  CreateUserData,
+  UpdateUserData,
+  userService,
+} from "@/services/users";
 import { sektorAdminService } from "@/services/sektoradmin";
 import { apiClient, PaginatedResponse } from "@/services/api";
 import { storageHelpers } from "@/utils/helpers";
@@ -15,25 +21,35 @@ import { ModalFallback } from "@/components/common/ModalFallback";
 import type { UserRole } from "@/constants/roles";
 
 // Lazy load modals for better performance
-const UserModalTabs = lazy(() => import("@/components/modals/UserModal").then(module => ({
-  default: module.UserModalTabs
-})));
+const UserModalTabs = lazy(() =>
+  import("@/components/modals/UserModal").then((module) => ({
+    default: module.UserModalTabs,
+  }))
+);
 
-const DeleteConfirmationModal = lazy(() => import("@/components/modals/DeleteConfirmationModal").then(module => ({
-  default: module.DeleteConfirmationModal
-})));
+const DeleteConfirmationModal = lazy(() =>
+  import("@/components/modals/DeleteConfirmationModal").then((module) => ({
+    default: module.DeleteConfirmationModal,
+  }))
+);
 
-const UserImportExportModal = lazy(() => import("@/components/modals/UserImportExportModal").then(module => ({
-  default: module.UserImportExportModal
-})));
+const UserImportExportModal = lazy(() =>
+  import("@/components/modals/UserImportExportModal").then((module) => ({
+    default: module.UserImportExportModal,
+  }))
+);
 
-const TrashedUsersModal = lazy(() => import("@/components/modals/TrashedUsersModal").then(module => ({
-  default: module.TrashedUsersModal
-})));
+const TrashedUsersModal = lazy(() =>
+  import("@/components/modals/TrashedUsersModal").then((module) => ({
+    default: module.TrashedUsersModal,
+  }))
+);
 
 // Helper to get role name from string or UserRole
 // UserRole is already a string union type, so just return it directly
-const getRoleName = (role: string | UserRole | undefined): string | undefined => {
+const getRoleName = (
+  role: string | UserRole | undefined
+): string | undefined => {
   if (!role) return undefined;
   return role as string;
 };
@@ -42,6 +58,9 @@ export const UserManagement = memo(() => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const { data: permissionMetadata, isLoading: permissionMetadataLoading } =
+    usePermissionMetadata(Boolean(currentUser));
 
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -72,7 +91,7 @@ export const UserManagement = memo(() => {
 
   // Fetch filter options
   const { data: filterOptions } = useQuery({
-    queryKey: ['users', 'filter-options', currentUser?.role],
+    queryKey: ["users", "filter-options", currentUser?.role],
     queryFn: () => userService.getFilterOptions(),
     enabled: !!currentUser,
     staleTime: 5 * 60 * 1000, // Cache for 5 minutes
@@ -80,7 +99,12 @@ export const UserManagement = memo(() => {
 
   // Fetch filtered institutions for UserModalTabs
   const institutionsQuery = useQuery({
-    queryKey: ['modal-institutions', currentUser?.role, currentUser?.institution?.id, filterOptions],
+    queryKey: [
+      "modal-institutions",
+      currentUser?.role,
+      currentUser?.institution?.id,
+      filterOptions,
+    ],
     queryFn: async () => {
       const institutions = filterOptions?.institutions || [];
       return institutions;
@@ -91,7 +115,12 @@ export const UserManagement = memo(() => {
 
   // Fetch filtered departments for UserModalTabs
   const departmentsQuery = useQuery({
-    queryKey: ['modal-departments', currentUser?.role, currentUser?.institution?.id, filterOptions],
+    queryKey: [
+      "modal-departments",
+      currentUser?.role,
+      currentUser?.institution?.id,
+      filterOptions,
+    ],
     queryFn: async () => {
       const departments = filterOptions?.departments || [];
       return departments;
@@ -102,15 +131,15 @@ export const UserManagement = memo(() => {
 
   // Available roles for UserModalTabs
   const rolesQuery = useQuery({
-    queryKey: ['modal-roles', currentUser?.role, filterOptions],
+    queryKey: ["modal-roles", currentUser?.role, filterOptions],
     queryFn: async () => {
       const currentRoleName = getRoleName(currentUser?.role);
 
-      if (currentRoleName === 'regionadmin') {
+      if (currentRoleName === "regionadmin") {
         return [
-          { id: 4, name: 'regionoperator', display_name: 'RegionOperator' },
-          { id: 5, name: 'sektoradmin', display_name: 'SektorAdmin' },
-          { id: 6, name: 'schooladmin', display_name: 'SchoolAdmin' },
+          { id: 4, name: "regionoperator", display_name: "RegionOperator" },
+          { id: 5, name: "sektoradmin", display_name: "SektorAdmin" },
+          { id: 6, name: "schooladmin", display_name: "SchoolAdmin" },
         ];
       }
       const roles = filterOptions?.roles || [];
@@ -132,14 +161,14 @@ export const UserManagement = memo(() => {
     isFetching,
   } = useQuery<PaginatedResponse<User>>({
     queryKey: [
-      'users',
+      "users",
       currentUser?.role,
       page,
       perPage,
-      filterParams.search ?? '',
-      filterParams.role ?? '',
-      filterParams.status ?? '',
-      filterParams.institution_id ?? '',
+      filterParams.search ?? "",
+      filterParams.role ?? "",
+      filterParams.status ?? "",
+      filterParams.institution_id ?? "",
       filterParams.sort_by,
       filterParams.sort_direction,
     ],
@@ -165,7 +194,7 @@ export const UserManagement = memo(() => {
       }
 
       const currentRoleName = getRoleName(currentUser?.role);
-      if (currentRoleName === 'sektoradmin') {
+      if (currentRoleName === "sektoradmin") {
         const response: any = await sektorAdminService.getSectorUsers(params);
         const pagination = response?.meta ?? response?.pagination ?? {};
         const records = response?.data ?? response?.users ?? [];
@@ -176,8 +205,10 @@ export const UserManagement = memo(() => {
           current_page: pagination.current_page ?? page,
           last_page: pagination.last_page ?? 1,
           per_page: pagination.per_page ?? perPage,
-          from: pagination.from ?? ((page - 1) * perPage + (records.length > 0 ? 1 : 0)),
-          to: pagination.to ?? ((page - 1) * perPage + records.length),
+          from:
+            pagination.from ??
+            (page - 1) * perPage + (records.length > 0 ? 1 : 0),
+          to: pagination.to ?? (page - 1) * perPage + records.length,
         } as PaginatedResponse<User>;
       }
 
@@ -193,8 +224,11 @@ export const UserManagement = memo(() => {
   const totalPages = usersResponse?.last_page ?? 1;
   const currentPage = usersResponse?.current_page ?? page;
   const itemsPerPage = usersResponse?.per_page ?? perPage;
-  const rangeStart = usersResponse?.from ?? ((currentPage - 1) * itemsPerPage + (users.length > 0 ? 1 : 0));
-  const rangeEnd = usersResponse?.to ?? ((currentPage - 1) * itemsPerPage + users.length);
+  const rangeStart =
+    usersResponse?.from ??
+    (currentPage - 1) * itemsPerPage + (users.length > 0 ? 1 : 0);
+  const rangeEnd =
+    usersResponse?.to ?? (currentPage - 1) * itemsPerPage + users.length;
 
   useEffect(() => {
     if (totalPages > 0 && currentPage > totalPages) {
@@ -211,7 +245,7 @@ export const UserManagement = memo(() => {
   // Use server-side filter options with fallback to client-side
   const availableRoles = useMemo(() => {
     if (filterOptions?.roles && filterOptions.roles.length > 0) {
-      return filterOptions.roles.map(r => r.value);
+      return filterOptions.roles.map((r) => r.value);
     }
     const roles = new Set<string>();
     users.forEach((user) => {
@@ -225,9 +259,9 @@ export const UserManagement = memo(() => {
 
   const availableStatuses = useMemo(() => {
     if (filterOptions?.statuses && filterOptions.statuses.length > 0) {
-      return filterOptions.statuses.map(s => s.value);
+      return filterOptions.statuses.map((s) => s.value);
     }
-    return ['active', 'inactive'];
+    return ["active", "inactive"];
   }, [filterOptions]);
 
   const availableInstitutions = useMemo(() => {
@@ -266,7 +300,9 @@ export const UserManagement = memo(() => {
     setPage(1);
   };
 
-  const handleSortChangeWithReset = (field: Parameters<typeof handleSortChange>[0]) => {
+  const handleSortChangeWithReset = (
+    field: Parameters<typeof handleSortChange>[0]
+  ) => {
     handleSortChange(field);
     setPage(1);
   };
@@ -288,13 +324,13 @@ export const UserManagement = memo(() => {
   };
 
   const detailedUserQuery = useQuery<User | null>({
-    queryKey: ['user-details', selectedUser?.id],
+    queryKey: ["user-details", selectedUser?.id],
     queryFn: async () => {
       if (!selectedUser) return null;
       try {
         return await userService.getUser(selectedUser.id);
       } catch (err) {
-        console.error('Failed to fetch user details:', err);
+        console.error("Failed to fetch user details:", err);
         throw err;
       }
     },
@@ -305,23 +341,35 @@ export const UserManagement = memo(() => {
   // Log when detailed user data changes
   useEffect(() => {
     if (detailedUserQuery.data) {
-      console.log('[UserManagement] Detailed user loaded:', detailedUserQuery.data);
+      console.log(
+        "[UserManagement] Detailed user loaded:",
+        detailedUserQuery.data
+      );
     }
     if (detailedUserQuery.error) {
-      console.error('[UserManagement] Failed to load detailed user:', detailedUserQuery.error);
+      console.error(
+        "[UserManagement] Failed to load detailed user:",
+        detailedUserQuery.error
+      );
     }
   }, [detailedUserQuery.data, detailedUserQuery.error]);
 
   const modalUser = detailedUserQuery.data || selectedUser;
   const modalKey = modalUser
-    ? `${modalUser.id}-${detailedUserQuery.data ? 'full' : 'partial'}`
-    : 'new-user';
+    ? `${modalUser.id}-${detailedUserQuery.data ? "full" : "partial"}`
+    : "new-user";
 
-  const handleUserSubmit = async (userData: CreateUserData | UpdateUserData) => {
+  const handleUserSubmit = async (
+    userData: CreateUserData | UpdateUserData
+  ) => {
     try {
-      console.log('[UserManagement] handleUserSubmit payload:', userData);
+      console.log("[UserManagement] handleUserSubmit payload:", userData);
       if (selectedUser) {
-        await userService.update(selectedUser.id, userData as UpdateUserData, getRoleName(currentUser?.role));
+        await userService.update(
+          selectedUser.id,
+          userData as UpdateUserData,
+          getRoleName(currentUser?.role)
+        );
         toast({
           title: "Uğur",
           description: "İstifadəçi məlumatları yeniləndi",
@@ -329,18 +377,23 @@ export const UserManagement = memo(() => {
 
         // Invalidate both users list and specific user details
         await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ['users'] }),
-          queryClient.invalidateQueries({ queryKey: ['user-details', selectedUser.id] })
+          queryClient.invalidateQueries({ queryKey: ["users"] }),
+          queryClient.invalidateQueries({
+            queryKey: ["user-details", selectedUser.id],
+          }),
         ]);
       } else {
-        await userService.create(userData as CreateUserData, getRoleName(currentUser?.role));
+        await userService.create(
+          userData as CreateUserData,
+          getRoleName(currentUser?.role)
+        );
         toast({
           title: "Uğur",
           description: "Yeni istifadəçi yaradıldı",
         });
 
         // Only invalidate users list for new user
-        await queryClient.invalidateQueries({ queryKey: ['users'] });
+        await queryClient.invalidateQueries({ queryKey: ["users"] });
       }
 
       handleCloseModal();
@@ -359,20 +412,28 @@ export const UserManagement = memo(() => {
     setIsDeleteModalOpen(true);
   };
 
-  const handleConfirmDelete = async (user: User, deleteType: 'soft' | 'hard') => {
+  const handleConfirmDelete = async (
+    user: User,
+    deleteType: "soft" | "hard"
+  ) => {
     try {
-      await userService.delete(user.id, getRoleName(currentUser?.role), deleteType);
+      await userService.delete(
+        user.id,
+        getRoleName(currentUser?.role),
+        deleteType
+      );
 
-      const message = deleteType === 'hard'
-        ? "İstifadəçi həmişəlik silindi"
-        : "İstifadəçi arxivə köçürüldü";
+      const message =
+        deleteType === "hard"
+          ? "İstifadəçi həmişəlik silindi"
+          : "İstifadəçi arxivə köçürüldü";
 
       toast({
         title: "Uğur",
         description: message,
       });
 
-      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ["users"] });
       setIsDeleteModalOpen(false);
       setUserToDelete(null);
       await refetch();
@@ -411,30 +472,51 @@ export const UserManagement = memo(() => {
       const exportUsers = response.data || [];
 
       const csvContent = [
-        ['Ad', 'Email', 'Username', 'Rol', 'Status', 'Müəssisə', 'Telefon', 'Yaradılma Tarixi'].join(','),
-        ...exportUsers.map(user => [
-          user.first_name && user.last_name ? `${user.first_name} ${user.last_name}` : (user.username || ''),
-          user.email || '',
-          user.username || '',
-          getRoleName(user.role) || '',
-          user.is_active ? 'Aktiv' : 'Passiv',
-          user.institution?.name || '',
-          user.contact_phone || user.phone || '',
-          user.created_at ? new Date(user.created_at).toLocaleDateString('az-AZ') : ''
-        ].map(field => `"${String(field ?? '').replace(/"/g, '""')}"`).join(','))
-      ].join('\n');
+        [
+          "Ad",
+          "Email",
+          "Username",
+          "Rol",
+          "Status",
+          "Müəssisə",
+          "Telefon",
+          "Yaradılma Tarixi",
+        ].join(","),
+        ...exportUsers.map((user) =>
+          [
+            user.first_name && user.last_name
+              ? `${user.first_name} ${user.last_name}`
+              : user.username || "",
+            user.email || "",
+            user.username || "",
+            getRoleName(user.role) || "",
+            user.is_active ? "Aktiv" : "Passiv",
+            user.institution?.name || "",
+            user.contact_phone || user.phone || "",
+            user.created_at
+              ? new Date(user.created_at).toLocaleDateString("az-AZ")
+              : "",
+          ]
+            .map((field) => `"${String(field ?? "").replace(/"/g, '""')}"`)
+            .join(",")
+        ),
+      ].join("\n");
 
-      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob(["\uFEFF" + csvContent], {
+        type: "text/csv;charset=utf-8;",
+      });
       const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
+      const a = document.createElement("a");
       a.href = url;
-      a.download = `istifadeciler-${new Date().toISOString().split('T')[0]}.csv`;
+      a.download = `istifadeciler-${
+        new Date().toISOString().split("T")[0]
+      }.csv`;
       a.click();
       window.URL.revokeObjectURL(url);
     } catch (error: any) {
       toast({
         title: "Xəta",
-        description: error?.message || 'Eksport zamanı xəta baş verdi',
+        description: error?.message || "Eksport zamanı xəta baş verdi",
         variant: "destructive",
       });
     }
@@ -445,7 +527,7 @@ export const UserManagement = memo(() => {
     return (
       <div className="p-6 space-y-6">
         <UserActions
-          currentUserRole={getRoleName(currentUser?.role) || ''}
+          currentUserRole={getRoleName(currentUser?.role) || ""}
           onCreateUser={() => {}}
           onExport={() => {}}
           onImportExport={() => {}}
@@ -457,22 +539,32 @@ export const UserManagement = memo(() => {
 
   // Error state
   if (error) {
-    const errorMessage = error instanceof Error ? error.message : 'İstifadəçilər yüklənərkən problem yarandı.';
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : "İstifadəçilər yüklənərkən problem yarandı.";
 
-    if (errorMessage.includes('Unauthenticated') || errorMessage.includes('401')) {
-      if (typeof window !== 'undefined') {
+    if (
+      errorMessage.includes("Unauthenticated") ||
+      errorMessage.includes("401")
+    ) {
+      if (typeof window !== "undefined") {
         apiClient.clearToken();
-        storageHelpers.remove('atis_current_user');
-        window.location.href = '/login';
+        storageHelpers.remove("atis_current_user");
+        window.location.href = "/login";
       }
     }
 
     return (
       <div className="p-6 text-center">
-        <h1 className="text-2xl font-bold text-destructive mb-2">Xəta baş verdi</h1>
+        <h1 className="text-2xl font-bold text-destructive mb-2">
+          Xəta baş verdi
+        </h1>
         <p className="text-muted-foreground">{errorMessage}</p>
-        {errorMessage.includes('Unauthenticated') && (
-          <p className="text-sm text-orange-600 mt-2">Zəhmət olmasa yenidən daxil olun.</p>
+        {errorMessage.includes("Unauthenticated") && (
+          <p className="text-sm text-orange-600 mt-2">
+            Zəhmət olmasa yenidən daxil olun.
+          </p>
         )}
       </div>
     );
@@ -481,7 +573,7 @@ export const UserManagement = memo(() => {
   return (
     <div className="p-6 space-y-6">
       <UserActions
-        currentUserRole={getRoleName(currentUser?.role) || ''}
+        currentUserRole={getRoleName(currentUser?.role) || ""}
         onCreateUser={() => handleOpenModal()}
         onExport={handleExport}
         onImportExport={() => setIsImportExportModalOpen(true)}
@@ -510,7 +602,7 @@ export const UserManagement = memo(() => {
         users={users}
         onEditUser={handleOpenModal}
         onDeleteUser={handleDeleteUser}
-        currentUserRole={getRoleName(currentUser?.role) || ''}
+        currentUserRole={getRoleName(currentUser?.role) || ""}
         isLoading={isLoading || isFetching}
       />
 
@@ -520,8 +612,8 @@ export const UserManagement = memo(() => {
         totalItems={totalItems}
         itemsPerPage={itemsPerPage}
         onPageChange={(newPage) => setPage(newPage)}
-        onNext={() => setPage(prev => Math.min(prev + 1, totalPages))}
-        onPrevious={() => setPage(prev => Math.max(prev - 1, 1))}
+        onNext={() => setPage((prev) => Math.min(prev + 1, totalPages))}
+        onPrevious={() => setPage((prev) => Math.max(prev - 1, 1))}
         onItemsPerPageChange={(value) => {
           setPerPage(value);
           setPage(1);
@@ -541,12 +633,18 @@ export const UserManagement = memo(() => {
             onClose={handleCloseModal}
             onSave={handleUserSubmit}
             user={modalUser}
-            currentUserRole={getRoleName(currentUser?.role) || 'unknown'}
+            currentUserRole={getRoleName(currentUser?.role) || "unknown"}
             availableInstitutions={institutionsQuery.data || []}
             availableDepartments={departmentsQuery.data || []}
             availableRoles={rolesQuery.data || []}
-            loadingOptions={institutionsQuery.isLoading || departmentsQuery.isLoading || rolesQuery.isLoading}
+            loadingOptions={
+              institutionsQuery.isLoading ||
+              departmentsQuery.isLoading ||
+              rolesQuery.isLoading
+            }
             currentUserPermissions={currentUser?.permissions || []}
+            permissionMetadata={permissionMetadata || null}
+            permissionMetadataLoading={permissionMetadataLoading}
           />
         </Suspense>
       )}
@@ -587,4 +685,4 @@ export const UserManagement = memo(() => {
   );
 });
 
-UserManagement.displayName = 'UserManagement';
+UserManagement.displayName = "UserManagement";

@@ -74,6 +74,7 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     // User management endpoints - READ operations
     Route::get('users', [RegionAdminUserController::class, 'index']);
     Route::get('users/permissions/meta', [RegionAdminUserController::class, 'getPermissionMetadata']);
+    Route::post('users/permissions/validate', [RegionAdminUserController::class, 'validatePermissions']);
     Route::get('users/roles', [RegionAdminUserController::class, 'getAvailableRoles']);
     Route::get('users/{user}', [RegionAdminUserController::class, 'show']);
     Route::get('users/{user}/activity', [RegionAdminUserController::class, 'getUserActivity']);
