@@ -7,9 +7,9 @@
  * Detailed permission breakdown from backend
  */
 export interface UserPermissionsDetailed {
-  direct: string[];           // Direct assigned permissions (editable)
-  via_roles: string[];        // Permissions from roles (readonly)
-  all: string[];              // Combined list (direct + via_roles)
+  direct: string[]; // Direct assigned permissions (editable)
+  via_roles: string[]; // Permissions from roles (readonly)
+  all: string[]; // Combined list (direct + via_roles)
   role_metadata: RoleMetadata[];
 }
 
@@ -45,9 +45,9 @@ export interface PermissionValidationResult {
  * Permission source types
  */
 export enum PermissionSource {
-  DIRECT = 'direct',       // Directly assigned to user
-  ROLE = 'role',           // Inherited from role
-  INHERITED = 'inherited'  // From parent institution
+  DIRECT = "direct", // Directly assigned to user
+  ROLE = "role", // Inherited from role
+  INHERITED = "inherited", // From parent institution
 }
 
 /**
@@ -60,7 +60,10 @@ export interface PermissionWithMetadata {
   source: PermissionSource;
   readonly: boolean;
   dependencies?: string[];
-   shareable?: boolean;
+  shareable?: boolean;
+  // UI helper flags
+  required?: boolean;
+  default?: boolean;
 }
 
 /**
@@ -72,6 +75,9 @@ export interface PermissionModuleMeta {
   description?: string;
   roles?: string[];
   permissions: PermissionWithMetadata[];
+  // Backend provides module-level defaults/required arrays
+  defaults?: string[];
+  required?: string[];
 }
 
 /**

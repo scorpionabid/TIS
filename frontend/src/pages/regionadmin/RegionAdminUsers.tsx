@@ -1,28 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { 
-  Users, 
-  Plus, 
-  Search, 
-  Filter, 
+import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { usePermissionMetadata } from "@/hooks/usePermissionMetadata";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Users,
+  Plus,
+  Search,
+  Filter,
   Download,
   UserPlus,
   Shield,
   Building,
   GraduationCap,
-  BookOpen
-} from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
-import { QuickAuth } from '@/components/auth/QuickAuth';
-import { regionAdminService } from '@/services/regionAdmin';
-import { RegionOperatorPermissionsModal } from '@/components/regionadmin/RegionOperatorPermissionsModal';
-import { UserModalTabs } from '@/components/modals/UserModal';
+  BookOpen,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { QuickAuth } from "@/components/auth/QuickAuth";
+import { regionAdminService } from "@/services/regionAdmin";
+import { RegionOperatorPermissionsModal } from "@/components/regionadmin/RegionOperatorPermissionsModal";
+import { UserModalTabs } from "@/components/modals/UserModal";
 
 interface RegionalUser {
   id: number;
@@ -30,31 +44,35 @@ interface RegionalUser {
   email: string;
   role: string;
   institution?: string;
-  status: 'active' | 'inactive' | 'pending';
+  status: "active" | "inactive" | "pending";
   last_login?: string;
   created_at: string;
 }
 
 export default function RegionAdminUsers() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedRole, setSelectedRole] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedRole, setSelectedRole] = useState<string>("all");
   const { currentUser } = useAuth();
   const [permissionsModalOpen, setPermissionsModalOpen] = useState(false);
-  const [selectedOperator, setSelectedOperator] = useState<RegionalUser | null>(null);
+  const [selectedOperator, setSelectedOperator] = useState<RegionalUser | null>(
+    null
+  );
   const [userModalOpen, setUserModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [selectedUserDetails, setSelectedUserDetails] = useState<any | null>(null);
+  const [selectedUserDetails, setSelectedUserDetails] = useState<any | null>(
+    null
+  );
   const [selectedUserLoading, setSelectedUserLoading] = useState(false);
 
   // Fetch institutions for UserModalTabs
   const institutionsQuery = useQuery({
-    queryKey: ['regionadmin-institutions', currentUser?.institution?.id],
+    queryKey: ["regionadmin-institutions", currentUser?.institution?.id],
     queryFn: async () => {
       try {
         const result = await regionAdminService.getInstitutions();
         return result.institutions || [];
       } catch (error) {
-        console.error('Failed to fetch institutions:', error);
+        console.error("Failed to fetch institutions:", error);
         return [];
       }
     },
@@ -63,13 +81,13 @@ export default function RegionAdminUsers() {
 
   // Fetch departments for UserModalTabs
   const departmentsQuery = useQuery({
-    queryKey: ['regionadmin-departments', currentUser?.institution?.id],
+    queryKey: ["regionadmin-departments", currentUser?.institution?.id],
     queryFn: async () => {
       try {
         const result = await regionAdminService.getDepartments();
         return result.departments || [];
       } catch (error) {
-        console.error('Failed to fetch departments:', error);
+        console.error("Failed to fetch departments:", error);
         return [];
       }
     },
@@ -78,7 +96,7 @@ export default function RegionAdminUsers() {
 
   // Fetch available roles for UserModalTabs
   const rolesQuery = useQuery({
-    queryKey: ['regionadmin-roles'],
+    queryKey: ["regionadmin-roles"],
     queryFn: async () => {
       try {
         const apiRoles = await regionAdminService.getAvailableRoles();
@@ -86,36 +104,23 @@ export default function RegionAdminUsers() {
           return apiRoles;
         }
       } catch (error) {
-        console.error('Failed to fetch roles:', error);
+        console.error("Failed to fetch roles:", error);
       }
 
       // Fallback static roles if API unavailable
       return [
-        { id: 3, name: 'regionadmin', display_name: 'RegionAdmin' },
-        { id: 4, name: 'regionoperator', display_name: 'RegionOperator' },
-        { id: 5, name: 'sektoradmin', display_name: 'SektorAdmin' },
-        { id: 6, name: 'schooladmin', display_name: 'SchoolAdmin' },
-        { id: 10, name: 'müəllim', display_name: 'Müəllim' },
+        { id: 3, name: "regionadmin", display_name: "RegionAdmin" },
+        { id: 4, name: "regionoperator", display_name: "RegionOperator" },
+        { id: 5, name: "sektoradmin", display_name: "SektorAdmin" },
+        { id: 6, name: "schooladmin", display_name: "SchoolAdmin" },
+        { id: 10, name: "müəllim", display_name: "Müəllim" },
       ];
     },
     staleTime: 1000 * 60 * 30,
   });
 
-  const permissionMetadataQuery = useQuery({
-    queryKey: ['regionadmin-permission-meta'],
-    queryFn: () => regionAdminService.getPermissionMetadata(),
-    enabled: Boolean(currentUser),
-    staleTime: 1000 * 60 * 30,
-    onSuccess: (data) => {
-      console.log('[PermissionMeta] Loaded', {
-        moduleCount: data?.modules?.length,
-        templateCount: data?.templates?.length,
-      });
-    },
-    onError: (error) => {
-      console.error('[PermissionMeta] Failed to load metadata', error);
-    },
-  });
+  const { data: permissionMetadata, isLoading: permissionLoading } =
+    usePermissionMetadata(Boolean(currentUser));
 
   const handleOpenPermissions = (user: RegionalUser) => {
     setSelectedOperator(user);
@@ -128,7 +133,7 @@ export default function RegionAdminUsers() {
   };
 
   const handleOpenUserModal = (user?: RegionalUser) => {
-    console.log('🔓 Opening UserModalTabs...', { user });
+    console.log("🔓 Opening UserModalTabs...", { user });
     if (user) {
       setSelectedUserId(user.id);
     } else {
@@ -145,37 +150,44 @@ export default function RegionAdminUsers() {
   };
 
   useEffect(() => {
-    console.log('📋 [RegionAdminUsers] useEffect triggered', {
+    console.log("📋 [RegionAdminUsers] useEffect triggered", {
       userModalOpen,
       selectedUserId,
     });
 
     if (!userModalOpen || !selectedUserId) {
-      console.log('📋 [RegionAdminUsers] Skipping - modal closed or no user selected');
+      console.log(
+        "📋 [RegionAdminUsers] Skipping - modal closed or no user selected"
+      );
       return;
     }
 
-    console.log('📋 [RegionAdminUsers] Fetching user details...');
+    console.log("📋 [RegionAdminUsers] Fetching user details...");
     setSelectedUserLoading(true);
     regionAdminService
       .getUser(selectedUserId)
       .then((data) => {
-        console.log('📋 [RegionAdminUsers] ✅ Loaded user details', {
+        console.log("📋 [RegionAdminUsers] ✅ Loaded user details", {
           id: selectedUserId,
           assignable_permissions: data?.assignable_permissions,
-          is_regionoperator: data?.roles?.[0]?.name === 'regionoperator',
+          is_regionoperator: data?.roles?.[0]?.name === "regionoperator",
           region_operator_permissions: data?.region_operator_permissions,
           full_user: data,
         });
         setSelectedUserDetails(data);
-        console.log('📋 [RegionAdminUsers] ✅ setSelectedUserDetails called');
+        console.log("📋 [RegionAdminUsers] ✅ setSelectedUserDetails called");
       })
       .catch((error) => {
-        console.error('📋 [RegionAdminUsers] ❌ Failed to load user details', error);
+        console.error(
+          "📋 [RegionAdminUsers] ❌ Failed to load user details",
+          error
+        );
         setSelectedUserDetails(null);
       })
       .finally(() => {
-        console.log('📋 [RegionAdminUsers] ✅ Setting selectedUserLoading to FALSE');
+        console.log(
+          "📋 [RegionAdminUsers] ✅ Setting selectedUserLoading to FALSE"
+        );
         setSelectedUserLoading(false);
       });
   }, [userModalOpen, selectedUserId]);
@@ -198,7 +210,7 @@ export default function RegionAdminUsers() {
 
       handleCloseUserModal();
     } catch (error) {
-      console.error('User save error:', error);
+      console.error("User save error:", error);
       throw error;
     }
   };
@@ -208,10 +220,10 @@ export default function RegionAdminUsers() {
     try {
       // Real API call - determine role name for backend
       const roleMapping: Record<string, string> = {
-        'operators': 'regionoperator',
-        'sektoradmins': 'sektoradmin',
-        'schooladmins': 'schooladmin',
-        'teachers': 'müəllim'
+        operators: "regionoperator",
+        sektoradmins: "sektoradmin",
+        schooladmins: "schooladmin",
+        teachers: "müəllim",
       };
 
       const apiRoleName = roleMapping[role];
@@ -226,52 +238,71 @@ export default function RegionAdminUsers() {
 
       const users: RegionalUser[] = result.users.map((user: any) => {
         // Handle roles array - get the first role or fallback
-        let roleName = 'Təyin edilməyib';
+        let roleName = "Təyin edilməyib";
         if (user.roles && Array.isArray(user.roles) && user.roles.length > 0) {
-          roleName = user.roles[0].display_name || user.roles[0].name || 'Təyin edilməyib';
+          roleName =
+            user.roles[0].display_name ||
+            user.roles[0].name ||
+            "Təyin edilməyib";
         } else if (user.role_name) {
           roleName = user.role_name;
         } else if (user.role) {
           // If role is a string, use it directly
-          if (typeof user.role === 'string') {
+          if (typeof user.role === "string") {
             roleName = user.role;
-          } else if (typeof user.role === 'object') {
-            // Handle null role object - common backend issue  
-            if (user.role.name === null && user.role.display_name === null && user.role.id === null) {
-              roleName = 'Təyin edilməyib';
+          } else if (typeof user.role === "object") {
+            // Handle null role object - common backend issue
+            if (
+              user.role.name === null &&
+              user.role.display_name === null &&
+              user.role.id === null
+            ) {
+              roleName = "Təyin edilməyib";
             } else {
-              roleName = user.role.display_name || user.role.name || 'Təyin edilməyib';
+              roleName =
+                user.role.display_name || user.role.name || "Təyin edilməyib";
             }
           }
         }
 
         return {
           id: user.id,
-          name: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || 'Ad təyin edilməyib',
-          email: user.email || 'Email təyin edilməyib',
+          name:
+            `${user.first_name || ""} ${user.last_name || ""}`.trim() ||
+            user.username ||
+            "Ad təyin edilməyib",
+          email: user.email || "Email təyin edilməyib",
           role: roleName,
-          institution: user.institution?.name || 'Təyin edilməyib',
-          status: user.is_active || user.status === 'active' ? 'active' : 'inactive',
+          institution: user.institution?.name || "Təyin edilməyib",
+          status:
+            user.is_active || user.status === "active" ? "active" : "inactive",
           last_login: user.last_login_at,
-          created_at: user.created_at
+          created_at: user.created_at,
         };
       });
 
       return users;
     } catch (error) {
-      console.error('🚨 RegionAdmin Users API Error:', error);
+      console.error("🚨 RegionAdmin Users API Error:", error);
       // Fallback to mock data on error
       const mockUsers: RegionalUser[] = [
         {
           id: 1,
-          name: 'Mock İstifadəçi',
-          email: 'mock@example.com',
-          role: role === 'operators' ? 'RegionOperator' : role === 'sektoradmins' ? 'SektorAdmin' : role === 'schooladmins' ? 'MəktəbAdmin' : 'Müəllim',
-          institution: 'Mock Təşkilat',
-          status: 'active',
-          last_login: '2025-08-13T10:30:00',
-          created_at: '2025-08-01T09:00:00'
-        }
+          name: "Mock İstifadəçi",
+          email: "mock@example.com",
+          role:
+            role === "operators"
+              ? "RegionOperator"
+              : role === "sektoradmins"
+              ? "SektorAdmin"
+              : role === "schooladmins"
+              ? "MəktəbAdmin"
+              : "Müəllim",
+          institution: "Mock Təşkilat",
+          status: "active",
+          last_login: "2025-08-13T10:30:00",
+          created_at: "2025-08-01T09:00:00",
+        },
       ];
       return mockUsers;
     }
@@ -279,37 +310,47 @@ export default function RegionAdminUsers() {
 
   // Individual useQuery hooks for each role - moved to top level
   const operatorsQuery = useQuery({
-    queryKey: ['regionadmin-users', 'operators', currentUser?.institution?.id],
-    queryFn: () => createUserQuery('operators'),
+    queryKey: ["regionadmin-users", "operators", currentUser?.institution?.id],
+    queryFn: () => createUserQuery("operators"),
     staleTime: 1000 * 60 * 5,
   });
 
   const sektorAdminsQuery = useQuery({
-    queryKey: ['regionadmin-users', 'sektoradmins', currentUser?.institution?.id],
-    queryFn: () => createUserQuery('sektoradmins'),
+    queryKey: [
+      "regionadmin-users",
+      "sektoradmins",
+      currentUser?.institution?.id,
+    ],
+    queryFn: () => createUserQuery("sektoradmins"),
     staleTime: 1000 * 60 * 5,
   });
 
   const schoolAdminsQuery = useQuery({
-    queryKey: ['regionadmin-users', 'schooladmins', currentUser?.institution?.id],
-    queryFn: () => createUserQuery('schooladmins'),
+    queryKey: [
+      "regionadmin-users",
+      "schooladmins",
+      currentUser?.institution?.id,
+    ],
+    queryFn: () => createUserQuery("schooladmins"),
     staleTime: 1000 * 60 * 5,
   });
 
   const teachersQuery = useQuery({
-    queryKey: ['regionadmin-users', 'teachers', currentUser?.institution?.id],
-    queryFn: () => createUserQuery('teachers'),
+    queryKey: ["regionadmin-users", "teachers", currentUser?.institution?.id],
+    queryFn: () => createUserQuery("teachers"),
     staleTime: 1000 * 60 * 5,
   });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'active':
+      case "active":
         return <Badge className="bg-green-100 text-green-700">Aktiv</Badge>;
-      case 'inactive':
+      case "inactive":
         return <Badge className="bg-red-100 text-red-700">Qeyri-aktiv</Badge>;
-      case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-700">Gözləyir</Badge>;
+      case "pending":
+        return (
+          <Badge className="bg-yellow-100 text-yellow-700">Gözləyir</Badge>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -379,10 +420,9 @@ export default function RegionAdminUsers() {
               <TableCell>{user.institution}</TableCell>
               <TableCell>{getStatusBadge(user.status)}</TableCell>
               <TableCell>
-                {user.last_login 
-                  ? new Date(user.last_login).toLocaleDateString('az-AZ')
-                  : 'Heç vaxt'
-                }
+                {user.last_login
+                  ? new Date(user.last_login).toLocaleDateString("az-AZ")
+                  : "Heç vaxt"}
               </TableCell>
               <TableCell>
                 <div className="flex space-x-2">
@@ -396,7 +436,7 @@ export default function RegionAdminUsers() {
                   <Button variant="ghost" size="sm">
                     Deaktiv et
                   </Button>
-                  {roleType === 'operators' && onManagePermissions && (
+                  {roleType === "operators" && onManagePermissions && (
                     <Button
                       variant="ghost"
                       size="sm"
@@ -421,7 +461,9 @@ export default function RegionAdminUsers() {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">İstifadəçi İdarəetməsi</h1>
+          <h1 className="text-3xl font-bold text-foreground">
+            İstifadəçi İdarəetməsi
+          </h1>
           <p className="text-muted-foreground">
             Regional səviyyədə istifadəçi hesablarının idarə edilməsi
           </p>
@@ -466,15 +508,24 @@ export default function RegionAdminUsers() {
       {/* User Management Tabs */}
       <Tabs defaultValue="operators" className="space-y-4">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="operators" className="flex items-center space-x-2">
+          <TabsTrigger
+            value="operators"
+            className="flex items-center space-x-2"
+          >
             <Shield className="h-4 w-4" />
             <span>RegionOperator</span>
           </TabsTrigger>
-          <TabsTrigger value="sektoradmins" className="flex items-center space-x-2">
+          <TabsTrigger
+            value="sektoradmins"
+            className="flex items-center space-x-2"
+          >
             <Building className="h-4 w-4" />
             <span>SektorAdmin</span>
           </TabsTrigger>
-          <TabsTrigger value="schooladmins" className="flex items-center space-x-2">
+          <TabsTrigger
+            value="schooladmins"
+            className="flex items-center space-x-2"
+          >
             <GraduationCap className="h-4 w-4" />
             <span>MəktəbAdmin</span>
           </TabsTrigger>
@@ -493,8 +544,8 @@ export default function RegionAdminUsers() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <UserTable 
-                users={operatorsQuery.data} 
+              <UserTable
+                users={operatorsQuery.data}
                 isLoading={operatorsQuery.isLoading}
                 roleType="operators"
                 onManagePermissions={handleOpenPermissions}
@@ -512,8 +563,8 @@ export default function RegionAdminUsers() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <UserTable 
-                users={sektorAdminsQuery.data} 
+              <UserTable
+                users={sektorAdminsQuery.data}
                 isLoading={sektorAdminsQuery.isLoading}
                 roleType="sektoradmins"
               />
@@ -530,8 +581,8 @@ export default function RegionAdminUsers() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <UserTable 
-                users={schoolAdminsQuery.data} 
+              <UserTable
+                users={schoolAdminsQuery.data}
                 isLoading={schoolAdminsQuery.isLoading}
                 roleType="schooladmins"
               />
@@ -548,8 +599,8 @@ export default function RegionAdminUsers() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <UserTable 
-                users={teachersQuery.data} 
+              <UserTable
+                users={teachersQuery.data}
                 isLoading={teachersQuery.isLoading}
                 roleType="teachers"
               />
@@ -559,7 +610,9 @@ export default function RegionAdminUsers() {
       </Tabs>
 
       <RegionOperatorPermissionsModal
-        operatorId={permissionsModalOpen && selectedOperator ? selectedOperator.id : null}
+        operatorId={
+          permissionsModalOpen && selectedOperator ? selectedOperator.id : null
+        }
         open={permissionsModalOpen}
         onClose={handleClosePermissions}
       />
@@ -569,13 +622,17 @@ export default function RegionAdminUsers() {
         onClose={handleCloseUserModal}
         onSave={handleSaveUser}
         user={selectedUserDetails}
-        currentUserRole={currentUser?.role?.name || 'regionadmin'}
+        currentUserRole={currentUser?.role?.name || "regionadmin"}
         availableInstitutions={institutionsQuery.data || []}
         availableDepartments={departmentsQuery.data || []}
         availableRoles={rolesQuery.data || []}
-        loadingOptions={institutionsQuery.isLoading || departmentsQuery.isLoading || rolesQuery.isLoading}
-        permissionMetadata={permissionMetadataQuery.data || null}
-        permissionMetadataLoading={permissionMetadataQuery.isLoading}
+        loadingOptions={
+          institutionsQuery.isLoading ||
+          departmentsQuery.isLoading ||
+          rolesQuery.isLoading
+        }
+        permissionMetadata={permissionMetadata || null}
+        permissionMetadataLoading={permissionLoading}
         loadingUser={selectedUserLoading}
         currentUserPermissions={currentUser?.permissions || []}
       />

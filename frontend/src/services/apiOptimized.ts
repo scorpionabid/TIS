@@ -41,6 +41,17 @@ function validateAndSetupApiUrls() {
     }
   }
 
+  // FORCE LOG TO BROWSER CONSOLE (always visible)
+  console.warn('🔥 API CONFIGURATION DEBUG:', {
+    apiBaseUrl,
+    sanctumBaseUrl,
+    source: envApiUrl ? 'env' : 'fallback',
+    envValue: envApiUrl,
+    fallback: fallbackUrl,
+    isRelative: apiBaseUrl.startsWith('/'),
+    timestamp: new Date().toISOString()
+  });
+
   log('info', 'API URLs configured', { apiBaseUrl, sanctumBaseUrl, source: envApiUrl ? 'env' : 'fallback', isRelative: apiBaseUrl.startsWith('/') });
 
   return { apiBaseUrl, sanctumBaseUrl };
@@ -585,6 +596,15 @@ class ApiClientOptimized {
     if (!this.baseURL || this.baseURL === 'undefined') {
       this.baseURL = 'http://localhost:8000/api';
     }
+
+    // FORCE DEBUG LOG FOR EVERY REQUEST
+    const fullUrl = `${this.baseURL}/${endpoint.replace(/^\//, '')}`;
+    console.warn(`🚀 REQUEST: ${method} ${fullUrl}`, {
+      baseURL: this.baseURL,
+      endpoint,
+      data: data ? 'present' : 'none',
+      timestamp: new Date().toISOString()
+    });
 
     // Ensure CSRF cookie is initialized for Laravel Sanctum SPA authentication
     // Skip for public endpoints like /login (handled in auth service)

@@ -1,5 +1,5 @@
-import { apiClient, ApiResponse } from './api';
-import { PaginationParams } from './BaseService';
+import { apiClient, ApiResponse } from "./api";
+import { PaginationParams } from "./BaseService";
 
 export interface PaginationMeta {
   current_page: number;
@@ -70,6 +70,15 @@ export interface PermissionTemplateMeta {
   label: string;
   description?: string;
   permissions: string[];
+  // Augmented by backend: total permissions in template (before filtering),
+  // available_permissions after filtering by admin's granted perms, and coverage percent
+  total_permissions?: number;
+  available_permissions?: number;
+  coverage_percent?: number;
+}
+
+export interface FeatureFlags {
+  permission_preview?: boolean;
 }
 
 export interface RolePermissionMatrixEntry {
@@ -83,17 +92,25 @@ export interface PermissionMetadata {
   templates: PermissionTemplateMeta[];
   granted_permissions: string[];
   role_matrix: Record<string, RolePermissionMatrixEntry>;
+  features?: FeatureFlags;
 }
 
 class RegionAdminService {
-  private readonly basePath = '/regionadmin';
+  private readonly basePath = "/regionadmin";
 
   async getUsers<T = RegionAdminUser>(
     filters: RegionAdminUserFilters = {}
   ): Promise<RegionAdminUsersResult<T>> {
-    const response = await apiClient.get<any>(`${this.basePath}/users`, filters);
+    const response = await apiClient.get<any>(
+      `${this.basePath}/users`,
+      filters
+    );
     const payload = this.unwrap(response);
-    const users = this.extractCollection<T>(payload, ['users', 'data', 'items']);
+    const users = this.extractCollection<T>(payload, [
+      "users",
+      "data",
+      "items",
+    ]);
     const meta = this.extractMeta(payload, {
       per_page: filters.per_page,
       total: users.length,
@@ -112,16 +129,25 @@ class RegionAdminService {
   }
 
   async getDashboardActivities<T = any[]>(): Promise<T> {
-    const response = await apiClient.get<T>(`${this.basePath}/dashboard/activities`);
+    const response = await apiClient.get<T>(
+      `${this.basePath}/dashboard/activities`
+    );
     return this.unwrap(response);
   }
 
   async getRegionInstitutions<T = any>(
     params: Record<string, unknown> = {}
   ): Promise<RegionAdminInstitutionsResult<T>> {
-    const response = await apiClient.get<any>(`${this.basePath}/region-institutions`, params);
+    const response = await apiClient.get<any>(
+      `${this.basePath}/region-institutions`,
+      params
+    );
     const payload = this.unwrap(response);
-    const institutions = this.extractCollection<T>(payload, ['institutions', 'data', 'items']);
+    const institutions = this.extractCollection<T>(payload, [
+      "institutions",
+      "data",
+      "items",
+    ]);
     const meta = this.extractMeta(payload, {
       per_page: Number(params?.per_page) || institutions.length,
       total: institutions.length,
@@ -134,41 +160,65 @@ class RegionAdminService {
     };
   }
 
-  async getRegionInstitutionDetails<T = any>(institutionId: number): Promise<T> {
-    const response = await apiClient.get<T>(`${this.basePath}/region-institutions/${institutionId}`);
+  async getRegionInstitutionDetails<T = any>(
+    institutionId: number
+  ): Promise<T> {
+    const response = await apiClient.get<T>(
+      `${this.basePath}/region-institutions/${institutionId}`
+    );
     return this.unwrap(response);
   }
 
   async getRegionInstitutionStats<T = any>(institutionId: number): Promise<T> {
-    const response = await apiClient.get<T>(`${this.basePath}/region-institutions/${institutionId}/stats`);
+    const response = await apiClient.get<T>(
+      `${this.basePath}/region-institutions/${institutionId}/stats`
+    );
     return this.unwrap(response);
   }
 
-  async getRegionInstitutionHierarchy<T = any>(institutionId: number): Promise<T> {
-    const response = await apiClient.get<T>(`${this.basePath}/region-institutions/${institutionId}/hierarchy`);
+  async getRegionInstitutionHierarchy<T = any>(
+    institutionId: number
+  ): Promise<T> {
+    const response = await apiClient.get<T>(
+      `${this.basePath}/region-institutions/${institutionId}/hierarchy`
+    );
     return this.unwrap(response);
   }
 
   async getPermissionMetadata(): Promise<PermissionMetadata> {
-    const response = await apiClient.get<PermissionMetadata>(`${this.basePath}/users/permissions/meta`);
+    const response = await apiClient.get<PermissionMetadata>(
+      `${this.basePath}/users/permissions/meta`
+    );
     const payload = this.unwrap(response);
-    const metadata = (payload && typeof payload === 'object' && 'data' in payload)
-      ? (payload as any).data
-      : payload;
-    console.log('[PermissionMeta] Raw payload', payload, 'metadata', metadata);
+    const metadata =
+      payload && typeof payload === "object" && "data" in payload
+        ? (payload as any).data
+        : payload;
+    // Attach features if present at top-level
+    const features =
+      payload && typeof payload === "object" && "features" in payload
+        ? (payload as any).features
+        : undefined;
+    console.log("[PermissionMeta] Raw payload", payload, "metadata", metadata);
 
     const modules = Array.isArray(metadata?.modules) ? metadata.modules : [];
-    const templates = Array.isArray(metadata?.templates) ? metadata.templates : [];
-    const granted = Array.isArray(metadata?.granted_permissions) ? metadata.granted_permissions : [];
-    const matrix = metadata?.role_matrix && typeof metadata.role_matrix === 'object'
-      ? metadata.role_matrix
-      : {};
+    const templates = Array.isArray(metadata?.templates)
+      ? metadata.templates
+      : [];
+    const granted = Array.isArray(metadata?.granted_permissions)
+      ? metadata.granted_permissions
+      : [];
+    const matrix =
+      metadata?.role_matrix && typeof metadata.role_matrix === "object"
+        ? metadata.role_matrix
+        : {};
 
     return {
       modules,
       templates,
       granted_permissions: granted,
       role_matrix: matrix,
+      features,
     };
   }
 
@@ -185,16 +235,23 @@ class RegionAdminService {
   }
 
   async updateUser<T = RegionAdminUser>(userId: number, data: any): Promise<T> {
-    const response = await apiClient.put<T>(`${this.basePath}/users/${userId}`, data);
+    const response = await apiClient.put<T>(
+      `${this.basePath}/users/${userId}`,
+      data
+    );
     const payload = this.unwrap(response);
     return payload?.data ?? payload;
   }
 
-  async getAvailableRoles(): Promise<Array<{ id: number; name: string; display_name?: string }>> {
+  async getAvailableRoles(): Promise<
+    Array<{ id: number; name: string; display_name?: string }>
+  > {
     const response = await apiClient.get<any>(`${this.basePath}/users/roles`);
     const payload = this.unwrap(response);
-    if (payload && typeof payload === 'object' && 'roles' in payload) {
-      return Array.isArray((payload as any).roles) ? (payload as any).roles : [];
+    if (payload && typeof payload === "object" && "roles" in payload) {
+      return Array.isArray((payload as any).roles)
+        ? (payload as any).roles
+        : [];
     }
     return Array.isArray(payload) ? payload : [];
   }
@@ -207,10 +264,10 @@ class RegionAdminService {
     try {
       const result = await this.getRegionInstitutions();
       return {
-        institutions: result.institutions || []
+        institutions: result.institutions || [],
       };
     } catch (error) {
-      console.error('regionAdminService.getInstitutions error:', error);
+      console.error("regionAdminService.getInstitutions error:", error);
       return { institutions: [] };
     }
   }
@@ -223,19 +280,23 @@ class RegionAdminService {
     try {
       const response = await apiClient.get<any>(`${this.basePath}/departments`);
       const payload = this.unwrap(response);
-      const departments = this.extractCollection(payload, ['departments', 'data', 'items']);
+      const departments = this.extractCollection(payload, [
+        "departments",
+        "data",
+        "items",
+      ]);
 
-      console.log('🔧 regionAdminService.getDepartments:', {
+      console.log("🔧 regionAdminService.getDepartments:", {
         payload,
         departments,
-        count: departments.length
+        count: departments.length,
       });
 
       return {
-        departments: departments || []
+        departments: departments || [],
       };
     } catch (error) {
-      console.error('regionAdminService.getDepartments error:', error);
+      console.error("regionAdminService.getDepartments error:", error);
       return { departments: [] };
     }
   }
@@ -245,7 +306,11 @@ class RegionAdminService {
       return null;
     }
 
-    if (typeof response === 'object' && 'data' in response && response.data !== undefined) {
+    if (
+      typeof response === "object" &&
+      "data" in response &&
+      response.data !== undefined
+    ) {
       return response.data;
     }
 
@@ -286,7 +351,10 @@ class RegionAdminService {
     return [];
   }
 
-  private extractMeta(payload: any, fallback: { per_page?: number; total?: number }): PaginationMeta {
+  private extractMeta(
+    payload: any,
+    fallback: { per_page?: number; total?: number }
+  ): PaginationMeta {
     const defaultMeta: PaginationMeta = {
       current_page: 1,
       per_page: Number(fallback.per_page ?? fallback.total ?? 0),
@@ -311,11 +379,17 @@ class RegionAdminService {
     }
 
     const perPage =
-      Number(metaSource.per_page ?? metaSource.perPage ?? defaultMeta.per_page) || defaultMeta.per_page;
-    const total = Number(metaSource.total ?? defaultMeta.total) || defaultMeta.total;
+      Number(
+        metaSource.per_page ?? metaSource.perPage ?? defaultMeta.per_page
+      ) || defaultMeta.per_page;
+    const total =
+      Number(metaSource.total ?? defaultMeta.total) || defaultMeta.total;
     const lastPage =
-      Number(metaSource.last_page ?? metaSource.lastPage ?? (perPage > 0 ? Math.max(1, Math.ceil(total / perPage)) : 1)) ||
-      defaultMeta.last_page;
+      Number(
+        metaSource.last_page ??
+          metaSource.lastPage ??
+          (perPage > 0 ? Math.max(1, Math.ceil(total / perPage)) : 1)
+      ) || defaultMeta.last_page;
 
     return {
       current_page: Number(metaSource.current_page ?? 1),
@@ -326,24 +400,24 @@ class RegionAdminService {
   }
 
   private pickObject(value: unknown): Record<string, unknown> | null {
-    if (value && typeof value === 'object' && !Array.isArray(value)) {
+    if (value && typeof value === "object" && !Array.isArray(value)) {
       return value as Record<string, unknown>;
     }
     return null;
   }
 
   private isMetaShape(value: unknown): value is Record<string, unknown> {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) {
       return false;
     }
     const candidate = value as Record<string, unknown>;
     return (
-      'current_page' in candidate ||
-      'per_page' in candidate ||
-      'perPage' in candidate ||
-      'total' in candidate ||
-      'last_page' in candidate ||
-      'lastPage' in candidate
+      "current_page" in candidate ||
+      "per_page" in candidate ||
+      "perPage" in candidate ||
+      "total" in candidate ||
+      "last_page" in candidate ||
+      "lastPage" in candidate
     );
   }
 }
