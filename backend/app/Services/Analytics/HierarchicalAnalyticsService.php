@@ -23,19 +23,34 @@ class HierarchicalAnalyticsService
         $userRole = $user->getRoleNames()->first();
         $allowedInstitutionIds = \App\Helpers\DataIsolationHelper::getAllowedInstitutionIds($user);
 
+        \Log::info('🔍 [HIERARCHICAL ANALYTICS] Starting analysis', [
+            'survey_id' => $survey->id,
+            'user_id' => $user->id,
+            'user_role' => $userRole,
+            'allowed_institution_ids_count' => $allowedInstitutionIds->count(),
+            'allowed_institution_ids' => $allowedInstitutionIds->toArray(),
+        ]);
+
         // Get all responses for this survey within allowed institutions
         $responses = $survey->responses()
             ->whereIn('institution_id', $allowedInstitutionIds)
             ->with(['respondent.institution'])
             ->get();
 
+        \Log::info('🔍 [HIERARCHICAL ANALYTICS] Responses fetched', [
+            'survey_id' => $survey->id,
+            'total_responses' => $responses->count(),
+            'response_institution_ids' => $responses->pluck('institution_id')->unique()->toArray(),
+        ]);
+
         $nodes = [];
 
         if ($userRole === 'superadmin') {
             // SuperAdmin sees all regions
             $nodes = $this->buildSuperAdminHierarchyEnhanced($survey, $responses);
-        } elseif ($userRole === 'regionadmin') {
-            // RegionAdmin sees sectors -> schools
+        } elseif ($userRole === 'regionadmin' || $userRole === 'regionoperator') {
+            // RegionAdmin and RegionOperator see sectors -> schools
+            // RegionOperator should have same view as RegionAdmin for their region
             $nodes = $this->buildRegionHierarchyEnhanced($survey, $responses, $user);
         } elseif ($userRole === 'sektoradmin') {
             // SektorAdmin sees schools only
@@ -93,13 +108,18 @@ class HierarchicalAnalyticsService
     }
 
     /**
-     * Build hierarchy for RegionAdmin (sectors -> schools)
+     * Build hierarchy for RegionAdmin/RegionOperator (sectors -> schools)
      */
     protected function buildRegionHierarchyEnhanced(Survey $survey, Collection $responses, User $user): array
     {
         $userRegion = $user->institution;
 
         if (! $userRegion || $userRegion->level !== 2) {
+            \Log::warning('🔍 [REGION HIERARCHY] Invalid user region', [
+                'user_id' => $user->id,
+                'has_institution' => (bool) $userRegion,
+                'institution_level' => $userRegion?->level,
+            ]);
             return [];
         }
 
@@ -110,9 +130,24 @@ class HierarchicalAnalyticsService
             }])
             ->get();
 
-        return $sectors->map(function ($sector) use ($survey, $responses) {
+        \Log::info('🔍 [REGION HIERARCHY] Building hierarchy', [
+            'user_id' => $user->id,
+            'region_id' => $userRegion->id,
+            'region_name' => $userRegion->name,
+            'sectors_count' => $sectors->count(),
+            'sector_ids' => $sectors->pluck('id')->toArray(),
+            'sector_names' => $sectors->pluck('name')->toArray(),
+        ]);
+
+        $result = $sectors->map(function ($sector) use ($survey, $responses) {
             return $this->buildSectorNodeEnhanced($sector, $survey, $responses);
         })->values()->toArray();
+
+        \Log::info('🔍 [REGION HIERARCHY] Hierarchy built', [
+            'nodes_count' => count($result),
+        ]);
+
+        return $result;
     }
 
     /**
@@ -225,7 +260,7 @@ class HierarchicalAnalyticsService
     {
         return match ($role) {
             'superadmin' => 'regions_sectors_schools',
-            'regionadmin' => 'sectors_schools',
+            'regionadmin', 'regionoperator' => 'sectors_schools',
             'sektoradmin' => 'schools',
             default => 'single_institution',
         };

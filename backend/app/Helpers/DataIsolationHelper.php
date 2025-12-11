@@ -51,7 +51,7 @@ class DataIsolationHelper
     }
 
     /**
-     * Apply RegionAdmin scope
+     * Apply RegionAdmin scope (recursive - all hierarchy levels)
      */
     private static function applyRegionAdminScope(Builder $query, User $user, string $resourceType): Builder
     {
@@ -61,14 +61,8 @@ class DataIsolationHelper
             return $query->whereRaw('1 = 0');
         }
 
-        // Get all institutions under this region
-        $allowedInstitutionIds = Institution::where(function ($q) use ($userRegion) {
-            $q->where('id', $userRegion->id)
-                ->orWhere('parent_id', $userRegion->id)
-                ->orWhereHas('parent', function ($subQ) use ($userRegion) {
-                    $subQ->where('parent_id', $userRegion->id);
-                });
-        })->pluck('id');
+        // Use Institution model's recursive method to get ALL children
+        $allowedInstitutionIds = collect($userRegion->getAllChildrenIds());
 
         switch ($resourceType) {
             case 'users':
@@ -349,16 +343,45 @@ class DataIsolationHelper
                     return collect([]);
                 }
 
-                return Institution::where(function ($q) use ($userRegion) {
-                    $q->where('id', $userRegion->id)
-                        ->orWhere('parent_id', $userRegion->id)
-                        ->orWhereHas('parent', function ($subQ) use ($userRegion) {
-                            $subQ->where('parent_id', $userRegion->id);
-                        });
-                })->pluck('id');
+                // Use Institution model's recursive method to get ALL children
+                return collect($userRegion->getAllChildrenIds());
 
             case 'regionoperator':
-                return collect([$user->institution_id]);
+                $institution = $user->institution;
+
+                if (! $institution) {
+                    \Log::warning('RegionOperator getAllowedInstitutionIds: missing institution', [
+                        'user_id' => $user->id,
+                        'username' => $user->username,
+                    ]);
+
+                    return collect([]);
+                }
+
+                // Region operators attached to regional HQ (level 2) should inherit entire region tree
+                if ($institution->level === 2) {
+                    $ids = $institution->getAllChildrenIds();
+
+                    \Log::info('RegionOperator scope expanded to full region', [
+                        'user_id' => $user->id,
+                        'institution_id' => $institution->id,
+                        'children_count' => count($ids),
+                    ]);
+
+                    return collect($ids);
+                }
+
+                // Region operators attached to sectors (level 3) should see sector + schools
+                if ($institution->level === 3) {
+                    $childIds = Institution::where('parent_id', $institution->id)
+                        ->where('level', '>=', 3)
+                        ->pluck('id');
+
+                    return $childIds->prepend($institution->id);
+                }
+
+                // Default: restrict to assigned institution
+                return collect([$institution->id]);
 
             case 'sektoradmin':
                 $userSector = $user->institution;

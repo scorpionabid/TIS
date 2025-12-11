@@ -35,17 +35,16 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
     {
         // Load survey questions to ensure they're available for export
         $this->survey->load(['questions' => function ($query) {
-            $query->orderBy('order_index')->select('id', 'survey_id', 'title', 'text', 'question', 'order_index');
+            $query->orderBy('order_index')->select('id', 'survey_id', 'title', 'description', 'type', 'order_index');
         }]);
 
-        // Production: Only log essential information
-        if (app()->environment('local', 'development')) {
-            \Log::info('Survey questions loaded for export', [
-                'survey_id' => $this->survey->id,
-                'questions_count' => $this->survey->questions->count(),
-                'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2),
-            ]);
-        }
+        \Log::info('📋 [EXPORT COLLECTION] Starting data collection', [
+            'survey_id' => $this->survey->id,
+            'user_id' => $this->user->id,
+            'user_role' => $this->user->getRoleNames()->first(),
+            'filters' => $this->filters,
+            'questions_count' => $this->survey->questions->count(),
+        ]);
 
         // Optimize query for large datasets - select only necessary fields
         $query = SurveyResponse::where('survey_id', $this->survey->id)
@@ -57,7 +56,7 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
                 'institution:id,name,type,short_name,parent_id,level',
                 'institution.parent:id,name,type,short_name', // Load sector (parent institution)
                 'department:id,name',
-                'respondent:id,name,email',
+                'respondent:id,first_name,last_name,email',
                 'approvalRequest' => function ($query) {
                     $query->select('id', 'approvalable_id', 'current_status', 'submitted_at', 'completed_at');
                 },
@@ -66,7 +65,7 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
                         ->latest('action_taken_at')
                         ->limit(1); // Only get latest action per response
                 },
-                'approvalRequest.approvalActions.approver:id,name',
+                'approvalRequest.approvalActions.approver:id,first_name,last_name',
             ]);
 
         // Apply user access control
@@ -219,8 +218,8 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
         // Add column for each survey question
         $questions = $this->survey->questions;
         foreach ($questions as $question) {
-            // Use question title/text as column header, truncate if too long
-            $questionText = $question->title ?? $question->text ?? $question->question ?? ('Sual ' . ($question->order_index ?? $question->id));
+            // Use question title/description as column header, truncate if too long
+            $questionText = $question->title ?? $question->description ?? ('Sual ' . ($question->order_index ?? $question->id));
             $questionText = strip_tags($questionText);
             if (strlen($questionText) > 50) {
                 $questionText = substr($questionText, 0, 50) . '...';
@@ -301,14 +300,12 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
 
     private function applyUserAccessControl($query): void
     {
-        // Get role name properly - might be object or string
-        $userRoleName = is_object($this->user->role) ? $this->user->role->name : $this->user->role;
+        // Get role name using Spatie's getRoleNames() method
+        $userRoleName = $this->user->getRoleNames()->first();
 
         \Log::info('🔐 [EXPORT] Applying user access control', [
             'user_id' => $this->user->id,
-            'user_role_object' => $this->user->role,
             'user_role_name' => $userRoleName,
-            'user_role_type' => gettype($this->user->role),
             'user_institution_id' => $this->user->institution_id,
             'user_institution_name' => $this->user->institution?->name,
             'has_specific_response_ids' => ! empty($this->filters['response_ids']),
@@ -317,7 +314,7 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
 
         // Special case: If specific response IDs are provided for export and user has appropriate permissions,
         // allow export of those specific responses (this is for bulk export functionality)
-        if (! empty($this->filters['response_ids']) && in_array($userRoleName, ['superadmin', 'regionadmin', 'sektoradmin'])) {
+        if (! empty($this->filters['response_ids']) && in_array($userRoleName, ['superadmin', 'regionadmin', 'regionoperator', 'sektoradmin'])) {
             \Log::info('📋 [EXPORT] Allowing export of specific response IDs for authorized user', [
                 'user_role_name' => $userRoleName,
                 'response_ids' => $this->filters['response_ids'],
@@ -333,9 +330,13 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
                 break;
 
             case 'regionadmin':
+            case 'regionoperator':
+                // RegionAdmin and RegionOperator have same access to their region's data
                 if ($this->user->institution) {
                     $childInstitutionIds = $this->user->institution->getAllChildrenIds();
-                    \Log::info('🌐 [EXPORT] RegionAdmin access control', [
+                    \Log::info('🌐 [EXPORT] RegionAdmin/RegionOperator access control', [
+                        'user_role' => $userRoleName,
+                        'allowed_institution_ids_count' => count($childInstitutionIds),
                         'allowed_institution_ids' => $childInstitutionIds,
                     ]);
                     $query->whereIn('institution_id', $childInstitutionIds);
