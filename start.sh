@@ -192,7 +192,21 @@ setup_frontend_deps() {
 setup_database() {
     print_status "Database-i hazırla..."
 
-    # Run migrations
+    # Check if database has production data
+    user_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
+    institution_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\Institution::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
+
+    print_status "Database status: $user_count users, $institution_count institutions"
+
+    # CRITICAL: If we have production data (>100 users), NEVER run migrations or seeders
+    if [ "$user_count" -gt 100 ]; then
+        print_success "🔒 PRODUCTION DATA DETECTED! Skipping migrations and seeders."
+        print_warning "Data count: $user_count users, $institution_count institutions"
+        print_success "Database hazır (production mode)"
+        return 0
+    fi
+
+    # Run migrations ONLY if safe
     print_status "Migrations çalışdır..."
     "$DOCKER_BIN" exec atis_backend php artisan migrate --force || {
         print_error "Migration uğursuz!"
@@ -200,8 +214,6 @@ setup_database() {
     }
 
     # Check if we have users, if not run full seeders
-    user_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1)
-
     if [ "$user_count" -lt 5 ]; then
         print_status "Database seeders çalışdır..."
 
@@ -214,7 +226,7 @@ setup_database() {
 
         print_success "Database seeders tamamlandı"
     else
-        print_success "Database artıq məlumatla doludur"
+        print_success "Database artıq məlumatla doludur ($user_count users)"
     fi
 
     print_success "Database hazır"
