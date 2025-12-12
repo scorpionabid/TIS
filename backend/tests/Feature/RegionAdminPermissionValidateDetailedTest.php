@@ -88,6 +88,23 @@ class RegionAdminPermissionValidateDetailedTest extends TestCase
         $this->assertIsArray($result['removed']);
     }
 
+    public function test_dry_run_validate_reports_admin_missing_permissions()
+    {
+        $this->createRoles();
+
+        $admin = User::factory()->create();
+        $admin->assignRole('regionadmin');
+
+        $service = app(\App\Services\RegionAdmin\RegionAdminPermissionService::class);
+
+        // Admin has no permissions yet; proposing a permission should flag admin_missing_permissions
+        $result = $service->dryRunValidate(null, ['documents.share'], 'sektoradmin', $admin);
+
+        $this->assertIsArray($result);
+        $this->assertArrayHasKey('admin_missing_permissions', $result);
+        $this->assertNotEmpty($result['admin_missing_permissions']);
+    }
+
     protected function createRoles(): void
     {
         Role::firstOrCreate(['name' => 'regionadmin', 'guard_name' => 'sanctum']);
@@ -96,4 +113,3 @@ class RegionAdminPermissionValidateDetailedTest extends TestCase
         Role::firstOrCreate(['name' => 'schooladmin', 'guard_name' => 'sanctum']);
     }
 }
-

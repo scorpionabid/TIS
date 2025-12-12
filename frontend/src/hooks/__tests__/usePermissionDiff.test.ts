@@ -1,13 +1,9 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { usePermissionDiff } from "../usePermissionDiff";
+import { apiClient } from "@/services/api";
 
 describe("usePermissionDiff", () => {
-  beforeEach(() => {
-    // reset fetch mock
-    (global as any).fetch = undefined;
-  });
-
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -32,15 +28,7 @@ describe("usePermissionDiff", () => {
       },
     };
 
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() =>
-        Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve(mockResponse),
-        })
-      )
-    );
+    vi.spyOn(apiClient, "post").mockResolvedValue({ data: mockResponse } as any);
 
     const { result } = renderHook(() => usePermissionDiff());
 
@@ -57,16 +45,7 @@ describe("usePermissionDiff", () => {
   });
 
   it("dryRunValidate handles server error", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(() =>
-        Promise.resolve({
-          ok: false,
-          status: 500,
-          text: () => Promise.resolve("err"),
-        })
-      )
-    );
+    vi.spyOn(apiClient, "post").mockRejectedValue(new Error("Server error"));
 
     const { result } = renderHook(() => usePermissionDiff());
     const res = await act(async () =>

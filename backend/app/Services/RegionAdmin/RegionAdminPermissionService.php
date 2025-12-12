@@ -108,7 +108,6 @@ class RegionAdminPermissionService
 
                 return $template;
             })
-            ->filter(fn ($template) => ! empty($template['permissions']))
             ->values()
             ->all();
 
