@@ -5,16 +5,23 @@ namespace App\Http\Controllers;
 use App\Http\Traits\ResponseHelpers;
 use App\Http\Traits\ValidationRules;
 use App\Models\Survey;
+use App\Models\SurveyDeadlineLog;
+use App\Models\SurveyResponse;
 use App\Models\User;
 use App\Services\SurveyCrudService;
+use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 
 class SurveyController extends BaseController
 {
     use ResponseHelpers, ValidationRules;
 
     protected SurveyCrudService $crudService;
+
+    protected int $deadlineApproachingDays = 3;
 
     public function __construct(SurveyCrudService $crudService)
     {
@@ -569,30 +576,158 @@ class SurveyController extends BaseController
             $user = $request->user();
 
             // Get surveys assigned to user
-            $assignedSurveys = $this->getAssignedSurveysQuery($user)->get();
+            $assignedSurveys = $this->getAssignedSurveysQuery($user)
+                ->select(['id', 'title', 'status', 'end_date'])
+                ->get();
 
             // Get user's responses
-            $responses = \App\Models\SurveyResponse::where('respondent_id', $user->id)->get();
+            $responses = SurveyResponse::where('respondent_id', $user->id)->get();
+            $responsesBySurvey = $responses->groupBy('survey_id');
+
+            $submittedCount = $responses->whereIn('status', ['submitted', 'approved'])->count();
+            $inProgressCount = $responses->where('status', 'draft')->count();
 
             $stats = [
                 'total' => $assignedSurveys->count(),
                 'pending' => $assignedSurveys->whereIn('status', ['published', 'active'])
-                    ->filter(function ($survey) use ($user) {
-                        return ! $survey->responses()->where('respondent_id', $user->id)->exists();
-                    })->count(),
-                'in_progress' => $responses->where('status', 'draft')->count(),
-                'completed' => $responses->where('status', 'submitted')->count(),
-                'overdue' => $assignedSurveys->where('end_date', '<', now())
-                    ->whereIn('status', ['published', 'active'])
-                    ->filter(function ($survey) use ($user) {
-                        return ! $survey->responses()->where('respondent_id', $user->id)->exists();
-                    })->count(),
+                    ->filter(fn ($survey) => ! $this->hasAnyResponse($responsesBySurvey, $survey->id))
+                    ->count(),
+                'in_progress' => $inProgressCount,
+                'completed' => $submittedCount,
                 'completion_rate' => $assignedSurveys->count() > 0
-                    ? round(($responses->where('status', 'submitted')->count() / $assignedSurveys->count()) * 100, 2)
+                    ? round(($submittedCount / $assignedSurveys->count()) * 100, 2)
                     : 0,
             ];
 
+            $pendingAssignments = $assignedSurveys->filter(function ($survey) use ($responsesBySurvey) {
+                return ! $this->hasSubmittedResponse($responsesBySurvey, $survey->id);
+            });
+
+            $deadlineCounts = [
+                'overdue' => 0,
+                'approaching' => 0,
+                'on_track' => 0,
+                'no_deadline' => 0,
+            ];
+
+            $deadlineHighlights = [
+                'overdue' => [],
+                'approaching' => [],
+            ];
+
+            foreach ($pendingAssignments as $survey) {
+                $deadlineInfo = $this->resolveDeadlineStatus($survey->end_date);
+                $statusKey = $deadlineInfo['status'];
+
+                if (! array_key_exists($statusKey, $deadlineCounts)) {
+                    $deadlineCounts[$statusKey] = 0;
+                }
+
+                $deadlineCounts[$statusKey]++;
+
+                if (in_array($statusKey, ['overdue', 'approaching'], true)) {
+                    $deadlineHighlights[$statusKey][] = [
+                        'survey_id' => $survey->id,
+                        'title' => $survey->title,
+                        'end_date' => $deadlineInfo['end_date'],
+                        'days_overdue' => $deadlineInfo['days_overdue'],
+                        'days_remaining' => $deadlineInfo['days_remaining'],
+                    ];
+                }
+            }
+
+            $stats['overdue'] = $deadlineCounts['overdue'];
+            $stats['deadline_summary'] = [
+                'pending_assignments' => array_sum($deadlineCounts),
+                'overdue' => $deadlineCounts['overdue'],
+                'approaching' => $deadlineCounts['approaching'],
+                'on_track' => $deadlineCounts['on_track'],
+                'no_deadline' => $deadlineCounts['no_deadline'],
+                'threshold_days' => $this->deadlineApproachingDays,
+            ];
+
+            $stats['deadline_highlights'] = [
+                'overdue' => array_slice($deadlineHighlights['overdue'], 0, 5),
+                'approaching' => array_slice($deadlineHighlights['approaching'], 0, 5),
+            ];
+
             return $this->successResponse($stats, 'Dashboard statistics retrieved successfully');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Admin/reporting endpoint for deadline insights
+     */
+    public function getDeadlineInsights(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'status' => 'nullable|string|in:overdue,approaching,on_track,no_deadline,all',
+            'limit' => 'nullable|integer|min:1|max:200',
+        ]);
+
+        try {
+            $statusFilter = $validated['status'] ?? 'overdue';
+            $limit = $validated['limit'] ?? 50;
+
+            $baseQuery = Survey::query()
+                ->whereIn('status', ['published', 'active'])
+                ->select(['id', 'title', 'status', 'category', 'end_date', 'target_institutions']);
+
+            $surveysQuery = clone $baseQuery;
+
+            if ($statusFilter && $statusFilter !== 'all') {
+                $this->applyDeadlineFilter($surveysQuery, $statusFilter);
+            }
+
+            $surveys = $surveysQuery
+                ->orderByRaw('CASE WHEN end_date IS NULL THEN 1 ELSE 0 END')
+                ->orderBy('end_date')
+                ->limit($limit)
+                ->get();
+
+            $latestLogs = collect();
+            if ($surveys->isNotEmpty()) {
+                $latestLogs = SurveyDeadlineLog::whereIn('survey_id', $surveys->pluck('id'))
+                    ->orderBy('created_at', 'desc')
+                    ->get()
+                    ->groupBy('survey_id')
+                    ->map->first();
+            }
+
+            $surveys->transform(function ($survey) use ($latestLogs) {
+                $deadlineInfo = $this->resolveDeadlineStatus($survey->end_date);
+                $survey->deadline_status = $deadlineInfo['status'];
+                $survey->deadline_details = $deadlineInfo;
+                $log = $latestLogs->get($survey->id);
+                $survey->last_deadline_event = $log ? [
+                    'event_type' => $log->event_type,
+                    'notification_type' => $log->notification_type,
+                    'created_at' => $log->created_at?->toISOString(),
+                ] : null;
+
+                return $survey;
+            });
+
+            $summaryFilters = ['overdue', 'approaching', 'on_track', 'no_deadline'];
+            $summary = [];
+
+            foreach ($summaryFilters as $filter) {
+                $summary[$filter] = $this->applyDeadlineFilter(clone $baseQuery, $filter)->count();
+            }
+
+            $eventSummary = SurveyDeadlineLog::select('event_type', DB::raw('count(*) as total'))
+                ->where('created_at', '>=', now()->subDays(30))
+                ->groupBy('event_type')
+                ->pluck('total', 'event_type')
+                ->toArray();
+
+            return $this->successResponse([
+                'summary' => $summary,
+                'surveys' => $surveys,
+                'event_summary' => $eventSummary,
+            ], 'Survey deadline insights retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -605,9 +740,21 @@ class SurveyController extends BaseController
     {
         try {
             $user = $request->user();
-            $perPage = $request->get('per_page', 20);
+            $validated = $request->validate([
+                'per_page' => 'nullable|integer|min:1|max:100',
+                'deadline_filter' => 'nullable|string|in:approaching,overdue,all',
+            ]);
 
-            $surveys = $this->getAssignedSurveysQuery($user)
+            $perPage = $validated['per_page'] ?? $request->get('per_page', 20);
+            $deadlineFilter = $validated['deadline_filter'] ?? null;
+
+            $surveysQuery = $this->getAssignedSurveysQuery($user);
+
+            if ($deadlineFilter && $deadlineFilter !== 'all') {
+                $this->applyDeadlineFilter($surveysQuery, $deadlineFilter);
+            }
+
+            $surveys = $surveysQuery
                 ->with(['questions', 'responses' => function ($q) use ($user) {
                     $q->where('respondent_id', $user->id)
                         ->with('approvalRequest');
@@ -637,7 +784,7 @@ class SurveyController extends BaseController
                     $survey->response_status = 'not_started';
                 }
 
-                if (! $response && $survey->end_date && $survey->end_date < now()) {
+                if (! $response && $deadlineInfo['status'] === 'overdue') {
                     $survey->response_status = 'overdue';
                 }
 
@@ -688,6 +835,14 @@ class SurveyController extends BaseController
                 ->limit($limit)
                 ->get(['id', 'title', 'description', 'end_date', 'questions_count']);
 
+            $surveys->transform(function ($survey) {
+                $deadlineInfo = $this->resolveDeadlineStatus($survey->end_date);
+                $survey->deadline_status = $deadlineInfo['status'];
+                $survey->deadline_details = $deadlineInfo;
+
+                return $survey;
+            });
+
             return $this->successResponse($surveys, 'Recent assigned surveys retrieved successfully');
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
@@ -712,6 +867,88 @@ class SurveyController extends BaseController
                     });
             })
             ->orderBy('created_at', 'desc');
+    }
+
+    /**
+     * Check if user has any response for survey
+     */
+    private function hasAnyResponse(Collection $responsesBySurvey, int $surveyId): bool
+    {
+        return $responsesBySurvey->has($surveyId);
+    }
+
+    /**
+     * Check if user already submitted/approved a response for a survey
+     */
+    private function hasSubmittedResponse(Collection $responsesBySurvey, int $surveyId): bool
+    {
+        if (! $responsesBySurvey->has($surveyId)) {
+            return false;
+        }
+
+        return $responsesBySurvey[$surveyId]->contains(function (SurveyResponse $response) {
+            return in_array($response->status, ['submitted', 'approved']);
+        });
+    }
+
+    /**
+     * Resolve deadline status metadata for a survey end date
+     */
+    private function resolveDeadlineStatus(?CarbonInterface $endDate): array
+    {
+        if (! $endDate) {
+            return [
+                'status' => 'no_deadline',
+                'end_date' => null,
+                'days_remaining' => null,
+                'days_overdue' => null,
+                'approaching_threshold_days' => $this->deadlineApproachingDays,
+                'is_due_today' => false,
+            ];
+        }
+
+        $now = now();
+
+        if ($endDate->lessThan($now)) {
+            return [
+                'status' => 'overdue',
+                'end_date' => $endDate->toISOString(),
+                'days_remaining' => 0,
+                'days_overdue' => max($endDate->diffInDays($now), 0),
+                'approaching_threshold_days' => $this->deadlineApproachingDays,
+                'is_due_today' => false,
+            ];
+        }
+
+        $daysRemaining = max($now->diffInDays($endDate), 0);
+        $isDueToday = $endDate->isSameDay($now);
+        $status = ($daysRemaining <= $this->deadlineApproachingDays || $isDueToday) ? 'approaching' : 'on_track';
+
+        return [
+            'status' => $status,
+            'end_date' => $endDate->toISOString(),
+            'days_remaining' => $daysRemaining,
+            'days_overdue' => 0,
+            'approaching_threshold_days' => $this->deadlineApproachingDays,
+            'is_due_today' => $isDueToday,
+        ];
+    }
+
+    /**
+     * Apply deadline status filter to a query builder
+     */
+    private function applyDeadlineFilter($query, string $filter)
+    {
+        $now = now();
+        $thresholdDate = $now->copy()->addDays($this->deadlineApproachingDays);
+
+        return match ($filter) {
+            'overdue' => $query->whereNotNull('end_date')->where('end_date', '<', $now),
+            'approaching' => $query->whereNotNull('end_date')->whereBetween('end_date', [$now, $thresholdDate]),
+            'on_track' => $query->whereNotNull('end_date')->where('end_date', '>', $thresholdDate),
+            'no_deadline' => $query->whereNull('end_date'),
+            default => $query,
+        };
     }
 
     // NOTE: sendSurveyPublishNotification() has been moved to SurveyStatusService

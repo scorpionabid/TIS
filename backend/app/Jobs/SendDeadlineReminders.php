@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Survey;
+use App\Models\SurveyDeadlineLog;
 use App\Models\Task;
 use App\Services\InstitutionNotificationHelper;
 use App\Services\NotificationService;
@@ -160,6 +161,7 @@ class SendDeadlineReminders implements ShouldQueue
                     'deadline_formatted' => $survey->end_date ? $survey->end_date->format('d.m.Y H:i') : '',
                     'urgency_level' => $this->getUrgencyLevel($daysLeft),
                 ];
+                $recipientCount = count($targetUserIds);
 
                 $this->notificationService->sendSurveyNotification(
                     $survey,
@@ -172,8 +174,19 @@ class SendDeadlineReminders implements ShouldQueue
                     'survey_id' => $survey->id,
                     'action' => $action,
                     'days_left' => $daysLeft,
-                    'recipients' => count($targetUserIds),
+                    'recipients' => $recipientCount,
                 ]);
+
+                $this->logSurveyDeadlineEvent($survey, $action, [
+                    'notification_type' => $action,
+                    'days_reference' => $daysLeft,
+                    'recipient_count' => $recipientCount,
+                    'metadata' => $extraData,
+                ]);
+
+                if ($action === 'overdue') {
+                    $this->notifySurveyOwnerAboutOverdue($survey, $extraData);
+                }
             }
         } catch (\Exception $e) {
             Log::error('Failed to send survey deadline reminder', [
@@ -240,6 +253,64 @@ class SendDeadlineReminders implements ShouldQueue
             'overdue' => 'Müddət keçib',
             default => "{$daysLeft} gün qalıb",
         };
+    }
+
+    /**
+     * Log survey deadline related events
+     */
+    protected function logSurveyDeadlineEvent(Survey $survey, string $eventType, array $payload = []): void
+    {
+        try {
+            SurveyDeadlineLog::create([
+                'survey_id' => $survey->id,
+                'event_type' => $eventType,
+                'notification_type' => $payload['notification_type'] ?? $eventType,
+                'days_reference' => $payload['days_reference'] ?? null,
+                'recipient_count' => $payload['recipient_count'] ?? 0,
+                'metadata' => $payload['metadata'] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to log survey deadline event', [
+                'survey_id' => $survey->id,
+                'event_type' => $eventType,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Escalate overdue surveys to survey creators
+     */
+    protected function notifySurveyOwnerAboutOverdue(Survey $survey, array $metadata = []): void
+    {
+        try {
+            if (! $survey->creator_id) {
+                return;
+            }
+
+            $this->notificationService->send([
+                'user_id' => $survey->creator_id,
+                'title' => 'Sorğu gecikdi',
+                'message' => sprintf(
+                    '"%s" sorğusu üçün cavablar gecikir. Xahiş edirik təyin olunan müəssisələrlə əlaqə saxlayın.',
+                    $survey->title
+                ),
+                'type' => 'survey_deadline_overdue_alert',
+                'channel' => 'in_app',
+                'priority' => 'high',
+                'related_type' => Survey::class,
+                'related_id' => $survey->id,
+                'metadata' => array_merge([
+                    'survey_id' => $survey->id,
+                    'end_date' => $survey->end_date?->toISOString(),
+                ], $metadata),
+            ]);
+        } catch (\Throwable $e) {
+            Log::warning('Failed to send survey overdue escalation', [
+                'survey_id' => $survey->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**

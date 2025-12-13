@@ -24,6 +24,7 @@ Route::middleware('permission:surveys.read')->group(function () {
     Route::get('surveys/analytics/overview', [SurveyAnalyticsController::class, 'dashboard']);
     Route::get('surveys/analytics/region', [SurveyAnalyticsController::class, 'regionAnalytics']);
     Route::get('surveys/hierarchical', [SurveyController::class, 'getHierarchicalList']);
+    Route::get('surveys/deadline-insights', [SurveyController::class, 'getDeadlineInsights']);
 
     // NEW: Survey Results Analytics Endpoints (MUST be before generic /analytics route)
     Route::get('surveys/{survey}/analytics/overview', [SurveyAnalyticsController::class, 'analyticsOverview']);

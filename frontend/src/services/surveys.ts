@@ -230,7 +230,9 @@ class SurveyService extends BaseService<Survey> {
     return response.data ?? {};
   }
 
-  async getAssignedSurveys(params?: PaginationParams): Promise<ApiResponse<PaginatedResponse<Survey>>> {
+  async getAssignedSurveys(
+    params?: PaginationParams & { deadline_filter?: 'approaching' | 'overdue' | 'all' }
+  ): Promise<ApiResponse<PaginatedResponse<Survey>>> {
     return apiClient.get<PaginatedResponse<Survey>>('/my-surveys/assigned', params);
   }
 

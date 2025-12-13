@@ -31,6 +31,7 @@ import ApprovalActionModal from './ApprovalActionModal';
 import BulkApprovalModal from './BulkApprovalModal';
 // MIGRATION: SurveyResponsesTab removed - survey approvals now handled by SurveyApprovalDashboard
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const ApprovalDashboard: React.FC = () => {
   const { currentUser: user } = useAuth();
@@ -54,7 +55,7 @@ const ApprovalDashboard: React.FC = () => {
 
       // Get approvals based on active tab
       let approvalsResponse;
-      if (activeTab === 'pending') {
+      if (activeTab === 'pending' || activeTab === 'overdue') {
         approvalsResponse = await approvalService.getPendingApprovals();
       } else if (activeTab === 'my-requests') {
         approvalsResponse = await approvalService.getMyApprovals();
@@ -88,6 +89,14 @@ const ApprovalDashboard: React.FC = () => {
             approval.workflow.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             approval.submitter.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             approval.comments?.toLowerCase().includes(searchTerm.toLowerCase())
+          );
+        }
+
+        if (activeTab === 'overdue') {
+          filteredApprovals = filteredApprovals.filter(
+            (approval) =>
+              approval.is_overdue ||
+              (approval.deadline ? new Date(approval.deadline) < new Date() : false)
           );
         }
 
@@ -354,6 +363,7 @@ const ApprovalDashboard: React.FC = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="pending">Gözləyən Təsdiqlər</TabsTrigger>
+          <TabsTrigger value="overdue">Gecikən</TabsTrigger>
           {/* REMOVED: Survey responses tab - use SurveyApprovalDashboard component */}
           <TabsTrigger value="my-requests">Mənim Sorğularım</TabsTrigger>
           <TabsTrigger value="approved">Təsdiqlənmiş</TabsTrigger>
@@ -367,7 +377,7 @@ const ApprovalDashboard: React.FC = () => {
         {(
           <TabsContent value={activeTab} className="space-y-4">
             {/* Select All Checkbox */}
-            {activeTab === 'pending' && approvals.length > 0 && (
+            {(activeTab === 'pending' || activeTab === 'overdue') && approvals.length > 0 && (
               <div className="flex items-center space-x-2 p-4 bg-gray-50 rounded-lg">
                 <input
                   type="checkbox"
@@ -390,13 +400,17 @@ const ApprovalDashboard: React.FC = () => {
                   </CardContent>
                 </Card>
               ) : (
-                approvals.map((approval) => (
-                  <Card key={approval.id} className="hover:shadow-md transition-shadow">
+                approvals.map((approval) => {
+                  const deadlineDate = approval.deadline ? new Date(approval.deadline) : null;
+                  const isOverdue = approval.is_overdue || (deadlineDate ? deadlineDate < new Date() : false);
+
+                  return (
+                  <Card key={approval.id} className={cn("hover:shadow-md transition-shadow", isOverdue && "border-destructive/40 bg-destructive/5")}>
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center space-x-3 mb-2">
-                            {activeTab === 'pending' && (
+                            {(activeTab === 'pending' || activeTab === 'overdue') && (
                               <input
                                 type="checkbox"
                                 checked={selectedApprovals.includes(approval.id)}
@@ -419,6 +433,11 @@ const ApprovalDashboard: React.FC = () => {
                             <Badge variant="outline">
                               {approvalService.getPriorityText(approval.priority)}
                             </Badge>
+                            {isOverdue && (
+                              <Badge variant="destructive" className="uppercase tracking-wide">
+                                Gecikib
+                              </Badge>
+                            )}
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600 mb-4">
@@ -440,9 +459,22 @@ const ApprovalDashboard: React.FC = () => {
                           )}
 
                           {approval.deadline && (
-                            <p className="text-sm text-orange-600 mb-4">
-                              <AlertTriangle className="h-4 w-4 inline mr-1" />
-                              Son tarix: {new Date(approval.deadline).toLocaleDateString('az-AZ')}
+                            <p
+                              className={cn(
+                                "text-sm mb-4 flex items-center gap-2",
+                                isOverdue ? "text-destructive" : "text-orange-600"
+                              )}
+                            >
+                              <AlertTriangle className="h-4 w-4" />
+                              {isOverdue
+                                ? `Müddət ${formatDistanceToNow(new Date(approval.deadline), {
+                                    addSuffix: true,
+                                    locale: az,
+                                  })}`
+                                : `Son tarix: ${new Date(approval.deadline).toLocaleDateString('az-AZ')} (${formatDistanceToNow(
+                                    new Date(approval.deadline),
+                                    { addSuffix: true, locale: az }
+                                  )})`}
                             </p>
                           )}
                         </div>
@@ -491,7 +523,7 @@ const ApprovalDashboard: React.FC = () => {
                       </div>
                     </CardContent>
                   </Card>
-                ))
+                )})
               )}
             </div>
           </TabsContent>

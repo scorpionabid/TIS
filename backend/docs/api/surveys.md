@@ -9,6 +9,7 @@
 | GET | `/api/surveys/analytics/overview` | Ümumi dashboard statistikası |
 | GET | `/api/surveys/analytics/region` | Region üzrə analitika |
 | GET | `/api/surveys/hierarchical` | Hierarxik sorğu siyahısı |
+| GET | `/api/surveys/deadline-insights` | Deadline statusları və gecikmə hesabatı |
 | GET | `/api/surveys/{survey}/analytics/overview` | Seçilmiş sorğu üçün ümumi göstəricilər |
 | GET | `/api/surveys/{survey}/analytics/trends` | Cavab zaman trend analizi |
 | GET | `/api/surveys/{survey}/analytics/hierarchical-institutions` | Hierarxik iştirakçı analitikası |
@@ -160,4 +161,3 @@ Update survey targeting
 Send notifications to target audience
 
 ---
-

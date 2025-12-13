@@ -196,6 +196,13 @@ RegionAdmin yaradır → MəktəbAdmins cavab verir →
 SektorAdmin təsdiq edir → RegionAdmin analiz edir
 ```
 
+#### Deadline Monitorinqi
+
+- `deadline:send-reminders` → respondentlərə avtomatik xatırlatmalar
+- `surveys:auto-archive` → müddəti bitmiş və cavablanan sorğuları avtomatik arxivləşdirir
+- `approvals:flag-overdue` → təsdiq axınında gecikən müraciətləri işarələyir
+- Yeni `GET /api/surveys/deadline-insights` endpoint-i deadline statuslarını və son xatırlatma hadisələrini geri qaytarır
+
 ### **3. 📝 Task Management**
 
 - Hierarchical task assignment

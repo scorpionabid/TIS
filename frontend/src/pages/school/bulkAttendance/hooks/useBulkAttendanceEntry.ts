@@ -62,7 +62,7 @@ const useBulkAttendanceEntry = () => {
     mutationFn: async ({ payload }) =>
       bulkAttendanceService.saveBulkAttendance(payload),
     onMutate: ({ session, isAutoSave }) => {
-      if (import.meta.env.DEV || true) {
+      if (import.meta.env.DEV) {
         console.log("[BulkAttendance] Mutation starting", {
           session,
           isAutoSave,
@@ -94,7 +94,7 @@ const useBulkAttendanceEntry = () => {
     },
     onSuccess: (data, variables) => {
       const { status, message, data: payloadData } = data;
-      if (import.meta.env.DEV || true) {
+      if (import.meta.env.DEV) {
         console.log("[BulkAttendance] Mutation success", {
           session: variables.session,
           status,
@@ -169,7 +169,7 @@ const useBulkAttendanceEntry = () => {
       }
     },
     onSettled: () => {
-      if (import.meta.env.DEV || true) {
+      if (import.meta.env.DEV) {
         console.log("[BulkAttendance] Mutation settled");
       }
       setIsAutoSaving(false);
@@ -415,7 +415,7 @@ const useBulkAttendanceEntry = () => {
   };
 
   const handleSaveSession = () => {
-    if (import.meta.env.DEV || true) {
+    if (import.meta.env.DEV) {
       console.log("[BulkAttendance] handleSaveSession fired", {
         activeSession,
         classesCount: classes.length,
@@ -460,7 +460,7 @@ const useBulkAttendanceEntry = () => {
       isAutoSave: false,
     });
 
-    if (import.meta.env.DEV || true) {
+    if (import.meta.env.DEV) {
       console.log("[BulkAttendance] Save mutation dispatched", {
         session: activeSession,
         classPayloadCount: payload.classes.length,

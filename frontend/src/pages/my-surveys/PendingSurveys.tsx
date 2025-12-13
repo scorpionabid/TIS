@@ -10,7 +10,7 @@ import { format, isAfter } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { surveyService } from '@/services/surveys';
-import { Survey } from '@/services/surveys';
+import type { Survey, DeadlineDetails } from '@/services/surveys';
 import { Loader2 } from 'lucide-react';
 import { FilterBar } from '@/components/common/FilterBar';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,8 @@ interface SurveyWithStatus extends Survey {
   completion_percentage?: number;
   actual_responses?: number;
   estimated_recipients?: number | string;
+  deadline_status?: Survey['deadline_status'];
+  deadline_details?: DeadlineDetails;
 }
 
 const PendingSurveys: React.FC = () => {
@@ -36,16 +38,17 @@ const PendingSurveys: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const { data: apiResponse, isLoading, error } = useQuery<SurveyWithStatus[]>({
-    queryKey: ['pending-surveys'],
+    queryKey: ['pending-surveys', statusFilter],
     queryFn: async () => {
       try {
-        const response = await surveyService.getAssignedSurveys();
-        console.log('API Response:', response);
-        if (Array.isArray(response)) {
-          return response as SurveyWithStatus[];
+        const params: Record<string, string> = {};
+        if (statusFilter === 'overdue') {
+          params.deadline_filter = 'overdue';
         }
 
+        const response = await surveyService.getAssignedSurveys(params);
         const payload = (response as any)?.data;
+
         if (payload && Array.isArray(payload.data)) {
           return payload.data as SurveyWithStatus[];
         }
@@ -60,7 +63,7 @@ const PendingSurveys: React.FC = () => {
         throw err;
       }
     },
-    refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
+    refetchInterval: 30000,
   });
 
   // Log any errors
@@ -101,7 +104,7 @@ const PendingSurveys: React.FC = () => {
     // Status filter
     const normalizedStatus = (survey.response_status ?? (survey as any).status ?? '').toLowerCase();
     const matchesStatus = statusFilter === 'all' || 
-      (statusFilter === 'overdue' && normalizedStatus === 'overdue') ||
+      (statusFilter === 'overdue' && (normalizedStatus === 'overdue' || survey.deadline_status === 'overdue')) ||
       (statusFilter === 'not_started' && normalizedStatus === 'not_started') ||
       (statusFilter === 'in_progress' && normalizedStatus === 'in_progress');
 
@@ -160,6 +163,51 @@ const PendingSurveys: React.FC = () => {
     
     const diffTime = endDateOnly.getTime() - today.getTime();
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const getDeadlineBadgeColor = (details?: DeadlineDetails) => {
+    if (!details) {
+      return 'border-border/60 bg-muted/40 text-muted-foreground';
+    }
+    switch (details.status) {
+      case 'overdue':
+        return 'border-destructive/40 bg-destructive/10 text-destructive';
+      case 'approaching':
+        return 'border-amber-200 bg-amber-50 text-amber-800';
+      case 'on_track':
+        return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+      default:
+        return 'border-border/60 bg-muted/40 text-muted-foreground';
+    }
+  };
+
+  const formatDeadlineDelta = (details?: DeadlineDetails, fallback?: number | null) => {
+    if (!details) {
+      if (fallback === null || fallback === undefined) {
+        return 'Müddət təyin edilməyib';
+      }
+      if (fallback === 0) {
+        return 'Bu gün son gün';
+      }
+      if (fallback < 0) {
+        return `${Math.abs(fallback)} gün gecikib`;
+      }
+      return `${fallback} gün qalıb`;
+    }
+
+    if (details.status === 'overdue') {
+      return `${details.days_overdue ?? Math.abs(fallback ?? 0)} gün gecikib`;
+    }
+
+    if (details.is_due_today) {
+      return 'Bu gün son gün';
+    }
+
+    if (typeof details.days_remaining === 'number') {
+      return `${details.days_remaining} gün qalıb`;
+    }
+
+    return fallback !== null && fallback !== undefined ? `${fallback} gün qalıb` : '';
   };
 
   const handleStartSurvey = (surveyId: number) => {
@@ -329,10 +377,13 @@ const PendingSurveys: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {filteredSurveys.map((survey: SurveyWithStatus) => {
+            const deadlineInfo = survey.deadline_details;
+            const fallbackDaysRemaining = survey.end_date ? getDaysRemaining(survey.end_date) : null;
             const overdue =
               survey.response_status === 'overdue' ||
+              deadlineInfo?.status === 'overdue' ||
               (survey.end_date ? isOverdue(survey.end_date) : false);
-            const daysRemaining = survey.end_date ? getDaysRemaining(survey.end_date) : null;
+            const daysRemaining = deadlineInfo?.days_remaining ?? fallbackDaysRemaining;
             const statusLabel =
               survey.response_status === 'overdue'
                 ? 'Gecikmiş'
@@ -344,6 +395,12 @@ const PendingSurveys: React.FC = () => {
               : survey.response_status === 'in_progress'
               ? 'Davam et'
               : 'Sorğunu başlat';
+            const dueDateLabel = deadlineInfo?.end_date
+              ? format(new Date(deadlineInfo.end_date), 'dd MMMM yyyy', { locale: az })
+              : survey.end_date
+              ? format(new Date(survey.end_date), 'dd MMMM yyyy', { locale: az })
+              : 'Müəyyən edilməyib';
+            const deadlineDeltaLabel = formatDeadlineDelta(deadlineInfo, fallbackDaysRemaining);
 
             return (
               <Card
@@ -402,6 +459,21 @@ const PendingSurveys: React.FC = () => {
                     >
                       {statusLabel}
                     </Badge>
+                    {deadlineInfo && (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "rounded-full border px-2 py-0.5 text-xs font-medium",
+                          getDeadlineBadgeColor(deadlineInfo)
+                        )}
+                      >
+                        {deadlineInfo.status === 'overdue'
+                          ? 'Müddət keçib'
+                          : deadlineInfo.status === 'approaching'
+                          ? 'Son tarix yaxınlaşır'
+                          : 'Vaxtında'}
+                      </Badge>
+                    )}
                   </div>
                 </CardHeader>
 
@@ -432,33 +504,31 @@ const PendingSurveys: React.FC = () => {
                             overdue ? "text-destructive" : "text-foreground"
                           )}
                         >
-                          {survey.end_date
-                            ? format(new Date(survey.end_date), 'dd MMMM yyyy', { locale: az })
-                            : 'Müəyyən edilməyib'}
+                          {dueDateLabel}
                         </p>
                       </div>
                     </div>
-                    {survey.end_date && (
-                      <Badge
-                        variant={overdue ? "destructive" : "outline"}
-                        className={cn(
-                          "rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap",
-                          !overdue && "border-amber-200 bg-amber-50 text-amber-700"
-                        )}
-                      >
-                        {overdue
-                          ? `${Math.abs(daysRemaining ?? 0)} gün gecikib`
-                          : daysRemaining === 0
-                          ? 'Bu gün son gün'
-                          : `${daysRemaining} gün qalıb`}
-                      </Badge>
-                    )}
+                    <Badge
+                      variant={overdue ? "destructive" : "outline"}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap",
+                        !overdue && "border-amber-200 bg-amber-50 text-amber-700"
+                      )}
+                    >
+                      {deadlineDeltaLabel}
+                    </Badge>
                   </div>
 
                   {overdue && (
                     <div className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
                       <AlertCircle className="h-4 w-4 flex-shrink-0" />
                       <span>Sorğunun müddəti bitib. Cavablandırmaq üçün dərhal başlayın.</span>
+                    </div>
+                  )}
+                  {!overdue && deadlineInfo?.status === 'approaching' && (
+                    <div className="flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <span>Son tarix yaxınlaşır. Gecikməmək üçün vaxtında tamamlayın.</span>
                     </div>
                   )}
                 </CardContent>

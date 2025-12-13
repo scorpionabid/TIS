@@ -25,6 +25,8 @@ export interface Survey extends BaseEntity {
   };
   survey_type?: string;
   published_at?: string;
+  deadline_status?: 'no_deadline' | 'approaching' | 'on_track' | 'overdue';
+  deadline_details?: DeadlineDetails;
 }
 
 export interface SurveyQuestion {
@@ -140,6 +142,44 @@ export interface SurveyStats {
   average_completion_time: number;
   responses_by_day: Array<{ date: string; count: number }>;
   demographic_breakdown?: Record<string, number>;
+  total?: number;
+  pending?: number;
+  in_progress?: number;
+  completed?: number;
+  overdue?: number;
+  deadline_summary?: DeadlineSummary;
+  deadline_highlights?: DeadlineHighlights;
+}
+
+export interface DeadlineSummary {
+  pending_assignments: number;
+  overdue: number;
+  approaching: number;
+  on_track: number;
+  no_deadline: number;
+  threshold_days: number;
+}
+
+export interface DeadlineHighlight {
+  survey_id: number;
+  title: string;
+  end_date: string | null;
+  days_overdue: number | null;
+  days_remaining: number | null;
+}
+
+export interface DeadlineHighlights {
+  overdue: DeadlineHighlight[];
+  approaching: DeadlineHighlight[];
+}
+
+export interface DeadlineDetails {
+  status: 'no_deadline' | 'approaching' | 'on_track' | 'overdue';
+  end_date: string | null;
+  days_remaining: number | null;
+  days_overdue: number | null;
+  approaching_threshold_days: number;
+  is_due_today: boolean;
 }
 
 export interface QuestionRestrictions {

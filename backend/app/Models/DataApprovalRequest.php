@@ -24,6 +24,8 @@ class DataApprovalRequest extends Model
         'submission_notes',
         'request_metadata',
         'deadline',
+        'is_overdue',
+        'overdue_flagged_at',
         'completed_at',
     ];
 
@@ -31,6 +33,8 @@ class DataApprovalRequest extends Model
         'request_metadata' => 'array',
         'submitted_at' => 'datetime',
         'deadline' => 'datetime',
+        'is_overdue' => 'boolean',
+        'overdue_flagged_at' => 'datetime',
         'completed_at' => 'datetime',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
@@ -121,8 +125,15 @@ class DataApprovalRequest extends Model
      */
     public function scopeOverdue($query)
     {
-        return $query->where('deadline', '<', now())
-            ->whereIn('current_status', ['pending', 'in_progress']);
+        return $query->where(function ($q) {
+            $q->where(function ($inner) {
+                $inner->where('deadline', '<', now())
+                    ->whereIn('current_status', ['pending', 'in_progress']);
+            })->orWhere(function ($inner) {
+                $inner->where('is_overdue', true)
+                    ->whereIn('current_status', ['pending', 'in_progress']);
+            });
+        });
     }
 
     /**

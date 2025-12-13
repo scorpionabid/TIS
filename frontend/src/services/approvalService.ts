@@ -13,6 +13,8 @@ export interface ApprovalRequest {
   submission_data: any;
   comments: string | null;
   deadline: string | null;
+  is_overdue?: boolean;
+  overdue_flagged_at?: string | null;
   created_at: string;
   updated_at: string;
   workflow: ApprovalWorkflow;
@@ -78,6 +80,7 @@ export interface ApprovalStats {
   returned: number;
   total: number;
   my_pending: number;
+  overdue?: number;
 }
 
 export interface CreateApprovalRequest {
