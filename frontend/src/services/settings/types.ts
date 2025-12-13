@@ -23,7 +23,7 @@ export interface SystemSettings {
 
 export interface DatabaseSettings {
   id: number;
-  driver: 'mysql' | 'postgresql' | 'sqlite';
+  driver: 'postgresql';
   host: string;
   port: number;
   database: string;

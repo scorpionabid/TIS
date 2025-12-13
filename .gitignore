@@ -205,3 +205,6 @@ frontend_backup_*/
 # Note: package-lock.json is tracked for consistency
 frontend/backend_backup_20250820_143825/
 DEPLOYMENT_SUCCESS_*.md
+# Large SQLite backup files (>100MB)
+archive/sqlite/backend/*.backup_before_restore_*
+archive/sqlite/backend/*.before_restore_*

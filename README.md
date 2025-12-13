@@ -132,6 +132,7 @@ Teacher: test@example.com / test123
 ## 🧪 PostgreSQL Developer Hazırlığı
 
 > Prod mühitində PostgreSQL-ə keçid planlaşdırıldığından, dev mühiti əvvəlcə Postgres ilə test olunmalıdır. Detallı plan: `documentation/POSTGRES_DEV_PLAN.md`.
+> Legacy SQLite snapshotları indi `archive/sqlite/` qovluğunda saxlanılır və yalnız tarixi istinad üçün nəzərdə tutulub.
 
 1. **PostgreSQL konteynerini başladın**
 

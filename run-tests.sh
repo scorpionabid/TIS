@@ -52,6 +52,56 @@ VERBOSE=false
 SPECIFIC_TEST=""
 USE_DOCKER=true
 
+# Docker compose helper configuration
+COMPOSE_FILE="docker-compose.yml"
+DOCKER_BIN=""
+DOCKER_COMPOSE_CMD=()
+
+resolve_docker() {
+    local candidates=(
+        "$(command -v docker 2>/dev/null || true)"
+        "/usr/local/bin/docker"
+        "/opt/homebrew/bin/docker"
+        "/Applications/Docker.app/Contents/Resources/bin/docker"
+    )
+
+    for candidate in "${candidates[@]}"; do
+        if [ -n "$candidate" ] && [ -x "$candidate" ]; then
+            DOCKER_BIN="$candidate"
+            return
+        fi
+    done
+
+    DOCKER_BIN=""
+}
+
+resolve_compose() {
+    if command -v docker-compose >/dev/null 2>&1; then
+        DOCKER_COMPOSE_CMD=("docker-compose")
+        return
+    fi
+
+    if [ -z "$DOCKER_BIN" ]; then
+        resolve_docker
+    fi
+
+    if [ -n "$DOCKER_BIN" ] && "$DOCKER_BIN" compose version >/dev/null 2>&1; then
+        DOCKER_COMPOSE_CMD=("$DOCKER_BIN" "compose")
+        return
+    fi
+
+    print_error "Docker Compose tapılmadı! Docker Desktop-un compose pluginini aktiv edin."
+    exit 1
+}
+
+compose() {
+    if [ ${#DOCKER_COMPOSE_CMD[@]} -eq 0 ]; then
+        resolve_compose
+    fi
+
+    "${DOCKER_COMPOSE_CMD[@]}" -f "$COMPOSE_FILE" "$@"
+}
+
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -131,7 +181,7 @@ check_environment() {
         fi
         
         # Check if containers are running
-        if ! docker-compose -f docker-compose.simple.yml ps | grep -q "Up"; then
+        if ! compose ps | grep -q "Up"; then
             print_warning "Docker containers işləmir. Başladılır..."
             ./start.sh >/dev/null 2>&1 || {
                 print_error "Docker containers başlada bilmədi"

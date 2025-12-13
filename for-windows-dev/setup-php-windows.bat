@@ -70,17 +70,19 @@ if exist "%PHP_DIR%php.ini" (
 
 REM Enable required extensions
 echo Enabling PHP extensions...
-if exist "%PHP_DIR%php.ini" (
-    powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=curl', 'extension=curl' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
-    powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=fileinfo', 'extension=fileinfo' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
-    powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=gd', 'extension=gd' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
-    powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=mbstring', 'extension=mbstring' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
-    powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=openssl', 'extension=openssl' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
-    powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=pdo_sqlite', 'extension=pdo_sqlite' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
-    powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=sqlite3', 'extension=sqlite3' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
-    powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=zip', 'extension=zip' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
-    echo [OK] Extensions enabled
-)
+    if exist "%PHP_DIR%php.ini" (
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=curl', 'extension=curl' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=fileinfo', 'extension=fileinfo' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=gd', 'extension=gd' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=mbstring', 'extension=mbstring' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=openssl', 'extension=openssl' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=pdo_pgsql', 'extension=pdo_pgsql' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=pgsql', 'extension=pgsql' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=pdo_sqlite', 'extension=pdo_sqlite' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=sqlite3', 'extension=sqlite3' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        powershell -Command "(gc '%PHP_DIR%php.ini') -replace ';extension=zip', 'extension=zip' | Out-File -encoding ASCII '%PHP_DIR%php.ini'"
+        echo [OK] Extensions enabled
+    )
 
 :composer_install
 echo.

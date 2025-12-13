@@ -3,14 +3,14 @@ set -euo pipefail
 
 # ATİS Database Backup Script
 # Usage examples:
-#   ./backup-database.sh                   # default sqlite snapshot
-#   ./backup-database.sh nightly           # sqlite snapshot with suffix
-#   ./backup-database.sh --connection=pgsql --name=staging --tables=users,surveys
+#   ./backup-database.sh                   # default PostgreSQL snapshot
+#   ./backup-database.sh nightly           # PostgreSQL snapshot with suffix
+#   ./backup-database.sh --connection=sqlite legacy_backup
 
 echo "💾 ATİS Database Backup Script"
 echo "=============================="
 
-CONNECTION="sqlite"
+CONNECTION="pgsql"
 NAME_SUFFIX=""
 TABLES=""
 
@@ -21,8 +21,8 @@ Usage:
   ./backup-database.sh --connection=<conn> [--name=<suffix>] [--tables=table1,table2]
 
 Connections supported:
-  - sqlite (default)
-  - pgsql   (uses config('database.connections.pgsql'))
+  - pgsql   (default, uses config('database.connections.pgsql'))
+  - sqlite  (legacy fallback)
 USAGE
 }
 
