@@ -48,6 +48,7 @@ class AutoArchiveSurveysCommand extends Command
                     if ($dryRun) {
                         $processed++;
                         $this->line("➡️  Would auto-archive survey [{$survey->id}] {$survey->title}");
+
                         continue;
                     }
 

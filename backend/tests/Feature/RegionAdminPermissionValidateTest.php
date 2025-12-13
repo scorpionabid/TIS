@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Institution;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -19,14 +18,14 @@ class RegionAdminPermissionValidateTest extends TestCase
     public function test_validate_permissions_service_returns_expected_structure()
     {
         $this->createRoles();
-        
+
         $admin = User::factory()->create();
         $admin->assignRole('regionadmin');
-        
+
         $service = app(\App\Services\RegionAdmin\RegionAdminPermissionService::class);
-        
+
         $result = $service->dryRunValidate(null, [], 'sektoradmin', $admin);
-        
+
         $this->assertIsArray($result);
         $this->assertArrayHasKey('added', $result);
         $this->assertArrayHasKey('removed', $result);

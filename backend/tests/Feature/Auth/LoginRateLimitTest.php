@@ -7,7 +7,7 @@ use Tests\TestCase;
 
 class LoginRateLimitTest extends TestCase
 {
-    public function tearDown(): void
+    protected function tearDown(): void
     {
         RateLimiter::clear('login_ip:127.0.0.1');
         RateLimiter::clear('login_user:test.user');

@@ -292,4 +292,107 @@ class AcademicYearController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Generate future academic years and set the current year.
+     */
+    public function generateFutureYears(Request $request): JsonResponse
+    {
+        try {
+            $validated = $request->validate([
+                'base_year' => ['nullable', 'regex:/^\d{4}\s*-\s*\d{4}$/'],
+                'count' => 'nullable|integer|min:1|max:20',
+            ]);
+
+            $baseYearName = $validated['base_year'] ?? '2025-2026';
+            $count = $validated['count'] ?? 5;
+
+            [$startYear, $endYear] = $this->parseYearName($baseYearName);
+
+            if (! $startYear || ! $endYear) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Təhsil ili formatı yalnışdır. Nümunə: 2025-2026',
+                ], 422);
+            }
+
+            DB::beginTransaction();
+
+            $baseYear = AcademicYear::updateOrCreate(
+                ['name' => $baseYearName],
+                [
+                    'start_date' => Carbon::create($startYear, 9, 1),
+                    'end_date' => Carbon::create($endYear, 6, 30),
+                    'is_active' => true,
+                ]
+            );
+
+            AcademicYear::where('id', '!=', $baseYear->id)->update(['is_active' => false]);
+
+            $generated = [];
+
+            for ($i = 1; $i <= $count; $i++) {
+                $futureStart = $startYear + $i;
+                $futureEnd = $futureStart + 1;
+                $name = sprintf('%d-%d', $futureStart, $futureEnd);
+
+                $academicYear = AcademicYear::firstOrCreate(
+                    ['name' => $name],
+                    [
+                        'start_date' => Carbon::create($futureStart, 9, 1),
+                        'end_date' => Carbon::create($futureEnd, 6, 30),
+                        'is_active' => false,
+                    ]
+                );
+
+                if ($academicYear->wasRecentlyCreated) {
+                    $generated[] = $name;
+                }
+            }
+
+            DB::commit();
+
+            $academicYears = AcademicYear::orderBy('start_date', 'desc')->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $academicYears,
+                'generated' => $generated,
+                'message' => "'{$baseYearName}' təhsil ili aktiv edildi və növbəti {$count} il yoxlanıldı",
+            ]);
+        } catch (ValidationException $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors(),
+            ], 422);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate academic years',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Parse year name helper (YYYY-YYYY).
+     */
+    private function parseYearName(string $name): array
+    {
+        if (preg_match('/^(?<start>\d{4})\s*-\s*(?<end>\d{4})$/', $name, $matches)) {
+            $start = (int) $matches['start'];
+            $end = (int) $matches['end'];
+
+            if ($end === $start + 1) {
+                return [$start, $end];
+            }
+        }
+
+        return [null, null];
+    }
 }

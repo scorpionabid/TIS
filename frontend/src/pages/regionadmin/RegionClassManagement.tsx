@@ -41,6 +41,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AcademicYearManager } from '@/components/academic-years/AcademicYearManager';
 
 type EditFormState = {
   name: string;
@@ -70,6 +72,7 @@ const defaultEditFormState: EditFormState = {
 
 export const RegionClassManagement = () => {
   const { currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState<'classes' | 'academic-years'>('classes');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -477,17 +480,28 @@ export const RegionClassManagement = () => {
   const stats = statistics?.data;
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Sinif İdarəetməsi</h1>
-        <p className="text-muted-foreground mt-2">
-          Region daxilindəki bütün sinifləri idarə edin və bulk əməliyyatlar aparın
-        </p>
-      </div>
+    <div className="p-6">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as 'classes' | 'academic-years')}
+        className="space-y-6"
+      >
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="classes">Siniflər</TabsTrigger>
+          <TabsTrigger value="academic-years">Təhsil illəri</TabsTrigger>
+        </TabsList>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <TabsContent value="classes" className="space-y-6">
+          {/* Header */}
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Sinif İdarəetməsi</h1>
+            <p className="text-muted-foreground mt-2">
+              Region daxilindəki bütün sinifləri idarə edin və bulk əməliyyatlar aparın
+            </p>
+          </div>
+
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Cəmi Siniflər</CardTitle>
@@ -1357,13 +1371,23 @@ export const RegionClassManagement = () => {
       </AlertDialog>
 
       {/* Import Modal */}
-      <RegionClassImportModal
-        isOpen={isImportModalOpen}
-        onClose={() => {
-          setIsImportModalOpen(false);
-          refetch(); // Refresh data after import
-        }}
-      />
+          <RegionClassImportModal
+            isOpen={isImportModalOpen}
+            onClose={() => {
+              setIsImportModalOpen(false);
+              refetch(); // Refresh data after import
+            }}
+          />
+        </TabsContent>
+
+        <TabsContent value="academic-years" className="mt-6">
+          <AcademicYearManager
+            currentUser={currentUser}
+            enableAutoGeneration
+            queryKey={['regionadmin', 'academic-years-management']}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

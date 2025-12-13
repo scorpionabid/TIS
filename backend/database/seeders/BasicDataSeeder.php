@@ -51,15 +51,39 @@ class BasicDataSeeder extends Seeder
         $this->command->info('📚 Seeding academic years and terms...');
 
         // Academic Years
-        $academicYears = [
-            ['name' => '2023-2024', 'start_date' => '2023-09-01', 'end_date' => '2024-06-30', 'is_active' => false],
-            ['name' => '2024-2025', 'start_date' => '2024-09-01', 'end_date' => '2025-06-30', 'is_active' => true],
-            ['name' => '2025-2026', 'start_date' => '2025-09-01', 'end_date' => '2026-06-30', 'is_active' => false],
+        $baseStartYear = 2024;
+        $targetCurrentYear = 2025;
+        $futureYearCount = 5; // Add next 5 academic years by default
+
+        $seedYears = [
+            ['start' => $baseStartYear, 'is_active' => false], // 2024-2025
+            ['start' => $targetCurrentYear, 'is_active' => true], // 2025-2026
         ];
 
-        foreach ($academicYears as $year) {
-            AcademicYear::firstOrCreate(['name' => $year['name']], $year);
+        for ($i = 1; $i <= $futureYearCount; $i++) {
+            $seedYears[] = [
+                'start' => $targetCurrentYear + $i,
+                'is_active' => false,
+            ];
         }
+
+        foreach ($seedYears as $year) {
+            $startYear = $year['start'];
+            $endYear = $startYear + 1;
+            $name = sprintf('%d-%d', $startYear, $endYear);
+
+            AcademicYear::updateOrCreate(
+                ['name' => $name],
+                [
+                    'start_date' => "{$startYear}-09-01",
+                    'end_date' => "{$endYear}-06-30",
+                    'is_active' => $year['is_active'],
+                ]
+            );
+        }
+
+        AcademicYear::where('name', '!=', sprintf('%d-%d', $targetCurrentYear, $targetCurrentYear + 1))
+            ->update(['is_active' => false]);
 
         // Academic Terms for current year (using direct DB insertion due to missing model)
         $currentYear = AcademicYear::where('is_active', true)->first();

@@ -286,6 +286,7 @@ Route::prefix('system')->middleware('permission:system.config')->group(function 
 Route::prefix('academic-years')->middleware('permission:institutions.read')->group(function () {
     Route::get('/', [App\Http\Controllers\AcademicYearController::class, 'index']);
     Route::post('/', [App\Http\Controllers\AcademicYearController::class, 'store'])->middleware('permission:institutions.write');
+    Route::post('/generate', [App\Http\Controllers\AcademicYearController::class, 'generateFutureYears'])->middleware('permission:institutions.write');
     Route::get('/{academicYear}', [App\Http\Controllers\AcademicYearController::class, 'show']);
     Route::put('/{academicYear}', [App\Http\Controllers\AcademicYearController::class, 'update'])->middleware('permission:institutions.write');
     Route::delete('/{academicYear}', [App\Http\Controllers\AcademicYearController::class, 'destroy'])->middleware('permission:institutions.write');

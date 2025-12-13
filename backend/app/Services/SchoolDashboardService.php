@@ -65,7 +65,7 @@ class SchoolDashboardService
             ->where('students.institution_id', $school->id)
             ->where('attendance_records.attendance_date', $today)
             ->selectRaw(
-                "COUNT(*) as total_records, " .
+                'COUNT(*) as total_records, ' .
                 "SUM(CASE WHEN attendance_records.status = 'present' THEN 1 ELSE 0 END) as present_count"
             )
             ->first();

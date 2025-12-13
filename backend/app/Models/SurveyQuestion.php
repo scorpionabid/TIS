@@ -536,7 +536,6 @@ class SurveyQuestion extends Model
                 return $this->extractMatrixCellValue($value);
             }
         }
-
     }
 
     private function extractMatrixLabel($item, int $index, string $prefix): string

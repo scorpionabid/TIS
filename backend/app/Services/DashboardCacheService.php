@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Document;
-use App.Models\Institution;
+use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\Task;
 use App\Models\User;

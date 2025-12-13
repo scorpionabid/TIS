@@ -37,6 +37,23 @@ class AcademicYearService extends BaseService<AcademicYear> {
     const response = await this.apiClient.post(`${this.endpoint}/${id}/activate`);
     return response.data;
   }
+
+  /**
+   * Ensure the base academic year is active and generate future years.
+   */
+  async generateFutureYears(baseYear: string = '2025-2026', count: number = 5) {
+    const response = await this.apiClient.post<{
+      success: boolean;
+      data: AcademicYear[];
+      generated?: string[];
+      message?: string;
+    }>(`${this.endpoint}/generate`, {
+      base_year: baseYear,
+      count,
+    });
+
+    return response.data;
+  }
 }
 
 export const academicYearService = new AcademicYearService();

@@ -254,11 +254,10 @@ class RegionAdminPermissionService
      * Dry-run validation for permission changes. Does not persist changes.
      * Returns added/removed and lists of issues (missing_dependencies, missing_required, not_allowed, admin_missing_permissions)
      *
-     * @param User|null $targetUser The user being edited (null for new user)
-     * @param array $proposedPermissions The desired direct permissions
-     * @param string|null $roleName The target role name (if known)
-     * @param User $admin The admin performing the change (for checking granted permissions)
-     * @return array
+     * @param User|null   $targetUser          The user being edited (null for new user)
+     * @param array       $proposedPermissions The desired direct permissions
+     * @param string|null $roleName            The target role name (if known)
+     * @param User        $admin               The admin performing the change (for checking granted permissions)
      */
     public function dryRunValidate(?User $targetUser, array $proposedPermissions, ?string $roleName, User $admin): array
     {

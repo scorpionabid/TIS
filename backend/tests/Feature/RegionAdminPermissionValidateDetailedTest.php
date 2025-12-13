@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Models\Institution;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Spatie\Permission\Models\Role;
@@ -16,16 +15,16 @@ class RegionAdminPermissionValidateDetailedTest extends TestCase
     {
         // Test the service directly instead of via HTTP endpoint
         $this->createRoles();
-        
+
         $admin = User::factory()->create();
         $admin->assignRole('regionadmin');
-        
+
         // Get the service from the container
         $service = app(\App\Services\RegionAdmin\RegionAdminPermissionService::class);
-        
+
         // Test: proposing users.delete without users.read should report missing dependency
         $result = $service->dryRunValidate(null, ['users.delete'], 'sektoradmin', $admin);
-        
+
         $this->assertIsArray($result);
         $this->assertArrayHasKey('missing_dependencies', $result);
         $this->assertTrue(count($result['missing_dependencies']) > 0 || isset($result['missing_dependencies']['users.delete']));
@@ -35,15 +34,15 @@ class RegionAdminPermissionValidateDetailedTest extends TestCase
     {
         // Test the service directly
         $this->createRoles();
-        
+
         $admin = User::factory()->create();
         $admin->assignRole('regionadmin');
-        
+
         $service = app(\App\Services\RegionAdmin\RegionAdminPermissionService::class);
-        
+
         // Test: sektoradmin role requires users.read by default
         $result = $service->dryRunValidate(null, [], 'sektoradmin', $admin);
-        
+
         $this->assertIsArray($result);
         $this->assertArrayHasKey('missing_required', $result);
         // The config defines required permissions for roles
@@ -54,15 +53,15 @@ class RegionAdminPermissionValidateDetailedTest extends TestCase
     {
         // Test the service directly
         $this->createRoles();
-        
+
         $admin = User::factory()->create();
         $admin->assignRole('regionadmin');
-        
+
         $service = app(\App\Services\RegionAdmin\RegionAdminPermissionService::class);
-        
+
         // Test: attempting to assign a permission to a role that forbids it
         $result = $service->dryRunValidate(null, ['approvals.approve'], 'schooladmin', $admin);
-        
+
         $this->assertIsArray($result);
         $this->assertArrayHasKey('not_allowed', $result);
         $this->assertIsArray($result['not_allowed']);
@@ -72,15 +71,15 @@ class RegionAdminPermissionValidateDetailedTest extends TestCase
     {
         // Test the service directly
         $this->createRoles();
-        
+
         $admin = User::factory()->create();
         $admin->assignRole('regionadmin');
-        
+
         $service = app(\App\Services\RegionAdmin\RegionAdminPermissionService::class);
-        
+
         // Test: basic diff computation
         $result = $service->dryRunValidate(null, ['users.read'], 'sektoradmin', $admin);
-        
+
         $this->assertIsArray($result);
         $this->assertArrayHasKey('added', $result);
         $this->assertArrayHasKey('removed', $result);

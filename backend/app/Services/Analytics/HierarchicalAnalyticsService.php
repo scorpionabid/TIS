@@ -120,6 +120,7 @@ class HierarchicalAnalyticsService
                 'has_institution' => (bool) $userRegion,
                 'institution_level' => $userRegion?->level,
             ]);
+
             return [];
         }
 
