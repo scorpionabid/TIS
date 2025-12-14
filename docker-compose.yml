@@ -7,15 +7,15 @@ services:
     container_name: atis_backend
     restart: unless-stopped
     environment:
-      - APP_ENV=local
-      - APP_DEBUG=true
+      - APP_ENV=production
+      - APP_DEBUG=false
       - APP_KEY=base64:8dQ8Gu3WqV8Vn9K7Mj2Nz5P6Q7R8S9T0U1V2W3X4Y5Z=
       - DB_CONNECTION=pgsql
       - DB_HOST=postgres
       - DB_PORT=5432
-      - DB_DATABASE=atis_dev
-      - DB_USERNAME=atis_dev_user
-      - DB_PASSWORD=atis_dev_pass_123
+      - DB_DATABASE=atis_production
+      - DB_USERNAME=atis_prod_user
+      - DB_PASSWORD=Pqan1xlUez1lRskN8X1koC2JS
       - CACHE_STORE=redis
       - REDIS_CLIENT=phpredis
       - REDIS_HOST=redis
@@ -48,9 +48,9 @@ services:
     container_name: atis_frontend
     restart: unless-stopped
     environment:
-      - VITE_API_BASE_URL=http://localhost:8000/api
-      - VITE_APP_URL=http://localhost:3000
-      - NODE_ENV=development
+      - VITE_API_BASE_URL=https://atis.sim.edu.az/api
+      - VITE_APP_URL=https://atis.sim.edu.az
+      - NODE_ENV=production
     command: sh -c "npm run build && npm run preview -- --host 0.0.0.0 --port 3000"
     ports:
       - "3000:3000"
@@ -87,19 +87,19 @@ services:
     container_name: atis_postgres
     restart: unless-stopped
     environment:
-      - POSTGRES_DB=atis_dev
-      - POSTGRES_USER=atis_dev_user
-      - POSTGRES_PASSWORD=atis_dev_pass_123
+      - POSTGRES_DB=atis_production
+      - POSTGRES_USER=atis_prod_user
+      - POSTGRES_PASSWORD=Pqan1xlUez1lRskN8X1koC2JS
       - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=C
     ports:
-      - "5433:5432"
+      - "5434:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d
     networks:
       - atis_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U atis_dev_user -d atis_dev"]
+      test: ["CMD-SHELL", "pg_isready -U atis_prod_user -d atis_production"]
       interval: 10s
       timeout: 5s
       retries: 5
