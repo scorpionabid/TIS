@@ -1,7 +1,9 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { regionAdminClassService, ClassFilters, ClassData, UpdateClassPayload } from '@/services/regionadmin/classes';
+import { institutionService } from '@/services/institutions';
 import { useAuth } from '@/contexts/AuthContext';
+import { USER_ROLES } from '@/constants/roles';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -71,7 +73,8 @@ const defaultEditFormState: EditFormState = {
 };
 
 export const RegionClassManagement = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, hasRole } = useAuth();
+  const isSuperAdmin = hasRole(USER_ROLES.SUPERADMIN);
   const [activeTab, setActiveTab] = useState<'classes' | 'academic-years'>('classes');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]);
@@ -83,6 +86,7 @@ export const RegionClassManagement = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [selectedRegionId, setSelectedRegionId] = useState<number | null>(null);
 
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -99,6 +103,65 @@ export const RegionClassManagement = () => {
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
+  const {
+    data: regionsResponse,
+    isLoading: regionsLoading
+  } = useQuery({
+    queryKey: ['regionadmin', 'regions', currentUser?.id],
+    queryFn: () => institutionService.getAll({ per_page: 200, level: 2 }),
+    enabled: isSuperAdmin,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const regionOptions = useMemo(() => {
+    if (!regionsResponse) {
+      return [];
+    }
+
+    let payload: any[] | undefined;
+    if (Array.isArray((regionsResponse as any)?.data?.data)) {
+      payload = (regionsResponse as any).data.data;
+    } else if (Array.isArray((regionsResponse as any)?.data)) {
+      payload = (regionsResponse as any).data;
+    } else if (Array.isArray(regionsResponse as any)) {
+      payload = regionsResponse as any;
+    }
+
+    if (!Array.isArray(payload)) {
+      return [];
+    }
+
+    return payload
+      .filter((inst: any) => inst.level === 2)
+      .sort((a: any, b: any) => (a?.name ?? '').localeCompare(b?.name ?? ''));
+  }, [regionsResponse]);
+
+  useEffect(() => {
+    console.log('[RegionClassManagement] Selected region change', {
+      isSuperAdmin,
+      selectedRegionId,
+      regionOptionsCount: regionOptions.length,
+    });
+  }, [isSuperAdmin, selectedRegionId, regionOptions.length]);
+
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      if (selectedRegionId !== null) {
+        setSelectedRegionId(null);
+      }
+      return;
+    }
+
+    if (selectedRegionId || regionOptions.length === 0) {
+      return;
+    }
+
+    const firstRegionId = Number(regionOptions[0]?.id);
+    if (!Number.isNaN(firstRegionId)) {
+      setSelectedRegionId(firstRegionId);
+    }
+  }, [isSuperAdmin, selectedRegionId, regionOptions]);
+
   // Build filter params
   const filterParams: ClassFilters = useMemo(() => {
     const params: ClassFilters = {
@@ -112,34 +175,53 @@ export const RegionClassManagement = () => {
     if (academicYearFilter !== 'all') params.academic_year_id = parseInt(academicYearFilter);
     if (statusFilter !== 'all') params.is_active = statusFilter === 'active';
 
+    if (selectedRegionId) params.region_id = selectedRegionId;
+
     return params;
-  }, [searchTerm, institutionFilter, classLevelFilter, academicYearFilter, statusFilter, page, perPage]);
+  }, [searchTerm, institutionFilter, classLevelFilter, academicYearFilter, statusFilter, page, perPage, selectedRegionId]);
+
+  const waitingForRegionSelection = isSuperAdmin && !selectedRegionId;
+
+  useEffect(() => {
+    console.log('[RegionClassManagement] Filter params updated', filterParams);
+  }, [filterParams]);
 
   // Fetch statistics
   const { data: statistics, isLoading: statsLoading } = useQuery({
-    queryKey: ['regionadmin', 'class-statistics'],
-    queryFn: () => regionAdminClassService.getStatistics(),
-    enabled: !!currentUser,
+    queryKey: ['regionadmin', 'class-statistics', selectedRegionId],
+    queryFn: () => regionAdminClassService.getStatistics(selectedRegionId || undefined),
+    enabled: !!currentUser && (!isSuperAdmin || !!selectedRegionId),
   });
+
+  useEffect(() => {
+    if (statsLoading) {
+      console.log('[RegionClassManagement] Statistics loading...');
+      return;
+    }
+    if (statistics) {
+      console.log('[RegionClassManagement] Statistics response', statistics);
+    }
+  }, [statsLoading, statistics]);
 
   // Fetch classes
   const {
     data: classesData,
     isLoading: classesLoading,
     isFetching,
+    error: classesError,
     refetch
   } = useQuery({
     queryKey: ['regionadmin', 'classes', filterParams],
     queryFn: () => regionAdminClassService.getClasses(filterParams),
-    enabled: !!currentUser,
+    enabled: !!currentUser && (!isSuperAdmin || !!selectedRegionId),
     keepPreviousData: true,
   });
 
   // Fetch filter options
   const { data: institutions } = useQuery({
-    queryKey: ['regionadmin', 'institutions'],
-    queryFn: () => regionAdminClassService.getAvailableInstitutions(),
-    enabled: !!currentUser,
+    queryKey: ['regionadmin', 'institutions', selectedRegionId],
+    queryFn: () => regionAdminClassService.getAvailableInstitutions(selectedRegionId || undefined),
+    enabled: !!currentUser && (!isSuperAdmin || !!selectedRegionId),
     staleTime: 10 * 60 * 1000, // 10 minutes
   });
 
@@ -154,6 +236,36 @@ export const RegionClassManagement = () => {
   const totalItems = classesData?.data?.total || 0;
   const totalPages = classesData?.data?.last_page || 1;
   const currentPage = classesData?.data?.current_page || page;
+  const classesErrorMessage = classesError instanceof Error ? classesError.message : classesError ? 'Siniflər yüklənə bilmədi' : null;
+
+  useEffect(() => {
+    if (waitingForRegionSelection) {
+      console.log('[RegionClassManagement] Waiting for region selection (superadmin)');
+      return;
+    }
+
+    console.log('[RegionClassManagement] Classes query state', {
+      loading: classesLoading,
+      fetching: isFetching,
+      total: classesData?.data?.total,
+      page: classesData?.data?.current_page,
+      perPage: classesData?.data?.per_page,
+      rawClassesCount: rawClasses.length,
+      institutionsCount: classesData?.total_institutions,
+      regionName: classesData?.region_name,
+    });
+  }, [waitingForRegionSelection, classesLoading, isFetching, classesData, rawClasses.length]);
+
+  useEffect(() => {
+    if (classesErrorMessage) {
+      console.error('[RegionClassManagement] Classes query error', classesError);
+      toast({
+        title: 'Sinifləri yükləmək mümkün olmadı',
+        description: classesErrorMessage,
+        variant: 'destructive',
+      });
+    }
+  }, [classesErrorMessage, toast]);
 
   // Apply client-side sorting
   const classes = useMemo(() => {
@@ -478,6 +590,7 @@ export const RegionClassManagement = () => {
   };
 
   const stats = statistics?.data;
+  const statsUnavailable = statsLoading || waitingForRegionSelection;
 
   return (
     <div className="p-6">
@@ -509,7 +622,7 @@ export const RegionClassManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statsLoading ? '...' : stats?.total_classes || 0}
+              {statsUnavailable ? '...' : stats?.total_classes ?? 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Bütün müəssisələrdə
@@ -524,7 +637,7 @@ export const RegionClassManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-green-600">
-              {statsLoading ? '...' : stats?.active_classes || 0}
+              {statsUnavailable ? '...' : stats?.active_classes ?? 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Cari tədris ilində
@@ -539,7 +652,7 @@ export const RegionClassManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {statsLoading ? '...' : stats?.total_students || 0}
+              {statsUnavailable ? '...' : stats?.total_students ?? 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Bütün siniflərdə
@@ -554,10 +667,10 @@ export const RegionClassManagement = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {classesData?.total_institutions || 0}
+              {waitingForRegionSelection ? '...' : classesData?.total_institutions ?? 0}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              {classesData?.region_name || 'Region'}
+              {waitingForRegionSelection ? 'Region seçin' : classesData?.region_name || 'Region'}
             </p>
           </CardContent>
         </Card>
@@ -569,7 +682,12 @@ export const RegionClassManagement = () => {
           <div className="space-y-4">
             {/* Action buttons */}
             <div className="flex flex-wrap gap-2">
-              <Button onClick={() => setIsImportModalOpen(true)} className="gap-2">
+              <Button
+                onClick={() => setIsImportModalOpen(true)}
+                className="gap-2"
+                disabled={isSuperAdmin}
+                title={isSuperAdmin ? 'Superadmin üçün idxal deaktivdir' : undefined}
+              >
                 <Upload className="h-4 w-4" />
                 İdxal Et
               </Button>
@@ -635,6 +753,37 @@ export const RegionClassManagement = () => {
 
             {/* Filters */}
             <div className="flex flex-wrap gap-3 items-center">
+              {isSuperAdmin && (
+                <div className="w-[260px]">
+                  <Select
+                    value={selectedRegionId ? selectedRegionId.toString() : ''}
+                    onValueChange={(value) => {
+                      const parsedValue = value ? Number(value) : null;
+                      setSelectedRegionId(parsedValue && !Number.isNaN(parsedValue) ? parsedValue : null);
+                      setPage(1);
+                    }}
+                    disabled={regionsLoading || regionOptions.length === 0}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={regionsLoading ? 'Regionlar yüklənir...' : 'Region seç'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {regionOptions.length === 0 ? (
+                        <SelectItem value="no-region" disabled>
+                          Region tapılmadı
+                        </SelectItem>
+                      ) : (
+                        regionOptions.map((region) => (
+                          <SelectItem key={region.id} value={region.id.toString()}>
+                            {region.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               {/* Search */}
               <div className="relative min-w-[300px] flex-1 max-w-md">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
@@ -729,10 +878,24 @@ export const RegionClassManagement = () => {
       {/* Classes Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Siniflər ({totalItems})</CardTitle>
+          <CardTitle>
+            Siniflər
+            {!waitingForRegionSelection && ` (${totalItems})`}
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {classesLoading && !isFetching ? (
+          {classesErrorMessage ? (
+            <div className="flex flex-col items-center gap-3 py-8 text-center">
+              <p className="text-sm text-destructive">{classesErrorMessage}</p>
+              <Button size="sm" variant="outline" onClick={() => refetch()}>
+                Yenidən cəhd et
+              </Button>
+            </div>
+          ) : waitingForRegionSelection ? (
+            <div className="text-center py-8 text-muted-foreground">
+              {regionsLoading ? 'Region siyahısı yüklənir...' : 'Zəhmət olmasa region seçin'}
+            </div>
+          ) : classesLoading && !isFetching ? (
             <div className="text-center py-8 text-muted-foreground">Yüklənir...</div>
           ) : classes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">

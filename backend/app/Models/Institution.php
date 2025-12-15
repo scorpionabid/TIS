@@ -58,28 +58,25 @@ class Institution extends Model
      */
     public function getAllChildrenIds(): array
     {
-        $childrenIds = [];
+        $collectedIds = [];
+        $pendingParentIds = [(int) $this->id];
 
-        // Include current institution (cast to int for PostgreSQL compatibility)
-        $childrenIds[] = (int) $this->id;
+        // Breadth-first traversal to avoid issuing a query per institution
+        while (! empty($pendingParentIds)) {
+            $pendingParentIds = array_map('intval', $pendingParentIds);
+            $collectedIds = array_values(array_unique(array_merge($collectedIds, $pendingParentIds)));
 
-        // Get direct children (include soft deleted)
-        $directChildren = $this->children()->withTrashed()->pluck('id')->toArray();
-        // Ensure all IDs are integers
-        $directChildren = array_map('intval', $directChildren);
-        $childrenIds = array_merge($childrenIds, $directChildren);
+            $children = static::withTrashed()
+                ->whereIn('parent_id', $pendingParentIds)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
 
-        // Recursively get children of children
-        foreach ($directChildren as $childId) {
-            $child = Institution::withTrashed()->find($childId);
-            if ($child) {
-                $grandChildren = $child->getAllChildrenIds();
-                $childrenIds = array_merge($childrenIds, $grandChildren);
-            }
+            // Only continue with IDs we have not processed yet
+            $pendingParentIds = array_values(array_diff($children, $collectedIds));
         }
 
-        // Return unique IDs, all cast to integers
-        return array_map('intval', array_unique($childrenIds));
+        return array_map('intval', $collectedIds);
     }
 
     /**

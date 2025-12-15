@@ -784,6 +784,11 @@ class SurveyController extends BaseController
                     $survey->response_status = 'not_started';
                 }
 
+                // Add deadline status information
+                $deadlineInfo = $this->resolveDeadlineStatus($survey->end_date);
+                $survey->deadline_status = $deadlineInfo['status'];
+                $survey->deadline_details = $deadlineInfo;
+
                 if (! $response && $deadlineInfo['status'] === 'overdue') {
                     $survey->response_status = 'overdue';
                 }

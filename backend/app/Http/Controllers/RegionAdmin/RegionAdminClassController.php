@@ -13,9 +13,11 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 class RegionAdminClassController extends Controller
 {
@@ -25,17 +27,20 @@ class RegionAdminClassController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $user = Auth::user();
-            $userRegionId = $user->institution_id;
-
-            // Get all institutions in this region
-            $region = Institution::find($userRegionId);
-            if (! $region) {
-                return response()->json(['message' => 'Region not found'], 404);
-            }
-
-            $allowedInstitutionIds = $region->getAllChildrenIds();
-            $allowedInstitutionIds[] = $userRegionId; // Include region itself
+            [$region, $allowedInstitutionIds] = $this->resolveRegionContext($request);
+            Log::info('RegionAdminClassController@index context', [
+                'user_id' => $request->user()->id ?? null,
+                'region_id' => $region->id,
+                'region_name' => $region->name,
+                'allowed_institution_count' => count($allowedInstitutionIds),
+                'filter_search' => $request->get('search'),
+                'filter_institution_id' => $request->get('institution_id'),
+                'filter_class_level' => $request->get('class_level'),
+                'filter_academic_year_id' => $request->get('academic_year_id'),
+                'filter_is_active' => $request->get('is_active'),
+                'page' => $request->get('page', 1),
+                'per_page' => $request->get('per_page', 20),
+            ]);
 
             // Get all classes (grades) from schools in this region
             $classes = Grade::whereIn('institution_id', $allowedInstitutionIds)
@@ -43,31 +48,9 @@ class RegionAdminClassController extends Controller
                     'institution:id,name,type,utis_code,institution_code',
                     'homeroomTeacher:id,username,first_name,last_name',
                     'room:id,name,capacity',
-                    'academicYear:id,year,is_current',
+                    'academicYear:id,name,is_active',
                 ])
-                ->select([
-                    'id',
-                    'name',
-                    'class_level',
-                    'institution_id',
-                    'homeroom_teacher_id',
-                    'room_id',
-                    'academic_year_id',
-                    'student_count',
-                    'male_student_count',
-                    'female_student_count',
-                    'specialty',
-                    'grade_category',
-                    'grade_type',
-                    'class_type',
-                    'class_profile',
-                    'education_program',
-                    'teaching_shift',
-                    'description',
-                    'is_active',
-                    'created_at',
-                    'updated_at',
-                ])
+                ->select($this->getGradeSelectColumns())
                 ->when($request->get('search'), function ($query, $search) {
                     $query->where('name', 'ILIKE', "%{$search}%");
                 })
@@ -91,13 +74,31 @@ class RegionAdminClassController extends Controller
                 ->orderBy('name')
                 ->paginate($request->get('per_page', 20));
 
+            Log::info('RegionAdminClassController@index result', [
+                'user_id' => $request->user()->id ?? null,
+                'region_id' => $region->id,
+                'result_total' => $classes->total(),
+                'result_count_current_page' => $classes->count(),
+                'page' => $classes->currentPage(),
+                'per_page' => $classes->perPage(),
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => $classes,
                 'region_name' => $region->name,
                 'total_institutions' => count($allowedInstitutionIds),
             ]);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
+            Log::error('RegionAdminClassController@index failed', [
+                'user_id' => $request->user()->id ?? null,
+                'region_id' => isset($region) ? $region->id : null,
+                'message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to fetch classes',
@@ -126,7 +127,7 @@ class RegionAdminClassController extends Controller
                     'homeroomTeacher:id,username,first_name,last_name',
                     'homeroomTeacher.profile:user_id,first_name,last_name',
                     'room:id,name,capacity',
-                    'academicYear:id,year,is_current',
+                    'academicYear:id,name,is_active',
                 ])
                 ->findOrFail($id);
 
@@ -158,13 +159,13 @@ class RegionAdminClassController extends Controller
     public function getStatistics(Request $request): JsonResponse
     {
         try {
-            $user = Auth::user();
-            $userRegionId = $user->institution_id;
+            [$region, $allowedInstitutionIds] = $this->resolveRegionContext($request);
 
-            // Get allowed institutions
-            $region = Institution::find($userRegionId);
-            $allowedInstitutionIds = $region->getAllChildrenIds();
-            $allowedInstitutionIds[] = $userRegionId;
+            Log::info('RegionAdminClassController@getStatistics context', [
+                'user_id' => $request->user()->id ?? null,
+                'region_id' => $region->id,
+                'allowed_institution_count' => count($allowedInstitutionIds),
+            ]);
 
             $stats = [
                 'total_classes' => Grade::whereIn('institution_id', $allowedInstitutionIds)->count(),
@@ -182,11 +183,23 @@ class RegionAdminClassController extends Controller
                     ->get(),
             ];
 
+            Log::info('RegionAdminClassController@getStatistics result', [
+                'user_id' => $request->user()->id ?? null,
+                'region_id' => $region->id,
+                'total_classes' => $stats['total_classes'],
+                'active_classes' => $stats['active_classes'],
+                'total_students' => $stats['total_students'],
+            ]);
+
             return response()->json([
                 'success' => true,
                 'data' => $stats,
                 'region_name' => $region->name,
             ]);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -495,11 +508,7 @@ class RegionAdminClassController extends Controller
     public function exportClasses(Request $request)
     {
         try {
-            $user = Auth::user();
-            $region = Institution::findOrFail($user->institution_id);
-
-            $allowedInstitutionIds = $region->getAllChildrenIds();
-            $allowedInstitutionIds[] = $region->id;
+            [$region, $allowedInstitutionIds] = $this->resolveRegionContext($request);
 
             // Build query with filters
             $query = Grade::whereIn('institution_id', $allowedInstitutionIds)
@@ -582,6 +591,8 @@ class RegionAdminClassController extends Controller
                     ];
                 }
             }, $filename);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Class export failed: ' . $e->getMessage());
             abort(500, 'Export zamanı xəta baş verdi');
@@ -594,11 +605,7 @@ class RegionAdminClassController extends Controller
     public function getAvailableInstitutions(Request $request): JsonResponse
     {
         try {
-            $user = Auth::user();
-            $region = Institution::findOrFail($user->institution_id);
-
-            $allowedInstitutionIds = $region->getAllChildrenIds();
-            $allowedInstitutionIds[] = $region->id;
+            [$region, $allowedInstitutionIds] = $this->resolveRegionContext($request);
 
             $institutions = Institution::whereIn('id', $allowedInstitutionIds)
                 ->select('id', 'name', 'type')
@@ -609,6 +616,8 @@ class RegionAdminClassController extends Controller
                 'success' => true,
                 'data' => $institutions,
             ]);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -624,7 +633,7 @@ class RegionAdminClassController extends Controller
     public function getAvailableAcademicYears(Request $request): JsonResponse
     {
         try {
-            $academicYears = AcademicYear::orderBy('year', 'desc')->get();
+            $academicYears = AcademicYear::orderBy('name', 'desc')->get();
 
             return response()->json([
                 'success' => true,
@@ -665,11 +674,7 @@ class RegionAdminClassController extends Controller
     public function getInstitutionsGroupedBySector(Request $request): JsonResponse
     {
         try {
-            $user = Auth::user();
-            $region = Institution::findOrFail($user->institution_id);
-
-            $allowedInstitutionIds = $region->getAllChildrenIds();
-            $allowedInstitutionIds[] = $region->id;
+            [$region, $allowedInstitutionIds] = $this->resolveRegionContext($request);
 
             // Get all institutions in region
             $institutions = Institution::whereIn('id', $allowedInstitutionIds)
@@ -726,6 +731,8 @@ class RegionAdminClassController extends Controller
                 ],
                 'region_name' => $region->name,
             ]);
+        } catch (HttpExceptionInterface $e) {
+            throw $e;
         } catch (\Exception $e) {
             Log::error('Failed to fetch grouped institutions: ' . $e->getMessage());
 
@@ -919,6 +926,67 @@ class RegionAdminClassController extends Controller
     }
 
     /**
+     * Resolve the active region and allowed institution IDs for the current request.
+     *
+     * @return array{0: Institution, 1: array<int>}
+     */
+    protected function resolveRegionContext(Request $request): array
+    {
+        $user = $request->user();
+
+        if ($user->hasRole('superadmin')) {
+            $regionId = (int) $request->input('region_id');
+            if (! $regionId) {
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'region_id parametri tələb olunur',
+                ], 422));
+            }
+
+            $region = Institution::find($regionId);
+            if (! $region || (int) $region->level !== 2) {
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'Seçilmiş region tapılmadı',
+                ], 404));
+            }
+        } else {
+            $region = Institution::find($user->institution_id);
+            if (! $region) {
+                abort(response()->json([
+                    'success' => false,
+                    'message' => 'Region tapılmadı',
+                ], 404));
+            }
+
+            if ($user->hasRole('regionadmin') && (int) $region->level !== 2) {
+                $ancestorRegion = $region->getAncestors()->firstWhere('level', 2);
+                if ($ancestorRegion) {
+                    Log::info('RegionAdminClassController@resolveRegionContext - using ancestor region', [
+                        'user_id' => $user->id,
+                        'original_institution_id' => $region->id,
+                        'ancestor_region_id' => $ancestorRegion->id,
+                    ]);
+                    $region = $ancestorRegion;
+                }
+            }
+        }
+
+        $allowedInstitutionIds = $region->getAllChildrenIds();
+        $allowedInstitutionIds[] = (int) $region->id;
+
+        if ($region->region_code) {
+            $additionalIds = Institution::where('region_code', $region->region_code)
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->toArray();
+            $allowedInstitutionIds = array_merge($allowedInstitutionIds, $additionalIds);
+        }
+
+        return [$region, array_map('intval', array_unique($allowedInstitutionIds))];
+    }
+
+    /**
      * Load institutions that belong to the current region for template generation.
      */
     protected function getTemplateInstitutions(Institution $region)
@@ -960,6 +1028,51 @@ class RegionAdminClassController extends Controller
         }
 
         return $institutions;
+    }
+
+    /**
+     * Columns to select from grades table (some columns may not exist on older schemas)
+     */
+    protected function getGradeSelectColumns(): array
+    {
+        $baseColumns = [
+            'id',
+            'name',
+            'class_level',
+            'institution_id',
+            'homeroom_teacher_id',
+            'room_id',
+            'academic_year_id',
+            'student_count',
+            'male_student_count',
+            'female_student_count',
+            'specialty',
+            'grade_category',
+            'grade_type',
+            'class_type',
+            'class_profile',
+            'education_program',
+            'teaching_shift',
+            'is_active',
+            'created_at',
+            'updated_at',
+        ];
+
+        $optionalColumns = [
+            'description',
+            'teacher_assigned_at',
+            'teacher_removed_at',
+            'deactivated_at',
+            'deactivated_by',
+        ];
+
+        foreach ($optionalColumns as $column) {
+            if (Schema::hasColumn('grades', $column)) {
+                $baseColumns[] = $column;
+            }
+        }
+
+        return $baseColumns;
     }
 
     /**

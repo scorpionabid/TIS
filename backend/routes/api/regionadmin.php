@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Class Management for RegionAdmin
-Route::middleware(['auth:sanctum', 'role:regionadmin'])
+Route::middleware(['auth:sanctum', 'role:regionadmin|superadmin'])
     ->prefix('regionadmin/classes')
     ->group(function () {
         // List and filter classes

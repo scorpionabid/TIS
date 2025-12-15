@@ -41,16 +41,18 @@ export default defineConfig(({ mode }) => ({
   },
   build: {
     minify: mode === 'production' ? 'terser' : 'esbuild',
-    // Remove console statements in production using Terser
-    ...(mode === 'production' && {
-      terserOptions: {
-        compress: {
-          drop_console: true,
-          drop_debugger: true,
-          pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn']
+    // Remove console statements in production only when explicitly enabled
+    ...(mode === 'production' && process.env.VITE_DROP_CONSOLE === 'true'
+      ? {
+          terserOptions: {
+            compress: {
+              drop_console: true,
+              drop_debugger: true,
+              pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
+            },
+          },
         }
-      }
-    }),
+      : {}),
     rollupOptions: {
       output: {
         manualChunks: {

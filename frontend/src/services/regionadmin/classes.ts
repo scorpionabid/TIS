@@ -74,6 +74,7 @@ export interface ClassFilters {
   is_active?: boolean;
   per_page?: number;
   page?: number;
+  region_id?: number;
 }
 
 export interface ImportError {
@@ -181,6 +182,7 @@ class RegionAdminClassService {
     if (filters?.is_active !== undefined) params.append('is_active', filters.is_active.toString());
     if (filters?.per_page) params.append('per_page', filters.per_page.toString());
     if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.region_id) params.append('region_id', filters.region_id.toString());
 
     const response = await apiClient.get<{
       success: boolean;
@@ -221,12 +223,12 @@ class RegionAdminClassService {
   /**
    * Get class statistics for the region
    */
-  async getStatistics() {
+  async getStatistics(regionId?: number) {
     const response = await apiClient.get<{
       success: boolean;
       data: ClassStatistics;
       region_name: string;
-    }>(`${this.baseUrl}/statistics`);
+    }>(`${this.baseUrl}/statistics`, regionId ? { region_id: regionId } : undefined);
 
     return response;
   }
@@ -312,11 +314,11 @@ class RegionAdminClassService {
   /**
    * Get available institutions for filters
    */
-  async getAvailableInstitutions(): Promise<Institution[]> {
+  async getAvailableInstitutions(regionId?: number): Promise<Institution[]> {
     const response = await apiClient.get<{
       success: boolean;
       data: Institution[];
-    }>(`${this.baseUrl}/filter-options/institutions`);
+    }>(`${this.baseUrl}/filter-options/institutions`, regionId ? { region_id: regionId } : undefined);
 
     // Handle both response formats: { data: { data: [] } } and { data: [] }
     return response.data?.data || response.data || [];
@@ -325,12 +327,12 @@ class RegionAdminClassService {
   /**
    * Get institutions grouped by sector
    */
-  async getInstitutionsGrouped(): Promise<InstitutionGrouped> {
+  async getInstitutionsGrouped(regionId?: number): Promise<InstitutionGrouped> {
     const response = await apiClient.get<{
       success: boolean;
       data: InstitutionGrouped;
       region_name: string;
-    }>(`${this.baseUrl}/filter-options/institutions-grouped`);
+    }>(`${this.baseUrl}/filter-options/institutions-grouped`, regionId ? { region_id: regionId } : undefined);
 
     return response.data.data;
   }
