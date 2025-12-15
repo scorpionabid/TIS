@@ -14,6 +14,18 @@ namespace App\Services;
 class RegionOperatorPermissionMappingService
 {
     /**
+     * RegionOperator fields that should grant the aggregated surveys.write permission.
+     *
+     * @var string[]
+     */
+    private const SURVEY_WRITE_FIELDS = [
+        'can_create_surveys',
+        'can_edit_surveys',
+        'can_delete_surveys',
+        'can_publish_surveys',
+    ];
+
+    /**
      * Map RegionOperator custom permissions to Spatie permission names
      *
      * @var array<string, string>
@@ -66,6 +78,12 @@ class RegionOperatorPermissionMappingService
         'surveys.update' => ['can_edit_surveys'],
         'surveys.delete' => ['can_delete_surveys'],
         'surveys.publish' => ['can_publish_surveys'],
+        'surveys.write' => [
+            'can_create_surveys',
+            'can_edit_surveys',
+            'can_delete_surveys',
+            'can_publish_surveys',
+        ],
 
         'tasks.read' => ['can_view_tasks'],
         'tasks.create' => ['can_create_tasks'],
@@ -103,6 +121,14 @@ class RegionOperatorPermissionMappingService
             }
         }
 
+        // Grant aggregated surveys.write permission if any write-capable survey action is allowed
+        foreach (self::SURVEY_WRITE_FIELDS as $writeField) {
+            if (! empty($roPermissions[$writeField])) {
+                $spatiePermissions['surveys.write'] = true;
+                break;
+            }
+        }
+
         return array_keys($spatiePermissions);
     }
 
@@ -121,7 +147,10 @@ class RegionOperatorPermissionMappingService
      */
     public function getAllMappedSpatiePermissions(): array
     {
-        return array_unique(array_values(self::RO_TO_SPATIE_MAP));
+        $permissions = array_values(self::RO_TO_SPATIE_MAP);
+        $permissions[] = 'surveys.write';
+
+        return array_values(array_unique($permissions));
     }
 
     /**

@@ -406,7 +406,18 @@ const SurveyApprovalDashboard: React.FC = () => {
     completion_rate: 0,
   };
 
-  if (!currentUser || !['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser.role)) {
+  const allowedRoles = ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'];
+  const approvalPermissions = [
+    'approvals.read',
+    'approvals.approve',
+    'survey_responses.read',
+    'survey_responses.approve',
+    'survey_responses.write',
+  ];
+  const userPermissions = Array.isArray(currentUser?.permissions) ? currentUser?.permissions ?? [] : [];
+  const hasPermissionAccess = userPermissions.some((permission) => approvalPermissions.includes(permission));
+
+  if (!currentUser || (!allowedRoles.includes(currentUser?.role ?? '') && !hasPermissionAccess)) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
