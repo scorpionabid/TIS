@@ -145,7 +145,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     // Build default filters based on user role
     const defaultFilters: Partial<GradeFilters> = {
       is_active: true,
-      per_page: 20,
+      per_page: 100, // Increased from 20 to show all classes for schools with many grades
     };
 
     // Add institution_id filter for non-admin roles
