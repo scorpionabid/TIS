@@ -66,6 +66,15 @@ export function PermissionAssignmentPanel({
       (m.defaults || []).forEach((p: string) => defaultSet.add(p));
     });
 
+    // 🔍 DEBUG: Log userPermissions data
+    console.log('🔍 [PermissionAssignmentPanel] Enrichment input:', {
+      roleName,
+      hasUserPermissions: !!userPermissions,
+      userPermissionsDirect: userPermissions?.direct,
+      userPermissionsViaRoles: userPermissions?.via_roles,
+      userPermissionsAll: userPermissions?.all,
+    });
+
     return metadata.modules
       .filter(
         (module) =>
@@ -81,7 +90,7 @@ export function PermissionAssignmentPanel({
             userPermissions?.direct?.includes(permission.key) ?? false;
           const isShareable = permission.shareable !== false;
 
-          return {
+          const enriched = {
             ...permission,
             source: isDirect
               ? PermissionSource.DIRECT
@@ -93,6 +102,19 @@ export function PermissionAssignmentPanel({
             required: requiredSet.has(permission.key),
             default: defaultSet.has(permission.key),
           } as PermissionWithMetadata;
+
+          // 🔍 DEBUG: Log enrichment for first few permissions
+          if (module.permissions.indexOf(permission) < 2) {
+            console.log(`🔍 [PermissionAssignmentPanel] Enriched "${permission.key}":`, {
+              isRoleBased,
+              isDirect,
+              isShareable,
+              source: enriched.source,
+              readonly: enriched.readonly,
+            });
+          }
+
+          return enriched;
         })
       );
   }, [metadata, userPermissions, roleName]);
@@ -409,7 +431,7 @@ export function PermissionAssignmentPanel({
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap gap-2">
-                  {permissionList.map((permission) => {
+                  {permissionList.map((permission, permIdx) => {
                     const isSelected = value.includes(permission.key);
                     const isReadonly =
                       (permission as PermissionWithMetadata).readonly ===
@@ -421,6 +443,17 @@ export function PermissionAssignmentPanel({
                       (permission as PermissionWithMetadata).required === true;
                     const isDefault =
                       (permission as PermissionWithMetadata).default === true;
+
+                    // 🔍 DEBUG: Log first few permission rendering decisions
+                    if (permIdx < 3) {
+                      console.log(`🔍 [PermissionAssignmentPanel] Rendering "${permission.key}":`, {
+                        isSelected,
+                        isReadonly,
+                        source,
+                        valueArray: value,
+                        includesResult: value.includes(permission.key),
+                      });
+                    }
 
                     return (
                       <div

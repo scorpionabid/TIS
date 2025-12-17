@@ -43,20 +43,51 @@ export function RegionOperatorTab({
     []
   );
 
+  // 🔍 DEBUG: Log user permissions data
+  console.log('🔍 [RegionOperatorTab] User permissions data:', {
+    hasUser: !!user,
+    userId: user?.id,
+    hasPermissionsObject: !!user?.permissions,
+    permissionsObject: user?.permissions,
+    permissionsDirect: user?.permissions?.direct,
+    permissionsViaRoles: user?.permissions?.via_roles,
+    assignablePermissions: user?.assignable_permissions,
+  });
+
   const selectedPermissionKeys = useMemo(() => {
-    // For RegionOperator, ONLY use assignable_permissions array
-    // Don't read individual can_* fields from formData to avoid duplication
-    const selection = Array.isArray(formData.assignable_permissions)
-      ? formData.assignable_permissions
-      : [];
+    // For RegionOperator, prefer formData (edited state), fallback to user prop + CRUD (initial state)
+    // This ensures permissions show on first render AND after edits
+    let selection: string[] = [];
+
+    if (Array.isArray(formData.assignable_permissions) && formData.assignable_permissions.length > 0) {
+      // Use formData if available (after transform completes - includes both CRUD + Modern)
+      selection = formData.assignable_permissions;
+    } else if (user) {
+      // Fallback for initial render: manually merge CRUD + Modern permissions
+      const modernPermissions = Array.isArray(user.assignable_permissions) ? user.assignable_permissions : [];
+      const crudPermissions: string[] = [];
+
+      // Extract CRUD permissions from region_operator_permissions object
+      if (user.region_operator_permissions) {
+        actionKeys.forEach((key) => {
+          if (user.region_operator_permissions?.[key] === true) {
+            crudPermissions.push(key);
+          }
+        });
+      }
+
+      selection = [...crudPermissions, ...modernPermissions];
+    }
 
     console.log('[RegionOperatorTab] Derived selection', {
-      assignable_permissions: selection,
-      count: selection.length,
+      fromFormData: formData.assignable_permissions?.length || 0,
+      fromUser_modern: user?.assignable_permissions?.length || 0,
+      fromUser_crud: user?.region_operator_permissions ? actionKeys.filter(k => user.region_operator_permissions?.[k]).length : 0,
+      final: selection.length,
     });
 
     return selection;
-  }, [formData]);
+  }, [formData.assignable_permissions, user, actionKeys]);
 
   // Filter departments based on selected institution
   const selectedInstitutionId = formData.institution_id ? parseInt(formData.institution_id) : null;

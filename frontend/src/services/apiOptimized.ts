@@ -567,20 +567,29 @@ class ApiClientOptimized {
 
   // POST/PUT/DELETE methods (no caching, but with deduplication for safety)
   async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    // Clear related cache entries
-    this.clearCache(endpoint.split('/')[0]);
+    // Clear related cache entries for this resource
+    // For "/regionadmin/users" → clear all "/regionadmin/users*" keys
+    const resourcePath = endpoint.split('?')[0]; // Remove query params
+    const basePath = resourcePath.split('/').slice(0, 3).join('/'); // e.g., "/regionadmin/users"
+    this.clearCache(basePath);
     return this.performRequest<T>('POST', endpoint, data);
   }
 
   async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    // Clear related cache entries
-    this.clearCache(endpoint.split('/')[0]);
+    // Clear related cache entries for this resource
+    // For "/regionadmin/users/369" → clear all "/regionadmin/users*" keys
+    const resourcePath = endpoint.split('?')[0]; // Remove query params
+    const basePath = resourcePath.split('/').slice(0, 3).join('/'); // e.g., "/regionadmin/users"
+    this.clearCache(basePath);
     return this.performRequest<T>('PUT', endpoint, data);
   }
 
   async delete<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    // Clear related cache entries
-    this.clearCache(endpoint.split('/')[0]);
+    // Clear related cache entries for this resource
+    // For "/regionadmin/users/369" → clear all "/regionadmin/users*" keys
+    const resourcePath = endpoint.split('?')[0]; // Remove query params
+    const basePath = resourcePath.split('/').slice(0, 3).join('/'); // e.g., "/regionadmin/users"
+    this.clearCache(basePath);
     return this.performRequest<T>('DELETE', endpoint, data);
   }
 

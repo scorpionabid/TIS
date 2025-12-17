@@ -323,14 +323,29 @@ class RegionAdminUserController extends Controller
         if ($targetUser->hasRole('regionoperator')) {
             // Get direct permissions from Spatie (not via roles)
             $directPermissions = $targetUser->getDirectPermissions()->pluck('name')->toArray();
+
+            // 🔍 DEBUG: Log what we're getting
+            \Log::info('🔍 [RegionAdminUserController] RegionOperator permissions data', [
+                'user_id' => $targetUser->id,
+                'direct_permissions_count' => count($directPermissions),
+                'direct_permissions' => $directPermissions,
+                'has_region_operator_perms_relation' => $targetUser->relationLoaded('regionOperatorPermissions'),
+            ]);
+
             $userData['assignable_permissions'] = $directPermissions;
 
             // Add CRUD permissions
             $regionOperatorPerms = $targetUser->regionOperatorPermissions;
             if ($regionOperatorPerms) {
-                $userData['region_operator_permissions'] = $regionOperatorPerms->only(
-                    RegionOperatorPermissionService::getCrudFields()
-                );
+                $crudFields = RegionOperatorPermissionService::getCrudFields();
+                $crudData = $regionOperatorPerms->only($crudFields);
+
+                \Log::info('🔍 [RegionAdminUserController] CRUD permissions', [
+                    'crud_fields_count' => count($crudFields),
+                    'crud_data' => $crudData,
+                ]);
+
+                $userData['region_operator_permissions'] = $crudData;
             }
         } else {
             // For other roles, prefer returning only DIRECT permissions for editable array.
@@ -373,6 +388,19 @@ class RegionAdminUserController extends Controller
         if (empty($userData['last_name']) && ! empty($targetUser->username)) {
             $userData['last_name'] = $targetUser->username;
         }
+
+        // 🔍 DEBUG: Log final response data
+        \Log::info('🔍 [RegionAdminUserController] Final response data', [
+            'user_id' => $targetUser->id,
+            'role_name' => $userData['role_name'] ?? 'NONE',
+            'has_permissions_key' => array_key_exists('permissions', $userData),
+            'has_assignable_permissions_key' => array_key_exists('assignable_permissions', $userData),
+            'has_region_operator_permissions_key' => array_key_exists('region_operator_permissions', $userData),
+            'assignable_permissions_count' => isset($userData['assignable_permissions']) ? count($userData['assignable_permissions']) : 'NULL',
+            'assignable_permissions_sample' => isset($userData['assignable_permissions']) ? array_slice($userData['assignable_permissions'], 0, 5) : 'NULL',
+            'permissions_direct_count' => isset($userData['permissions']['direct']) ? count($userData['permissions']['direct']) : 'NULL',
+            'permissions_via_roles_count' => isset($userData['permissions']['via_roles']) ? count($userData['permissions']['via_roles']) : 'NULL',
+        ]);
 
         return response()->json([
             'success' => true,
