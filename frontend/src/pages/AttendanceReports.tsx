@@ -29,6 +29,19 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { TablePagination } from '@/components/common/TablePagination';
 
+const formatClassLabel = (value?: string | null, level?: number | string | null): string => {
+  const base = level !== undefined && level !== null && value
+    ? `${level}-${value}`
+    : value ?? '';
+  const trimmed = base.trim();
+  if (!trimmed) return '-';
+  const match = trimmed.match(/^(\d+)\s*[-\s]?([A-Za-zƏəÖöÜüÇçĞğİıŞş]+)$/);
+  if (match) {
+    return `${match[1]}-${match[2].toLowerCase()}`;
+  }
+  return trimmed;
+};
+
 interface AttendanceRecord {
   id: number;
   date: string;
@@ -38,6 +51,14 @@ interface AttendanceRecord {
   end_count: number;
   attendance_rate: number;
   notes?: string;
+  total_students?: number;
+  grade_level?: number;
+  first_session_absent?: number;
+  last_session_absent?: number;
+  morning_attendance_rate?: number;
+  evening_attendance_rate?: number;
+  morning_notes?: string | null;
+  evening_notes?: string | null;
   date_label?: string;
   range_start?: string;
   range_end?: string;
@@ -95,6 +116,8 @@ export default function AttendanceReports() {
   const [page, setPage] = useState<number>(1);
   const [perPage, setPerPage] = useState<number>(DEFAULT_PER_PAGE);
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  const [sortField, setSortField] = useState<'date' | 'class_name' | 'attendance_rate'>('date');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const isDailyView = reportType === 'daily';
 
   // Get current user's institution for filtering
@@ -194,7 +217,9 @@ export default function AttendanceReports() {
       currentUser?.role,
       currentUser?.institution?.id,
       isDailyView ? page : 'all',
-      isDailyView ? perPage : AGGREGATION_FETCH_LIMIT
+      isDailyView ? perPage : AGGREGATION_FETCH_LIMIT,
+      sortField,
+      sortDirection
     ],
     queryFn: () => {
       const filters: any = {
@@ -222,11 +247,24 @@ export default function AttendanceReports() {
       }
 
       filters.group_by = reportType;
+      filters.sort_field = sortField;
+      filters.sort_direction = sortDirection;
 
-      // Use bulkAttendanceService for school admins, fallback to attendanceService for others
       if (isSchoolAdmin) {
-        return bulkAttendanceService.getAttendanceReports(filters);
+        const schoolAdminFilters: any = {
+          start_date: startDate,
+          end_date: endDate,
+          page: filters.page,
+          per_page: filters.per_page,
+        };
+
+        if (selectedClass !== 'all') {
+          schoolAdminFilters.class_name = selectedClass;
+        }
+
+        return bulkAttendanceService.getAttendanceReports(schoolAdminFilters);
       }
+
       return attendanceService.getAttendanceReports(filters);
     },
     enabled: hasAccess,
@@ -254,7 +292,6 @@ export default function AttendanceReports() {
         filters.school_id = parseInt(selectedSchool);
       }
 
-      // Use bulkAttendanceService for school admins, fallback to attendanceService for others
       if (isSchoolAdmin) {
         return bulkAttendanceService.getAttendanceStats(filters);
       }
@@ -397,6 +434,19 @@ export default function AttendanceReports() {
     setReportType('daily');
     setPage(1);
     setPerPage(DEFAULT_PER_PAGE);
+    setSortField('date');
+    setSortDirection('desc');
+  };
+
+  const handleSortChange = (field: 'date' | 'class_name' | 'attendance_rate') => {
+    setSortField(field);
+    setSortDirection((prev) => {
+      if (sortField === field) {
+        return prev === 'asc' ? 'desc' : 'asc';
+      }
+      return 'asc';
+    });
+    setPage(1);
   };
 
   const getErrorMessage = (error: unknown) => {
@@ -678,9 +728,26 @@ export default function AttendanceReports() {
                 <TableRow>
                   <TableHead>Tarix</TableHead>
                   {!isSchoolAdmin && <TableHead>Məktəb</TableHead>}
-                  <TableHead>Sinif</TableHead>
-                  <TableHead className="text-center">Başlanğıc</TableHead>
-                  <TableHead className="text-center">Son</TableHead>
+                  <TableHead>
+                    <div className="flex items-center gap-1">
+                      Sinif
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2"
+                        onClick={() => handleSortChange('class_name')}
+                      >
+                        {sortField === 'class_name'
+                          ? sortDirection === 'asc'
+                            ? 'A→Z'
+                            : 'Z→A'
+                          : 'A-Z'}
+                      </Button>
+                    </div>
+                  </TableHead>
+                  <TableHead className="text-center">İlk dərs</TableHead>
+                  <TableHead className="text-center">Son dərs</TableHead>
                   <TableHead className="text-center">Davamiyyət %</TableHead>
                   <TableHead>Qeydlər</TableHead>
                 </TableRow>
@@ -710,6 +777,22 @@ export default function AttendanceReports() {
                       record.date_label && reportType !== 'daily'
                         ? record.date_label
                         : format(new Date(record.date), 'dd.MM.yyyy', { locale: az });
+                    const startCount = typeof record.start_count === 'number' ? record.start_count : 0;
+                    const endCount = typeof record.end_count === 'number' ? record.end_count : 0;
+                    const totalStudents = record.total_students;
+                    const attendanceRate = typeof record.attendance_rate === 'number' ? record.attendance_rate : 0;
+                    const attendanceTone =
+                      attendanceRate >= 95
+                        ? 'text-green-600'
+                        : attendanceRate >= 85
+                        ? 'text-yellow-600'
+                        : 'text-red-600';
+                    const noteHints = [
+                      record.morning_notes ? `İlk dərs: ${record.morning_notes}` : null,
+                      record.evening_notes ? `Son dərs: ${record.evening_notes}` : null,
+                    ].filter(Boolean);
+                    const combinedNotes = record.notes || (noteHints.length ? noteHints.join(' | ') : null);
+                    const formattedClassName = formatClassLabel(record.class_name, record.grade_level);
 
                     return (
                     <TableRow key={`${reportType}-${record.id ?? index}`}>
@@ -721,21 +804,39 @@ export default function AttendanceReports() {
                           {record.school?.name || record.school_name}
                         </TableCell>
                       )}
-                      <TableCell>{record.class_name}</TableCell>
-                      <TableCell className="text-center">{record.start_count}</TableCell>
-                      <TableCell className="text-center">{record.end_count}</TableCell>
+                      <TableCell>{formattedClassName}</TableCell>
                       <TableCell className="text-center">
-                        <span className={`font-medium ${
-                          record.attendance_rate >= 95 
-                            ? 'text-green-600' 
-                            : record.attendance_rate >= 85 
-                            ? 'text-yellow-600' 
-                            : 'text-red-600'
-                        }`}>
-                          {record.attendance_rate}%
+                        <div className="font-semibold">{startCount}</div>
+                        {typeof totalStudents === 'number' && totalStudents > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            {startCount}/{totalStudents}
+                          </div>
+                        )}
+                        {typeof record.first_session_absent === 'number' && (
+                          <div className="text-xs text-red-500">
+                            -{record.first_session_absent}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <div className="font-semibold">{endCount}</div>
+                        {typeof totalStudents === 'number' && totalStudents > 0 && (
+                          <div className="text-xs text-muted-foreground">
+                            {endCount}/{totalStudents}
+                          </div>
+                        )}
+                        {typeof record.last_session_absent === 'number' && (
+                          <div className="text-xs text-red-500">
+                            -{record.last_session_absent}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-center">
+                        <span className={`font-medium ${attendanceTone}`}>
+                          {attendanceRate}%
                         </span>
                       </TableCell>
-                      <TableCell>{record.notes || '-'}</TableCell>
+                      <TableCell>{combinedNotes || '-'}</TableCell>
                     </TableRow>
                   );
                   })

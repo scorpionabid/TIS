@@ -325,6 +325,7 @@ class BulkAttendanceController extends BaseController
                     'classes' => $records->map(function ($record) {
                         return [
                             'grade_name' => $record->grade->name,
+                            'grade_level' => $record->grade->class_level,
                             'total_students' => $record->total_students,
                             'morning_present' => $record->morning_present,
                             'morning_excused' => $record->morning_excused,
@@ -384,8 +385,20 @@ class BulkAttendanceController extends BaseController
                     'classes' => $dayRecords->map(function ($record) {
                         return [
                             'grade_name' => $record->grade->name,
-                            'daily_attendance_rate' => $record->daily_attendance_rate,
+                            'grade_level' => $record->grade->class_level,
+                            'total_students' => $record->total_students,
+                            'morning_present' => $record->morning_present,
+                            'morning_excused' => $record->morning_excused,
+                            'morning_unexcused' => $record->morning_unexcused,
+                            'evening_present' => $record->evening_present,
+                            'evening_excused' => $record->evening_excused,
+                            'evening_unexcused' => $record->evening_unexcused,
+                            'morning_attendance_rate' => (float) $record->morning_attendance_rate,
+                            'evening_attendance_rate' => (float) $record->evening_attendance_rate,
+                            'daily_attendance_rate' => (float) $record->daily_attendance_rate,
                             'is_complete' => $record->is_complete,
+                            'morning_notes' => $record->morning_notes,
+                            'evening_notes' => $record->evening_notes,
                         ];
                     }),
                 ];

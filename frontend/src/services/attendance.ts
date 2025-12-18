@@ -12,6 +12,21 @@ export interface AttendanceRecord {
   end_count: number;
   attendance_rate: number;
   notes?: string;
+  total_students?: number;
+  grade_level?: number;
+  morning_present?: number;
+  morning_excused?: number;
+  morning_unexcused?: number;
+  evening_present?: number;
+  evening_excused?: number;
+  evening_unexcused?: number;
+  morning_attendance_rate?: number;
+  evening_attendance_rate?: number;
+  daily_attendance_rate?: number;
+  morning_notes?: string | null;
+  evening_notes?: string | null;
+  first_session_absent?: number;
+  last_session_absent?: number;
   created_at: string;
   updated_at: string;
   school?: {
@@ -115,6 +130,8 @@ export interface AttendanceReportResponse {
 
 export interface AttendanceReportFilters extends AttendanceFilters {
   group_by?: 'daily' | 'weekly' | 'monthly';
+  sort_field?: 'date' | 'class_name' | 'attendance_rate' | 'first_lesson' | 'last_lesson';
+  sort_direction?: 'asc' | 'desc';
 }
 
 class AttendanceService extends BaseService {

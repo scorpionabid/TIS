@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ClassBulkAttendance;
 use App\Models\Institution;
 use App\Models\SchoolAttendance;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -281,41 +283,48 @@ class SchoolAttendanceController extends BaseController
     public function stats(Request $request): JsonResponse
     {
         try {
-            $query = SchoolAttendance::query();
+            $query = ClassBulkAttendance::query();
 
             // Apply filters
             if ($request->has('school_id') && $request->school_id) {
-                $query->where('school_id', $request->school_id);
+                $query->where('institution_id', $request->school_id);
             }
 
             // Date range
             $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
             $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
 
-            $query->whereDate('date', '>=', $startDate)
-                ->whereDate('date', '<=', $endDate);
+            $query->whereDate('attendance_date', '>=', $startDate)
+                ->whereDate('attendance_date', '<=', $endDate);
 
             // Apply user-based filtering
-            $this->applyUserFiltering($query, Auth::user());
+            $this->applyUserFiltering($query, Auth::user(), 'institution_id');
 
             $records = $query->get();
+            $totalStudents = $records->sum('total_students');
+            $uniqueDays = $records->pluck('attendance_date')->unique()->count();
+            $weightedAttendance = $records->sum(function (ClassBulkAttendance $record) {
+                $rate = $record->daily_attendance_rate ?? $this->calculateDailyRate(
+                    $record->morning_present,
+                    $record->evening_present,
+                    $record->total_students
+                );
+
+                return $rate * max($record->total_students, 1);
+            });
+            $weightedDenominator = max($totalStudents, 1);
 
             $stats = [
-                'total_students' => $records->sum('start_count'),
-                'total_present' => $records->sum('end_count'),
-                'total_absent' => $records->sum('start_count') - $records->sum('end_count'),
-                'average_attendance' => 0,
-                'total_days' => $records->count(),
+                'total_students' => $totalStudents,
+                'total_present' => $records->sum('morning_present') + $records->sum('evening_present'),
+                'total_absent' => ($records->sum('morning_excused') + $records->sum('morning_unexcused')) +
+                                  ($records->sum('evening_excused') + $records->sum('evening_unexcused')),
+                'average_attendance' => $weightedDenominator > 0
+                    ? round($weightedAttendance / $weightedDenominator, 2)
+                    : 0,
+                'total_days' => $uniqueDays,
                 'total_records' => $records->count(),
             ];
-
-            // Calculate average attendance rate
-            if ($stats['total_students'] > 0) {
-                $stats['average_attendance'] = round(
-                    ($stats['total_present'] / $stats['total_students']) * 100,
-                    2
-                );
-            }
 
             // Determine trend (simplified)
             $stats['trend_direction'] = $stats['average_attendance'] >= 90 ? 'up' :
@@ -351,6 +360,8 @@ class SchoolAttendanceController extends BaseController
             'end_date' => 'nullable|date|after_or_equal:start_date',
             'per_page' => 'nullable|integer|min:1|max:200',
             'page' => 'nullable|integer|min:1',
+            'sort_field' => 'nullable|in:date,class_name,attendance_rate,first_lesson,last_lesson',
+            'sort_direction' => 'nullable|in:asc,desc',
         ]);
 
         if ($validator->fails()) {
@@ -366,40 +377,93 @@ class SchoolAttendanceController extends BaseController
             $groupBy = $validated['group_by'] ?? 'daily';
             $startDate = $validated['start_date'] ?? Carbon::now()->startOfMonth()->format('Y-m-d');
             $endDate = $validated['end_date'] ?? Carbon::now()->format('Y-m-d');
+            $sortField = $validated['sort_field'] ?? 'date';
+            $sortDirection = strtolower($validated['sort_direction'] ?? 'desc');
+            if (! in_array($sortDirection, ['asc', 'desc'], true)) {
+                $sortDirection = 'desc';
+            }
 
-            $query = SchoolAttendance::with(['school:id,name,type']);
+            $query = ClassBulkAttendance::with([
+                'institution:id,name,type',
+                'grade:id,name,class_level',
+            ]);
 
             if (! empty($validated['school_id'])) {
-                $query->where('school_id', $validated['school_id']);
+                $query->where('institution_id', $validated['school_id']);
             }
 
             if (! empty($validated['class_name'])) {
-                $query->where('class_name', $validated['class_name']);
+                $query->whereHas('grade', function (Builder $builder) use ($validated) {
+                    $builder->where('name', $validated['class_name']);
+                });
             }
 
-            $query->whereDate('date', '>=', $startDate)
-                ->whereDate('date', '<=', $endDate);
-            $this->applyUserFiltering($query, Auth::user());
+            $query->whereDate('attendance_date', '>=', $startDate)
+                ->whereDate('attendance_date', '<=', $endDate);
+            $this->applyUserFiltering($query, Auth::user(), 'institution_id');
+
+            $sortColumnMap = [
+                'date' => 'attendance_date',
+                'attendance_rate' => 'daily_attendance_rate',
+                'first_lesson' => 'morning_present',
+                'last_lesson' => 'evening_present',
+            ];
+
+            if ($sortField === 'class_name') {
+                $query->leftJoin('grades as sort_grades', 'class_bulk_attendance.grade_id', '=', 'sort_grades.id');
+                $query->select('class_bulk_attendance.*');
+                $query->orderBy('sort_grades.name', $sortDirection);
+            } else {
+                $column = $sortColumnMap[$sortField] ?? 'attendance_date';
+                $query->orderBy("class_bulk_attendance.{$column}", $sortDirection);
+            }
 
             if ($groupBy === 'daily') {
                 $perPage = $validated['per_page'] ?? 20;
-                $records = $query->orderBy('date', 'desc')->paginate($perPage);
+                $records = (clone $query)->paginate($perPage);
 
-                $dailyData = collect($records->items())->map(function ($record) {
+                $dailyData = collect($records->items())->map(function (ClassBulkAttendance $record) {
+                    $morningPresent = (int) $record->morning_present;
+                    $eveningPresent = (int) $record->evening_present;
+                    $totalStudents = (int) $record->total_students;
+                    $gradeLevel = $record->grade?->class_level;
+                    $gradeName = $record->grade?->name;
+                    $attendanceRate = $record->daily_attendance_rate ?? $this->calculateDailyRate(
+                        $morningPresent,
+                        $eveningPresent,
+                        $totalStudents
+                    );
+
                     return [
                         'id' => $record->id,
-                        'date' => $record->date,
-                        'date_label' => Carbon::parse($record->date)->format('Y-m-d'),
-                        'school_name' => $record->school?->name,
-                        'class_name' => $record->class_name,
-                        'start_count' => $record->start_count,
-                        'end_count' => $record->end_count,
-                        'attendance_rate' => $record->attendance_rate,
-                        'notes' => $record->notes,
-                        'school' => $record->school ? [
-                            'id' => $record->school->id,
-                            'name' => $record->school->name,
-                            'type' => $record->school->type,
+                        'date' => $record->attendance_date?->format('Y-m-d') ?? null,
+                        'date_label' => $record->attendance_date?->format('Y-m-d') ?? null,
+                        'school_name' => $record->institution?->name,
+                        'class_name' => $gradeName ?? '',
+                        'grade_level' => $gradeLevel,
+                        'total_students' => $totalStudents,
+                        'start_count' => $morningPresent,
+                        'end_count' => $eveningPresent,
+                        'first_session_absent' => (int) $record->morning_excused + (int) $record->morning_unexcused,
+                        'last_session_absent' => (int) $record->evening_excused + (int) $record->evening_unexcused,
+                        'morning_notes' => $record->morning_notes,
+                        'evening_notes' => $record->evening_notes,
+                        'attendance_rate' => $attendanceRate,
+                        'morning_attendance_rate' => $record->morning_attendance_rate ?? $this->calculateDailyRate(
+                            $morningPresent,
+                            0,
+                            $totalStudents
+                        ),
+                        'evening_attendance_rate' => $record->evening_attendance_rate ?? $this->calculateDailyRate(
+                            0,
+                            $eveningPresent,
+                            $totalStudents
+                        ),
+                        'notes' => $this->formatBulkNotes($record->morning_notes, $record->evening_notes),
+                        'school' => $record->institution ? [
+                            'id' => $record->institution->id,
+                            'name' => $record->institution->name,
+                            'type' => $record->institution->type,
                         ] : null,
                     ];
                 });
@@ -421,11 +485,15 @@ class SchoolAttendanceController extends BaseController
                             'start_date' => $startDate,
                             'end_date' => $endDate,
                         ],
+                        'sorting' => [
+                            'field' => $sortField,
+                            'direction' => $sortDirection,
+                        ],
                     ],
                 ]);
             }
 
-            $allRecords = $query->orderBy('date', 'desc')->get();
+            $allRecords = (clone $query)->get();
             $schoolLabel = 'Bütün məktəblər';
             $classLabel = $validated['class_name'] ?? 'Bütün siniflər';
             $schoolContext = null;
@@ -450,7 +518,7 @@ class SchoolAttendanceController extends BaseController
             }
 
             $grouped = $allRecords->groupBy(function ($record) use ($groupBy) {
-                $date = Carbon::parse($record->date);
+                $date = Carbon::parse($record->attendance_date);
 
                 if ($groupBy === 'weekly') {
                     return $date->copy()->startOfWeek(Carbon::MONDAY)->format('Y-m-d');
@@ -468,9 +536,11 @@ class SchoolAttendanceController extends BaseController
                     $dateLabel = $rangeStart->translatedFormat('F Y');
                 }
 
-                $totalStart = $items->sum('start_count');
-                $totalEnd = $items->sum('end_count');
+                $totalStudents = $items->sum('total_students');
+                $totalStart = $items->sum('morning_present');
+                $totalEnd = $items->sum('evening_present');
                 $recordCount = $items->count();
+                $attendanceRate = $this->calculateDailyRate($totalStart, $totalEnd, $totalStudents);
 
                 return [
                     'id' => md5($key . $classLabel . $schoolLabel),
@@ -480,9 +550,10 @@ class SchoolAttendanceController extends BaseController
                     'range_end' => $rangeEnd->toDateString(),
                     'school_name' => $schoolLabel,
                     'class_name' => $classLabel,
+                    'total_students' => $totalStudents,
                     'start_count' => $totalStart,
                     'end_count' => $totalEnd,
-                    'attendance_rate' => $totalStart > 0 ? round(($totalEnd / $totalStart) * 100, 2) : 0,
+                    'attendance_rate' => $attendanceRate,
                     'notes' => $recordCount . ' qeyd',
                     'record_count' => $recordCount,
                 ];
@@ -502,6 +573,10 @@ class SchoolAttendanceController extends BaseController
                     ],
                     'school' => $schoolContext,
                     'class' => $classLabel,
+                    'sorting' => [
+                        'field' => $sortField,
+                        'direction' => $sortDirection,
+                    ],
                 ],
             ]);
         } catch (\Exception $e) {
@@ -859,7 +934,7 @@ class SchoolAttendanceController extends BaseController
     /**
      * Apply user-based filtering based on role and institution
      */
-    private function applyUserFiltering($query, $user): void
+    private function applyUserFiltering($query, $user, string $column = 'school_id'): void
     {
         $userRole = $user->roles->first()?->name;
 
@@ -886,7 +961,7 @@ class SchoolAttendanceController extends BaseController
                             ->exists();
                     });
 
-                $query->whereIn('school_id', $allSchoolIds);
+                $query->whereIn($column, $allSchoolIds);
                 break;
 
             case 'sektoradmin':
@@ -895,19 +970,57 @@ class SchoolAttendanceController extends BaseController
                     ->whereIn('type', ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'])
                     ->pluck('id');
 
-                $query->whereIn('school_id', $sektorSchools);
+                $query->whereIn($column, $sektorSchools);
                 break;
 
             case 'məktəbadmin':
             case 'müəllim':
                 // School admin and teachers can only see their school's records
-                $query->where('school_id', $user->institution_id);
+                $query->where($column, $user->institution_id);
                 break;
 
             default:
                 // Unknown role - no access
-                $query->where('id', -1); // Force empty result
+                $query->where($column, -1); // Force empty result
                 break;
         }
+    }
+
+    /**
+     * Calculate daily attendance rate using morning/evening counts
+     */
+    private function calculateDailyRate(?int $morningPresent, ?int $eveningPresent, ?int $totalStudents): float
+    {
+        $totalStudents = (int) $totalStudents;
+
+        if ($totalStudents <= 0) {
+            return 0.0;
+        }
+
+        $presentSum = (int) $morningPresent + (int) $eveningPresent;
+        $denominator = $totalStudents * 2;
+
+        if ($denominator <= 0) {
+            return 0.0;
+        }
+
+        return round(($presentSum / $denominator) * 100, 2);
+    }
+
+    /**
+     * Build combined notes text for morning/evening sessions
+     */
+    private function formatBulkNotes(?string $morningNotes, ?string $eveningNotes): ?string
+    {
+        $notes = collect([
+            $morningNotes ? 'İlk dərs: ' . $morningNotes : null,
+            $eveningNotes ? 'Son dərs: ' . $eveningNotes : null,
+        ])->filter();
+
+        if ($notes->isEmpty()) {
+            return null;
+        }
+
+        return $notes->implode(' | ');
     }
 }

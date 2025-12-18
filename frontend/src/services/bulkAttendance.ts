@@ -119,6 +119,7 @@ export interface DailyReportSummary {
 
 export interface DailyReportClass {
   grade_name: string;
+  grade_level?: number;
   total_students: number;
   morning_present: number;
   morning_excused: number;
@@ -207,8 +208,19 @@ class BulkAttendanceService {
           overall_daily_rate: number;
           classes: Array<{
             grade_name: string;
-            daily_attendance_rate: number;
+            total_students: number;
+            morning_present: number;
+            morning_excused: number;
+            morning_unexcused: number;
+            evening_present: number;
+            evening_excused: number;
+            evening_unexcused: number;
+            morning_attendance_rate: number; // Backend casts to float
+            evening_attendance_rate: number; // Backend casts to float
+            daily_attendance_rate: number;   // Backend casts to float
             is_complete: boolean;
+            morning_notes?: string | null;
+            evening_notes?: string | null;
           }>;
         };
       };
@@ -437,21 +449,51 @@ class BulkAttendanceService {
     const transformedData: any[] = [];
     let recordId = 1;
 
+    const normalizedFilter = filters.class_name
+      ? filters.class_name.replace(/[-\s]/g, '').toLowerCase()
+      : null;
+
     Object.entries(response.data.summaries).forEach(([date, summary]) => {
       summary.classes.forEach((classData) => {
+        const classLabel = classData.grade_level
+          ? `${classData.grade_level}-${classData.grade_name}`
+          : classData.grade_name;
+        const normalizedClass = classLabel
+          ? classLabel.replace(/[-\s]/g, '').toLowerCase()
+          : '';
+
         // Skip if class filter is applied and doesn't match
-        if (filters.class_name && filters.class_name !== classData.grade_name) {
+        if (normalizedFilter && normalizedClass !== normalizedFilter) {
           return;
         }
+
+        // Calculate absent counts
+        const morningAbsent = (classData.morning_excused || 0) + (classData.morning_unexcused || 0);
+        const eveningAbsent = (classData.evening_excused || 0) + (classData.evening_unexcused || 0);
 
         transformedData.push({
           id: recordId++,
           date: date,
           school_name: response.data.school.name,
           class_name: classData.grade_name,
-          start_count: summary.morning_present_total || 0,
-          end_count: summary.evening_present_total || 0,
+          grade_level: classData.grade_level,
+          start_count: classData.morning_present || 0,
+          end_count: classData.evening_present || 0,
           attendance_rate: classData.daily_attendance_rate || 0,
+          total_students: classData.total_students || 0,
+          morning_present: classData.morning_present || 0,
+          morning_excused: classData.morning_excused || 0,
+          morning_unexcused: classData.morning_unexcused || 0,
+          evening_present: classData.evening_present || 0,
+          evening_excused: classData.evening_excused || 0,
+          evening_unexcused: classData.evening_unexcused || 0,
+          morning_attendance_rate: classData.morning_attendance_rate || 0,
+          evening_attendance_rate: classData.evening_attendance_rate || 0,
+          daily_attendance_rate: classData.daily_attendance_rate || 0,
+          first_session_absent: morningAbsent,
+          last_session_absent: eveningAbsent,
+          morning_notes: classData.morning_notes || null,
+          evening_notes: classData.evening_notes || null,
           notes: classData.is_complete ? 'Tamamlandı' : 'Davam edir',
           school: {
             id: response.data.school.id,
@@ -524,7 +566,12 @@ class BulkAttendanceService {
     const totalDays = summaries.length;
     const totalRecords = summaries.reduce((sum, s) => sum + s.total_classes, 0);
     const totalStudents = summaries.length > 0 ? summaries[0].total_students : 0;
-    const averageAttendance = summaries.reduce((sum, s) => sum + (s.overall_daily_rate || 0), 0) / (totalDays || 1);
+
+    // Parse overall_daily_rate as it comes as number from backend
+    const averageAttendance = summaries.reduce((sum, s) => {
+      const rate = typeof s.overall_daily_rate === 'number' ? s.overall_daily_rate : 0;
+      return sum + rate;
+    }, 0) / (totalDays || 1);
 
     // Calculate trend (simple: compare first half vs second half)
     let trendDirection: 'up' | 'down' | 'stable' = 'stable';
