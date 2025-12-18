@@ -77,32 +77,32 @@ export const improvedNavigationConfig: MenuGroup[] = [
     id: 'academic-tracking',
     label: 'Akademik İzləmə',
     panel: 'work',
-    roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
+    roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
     items: [
       {
         id: 'attendance',
         label: 'Davamiyyət',
         icon: UserCheck,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM],
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
         children: [
           {
             id: 'attendance-record',
             label: 'Davamiyyət Qeydiyyatı',
             path: '/school/attendance',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
           },
           {
             id: 'attendance-bulk',
             label: 'Toplu Davamiyyət Qeydiyyatı',
             path: '/school/attendance/bulk',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SCHOOLADMIN],
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
             description: 'Siniflərdə toplu şəkildə davamiyyət qeyd edin'
           },
           {
             id: 'attendance-reports',
             label: 'Davamiyyət Hesabatları',
             path: '/school/attendance/reports',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
           },
           {
             id: 'attendance-regional-overview',

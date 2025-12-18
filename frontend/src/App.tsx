@@ -534,7 +534,7 @@ const App = () => {
               } />
               <Route path="school/attendance" element={
                 <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
                     <SchoolAttendanceRecord />
                   </RoleProtectedRoute>
                 </LazyWrapper>
@@ -548,7 +548,7 @@ const App = () => {
               } />
               <Route path="school/attendance/reports" element={
                 <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
                     <AttendanceReports />
                   </RoleProtectedRoute>
                 </LazyWrapper>
