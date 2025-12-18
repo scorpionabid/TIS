@@ -18,8 +18,9 @@ import {
   Loader2
 } from 'lucide-react';
 import { attendanceService } from '@/services/attendance';
+import bulkAttendanceService from '@/services/bulkAttendance';
 import { institutionService } from '@/services/institutions';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subDays } from 'date-fns';
+import { format, startOfWeek, endOfWeek, subDays } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
@@ -37,6 +38,10 @@ interface AttendanceRecord {
   end_count: number;
   attendance_rate: number;
   notes?: string;
+  date_label?: string;
+  range_start?: string;
+  range_end?: string;
+  record_count?: number;
   school?: {
     id: number;
     name: string;
@@ -216,7 +221,13 @@ export default function AttendanceReports() {
         filters.per_page = AGGREGATION_FETCH_LIMIT;
       }
 
-      return attendanceService.getAttendanceRecords(filters);
+      filters.group_by = reportType;
+
+      // Use bulkAttendanceService for school admins, fallback to attendanceService for others
+      if (isSchoolAdmin) {
+        return bulkAttendanceService.getAttendanceReports(filters);
+      }
+      return attendanceService.getAttendanceReports(filters);
     },
     enabled: hasAccess,
     keepPreviousData: true,
@@ -243,6 +254,10 @@ export default function AttendanceReports() {
         filters.school_id = parseInt(selectedSchool);
       }
 
+      // Use bulkAttendanceService for school admins, fallback to attendanceService for others
+      if (isSchoolAdmin) {
+        return bulkAttendanceService.getAttendanceStats(filters);
+      }
       return attendanceService.getAttendanceStats(filters);
     },
     enabled: hasAccess,
@@ -289,19 +304,6 @@ export default function AttendanceReports() {
   const activeTrendCopy = trendCopy[attendanceStats.trend_direction];
 
   // Determine school label for grouped records
-  const activeSchoolName = useMemo(() => {
-    if (isSchoolAdmin && currentUser?.institution?.name) {
-      return currentUser.institution.name;
-    }
-
-    if (!isSchoolAdmin && selectedSchool !== 'all') {
-      const found = schools.find((school) => school.id.toString() === selectedSchool);
-      return found?.name ?? 'Seçilmiş məktəb';
-    }
-
-    return 'Bütün məktəblər';
-  }, [isSchoolAdmin, currentUser, selectedSchool, schools]);
-
   // Load class options for the selected school scope
   const {
     data: fetchedClassOptions,
@@ -335,92 +337,7 @@ export default function AttendanceReports() {
     return Array.from(optionSet).sort((a, b) => a.localeCompare(b, 'az', { numeric: true }));
   }, [fetchedClassOptions, fallbackClasses, selectedClass]);
 
-  const classLabel = selectedClass !== 'all' ? selectedClass : 'Bütün siniflər';
-
-  const groupedAttendance = useMemo(() => {
-    const parsedRecords = attendanceData
-      .map((record: AttendanceRecord) => ({
-        ...record,
-        dateObj: new Date(record.date),
-      }))
-      .filter((record) => !Number.isNaN(record.dateObj.getTime()));
-
-    const aggregate = (groupType: 'weekly' | 'monthly') => {
-      const buckets = new Map<
-        string,
-        {
-          start: Date;
-          end: Date;
-          totalStart: number;
-          totalEnd: number;
-          totalRate: number;
-          count: number;
-        }
-      >();
-
-      parsedRecords.forEach((record) => {
-        const rangeStart =
-          groupType === 'weekly'
-            ? startOfWeek(record.dateObj, { weekStartsOn: 1 })
-            : startOfMonth(record.dateObj);
-        const rangeEnd =
-          groupType === 'weekly'
-            ? endOfWeek(record.dateObj, { weekStartsOn: 1 })
-            : endOfMonth(record.dateObj);
-        const key =
-          groupType === 'weekly'
-            ? format(rangeStart, 'yyyy-MM-dd')
-            : format(rangeStart, 'yyyy-MM');
-
-        if (!buckets.has(key)) {
-          buckets.set(key, {
-            start: rangeStart,
-            end: rangeEnd,
-            totalStart: 0,
-            totalEnd: 0,
-            totalRate: 0,
-            count: 0,
-          });
-        }
-
-        const bucket = buckets.get(key)!;
-        bucket.totalStart += record.start_count;
-        bucket.totalEnd += record.end_count;
-        bucket.totalRate += record.attendance_rate;
-        bucket.count += 1;
-      });
-
-      return Array.from(buckets.entries())
-        .sort((a, b) => b[1].start.getTime() - a[1].start.getTime())
-        .map(([, bucket], index) => ({
-          id: index + 1,
-          date: bucket.start.toISOString(),
-          dateLabel:
-            groupType === 'weekly'
-              ? `${format(bucket.start, 'dd.MM', { locale: az })} - ${format(bucket.end, 'dd.MM.yyyy', { locale: az })}`
-              : format(bucket.start, 'MMMM yyyy', { locale: az }),
-          school_name: activeSchoolName,
-          class_name: classLabel,
-          start_count: bucket.totalStart,
-          end_count: bucket.totalEnd,
-          attendance_rate: bucket.count > 0 ? Math.round(bucket.totalRate / bucket.count) : 0,
-          notes: `${bucket.count} qeyd`,
-        }));
-    };
-
-    return {
-      daily: attendanceData,
-      weekly: aggregate('weekly'),
-      monthly: aggregate('monthly'),
-    };
-  }, [attendanceData, activeSchoolName, classLabel]);
-
-  const displayRecords =
-    reportType === 'weekly'
-      ? groupedAttendance.weekly
-      : reportType === 'monthly'
-      ? groupedAttendance.monthly
-      : groupedAttendance.daily;
+  const displayRecords = attendanceData;
 
   // Security check after all hooks
   if (!hasAccess) {
@@ -674,7 +591,7 @@ export default function AttendanceReports() {
 
             <div className="space-y-2">
               <Label>Hesabat növü</Label>
-              <Select value={reportType} onValueChange={(value: any) => setReportType(value)}>
+              <Select value={reportType} onValueChange={(value) => setReportType(value as 'daily' | 'weekly' | 'monthly')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -788,10 +705,11 @@ export default function AttendanceReports() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  displayRecords.map((record: AttendanceRecord & { dateLabel?: string }, index: number) => {
-                    const formattedDate = record.dateLabel
-                      ? record.dateLabel
-                      : format(new Date(record.date), 'dd.MM.yyyy', { locale: az });
+                  displayRecords.map((record: AttendanceRecord, index: number) => {
+                    const formattedDate =
+                      record.date_label && reportType !== 'daily'
+                        ? record.date_label
+                        : format(new Date(record.date), 'dd.MM.yyyy', { locale: az });
 
                     return (
                     <TableRow key={`${reportType}-${record.id ?? index}`}>

@@ -387,6 +387,170 @@ class BulkAttendanceService {
       },
     };
   }
+
+  /**
+   * Get attendance reports in format compatible with AttendanceReports page
+   * Transforms bulk attendance data to match the expected format
+   */
+  async getAttendanceReports(filters: {
+    start_date?: string;
+    end_date?: string;
+    school_id?: number;
+    class_name?: string;
+    page?: number;
+    per_page?: number;
+    group_by?: 'daily' | 'weekly' | 'monthly';
+  }): Promise<{
+    success: boolean;
+    data: Array<{
+      id: number;
+      date: string;
+      school_name: string;
+      class_name: string;
+      start_count: number;
+      end_count: number;
+      attendance_rate: number;
+      notes?: string;
+      school?: {
+        id: number;
+        name: string;
+        type: string;
+      };
+    }>;
+    meta?: {
+      current_page: number;
+      last_page: number;
+      per_page: number;
+      total: number;
+      from: number;
+      to: number;
+    };
+  }> {
+    // Use weekly summary to get data for the date range
+    const response = await this.getWeeklySummary(filters.start_date, filters.end_date);
+
+    if (!response.success) {
+      return { success: false, data: [] };
+    }
+
+    // Transform the data to match AttendanceReports format
+    const transformedData: any[] = [];
+    let recordId = 1;
+
+    Object.entries(response.data.summaries).forEach(([date, summary]) => {
+      summary.classes.forEach((classData) => {
+        // Skip if class filter is applied and doesn't match
+        if (filters.class_name && filters.class_name !== classData.grade_name) {
+          return;
+        }
+
+        transformedData.push({
+          id: recordId++,
+          date: date,
+          school_name: response.data.school.name,
+          class_name: classData.grade_name,
+          start_count: summary.morning_present_total || 0,
+          end_count: summary.evening_present_total || 0,
+          attendance_rate: classData.daily_attendance_rate || 0,
+          notes: classData.is_complete ? 'Tamamlandı' : 'Davam edir',
+          school: {
+            id: response.data.school.id,
+            name: response.data.school.name,
+            type: 'secondary_school'
+          }
+        });
+      });
+    });
+
+    // Sort by date descending
+    transformedData.sort((a, b) => b.date.localeCompare(a.date));
+
+    // Apply pagination if requested
+    const page = filters.page || 1;
+    const perPage = filters.per_page || 20;
+    const total = transformedData.length;
+    const startIndex = (page - 1) * perPage;
+    const endIndex = startIndex + perPage;
+    const paginatedData = transformedData.slice(startIndex, endIndex);
+
+    return {
+      success: true,
+      data: paginatedData,
+      meta: {
+        current_page: page,
+        last_page: Math.ceil(total / perPage),
+        per_page: perPage,
+        total: total,
+        from: startIndex + 1,
+        to: Math.min(endIndex, total)
+      }
+    };
+  }
+
+  /**
+   * Get attendance statistics for reports page
+   */
+  async getAttendanceStats(filters: {
+    start_date?: string;
+    end_date?: string;
+    school_id?: number;
+  }): Promise<{
+    success: boolean;
+    data: {
+      total_students: number;
+      average_attendance: number;
+      trend_direction: 'up' | 'down' | 'stable';
+      total_days: number;
+      total_records: number;
+    };
+  }> {
+    const response = await this.getWeeklySummary(filters.start_date, filters.end_date);
+
+    if (!response.success) {
+      return {
+        success: false,
+        data: {
+          total_students: 0,
+          average_attendance: 0,
+          trend_direction: 'stable',
+          total_days: 0,
+          total_records: 0
+        }
+      };
+    }
+
+    // Calculate statistics from summaries
+    const summaries = Object.values(response.data.summaries);
+    const totalDays = summaries.length;
+    const totalRecords = summaries.reduce((sum, s) => sum + s.total_classes, 0);
+    const totalStudents = summaries.length > 0 ? summaries[0].total_students : 0;
+    const averageAttendance = summaries.reduce((sum, s) => sum + (s.overall_daily_rate || 0), 0) / (totalDays || 1);
+
+    // Calculate trend (simple: compare first half vs second half)
+    let trendDirection: 'up' | 'down' | 'stable' = 'stable';
+    if (summaries.length >= 2) {
+      const midPoint = Math.floor(summaries.length / 2);
+      const firstHalfAvg = summaries.slice(0, midPoint).reduce((sum, s) => sum + (s.overall_daily_rate || 0), 0) / midPoint;
+      const secondHalfAvg = summaries.slice(midPoint).reduce((sum, s) => sum + (s.overall_daily_rate || 0), 0) / (summaries.length - midPoint);
+
+      if (secondHalfAvg > firstHalfAvg + 2) {
+        trendDirection = 'up';
+      } else if (secondHalfAvg < firstHalfAvg - 2) {
+        trendDirection = 'down';
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        total_students: totalStudents,
+        average_attendance: Math.round(averageAttendance * 100) / 100,
+        trend_direction: trendDirection,
+        total_days: totalDays,
+        total_records: totalRecords
+      }
+    };
+  }
 }
 
 export default new BulkAttendanceService();

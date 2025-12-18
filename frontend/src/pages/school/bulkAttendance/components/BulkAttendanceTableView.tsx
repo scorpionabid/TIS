@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -55,32 +55,37 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
     return Number.isFinite(parsed) ? parsed : 0;
   };
 
-  const summary = classes.reduce(
-    (acc, cls) => {
-      const data = attendanceData[cls.id];
-      if (!data || cls.total_students === 0) return acc;
+  const summary = useMemo(() => {
+    return classes.reduce(
+      (acc, cls) => {
+        const data = attendanceData[cls.id];
+        if (!data || cls.total_students === 0) return acc;
 
-      const excused = toSafeNumber(data[`${session}_excused`]);
-      const unexcused = toSafeNumber(data[`${session}_unexcused`]);
-      const present = Math.max(0, cls.total_students - (excused + unexcused));
+        const excused = toSafeNumber(data[`${session}_excused`]);
+        const unexcused = toSafeNumber(data[`${session}_unexcused`]);
+        const present = Math.max(
+          0,
+          cls.total_students - (excused + unexcused)
+        );
 
-      acc.totalStudents += cls.total_students;
-      acc.totalPresent += present;
-      acc.totalExcused += excused;
-      acc.totalUnexcused += unexcused;
-      acc.classesCompleted +=
-        present + excused + unexcused === cls.total_students ? 1 : 0;
+        acc.totalStudents += cls.total_students;
+        acc.totalPresent += present;
+        acc.totalExcused += excused;
+        acc.totalUnexcused += unexcused;
+        acc.classesCompleted +=
+          present + excused + unexcused === cls.total_students ? 1 : 0;
 
-      return acc;
-    },
-    {
-      totalStudents: 0,
-      totalPresent: 0,
-      totalExcused: 0,
-      totalUnexcused: 0,
-      classesCompleted: 0,
-    }
-  );
+        return acc;
+      },
+      {
+        totalStudents: 0,
+        totalPresent: 0,
+        totalExcused: 0,
+        totalUnexcused: 0,
+        classesCompleted: 0,
+      }
+    );
+  }, [attendanceData, classes, session]);
 
   const overallRate =
     summary.totalStudents > 0
@@ -267,7 +272,7 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
                                 e.target.value
                               )
                             }
-                            placeholder={`$${
+                            placeholder={`${
                               session === "morning" ? "Səhər" : "Axşam"
                             } sessiyası üçün qeydlər...`}
                             rows={3}

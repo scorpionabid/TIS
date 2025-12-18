@@ -292,7 +292,8 @@ class SchoolAttendanceController extends BaseController
             $startDate = $request->get('start_date', Carbon::now()->startOfMonth()->format('Y-m-d'));
             $endDate = $request->get('end_date', Carbon::now()->format('Y-m-d'));
 
-            $query->whereBetween('date', [$startDate, $endDate]);
+            $query->whereDate('date', '>=', $startDate)
+                ->whereDate('date', '<=', $endDate);
 
             // Apply user-based filtering
             $this->applyUserFiltering($query, Auth::user());
@@ -332,6 +333,181 @@ class SchoolAttendanceController extends BaseController
             return response()->json([
                 'success' => false,
                 'message' => 'Statistikalar hesablanarkən xəta baş verdi',
+                'error' => config('app.debug') ? $e->getMessage() : null,
+            ], 500);
+        }
+    }
+
+    /**
+     * Get normalized attendance reports with optional aggregation
+     */
+    public function reports(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'group_by' => 'nullable|in:daily,weekly,monthly',
+            'school_id' => 'nullable|exists:institutions,id',
+            'class_name' => 'nullable|string|max:50',
+            'start_date' => 'nullable|date',
+            'end_date' => 'nullable|date|after_or_equal:start_date',
+            'per_page' => 'nullable|integer|min:1|max:200',
+            'page' => 'nullable|integer|min:1',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Filter parametrləri yanlışdır',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        try {
+            $validated = $validator->validated();
+            $groupBy = $validated['group_by'] ?? 'daily';
+            $startDate = $validated['start_date'] ?? Carbon::now()->startOfMonth()->format('Y-m-d');
+            $endDate = $validated['end_date'] ?? Carbon::now()->format('Y-m-d');
+
+            $query = SchoolAttendance::with(['school:id,name,type']);
+
+            if (! empty($validated['school_id'])) {
+                $query->where('school_id', $validated['school_id']);
+            }
+
+            if (! empty($validated['class_name'])) {
+                $query->where('class_name', $validated['class_name']);
+            }
+
+            $query->whereDate('date', '>=', $startDate)
+                ->whereDate('date', '<=', $endDate);
+            $this->applyUserFiltering($query, Auth::user());
+
+            if ($groupBy === 'daily') {
+                $perPage = $validated['per_page'] ?? 20;
+                $records = $query->orderBy('date', 'desc')->paginate($perPage);
+
+                $dailyData = collect($records->items())->map(function ($record) {
+                    return [
+                        'id' => $record->id,
+                        'date' => $record->date,
+                        'date_label' => Carbon::parse($record->date)->format('Y-m-d'),
+                        'school_name' => $record->school?->name,
+                        'class_name' => $record->class_name,
+                        'start_count' => $record->start_count,
+                        'end_count' => $record->end_count,
+                        'attendance_rate' => $record->attendance_rate,
+                        'notes' => $record->notes,
+                        'school' => $record->school ? [
+                            'id' => $record->school->id,
+                            'name' => $record->school->name,
+                            'type' => $record->school->type,
+                        ] : null,
+                    ];
+                });
+
+                return response()->json([
+                    'success' => true,
+                    'data' => $dailyData,
+                    'meta' => [
+                        'current_page' => $records->currentPage(),
+                        'last_page' => $records->lastPage(),
+                        'per_page' => $records->perPage(),
+                        'total' => $records->total(),
+                        'from' => $records->firstItem(),
+                        'to' => $records->lastItem(),
+                    ],
+                    'context' => [
+                        'group_by' => $groupBy,
+                        'range' => [
+                            'start_date' => $startDate,
+                            'end_date' => $endDate,
+                        ],
+                    ],
+                ]);
+            }
+
+            $allRecords = $query->orderBy('date', 'desc')->get();
+            $schoolLabel = 'Bütün məktəblər';
+            $classLabel = $validated['class_name'] ?? 'Bütün siniflər';
+            $schoolContext = null;
+
+            if (! empty($validated['school_id'])) {
+                $school = Institution::find($validated['school_id']);
+                if ($school) {
+                    $schoolLabel = $school->name;
+                    $schoolContext = [
+                        'id' => $school->id,
+                        'name' => $school->name,
+                        'type' => $school->type,
+                    ];
+                }
+            } elseif (Auth::user()?->institution) {
+                $schoolLabel = Auth::user()->institution->name;
+                $schoolContext = [
+                    'id' => Auth::user()->institution->id,
+                    'name' => Auth::user()->institution->name,
+                    'type' => Auth::user()->institution->type,
+                ];
+            }
+
+            $grouped = $allRecords->groupBy(function ($record) use ($groupBy) {
+                $date = Carbon::parse($record->date);
+
+                if ($groupBy === 'weekly') {
+                    return $date->copy()->startOfWeek(Carbon::MONDAY)->format('Y-m-d');
+                }
+
+                return $date->format('Y-m');
+            })->map(function ($items, $key) use ($groupBy, $schoolLabel, $classLabel) {
+                if ($groupBy === 'weekly') {
+                    $rangeStart = Carbon::parse($key)->startOfWeek(Carbon::MONDAY);
+                    $rangeEnd = $rangeStart->copy()->endOfWeek(Carbon::SUNDAY);
+                    $dateLabel = $rangeStart->format('d.m') . ' - ' . $rangeEnd->format('d.m.Y');
+                } else {
+                    $rangeStart = Carbon::createFromFormat('Y-m', $key)->startOfMonth();
+                    $rangeEnd = $rangeStart->copy()->endOfMonth();
+                    $dateLabel = $rangeStart->translatedFormat('F Y');
+                }
+
+                $totalStart = $items->sum('start_count');
+                $totalEnd = $items->sum('end_count');
+                $recordCount = $items->count();
+
+                return [
+                    'id' => md5($key . $classLabel . $schoolLabel),
+                    'date' => $rangeStart->toDateString(),
+                    'date_label' => $dateLabel,
+                    'range_start' => $rangeStart->toDateString(),
+                    'range_end' => $rangeEnd->toDateString(),
+                    'school_name' => $schoolLabel,
+                    'class_name' => $classLabel,
+                    'start_count' => $totalStart,
+                    'end_count' => $totalEnd,
+                    'attendance_rate' => $totalStart > 0 ? round(($totalEnd / $totalStart) * 100, 2) : 0,
+                    'notes' => $recordCount . ' qeyd',
+                    'record_count' => $recordCount,
+                ];
+            })->values()->sortByDesc('date')->values();
+
+            return response()->json([
+                'success' => true,
+                'data' => $grouped,
+                'meta' => [
+                    'total' => $grouped->count(),
+                ],
+                'context' => [
+                    'group_by' => $groupBy,
+                    'range' => [
+                        'start_date' => $startDate,
+                        'end_date' => $endDate,
+                    ],
+                    'school' => $schoolContext,
+                    'class' => $classLabel,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Davamiyyət hesabatları hazırlanarkən xəta baş verdi',
                 'error' => config('app.debug') ? $e->getMessage() : null,
             ], 500);
         }

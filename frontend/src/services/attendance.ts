@@ -80,6 +80,43 @@ export interface AttendanceStatsResponse {
   message?: string;
 }
 
+export interface AttendanceReportRecord extends AttendanceRecord {
+  date_label?: string;
+  range_start?: string;
+  range_end?: string;
+  record_count?: number;
+}
+
+export interface AttendanceReportResponse {
+  success: boolean;
+  data: AttendanceReportRecord[];
+  meta?: {
+    current_page?: number;
+    last_page?: number;
+    per_page?: number;
+    total?: number;
+    from?: number;
+    to?: number;
+  };
+  context?: {
+    group_by?: 'daily' | 'weekly' | 'monthly';
+    range?: {
+      start_date: string;
+      end_date: string;
+    };
+    school?: {
+      id: number;
+      name: string;
+      type?: string;
+    } | null;
+    class?: string;
+  };
+}
+
+export interface AttendanceReportFilters extends AttendanceFilters {
+  group_by?: 'daily' | 'weekly' | 'monthly';
+}
+
 class AttendanceService extends BaseService {
   constructor() {
     super('/school-attendance');
@@ -103,6 +140,27 @@ class AttendanceService extends BaseService {
     const endpoint = queryString ? `${this.baseUrl}?${queryString}` : this.baseUrl;
     
     const response = await this.get<AttendanceApiResponse>(endpoint);
+    return response;
+  }
+
+  /**
+   * Get attendance reports (supports grouping)
+   */
+  async getAttendanceReports(filters?: AttendanceReportFilters): Promise<AttendanceReportResponse> {
+    const params = new URLSearchParams();
+
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, value.toString());
+        }
+      });
+    }
+
+    const queryString = params.toString();
+    const endpoint = queryString ? `${this.baseUrl}/reports?${queryString}` : `${this.baseUrl}/reports`;
+
+    const response = await this.get<AttendanceReportResponse>(endpoint);
     return response;
   }
 

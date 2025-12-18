@@ -93,6 +93,7 @@ Route::prefix('school-attendance')->group(function () {
 
     // Statistics and filtering (must come before parameterized routes)
     Route::get('/stats', [App\Http\Controllers\SchoolAttendanceController::class, 'stats'])->middleware('permission:school_attendance.read|attendance.read');
+    Route::get('/reports', [App\Http\Controllers\SchoolAttendanceController::class, 'reports'])->middleware('permission:school_attendance.read|attendance.read');
     Route::get('/schools/{school}/classes', [App\Http\Controllers\SchoolAttendanceController::class, 'getSchoolClasses'])->middleware('permission:school_attendance.read|attendance.read');
 
     // Bulk operations

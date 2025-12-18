@@ -540,7 +540,7 @@ const App = () => {
               } />
               <Route path="school/attendance/reports" element={
                 <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
                     <AttendanceReports />
                   </RoleProtectedRoute>
                 </LazyWrapper>

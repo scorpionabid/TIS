@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, AlertCircle } from "lucide-react";
 import { ClassWithAttendance } from "@/services/bulkAttendance";
 import {
@@ -191,6 +192,31 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
 
               <div className="text-xs text-gray-600 text-center">
                 Ümumi: {cls.total_students} | Qeyd edilmiş: {sessionTotal}
+              </div>
+
+              <div>
+                <Label
+                  htmlFor={`mobile_${session}_notes_${cls.id}`}
+                  className="text-xs text-gray-700"
+                >
+                  Qeydlər
+                </Label>
+                <Textarea
+                  id={`mobile_${session}_notes_${cls.id}`}
+                  value={data[`${session}_notes`]}
+                  onChange={(e) =>
+                    updateAttendance(
+                      cls.id,
+                      `${session}_notes`,
+                      e.target.value
+                    )
+                  }
+                  placeholder={`${
+                    session === "morning" ? "Səhər" : "Axşam"
+                  } sessiyası üçün qeydlər...`}
+                  rows={3}
+                  className="mt-1"
+                />
               </div>
             </CardContent>
           </Card>

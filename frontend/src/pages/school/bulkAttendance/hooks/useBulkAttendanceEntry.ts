@@ -22,6 +22,16 @@ type AttendanceNumericField = `${AttendanceSession}_${
   | "unexcused"}`;
 type AttendanceNoteField = `${AttendanceSession}_notes`;
 
+const DRAFT_STORAGE_PREFIX = "bulk-attendance-draft";
+const getDraftStorageKey = (date: string) =>
+  `${DRAFT_STORAGE_PREFIX}:${date}`;
+
+interface AttendanceDraftPayload {
+  updatedAt: string;
+  data: AttendanceFormData;
+  dirty: DirtySessionsState;
+}
+
 const useBulkAttendanceEntry = () => {
   const [selectedDate, setSelectedDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -42,11 +52,14 @@ const useBulkAttendanceEntry = () => {
     message: "",
     timestamp: null,
     mode: "manual",
+    session: null,
   });
 
   const queryClient = useQueryClient();
   const autoSaveModeRef = useRef<"manual" | "auto">("manual");
   const pendingSessionRef = useRef<AttendanceSession | null>(null);
+  const classTotalsRef = useRef<Map<number, number>>(new Map());
+  const hasWindow = typeof window !== "undefined";
 
   const classesQuery = useQuery<BulkAttendanceResponse>({
     queryKey: ["bulk-attendance-classes", selectedDate],
@@ -73,6 +86,7 @@ const useBulkAttendanceEntry = () => {
         message: isAutoSave ? "Avto saxlanılır..." : "Saxlanılır...",
         timestamp: new Date().toISOString(),
         mode: isAutoSave ? "auto" : "manual",
+        session,
       });
       if (isAutoSave) {
         setIsAutoSaving(true);
@@ -129,6 +143,7 @@ const useBulkAttendanceEntry = () => {
             : "Qismən saxlanılma tamamlandı",
         timestamp: new Date().toISOString(),
         mode: variables.isAutoSave ? "auto" : "manual",
+        session: variables.session,
       });
 
       setDirtySessions((prev) => ({
@@ -162,6 +177,7 @@ const useBulkAttendanceEntry = () => {
         message: errorMessage,
         timestamp: new Date().toISOString(),
         mode: variables?.isAutoSave ? "auto" : "manual",
+        session: variables?.session ?? null,
       });
 
       if (variables?.isAutoSave) {
@@ -179,7 +195,7 @@ const useBulkAttendanceEntry = () => {
 
   useEffect(() => {
     if (classesQuery.data?.data.classes) {
-      const initialData: AttendanceFormData = {};
+      let initialData: AttendanceFormData = {};
 
       classesQuery.data.data.classes.forEach((cls) => {
         initialData[cls.id] = {
@@ -196,13 +212,138 @@ const useBulkAttendanceEntry = () => {
         };
       });
 
+      let dirtyState: DirtySessionsState = {
+        morning: false,
+        evening: false,
+      };
+      let restoredDraft = false;
+
+      if (hasWindow) {
+        const storageKey = getDraftStorageKey(selectedDate);
+        const storedDraft = window.localStorage.getItem(storageKey);
+        if (storedDraft) {
+          try {
+            const parsed = JSON.parse(
+              storedDraft
+            ) as AttendanceDraftPayload;
+            if (parsed?.data) {
+              const merged: AttendanceFormData = { ...initialData };
+              Object.entries(parsed.data).forEach(([gradeId, entry]) => {
+                if (merged[gradeId]) {
+                  merged[gradeId] = {
+                    ...merged[gradeId],
+                    ...entry,
+                  };
+                }
+              });
+              initialData = merged;
+              dirtyState = parsed.dirty ?? {
+                morning: true,
+                evening: true,
+              };
+              restoredDraft = true;
+            }
+          } catch (draftError) {
+            console.error(
+              "[BulkAttendance] Draft parse failed",
+              draftError
+            );
+            window.localStorage.removeItem(storageKey);
+          }
+        }
+      }
+
       setAttendanceData(initialData);
+      setDirtySessions(dirtyState);
+      setErrors({});
+      setServerErrors({});
+
+      if (restoredDraft) {
+        toast.info("Son saxlanılmamış məlumatlar bərpa olundu");
+      }
     }
-  }, [classesQuery.data]);
+  }, [classesQuery.data, selectedDate, hasWindow]);
+
+  useEffect(() => {
+    if (!hasWindow) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirtySessions.morning && !dirtySessions.evening) {
+        return;
+      }
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirtySessions, hasWindow]);
 
   const classes = classesQuery.data?.data.classes || [];
   const academicYearId = classesQuery.data?.data.academic_year?.id;
   const refetchClasses = () => classesQuery.refetch();
+
+  useEffect(() => {
+    const totals = new Map<number, number>();
+    classes.forEach((cls) => {
+      totals.set(Number(cls.id), cls.total_students);
+    });
+    classTotalsRef.current = totals;
+  }, [classes]);
+
+  useEffect(() => {
+    if (!hasWindow) {
+      return;
+    }
+
+    const storageKey = getDraftStorageKey(selectedDate);
+
+    if (!dirtySessions.morning && !dirtySessions.evening) {
+      window.localStorage.removeItem(storageKey);
+      return;
+    }
+
+    const draftPayload: AttendanceDraftPayload = {
+      updatedAt: new Date().toISOString(),
+      data: attendanceData,
+      dirty: dirtySessions,
+    };
+
+    window.localStorage.setItem(storageKey, JSON.stringify(draftPayload));
+  }, [attendanceData, dirtySessions, selectedDate, hasWindow]);
+
+  const prepareSessionPayload = (session: AttendanceSession) => {
+    if (!classes.length) {
+      console.warn("[BulkAttendance] Save aborted: no classes available");
+      toast.error("Sinif məlumatları tapılmadı");
+      return null;
+    }
+
+    if (!academicYearId) {
+      console.warn("[BulkAttendance] Save aborted: missing academicYearId");
+      toast.error("Aktiv tədris ili tapılmadı, davamiyyət saxlanıla bilmədi");
+      return null;
+    }
+
+    const isValid = validateSession(session);
+
+    if (!isValid) {
+      console.warn("[BulkAttendance] Save aborted: validation failed", {
+        session,
+      });
+      toast.error("Zəhmət olmasa bütün xətaları düzəldin");
+      return null;
+    }
+
+    const payload = buildPayload(session);
+
+    if (!payload) {
+      console.error("[BulkAttendance] Save aborted: payload build returned null");
+      toast.error("Davamiyyət məlumatı hazırlanarkən səhv baş verdi");
+      return null;
+    }
+
+    return payload;
+  };
 
   const validateSession = (session: AttendanceSession): boolean => {
     if (!classes.length) {
@@ -300,10 +441,8 @@ const useBulkAttendanceEntry = () => {
         const unexcusedKey =
           `${sessionPrefix}_unexcused` as AttendanceNumericField;
 
-        const targetClass = classes.find(
-          (cls) => Number(cls.id) === Number(gradeId)
-        );
-        const totalStudents = targetClass?.total_students ?? 0;
+        const totalStudents =
+          classTotalsRef.current.get(Number(gradeId)) ?? 0;
 
         const clamp = (val: number, min: number, max: number) =>
           Math.min(Math.max(val, min), max);
@@ -390,15 +529,9 @@ const useBulkAttendanceEntry = () => {
     }
 
     if (dirtySessions[activeSession]) {
-      const isValid = validateSession(activeSession);
-      if (!isValid) {
-        toast.error("Sessiya dəyişmədən əvvəl xətaları düzəldin");
-        return;
-      }
-
-      const payload = buildPayload(activeSession);
+      const payload = prepareSessionPayload(activeSession);
       if (!payload) {
-        toast.error("Davamiyyət məlumatı hazırlanarkən səhv baş verdi");
+        toast.error("Sessiya dəyişmədən əvvəl xətaları düzəldin");
         return;
       }
 
@@ -424,33 +557,8 @@ const useBulkAttendanceEntry = () => {
       });
     }
 
-    if (!classes.length) {
-      console.warn("[BulkAttendance] Save aborted: no classes available");
-      toast.error("Sinif məlumatları tapılmadı");
-      return;
-    }
-
-    if (!academicYearId) {
-      console.warn("[BulkAttendance] Save aborted: missing academicYearId");
-      toast.error("Aktiv tədris ili tapılmadı, davamiyyət saxlanıla bilmədi");
-      return;
-    }
-
-    const isValid = validateSession(activeSession);
-
-    if (!isValid) {
-      console.warn("[BulkAttendance] Save aborted: validation failed", {
-        session: activeSession,
-      });
-      toast.error("Zəhmət olmasa bütün xətaları düzəldin");
-      return;
-    }
-
-    const payload = buildPayload(activeSession);
-
+    const payload = prepareSessionPayload(activeSession);
     if (!payload) {
-      console.error("[BulkAttendance] Save aborted: payload build returned null");
-      toast.error("Davamiyyət məlumatı hazırlanarkən səhv baş verdi");
       return;
     }
 
@@ -471,7 +579,10 @@ const useBulkAttendanceEntry = () => {
   const handleExportData = async () => {
     try {
       setIsExporting(true);
-      const blob = await bulkAttendanceService.exportCsv();
+      const blob = await bulkAttendanceService.exportCsv(
+        selectedDate,
+        selectedDate
+      );
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -541,6 +652,48 @@ const useBulkAttendanceEntry = () => {
   const getAttendanceRate = (present: number, total: number): number =>
     bulkAttendanceService.calculateAttendanceRate(present, total);
 
+  const saveDirtySessions = async (): Promise<boolean> => {
+    const sessionsToSave: AttendanceSession[] = [];
+    if (dirtySessions.morning) {
+      sessionsToSave.push("morning");
+    }
+    if (dirtySessions.evening) {
+      sessionsToSave.push("evening");
+    }
+
+    if (!sessionsToSave.length) {
+      return true;
+    }
+
+    if (saveAttendanceMutation.isPending) {
+      toast.info("Davamiyyət saxlanılır, zəhmət olmasa gözləyin");
+      return false;
+    }
+
+    for (const session of sessionsToSave) {
+      const payload = prepareSessionPayload(session);
+      if (!payload) {
+        return false;
+      }
+
+      try {
+        await saveAttendanceMutation.mutateAsync({
+          payload,
+          session,
+          isAutoSave: true,
+        });
+      } catch (mutationError) {
+        console.error("[BulkAttendance] Dirty session save failed", {
+          session,
+          mutationError,
+        });
+        return false;
+      }
+    }
+
+    return true;
+  };
+
   const isLoading = classesQuery.isLoading;
   const error = classesQuery.error;
   const classesData = classesQuery.data;
@@ -592,6 +745,7 @@ const useBulkAttendanceEntry = () => {
     handleMarkAllPresent,
     getAttendanceRate,
     refetchClasses,
+    saveDirtySessions,
     saveAttendanceMutation,
     queryClient,
   };

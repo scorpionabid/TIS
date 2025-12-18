@@ -1,9 +1,20 @@
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Calendar,
   Clock,
@@ -22,6 +33,10 @@ import BulkAttendanceMobileView from "./bulkAttendance/components/BulkAttendance
 import BulkAttendanceTableView from "./bulkAttendance/components/BulkAttendanceTableView";
 import { AttendanceSession } from "./bulkAttendance/types";
 
+type PendingAction =
+  | { type: "change-date"; value: string }
+  | { type: "refresh" };
+
 const BulkAttendanceEntry: React.FC = () => {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
   const {
@@ -37,6 +52,7 @@ const BulkAttendanceEntry: React.FC = () => {
       classesData,
       isLoading,
       error,
+      dirtySessions,
     },
     saveAttendanceMutation,
     setSelectedDate,
@@ -47,7 +63,72 @@ const BulkAttendanceEntry: React.FC = () => {
     updateAttendance,
     getAttendanceRate,
     refetchClasses,
+    saveDirtySessions,
   } = useBulkAttendanceEntry();
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(
+    null
+  );
+  const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
+  const [dialogSaving, setDialogSaving] = useState(false);
+
+  const hasDirtySessions = dirtySessions.morning || dirtySessions.evening;
+
+  const requestProtectedAction = (action: PendingAction) => {
+    if (!hasDirtySessions) {
+      executePendingAction(action);
+      return;
+    }
+    setPendingAction(action);
+    setShowUnsavedDialog(true);
+  };
+
+  const executePendingAction = (action: PendingAction | null) => {
+    if (!action) return;
+    if (action.type === "change-date" && action.value) {
+      setSelectedDate(action.value);
+    } else if (action.type === "refresh") {
+      refetchClasses();
+    }
+    setPendingAction(null);
+  };
+
+  const handleDateInputChange = (value: string) => {
+    if (!value || value === selectedDate) {
+      setSelectedDate(value);
+      return;
+    }
+    requestProtectedAction({ type: "change-date", value });
+  };
+
+  const handleRefreshClick = () => {
+    requestProtectedAction({ type: "refresh" });
+  };
+
+  const handleUnsavedConfirm = async () => {
+    setDialogSaving(true);
+    const saved = await saveDirtySessions();
+    setDialogSaving(false);
+    if (!saved) {
+      return;
+    }
+    setShowUnsavedDialog(false);
+    executePendingAction(pendingAction);
+  };
+
+  const handleUnsavedClose = () => {
+    if (dialogSaving) {
+      return;
+    }
+    setShowUnsavedDialog(false);
+    setPendingAction(null);
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    if (open) {
+      return;
+    }
+    handleUnsavedClose();
+  };
 
   if (isLoading) {
     return (
@@ -100,6 +181,12 @@ const BulkAttendanceEntry: React.FC = () => {
       lastSaveResult.mode === "auto" && lastSaveResult.status !== "saving"
         ? " (Avtomatik)"
         : "";
+    const sessionLabel =
+      lastSaveResult.session === "morning"
+        ? "Səhər sessiyası"
+        : lastSaveResult.session === "evening"
+        ? "Axşam sessiyası"
+        : "";
 
     const IconComponent = icon;
 
@@ -114,7 +201,36 @@ const BulkAttendanceEntry: React.FC = () => {
           {lastSaveResult.message || "Status yeniləndi"}
           {timeLabel ? ` · ${timeLabel}` : ""}
           {modeLabel}
+          {sessionLabel ? ` · ${sessionLabel}` : ""}
         </span>
+      </div>
+    );
+  };
+
+  const renderDirtyIndicators = () => {
+    const activeBadges = [];
+    if (dirtySessions.morning) {
+      activeBadges.push("Səhər sessiyası saxlanılmayıb");
+    }
+    if (dirtySessions.evening) {
+      activeBadges.push("Axşam sessiyası saxlanılmayıb");
+    }
+
+    if (!activeBadges.length) {
+      return null;
+    }
+
+    return (
+      <div className="flex flex-wrap gap-2">
+        {activeBadges.map((label) => (
+          <Badge
+            key={label}
+            variant="outline"
+            className="border-yellow-400 text-yellow-700"
+          >
+            {label}
+          </Badge>
+        ))}
       </div>
     );
   };
@@ -138,7 +254,7 @@ const BulkAttendanceEntry: React.FC = () => {
             <Input
               type="date"
               value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
+              onChange={(e) => handleDateInputChange(e.target.value)}
               className="w-40"
             />
           </div>
@@ -249,10 +365,13 @@ const BulkAttendanceEntry: React.FC = () => {
       </Tabs>
 
       {/* Action Buttons */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end sm:gap-4">
-        {renderSaveStatus()}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex flex-col gap-2">
+          {renderSaveStatus()}
+          {renderDirtyIndicators()}
+        </div>
         <div className="flex justify-end space-x-4">
-          <Button variant="outline" onClick={() => refetchClasses()}>
+          <Button variant="outline" onClick={handleRefreshClick}>
             Yenilə
           </Button>
           <Button
@@ -271,6 +390,30 @@ const BulkAttendanceEntry: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      <AlertDialog open={showUnsavedDialog} onOpenChange={handleDialogOpenChange}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Saxlanılmamış dəyişikliklər var</AlertDialogTitle>
+            <AlertDialogDescription>
+              Davam etməzdən əvvəl mövcud sessiya məlumatlarını saxlayaq?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={dialogSaving}>
+              Ləğv et
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button onClick={handleUnsavedConfirm} disabled={dialogSaving}>
+                {dialogSaving && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                )}
+                İndi saxla
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

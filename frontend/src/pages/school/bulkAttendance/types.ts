@@ -46,4 +46,5 @@ export type SaveResultState = {
   message?: string;
   timestamp: string | null;
   mode: "manual" | "auto";
+  session: AttendanceSession | null;
 };
