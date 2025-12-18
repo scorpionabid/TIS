@@ -212,8 +212,8 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
                     )
                   }
                   placeholder={`${
-                    session === "morning" ? "Səhər" : "Axşam"
-                  } sessiyası üçün qeydlər...`}
+                    session === "morning" ? "İlk dərs" : "Son dərs"
+                  } üçün qeydlər...`}
                   rows={3}
                   className="mt-1"
                 />

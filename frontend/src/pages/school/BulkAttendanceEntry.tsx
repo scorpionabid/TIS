@@ -183,9 +183,9 @@ const BulkAttendanceEntry: React.FC = () => {
         : "";
     const sessionLabel =
       lastSaveResult.session === "morning"
-        ? "Səhər sessiyası"
+        ? "İlk dərs"
         : lastSaveResult.session === "evening"
-        ? "Axşam sessiyası"
+        ? "Son dərs"
         : "";
 
     const IconComponent = icon;
@@ -210,10 +210,10 @@ const BulkAttendanceEntry: React.FC = () => {
   const renderDirtyIndicators = () => {
     const activeBadges = [];
     if (dirtySessions.morning) {
-      activeBadges.push("Səhər sessiyası saxlanılmayıb");
+      activeBadges.push("İlk dərs saxlanılmayıb");
     }
     if (dirtySessions.evening) {
-      activeBadges.push("Axşam sessiyası saxlanılmayıb");
+      activeBadges.push("Son dərs saxlanılmayıb");
     }
 
     if (!activeBadges.length) {
@@ -307,11 +307,11 @@ const BulkAttendanceEntry: React.FC = () => {
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="morning" className="flex items-center space-x-2">
             <Clock className="h-4 w-4" />
-            <span>Səhər sessiyası</span>
+            <span>İlk dərs</span>
           </TabsTrigger>
           <TabsTrigger value="evening" className="flex items-center space-x-2">
             <Clock className="h-4 w-4" />
-            <span>Axşam sessiyası</span>
+            <span>Son dərs</span>
           </TabsTrigger>
         </TabsList>
 
@@ -383,9 +383,9 @@ const BulkAttendanceEntry: React.FC = () => {
             <span>
               {saveAttendanceMutation.isPending
                 ? "Saxlanılır..."
-                : `${
-                    activeSession === "morning" ? "Səhər" : "Axşam"
-                  } Sessiyasını Saxla`}
+                : activeSession === "morning"
+                ? "İlk dərsi saxla"
+                : "Son dərsi saxla"}
             </span>
           </Button>
         </div>
