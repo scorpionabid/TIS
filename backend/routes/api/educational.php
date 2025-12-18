@@ -5,6 +5,7 @@ use App\Http\Controllers\API\RegionalScheduleController;
 use App\Http\Controllers\API\RegionAssessmentController;
 use App\Http\Controllers\API\ScheduleGenerationController;
 use App\Http\Controllers\API\TeachingLoadApiController;
+use App\Http\Controllers\Attendance\RegionalAttendanceController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\AssessmentResultFieldController;
 use App\Http\Controllers\AssessmentStageController;
@@ -116,6 +117,11 @@ Route::prefix('school-attendance')->group(function () {
     // Route::get('/alerts', [App\Http\Controllers\SchoolAttendanceController::class, 'getAttendanceAlerts'])->middleware('permission:school_attendance.read');
     // Route::post('/excuse-absence', [App\Http\Controllers\SchoolAttendanceController::class, 'excuseAbsence'])->middleware('permission:school_attendance.excuse');
     // Route::get('/patterns/{student}', [App\Http\Controllers\SchoolAttendanceController::class, 'getAttendancePatterns'])->middleware('permission:school_attendance.analytics');
+});
+
+Route::prefix('regional-attendance')->middleware(['auth:sanctum', 'role:superadmin|regionadmin|sektoradmin'])->group(function () {
+    Route::get('/overview', [RegionalAttendanceController::class, 'overview']);
+    Route::get('/schools/{school}/classes', [RegionalAttendanceController::class, 'schoolClasses']);
 });
 
 // Schedule Management Routes

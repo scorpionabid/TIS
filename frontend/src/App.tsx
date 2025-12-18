@@ -58,6 +58,7 @@ const RegionAdminSectors = lazy(() => import("./pages/regionadmin/RegionAdminSec
 const RegionSchedules = lazy(() => import("./pages/regionadmin/RegionSchedules"));
 const RegionTeacherManagement = lazy(() => import("./pages/regionadmin/RegionTeacherManagement").then(m => ({ default: m.RegionTeacherManagement })));
 const RegionClassManagement = lazy(() => import("./pages/regionadmin/RegionClassManagement"));
+const RegionAttendanceReports = lazy(() => import("./pages/regionadmin/RegionAttendanceReports"));
 
 // School pages  
 const SchoolTeachers = lazy(() => import("./pages/school/SchoolTeachers"));
@@ -491,6 +492,13 @@ const App = () => {
                 <Route path="regionadmin/documents/*" element={<div className="p-6"><h1>Regional Documents</h1><p>Hazırlanmaqdadır...</p></div>} />
                 <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
                 <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
+                <Route path="regionadmin/attendance/reports" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]}>
+                      <RegionAttendanceReports />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
                 <Route path="regionadmin/schedules" element={<LazyWrapper><RegionSchedules /></LazyWrapper>} />
                 <Route path="regionadmin/folders" element={<Navigate to="/resources?tab=folders" replace />} />
                 <Route path="regionadmin/schedule-dashboard" element={
@@ -540,7 +548,7 @@ const App = () => {
               } />
               <Route path="school/attendance/reports" element={
                 <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
                     <AttendanceReports />
                   </RoleProtectedRoute>
                 </LazyWrapper>

@@ -102,7 +102,14 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'attendance-reports',
             label: 'Davamiyyət Hesabatları',
             path: '/school/attendance/reports',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
+          },
+          {
+            id: 'attendance-regional-overview',
+            label: 'Regional Davamiyyət',
+            path: '/regionadmin/attendance/reports',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN],
+            description: 'Sektor və məktəb üzrə iştirak nəzarəti'
           }
         ]
       },
