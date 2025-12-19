@@ -1,11 +1,14 @@
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Filter, Plus, Clock, CheckCircle, AlertTriangle, Calendar } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Search, Plus, Clock, CheckCircle, AlertTriangle, Calendar, X } from "lucide-react";
 import { categoryLabels, priorityLabels, statusLabels } from "@/components/tasks/config/taskFormFields";
 import type { TaskTab, TaskTabValue } from "@/hooks/tasks/useTaskPermissions";
+import type { TaskFilterState } from "@/hooks/tasks/useTaskFilters";
 
 type TaskStats = {
   total: number;
@@ -31,9 +34,12 @@ type TasksHeaderProps = {
   onPriorityFilterChange: (value: string) => void;
   categoryFilter: string;
   onCategoryFilterChange: (value: string) => void;
+  deadlineFilter: string;
+  onDeadlineFilterChange: (value: string) => void;
   tasksCount: number;
   isFiltering: boolean;
   onClearFilters: () => void;
+  onApplyPreset: (preset: Partial<TaskFilterState>) => void;
   disabled?: boolean;
 };
 
@@ -53,11 +59,102 @@ export function TasksHeader({
   onPriorityFilterChange,
   categoryFilter,
   onCategoryFilterChange,
+  deadlineFilter,
+  onDeadlineFilterChange,
   tasksCount,
   isFiltering,
   onClearFilters,
+  onApplyPreset,
   disabled,
 }: TasksHeaderProps) {
+  const [selectedPreset, setSelectedPreset] = useState("");
+
+  const filterPresets = useMemo(
+    () => [
+      {
+        id: "overdue-urgent",
+        label: "Gecikmiş & təcili",
+        value: { deadlineFilter: "overdue", priorityFilter: "urgent" },
+      },
+      {
+        id: "in-progress",
+        label: "Aktiv tapşırıqlar",
+        value: { statusFilter: "in_progress", deadlineFilter: "upcoming" },
+      },
+      {
+        id: "completed",
+        label: "Tamamlanan",
+        value: { statusFilter: "completed" },
+      },
+    ],
+    []
+  );
+
+  const deadlineLabelMap: Record<string, string> = useMemo(
+    () => ({
+      overdue: "Gecikmiş",
+      upcoming: "Yaxınlaşan",
+    }),
+    []
+  );
+
+  const activeFilters = useMemo(() => {
+    const filters: { key: string; label: string; onRemove: () => void }[] = [];
+
+    if (searchTerm) {
+      filters.push({
+        key: "search",
+        label: `Axtarış: ${searchTerm}`,
+        onRemove: () => onSearchChange(""),
+      });
+    }
+
+    if (statusFilter !== "all") {
+      filters.push({
+        key: "status",
+        label: `Status: ${statusLabels[statusFilter] ?? statusFilter}`,
+        onRemove: () => onStatusFilterChange("all"),
+      });
+    }
+
+    if (priorityFilter !== "all") {
+      filters.push({
+        key: "priority",
+        label: `Prioritet: ${priorityLabels[priorityFilter] ?? priorityFilter}`,
+        onRemove: () => onPriorityFilterChange("all"),
+      });
+    }
+
+    if (categoryFilter !== "all") {
+      filters.push({
+        key: "category",
+        label: `Kateqoriya: ${categoryLabels[categoryFilter] ?? categoryFilter}`,
+        onRemove: () => onCategoryFilterChange("all"),
+      });
+    }
+
+    if (deadlineFilter !== "all") {
+      filters.push({
+        key: "deadline",
+        label: `Tarix: ${deadlineLabelMap[deadlineFilter] ?? deadlineFilter}`,
+        onRemove: () => onDeadlineFilterChange("all"),
+      });
+    }
+
+    return filters;
+  }, [
+    categoryFilter,
+    deadlineFilter,
+    deadlineLabelMap,
+    onCategoryFilterChange,
+    onDeadlineFilterChange,
+    onPriorityFilterChange,
+    onSearchChange,
+    onStatusFilterChange,
+    priorityFilter,
+    searchTerm,
+    statusFilter,
+  ]);
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -193,18 +290,67 @@ export function TasksHeader({
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={deadlineFilter} onValueChange={onDeadlineFilterChange} disabled={disabled}>
+            <SelectTrigger className="w-full sm:w-[160px]">
+              <SelectValue placeholder="Son tarix" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Bütün tarixlər</SelectItem>
+              <SelectItem value="overdue">Gecikmiş</SelectItem>
+              <SelectItem value="upcoming">Yaxınlaşan</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">{tasksCount} tapşırıq</span>
-          {isFiltering && (
-            <Button variant="outline" size="sm" onClick={onClearFilters} disabled={disabled}>
-              <Filter className="h-4 w-4 mr-1" />
-              Filterləri təmizlə
-            </Button>
-          )}
+          <Select
+            value={selectedPreset}
+            onValueChange={(value) => {
+              setSelectedPreset(value);
+              const preset = filterPresets.find((item) => item.id === value);
+              if (preset) {
+                onApplyPreset(preset.value);
+                setSelectedPreset("");
+              }
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger className="w-full sm:w-[190px]">
+              <SelectValue placeholder="Hazır filterlər" />
+            </SelectTrigger>
+            <SelectContent>
+              {filterPresets.map((preset) => (
+                <SelectItem key={preset.id} value={preset.id}>
+                  {preset.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
+
+      {isFiltering && activeFilters.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          {activeFilters.map((filter) => (
+            <Badge key={filter.key} variant="secondary" className="flex items-center gap-1">
+              {filter.label}
+              <button
+                type="button"
+                onClick={filter.onRemove}
+                className="rounded-full hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                aria-label={`${filter.label} filterini sil`}
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          <Button variant="ghost" size="sm" onClick={onClearFilters}>
+            Hamısını sıfırla
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,13 +1,15 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { taskService, Task } from "@/services/tasks";
+import { categoryLabels } from "@/components/tasks/config/taskFormFields";
 import { User } from "@/types/user";
 import { TaskFilterState } from "./useTaskFilters";
 import { TaskTabValue } from "./useTaskPermissions";
-import { categoryLabels } from "@/components/tasks/config/taskFormFields";
 
 export type SortField = "title" | "category" | "priority" | "status" | "deadline" | "assignee";
 export type SortDirection = "asc" | "desc";
+
+const DEFAULT_PAGE_SIZE = 25;
 
 type UseTasksDataParams = {
   currentUser: User | null;
@@ -28,29 +30,83 @@ export function useTasksData({
 }: UseTasksDataParams) {
   const [sortField, setSortField] = useState<SortField>("title");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPageState] = useState(DEFAULT_PAGE_SIZE);
   const queryClient = useQueryClient();
 
-  const regionTasksQuery = useQuery({
-    queryKey: ["tasks", "region", currentUser?.institution?.id],
-    queryFn: () => taskService.getAll({ origin_scope: "region" }),
-    enabled: hasAccess && canSeeRegionTab,
+  const scope = activeTab === "region" ? "region" : "sector";
+  const hasScopeAccess = scope === "region" ? canSeeRegionTab : canSeeSectorTab;
+
+  const serverSortableFields: Partial<Record<SortField, "created_at" | "deadline" | "priority" | "status">> = {
+    deadline: "deadline",
+    priority: "priority",
+    status: "status",
+  };
+
+  const queryFilters = useMemo(() => {
+    const nextFilters: Record<string, unknown> = {
+      origin_scope: scope,
+      page,
+      per_page: perPage,
+    };
+
+    const apiSortField = serverSortableFields[sortField];
+    if (apiSortField) {
+      nextFilters.sort_by = apiSortField;
+      nextFilters.sort_direction = sortDirection;
+    }
+
+    if (filters.searchTerm) {
+      nextFilters.search = filters.searchTerm;
+    }
+    if (filters.statusFilter !== "all") {
+      nextFilters.status = filters.statusFilter;
+    }
+    if (filters.priorityFilter !== "all") {
+      nextFilters.priority = filters.priorityFilter;
+    }
+    if (filters.categoryFilter !== "all") {
+      nextFilters.category = filters.categoryFilter;
+    }
+    if (filters.deadlineFilter !== "all") {
+      nextFilters.deadline_filter =
+        filters.deadlineFilter === "overdue" ? "overdue" : "approaching";
+    }
+
+    return nextFilters;
+  }, [
+    filters.categoryFilter,
+    filters.priorityFilter,
+    filters.searchTerm,
+    filters.statusFilter,
+    page,
+    perPage,
+    scope,
+    sortDirection,
+    sortField,
+  ]);
+
+  const queryKey = useMemo(
+    () => ["tasks", scope, currentUser?.institution?.id ?? "global", queryFilters],
+    [currentUser?.institution?.id, queryFilters, scope]
+  );
+
+  const tasksQuery = useQuery({
+    queryKey,
+    queryFn: () => taskService.getAll(queryFilters, false),
+    enabled: hasAccess && hasScopeAccess,
+    keepPreviousData: true,
   });
 
-  const sectorTasksQuery = useQuery({
-    queryKey: ["tasks", "sector", currentUser?.institution?.id],
-    queryFn: () => taskService.getAll({ origin_scope: "sector" }),
-    enabled: hasAccess && canSeeSectorTab,
-  });
-
-  const activeTasksQuery = activeTab === "region" ? regionTasksQuery : sectorTasksQuery;
-
-  const tasksResponse = activeTasksQuery.data;
+  const tasksResponse = tasksQuery.data;
   const rawTasks: Task[] = Array.isArray(tasksResponse?.data) ? tasksResponse.data : [];
-  const isLoading = activeTasksQuery.isLoading || activeTasksQuery.isFetching;
-  const error = activeTasksQuery.error as Error | null | undefined;
+  const isLoading = tasksQuery.isLoading;
+  const isFetching = tasksQuery.isFetching;
+  const error = tasksQuery.error as Error | null | undefined;
+  const pagination = tasksResponse?.pagination;
 
   const stats = useMemo(() => {
-    const total = rawTasks.length;
+    const total = pagination?.total ?? rawTasks.length;
     const pending = rawTasks.filter((task) => task.status === "pending").length;
     const inProgress = rawTasks.filter((task) => task.status === "in_progress").length;
     const completed = rawTasks.filter((task) => task.status === "completed").length;
@@ -61,38 +117,15 @@ export function useTasksData({
     }).length;
 
     return { total, pending, in_progress: inProgress, completed, overdue };
-  }, [rawTasks]);
+  }, [pagination?.total, rawTasks]);
 
   const tasks = useMemo(() => {
-    if (!hasAccess) return [];
-    const { searchTerm, statusFilter, priorityFilter, categoryFilter } = filters;
-    let filtered = [...rawTasks];
-
-    if (searchTerm) {
-      const lowered = searchTerm.toLowerCase();
-      filtered = filtered.filter((task) => {
-        const titleMatch = task.title.toLowerCase().includes(lowered);
-        const descriptionMatch =
-          task.description && task.description.toLowerCase().includes(lowered);
-        const assigneeMatch =
-          task.assignee?.name && task.assignee.name.toLowerCase().includes(lowered);
-        return titleMatch || Boolean(descriptionMatch) || Boolean(assigneeMatch);
-      });
+    if (serverSortableFields[sortField]) {
+      return rawTasks;
     }
 
-    if (statusFilter !== "all") {
-      filtered = filtered.filter((task) => task.status === statusFilter);
-    }
-
-    if (priorityFilter !== "all") {
-      filtered = filtered.filter((task) => task.priority === priorityFilter);
-    }
-
-    if (categoryFilter !== "all") {
-      filtered = filtered.filter((task) => task.category === categoryFilter);
-    }
-
-    const sorted = filtered.sort((a, b) => {
+    const sorted = [...rawTasks];
+    sorted.sort((a, b) => {
       let aValue: string | number = "";
       let bValue: string | number = "";
 
@@ -104,22 +137,6 @@ export function useTasksData({
         case "category":
           aValue = (categoryLabels[a.category] || a.category || "").toLowerCase();
           bValue = (categoryLabels[b.category] || b.category || "").toLowerCase();
-          break;
-        case "priority": {
-          const priorityOrder = { low: 1, medium: 2, high: 3, urgent: 4 } as Record<string, number>;
-          aValue = priorityOrder[a.priority] ?? 0;
-          bValue = priorityOrder[b.priority] ?? 0;
-          break;
-        }
-        case "status": {
-          const statusOrder = { pending: 1, in_progress: 2, review: 3, completed: 4, cancelled: 5 } as Record<string, number>;
-          aValue = statusOrder[a.status] ?? 0;
-          bValue = statusOrder[b.status] ?? 0;
-          break;
-        }
-        case "deadline":
-          aValue = a.deadline ? new Date(a.deadline).getTime() : 0;
-          bValue = b.deadline ? new Date(b.deadline).getTime() : 0;
           break;
         case "assignee":
           aValue = (a.assignee?.name || "").toLowerCase();
@@ -135,7 +152,7 @@ export function useTasksData({
     });
 
     return sorted;
-  }, [filters, hasAccess, rawTasks, sortDirection, sortField]);
+  }, [rawTasks, sortDirection, sortField]);
 
   const handleSort = useCallback(
     (field: SortField) => {
@@ -145,24 +162,36 @@ export function useTasksData({
         setSortField(field);
         setSortDirection("asc");
       }
+      setPage(1);
     },
     [sortField]
   );
 
   const refreshTasks = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ["tasks"], exact: false });
-    await queryClient.refetchQueries({ queryKey: ["tasks"], exact: false });
-  }, [queryClient]);
+    await queryClient.invalidateQueries({ queryKey: ["tasks", scope], exact: false });
+    await queryClient.refetchQueries({ queryKey: ["tasks", scope], exact: false });
+  }, [queryClient, scope]);
+
+  const handlePerPageChange = useCallback((value: number) => {
+    setPerPageState(value);
+    setPage(1);
+  }, []);
 
   return {
     tasks,
     stats,
     isLoading,
+    isFetching,
     error,
     sortField,
     sortDirection,
     handleSort,
     refreshTasks,
     rawTasks,
+    page,
+    perPage,
+    setPage,
+    setPerPage: handlePerPageChange,
+    pagination,
   };
 }

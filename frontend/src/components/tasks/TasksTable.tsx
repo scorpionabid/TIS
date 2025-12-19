@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Table,
   TableBody,
@@ -7,14 +8,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Task } from "@/services/tasks";
 import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
@@ -37,8 +30,17 @@ import {
   Wrench,
   Shield,
   BookOpen,
+  Loader2,
 } from "lucide-react";
 import type { ElementType } from "react";
+
+type PaginationMeta = {
+  current_page?: number;
+  per_page?: number;
+  total?: number;
+  total_pages?: number;
+  last_page?: number;
+};
 
 type TasksTableProps = {
   tasks: Task[];
@@ -52,6 +54,12 @@ type TasksTableProps = {
   canDeleteTaskItem: (task: Task) => boolean;
   showCreateButton: boolean;
   onCreateTask: () => void;
+  pagination?: PaginationMeta | null;
+  page: number;
+  perPage: number;
+  onPageChange: (page: number) => void;
+  onPerPageChange: (value: number) => void;
+  isFetching?: boolean;
 };
 
 const categoryIcons: Record<string, ElementType> = {
@@ -84,6 +92,12 @@ export function TasksTable({
   canDeleteTaskItem,
   showCreateButton,
   onCreateTask,
+  pagination,
+  page,
+  perPage,
+  onPageChange,
+  onPerPageChange,
+  isFetching = false,
 }: TasksTableProps) {
   const getSortIcon = (field: SortField) => {
     if (sortField !== field) {
@@ -99,6 +113,29 @@ export function TasksTable({
   const getCategoryIcon = (category: string) => {
     const IconComponent = categoryIcons[category] || MoreHorizontal;
     return <IconComponent className="h-4 w-4" />;
+  };
+
+  const totalItems = pagination?.total ?? tasks.length;
+  const currentPage = pagination?.current_page ?? page;
+  const derivedTotalPages =
+    pagination?.total_pages ??
+    pagination?.last_page ??
+    Math.max(1, Math.ceil(totalItems / perPage || 1));
+  const safeCurrentPage = Math.min(currentPage, derivedTotalPages);
+  const rangeStart = tasks.length === 0 ? 0 : (safeCurrentPage - 1) * perPage + 1;
+  const rangeEnd = tasks.length === 0 ? 0 : rangeStart + tasks.length - 1;
+  const perPageOptions = [10, 25, 50];
+
+  const handlePrevPage = () => {
+    if (safeCurrentPage > 1) {
+      onPageChange(safeCurrentPage - 1);
+    }
+  };
+
+  const handleNextPage = () => {
+    if (safeCurrentPage < derivedTotalPages) {
+      onPageChange(safeCurrentPage + 1);
+    }
   };
 
   return (
@@ -210,42 +247,91 @@ export function TasksTable({
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                        <span className="sr-only">Əməliyyatları aç</span>
-                        <MoreHorizontal className="h-4 w-4" />
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => onViewTask(task)}
+                    >
+                      <span className="sr-only">Ətraflı bax</span>
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    {canEditTaskItem(task) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => onEditTask(task)}
+                      >
+                        <span className="sr-only">Redaktə et</span>
+                        <Edit className="h-4 w-4" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Əməliyyatlar</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => onViewTask(task)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        Ətraflı bax
-                      </DropdownMenuItem>
-                      {canEditTaskItem(task) && (
-                        <DropdownMenuItem onClick={() => onEditTask(task)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Redaktə et
-                        </DropdownMenuItem>
-                      )}
-                      {canDeleteTaskItem(task) && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => onDeleteTask(task)} className="text-red-600">
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Sil
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    )}
+                    {canDeleteTaskItem(task) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => onDeleteTask(task)}
+                      >
+                        <span className="sr-only">Tapşırığı sil</span>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))
           )}
         </TableBody>
       </Table>
+      <div className="flex flex-col gap-3 border-t bg-muted/40 px-4 py-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {totalItems === 0
+            ? "0 tapşırıq"
+            : `${rangeStart}-${rangeEnd} aralığı · ${totalItems} tapşırıq`}
+          {isFetching && <Loader2 className="h-4 w-4 animate-spin" />}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select
+            value={String(perPage)}
+            onValueChange={(value) => onPerPageChange(Number(value))}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Sətir sayı" />
+            </SelectTrigger>
+            <SelectContent>
+              {perPageOptions.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {option}/səhifə
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handlePrevPage}
+              disabled={safeCurrentPage <= 1 || isFetching}
+            >
+              Əvvəlki
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              {safeCurrentPage} / {derivedTotalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleNextPage}
+              disabled={safeCurrentPage >= derivedTotalPages || isFetching}
+            >
+              Növbəti
+            </Button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

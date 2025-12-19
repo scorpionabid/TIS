@@ -5,6 +5,7 @@ export type TaskFilterState = {
   statusFilter: string;
   priorityFilter: string;
   categoryFilter: string;
+  deadlineFilter: string;
 };
 
 const DEFAULT_FILTERS: TaskFilterState = {
@@ -12,6 +13,7 @@ const DEFAULT_FILTERS: TaskFilterState = {
   statusFilter: "all",
   priorityFilter: "all",
   categoryFilter: "all",
+  deadlineFilter: "all",
 };
 
 export function useTaskFilters(initialState: Partial<TaskFilterState> = {}) {
@@ -21,21 +23,24 @@ export function useTaskFilters(initialState: Partial<TaskFilterState> = {}) {
   const [statusFilter, setStatusFilter] = useState(mergedInitialState.statusFilter);
   const [priorityFilter, setPriorityFilter] = useState(mergedInitialState.priorityFilter);
   const [categoryFilter, setCategoryFilter] = useState(mergedInitialState.categoryFilter);
+  const [deadlineFilter, setDeadlineFilter] = useState(mergedInitialState.deadlineFilter);
 
   const isFiltering = useMemo(() => {
     return (
       Boolean(searchTerm) ||
       statusFilter !== "all" ||
       priorityFilter !== "all" ||
-      categoryFilter !== "all"
+      categoryFilter !== "all" ||
+      deadlineFilter !== "all"
     );
-  }, [searchTerm, statusFilter, priorityFilter, categoryFilter]);
+  }, [searchTerm, statusFilter, priorityFilter, categoryFilter, deadlineFilter]);
 
   const clearFilters = useCallback(() => {
     setSearchTerm(DEFAULT_FILTERS.searchTerm);
     setStatusFilter(DEFAULT_FILTERS.statusFilter);
     setPriorityFilter(DEFAULT_FILTERS.priorityFilter);
     setCategoryFilter(DEFAULT_FILTERS.categoryFilter);
+    setDeadlineFilter(DEFAULT_FILTERS.deadlineFilter);
   }, []);
 
   const filters: TaskFilterState = {
@@ -43,6 +48,7 @@ export function useTaskFilters(initialState: Partial<TaskFilterState> = {}) {
     statusFilter,
     priorityFilter,
     categoryFilter,
+    deadlineFilter,
   };
 
   return {
@@ -51,6 +57,8 @@ export function useTaskFilters(initialState: Partial<TaskFilterState> = {}) {
     setStatusFilter,
     setPriorityFilter,
     setCategoryFilter,
+    deadlineFilter,
+    setDeadlineFilter,
     isFiltering,
     clearFilters,
   };

@@ -4,13 +4,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
-import {
-  Users,
-  Building2,
-  Target,
-  Search,
-  X
-} from 'lucide-react';
+import { Users, Building2, Target, Search, X } from 'lucide-react';
+
+const LIST_HEIGHT = 224;
+const ITEM_SIZE = 52;
+const OVERSCAN_COUNT = 4;
 
 export type TaskInstitution = {
   id: number;
@@ -54,6 +52,11 @@ export const TaskTargetingField: React.FC<TaskTargetingFieldProps> = ({
     return EMPTY_TASK_SELECTED_VALUES;
   }, [formField.value]);
 
+  const selectedValuesSet = React.useMemo(
+    () => new Set(selectedValues),
+    [selectedValues],
+  );
+
   // Watch departments to disable institution selection when departments are selected
   const watchedDepartments = form.watch('target_departments');
   const selectedDepartments: string[] = Array.isArray(watchedDepartments)
@@ -84,9 +87,25 @@ export const TaskTargetingField: React.FC<TaskTargetingFieldProps> = ({
     const query = searchTerm.toLowerCase().trim();
     if (!query) return institutions;
     return institutions.filter((institution) =>
-      institution.name.toLowerCase().includes(query)
+      institution.name.toLowerCase().includes(query),
     );
   }, [institutions, searchTerm]);
+
+  const institutionLookup = React.useMemo(() => {
+    const map = new Map<string, TaskInstitution>();
+    institutions.forEach((institution) => {
+      map.set(institution.id.toString(), institution);
+    });
+    return map;
+  }, [institutions]);
+
+  const selectedInstitutionsDetailed = React.useMemo(
+    () =>
+      selectedValues
+        .map((id) => institutionLookup.get(id))
+        .filter((inst): inst is TaskInstitution => Boolean(inst)),
+    [institutionLookup, selectedValues],
+  );
 
   // Bulk selection handlers
   const handleSelectAll = React.useCallback(() => {
@@ -98,6 +117,16 @@ export const TaskTargetingField: React.FC<TaskTargetingFieldProps> = ({
   const handleClear = React.useCallback(() => {
     updateValues([]);
   }, [updateValues]);
+
+  const handleRemoveSelected = React.useCallback(
+    (institutionId: number) => {
+      const next = selectedValues.filter(
+        (value) => Number(value) !== institutionId,
+      );
+      updateValues(next);
+    },
+    [selectedValues, updateValues],
+  );
 
   const handleSelectByLevel = React.useCallback((level: number) => {
     if (departmentsSelected) return;
@@ -118,18 +147,21 @@ export const TaskTargetingField: React.FC<TaskTargetingFieldProps> = ({
   }, [institutions, updateValues, departmentsSelected]);
 
   // Toggle individual institution
-  const toggleValue = React.useCallback((checked: boolean, institutionId: number) => {
-    const current = new Set(selectedValues);
-    const idAsString = institutionId.toString();
+  const toggleValue = React.useCallback(
+    (checked: boolean, institutionId: number) => {
+      const current = new Set(selectedValues);
+      const idAsString = institutionId.toString();
 
-    if (checked && !departmentsSelected) {
-      current.add(idAsString);
-    } else {
-      current.delete(idAsString);
-    }
+      if (checked && !departmentsSelected) {
+        current.add(idAsString);
+      } else {
+        current.delete(idAsString);
+      }
 
-    updateValues(Array.from(current));
-  }, [selectedValues, updateValues, departmentsSelected]);
+      updateValues(Array.from(current));
+    },
+    [selectedValues, updateValues, departmentsSelected],
+  );
 
   // Helper functions for filtering
   const isSchoolInstitution = React.useCallback((inst: TaskInstitution): boolean => {
@@ -155,6 +187,26 @@ export const TaskTargetingField: React.FC<TaskTargetingFieldProps> = ({
     schools: institutions.filter(isSchoolInstitution).length,
     preschools: institutions.filter(isPreschoolInstitution).length,
   }), [institutions, isSchoolInstitution, isPreschoolInstitution]);
+
+  const [scrollOffset, setScrollOffset] = React.useState(0);
+  const totalHeight = filteredInstitutions.length * ITEM_SIZE;
+  const visibleCount = Math.ceil(LIST_HEIGHT / ITEM_SIZE);
+  const startIndex = Math.max(
+    0,
+    Math.floor(scrollOffset / ITEM_SIZE) - OVERSCAN_COUNT
+  );
+  const endIndex = Math.min(
+    filteredInstitutions.length,
+    startIndex + visibleCount + OVERSCAN_COUNT * 2
+  );
+  const visibleInstitutions = React.useMemo(
+    () => filteredInstitutions.slice(startIndex, endIndex),
+    [filteredInstitutions, startIndex, endIndex]
+  );
+
+  const handleScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    setScrollOffset(event.currentTarget.scrollTop);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -188,6 +240,45 @@ export const TaskTargetingField: React.FC<TaskTargetingFieldProps> = ({
       {departmentsSelected && (
         <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
           ⚠️ Departament seçildiyinə görə müəssisə seçimi deaktiv edilib.
+        </div>
+      )}
+
+      {/* Selected Preview */}
+      {selectedInstitutionsDetailed.length > 0 && (
+        <div className="rounded-lg border bg-card/40 p-3 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-medium">
+              Seçilmiş müəssisələr ({selectedValues.length})
+            </p>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={handleClear}
+            >
+              Hamısını sil
+            </Button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {selectedInstitutionsDetailed.slice(0, 8).map((institution) => (
+              <Badge key={institution.id} variant="secondary" className="text-xs">
+                {institution.name}
+                <button
+                  type="button"
+                  onClick={() => handleRemoveSelected(institution.id)}
+                  className="ml-1 rounded-full hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`${institution.name} seçimini sil`}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </Badge>
+            ))}
+            {selectedValues.length > 8 && (
+              <Badge variant="outline" className="text-xs">
+                +{selectedValues.length - 8} daha
+              </Badge>
+            )}
+          </div>
         </div>
       )}
 
@@ -265,48 +356,63 @@ export const TaskTargetingField: React.FC<TaskTargetingFieldProps> = ({
       </div>
 
       {/* Institution List */}
-      <div className="border rounded-lg p-4 max-h-56 overflow-y-auto">
+      <div className="border rounded-lg p-0">
         {filteredInstitutions.length === 0 ? (
           <div className="text-center py-4 text-muted-foreground">
             <Building2 className="h-8 w-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">
               {searchTerm
-                ? 'Axtarış nəticəsində müəssisə tapılmadı'
-                : 'Müəssisə siyahısı yüklənir...'
-              }
+                ? "Axtarış nəticəsində müəssisə tapılmadı"
+                : "Müəssisə siyahısı yüklənir..."}
             </p>
           </div>
         ) : (
-          <div className="space-y-2">
-            {filteredInstitutions.map((institution) => {
-              const institutionId = institution.id.toString();
-              const isChecked = selectedValues.includes(institutionId);
+          <div
+            className="max-h-[224px] overflow-y-auto"
+            style={{ height: LIST_HEIGHT }}
+            onScroll={handleScroll}
+          >
+            <div style={{ height: totalHeight, position: "relative" }}>
+              {visibleInstitutions.map((institution, index) => {
+                const absoluteIndex = startIndex + index;
+                const institutionId = institution.id.toString();
+                const isChecked = selectedValuesSet.has(institutionId);
 
-              return (
-                <div
-                  key={institution.id}
-                  className="flex items-center space-x-2 py-1 hover:bg-muted/50 rounded-md px-2 -mx-2 transition-colors"
-                >
-                  <Checkbox
-                    id={`institution-${institution.id}`}
-                    checked={isChecked}
-                    onCheckedChange={(checked) => toggleValue(Boolean(checked), institution.id)}
-                    disabled={disabled || departmentsSelected}
-                  />
-                  <Label
-                    htmlFor={`institution-${institution.id}`}
-                    className="text-sm font-normal cursor-pointer flex items-center gap-2 flex-1"
+                return (
+                  <div
+                    key={institution.id}
+                    className="flex items-center space-x-2 px-2 py-1 hover:bg-muted/50"
+                    style={{
+                      position: "absolute",
+                      top: absoluteIndex * ITEM_SIZE,
+                      left: 0,
+                      right: 0,
+                      height: ITEM_SIZE,
+                    }}
                   >
-                    <span className="flex-1">{institution.name}</span>
-                    {institution.level && (
-                      <Badge variant="outline" className="text-xs">
-                        Səviyyə {institution.level}
-                      </Badge>
-                    )}
-                  </Label>
-                </div>
-              );
-            })}
+                    <Checkbox
+                      id={`institution-${institution.id}`}
+                      checked={isChecked}
+                      onCheckedChange={(checked) =>
+                        toggleValue(Boolean(checked), institution.id)
+                      }
+                      disabled={disabled || departmentsSelected}
+                    />
+                    <Label
+                      htmlFor={`institution-${institution.id}`}
+                      className="text-sm font-normal cursor-pointer flex items-center gap-2 flex-1"
+                    >
+                      <span className="flex-1">{institution.name}</span>
+                      {institution.level && (
+                        <Badge variant="outline" className="text-xs">
+                          Səviyyə {institution.level}
+                        </Badge>
+                      )}
+                    </Label>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

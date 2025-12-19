@@ -14,7 +14,7 @@ import { logger } from '@/utils/logger';
 import { accessibilityChecker } from '@/utils/accessibility-checker';
 import { BaseModalTabsContext } from './BaseModal.context';
 import { TabProgressIndicator } from './TabProgressIndicator';
-import { useForm } from 'react-hook-form';
+import { useForm, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
@@ -52,6 +52,8 @@ export interface BaseModalProps {
   // Options
   maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl';
   closeOnSubmit?: boolean;
+  onFormInstance?: (form: UseFormReturn<any>) => void;
+  onValuesChange?: (values: Record<string, any>) => void;
 }
 
 const colorClasses = {
@@ -78,6 +80,8 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   submitLabel,
   maxWidth = '4xl',
   closeOnSubmit = true,
+  onFormInstance,
+  onValuesChange,
 }) => {
   const [activeTab, setActiveTab] = React.useState<string>(
     tabs.length > 0 ? tabs[0].id : 'default'
@@ -145,7 +149,30 @@ export const BaseModal: React.FC<BaseModalProps> = ({
   const sharedForm = useForm({
     resolver: zodResolver(schema),
     defaultValues: defaultValues,
+    mode: 'onBlur',
+    reValidateMode: 'onChange',
   });
+
+  React.useEffect(() => {
+    onFormInstance?.(sharedForm);
+  }, [onFormInstance, sharedForm]);
+
+  React.useEffect(() => {
+    if (!open) {
+      sharedForm.reset(defaultValues);
+      return;
+    }
+
+    sharedForm.reset(defaultValues);
+  }, [defaultValues, open, sharedForm]);
+
+  React.useEffect(() => {
+    if (!onValuesChange || !open) return;
+    const subscription = sharedForm.watch((values) => {
+      onValuesChange(values as Record<string, any>);
+    });
+    return () => subscription.unsubscribe();
+  }, [onValuesChange, open, sharedForm]);
 
   // Reset tab when modal opens
   React.useEffect(() => {

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -5,11 +6,12 @@ import { CreateTaskData, Task, UpdateTaskData, taskService } from "@/services/ta
 import { TasksHeader } from "@/components/tasks/TasksHeader";
 import { TasksTable } from "@/components/tasks/TasksTable";
 import { TaskModals } from "@/components/tasks/TaskModals";
-import { useTaskFilters } from "@/hooks/tasks/useTaskFilters";
+import { TaskFilterState, useTaskFilters } from "@/hooks/tasks/useTaskFilters";
 import { useTaskPermissions } from "@/hooks/tasks/useTaskPermissions";
 import { useTasksData } from "@/hooks/tasks/useTasksData";
 import { useTaskModals } from "@/hooks/tasks/useTaskModals";
 import { normalizeCreatePayload } from "@/utils/taskActions";
+import { usePrefetchTaskFormData } from "@/hooks/tasks/useTaskFormData";
 
 export default function Tasks() {
   const { currentUser } = useAuth();
@@ -24,9 +26,29 @@ export default function Tasks() {
     setPriorityFilter,
     categoryFilter,
     setCategoryFilter,
+    deadlineFilter,
+    setDeadlineFilter,
     isFiltering,
     clearFilters,
   } = useTaskFilters();
+
+  const handleApplyFilterPreset = (preset: Partial<TaskFilterState>) => {
+    if (preset.searchTerm !== undefined) {
+      setSearchTerm(preset.searchTerm);
+    }
+    if (preset.statusFilter !== undefined) {
+      setStatusFilter(preset.statusFilter);
+    }
+    if (preset.priorityFilter !== undefined) {
+      setPriorityFilter(preset.priorityFilter);
+    }
+    if (preset.categoryFilter !== undefined) {
+      setCategoryFilter(preset.categoryFilter);
+    }
+    if (preset.deadlineFilter !== undefined) {
+      setDeadlineFilter(preset.deadlineFilter);
+    }
+  };
 
   const permissions = useTaskPermissions(currentUser);
   const {
@@ -48,18 +70,24 @@ export default function Tasks() {
     hasAccess,
     canSeeRegionTab,
     canSeeSectorTab,
-    filters: { searchTerm, statusFilter, priorityFilter, categoryFilter },
+    filters: { searchTerm, statusFilter, priorityFilter, categoryFilter, deadlineFilter },
   });
 
   const {
     tasks,
     stats,
     isLoading,
+    isFetching,
     error,
     sortField,
     sortDirection,
     handleSort,
     refreshTasks,
+    pagination,
+    page,
+    perPage,
+    setPage,
+    setPerPage,
   } = tasksData;
 
   const {
@@ -78,6 +106,18 @@ export default function Tasks() {
     openDetailsDrawer,
     handleDetailDrawerChange,
   } = useTaskModals();
+
+  usePrefetchTaskFormData(null, showCreateButton);
+  usePrefetchTaskFormData("region", showCreateButton && canSeeRegionTab);
+  usePrefetchTaskFormData("sector", showCreateButton && canSeeSectorTab);
+
+  useEffect(() => {
+    if (!hasAccess) return;
+    const interval = setInterval(() => {
+      refreshTasks().catch(() => undefined);
+    }, 60_000);
+    return () => clearInterval(interval);
+  }, [hasAccess, refreshTasks]);
 
   if (!hasAccess || availableTabs.length === 0) {
     return <TaskAccessRestricted />;
@@ -213,9 +253,13 @@ export default function Tasks() {
         onPriorityFilterChange={setPriorityFilter}
         categoryFilter={categoryFilter}
         onCategoryFilterChange={setCategoryFilter}
-        tasksCount={tasks.length}
+        deadlineFilter={deadlineFilter}
+        onDeadlineFilterChange={setDeadlineFilter}
+        tasksCount={pagination?.total ?? stats.total}
         isFiltering={isFiltering}
         onClearFilters={clearFilters}
+        onApplyPreset={handleApplyFilterPreset}
+        disabled={isFetching}
       />
 
       <TasksTable
@@ -230,6 +274,12 @@ export default function Tasks() {
         canDeleteTaskItem={canDeleteTaskItem}
         showCreateButton={showCreateButton}
         onCreateTask={() => handleOpenModal()}
+        pagination={pagination}
+        page={page}
+        perPage={perPage}
+        onPageChange={setPage}
+        onPerPageChange={setPerPage}
+        isFetching={isFetching}
       />
 
       <TaskModals

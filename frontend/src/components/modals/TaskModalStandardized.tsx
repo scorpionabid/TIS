@@ -1,14 +1,27 @@
 import React from 'react';
-import { useQuery } from '@tanstack/react-query';
+import type { UseFormReturn } from 'react-hook-form';
+import { Users, Building, Trash2, Undo2 } from 'lucide-react';
+import { z } from 'zod';
 import { BaseModal } from '@/components/common/BaseModal';
 import { FormField } from '@/components/forms/FormBuilder';
 import { createField, commonValidations } from '@/components/forms/FormBuilder.helpers';
-import { Task, CreateTaskData, taskService, TaskCreationContext, AssignableUser } from '@/services/tasks';
-import { departmentService } from '@/services/departments';
+import { Task, CreateTaskData, taskService } from '@/services/tasks';
 import { useToast } from '@/hooks/use-toast';
-import { Users, Building } from 'lucide-react';
 import { logger } from '@/utils/logger';
-import { z } from 'zod';
+import { useTaskFormData } from '@/hooks/tasks/useTaskFormData';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useTaskDraft } from '@/hooks/tasks/useTaskDraft';
 
 // Import modularized components
 import { TaskTargetingField, TaskInstitution } from '@/components/tasks/TaskTargetingField';
@@ -63,6 +76,10 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
 }) => {
   const { toast } = useToast();
   const isEditMode = !!task;
+  const [formInstance, setFormInstance] = React.useState<UseFormReturn<any> | null>(null);
+  const [showUnsavedDialog, setShowUnsavedDialog] = React.useState(false);
+  const bypassCloseRef = React.useRef(false);
+  const [hasRestoredDraft, setHasRestoredDraft] = React.useState(false);
 
   const effectiveOriginScope = React.useMemo(() => {
     if (originScope) {
@@ -76,6 +93,12 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     return null;
   }, [originScope, isEditMode, task?.origin_scope]);
 
+  const draftStorageKey = React.useMemo(
+    () => `task-modal-draft-${effectiveOriginScope ?? 'general'}`,
+    [effectiveOriginScope]
+  );
+  const { draft, saveDraft, clearDraft } = useTaskDraft(draftStorageKey);
+
   const defaultFormValues = React.useMemo(() => {
     const baseValues = prepareTaskDefaultValues(task);
 
@@ -86,16 +109,88 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     return baseValues;
   }, [task, isEditMode, originScope]);
 
+  const showDraftPrompt = React.useMemo(
+    () => Boolean(draft && !isEditMode && open && !hasRestoredDraft),
+    [draft, hasRestoredDraft, isEditMode, open]
+  );
+
+  const handleFormInstance = React.useCallback((form: UseFormReturn<any>) => {
+    setFormInstance(form);
+  }, []);
+
+  const handleFormValuesChange = React.useCallback((values: Record<string, any>) => {
+    if (!open || isEditMode) return;
+    saveDraft(values);
+  }, [open, isEditMode, saveDraft]);
+
+  const performClose = React.useCallback(() => {
+    formInstance?.reset(defaultFormValues);
+    clearDraft();
+    setHasRestoredDraft(false);
+    onClose();
+  }, [clearDraft, defaultFormValues, formInstance, onClose]);
+
+  const handleModalClose = React.useCallback(() => {
+    if (bypassCloseRef.current) {
+      bypassCloseRef.current = false;
+      performClose();
+      return;
+    }
+
+    if (formInstance?.formState.isDirty) {
+      setShowUnsavedDialog(true);
+      return;
+    }
+
+    performClose();
+  }, [formInstance, performClose]);
+
+  const handleDiscardChanges = React.useCallback(() => {
+    setShowUnsavedDialog(false);
+    bypassCloseRef.current = false;
+    performClose();
+  }, [performClose]);
+
+  const handleKeepEditing = React.useCallback(() => {
+    setShowUnsavedDialog(false);
+  }, []);
+
+  const handleRestoreDraft = React.useCallback(() => {
+    if (!draft || !formInstance) return;
+    formInstance.reset({
+      ...defaultFormValues,
+      ...draft,
+    });
+    setHasRestoredDraft(true);
+  }, [defaultFormValues, draft, formInstance]);
+
+  const handleDiscardDraft = React.useCallback(() => {
+    clearDraft();
+    setHasRestoredDraft(false);
+    formInstance?.reset(defaultFormValues);
+  }, [clearDraft, defaultFormValues, formInstance]);
+
+  React.useEffect(() => {
+    if (!open) {
+      setHasRestoredDraft(false);
+    }
+  }, [open]);
+
   // ============================================
   // Data Loading
   // ============================================
 
-  const { data: creationContext, isLoading: contextLoading, error: creationContextError } = useQuery({
-    queryKey: ['task-creation-context'],
-    queryFn: () => taskService.getCreationContext(),
-    staleTime: 1000 * 60 * 10,
-    cacheTime: 1000 * 60 * 30,
-    refetchOnWindowFocus: false,
+  const {
+    creationContext,
+    creationContextError,
+    creationContextLoading: contextLoading,
+    assignableUsers,
+    assignableUsersLoading,
+    departments,
+    departmentsLoading,
+    isLoading,
+  } = useTaskFormData({
+    originScope: effectiveOriginScope ?? null,
     enabled: open,
   });
 
@@ -119,17 +214,6 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
 
     return scopeRoles.length > 0 ? scopeRoles : roles;
   }, [creationContext, effectiveOriginScope]);
-
-  const { data: assignableUsers, isLoading: assignableUsersLoading } = useQuery({
-    queryKey: ['task-assignable-users', effectiveOriginScope ?? 'none', allowedTargetRoles.join('-')],
-    queryFn: () => taskService.getAssignableUsers(
-      effectiveOriginScope ? { origin_scope: effectiveOriginScope } : {}
-    ),
-    staleTime: 1000 * 60 * 5,
-    cacheTime: 1000 * 60 * 15,
-    refetchOnWindowFocus: false,
-    enabled: open && !!creationContext,
-  });
 
   React.useEffect(() => {
     if (!open) return;
@@ -155,16 +239,6 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       });
     }
   }, [creationContextError, toast]);
-
-  const { data: departmentsResponse, isLoading: departmentsLoading } = useQuery({
-    queryKey: ['departments-for-tasks'],
-    queryFn: () => departmentService.getAll({ per_page: 100 }),
-    staleTime: 1000 * 60 * 15, // 15 dəqiqə (daha tez-tez dəyişir)
-    cacheTime: 1000 * 60 * 30, // 30 dəqiqə
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    enabled: open,
-  });
 
   // ============================================
   // Data Processing
@@ -325,61 +399,95 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
   }, [creationContext]);
 
   const availableDepartments = React.useMemo(() => {
-    const departments = Array.isArray(departmentsResponse?.data)
-      ? departmentsResponse?.data
+    const departmentItems = Array.isArray(departments?.data)
+      ? departments?.data
       : [];
 
-    return departments.map((department: any) => ({
+    return departmentItems.map((department: any) => ({
       label: `${department.name}${department.institution ? ` (${department.institution.name})` : ''}`,
       value: department.id.toString()
     }));
-  }, [departmentsResponse]);
-
-  const isLoading = contextLoading || assignableUsersLoading || departmentsLoading;
+  }, [departments]);
 
   // ============================================
   // Form Field Configuration
   // ============================================
 
-  const baseBasicFields = React.useMemo<FormField[]>(() => [
-    createField('title', 'Tapşırıq başlığı', 'text', {
-      required: true,
-      placeholder: taskFormPlaceholders.title,
-      validation: commonValidations.required,
-      className: 'md:col-span-2'
-    }),
-    createField('category', 'Kateqoriya', 'select', {
-      required: true,
-      options: categoryOptions,
-      placeholder: taskFormPlaceholders.category,
-      validation: commonValidations.required,
-    }),
-    createField('priority', 'Prioritet', 'select', {
-      required: true,
-      options: priorityOptions,
-      placeholder: taskFormPlaceholders.priority,
-      validation: commonValidations.required,
-    }),
-    createField('deadline', 'Son tarix', 'date', {
-      placeholder: taskFormPlaceholders.deadline,
-    }),
-    createField('assigned_user_ids', 'Məsul şəxslər', 'multiselect', {
-      required: true,
-      options: responsibleUserOptions,
-      placeholder: assignableUsersLoading ? taskFormPlaceholders.assignedUsersLoading : taskFormPlaceholders.assignedUsers,
-      disabled: assignableUsersLoading,
-      validation: z.array(z.string()).min(1, taskValidationMessages.assignedUsersRequired),
-      description: taskFormDescriptions.assignedUsers,
-      className: 'md:col-span-2'
-    }),
-    createField('description', 'Tapşırıq təsviri', 'textarea', {
-      required: true,
-      placeholder: taskFormPlaceholders.description,
-      rows: 4,
-      validation: commonValidations.required,
-      className: 'md:col-span-2'
-    }),
-  ], [responsibleUserOptions, assignableUsersLoading]);
+  const baseBasicFields = React.useMemo<FormField[]>(() => {
+    const fields: FormField[] = [];
+
+    if (showDraftPrompt) {
+      fields.push(
+        createField('__draft_banner', '', 'custom', {
+          className: 'md:col-span-2',
+          render: () => (
+            <Alert className="flex flex-col gap-2">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <AlertTitle>Yarımçıq tapşırıq tapıldı</AlertTitle>
+                  <AlertDescription>
+                    Əvvəlki yarımçıq tapşırıq məlumatlarını bərpa etmək istəyirsiniz?
+                  </AlertDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={handleDiscardDraft}>
+                    <Trash2 className="mr-1 h-3.5 w-3.5" />
+                    Sil
+                  </Button>
+                  <Button size="sm" onClick={handleRestoreDraft}>
+                    <Undo2 className="mr-1 h-3.5 w-3.5" />
+                    Davam et
+                  </Button>
+                </div>
+              </div>
+            </Alert>
+          ),
+        })
+      );
+    }
+
+    fields.push(
+      createField('title', 'Tapşırıq başlığı', 'text', {
+        required: true,
+        placeholder: taskFormPlaceholders.title,
+        validation: commonValidations.required,
+        className: 'md:col-span-2'
+      }),
+      createField('category', 'Kateqoriya', 'select', {
+        required: true,
+        options: categoryOptions,
+        placeholder: taskFormPlaceholders.category,
+        validation: commonValidations.required,
+      }),
+      createField('priority', 'Prioritet', 'select', {
+        required: true,
+        options: priorityOptions,
+        placeholder: taskFormPlaceholders.priority,
+        validation: commonValidations.required,
+      }),
+      createField('deadline', 'Son tarix', 'date', {
+        placeholder: taskFormPlaceholders.deadline,
+      }),
+      createField('assigned_user_ids', 'Məsul şəxslər', 'multiselect', {
+        required: true,
+        options: responsibleUserOptions,
+        placeholder: assignableUsersLoading ? taskFormPlaceholders.assignedUsersLoading : taskFormPlaceholders.assignedUsers,
+        disabled: assignableUsersLoading,
+        validation: z.array(z.string()).min(1, taskValidationMessages.assignedUsersRequired),
+        description: taskFormDescriptions.assignedUsers,
+        className: 'md:col-span-2'
+      }),
+      createField('description', 'Tapşırıq təsviri', 'textarea', {
+        required: true,
+        placeholder: taskFormPlaceholders.description,
+        rows: 4,
+        validation: commonValidations.required,
+        className: 'md:col-span-2'
+      }),
+    );
+
+    return fields;
+  }, [showDraftPrompt, handleDiscardDraft, handleRestoreDraft, responsibleUserOptions, assignableUsersLoading]);
 
   const basicFieldNames = React.useMemo(
     () => baseBasicFields.map((field) => field.name),
@@ -515,6 +623,11 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
 
       await onSave(transformedData);
 
+      if (formInstance) {
+        formInstance.reset(defaultFormValues);
+      }
+      bypassCloseRef.current = true;
+
       toast({
         title: "Uğurlu",
         description: isEditMode
@@ -534,28 +647,50 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       });
       throw error;
     }
-  }, [onSave, isEditMode, task?.id, task?.origin_scope, originScope, toast, creationContext]);
+  }, [onSave, isEditMode, task?.id, task?.origin_scope, originScope, toast, creationContext, formInstance, defaultFormValues]);
 
   // ============================================
   // Render
   // ============================================
 
   return (
-    <BaseModal
-      open={open}
-      onClose={onClose}
-      title={isEditMode ? `${task?.title} tapşırığını redaktə et` : 'Yeni tapşırıq yarat'}
-      description="Tapşırıq məlumatlarını daxil edin və həyata keçirmək üçün məsul şəxs təyin edin"
-      loading={isLoading}
+    <>
+      <BaseModal
+        open={open}
+        onClose={handleModalClose}
+        title={isEditMode ? `${task?.title} tapşırığını redaktə et` : 'Yeni tapşırıq yarat'}
+        description="Tapşırıq məlumatlarını daxil edin və həyata keçirmək üçün məsul şəxs təyin edin"
+        loading={isLoading}
       loadingText="Seçimlər yüklənir..."
       entityBadge={task?.category ? categoryOptions.find(c => c.value === task.category)?.label : undefined}
       entity={task}
       tabs={modalTabs}
       defaultValues={defaultFormValues}
       onSubmit={handleSubmit}
-      submitLabel={isEditMode ? 'Yenilə' : 'Yarat'}
-      maxWidth="4xl"
-      columns={2}
-    />
+        submitLabel={isEditMode ? 'Yenilə' : 'Yarat'}
+        maxWidth="4xl"
+        columns={2}
+        onFormInstance={handleFormInstance}
+        onValuesChange={handleFormValuesChange}
+      />
+      <AlertDialog open={showUnsavedDialog} onOpenChange={setShowUnsavedDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Dəyişiklikləri ləğv edək?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Modalı bağlasanız, daxil etdiyiniz məlumatlar silinəcək.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleKeepEditing}>
+              Davam et
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDiscardChanges} className="bg-destructive text-white hover:bg-destructive/90">
+              Dəyişiklikləri sil
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
