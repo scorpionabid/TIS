@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3, AlertTriangle, Archive, MoreHorizontal, Layout, UserCheck2, Copy } from "lucide-react";
+import { Plus, ClipboardList, Calendar, TrendingUp, Eye, Edit, Trash2, Play, Pause, BarChart3, AlertTriangle, Archive, MoreHorizontal, Layout, Copy } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { surveyService, Survey, CreateSurveyData } from "@/services/surveys";
 import { Badge } from "@/components/ui/badge";
@@ -193,6 +193,69 @@ export default function Surveys() {
       month: 'short',
       day: 'numeric'
     });
+  };
+
+  const DAY_IN_MS = 24 * 60 * 60 * 1000;
+
+  type DeadlineBadgeVariant = 'default' | 'secondary' | 'destructive' | 'outline';
+
+  interface SurveyDeadlineInfo {
+    dueDateLabel: string;
+    isExpired: boolean;
+    relativeText?: string;
+    statusBadge?: string;
+    badgeVariant?: DeadlineBadgeVariant;
+  }
+
+  const getSurveyDeadlineInfo = (survey: Survey): SurveyDeadlineInfo | null => {
+    const deadlineSource = survey.deadline_details?.end_date || survey.end_date;
+    if (!deadlineSource) {
+      return null;
+    }
+
+    const dueDate = new Date(deadlineSource);
+    if (Number.isNaN(dueDate.getTime())) {
+      return null;
+    }
+
+    const now = new Date();
+    const deadlineStatus = survey.deadline_details?.status;
+    const isExpired = deadlineStatus === 'overdue' || dueDate.getTime() < now.getTime();
+    const isApproaching = deadlineStatus === 'approaching';
+
+    const diffMs = dueDate.getTime() - now.getTime();
+    const fallbackRemainingDays = diffMs > 0 ? Math.ceil(diffMs / DAY_IN_MS) : 0;
+    const fallbackOverdueDays = diffMs < 0 ? Math.ceil((now.getTime() - dueDate.getTime()) / DAY_IN_MS) : 0;
+
+    const daysRemaining =
+      survey.deadline_details?.days_remaining ?? (!isExpired ? Math.max(0, fallbackRemainingDays) : undefined);
+    const daysOverdue =
+      survey.deadline_details?.days_overdue ?? (isExpired ? Math.max(1, fallbackOverdueDays) : undefined);
+
+    let relativeText: string | undefined;
+    if (isExpired) {
+      relativeText = typeof daysOverdue === 'number'
+        ? `${daysOverdue} gün gecikib`
+        : 'Müddət bitib';
+    } else if (typeof daysRemaining === 'number') {
+      relativeText = daysRemaining === 0 ? 'Son tarix bu gün' : `${daysRemaining} gün qalıb`;
+    }
+
+    return {
+      dueDateLabel: dueDate.toLocaleDateString('az-AZ', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      }),
+      isExpired,
+      relativeText,
+      statusBadge: isExpired
+        ? 'Müddət bitib'
+        : isApproaching
+        ? 'Son tarix yaxınlaşır'
+        : undefined,
+      badgeVariant: isExpired ? 'destructive' : isApproaching ? 'secondary' : undefined,
+    };
   };
 
   const handleSaveSurvey = async (data: CreateSurveyData) => {
@@ -512,114 +575,155 @@ export default function Surveys() {
                 )}
               </div>
             ) : (
-              surveys?.data?.data?.map((survey: Survey) => (
-                <div key={survey.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-surface/50 transition-colors">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-medium text-foreground">{survey.title}</h3>
-                      {getStatusBadge(survey.status)}
+              surveys?.data?.data?.map((survey: Survey) => {
+                const deadlineInfo = getSurveyDeadlineInfo(survey);
+                const deadlineBadgeParts: string[] = [];
+                if (deadlineInfo?.statusBadge) {
+                  deadlineBadgeParts.push(deadlineInfo.statusBadge);
+                }
+                if (deadlineInfo?.relativeText) {
+                  deadlineBadgeParts.push(deadlineInfo.relativeText);
+                }
+                const deadlineBadgeText = deadlineBadgeParts.join(' • ');
+
+                const isSurveyOwner = survey.creator?.id === currentUser?.id;
+                const showManagementActions =
+                  currentUser?.role === 'superadmin' ||
+                  isSurveyOwner ||
+                  (['regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || ''));
+                const canAccessDeletionMenu = surveyAccess.canDelete || isSurveyOwner;
+
+                return (
+                  <div
+                    key={survey.id}
+                    className={`flex items-center justify-between p-4 border border-border rounded-lg hover:bg-surface/50 transition-colors ${
+                      deadlineInfo?.isExpired ? 'border-destructive/50 bg-destructive/5' : ''
+                    }`}
+                  >
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-medium text-foreground">{survey.title}</h3>
+                        {getStatusBadge(survey.status)}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {survey.description && survey.description.length > 100 
+                          ? `${survey.description.substring(0, 100)}...` 
+                          : survey.description || 'Təsvir yoxdur'}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+                        <span>{survey.response_count || 0} cavab</span>
+                        <span>{survey.questions_count || survey.questions?.length || 0} sual</span>
+                        <span>Yaradıldı: {formatDate(survey.created_at)}</span>
+                        {survey.creator && <span>Yaradan: {survey.creator.full_name || survey.creator.username}</span>}
+                        {deadlineInfo && (
+                          <span
+                            className={`flex items-center gap-1 ${deadlineInfo.isExpired ? 'text-destructive font-semibold' : ''}`}
+                          >
+                            <Calendar className="h-3 w-3" />
+                            Bitmə: {deadlineInfo.dueDateLabel}
+                          </span>
+                        )}
+                      </div>
+                      {deadlineInfo && deadlineBadgeText && (
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                          <Badge
+                            variant={deadlineInfo.badgeVariant ?? 'outline'}
+                            className={`flex items-center gap-1 ${
+                              deadlineInfo.isExpired ? 'text-destructive' : ''
+                            }`}
+                          >
+                            {deadlineInfo.isExpired && <AlertTriangle className="h-3 w-3" />}
+                            <span>{deadlineBadgeText}</span>
+                          </Badge>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-muted-foreground mb-2">
-                      {survey.description && survey.description.length > 100 
-                        ? `${survey.description.substring(0, 100)}...` 
-                        : survey.description || 'Təsvir yoxdur'}
-                    </p>
-                    <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
-                      <span>{survey.response_count || 0} cavab</span>
-                      <span>{survey.questions_count || survey.questions?.length || 0} sual</span>
-                      <span>Yaradıldı: {formatDate(survey.created_at)}</span>
-                      {survey.creator && <span>Yaradan: {survey.creator.full_name || survey.creator.username}</span>}
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => handleViewSurvey(survey)}
-                      title="Sorğunu göstər"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
-                      onClick={() => navigate('/survey-results')}
-                      title="Nəticələr"
-                    >
-                      <BarChart3 className="h-4 w-4" />
-                    </Button>
-                    {(
-                      currentUser?.role === 'superadmin' || 
-                      survey.creator?.id === currentUser?.id ||
-                      (['regionadmin', 'sektoradmin', 'schooladmin'].includes(currentUser?.role || ''))
-                    ) && (
-                      <>
-                        <Button 
-                          variant="ghost" 
-                          size="sm"
-                          onClick={() => handleEditSurvey(survey)}
-                          disabled={!canEditSurvey(survey)}
-                          title={
-                            canEditSurvey(survey) 
-                              ? "Sorğunu düzəliş et" 
-                              : "Yayımlanmış və cavabları olan sorğuları düzəliş etmək olmaz"
-                          }
-                        >
-                          <Edit className={`h-4 w-4 ${!canEditSurvey(survey) ? 'text-muted-foreground' : ''}`} />
-                        </Button>
-                        {survey.status === 'draft' && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => handleViewSurvey(survey)}
+                        title="Sorğunu göstər"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => navigate('/survey-results')}
+                        title="Nəticələr"
+                      >
+                        <BarChart3 className="h-4 w-4" />
+                      </Button>
+                      {showManagementActions && (
+                        <>
                           <Button 
                             variant="ghost" 
                             size="sm"
-                            onClick={() => handlePublishSurvey(survey.id)}
-                            disabled={publishSurveyMutation.isPending}
+                            onClick={() => handleEditSurvey(survey)}
+                            disabled={!canEditSurvey(survey)}
+                            title={
+                              canEditSurvey(survey) 
+                                ? "Sorğunu düzəliş et" 
+                                : "Yayımlanmış və cavabları olan sorğuları düzəliş etmək olmaz"
+                            }
                           >
-                            <Play className="h-4 w-4" />
+                            <Edit className={`h-4 w-4 ${!canEditSurvey(survey) ? 'text-muted-foreground' : ''}`} />
                           </Button>
-                        )}
-                        {survey.status === 'active' && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handlePauseSurvey(survey.id)}
-                            disabled={pauseSurveyMutation.isPending}
-                          >
-                            <Pause className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {(currentUser?.role === 'superadmin' || survey.creator?.id === currentUser?.id) && (
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleCreateTemplate(survey)}>
-                                <Copy className="h-4 w-4 mr-2" />
-                                Template kimi saxla
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={() => handleDeleteSurvey(survey.id, false)}>
-                                <Archive className="h-4 w-4 mr-2" />
-                                Arxivə göndər
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleDeleteSurvey(survey.id, true)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Tam sil
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        )}
-                      </>
-                    )}
+                          {survey.status === 'draft' && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handlePublishSurvey(survey.id)}
+                              disabled={publishSurveyMutation.isPending}
+                            >
+                              <Play className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {survey.status === 'active' && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => handlePauseSurvey(survey.id)}
+                              disabled={pauseSurveyMutation.isPending}
+                            >
+                              <Pause className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {canAccessDeletionMenu && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="sm">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => handleCreateTemplate(survey)}>
+                                  <Copy className="h-4 w-4 mr-2" />
+                                  Template kimi saxla
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => handleDeleteSurvey(survey.id, false)}>
+                                  <Archive className="h-4 w-4 mr-2" />
+                                  Arxivə göndər
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => handleDeleteSurvey(survey.id, true)}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Tam sil
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
           

@@ -8,6 +8,7 @@ use App\Models\Survey;
 use App\Models\SurveyDeadlineLog;
 use App\Models\SurveyResponse;
 use App\Models\User;
+use App\Services\NotificationService;
 use App\Services\SurveyCrudService;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
@@ -20,12 +21,14 @@ class SurveyController extends BaseController
     use ResponseHelpers, ValidationRules;
 
     protected SurveyCrudService $crudService;
+    protected NotificationService $notificationService;
 
     protected int $deadlineApproachingDays = 3;
 
-    public function __construct(SurveyCrudService $crudService)
+    public function __construct(SurveyCrudService $crudService, NotificationService $notificationService)
     {
         $this->crudService = $crudService;
+        $this->notificationService = $notificationService;
     }
 
     /**
@@ -235,33 +238,34 @@ class SurveyController extends BaseController
      */
     public function destroy(Request $request, Survey $survey): JsonResponse
     {
-        // Check if user can delete this survey (either has surveys.write permission OR is the creator)
-        if (! auth()->user()->can('surveys.write') && $survey->creator_id !== auth()->id()) {
+        $user = $request->user();
+        $survey->loadMissing('creator');
+
+        if (! $this->canDeleteSurvey($user, $survey)) {
             return $this->errorResponse('Bu sorğunu silmək üçün icazəniz yoxdur', 403);
         }
 
+        $forceDeleteRequested = $request->boolean('force', false);
+
+        if ($forceDeleteRequested && ! $this->canForceDeleteSurvey($user, $survey)) {
+            return $this->errorResponse('Bu sorğunu tamamilə silmək üçün icazəniz yoxdur', 403);
+        }
+
         try {
-            $forceDelete = $request->boolean('force', false);
-
-            if ($forceDelete) {
-                // Hard delete - completely remove from database
-                // First delete related records to avoid foreign key constraints
-                \DB::transaction(function () use ($survey) {
-                    // Delete audit logs if they exist
-                    \DB::table('survey_audit_logs')->where('survey_id', $survey->id)->delete();
-
-                    // Delete survey responses if they exist
+            if ($forceDeleteRequested) {
+                $surveyOwner = $survey->creator;
+                DB::transaction(function () use ($survey) {
+                    DB::table('survey_audit_logs')->where('survey_id', $survey->id)->delete();
                     $survey->responses()->delete();
-
-                    // Delete survey questions if they exist
                     $survey->questions()->delete();
-
-                    // Finally delete the survey
                     $survey->forceDelete();
                 });
 
+                $this->notifySurveyOwnerAboutForceDelete($surveyOwner, $survey, $user);
+
                 return $this->successResponse(null, 'Survey permanently deleted successfully');
             }
+
             // Soft delete - mark as archived
             $survey->update([
                 'status' => 'archived',
@@ -565,6 +569,82 @@ class SurveyController extends BaseController
         });
 
         return $survey->fresh();
+    }
+
+    protected function canDeleteSurvey(User $user, Survey $survey): bool
+    {
+        if ($user->hasRole('superadmin')) {
+            return true;
+        }
+
+        if ($survey->creator_id === $user->id) {
+            return true;
+        }
+
+        if ($user->can('surveys.delete') || $user->can('surveys.write')) {
+            return $this->isSurveyWithinUserHierarchy($user, $survey);
+        }
+
+        return false;
+    }
+
+    protected function canForceDeleteSurvey(User $user, Survey $survey): bool
+    {
+        if ($user->hasRole('superadmin')) {
+            return true;
+        }
+
+        if ($survey->creator_id === $user->id) {
+            return true;
+        }
+
+        if ($user->hasRole('regionadmin')) {
+            return $this->isSurveyWithinUserHierarchy($user, $survey);
+        }
+
+        return false;
+    }
+
+    protected function isSurveyWithinUserHierarchy(User $user, Survey $survey): bool
+    {
+        $allowedInstitutionIds = array_map('intval', $this->crudService->getHierarchicalInstitutionIds($user));
+
+        $creatorInstitutionId = $survey->creator?->institution_id;
+        if ($creatorInstitutionId && in_array((int) $creatorInstitutionId, $allowedInstitutionIds, true)) {
+            return true;
+        }
+
+        $targetInstitutions = is_array($survey->target_institutions) ? array_map('intval', $survey->target_institutions) : [];
+        if (! empty(array_intersect($allowedInstitutionIds, $targetInstitutions))) {
+            return true;
+        }
+
+        return false;
+    }
+
+    protected function notifySurveyOwnerAboutForceDelete(?User $owner, Survey $survey, User $deletedBy): void
+    {
+        if (! $owner || $owner->id === $deletedBy->id) {
+            return;
+        }
+
+        $this->notificationService->send([
+            'user_id' => $owner->id,
+            'title' => 'Sorğu tam silindi',
+            'message' => sprintf('"%s" sorğusu %s tərəfindən tamamilə silindi.', $survey->title, $deletedBy->name),
+            'type' => 'system_alert',
+            'channel' => 'in_app',
+            'priority' => 'high',
+            'related_type' => Survey::class,
+            'related_id' => $survey->id,
+            'metadata' => [
+                'deleted_by' => [
+                    'id' => $deletedBy->id,
+                    'name' => $deletedBy->name,
+                    'role' => $deletedBy->getRoleNames()->first(),
+                ],
+            ],
+        ]);
     }
 
     /**
