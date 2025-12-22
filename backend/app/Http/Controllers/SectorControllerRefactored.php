@@ -56,7 +56,7 @@ class SectorControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $validated = $request->validate([
                 'name' => 'required|string|max:255',
-                'code' => 'required|string|max:20|unique:institutions,code',
+                'code' => 'required|string|max:20|unique:institutions,institution_code',
                 'parent_id' => 'required|exists:institutions,id',
                 'address' => 'nullable|string|max:500',
                 'phone' => 'nullable|string|max:20',
@@ -98,7 +98,7 @@ class SectorControllerRefactored extends BaseController
                     'sometimes',
                     'string',
                     'max:20',
-                    Rule::unique('institutions', 'code')->ignore($id),
+                    Rule::unique('institutions', 'institution_code')->ignore($id),
                 ],
                 'address' => 'nullable|string|max:500',
                 'phone' => 'nullable|string|max:20',

@@ -396,7 +396,7 @@ class InstitutionService extends BaseService<Institution> {
   // Validation and duplicate checking methods
   async checkCodeExists(code: string, excludeId?: number): Promise<boolean> {
     try {
-      const response = await apiClient.get('/institutions/check-code', {
+      const response = await apiClient.get('/institutions/check-code-exists', {
         code,
         exclude_id: excludeId
       });
@@ -409,7 +409,7 @@ class InstitutionService extends BaseService<Institution> {
 
   async checkUtisCodeExists(utisCode: string, excludeId?: number): Promise<boolean> {
     try {
-      const response = await apiClient.get('/institutions/check-utis-code', {
+      const response = await apiClient.get('/institutions/check-utis-code-exists', {
         utis_code: utisCode,
         exclude_id: excludeId
       });

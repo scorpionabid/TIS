@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Plus, MapPin, Building, Users, Loader2, AlertCircle, AlertTriangle } from "lucide-react";
-import { institutionService } from "@/services/institutions";
+import { institutionService, CreateInstitutionData } from "@/services/institutions";
 import { useAuth } from "@/contexts/AuthContext";
 import { USER_ROLES } from "@/constants/roles";
+import { InstitutionModalStandardized } from "@/components/modals/InstitutionModalStandardized";
 
 interface Region {
   id: number;
@@ -34,41 +35,69 @@ export default function Regions() {
   const { currentUser } = useAuth();
   const [regionStats, setRegionStats] = useState<Record<number, RegionStats>>({});
   const [isStatsLoading, setIsStatsLoading] = useState(false);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Check access permissions
+  const queryClient = useQueryClient();
   const hasAccess = currentUser && [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN].includes(currentUser.role);
 
-  // Fetch regions from API with higher per_page to get all institutions - use enabled prop
-  const { data: institutionsResponse, isLoading, error } = useQuery({
-    queryKey: ['institutions', currentUser?.role, currentUser?.institution?.id],
-    queryFn: () => institutionService.getAll({ per_page: 100 }),
+  const extractPageData = (response: any): { items: Region[]; pagination: any } => {
+    if (!response) {
+      return { items: [], pagination: null };
+    }
+
+    if (response?.data?.data && Array.isArray(response.data.data)) {
+      return { items: response.data.data, pagination: response.data };
+    }
+
+    if (response?.data && Array.isArray(response.data)) {
+      return { items: response.data, pagination: response };
+    }
+
+    if (Array.isArray(response?.institutions)) {
+      return { items: response.institutions, pagination: response.pagination };
+    }
+
+    if (Array.isArray(response)) {
+      return { items: response, pagination: null };
+    }
+
+    return { items: [], pagination: null };
+  };
+
+  const fetchAllRegions = async (): Promise<Region[]> => {
+    if (!hasAccess) {
+      return [];
+    }
+
+    const perPage = 200;
+    let page = 1;
+    let lastPage = 1;
+    const aggregated: Region[] = [];
+
+    do {
+      const response = await institutionService.getAll({ per_page: perPage, page, level: 2 });
+      const { items, pagination } = extractPageData(response);
+      aggregated.push(
+        ...items.filter((institution) => institution.level === 2)
+      );
+
+      lastPage = pagination?.last_page ?? pagination?.lastPage ?? pagination?.total_pages ?? page;
+      if (!pagination || lastPage <= page) {
+        break;
+      }
+
+      page += 1;
+    } while (page <= lastPage);
+
+    return aggregated.sort((a, b) => a.name.localeCompare(b.name));
+  };
+
+  const { data: regions = [], isLoading, error, refetch } = useQuery({
+    queryKey: ['regions', currentUser?.role, currentUser?.institution?.id],
+    queryFn: fetchAllRegions,
     enabled: hasAccess,
   });
-
-  // Filter regions (level 2) from all institutions
-  const regions: Region[] = React.useMemo(() => {
-    let institutionsData = null;
-    if (institutionsResponse?.data?.data) {
-      // Laravel pagination structure
-      institutionsData = institutionsResponse.data.data;
-    } else if (institutionsResponse?.data && Array.isArray(institutionsResponse.data)) {
-      // Direct array structure
-      institutionsData = institutionsResponse.data;
-    } else if (Array.isArray(institutionsResponse)) {
-      // Response is direct array
-      institutionsData = institutionsResponse;
-    } else {
-      return [];
-    }
-    
-    if (!institutionsData || !Array.isArray(institutionsData)) {
-      return [];
-    }
-    
-    const level2Institutions = institutionsData.filter((institution: any) => institution.level === 2);
-    
-    return level2Institutions.sort((a: any, b: any) => a.name.localeCompare(b.name));
-  }, [institutionsResponse]);
 
   // Load aggregated statistics for all regions when they are available
   useEffect(() => {
@@ -143,6 +172,19 @@ export default function Regions() {
     return 'Regional təhsil idarəsi';
   };
 
+  const handleCreateRegion = async (payload: CreateInstitutionData) => {
+    try {
+      await institutionService.create(payload);
+      await queryClient.invalidateQueries({ queryKey: ['regions'], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ['institutions'], exact: false });
+      await refetch();
+      setIsCreateModalOpen(false);
+    } catch (createError) {
+      console.error('Yeni region yaradılmadı', createError);
+      throw createError;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
@@ -211,14 +253,15 @@ export default function Regions() {
   }
 
   return (
-    <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
+    <>
+      <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Regionlar</h1>
           <p className="text-muted-foreground">Regional strukturların idarə edilməsi ({regions.length} region)</p>
         </div>
-        {currentUser?.role === 'superadmin' && (
-          <Button className="flex items-center gap-2">
+        {currentUser?.role === USER_ROLES.SUPERADMIN && (
+          <Button type="button" className="flex items-center gap-2" onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="h-4 w-4" />
             Yeni Region
           </Button>
@@ -303,6 +346,15 @@ export default function Regions() {
           </Card>
         )}
       </div>
-    </div>
+      </div>
+      {isCreateModalOpen && (
+        <InstitutionModalStandardized
+          open={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          institution={null}
+          onSave={handleCreateRegion}
+        />
+      )}
+    </>
   );
 }

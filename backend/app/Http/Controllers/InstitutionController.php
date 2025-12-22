@@ -277,7 +277,7 @@ class InstitutionController extends Controller
 
         $userAggregate = ! empty($descendantIds)
             ? \App\Models\User::whereIn('institution_id', $descendantIds)
-                ->selectRaw('COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active')
+                ->selectRaw('COUNT(*) as total, SUM(CASE WHEN is_active = true THEN 1 ELSE 0 END) as active')
                 ->first()
             : null;
 

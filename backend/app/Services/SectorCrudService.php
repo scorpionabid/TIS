@@ -36,8 +36,8 @@ class SectorCrudService extends BaseService
             $searchTerm = $request->search;
             $query->where(function ($q) use ($searchTerm) {
                 $q->where('name', 'LIKE', "%{$searchTerm}%")
-                    ->orWhere('code', 'LIKE', "%{$searchTerm}%")
-                    ->orWhere('description', 'LIKE', "%{$searchTerm}%");
+                    ->orWhere('institution_code', 'LIKE', "%{$searchTerm}%")
+                    ->orWhere('region_code', 'LIKE', "%{$searchTerm}%");
             });
         }
 
@@ -82,23 +82,28 @@ class SectorCrudService extends BaseService
         return DB::transaction(function () use ($data, $user) {
             // Validate parent region exists
             $parentRegion = Institution::where('id', $data['parent_id'])
-                ->where('type', 'regional')
+                ->where('type', 'regional_education_department')
                 ->where('level', 2)
                 ->firstOrFail();
 
             // Create sector
             $sector = Institution::create([
                 'name' => $data['name'],
-                'code' => $data['code'],
+                'institution_code' => $data['code'],
                 'type' => 'sector_education_office',
                 'level' => 3,
                 'parent_id' => $data['parent_id'],
-                'address' => $data['address'] ?? null,
-                'phone' => $data['phone'] ?? null,
-                'email' => $data['email'] ?? null,
-                'description' => $data['description'] ?? null,
+                'contact_info' => json_encode([
+                    'phone' => $data['phone'] ?? null,
+                    'email' => $data['email'] ?? null,
+                ]),
+                'location' => json_encode([
+                    'address' => $data['address'] ?? null,
+                ]),
+                'metadata' => json_encode([
+                    'description' => $data['description'] ?? null,
+                ]),
                 'is_active' => $data['is_active'] ?? true,
-                'created_by' => $user->id,
             ]);
 
             // Assign manager if provided
@@ -122,16 +127,39 @@ class SectorCrudService extends BaseService
             $sector = $query->findOrFail($id);
 
             // Update basic information
-            $sector->update([
+            $updateData = [
                 'name' => $data['name'] ?? $sector->name,
-                'code' => $data['code'] ?? $sector->code,
-                'address' => $data['address'] ?? $sector->address,
-                'phone' => $data['phone'] ?? $sector->phone,
-                'email' => $data['email'] ?? $sector->email,
-                'description' => $data['description'] ?? $sector->description,
+                'institution_code' => $data['code'] ?? $sector->institution_code,
                 'is_active' => $data['is_active'] ?? $sector->is_active,
-                'updated_by' => $user->id,
-            ]);
+            ];
+
+            // Update contact_info if phone or email provided
+            if (isset($data['phone']) || isset($data['email'])) {
+                $contactInfo = json_decode($sector->contact_info, true) ?? [];
+                if (isset($data['phone'])) {
+                    $contactInfo['phone'] = $data['phone'];
+                }
+                if (isset($data['email'])) {
+                    $contactInfo['email'] = $data['email'];
+                }
+                $updateData['contact_info'] = json_encode($contactInfo);
+            }
+
+            // Update location if address provided
+            if (isset($data['address'])) {
+                $location = json_decode($sector->location, true) ?? [];
+                $location['address'] = $data['address'];
+                $updateData['location'] = json_encode($location);
+            }
+
+            // Update metadata if description provided
+            if (isset($data['description'])) {
+                $metadata = json_decode($sector->metadata, true) ?? [];
+                $metadata['description'] = $data['description'];
+                $updateData['metadata'] = json_encode($metadata);
+            }
+
+            $sector->update($updateData);
 
             // Update manager if provided
             if (isset($data['manager_id'])) {

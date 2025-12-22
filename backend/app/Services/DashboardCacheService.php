@@ -29,9 +29,9 @@ class DashboardCacheService
             $basicStats = DB::select("
                 SELECT 
                     (SELECT COUNT(*) FROM users) as totalUsers,
-                    (SELECT COUNT(*) FROM users WHERE is_active = 1) as activeUsers,
+                    (SELECT COUNT(*) FROM users WHERE is_active = true) as activeUsers,
                     (SELECT COUNT(*) FROM institutions) as totalInstitutions,
-                    (SELECT COUNT(*) FROM institutions WHERE is_active = 1) as activeInstitutions,
+                    (SELECT COUNT(*) FROM institutions WHERE is_active = true) as activeInstitutions,
                     (SELECT COUNT(*) FROM surveys) as totalSurveys,
                     (SELECT COUNT(*) FROM surveys WHERE status = 'active') as activeSurveys,
                     (SELECT COUNT(*) FROM surveys WHERE status = 'completed') as completedSurveys,
