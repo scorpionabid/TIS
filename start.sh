@@ -192,43 +192,56 @@ setup_frontend_deps() {
 setup_database() {
     print_status "Database-i hazırla..."
 
-    # Check if database has production data
+    # Check for dev snapshot first (if USE_DEV_SNAPSHOT=true)
+    if [ "$USE_DEV_SNAPSHOT" = "true" ] && [ -f backend/database/snapshots/dev_snapshot.sql ]; then
+        print_status "🔄 Dev snapshot tapıldı, restore edilir..."
+        AUTO_RESTORE=true ./restore_dev_snapshot.sh
+        if [ $? -eq 0 ]; then
+            print_success "✅ Dev snapshot restore edildi"
+            return 0
+        else
+            print_warning "⚠️  Snapshot restore uğursuz, normal setup davam edir..."
+        fi
+    fi
+
+    # Check if database has data
     user_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
     institution_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\Institution::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
 
     print_status "Database status: $user_count users, $institution_count institutions"
 
-    # CRITICAL: If we have production data (>100 users), NEVER run migrations or seeders
-    if [ "$user_count" -gt 100 ]; then
-        print_success "🔒 PRODUCTION DATA DETECTED! Skipping migrations and seeders."
+    # CRITICAL: If we have data (ANY data), NEVER run migrations or seeders
+    # This preserves both production data (>100 users) and development data
+    if [ "$user_count" -gt 0 ]; then
+        if [ "$user_count" -gt 100 ]; then
+            print_success "🔒 PRODUCTION DATA DETECTED! Skipping migrations and seeders."
+        else
+            print_success "🔒 DEVELOPMENT DATA DETECTED! Skipping migrations and seeders."
+        fi
         print_warning "Data count: $user_count users, $institution_count institutions"
-        print_success "Database hazır (production mode)"
+        print_success "Database hazır (data preservation mode)"
+        print_status "💡 Əgər fresh database lazımdırsa: docker compose down -v && ./start.sh"
         return 0
     fi
 
-    # Run migrations ONLY if safe
+    # Only run migrations if database is EMPTY
     print_status "Migrations çalışdır..."
     "$DOCKER_BIN" exec atis_backend php artisan migrate --force || {
         print_error "Migration uğursuz!"
         exit 1
     }
 
-    # Check if we have users, if not run full seeders
-    if [ "$user_count" -lt 5 ]; then
-        print_status "Database seeders çalışdır..."
+    # Run essential seeders for fresh database
+    print_status "Database seeders çalışdır..."
 
-        # Run essential seeders in order
-        "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=PermissionSeeder --force
-        "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=RoleSeeder --force
-        "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force
-        "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=InstitutionTypeSeeder --force
-        "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=InstitutionHierarchySeeder --force
+    # Run essential seeders in order
+    "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=PermissionSeeder --force
+    "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=RoleSeeder --force
+    "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force
+    "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=InstitutionTypeSeeder --force
+    "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=InstitutionHierarchySeeder --force
 
-        print_success "Database seeders tamamlandı"
-    else
-        print_success "Database artıq məlumatla doludur ($user_count users)"
-    fi
-
+    print_success "Database seeders tamamlandı"
     print_success "Database hazır"
 }
 

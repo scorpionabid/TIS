@@ -61,6 +61,10 @@ docker-compose.override.yml
 database-backups/*.sqlite
 database-backups/*.dump
 
+# Development database snapshots (local only)
+backend/database/snapshots/dev_snapshot.sql
+backend/database/snapshots/dev_snapshot_*.sql
+
 # Cache
 .cache/
 .parcel-cache/
