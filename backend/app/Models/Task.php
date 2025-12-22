@@ -161,6 +161,14 @@ class Task extends Model
     }
 
     /**
+     * Task delegation history
+     */
+    public function delegationHistory(): HasMany
+    {
+        return $this->hasMany(TaskDelegationHistory::class);
+    }
+
+    /**
      * Task dependencies (tasks this task depends on)
      */
     public function dependencies(): HasMany

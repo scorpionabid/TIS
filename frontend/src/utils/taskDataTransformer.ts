@@ -190,9 +190,7 @@ export function validateTaskData(data: CreateTaskData): {
     errors.push('Tapşırıq təsviri mütləqdir');
   }
 
-  if (!data.category) {
-    errors.push('Kateqoriya seçilməlidir');
-  }
+  // Category is now optional - removed validation
 
   if (!data.priority) {
     errors.push('Prioritet seçilməlidir');
@@ -203,13 +201,7 @@ export function validateTaskData(data: CreateTaskData): {
     errors.push('Ən azı bir məsul şəxs seçin');
   }
 
-  // At least one target (institution or department)
-  const hasTargetInstitutions = Array.isArray(data.target_institutions) && data.target_institutions.length > 0;
-  const hasTargetDepartments = Array.isArray(data.target_departments) && data.target_departments.length > 0;
-
-  if (!hasTargetInstitutions && !hasTargetDepartments) {
-    errors.push('Ən azı bir müəssisə və ya departament seçilməlidir');
-  }
+  // Target institutions/departments are now optional - validation removed
 
   return {
     isValid: errors.length === 0,

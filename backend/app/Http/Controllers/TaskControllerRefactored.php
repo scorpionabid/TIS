@@ -45,7 +45,6 @@ class TaskControllerRefactored extends Controller
             'per_page' => 'nullable|integer|min:1|max:100',
             'status' => 'nullable|string|in:pending,in_progress,review,completed,cancelled',
             'priority' => 'nullable|string|in:low,medium,high,urgent',
-            'category' => 'nullable|string|in:report,maintenance,event,audit,instruction,other',
             'assigned_to' => 'nullable|integer|exists:users,id',
             'created_by' => 'nullable|integer|exists:users,id',
             'search' => 'nullable|string|max:255',
@@ -97,7 +96,6 @@ class TaskControllerRefactored extends Controller
             'per_page' => 'nullable|integer|min:1|max:100',
             'status' => 'nullable|string|in:pending,in_progress,review,completed,cancelled',
             'priority' => 'nullable|string|in:low,medium,high,urgent',
-            'category' => 'nullable|string|in:report,maintenance,event,audit,instruction,other',
             'search' => 'nullable|string|max:255',
             'deadline_filter' => 'nullable|string|in:approaching,overdue,all',
             'sort_by' => 'nullable|string|in:created_at,deadline,priority,status',
@@ -174,7 +172,7 @@ class TaskControllerRefactored extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string',
             'category' => [
-                'required',
+                'nullable',
                 Rule::in(array_keys(Task::CATEGORIES)),
             ],
             'priority' => [
@@ -182,7 +180,7 @@ class TaskControllerRefactored extends Controller
                 Rule::in(array_keys(Task::PRIORITIES)),
             ],
             'deadline' => 'nullable|date|after:now',
-            'target_institution_id' => 'required|integer|exists:institutions,id',
+            'target_institution_id' => 'nullable|integer|exists:institutions,id',
             'target_scope' => [
                 'nullable',
                 Rule::in(array_keys(Task::TARGET_SCOPES)),
@@ -872,5 +870,149 @@ class TaskControllerRefactored extends Controller
             'message' => $defaultMessage,
             'error' => config('app.debug') ? $e->getMessage() : null,
         ], 500);
+    }
+
+    /**
+     * Get eligible users for task delegation
+     */
+    public function getEligibleDelegates(Request $request, Task $task): JsonResponse
+    {
+        $currentUser = Auth::user();
+
+        // Get current assignment
+        $currentAssignment = $task->assignments()
+            ->where('assigned_user_id', $currentUser->id)
+            ->whereIn('assignment_status', ['pending', 'accepted'])
+            ->first();
+
+        if (!$currentAssignment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu tapşırığı yönləndirmək səlahiyyətiniz yoxdur.',
+            ], 403);
+        }
+
+        // Get eligible users from same region/sector
+        $eligibleUsers = User::query()
+            ->where('id', '!=', $currentUser->id)
+            ->where('institution_id', $currentUser->institution_id)
+            ->whereHas('roles', function ($query) {
+                $query->whereIn('name', [
+                    'regionadmin',
+                    'regionoperator',
+                    'sektoradmin',
+                    'sektoroperator',
+                    'schooladmin',
+                ]);
+            })
+            ->with(['institution', 'roles'])
+            ->get()
+            ->map(function ($user) {
+                return [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'role' => $user->roles->first()?->name,
+                    'role_display' => $user->roles->first()?->display_name,
+                    'institution' => [
+                        'id' => $user->institution?->id,
+                        'name' => $user->institution?->name,
+                    ],
+                ];
+            });
+
+        return response()->json([
+            'success' => true,
+            'users' => $eligibleUsers,
+        ]);
+    }
+
+    /**
+     * Delegate task to another user
+     */
+    public function delegate(Request $request, Task $task): JsonResponse
+    {
+        $request->validate([
+            'new_assignee_id' => 'required|exists:users,id',
+            'delegation_reason' => 'nullable|string|max:500',
+        ]);
+
+        $currentUser = Auth::user();
+
+        // Get current assignment
+        $currentAssignment = $task->assignments()
+            ->where('assigned_user_id', $currentUser->id)
+            ->whereIn('assignment_status', ['pending', 'accepted'])
+            ->first();
+
+        if (!$currentAssignment) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu tapşırığı yönləndirmək səlahiyyətiniz yoxdur.',
+            ], 403);
+        }
+
+        // Check if already delegated once (1 delegation limit)
+        $existingDelegation = \App\Models\TaskDelegationHistory::where('assignment_id', $currentAssignment->id)->first();
+        if ($existingDelegation) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu tapşırıq artıq yönləndirilmişdir. Bir tapşırıq yalnız 1 dəfə yönləndirilə bilər.',
+            ], 400);
+        }
+
+        DB::beginTransaction();
+        try {
+            // Create delegation history
+            $delegation = \App\Models\TaskDelegationHistory::create([
+                'task_id' => $task->id,
+                'assignment_id' => $currentAssignment->id,
+                'delegated_from_user_id' => $currentUser->id,
+                'delegated_to_user_id' => $request->new_assignee_id,
+                'delegated_by_user_id' => $currentUser->id,
+                'delegation_reason' => $request->delegation_reason,
+                'delegation_metadata' => [
+                    'previous_status' => $currentAssignment->assignment_status,
+                    'previous_progress' => $currentAssignment->progress ?? 0,
+                ],
+            ]);
+
+            // Update assignment
+            $currentAssignment->update([
+                'assigned_user_id' => $request->new_assignee_id,
+                'assignment_status' => 'pending',
+                'updated_by' => $currentUser->id,
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tapşırıq uğurla yönləndirildi.',
+                'data' => [
+                    'delegation' => $delegation->load(['fromUser', 'toUser']),
+                ],
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return $this->handleError($e, 'Tapşırıq yönləndirilərkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Get delegation history for a task
+     */
+    public function getDelegationHistory(Task $task): JsonResponse
+    {
+        $history = $task->delegationHistory()
+            ->with(['fromUser', 'toUser', 'delegatedBy'])
+            ->orderBy('delegated_at', 'desc')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'history' => $history,
+        ]);
     }
 }

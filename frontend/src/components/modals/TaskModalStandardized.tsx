@@ -1,11 +1,11 @@
 import React from 'react';
 import type { UseFormReturn } from 'react-hook-form';
-import { Users, Building, Trash2, Undo2 } from 'lucide-react';
+import { Users, Trash2, Undo2 } from 'lucide-react';
 import { z } from 'zod';
 import { BaseModal } from '@/components/common/BaseModal';
 import { FormField } from '@/components/forms/FormBuilder';
 import { createField, commonValidations } from '@/components/forms/FormBuilder.helpers';
-import { Task, CreateTaskData, taskService } from '@/services/tasks';
+import { Task, CreateTaskData } from '@/services/tasks';
 import { useToast } from '@/hooks/use-toast';
 import { logger } from '@/utils/logger';
 import { useTaskFormData } from '@/hooks/tasks/useTaskFormData';
@@ -23,14 +23,11 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useTaskDraft } from '@/hooks/tasks/useTaskDraft';
 
-// Import modularized components
-import { TaskTargetingField, TaskInstitution } from '@/components/tasks/TaskTargetingField';
-import { ModalTabNavigation } from '@/components/common/ModalTabNavigation';
+// Import hooks
 import { useAssignedInstitutionSync } from '@/components/tasks/hooks/useAssignedInstitutionSync';
 
 // Import configuration
 import {
-  categoryOptions,
   priorityOptions,
   taskFormPlaceholders,
   taskFormDescriptions,
@@ -57,15 +54,13 @@ interface TaskModalStandardizedProps {
  * TaskModalStandardized - Tapşırıq yaratma və redaktə modalı
  *
  * Xüsusiyyətlər:
- * - 2 tab strukturu (Əsas məlumatlar, Hədəf və Təyinat)
+ * - Sadələşdirilmiş single-tab strukturu
  * - Modular komponent strukturu
  * - Form validation ilə inteqrasiya
- * - Real-time data sync və tab error indicators
  * - Responsive dizayn
  * - Performance optimized (30min cache, optimized memoization)
  *
- * Refactored: 748 sətir → 387 sətir (48% azalma)
- * Performance: 70% sürət artımı (cache strategy)
+ * Refactored: Tab strukturu silinib, daha sadə UI
  */
 export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
   open,
@@ -186,8 +181,6 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     creationContextLoading: contextLoading,
     assignableUsers,
     assignableUsersLoading,
-    departments,
-    departmentsLoading,
     isLoading,
   } = useTaskFormData({
     originScope: effectiveOriginScope ?? null,
@@ -384,30 +377,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     preview: responsibleUserOptions.slice(0, 5),
   });
 
-  const institutionData: TaskInstitution[] = React.useMemo(() => {
-    const targetable = creationContext?.targetable_institutions ?? [];
-
-    return targetable.map((institution) => ({
-      id: Number(institution.id),
-      name: institution.name,
-      level: typeof institution.level === 'number'
-        ? institution.level
-        : Number(institution.level) || null,
-      type: institution.type ?? null,
-      parent_id: institution.parent_id ?? null,
-    }));
-  }, [creationContext]);
-
-  const availableDepartments = React.useMemo(() => {
-    const departmentItems = Array.isArray(departments?.data)
-      ? departments?.data
-      : [];
-
-    return departmentItems.map((department: any) => ({
-      label: `${department.name}${department.institution ? ` (${department.institution.name})` : ''}`,
-      value: department.id.toString()
-    }));
-  }, [departments]);
+  // Departments and institutions data removed - no longer required for simplified UI
 
   // ============================================
   // Form Field Configuration
@@ -453,12 +423,6 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
         validation: commonValidations.required,
         className: 'md:col-span-2'
       }),
-      createField('category', 'Kateqoriya', 'select', {
-        required: true,
-        options: categoryOptions,
-        placeholder: taskFormPlaceholders.category,
-        validation: commonValidations.required,
-      }),
       createField('priority', 'Prioritet', 'select', {
         required: true,
         options: priorityOptions,
@@ -494,35 +458,10 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
     [baseBasicFields]
   );
 
-  const basicFields: FormField[] = React.useMemo(() => [
+  // All fields in single tab - simplified structure (no tabs)
+  const allFields: FormField[] = React.useMemo(() => [
     ...baseBasicFields,
-    createField('__basic_to_target', '', 'custom', {
-      className: 'md:col-span-2',
-      render: ({ formControl }) => (
-        <ModalTabNavigation
-          form={formControl}
-          requiredFields={basicFieldNames}
-          targetTabId="target"
-          label="Növbəti: Hədəf seçimi"
-        />
-      ),
-    }),
-  ], [baseBasicFields, basicFieldNames]);
-
-  const targetFields: FormField[] = [
-    createField('target_institutions', 'Hədəf müəssisələr', 'custom', {
-      className: 'md:col-span-2',
-      validation: z.array(z.string()).min(1, taskValidationMessages.targetInstitutionsRequired),
-      defaultValue: [],
-      render: ({ field: formField, formControl }) => (
-        <TaskTargetingField
-          form={formControl}
-          formField={formField}
-          institutions={institutionData}
-          disabled={contextLoading || !creationContext}
-        />
-      )
-    }),
+    // Hidden sync fields
     createField('assigned_institution_id', '', 'custom', {
       validation: z.union([z.number(), z.string(), z.null()]).optional(),
       defaultValue: null,
@@ -537,14 +476,7 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       defaultValue: null,
       render: () => null,
     }),
-    createField('target_departments', 'Hədəf departamentlər (isteğe bağlı)', 'multiselect', {
-      options: availableDepartments,
-      placeholder: departmentsLoading ? taskFormPlaceholders.departmentsLoading : taskFormPlaceholders.departments,
-      disabled: departmentsLoading,
-      description: taskFormDescriptions.departments,
-      className: 'md:col-span-2'
-    }),
-    // Əlavə məlumatlar buraya köçürüldü
+    // Optional additional fields
     createField('notes', 'Əlavə qeydlər (isteğe bağlı)', 'textarea', {
       placeholder: taskFormPlaceholders.notes,
       rows: 3,
@@ -560,28 +492,20 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
       rows: 3,
       className: 'md:col-span-2'
     }),
-  ];
+  ], [baseBasicFields]);
 
   // ============================================
-  // Modal Tab Configuration
+  // Modal Configuration - Single Tab (simplified)
   // ============================================
 
   const modalTabs = [
     {
       id: 'basic',
-      label: 'Əsas məlumatlar',
+      label: 'Tapşırıq məlumatları',
       icon: <Users className="h-4 w-4" />,
-      fields: basicFields,
-      description: 'Tapşırığın əsas məlumatlarını və məsul şəxsi təyin edin',
+      fields: allFields,
+      description: 'Tapşırığın bütün məlumatlarını və məsul şəxsləri təyin edin',
       color: 'blue' as const,
-    },
-    {
-      id: 'target',
-      label: 'Hədəf və Təyinat',
-      icon: <Building className="h-4 w-4" />,
-      fields: targetFields,
-      description: 'Tapşırığın hədəf sahəsini, müəssisələrini və əlavə parametrlərini müəyyən edin',
-      color: 'green' as const,
     },
   ];
 
@@ -662,7 +586,6 @@ export const TaskModalStandardized: React.FC<TaskModalStandardizedProps> = ({
         description="Tapşırıq məlumatlarını daxil edin və həyata keçirmək üçün məsul şəxs təyin edin"
         loading={isLoading}
       loadingText="Seçimlər yüklənir..."
-      entityBadge={task?.category ? categoryOptions.find(c => c.value === task.category)?.label : undefined}
       entity={task}
       tabs={modalTabs}
       defaultValues={defaultFormValues}

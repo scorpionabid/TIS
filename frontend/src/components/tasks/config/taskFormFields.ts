@@ -158,7 +158,7 @@ export const taskValidationMessages = {
 export const taskDefaultValues = {
   title: '',
   description: '',
-  category: 'other' as const,
+  category: 'other' as const, // Default value, not required anymore
   priority: 'medium' as const,
   target_scope: 'specific',
   assigned_to: '',

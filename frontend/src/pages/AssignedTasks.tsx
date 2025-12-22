@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Clock, CheckCircle, Filter, Search, Loader2 } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, Filter, Search, Loader2, Forward } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { taskService, Task, UserAssignmentSummary } from "@/services/tasks";
@@ -20,6 +20,7 @@ import {
   statusLabels,
 } from "@/components/tasks/config/taskFormFields";
 import { useToast } from "@/hooks/use-toast";
+import { TaskDelegationModal } from "@/components/modals/TaskDelegationModal";
 
 const COMPLETION_TYPES = [
   { value: "report_submitted", label: "Hesabat göndərildi" },
@@ -84,6 +85,7 @@ const AssignedTasks = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [decisionContext, setDecisionContext] = useState<{ task: Task; assignment: UserAssignmentSummary } | null>(null);
   const [completionContext, setCompletionContext] = useState<{ task: Task; assignment: UserAssignmentSummary } | null>(null);
+  const [delegationContext, setDelegationContext] = useState<{ task: Task; assignment: UserAssignmentSummary } | null>(null);
   const [decisionReason, setDecisionReason] = useState("");
   const [completionType, setCompletionType] = useState<string>(DEFAULT_COMPLETION_TYPE);
   const [completionNotes, setCompletionNotes] = useState("");
@@ -98,6 +100,23 @@ const AssignedTasks = () => {
     setCompletionContext(null);
     setCompletionNotes("");
     setCompletionType(DEFAULT_COMPLETION_TYPE);
+  };
+
+  const closeDelegationDialog = () => {
+    setDelegationContext(null);
+  };
+
+  const openDelegationDialog = (task: Task, assignment: UserAssignmentSummary) => {
+    // Only allow delegation for pending or accepted status
+    if (assignment.status !== 'pending' && assignment.status !== 'accepted') {
+      toast({
+        title: "Yönləndirmə mümkün deyil",
+        description: "Yalnız pending və ya accepted statusunda olan tapşırıqları yönləndirə bilərsiniz.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setDelegationContext({ task, assignment });
   };
 
   const allowedRoles = useMemo(
@@ -533,6 +552,18 @@ const AssignedTasks = () => {
                       {assignment ? (
                         <div className="flex flex-col gap-2">
                           <div className="flex flex-wrap justify-end gap-2">
+                            {/* Delegation button - only for pending/accepted status */}
+                            {(assignment.status === 'pending' || assignment.status === 'accepted') && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openDelegationDialog(task, assignment)}
+                                disabled={assignmentMutation.isPending}
+                              >
+                                <Forward className="mr-2 h-4 w-4" />
+                                Yönləndir
+                              </Button>
+                            )}
                             {canTransition(assignment, "in_progress") && (
                               <Button
                                 size="sm"
@@ -688,6 +719,20 @@ const AssignedTasks = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Task Delegation Modal */}
+      {delegationContext && (
+        <TaskDelegationModal
+          open={Boolean(delegationContext)}
+          onClose={closeDelegationDialog}
+          task={delegationContext.task}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["assigned-tasks"] });
+            queryClient.invalidateQueries({ queryKey: ["tasks"] });
+            closeDelegationDialog();
+          }}
+        />
+      )}
     </div>
   );
 };

@@ -90,6 +90,11 @@ Route::middleware('permission:tasks.read')->group(function () {
     Route::get('tasks/user/{user}', [TaskController::class, 'getUserTasks']);
     Route::get('tasks/institution/{institution}', [TaskController::class, 'getInstitutionTasks']);
     Route::post('tasks/assignments/{assignment}/status', [TaskController::class, 'updateAssignmentStatus']);
+
+    // Task Delegation Routes
+    Route::get('tasks/{task}/eligible-delegates', [TaskController::class, 'getEligibleDelegates']);
+    Route::post('tasks/{task}/delegate', [TaskController::class, 'delegate']);
+    Route::get('tasks/{task}/delegation-history', [TaskController::class, 'getDelegationHistory']);
 });
 
 Route::middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin')->group(function () {
