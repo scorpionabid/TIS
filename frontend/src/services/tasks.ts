@@ -57,6 +57,11 @@ export interface Task extends BaseEntity {
       name: string;
       email?: string;
     } | null;
+    assigned_user?: {
+      id: number;
+      name: string;
+      email?: string;
+    } | null;
   }>;
   user_assignment?: UserAssignmentSummary | null;
 }
@@ -288,7 +293,7 @@ class TaskService extends BaseService<Task> {
       completion_data?: Record<string, unknown>;
     }
   ) {
-    const response = await apiClient.post(`/task-assignments/${assignmentId}/status`, data);
+    const response = await apiClient.post(`/tasks/assignments/${assignmentId}/status`, data);
     return response.data ?? response;
   }
 }

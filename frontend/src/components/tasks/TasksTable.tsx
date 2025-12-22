@@ -32,7 +32,7 @@ import {
   BookOpen,
   Loader2,
 } from "lucide-react";
-import type { ElementType } from "react";
+import React from "react";
 
 type PaginationMeta = {
   current_page?: number;
@@ -62,23 +62,28 @@ type TasksTableProps = {
   isFetching?: boolean;
 };
 
-const categoryIcons: Record<string, ElementType> = {
-  report: FileText,
-  maintenance: Wrench,
-  event: PartyPopper,
-  audit: Shield,
-  instruction: BookOpen,
-  other: MoreHorizontal,
-};
-
 const sortableColumns: Array<{ field: SortField; label: string; className?: string }> = [
-  { field: "title", label: "Tapşırıq", className: "w-[300px]" },
-  { field: "category", label: "Kateqoriya" },
-  { field: "assignee", label: "Məsul" },
+  { field: "title", label: "Tapşırıq", className: "w-[320px]" },
+  { field: "assignee", label: "Məsul şəxslər", className: "w-[260px]" },
   { field: "priority", label: "Prioritet" },
   { field: "status", label: "Status" },
   { field: "deadline", label: "Son tarix" },
 ];
+
+const assigneeAvatarColors = [
+  "bg-primary/15 text-primary",
+  "bg-emerald-100 text-emerald-700",
+  "bg-amber-100 text-amber-700",
+  "bg-sky-100 text-sky-700",
+];
+
+const getAssigneeInitials = (name: string) => {
+  const parts = name.split(" ").filter(Boolean);
+  if (parts.length === 1) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
 
 export function TasksTable({
   tasks,
@@ -110,9 +115,59 @@ export function TasksTable({
     );
   };
 
-  const getCategoryIcon = (category: string) => {
-    const IconComponent = categoryIcons[category] || MoreHorizontal;
-    return <IconComponent className="h-4 w-4" />;
+  const renderAssignees = (task: Task) => {
+    const assignments = Array.isArray(task.assignments) ? task.assignments : [];
+    const users = assignments
+      .map((assignment) => assignment.assignedUser ?? (assignment as any)?.assigned_user)
+      .filter(Boolean);
+
+    console.log('[TasksTable] assignments debug', {
+      taskId: task.id,
+      assignments,
+      mappedUsers: users,
+      legacyAssignee: task.assignee,
+    });
+
+    if (!users.length && task.assignee) {
+      users.push(task.assignee);
+    }
+
+    if (!users.length) {
+      return <span className="text-muted-foreground">-</span>;
+    }
+
+    const maxVisible = 3;
+    const visibleUsers = users.slice(0, maxVisible);
+    const remaining = users.length - visibleUsers.length;
+
+    return (
+      <div className="flex items-center gap-2 overflow-hidden">
+        <div className="flex -space-x-2">
+          {visibleUsers.map((user, index) => (
+            <div
+              key={user.id}
+              className={`relative flex h-7 w-7 items-center justify-center rounded-full border border-background text-[11px] font-semibold shadow-sm ${assigneeAvatarColors[index % assigneeAvatarColors.length]}`}
+              title={user.name}
+            >
+              {getAssigneeInitials(user.name)}
+            </div>
+          ))}
+          {remaining > 0 && (
+            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-muted text-[11px] font-semibold text-muted-foreground">
+              +{remaining}
+            </div>
+          )}
+        </div>
+        <div className="flex flex-col text-xs text-muted-foreground leading-tight">
+          {visibleUsers.slice(0, 2).map((user) => (
+            <span key={user.id} className="truncate max-w-[160px]" title={user.name}>
+              {user.name}
+            </span>
+          ))}
+          {remaining > 0 && <span className="text-[11px]">və {remaining} nəfər daha</span>}
+        </div>
+      </div>
+    );
   };
 
   const totalItems = pagination?.total ?? tasks.length;
@@ -178,40 +233,29 @@ export function TasksTable({
           ) : (
             tasks.map((task) => (
               <TableRow key={task.id}>
-                <TableCell className="max-w-[300px]">
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
-                      {getCategoryIcon(task.category)}
+                <TableCell className="max-w-[320px]">
+                  <div className="flex flex-col gap-1">
+                    {task.origin_scope_label && (
+                      <Badge variant="outline" className="w-fit">
+                        {task.origin_scope_label}
+                      </Badge>
+                    )}
+                    <div className="font-medium truncate" title={task.title}>
+                      {task.title}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      {task.origin_scope_label && (
-                        <Badge variant="outline" className="mb-1">
-                          {task.origin_scope_label}
-                        </Badge>
-                      )}
-                      <div className="font-medium truncate" title={task.title}>
-                        {task.title}
+                    {task.description && (
+                      <div
+                        className="text-sm text-muted-foreground overflow-hidden"
+                        title={task.description}
+                        style={{
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                        }}
+                      >
+                        {task.description}
                       </div>
-                      {task.description && (
-                        <div
-                          className="text-sm text-muted-foreground mt-1 overflow-hidden"
-                          title={task.description}
-                          style={{
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                          }}
-                        >
-                          {task.description}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    {getCategoryIcon(task.category)}
-                    <span className="text-sm">{categoryLabels[task.category]}</span>
+                    )}
                   </div>
                 </TableCell>
                 <TableCell>

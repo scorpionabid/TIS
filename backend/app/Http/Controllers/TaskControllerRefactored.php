@@ -57,7 +57,14 @@ class TaskControllerRefactored extends Controller
         $user = Auth::user();
 
         try {
-            $query = Task::with(['creator', 'assignee', 'assignedInstitution', 'approver']);
+            $query = Task::with([
+                'creator',
+                'assignee',
+                'assignedInstitution',
+                'approver',
+                'assignments.assignedUser',
+                'assignments.institution',
+            ]);
 
             $this->permissionService->applyTaskAccessControl($query, $user);
 
@@ -107,7 +114,14 @@ class TaskControllerRefactored extends Controller
         $institutionId = $user->institution_id;
 
         try {
-            $query = Task::with(['creator', 'assignee', 'assignedInstitution', 'approver'])
+            $query = Task::with([
+                'creator',
+                'assignee',
+                'assignedInstitution',
+                'approver',
+                'assignments.assignedUser',
+                'assignments.institution',
+            ])
                 ->where(function ($assignedQuery) use ($user, $institutionId) {
                     $assignedQuery->where('assigned_to', $user->id)
                         ->orWhereHas('assignments', function ($assignmentQuery) use ($user, $institutionId) {
