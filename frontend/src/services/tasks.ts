@@ -181,6 +181,44 @@ export interface AssignableUser {
   } | null;
 }
 
+export interface AssignableUsersFilters {
+  role?: string | null;
+  institution_id?: number | null;
+  search?: string | null;
+  origin_scope?: 'region' | 'sector' | null;
+}
+
+export interface AssignableUsersMeta {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  filters?: AssignableUsersFilters;
+}
+
+export interface AssignableUsersLinks {
+  first: string | null;
+  last: string | null;
+  prev: string | null;
+  next: string | null;
+}
+
+export interface AssignableUsersResponse {
+  success?: boolean;
+  data: AssignableUser[];
+  meta?: AssignableUsersMeta;
+  links?: AssignableUsersLinks;
+}
+
+export interface AssignableUsersRequestParams {
+  role?: string;
+  institution_id?: number;
+  search?: string;
+  per_page?: number;
+  page?: number;
+  origin_scope?: 'region' | 'sector';
+}
+
 class TaskService extends BaseService<Task> {
   constructor() {
     super('/tasks');
@@ -212,27 +250,28 @@ class TaskService extends BaseService<Task> {
     return (response.data?.data ?? response.data) as TaskCreationContext;
   }
 
-  async getAssignableUsers(params?: {
-    role?: string;
-    institution_id?: number;
-    search?: string;
-    per_page?: number;
-    origin_scope?: 'region' | 'sector';
-  }): Promise<AssignableUser[]> {
-    const response = await apiClient.get<{ success?: boolean; data?: AssignableUser[] }>(`${this.baseEndpoint}/assignable-users`, params);
+  async getAssignableUsers(params?: AssignableUsersRequestParams): Promise<AssignableUsersResponse> {
+    const response = await apiClient.get<AssignableUsersResponse>(`${this.baseEndpoint}/assignable-users`, params);
     console.log('[TaskService] getAssignableUsers response', response);
 
-    const payload = response.data ?? (response as any)?.data ?? [];
+    const payload = (response as AssignableUsersResponse) ?? { data: [] };
+    const primaryData = Array.isArray((payload as any)?.data)
+      ? payload.data
+      : Array.isArray((payload as any))
+        ? (payload as unknown as AssignableUser[])
+        : Array.isArray((payload as any)?.data?.data)
+          ? (payload as any).data.data as AssignableUser[]
+          : [];
 
-    if (Array.isArray(payload)) {
-      return payload as AssignableUser[];
-    }
+    const meta = (payload.meta ?? (payload as any)?.data?.meta) as AssignableUsersMeta | undefined;
+    const links = (payload.links ?? (payload as any)?.data?.links) as AssignableUsersLinks | undefined;
 
-    if (Array.isArray((payload as any)?.data)) {
-      return (payload as any).data as AssignableUser[];
-    }
-
-    return [];
+    return {
+      success: payload.success ?? true,
+      data: primaryData,
+      meta,
+      links,
+    };
   }
 
   async getAssignedToMe(filters?: TaskFilters) {

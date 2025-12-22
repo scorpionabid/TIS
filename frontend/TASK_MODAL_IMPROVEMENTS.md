@@ -518,6 +518,30 @@ const taskTemplates = [
 
 **Faydası**:
 - Bulk operations
+
+---
+
+## 🧭 4. Məsul Şəxslər Seçimi – Mövcud Vəziyyət (2025-02-XX)
+
+### 4.1 Performans və Data Limiti
+- `taskService.getAssignableUsers` yalnız `response.data` massivini oxuyur, backend-in qaytardığı `meta`/`links` hissəsini tamamilə atlayır (`frontend/src/services/tasks.ts:215-236`). Nəticədə ilk 100 istifadəçi gəldikdən sonra qalan səhifələrə çıxış olmur.
+- Backend default olaraq `paginate($perPage ?? 100)` işlədir (`backend/app/Http/Controllers/TaskControllerRefactored.php:688` yaxınlığı), yəni RegionAdmin 300+ istifadəçini görə bilmir; istifadəçilər “kimisə tapa bilmirəm” şikayəti edir.
+- Modal açılan kimi `assignableUsers` sorğusu başlayır və loglarda `userCount: 100`, `optionCount: 130` kimi qiymətlər görülür (`TaskModalStandardized.tsx` daxilində `console.log`). Daha böyük siyahılarda render gecikməsi 1.4-1.8s-ə qədər yüksəlir (Chrome profiler).
+
+### 4.2 UX Məhdudiyyətləri
+- Seçim UI-si `FormBuilder`-in standart `multiselect` komponentidir; həm axtarış, həm də filter qabiliyyəti yoxdur. İstifadəçilər rollara və ya müəssisə iyerarxiyasına görə süzgəc tətbiq edə bilmirlər.
+- Qruplaşdırma süni şəkildə `__group_*` option-ları ilə edilir və bu da klaviatura naviqasiyasını çətinləşdirir; fokus qruplarda ilişir, screen-reader-lər “seçim deyil” tipli mətn oxuyur.
+- “Məsul şəxslər” sahəsi validasiya xətasını yalnız submit zamanı göstərir. Modalda `assignableUsers` boş qayıdanda istifadəçiyə nə baş verdiyi açıqlanmır (sadəcə boş popover).
+
+### 4.3 Məhsul Tələbləri
+- RegionAdmin/SektorAdmin-lər tez-tez eyni role sahib istifadəçiləri seçir; UI-də rol chip-ləri, iyerarxiya breadcrumb-ları və tez-tez seçilən istifadəçilər siyahısı tələb olunur.
+- Mobil istifadəçilər üçün popover + checkbox kombinasiya əlçatmazdır; tam ekran siyahı, “seçilənlər” xülasəsi və “hamısını təmizlə” funksiyası istənilir.
+- Hədəf: 300-400 istifadəçi olan regionda 1 saniyədən az input-lag, 200 ms-dən qısa scroll reaksiyası, axtarış nəticələri üçün 300 ms debounce-lu API çağırışı.
+
+### 4.4 Növbəti addımlar
+1. Backend: Pagination məlumatını saxlayıb `meta.total`, `meta.current_page` kimi sahələri front-a ötürmək; `per_page` limitini 200-ə qaldırmaq.
+2. Frontend: `assignableUsers` üçün `useInfiniteQuery` + `@tanstack/react-virtual` istifadə etmək, `ResponsibleUserSelector` adlı ayrılmış komponent yaratmaq.
+3. UX: Boş/errored vəziyyətlər üçün inline xəbərdarlıqlar, seçilmiş istifadəçilərin chip paneli, rol/institusiya filterləri, debounced search inputu, keyboard/ARIA dəstəyi.
 - Excel integration
 - Time saving
 
@@ -826,3 +850,13 @@ const validateInstitutionAccess = async (institutionIds: number[]) => {
 **ROI**: Low effort, high impact - təvsiyə olunan ilk addımlar
 
 **Estimated Total Time**: 2-3 həftə (full implementation)
+
+---
+
+## ✅ 5. Yeni Funksionallıq Vəziyyəti (2025-02-XX)
+
+- **Backend**: `/api/tasks/assignable-users` cavabı artıq `meta` + `links` blokları ilə zəngindir, `per_page` 200-ə qədər dəstəklənir və filtr məlumatları meta daxilində saxlanılır. `backend/tests/Feature/Tasks/AssignableUsersEndpointTest.php` faylı pagination, axtarış və icazə ssenarilərini avtomatlaşdırır.
+- **Servis qatında** `taskService.getAssignableUsers` cavabı normalizə edir; yeni `useAssignableUsers` hook-u `useInfiniteQuery` üstündə qurulub və dinamik filter parametrləri ilə sonsuz yükləmə dəstəyi verir. `useTaskFormData` yalnız yaradılma kontekstini prefetç edir.
+- **Frontend UI**: `ResponsibleUserSelector` virtual siyahı, axtarış, rol filtrləri və seçilmiş istifadəçi xülasəsi ilə köhnə multiselect komponentini əvəz edir; `TaskModalStandardized` daxilində `custom` form sahəsi kimi işləyir.
+- **Doğrulama**: `phpunit --filter AssignableUsersEndpointTest` və `npm run typecheck` uğurla keçirildi; `assigned_user_ids` sahəsi `z.array(z.string())` validasiyasını qoruyur.
+- **Növbəti addım**: Selector üçün komponent testləri və iyerarxik filtr seçimləri əlavə etmək.

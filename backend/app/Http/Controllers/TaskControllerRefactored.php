@@ -695,8 +695,13 @@ class TaskControllerRefactored extends Controller
                 });
             }
 
-            $perPage = $request->per_page ?? 100;
-            $users = $query->orderBy('first_name')->orderBy('last_name')->paginate($perPage);
+            $perPage = (int) ($request->input('per_page') ?? 120);
+            $perPage = max(1, min($perPage, 200));
+
+            $users = $query
+                ->orderBy('first_name')
+                ->orderBy('last_name')
+                ->paginate($perPage);
 
             \Log::info('TaskController:getAssignableUsers query result', [
                 'total' => $users->total(),
@@ -743,6 +748,18 @@ class TaskControllerRefactored extends Controller
                     'last_page' => $users->lastPage(),
                     'per_page' => $users->perPage(),
                     'total' => $users->total(),
+                    'filters' => [
+                        'role' => $roleFilter,
+                        'institution_id' => $institutionFilter ? (int) $institutionFilter : null,
+                        'search' => $search ?: null,
+                        'origin_scope' => $originScope,
+                    ],
+                ],
+                'links' => [
+                    'first' => $users->url(1),
+                    'last' => $users->url($users->lastPage()),
+                    'prev' => $users->previousPageUrl(),
+                    'next' => $users->nextPageUrl(),
                 ],
             ]);
         } catch (\Exception $e) {

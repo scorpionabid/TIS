@@ -22,7 +22,6 @@ const ROLE_LABELS: Record<string, string> = {
   regionadmin: 'RegionAdmin',
   regionoperator: 'RegionOperator',
   sektoradmin: 'SektorAdmin',
-  sektoroperator: 'SektorOperator',
   schooladmin: 'SchoolAdmin',
   teacher: 'Müəllim',
 };
@@ -32,7 +31,6 @@ const ROLE_COLORS: Record<string, string> = {
   regionadmin: 'bg-blue-100 text-blue-800',
   regionoperator: 'bg-sky-100 text-sky-800',
   sektoradmin: 'bg-green-100 text-green-800',
-  sektoroperator: 'bg-emerald-100 text-emerald-800',
   schooladmin: 'bg-amber-100 text-amber-800',
   teacher: 'bg-orange-100 text-orange-800',
 };

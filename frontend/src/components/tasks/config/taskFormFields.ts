@@ -86,7 +86,6 @@ export const ASSIGNABLE_ROLES = [
   'regionadmin',
   'regionoperator',
   'sektoradmin',
-  'sektoroperator',
   'schooladmin'
 ] as const;
 
@@ -100,7 +99,6 @@ export const roleDisplayNames: Record<string, string> = {
   regionadmin: 'Regional Admin',
   regionoperator: 'Regional Operator',
   sektoradmin: 'Sektor Admin',
-  sektoroperator: 'Sektor Operator',
   schooladmin: 'Məktəb Admini',
   deputy: 'Məktəb Müdir Müavini',
   teacher: 'Müəllim',
