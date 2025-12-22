@@ -26,4 +26,7 @@ return [
         'can_delete_links',
         'can_share_links',
     ],
+    'defaults' => [
+        'can_view_surveys' => true,
+    ],
 ];

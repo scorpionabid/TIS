@@ -19,9 +19,15 @@ class RegionOperatorPermissionService
      */
     private array $crudFields;
 
+    /**
+     * Default permission values.
+     */
+    private array $defaultValues;
+
     public function __construct()
     {
         $this->crudFields = self::getCrudFields();
+        $this->defaultValues = config('region_operator_permissions.defaults', []);
     }
 
     public static function getCrudFields(): array
@@ -226,6 +232,12 @@ class RegionOperatorPermissionService
     private function normalize(array $permissions): array
     {
         $base = array_fill_keys($this->crudFields, false);
+
+        foreach ($this->defaultValues as $field => $value) {
+            if (array_key_exists($field, $base)) {
+                $base[$field] = $this->toBool($value);
+            }
+        }
 
         foreach ($permissions as $field => $value) {
             if (array_key_exists($field, $base)) {
