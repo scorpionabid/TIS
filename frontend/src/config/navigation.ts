@@ -43,6 +43,8 @@ export interface MenuItem {
   children?: MenuItem[];
   roles?: UserRole[];
   description?: string;
+  permissions?: string[];
+  permissionMatch?: 'any' | 'all';
 }
 
 export interface MenuGroup {
@@ -77,38 +79,47 @@ export const improvedNavigationConfig: MenuGroup[] = [
     id: 'academic-tracking',
     label: 'Akademik İzləmə',
     panel: 'work',
-    roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+    roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
     items: [
       {
         id: 'attendance',
         label: 'Davamiyyət',
         icon: UserCheck,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
         children: [
           {
             id: 'attendance-record',
             label: 'Davamiyyət Qeydiyyatı',
             path: '/school/attendance',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR],
+            permissions: ['attendance.create', 'attendance.update']
           },
           {
             id: 'attendance-bulk',
             label: 'Toplu Davamiyyət Qeydiyyatı',
             path: '/school/attendance/bulk',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR],
+            permissions: ['attendance.create', 'attendance.update'],
             description: 'Siniflərdə toplu şəkildə davamiyyət qeyd edin'
           },
           {
             id: 'attendance-reports',
             label: 'Davamiyyət Hesabatları',
             path: '/school/attendance/reports',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR],
+            permissions: ['attendance.read']
           },
           {
             id: 'attendance-regional-overview',
             label: 'Regional Davamiyyət',
             path: '/regionadmin/attendance/reports',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN],
+            roles: [
+              USER_ROLES.SUPERADMIN,
+              USER_ROLES.REGIONADMIN,
+              USER_ROLES.SEKTORADMIN,
+              USER_ROLES.REGIONOPERATOR,
+            ],
+            permissions: ['attendance.read'],
             description: 'Sektor və məktəb üzrə iştirak nəzarəti'
           }
         ]
@@ -210,7 +221,13 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'approvals',
             label: 'Təsdiq Paneli',
             path: '/approvals',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]
+            roles: [
+              USER_ROLES.SUPERADMIN,
+              USER_ROLES.REGIONADMIN,
+              USER_ROLES.REGIONOPERATOR,
+              USER_ROLES.SEKTORADMIN,
+            ],
+            permissions: ['approvals.read', 'survey_responses.read']
           },
         ]
       },
@@ -590,14 +607,28 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: 'Hesabatlar',
         path: '/reports',
         icon: FileText,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
+        roles: [
+          USER_ROLES.SUPERADMIN,
+          USER_ROLES.REGIONADMIN,
+          USER_ROLES.SEKTORADMIN,
+          USER_ROLES.SCHOOLADMIN,
+          USER_ROLES.REGIONOPERATOR,
+        ],
+        permissions: ['reports.read']
       },
       {
         id: 'analytics',
         label: 'Sistem Analitikası',
         path: '/analytics',
         icon: BarChart3,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]
+        roles: [
+          USER_ROLES.SUPERADMIN,
+          USER_ROLES.REGIONADMIN,
+          USER_ROLES.SEKTORADMIN,
+          USER_ROLES.SCHOOLADMIN,
+          USER_ROLES.REGIONOPERATOR,
+        ],
+        permissions: ['analytics.view']
       }
     ]
   },
@@ -653,44 +684,103 @@ export const improvedNavigationConfig: MenuGroup[] = [
 // Main navigation config export
 export const universalNavigationConfig = improvedNavigationConfig;
 
-export const getMenuForRole = (role: UserRole): MenuGroup[] => {
+export const getMenuForRole = (role: UserRole, permissions: string[] = []): MenuGroup[] => {
   return universalNavigationConfig
     .filter(group => !group.roles || group.roles.includes(role))
     .map(group => ({
       ...group,
-      items: filterMenuItems(group.items, role)
+      items: filterMenuItems(group.items, role, permissions)
     }))
     .filter(group => group.items.length > 0);
 };
 
 // Panel əsaslı menu alımı
-export const getMenuForRoleAndPanel = (role: UserRole, panel: SidebarPanel): MenuGroup[] => {
+export const getMenuForRoleAndPanel = (
+  role: UserRole,
+  panel: SidebarPanel,
+  permissions: string[] = []
+): MenuGroup[] => {
   return universalNavigationConfig
     .filter(group => group.panel === panel)
     .filter(group => !group.roles || group.roles.includes(role))
     .map(group => ({
       ...group,
-      items: filterMenuItems(group.items, role)
+      items: filterMenuItems(group.items, role, permissions)
     }))
     .filter(group => group.items.length > 0);
 };
 
 // Panel dəstəyi ilə navigation helper funksiyaları
-export const getManagementMenuForRole = (role: UserRole): MenuGroup[] => {
-  return getMenuForRoleAndPanel(role, 'management');
+export const getManagementMenuForRole = (role: UserRole, permissions: string[] = []): MenuGroup[] => {
+  return getMenuForRoleAndPanel(role, 'management', permissions);
 };
 
-export const getWorkMenuForRole = (role: UserRole): MenuGroup[] => {
-  return getMenuForRoleAndPanel(role, 'work');
+export const getWorkMenuForRole = (role: UserRole, permissions: string[] = []): MenuGroup[] => {
+  return getMenuForRoleAndPanel(role, 'work', permissions);
 };
 
 // Helper function to recursively filter menu items based on role
-function filterMenuItems(items: MenuItem[], role: UserRole): MenuItem[] {
+function filterMenuItems(items: MenuItem[], role: UserRole, permissions: string[]): MenuItem[] {
   return items
-    .filter(item => !item.roles || item.roles.includes(role))
+    .filter(item => {
+      const roleAllowed = !item.roles || item.roles.includes(role);
+
+      // DEBUG: Log permission checks for attendance items (development only)
+      if (process.env.NODE_ENV === 'development' && (item.id?.includes('attendance') || item.path?.includes('attendance'))) {
+        console.log('🔍 Navigation Filter Debug:', {
+          itemId: item.id,
+          itemLabel: item.label,
+          itemPath: item.path,
+          requiredRoles: item.roles,
+          userRole: role,
+          roleAllowed,
+          requiredPermissions: item.permissions,
+          userPermissions: permissions,
+          permissionsLength: permissions.length,
+          hasAttendanceRead: permissions.includes('attendance.read'),
+        });
+      }
+
+      if (!roleAllowed) {
+        return false;
+      }
+
+      if (!item.permissions || item.permissions.length === 0) {
+        return true;
+      }
+
+      const matchType = item.permissionMatch ?? 'any';
+      if (matchType === 'all') {
+        const hasAllPermissions = item.permissions.every(permission => permissions.includes(permission));
+
+        // DEBUG: Log permission match result (development only)
+        if (process.env.NODE_ENV === 'development' && (item.id?.includes('attendance') || item.path?.includes('attendance'))) {
+          console.log('🔍 Permission Match (ALL):', {
+            itemId: item.id,
+            required: item.permissions,
+            hasAll: hasAllPermissions,
+          });
+        }
+
+        return hasAllPermissions;
+      }
+
+      const hasAnyPermission = item.permissions.some(permission => permissions.includes(permission));
+
+      // DEBUG: Log permission match result (development only)
+      if (process.env.NODE_ENV === 'development' && (item.id?.includes('attendance') || item.path?.includes('attendance'))) {
+        console.log('🔍 Permission Match (ANY):', {
+          itemId: item.id,
+          required: item.permissions,
+          hasAny: hasAnyPermission,
+        });
+      }
+
+      return hasAnyPermission;
+    })
     .map(item => ({
       ...item,
-      children: item.children ? filterMenuItems(item.children, role) : undefined
+      children: item.children ? filterMenuItems(item.children, role, permissions) : undefined
     }))
     .filter(item => !item.children || item.children.length > 0);
 }

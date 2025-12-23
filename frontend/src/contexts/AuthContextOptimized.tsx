@@ -149,6 +149,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   }, []);
 
   const applyCurrentUser = useCallback((user: User | null) => {
+    // DEBUG: Log user permissions when setting current user (development only)
+    if (process.env.NODE_ENV === 'development') {
+      if (user) {
+        console.log('🔐 AuthContext: Setting current user:', {
+          id: user.id,
+          username: user.username,
+          role: user.role,
+          permissionsCount: user.permissions?.length || 0,
+          permissions: user.permissions,
+          hasAttendanceRead: user.permissions?.includes('attendance.read'),
+          hasAttendanceManage: user.permissions?.includes('attendance.manage'),
+        });
+      } else {
+        console.log('🔐 AuthContext: Clearing current user');
+      }
+    }
+
     setCurrentUser(user);
     resetNavigationCache();
   }, []);

@@ -66,6 +66,17 @@ export const useNavigationCache = (options: UseNavigationOptions = {}) => {
   const getCachedNavigation = useCallback((): MenuGroup[] => {
     if (!currentUser) return [];
 
+    // DEBUG: Log user context for navigation generation (development only)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🗺️ Navigation Cache: Getting menu', {
+        userRole: currentUser.role,
+        permissionsCount: currentUser.permissions?.length || 0,
+        permissions: currentUser.permissions,
+        panel: panelKey,
+        hasAttendanceRead: currentUser.permissions?.includes('attendance.read'),
+      });
+    }
+
     const startTime = performance.now();
     const cacheKey = getCacheKey(currentUser.role, currentUser.permissions, panelKey);
     const cachedEntry = navigationCache[cacheKey];
@@ -75,16 +86,30 @@ export const useNavigationCache = (options: UseNavigationOptions = {}) => {
 
     // Return cached data if valid
     if (cachedEntry && isCacheValid(cachedEntry)) {
-      console.log('🚀 Navigation: Using cached menu for', currentUser.role);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🚀 Navigation: Using cached menu for', currentUser.role, {
+          cacheAge: Math.round((Date.now() - cachedEntry.timestamp) / 1000) + 's',
+          cachedPermissionsCount: cachedEntry.permissions.length,
+        });
+      }
       menuData = cachedEntry.data;
       cacheHit = true;
     } else {
       // Generate new menu structure
-      console.log('📊 Navigation: Generating new menu for', currentUser.role);
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📊 Navigation: Generating new menu for', currentUser.role, {
+          permissionsCount: currentUser.permissions.length,
+          panel: panelKey,
+        });
+      }
       if (panelKey === PANEL_DEFAULT) {
-        menuData = getMenuForRole(currentUser.role);
+        menuData = getMenuForRole(currentUser.role, currentUser.permissions);
       } else {
-        menuData = getMenuForRoleAndPanel(currentUser.role, panelKey as SidebarPanel);
+        menuData = getMenuForRoleAndPanel(
+          currentUser.role,
+          panelKey as SidebarPanel,
+          currentUser.permissions
+        );
       }
 
       // Cache the result
@@ -95,6 +120,13 @@ export const useNavigationCache = (options: UseNavigationOptions = {}) => {
         permissions: [...currentUser.permissions],
         panel: panelKey
       };
+
+      if (process.env.NODE_ENV === 'development') {
+        console.log('✅ Navigation: Menu generated', {
+          groupsCount: menuData.length,
+          totalItems: menuData.reduce((sum, g) => sum + g.items.length, 0),
+        });
+      }
     }
 
     // Record performance metric

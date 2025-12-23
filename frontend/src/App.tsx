@@ -12,6 +12,8 @@ import { USER_ROLES } from "@/constants/roles";
 import Layout from "./components/layout/Layout";
 import NotFound from "./pages/NotFound";
 import { accessibilityChecker } from "@/utils/accessibility-checker";
+import { PermissionDebugPanel } from "@/components/debug/PermissionDebugPanel";
+import "@/utils/debugHelpers"; // Load debug helpers in development
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
@@ -439,7 +441,22 @@ const App = () => {
               <Route path="documents" element={<Navigate to="/resources?tab=documents" replace />} />
               <Route path="links" element={<Navigate to="/resources?tab=links" replace />} />
 
-              <Route path="reports" element={<LazyWrapper><Reports /></LazyWrapper>} />
+              <Route path="reports" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute
+                    allowedRoles={[
+                      USER_ROLES.SUPERADMIN,
+                      USER_ROLES.REGIONADMIN,
+                      USER_ROLES.SEKTORADMIN,
+                      USER_ROLES.SCHOOLADMIN,
+                      USER_ROLES.REGIONOPERATOR,
+                    ]}
+                    requiredPermissions={['reports.read']}
+                  >
+                    <Reports />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
               <Route path="subjects" element={
                 <LazyWrapper>
                   <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]}>
@@ -450,7 +467,22 @@ const App = () => {
               <Route path="institution-types-management" element={<LazyWrapper><InstitutionTypesManagement /></LazyWrapper>} />
               <Route path="academic-year-management" element={<LazyWrapper><AcademicYearManagement /></LazyWrapper>} />
               <Route path="notifications" element={<LazyWrapper><Notifications /></LazyWrapper>} />
-              <Route path="analytics" element={<LazyWrapper><Analytics /></LazyWrapper>} />
+              <Route path="analytics" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute
+                    allowedRoles={[
+                      USER_ROLES.SUPERADMIN,
+                      USER_ROLES.REGIONADMIN,
+                      USER_ROLES.SEKTORADMIN,
+                      USER_ROLES.SCHOOLADMIN,
+                      USER_ROLES.REGIONOPERATOR,
+                    ]}
+                    requiredPermissions={['analytics.view']}
+                  >
+                    <Analytics />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
               <Route path="settings" element={<LazyWrapper><Settings /></LazyWrapper>} />
               <Route path="audit-logs" element={<LazyWrapper><AuditLogs /></LazyWrapper>} />
               <Route path="performance" element={<LazyWrapper><Performance /></LazyWrapper>} />
@@ -494,7 +526,15 @@ const App = () => {
                 <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
                 <Route path="regionadmin/attendance/reports" element={
                   <LazyWrapper>
-                    <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]}>
+                    <RoleProtectedRoute
+                      allowedRoles={[
+                        USER_ROLES.SUPERADMIN,
+                        USER_ROLES.REGIONADMIN,
+                        USER_ROLES.SEKTORADMIN,
+                        USER_ROLES.REGIONOPERATOR,
+                      ]}
+                      requiredPermissions={['attendance.read']}
+                    >
                       <RegionAttendanceReports />
                     </RoleProtectedRoute>
                   </LazyWrapper>
@@ -548,7 +588,10 @@ const App = () => {
               } />
               <Route path="school/attendance/reports" element={
                 <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                  <RoleProtectedRoute
+                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR]}
+                    requiredPermissions={['attendance.read']}
+                  >
                     <AttendanceReports />
                   </RoleProtectedRoute>
                 </LazyWrapper>
@@ -613,6 +656,8 @@ const App = () => {
           </Routes>
             </BrowserRouter>
           </TooltipProvider>
+          {/* Debug Panel - Only visible in development */}
+          <PermissionDebugPanel />
         </WebSocketProvider>
       </AuthProvider>
     </QueryClientProvider>

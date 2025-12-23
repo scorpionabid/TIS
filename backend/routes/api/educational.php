@@ -119,7 +119,7 @@ Route::prefix('school-attendance')->group(function () {
     // Route::get('/patterns/{student}', [App\Http\Controllers\SchoolAttendanceController::class, 'getAttendancePatterns'])->middleware('permission:school_attendance.analytics');
 });
 
-Route::prefix('regional-attendance')->middleware(['auth:sanctum', 'role:superadmin|regionadmin|sektoradmin'])->group(function () {
+Route::prefix('regional-attendance')->middleware(['auth:sanctum', 'role:superadmin|regionadmin|regionoperator|sektoradmin'])->group(function () {
     Route::get('/overview', [RegionalAttendanceController::class, 'overview']);
     Route::get('/schools/{school}/classes', [RegionalAttendanceController::class, 'schoolClasses']);
 });

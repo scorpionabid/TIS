@@ -141,7 +141,7 @@ class RegionalAttendanceService
         $targetRegionId = $filters['region_id'] ?? null;
         $targetSectorId = $filters['sector_id'] ?? null;
 
-        if ($user->hasRole('regionadmin')) {
+        if ($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) {
             $region = $user->institution?->level === 2
                 ? $user->institution
                 : ($user->institution?->parent?->level === 2 ? $user->institution->parent : null);

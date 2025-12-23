@@ -12,7 +12,7 @@ class RegionalAttendanceController extends BaseController
 {
     public function __construct(private RegionalAttendanceService $attendanceService)
     {
-        $this->middleware(['auth:sanctum', 'role:superadmin|regionadmin|sektoradmin']);
+        $this->middleware(['auth:sanctum', 'role:superadmin|regionadmin|regionoperator|sektoradmin']);
     }
 
     public function overview(Request $request): JsonResponse
