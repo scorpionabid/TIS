@@ -11,9 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { az } from "date-fns/locale";
 import { useAuth } from "@/contexts/AuthContext";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 export default function Analytics() {
   const { currentUser } = useAuth();
+  const analyticsAccess = useModuleAccess('analytics');
   const [selectedPeriod, setSelectedPeriod] = useState<'7d' | '30d' | '90d' | '1y'>('7d');
   const [refreshInterval, setRefreshInterval] = useState<number>(300); // 5 minutes
   const { toast } = useToast();
@@ -40,8 +42,7 @@ export default function Analytics() {
     };
   }, [selectedPeriod]);
 
-  // Check if user has access permissions
-  const hasAccess = currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
+  const hasAccess = analyticsAccess.canView;
 
   // Load analytics data - use enabled prop for conditional fetching
   const { data: overviewData, isLoading: overviewLoading, error: overviewError } = useQuery({
@@ -125,7 +126,7 @@ export default function Analytics() {
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
           <p className="text-muted-foreground">
-            Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
+            Bu səhifəyə daxil olmaq üçün `analytics.view` icazəsi tələb olunur
           </p>
         </div>
       </div>

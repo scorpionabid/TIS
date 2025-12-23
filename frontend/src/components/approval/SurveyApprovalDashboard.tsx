@@ -23,6 +23,7 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../hooks/use-toast';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import surveyApprovalService, {
   PublishedSurvey,
   ResponseFilters,
@@ -40,6 +41,9 @@ const SurveyApprovalDashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const approvalsAccess = useModuleAccess('approvals');
+  const canViewApprovals = approvalsAccess.canView;
+  const canManageApprovals = approvalsAccess.canManage;
 
   // Component lifecycle logging (development only)
   useEffect(() => {
@@ -82,7 +86,8 @@ const SurveyApprovalDashboard: React.FC = () => {
       }
       return surveyApprovalService.getPublishedSurveys();
     },
-    staleTime: 5 * 60 * 1000 // 5 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: canViewApprovals,
   });
 
   // Fetch survey responses when survey is selected
@@ -96,7 +101,7 @@ const SurveyApprovalDashboard: React.FC = () => {
     queryFn: () => selectedSurvey ? 
       surveyApprovalService.getResponsesForApproval(selectedSurvey.id, filters) : 
       null,
-    enabled: !!selectedSurvey,
+    enabled: !!selectedSurvey && canViewApprovals,
     staleTime: 30 * 1000, // 30 seconds
   });
 
@@ -105,6 +110,7 @@ const SurveyApprovalDashboard: React.FC = () => {
     queryKey: ['institutions-for-filters'],
     queryFn: surveyApprovalService.getInstitutions,
     staleTime: 10 * 60 * 1000, // 10 minutes
+    enabled: canViewApprovals,
   });
 
   // Get survey questions from the selected published survey
@@ -265,6 +271,15 @@ const SurveyApprovalDashboard: React.FC = () => {
 
   // Handle bulk operations
   const handleBulkAction = async (action: 'approve' | 'reject' | 'return', comments?: string) => {
+    if (!canManageApprovals) {
+      toast({
+        title: 'İcazə yoxdur',
+        description: 'Bu əməliyyat üçün təsdiq icazəsi (approvals.approve) tələb olunur.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     console.log('🚨 [DASHBOARD handleBulkAction] CALLED with:', {
       action,
       comments,
@@ -406,25 +421,14 @@ const SurveyApprovalDashboard: React.FC = () => {
     completion_rate: 0,
   };
 
-  const allowedRoles = ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'];
-  const approvalPermissions = [
-    'approvals.read',
-    'approvals.approve',
-    'survey_responses.read',
-    'survey_responses.approve',
-    'survey_responses.write',
-  ];
-  const userPermissions = Array.isArray(currentUser?.permissions) ? currentUser?.permissions ?? [] : [];
-  const hasPermissionAccess = userPermissions.some((permission) => approvalPermissions.includes(permission));
-
-  if (!currentUser || (!allowedRoles.includes(currentUser?.role ?? '') && !hasPermissionAccess)) {
+  if (!canViewApprovals) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
           <p className="text-muted-foreground">
-            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+            Bu bölmə üçün `approvals.read` və ya `survey_responses.read` icazəsi tələb olunur.
           </p>
         </div>
       </div>
@@ -775,7 +779,7 @@ const SurveyApprovalDashboard: React.FC = () => {
       )}
 
       {/* Bulk Approval Modal */}
-      {showBulkModal && (
+      {showBulkModal && canManageApprovals && (
         <BulkApprovalInterface
           open={showBulkModal}
           onClose={() => setShowBulkModal(false)}

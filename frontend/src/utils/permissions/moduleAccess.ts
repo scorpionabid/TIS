@@ -2,7 +2,16 @@ import { USER_ROLES } from '@/constants/roles';
 import { User } from '@/types/user';
 import regionOperatorPermissions from '@/shared/region-operator-permissions.json';
 
-export type ModuleKey = 'surveys' | 'tasks' | 'documents' | 'folders' | 'links';
+export type ModuleKey =
+  | 'surveys'
+  | 'tasks'
+  | 'documents'
+  | 'folders'
+  | 'links'
+  | 'attendance'
+  | 'reports'
+  | 'analytics'
+  | 'approvals';
 
 type ModuleAction = 'view' | 'create' | 'edit' | 'delete' | 'publish' | 'manage' | 'share';
 
@@ -29,6 +38,7 @@ const ADMIN_ROLES = {
   regionadmin: USER_ROLES.REGIONADMIN,
   sektoradmin: USER_ROLES.SEKTORADMIN,
   schooladmin: USER_ROLES.SCHOOLADMIN,
+  regionoperator: USER_ROLES.REGIONOPERATOR,
 } as const;
 
 type RegionOperatorActionConfig = {
@@ -242,6 +252,78 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
       ],
       permissions: ['links.share', 'links.update'],
       regionOperatorFlags: getRegionOperatorFlags('links', 'share'),
+    },
+  },
+  attendance: {
+    view: {
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+        ADMIN_ROLES.schooladmin,
+        ADMIN_ROLES.regionoperator,
+      ],
+      permissions: ['attendance.read', 'students.attendance'],
+    },
+    create: {
+      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.schooladmin],
+      permissions: ['attendance.create', 'attendance.update'],
+    },
+    edit: {
+      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.schooladmin],
+      permissions: ['attendance.update'],
+    },
+    delete: {
+      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.schooladmin],
+      permissions: ['attendance.delete'],
+    },
+    manage: {
+      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin, ADMIN_ROLES.sektoradmin],
+      permissions: ['attendance.manage'],
+    },
+  },
+  reports: {
+    view: {
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+        ADMIN_ROLES.schooladmin,
+        ADMIN_ROLES.regionoperator,
+      ],
+      permissions: ['reports.read'],
+    },
+  },
+  analytics: {
+    view: {
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+        ADMIN_ROLES.schooladmin,
+        ADMIN_ROLES.regionoperator,
+      ],
+      permissions: ['analytics.view', 'reports.read'],
+    },
+  },
+  approvals: {
+    view: {
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+        ADMIN_ROLES.schooladmin,
+        ADMIN_ROLES.regionoperator,
+      ],
+      permissions: ['approvals.read', 'survey_responses.read'],
+    },
+    manage: {
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+      ],
+      permissions: ['approvals.approve', 'survey_responses.approve'],
     },
   },
 };

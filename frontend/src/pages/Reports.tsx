@@ -13,9 +13,11 @@ import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
 import { az } from "date-fns/locale";
 import { useRoleCheck } from "@/hooks/useRoleCheck";
 import { USER_ROLES } from "@/constants/roles";
+import { useModuleAccess } from "@/hooks/useModuleAccess";
 
 export default function Reports() {
   const { currentUser, hasAnyRole } = useRoleCheck();
+  const reportsAccess = useModuleAccess('reports');
   const [selectedReportType, setSelectedReportType] = useState<string>('overview');
   const [selectedDateRange, setSelectedDateRange] = useState<string>('this_month');
   const [startDate, setStartDate] = useState<string>(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
@@ -23,14 +25,8 @@ export default function Reports() {
   const { toast } = useToast();
 
   // Allowed roles and access helpers
-  const REPORT_ALLOWED_ROLES = [
-    USER_ROLES.SUPERADMIN,
-    USER_ROLES.REGIONADMIN,
-    USER_ROLES.SEKTORADMIN,
-    USER_ROLES.SCHOOLADMIN,
-  ];
   const ADMIN_CREATION_ROLES = [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN];
-  const hasAccess = hasAnyRole(REPORT_ALLOWED_ROLES);
+  const hasAccess = reportsAccess.canView;
   const canCreateReports = hasAnyRole(ADMIN_CREATION_ROLES);
 
   // Build filters based on selections
@@ -101,7 +97,7 @@ export default function Reports() {
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
           <p className="text-muted-foreground">
-            Bu səhifəyə yalnız idarəçi rolları daxil ola bilər
+            Bu səhifəni görmək üçün `reports.read` icazəsi tələb olunur.
           </p>
         </div>
       </div>

@@ -7,39 +7,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Shield, AlertTriangle, Target, Eye, BarChart3 } from 'lucide-react';
 import SurveyViewDashboard from '../components/approval/survey-view/SurveyViewDashboard';
 import SurveyResultsAnalytics from '../components/approval/survey-results-analytics/SurveyResultsAnalytics';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 
 const Approvals: React.FC = () => {
   const { currentUser: user } = useAuth();
+  const approvalsAccess = useModuleAccess('approvals');
 
-  // Check if user has approval permissions
-  const hasApprovalPermissions = () => {
-    if (!user) {
-      return false;
-    }
-
-    const approvalRoles = ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin'];
-    const approvalPermissions = [
-      'approvals.read',
-      'approvals.approve',
-      'survey_responses.read',
-      'survey_responses.approve',
-      'survey_responses.write',
-    ];
-
-    // Check user.role
-    if (user.role && approvalRoles.includes(user.role)) {
-      return true;
-    }
-
-    // Fallback to permission-based access (e.g., regionoperator with Survey approvals)
-    if (Array.isArray(user.permissions) && user.permissions.length > 0) {
-      return user.permissions.some((permission) => approvalPermissions.includes(permission));
-    }
-
-    return false;
-  };
-
-  if (!hasApprovalPermissions()) {
+  if (!approvalsAccess.canView) {
     return (
       <div className="container mx-auto px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
         <Card>
@@ -49,12 +23,12 @@ const Approvals: React.FC = () => {
               Təsdiq Paneline Giriş Yoxdur
             </h2>
             <p className="text-gray-600 mb-4">
-              Bu səhifəyə giriş üçün təsdiq icazələriniz yoxdur.
+              Bu səhifəyə giriş üçün `approvals.read` və ya `survey_responses.read` icazəsi tələb olunur.
             </p>
             <Alert className="mt-4">
               <AlertTriangle className="h-4 w-4" />
               <AlertDescription>
-                Təsdiq paneline giriş üçün SuperAdmin, RegionAdmin, SektorAdmin və ya SchoolAdmin rolları tələb olunur.
+                RegionAdmin panelindən bu icazələri aktiv etdikdən sonra menyu avtomatik görünəcək.
               </AlertDescription>
             </Alert>
           </CardContent>

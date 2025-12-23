@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Loader2, RefreshCw, AlertTriangle, Building2, Users, Target, School as SchoolIcon } from 'lucide-react';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { USER_ROLES } from '@/constants/roles';
 import { useQuery } from '@tanstack/react-query';
 import { regionalAttendanceService } from '@/services/regionalAttendance';
@@ -36,8 +37,15 @@ type DatePreset = 'thisMonth' | 'last30' | 'custom';
 
 export default function RegionAttendanceReports() {
   const { canAccess } = useRoleCheck();
-  const allowedRoles = [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN];
-  const hasAccess = canAccess(allowedRoles);
+  const attendanceAccess = useModuleAccess('attendance');
+  const hasAccess =
+    attendanceAccess.canView &&
+    canAccess([
+      USER_ROLES.SUPERADMIN,
+      USER_ROLES.REGIONADMIN,
+      USER_ROLES.SEKTORADMIN,
+      USER_ROLES.REGIONOPERATOR,
+    ]);
 
   const defaults = getDefaultDates();
   const [startDate, setStartDate] = useState(defaults.start);
@@ -136,7 +144,7 @@ export default function RegionAttendanceReports() {
           <AlertTriangle className="h-5 w-5" />
           <AlertTitle>İcazə yoxdur</AlertTitle>
           <AlertDescription>
-            Bu bölməni yalnız regional və sektor idarəçiləri görüntüləyə bilər.
+            Bu bölmə üçün Davamiyyət icazəsi (`attendance.read`) tələb olunur.
           </AlertDescription>
         </Alert>
       </div>

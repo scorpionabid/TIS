@@ -24,6 +24,7 @@ import { format, startOfWeek, endOfWeek, subDays } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { USER_ROLES } from '@/constants/roles';
 import { toast } from 'sonner';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -90,10 +91,8 @@ export default function AttendanceReports() {
     isSektorAdmin,
     isSchoolAdmin
   } = useRoleCheck();
-
-  // Security check - only educational administrative roles can access attendance reports
-  const allowedRoles = [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM];
-  const hasAccess = canAccess(allowedRoles);
+  const attendanceAccess = useModuleAccess('attendance');
+  const hasAccess = attendanceAccess.canView;
 
   // Derived defaults
   const defaultDateRange = useMemo(() => {
@@ -127,11 +126,15 @@ export default function AttendanceReports() {
     setPage(1);
   }, [selectedSchool, selectedClass, startDate, endDate, reportType]);
 
+  const canLoadSchools =
+    canAccess([USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]) ||
+    attendanceAccess.canManage;
+
   // Load schools data (only for higher admins) - use enabled prop
   const { data: schoolsResponse, error: schoolsError } = useQuery({
     queryKey: ['institutions', 'schools', currentUser?.role, currentUser?.institution?.id],
     queryFn: () => institutionService.getAll(),
-    enabled: hasAccess && (isSuperAdmin || isRegionAdmin || isSektorAdmin)
+    enabled: hasAccess && canLoadSchools
   });
 
   const schools = useMemo(() => {
@@ -384,7 +387,7 @@ export default function AttendanceReports() {
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
           <p className="text-muted-foreground">
-            Bu səhifəyə yalnız təhsil idarəçiləri və müəllimlər daxil ola bilər
+            Bu bölməni görmək üçün Davamiyyət icazəsi (`attendance.read`) tələb olunur.
           </p>
         </div>
       </div>
