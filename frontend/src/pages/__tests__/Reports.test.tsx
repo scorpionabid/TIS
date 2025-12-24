@@ -7,11 +7,15 @@ import userEvent from '@testing-library/user-event';
 import Reports from '../Reports';
 import { reportsService, type ReportOverviewStats } from '@/services/reports';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { useModuleAccess } from '@/hooks/useModuleAccess';
 
 const toastMock = vi.fn();
 
 vi.mock('@/hooks/useRoleCheck', () => ({
   useRoleCheck: vi.fn(),
+}));
+vi.mock('@/hooks/useModuleAccess', () => ({
+  useModuleAccess: vi.fn(),
 }));
 vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
@@ -33,6 +37,7 @@ vi.mock('@/services/reports', () => ({
 }));
 
 const mockedUseRoleCheck = useRoleCheck as unknown as ReturnType<typeof vi.fn>;
+const mockedUseModuleAccess = useModuleAccess as unknown as ReturnType<typeof vi.fn>;
 const mockedReportsService = reportsService as unknown as {
   getOverviewStats: ReturnType<typeof vi.fn>;
   getInstitutionalPerformance: ReturnType<typeof vi.fn>;
@@ -133,6 +138,16 @@ describe('Reports page', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedUseModuleAccess.mockReturnValue({
+      canView: true,
+      canCreate: true,
+      canEdit: true,
+      canDelete: true,
+      canPublish: true,
+      canManage: true,
+      canShare: true,
+      hasAccess: true,
+    });
     mockedUseRoleCheck.mockReturnValue({
       currentUser: authorizedUser,
       hasAnyRole: (roles: string[]) => roles.includes(authorizedUser.role),
@@ -150,6 +165,16 @@ describe('Reports page', () => {
     mockedUseRoleCheck.mockReturnValue({
       currentUser: { role: 'teacher' },
       hasAnyRole: () => false,
+    });
+    mockedUseModuleAccess.mockReturnValue({
+      canView: false,
+      canCreate: false,
+      canEdit: false,
+      canDelete: false,
+      canPublish: false,
+      canManage: false,
+      canShare: false,
+      hasAccess: false,
     });
 
     renderWithQueryClient();
