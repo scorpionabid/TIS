@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation, Outlet } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { DebugProvider } from "@/contexts/DebugContext";
 import WebSocketProvider from "@/contexts/WebSocketContext";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { RoleProtectedRoute } from "@/components/auth/RoleProtectedRoute";
@@ -12,7 +13,7 @@ import { USER_ROLES } from "@/constants/roles";
 import Layout from "./components/layout/Layout";
 import NotFound from "./pages/NotFound";
 import { accessibilityChecker } from "@/utils/accessibility-checker";
-import { PermissionDebugPanel } from "@/components/debug/PermissionDebugPanel";
+import { EnhancedDebugPanel } from "@/components/debug/EnhancedDebugPanel";
 import "@/utils/debugHelpers"; // Load debug helpers in development
 
 // Lazy load pages for better performance
@@ -357,10 +358,12 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <WebSocketProvider>
-          <TooltipProvider>
-            <Toaster />
-            <BrowserRouter>
+        <DebugProvider>
+          <WebSocketProvider>
+            <TooltipProvider>
+              <Toaster />
+              <EnhancedDebugPanel />
+              <BrowserRouter>
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/password-reset" element={<LazyWrapper><PasswordReset /></LazyWrapper>} />
@@ -654,11 +657,10 @@ const App = () => {
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
-            </BrowserRouter>
-          </TooltipProvider>
-          {/* Debug Panel - Only visible in development */}
-          <PermissionDebugPanel />
-        </WebSocketProvider>
+              </BrowserRouter>
+            </TooltipProvider>
+          </WebSocketProvider>
+        </DebugProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
