@@ -4,6 +4,92 @@
  */
 
 /**
+ * Permission scope types (hierarchical)
+ */
+export type PermissionScope = 'global' | 'system' | 'regional' | 'sector' | 'institution' | 'classroom';
+
+/**
+ * Full permission object from backend API
+ */
+export interface Permission {
+  id: number;
+  name: string;
+  display_name: string | null;
+  description: string | null;
+  guard_name: string;
+  category: string | null;
+  department: string | null;
+  resource: string | null;
+  action: string | null;
+  scope: PermissionScope;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+  roles_count?: number;
+  users_count?: number;
+}
+
+/**
+ * Permission list API response
+ */
+export interface PermissionListResponse {
+  permissions: Permission[];
+  total: number;
+  page?: number;
+  per_page?: number;
+}
+
+/**
+ * Permission category summary
+ */
+export interface PermissionCategory {
+  name: string;
+  count: number;
+  label?: string;
+}
+
+/**
+ * Permission scope summary
+ */
+export interface PermissionScopeInfo {
+  name: PermissionScope;
+  count: number;
+  label: string;
+}
+
+/**
+ * Grouped permissions by category/resource/scope
+ */
+export interface GroupedPermissions {
+  [key: string]: {
+    label: string;
+    permissions: Permission[];
+    count: number;
+  };
+}
+
+/**
+ * Permission usage statistics
+ */
+export interface PermissionUsageStats {
+  permission: Permission;
+  roles_count: number;
+  users_count: number;
+  roles: Array<{ id: number; name: string; display_name: string }>;
+  recent_assignments: Array<{
+    user_id: number;
+    user_name: string;
+    role_name: string;
+    assigned_at: string;
+  }>;
+  usage_timeline: Array<{
+    date: string;
+    assignments: number;
+    revocations: number;
+  }>;
+}
+
+/**
  * Detailed permission breakdown from backend
  */
 export interface UserPermissionsDetailed {

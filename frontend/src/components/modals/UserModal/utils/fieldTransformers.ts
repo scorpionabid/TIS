@@ -1,55 +1,17 @@
 /**
  * UserModal Data Transformers
  * Handle data transformation between form and backend formats
+ *
+ * REFACTORED 2025-12-25: Removed legacy CRUD permission system
+ * All roles now use unified Spatie permission system via assignable_permissions
  */
 
 import {
   PROFILE_FIELDS,
   DEFAULT_FORM_VALUES,
-  CRUD_PERMISSIONS,
 } from "./constants";
-import regionOperatorPermissions from "@/shared/region-operator-permissions.json";
 import type { UserModalMode } from "./constants";
-
-const REGION_OPERATOR_PERMISSION_KEYS = Object.values(CRUD_PERMISSIONS).flatMap(
-  (module) => module.actions.map((action) => action.key)
-);
-
-type RegionOperatorActionConfig = {
-  flag?: string;
-  assignable?: string | string[];
-};
-
-type RegionOperatorModuleConfig = {
-  actions?: Record<string, RegionOperatorActionConfig>;
-};
-
-const ASSIGNABLE_TO_FLAG_MAP: Record<string, string> = (() => {
-  const map: Record<string, string> = {};
-  const modules = regionOperatorPermissions.modules as Record<
-    string,
-    RegionOperatorModuleConfig
-  >;
-
-  Object.values(modules).forEach((moduleConfig) => {
-    Object.values(moduleConfig.actions ?? {}).forEach((actionConfig) => {
-      const flag = actionConfig?.flag;
-      const assignable = actionConfig?.assignable;
-      if (!flag || !assignable) {
-        return;
-      }
-
-      const keys = Array.isArray(assignable) ? assignable : [assignable];
-      keys.forEach((key) => {
-        if (key) {
-          map[key] = flag;
-        }
-      });
-    });
-  });
-
-  return map;
-})();
+import { debugLogger } from "@/utils/debugLogger";
 
 /**
  * Transform form data to backend structure
@@ -169,83 +131,20 @@ export function transformFormDataToBackend(
     delete userData.password_confirmation;
   }
 
-  // Handle RegionOperator CRUD permissions
-  const permissionPayload: Record<string, boolean> = {};
-  const modernPermissions: string[] = []; // Non-CRUD permissions
-
-  // Debug logging
-  console.log("🔍 [fieldTransformers] Input data:", {
-    role_name: data.role_name,
-    assignable_permissions: data.assignable_permissions,
-  });
-
-  if (data.role_name === "regionoperator") {
-    // For RegionOperator, split permissions into CRUD and modern
-    if (
-      Array.isArray(data.assignable_permissions) &&
-      data.assignable_permissions.length > 0
-    ) {
-      data.assignable_permissions.forEach((permission: string) => {
-        if (typeof permission !== "string") {
-          return;
-        }
-
-        if (permission.startsWith("can_")) {
-          permissionPayload[permission] = true;
-          return;
-        }
-
-        const mappedFlag = ASSIGNABLE_TO_FLAG_MAP[permission];
-        if (mappedFlag) {
-          permissionPayload[mappedFlag] = true;
-        } else {
-          modernPermissions.push(permission);
-        }
-      });
-
-      console.log("🔍 [fieldTransformers] Permission split:", {
-        total_selected: data.assignable_permissions.length,
-        crud_permissions_count: Object.keys(permissionPayload).length,
-        modern_permissions_count: modernPermissions.length,
-        crud_permissions: Object.keys(permissionPayload),
-        modern_permissions: modernPermissions,
-      });
-    }
-  } else {
-    // For other roles with legacy CRUD fields (if any exist in form data)
-    REGION_OPERATOR_PERMISSION_KEYS.forEach((key) => {
-      if (Object.prototype.hasOwnProperty.call(data, key)) {
-        permissionPayload[key] =
-          data[key] === true || data[key] === "true" || data[key] === 1;
-      }
-    });
-  }
-
-  // Add CRUD permissions if any exist
-  if (Object.keys(permissionPayload).length > 0) {
-    userData.region_operator_permissions = permissionPayload;
-  }
-
-  // Add modern permissions for RegionOperator (institutions, assessments, etc.)
-  if (data.role_name === "regionoperator" && modernPermissions.length > 0) {
-    userData.assignable_permissions = modernPermissions;
-  }
-
-  // For non-RegionOperator roles, use assignable_permissions directly
+  // ✅ UNIFIED PERMISSION HANDLING - All roles use Spatie permissions
+  // Direct assignment of permissions without legacy CRUD splitting
   if (
     Array.isArray(data.assignable_permissions) &&
-    data.assignable_permissions.length > 0 &&
-    data.role_name !== "regionoperator"
+    data.assignable_permissions.length > 0
   ) {
     userData.assignable_permissions = data.assignable_permissions;
-  }
 
-  // Debug logging
-  console.log("🔍 [fieldTransformers] Final userData:", {
-    role_name: userData.role_name,
-    region_operator_permissions: userData.region_operator_permissions,
-    assignable_permissions: userData.assignable_permissions,
-  });
+    debugLogger.success('PermissionTransform', 'Unified permissions assigned', {
+      role_name: userData.role_name,
+      permission_count: data.assignable_permissions.length,
+      permissions: data.assignable_permissions,
+    });
+  }
 
   return userData;
 }
@@ -326,84 +225,37 @@ export function transformBackendDataToForm(
     formValues.class_id = user.profile.class_id;
   }
 
-  // Prefer explicit permissions breakdown if provided by backend
-  const directFromPermissions = Array.isArray(user?.permissions?.direct)
+  // ✅ UNIFIED PERMISSION LOADING - Spatie permissions only
+  // Prefer explicit direct permissions from UserPermissionsDTO structure
+  const directPermissions = Array.isArray(user?.permissions?.direct)
     ? [...user.permissions.direct]
     : [];
-  const inheritedFromPermissions = Array.isArray(user?.permissions?.via_roles)
+
+  const inheritedPermissions = Array.isArray(user?.permissions?.via_roles)
     ? [...user.permissions.via_roles]
     : Array.isArray(user?.inherited_permissions)
     ? [...user.inherited_permissions]
     : [];
 
-  const hasAssignableField =
-    Array.isArray(user.assignable_permissions) &&
-    user.assignable_permissions.length > 0;
-
-  // Derived assignable should prefer explicit direct permissions returned by the backend
-  let derivedAssignable =
-    directFromPermissions.length > 0
-      ? [...directFromPermissions]
-      : hasAssignableField
-      ? [...user.assignable_permissions]
+  // Load direct permissions for form editing
+  formValues.assignable_permissions =
+    directPermissions.length > 0
+      ? directPermissions
+      : Array.isArray(user.assignable_permissions)
+      ? user.assignable_permissions
       : [];
 
-  // For RegionOperator, MERGE CRUD + Modern permissions
-  if (user.role_name === "regionoperator") {
-    const crudPermissions: string[] = [];
-    const modernPermissions: string[] = [];
-
-    // Get CRUD field names that are true
-    if (user.region_operator_permissions) {
-      REGION_OPERATOR_PERMISSION_KEYS.forEach((key) => {
-        if (user.region_operator_permissions[key]) {
-          crudPermissions.push(key);
-        }
-      });
-    }
-
-    // Get modern permissions (institutions, assessments, etc.)
-    if (hasAssignableField) {
-      modernPermissions.push(...user.assignable_permissions);
-    }
-
-    // MERGE both types
-    derivedAssignable = [...crudPermissions, ...modernPermissions];
-
-    console.log(
-      "🔍 [transformBackendDataToForm] RegionOperator permissions merged:",
-      {
-        crud_count: crudPermissions.length,
-        modern_count: modernPermissions.length,
-        total_count: derivedAssignable.length,
-        crud_permissions: crudPermissions,
-        modern_permissions: modernPermissions,
-        merged: derivedAssignable,
-      }
-    );
-
-    // IMPORTANT: For RegionOperator, DON'T set individual can_* fields in formValues
-    // We ONLY use assignable_permissions array to avoid duplication
-    // The RegionOperatorTab component will read from assignable_permissions only
-  } else if (!hasAssignableField && user.region_operator_permissions) {
-    derivedAssignable = REGION_OPERATOR_PERMISSION_KEYS.filter(
-      (key) => user.region_operator_permissions[key]
-    );
-  } else if (user.region_operator_permissions) {
-    // For non-RegionOperator roles with region_operator_permissions (legacy compatibility)
-    REGION_OPERATOR_PERMISSION_KEYS.forEach((key) => {
-      if (key in user.region_operator_permissions) {
-        formValues[key] = Boolean(user.region_operator_permissions[key]);
-      }
-    });
+  // Attach read-only inherited role permissions
+  if (inheritedPermissions.length > 0) {
+    formValues.inherited_permissions = inheritedPermissions;
   }
 
-  formValues.assignable_permissions = derivedAssignable;
-
-  // Attach a read-only view of inherited role permissions to the form if available
-  if (inheritedFromPermissions.length > 0) {
-    formValues.inherited_permissions = inheritedFromPermissions;
-  }
+  debugLogger.info('PermissionLoad', 'Unified permissions loaded from backend', {
+    role_name: user.role_name,
+    direct_count: formValues.assignable_permissions.length,
+    inherited_count: inheritedPermissions.length,
+    direct_permissions: formValues.assignable_permissions,
+  });
 
   return formValues;
 }

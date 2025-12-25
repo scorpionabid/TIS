@@ -432,13 +432,20 @@ export function PermissionAssignmentPanel({
               <CardContent className="space-y-3">
                 <div className="flex flex-wrap gap-2">
                   {permissionList.map((permission, permIdx) => {
-                    const isSelected = value.includes(permission.key);
+                    // 🔍 SELECTION LOGIC FIXED:
+                    // Check if permission is in value array (direct assignments)
+                    // OR in userPermissions.via_roles (role-based assignments)
+                    const isInValueArray = value.includes(permission.key);
+                    const isViaRoles = userPermissions?.via_roles?.includes(permission.key) || false;
+                    const isSelected = isInValueArray || isViaRoles;
+
+                    // Readonly if via roles OR marked as readonly/required
+                    const source = (permission as PermissionWithMetadata).source;
                     const isReadonly =
-                      (permission as PermissionWithMetadata).readonly ===
-                        true ||
+                      isViaRoles || // via_roles permissions are readonly (lock icon)
+                      (permission as PermissionWithMetadata).readonly === true ||
                       (permission as PermissionWithMetadata).required === true;
-                    const source = (permission as PermissionWithMetadata)
-                      .source;
+
                     const isRequired =
                       (permission as PermissionWithMetadata).required === true;
                     const isDefault =
@@ -447,11 +454,13 @@ export function PermissionAssignmentPanel({
                     // 🔍 DEBUG: Log first few permission rendering decisions
                     if (permIdx < 3) {
                       console.log(`🔍 [PermissionAssignmentPanel] Rendering "${permission.key}":`, {
+                        isInValueArray,
+                        isViaRoles,
                         isSelected,
                         isReadonly,
                         source,
-                        valueArray: value,
-                        includesResult: value.includes(permission.key),
+                        valueArrayLength: value?.length || 0,
+                        viaRolesLength: userPermissions?.via_roles?.length || 0,
                       });
                     }
 
@@ -561,9 +570,20 @@ export function PermissionAssignmentPanel({
           <div>
             <CardTitle className="text-sm">Seçilmiş səlahiyyətlər</CardTitle>
             <CardDescription>
-              {value.length === 0
-                ? "Hələ seçim etməmisiniz"
-                : `Toplam ${value.length} səlahiyyət seçildi`}
+              {(() => {
+                // Calculate total permissions: direct (value) + via_roles
+                const directCount = value.length;
+                const viaRolesCount = userPermissions?.via_roles?.length || 0;
+                const totalCount = directCount + viaRolesCount;
+
+                if (totalCount === 0) return "Hələ seçim etməmisiniz";
+
+                const parts: string[] = [];
+                if (directCount > 0) parts.push(`${directCount} birbaşa`);
+                if (viaRolesCount > 0) parts.push(`${viaRolesCount} roldan`);
+
+                return `Toplam ${totalCount} səlahiyyət (${parts.join(" + ")})`;
+              })()}
             </CardDescription>
           </div>
           <Button
@@ -584,16 +604,27 @@ export function PermissionAssignmentPanel({
           </Button>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-2 max-h-40 overflow-auto">
-          {value.length === 0 ? (
+          {value.length === 0 && (!userPermissions?.via_roles || userPermissions.via_roles.length === 0) ? (
             <p className="text-xs text-muted-foreground">
               Seçim etmədən davam etmək tövsiyə olunmur.
             </p>
           ) : (
-            value.map((permission) => (
-              <Badge key={permission} variant="outline" className="text-xs">
-                {getPermissionLabel(permission)}
-              </Badge>
-            ))
+            <>
+              {/* Direct permissions (editable) */}
+              {value.map((permission) => (
+                <Badge key={permission} variant="outline" className="text-xs bg-primary/10 border-primary/30">
+                  {getPermissionLabel(permission)}
+                </Badge>
+              ))}
+
+              {/* Via roles permissions (readonly - inherited from role) */}
+              {userPermissions?.via_roles?.map((permission) => (
+                <Badge key={permission} variant="secondary" className="text-xs bg-blue-50 border-blue-200 text-blue-700">
+                  <Lock className="h-2.5 w-2.5 mr-1" />
+                  {getPermissionLabel(permission)}
+                </Badge>
+              ))}
+            </>
           )}
         </CardContent>
       </Card>

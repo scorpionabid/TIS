@@ -197,6 +197,15 @@ export default function RegionAdminUsers() {
       if (selectedUserId) {
         // Update existing user
         await regionAdminService.updateUser(selectedUserId, userData);
+
+        // 🔄 FIX: Refetch updated user details to show fresh data on next modal open
+        console.log("🔄 [RegionAdminUsers] Refetching updated user details...");
+        const updatedUser = await regionAdminService.getUser(selectedUserId);
+        setSelectedUserDetails(updatedUser);
+        console.log("✅ [RegionAdminUsers] User details refreshed after update", {
+          permissions_count: updatedUser?.permissions?.all?.length || 0,
+          assignable_permissions_count: updatedUser?.assignable_permissions?.length || 0,
+        });
       } else {
         // Create new user
         await regionAdminService.createUser(userData);
@@ -309,10 +318,11 @@ export default function RegionAdminUsers() {
   };
 
   // Individual useQuery hooks for each role - moved to top level
+  // 🔧 FIX: Reduced staleTime from 5 minutes to 30 seconds for fresh permission data
   const operatorsQuery = useQuery({
     queryKey: ["regionadmin-users", "operators", currentUser?.institution?.id],
     queryFn: () => createUserQuery("operators"),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30, // 30 seconds - ensures fresh data after permission changes
   });
 
   const sektorAdminsQuery = useQuery({
@@ -322,7 +332,7 @@ export default function RegionAdminUsers() {
       currentUser?.institution?.id,
     ],
     queryFn: () => createUserQuery("sektoradmins"),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30, // 30 seconds - ensures fresh data after permission changes
   });
 
   const schoolAdminsQuery = useQuery({
@@ -332,13 +342,13 @@ export default function RegionAdminUsers() {
       currentUser?.institution?.id,
     ],
     queryFn: () => createUserQuery("schooladmins"),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30, // 30 seconds - ensures fresh data after permission changes
   });
 
   const teachersQuery = useQuery({
     queryKey: ["regionadmin-users", "teachers", currentUser?.institution?.id],
     queryFn: () => createUserQuery("teachers"),
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30, // 30 seconds - ensures fresh data after permission changes
   });
 
   const getStatusBadge = (status: string) => {

@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { ResponsiveTable, ResponsiveTableColumn } from "@/components/ui/responsive-table";
 import { PermissionDetailModal } from "@/components/modals/PermissionDetailModal";
+import { PermissionScopeBadge } from "@/components/permissions/PermissionScopeBadge";
 
 export default function Permissions() {
   const { currentUser } = useAuth();
@@ -208,14 +209,10 @@ export default function Permissions() {
       key: 'scope',
       label: 'Scope',
       render: (value) => (
-        <Badge className={`${getScopeBadgeColor(value)} border text-xs`}>
-          {getScopeLabel(value)}
-        </Badge>
+        <PermissionScopeBadge scope={value} className="text-xs" />
       ),
       mobileRender: (value) => (
-        <Badge className={`${getScopeBadgeColor(value)} border text-xs`}>
-          {getScopeLabel(value)}
-        </Badge>
+        <PermissionScopeBadge scope={value} className="text-xs" />
       )
     },
     {

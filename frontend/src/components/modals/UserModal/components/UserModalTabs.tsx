@@ -356,10 +356,14 @@ export function UserModalTabs({
         role_name: roleMetadata.name,
         is_regionoperator: roleMetadata.name === "regionoperator",
         data_assignable_permissions: data.assignable_permissions,
+        formData_assignable_permissions: formData.assignable_permissions,
         finalData_assignable_permissions: finalData.assignable_permissions,
         assignable_count: Array.isArray(finalData.assignable_permissions)
           ? finalData.assignable_permissions.length
           : 0,
+        FULL_DATA: data,
+        FULL_FORM_DATA: formData,
+        FULL_FINAL_DATA: finalData,
       });
 
       const isTeacherTab =
@@ -375,23 +379,18 @@ export function UserModalTabs({
 
       console.log("🔍 [UserModalTabs] handleSubmit - After transform:", {
         userData_role_name: userData.role_name,
-        userData_region_operator_permissions:
-          userData.region_operator_permissions,
-        region_perms_count: userData.region_operator_permissions
-          ? Object.keys(userData.region_operator_permissions).length
-          : 0,
         userData_assignable_permissions: userData.assignable_permissions,
+        assignable_count: userData.assignable_permissions?.length || 0,
       });
 
+      // ✅ UNIFIED PERMISSION VALIDATION - All roles use Spatie permissions
       if (roleMetadata.name === "regionoperator") {
-        const regionPerms = userData.region_operator_permissions || {};
-        const enabledRegionPermCount =
-          Object.values(regionPerms).filter(Boolean).length;
-        if (enabledRegionPermCount === 0) {
+        const assignablePermissions = userData.assignable_permissions || [];
+        if (assignablePermissions.length === 0) {
           toast({
             title: "Səlahiyyət seçilməyib",
             description:
-              "RegionOperator üçün ən azı bir əsas səlahiyyət (Sorğular, Tapşırıqlar, Sənədlər və s.) seçilməlidir.",
+              "RegionOperator üçün ən azı bir səlahiyyət seçilməlidir.",
             variant: "destructive",
           });
           return;
