@@ -7,7 +7,6 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Http\Traits\ResponseHelpers;
 use App\Http\Traits\ValidationRules;
 use App\Models\User;
-use App\Services\RegionOperatorPermissionService;
 use App\Services\UserCrudService;
 use App\Services\UserPermissionService;
 use Illuminate\Http\JsonResponse;
@@ -24,16 +23,12 @@ class UserControllerRefactored extends BaseController
 
     protected UserPermissionService $permissionService;
 
-    protected RegionOperatorPermissionService $regionOperatorPermissionService;
-
     public function __construct(
         UserCrudService $userService,
-        UserPermissionService $permissionService,
-        RegionOperatorPermissionService $regionOperatorPermissionService
+        UserPermissionService $permissionService
     ) {
         $this->userService = $userService;
         $this->permissionService = $permissionService;
-        $this->regionOperatorPermissionService = $regionOperatorPermissionService;
     }
 
     /**
@@ -56,7 +51,7 @@ class UserControllerRefactored extends BaseController
             $search = $request->get('search');
 
             // Build query with relations
-            $query = User::with(['roles', 'institution', 'profile', 'regionOperatorPermissions']);
+            $query = User::with(['roles', 'institution', 'profile']);
 
             Log::info('🔍 UserController: Processing user list request', [
                 'user' => $currentUser->username,
@@ -511,9 +506,6 @@ class UserControllerRefactored extends BaseController
             'updated_at' => $user->updated_at,
             'first_name' => $this->cleanUtf8($user->profile?->first_name ?? null),
             'last_name' => $this->cleanUtf8($user->profile?->last_name ?? null),
-            'region_operator_permissions' => $user->regionOperatorPermissions
-                ? $user->regionOperatorPermissions->only(RegionOperatorPermissionService::getCrudFields())
-                : null,
         ];
     }
 

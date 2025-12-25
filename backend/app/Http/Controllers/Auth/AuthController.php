@@ -78,7 +78,7 @@ class AuthController extends Controller
      */
     public function me(Request $request): JsonResponse
     {
-        $user = $request->user()->load(['profile', 'roles', 'institution', 'regionOperatorPermissions']);
+        $user = $request->user()->load(['profile', 'roles', 'institution']);
 
         // Spatie roles və permissions
         $roles = $user->getRoleNames()->toArray();
@@ -97,11 +97,6 @@ class AuthController extends Controller
         $userData['roles'] = $roles;
         $userData['permissions'] = $permissions;
         $userData['preferences'] = $preferences;
-        $userData['region_operator_permissions'] = $user->regionOperatorPermissions
-            ? $user->regionOperatorPermissions->only(
-                \App\Services\RegionOperatorPermissionService::getCrudFields()
-            )
-            : null;
 
         \Log::debug('Me endpoint response', [
             'user_id' => $user->id,

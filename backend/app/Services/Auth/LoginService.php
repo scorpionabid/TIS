@@ -84,8 +84,8 @@ class LoginService
             $this->updateUserDevice($user, $deviceId, $deviceName);
             $this->logSuccessfulLogin($user);
 
-            // Load user with all relations including regionOperatorPermissions
-            $user->load(['profile', 'roles', 'institution', 'regionOperatorPermissions']);
+            // Load user with all relations
+            $user->load(['profile', 'roles', 'institution']);
 
             // Get roles and permissions CORRECTLY
             $roles = $user->getRoleNames()->toArray();
@@ -289,7 +289,7 @@ class LoginService
 
     protected function buildUserPayload(User $user): array
     {
-        $user->load(['profile', 'roles', 'institution', 'regionOperatorPermissions']);
+        $user->load(['profile', 'roles', 'institution']);
 
         $roles = $user->getRoleNames()->toArray();
         $permissions = $user->getAllPermissions()->pluck('name')->toArray();
@@ -303,11 +303,6 @@ class LoginService
         $userData = $user->toArray();
         $userData['roles'] = $roles;
         $userData['permissions'] = $permissions;
-        $userData['region_operator_permissions'] = $user->regionOperatorPermissions
-            ? $user->regionOperatorPermissions->only(
-                \App\Services\RegionOperatorPermissionService::getCrudFields()
-            )
-            : null;
 
         return $userData;
     }
