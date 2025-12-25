@@ -102,7 +102,7 @@ Route::middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|school
     Route::get('resources/target-users', [TaskController::class, 'getAssignableUsers']);
 });
 
-Route::middleware('role:superadmin|regionadmin|sektoradmin')->group(function () {
+Route::middleware('role:superadmin|regionadmin|regionoperator|sektoradmin')->group(function () {
     Route::post('tasks', [TaskController::class, 'store']);
     Route::put('tasks/{task}', [TaskController::class, 'update']);
     Route::delete('tasks/{task}', [TaskController::class, 'destroy']);

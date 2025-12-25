@@ -53,6 +53,7 @@ return [
             ],
             'permissions' => [
                 ['key' => 'surveys.read', 'label' => 'Sorğuları gör', 'description' => 'Sorğu siyahısını oxumaq'],
+                ['key' => 'surveys.respond', 'label' => 'Sorğuya cavab ver', 'description' => 'Sorğulara cavab göndərmək'],
                 ['key' => 'surveys.create', 'label' => 'Sorğu yarat', 'description' => 'Yeni sorğu hazırlamaq'],
                 ['key' => 'surveys.update', 'label' => 'Sorğu redaktə et', 'description' => 'Sorğu məzmununu dəyişmək'],
                 ['key' => 'surveys.delete', 'label' => 'Sorğu sil', 'description' => 'Sorğunu sistemdən silmək'],
@@ -290,6 +291,75 @@ return [
                 ['key' => 'approve teacher_performance', 'label' => 'Performansı təsdiqlə', 'description' => 'Performans qeydlərini təsdiqləmək'],
             ],
         ],
+        'subjects' => [
+            'key' => 'subjects',
+            'label' => 'Fənlər',
+            'description' => 'Fənn idarəetməsi və planlaşdırma',
+            'roles' => ['regionoperator', 'regionadmin', 'sektoradmin', 'schooladmin'],
+            'defaults' => ['subjects.read'],
+            'required' => ['subjects.read'],
+            'dependencies' => [
+                'subjects.create' => ['subjects.read'],
+                'subjects.update' => ['subjects.read'],
+                'subjects.delete' => ['subjects.read'],
+            ],
+            'permissions' => [
+                ['key' => 'subjects.read', 'label' => 'Fənləri gör', 'description' => 'Fənn siyahısını görüntüləmək'],
+                ['key' => 'subjects.create', 'label' => 'Fənn yarat', 'description' => 'Yeni fənn əlavə etmək'],
+                ['key' => 'subjects.update', 'label' => 'Fənn redaktə et', 'description' => 'Fənn məlumatlarını dəyişmək'],
+                ['key' => 'subjects.delete', 'label' => 'Fənn sil', 'description' => 'Fənni sistemdən silmək'],
+            ],
+        ],
+        'reports' => [
+            'key' => 'reports',
+            'label' => 'Hesabatlar',
+            'description' => 'Sistem hesabatlarını oxuma və ixrac',
+            'roles' => ['regionoperator', 'sektoradmin', 'schooladmin'],
+            'defaults' => ['reports.read'],
+            'dependencies' => [
+                'reports.export' => ['reports.read'],
+            ],
+            'permissions' => [
+                ['key' => 'reports.read', 'label' => 'Hesabatları gör', 'description' => 'Sistem hesabatlarını oxumaq'],
+                ['key' => 'reports.export', 'label' => 'Hesabat ixracı', 'description' => 'Hesabatları Excel/PDF formatında yükləmək'],
+                ['key' => 'reports.custom', 'label' => 'Xüsusi hesabat', 'description' => 'Özəl hesabat yaratmaq'],
+            ],
+        ],
+        'region_operator_legacy' => [
+            'key' => 'region_operator_legacy',
+            'label' => 'RegionOperator Legacy Permissions',
+            'description' => 'Legacy boolean-based permissions from region_operator_permissions table',
+            'roles' => ['regionoperator'],
+            'defaults' => [],
+            'permissions' => [
+                // Survey permissions (legacy)
+                ['key' => 'can_view_surveys', 'label' => 'Sorğuları gör (Legacy)', 'description' => 'Legacy survey görüntüləmə icazəsi'],
+                ['key' => 'can_create_surveys', 'label' => 'Sorğu yarat (Legacy)', 'description' => 'Legacy survey yaratma icazəsi'],
+                ['key' => 'can_edit_surveys', 'label' => 'Sorğu redaktə et (Legacy)', 'description' => 'Legacy survey redaktə icazəsi'],
+                ['key' => 'can_delete_surveys', 'label' => 'Sorğu sil (Legacy)', 'description' => 'Legacy survey silmə icazəsi'],
+                ['key' => 'can_publish_surveys', 'label' => 'Sorğunu dərc et (Legacy)', 'description' => 'Legacy survey dərc etmə icazəsi'],
+
+                // Task permissions (legacy)
+                ['key' => 'can_view_tasks', 'label' => 'Tapşırıqları gör (Legacy)', 'description' => 'Legacy task görüntüləmə icazəsi'],
+                ['key' => 'can_create_tasks', 'label' => 'Tapşırıq yarat (Legacy)', 'description' => 'Legacy task yaratma icazəsi'],
+                ['key' => 'can_edit_tasks', 'label' => 'Tapşırıq redaktə et (Legacy)', 'description' => 'Legacy task redaktə icazəsi'],
+                ['key' => 'can_delete_tasks', 'label' => 'Tapşırıq sil (Legacy)', 'description' => 'Legacy task silmə icazəsi'],
+
+                // Document permissions (legacy)
+                ['key' => 'can_view_documents', 'label' => 'Sənədləri gör (Legacy)', 'description' => 'Legacy document görüntüləmə icazəsi'],
+                ['key' => 'can_upload_documents', 'label' => 'Sənəd yüklə (Legacy)', 'description' => 'Legacy document yükləmə icazəsi'],
+                ['key' => 'can_edit_documents', 'label' => 'Sənəd redaktə et (Legacy)', 'description' => 'Legacy document redaktə icazəsi'],
+                ['key' => 'can_delete_documents', 'label' => 'Sənəd sil (Legacy)', 'description' => 'Legacy document silmə icazəsi'],
+                ['key' => 'can_share_documents', 'label' => 'Sənədi paylaş (Legacy)', 'description' => 'Legacy document paylaşma icazəsi'],
+
+                // Link permissions (legacy)
+                ['key' => 'can_view_links', 'label' => 'Linkləri gör (Legacy)', 'description' => 'Legacy link görüntüləmə icazəsi'],
+                ['key' => 'can_create_links', 'label' => 'Link əlavə et (Legacy)', 'description' => 'Legacy link əlavə etmə icazəsi'],
+                ['key' => 'can_edit_links', 'label' => 'Link redaktə et (Legacy)', 'description' => 'Legacy link redaktə icazəsi'],
+                ['key' => 'can_delete_links', 'label' => 'Link sil (Legacy)', 'description' => 'Legacy link silmə icazəsi'],
+                ['key' => 'can_share_links', 'label' => 'Link paylaş (Legacy)', 'description' => 'Legacy link paylaşma icazəsi'],
+            ],
+        ],
     ],
     'templates' => [
         'user_manager' => [
@@ -302,7 +372,7 @@ return [
             'key' => 'survey_coordinator',
             'label' => 'Sorğu koordinatoru',
             'description' => 'Sorğu yaradıb dərc edən rol',
-            'permissions' => ['surveys.read', 'surveys.create', 'surveys.update', 'surveys.publish', 'survey_responses.read'],
+            'permissions' => ['surveys.read', 'surveys.respond', 'surveys.create', 'surveys.update', 'surveys.publish', 'survey_responses.read'],
         ],
         'task_supervisor' => [
             'key' => 'task_supervisor',

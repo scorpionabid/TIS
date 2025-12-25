@@ -7,7 +7,6 @@ use App\Http\Controllers\RegionAdmin\RegionAdminInstitutionController;
 use App\Http\Controllers\RegionAdmin\RegionAdminReportsController;
 use App\Http\Controllers\RegionAdmin\RegionAdminTaskController;
 use App\Http\Controllers\RegionAdmin\RegionAdminUserController;
-use App\Http\Controllers\RegionAdmin\RegionOperatorPermissionController;
 use App\Http\Controllers\RegionAdmin\RegionTeacherController;
 use App\Http\Controllers\RegionOperator\RegionOperatorDashboardController;
 use App\Http\Controllers\School\SchoolDashboardController;
@@ -42,7 +41,7 @@ Route::middleware('role:superadmin')->group(function () {
 });
 
 // RegionAdmin Dashboard Routes
-Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|superadmin', 'regional.access:institutions', 'audit.logging'])->group(function () {
+Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|superadmin|regionoperator', 'regional.access:institutions', 'audit.logging'])->group(function () {
     // Dashboard endpoints
     Route::get('dashboard', [RegionAdminDashboardController::class, 'getDashboard']);
     Route::get('dashboard/stats', [RegionAdminDashboardController::class, 'getDashboardStats']);
@@ -66,28 +65,30 @@ Route::prefix('regionadmin')->middleware(['role_or_permission:regionadmin|supera
     Route::put('region-departments/{department}', [RegionAdminInstitutionController::class, 'updateDepartment']);
     Route::delete('region-departments/{department}', [RegionAdminInstitutionController::class, 'deleteDepartment']);
 
-    // Classes management endpoints for RegionAdmin - Updated to use GradeUnifiedController
-    Route::get('grades', [GradeUnifiedController::class, 'index']);
-    Route::get('grades/{grade}', [GradeUnifiedController::class, 'show']);
-    Route::get('region-institutions/{institution}/grades', [RegionAdminInstitutionController::class, 'getInstitutionClasses']);
+    // Classes management endpoints for RegionAdmin - Updated to use GradeUnifiedController (with permission middleware)
+    Route::middleware('permission:classes.read')->group(function () {
+        Route::get('grades', [GradeUnifiedController::class, 'index']);
+        Route::get('grades/{grade}', [GradeUnifiedController::class, 'show']);
+        Route::get('region-institutions/{institution}/grades', [RegionAdminInstitutionController::class, 'getInstitutionClasses']);
+    });
 
-    // User management endpoints - READ operations
-    Route::get('users', [RegionAdminUserController::class, 'index']);
-    Route::get('users/permissions/meta', [RegionAdminUserController::class, 'getPermissionMetadata']);
-    Route::post('users/permissions/validate', [RegionAdminUserController::class, 'validatePermissions']);
-    Route::get('users/roles', [RegionAdminUserController::class, 'getAvailableRoles']);
-    Route::get('users/{user}', [RegionAdminUserController::class, 'show']);
-    Route::get('users/{user}/activity', [RegionAdminUserController::class, 'getUserActivity']);
-    // Route::get('institutions/{institution}/users', [RegionAdminUserController::class, 'getInstitutionUsers']); // TODO: Implement this method
+    // User management endpoints - READ operations (with permission middleware)
+    Route::middleware('permission:users.read')->group(function () {
+        Route::get('users', [RegionAdminUserController::class, 'index']);
+        Route::get('users/permissions/meta', [RegionAdminUserController::class, 'getPermissionMetadata']);
+        Route::post('users/permissions/validate', [RegionAdminUserController::class, 'validatePermissions']);
+        Route::get('users/roles', [RegionAdminUserController::class, 'getAvailableRoles']);
+        Route::get('users/{user}', [RegionAdminUserController::class, 'show']);
+        Route::get('users/{user}/activity', [RegionAdminUserController::class, 'getUserActivity']);
+        // Route::get('institutions/{institution}/users', [RegionAdminUserController::class, 'getInstitutionUsers']); // TODO: Implement this method
+    });
 
-    // User management endpoints - WRITE operations
-    Route::post('users', [RegionAdminUserController::class, 'store']);
-    Route::put('users/{user}', [RegionAdminUserController::class, 'update']);
-    Route::delete('users/{user}', [RegionAdminUserController::class, 'destroy']);
-
-    // RegionOperator permission management
-    Route::get('region-operators/{user}/permissions', [RegionOperatorPermissionController::class, 'show']);
-    Route::put('region-operators/{user}/permissions', [RegionOperatorPermissionController::class, 'update']);
+    // User management endpoints - WRITE operations (with permission middleware)
+    Route::middleware('permission:users.create|users.update|users.delete')->group(function () {
+        Route::post('users', [RegionAdminUserController::class, 'store']);
+        Route::put('users/{user}', [RegionAdminUserController::class, 'update']);
+        Route::delete('users/{user}', [RegionAdminUserController::class, 'destroy']);
+    });
 
     // User management helper endpoints (TODO: Implement these methods)
     // Route::post('users/{user}/assign-role', [RegionAdminUserController::class, 'assignRole']);
