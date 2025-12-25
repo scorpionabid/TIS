@@ -212,3 +212,10 @@ DEPLOYMENT_SUCCESS_*.md
 # Large SQLite backup files (>100MB)
 archive/sqlite/backend/*.backup_before_restore_*
 archive/sqlite/backend/*.before_restore_*
+
+# Backup files
+*.backup_*
+backend/.env.backup_*
+
+# Database statistics
+database_*.txt
