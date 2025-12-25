@@ -81,6 +81,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Admin & System Management Routes
     require __DIR__ . '/api/admin.php';
 
+    // Permission Management Routes (SuperAdmin only)
+    require __DIR__ . '/api/permissions.php';
+
     // Dashboard Routes (Role-specific)
     require __DIR__ . '/api/dashboards.php';
 

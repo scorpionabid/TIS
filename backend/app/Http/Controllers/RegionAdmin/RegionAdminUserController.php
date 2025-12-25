@@ -8,7 +8,6 @@ use App\Models\Institution;
 use App\Models\User;
 use App\Services\RegionAdmin\RegionAdminPermissionService;
 use App\Services\RegionAdmin\RegionAdminUserService;
-use App\Services\RegionOperatorPermissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
@@ -21,7 +20,6 @@ class RegionAdminUserController extends Controller
 {
     public function __construct(
         private readonly RegionAdminUserService $regionAdminUserService,
-        private readonly RegionOperatorPermissionService $regionOperatorPermissionService,
         private readonly RegionAdminPermissionService $regionAdminPermissionService
     ) {}
 
@@ -98,7 +96,7 @@ class RegionAdminUserController extends Controller
         $allowedInstitutionIds = $region->getAllChildrenIds();
 
         $query = User::whereIn('institution_id', $allowedInstitutionIds)
-            ->with(['roles', 'institution', 'department', 'regionOperatorPermissions', 'profile']);
+            ->with(['roles', 'institution', 'department', 'profile']);
 
         // Apply filters
         if ($request->has('role')) {
@@ -256,8 +254,6 @@ class RegionAdminUserController extends Controller
                 $newUser->assignRole($role);
             }
 
-            $this->syncRegionOperatorPermissions($request->all(), $newUser);
-
             // Sync modern permissions for all roles (including RegionOperator)
             if ($data['role_name'] === 'regionoperator') {
                 // For RegionOperator, extract modern permissions from assignable_permissions
@@ -278,7 +274,7 @@ class RegionAdminUserController extends Controller
             return response()->json([
                 'success' => true,
                 'message' => 'User created successfully',
-                'data' => $newUser->load(['roles', 'institution', 'department', 'regionOperatorPermissions'])
+                'data' => $newUser->load(['roles', 'institution', 'department'])
                     ->setAttribute('assignable_permissions', $assignablePermissions),
             ], 201);
         } catch (\Exception $e) {
@@ -302,7 +298,7 @@ class RegionAdminUserController extends Controller
         $allowedInstitutionIds = $region->getAllChildrenIds();
 
         $targetUser = User::whereIn('institution_id', $allowedInstitutionIds)
-            ->with(['roles', 'institution', 'department', 'regionOperatorPermissions', 'profile'])
+            ->with(['roles', 'institution', 'department', 'profile'])
             ->find($id);
 
         if (! $targetUser) {
@@ -329,24 +325,9 @@ class RegionAdminUserController extends Controller
                 'user_id' => $targetUser->id,
                 'direct_permissions_count' => count($directPermissions),
                 'direct_permissions' => $directPermissions,
-                'has_region_operator_perms_relation' => $targetUser->relationLoaded('regionOperatorPermissions'),
             ]);
 
             $userData['assignable_permissions'] = $directPermissions;
-
-            // Add CRUD permissions
-            $regionOperatorPerms = $targetUser->regionOperatorPermissions;
-            if ($regionOperatorPerms) {
-                $crudFields = RegionOperatorPermissionService::getCrudFields();
-                $crudData = $regionOperatorPerms->only($crudFields);
-
-                \Log::info('🔍 [RegionAdminUserController] CRUD permissions', [
-                    'crud_fields_count' => count($crudFields),
-                    'crud_data' => $crudData,
-                ]);
-
-                $userData['region_operator_permissions'] = $crudData;
-            }
         } else {
             // For other roles, prefer returning only DIRECT permissions for editable array.
             // Keep back-compat fields so older frontends continue to function until rollout completes.
@@ -362,6 +343,17 @@ class RegionAdminUserController extends Controller
 
             // Temporary back-compat field containing the previous behaviour (direct + inherited)
             $userData['assignable_permissions_all'] = $all;
+
+            // 🔍 DEBUG: Log what we're returning for non-RegionOperator roles
+            \Log::info('🔍 [RegionAdminUserController] show() - Other role permissions data', [
+                'user_id' => $targetUser->id,
+                'role_name' => $userData['role_name'],
+                'direct_count' => count($direct),
+                'direct_permissions' => $direct,
+                'via_roles_count' => count($viaRoles),
+                'via_roles_permissions' => $viaRoles,
+                'all_count' => count($all),
+            ]);
         }
 
         // Ensure primary fields exist at top level for backward compatibility
@@ -400,6 +392,18 @@ class RegionAdminUserController extends Controller
             'assignable_permissions_sample' => isset($userData['assignable_permissions']) ? array_slice($userData['assignable_permissions'], 0, 5) : 'NULL',
             'permissions_direct_count' => isset($userData['permissions']['direct']) ? count($userData['permissions']['direct']) : 'NULL',
             'permissions_via_roles_count' => isset($userData['permissions']['via_roles']) ? count($userData['permissions']['via_roles']) : 'NULL',
+        ]);
+
+        // 🔍 FINAL DEBUG: Log exact JSON that will be sent to frontend
+        \Log::info('🔍 [RegionAdminUserController] FINAL JSON RESPONSE', [
+            'user_id' => $targetUser->id,
+            'response_structure' => [
+                'success' => true,
+                'has_data_key' => true,
+                'data_keys' => array_keys($userData),
+                'data_permissions_exists' => array_key_exists('permissions', $userData),
+                'data_permissions_structure' => isset($userData['permissions']) ? array_keys($userData['permissions']) : 'NULL',
+            ],
         ]);
 
         return response()->json([
@@ -465,18 +469,17 @@ class RegionAdminUserController extends Controller
         $data = $validator->validated();
         $targetRoleName = $data['role_name'] ?? $targetUser->roles->first()?->name;
         $departmentId = $data['department_id'] ?? $targetUser->department_id;
-        $assignablePermissions = [];
-        if ($targetRoleName !== 'regionoperator') {
-            $requestedPermissions = $this->regionAdminPermissionService->extractRequestedPermissions($request);
-            if (empty($requestedPermissions)) {
-                $requestedPermissions = $this->regionAdminPermissionService->getDefaultPermissionsForRole($targetRoleName);
-            }
-            $assignablePermissions = $this->regionAdminPermissionService->validateForRole(
-                $requestedPermissions,
-                $targetRoleName,
-                $user
-            );
+
+        // 🔧 FIX: Extract permissions for ALL roles (including RegionOperator)
+        $requestedPermissions = $this->regionAdminPermissionService->extractRequestedPermissions($request);
+        if (empty($requestedPermissions)) {
+            $requestedPermissions = $this->regionAdminPermissionService->getDefaultPermissionsForRole($targetRoleName);
         }
+        $assignablePermissions = $this->regionAdminPermissionService->validateForRole(
+            $requestedPermissions,
+            $targetRoleName,
+            $user
+        );
 
         if ($targetRoleName === 'regionoperator' && empty($departmentId)) {
             return response()->json([
@@ -523,7 +526,7 @@ class RegionAdminUserController extends Controller
                 }
             }
 
-            Log::info('🔍 [RegionAdminUserController] UPDATE - Before syncRegionOperatorPermissions', [
+            Log::info('🔍 [RegionAdminUserController] UPDATE - Before syncDirectPermissions', [
                 'user_id' => $targetUser->id,
                 'old_role' => $oldRoleName,
                 'new_role' => $targetRoleName,
@@ -532,31 +535,27 @@ class RegionAdminUserController extends Controller
                 'has_region_operator_permissions' => isset($request->all()['region_operator_permissions']),
                 'region_operator_permissions' => $request->all()['region_operator_permissions'] ?? 'NOT SET',
                 'assignable_permissions' => $assignablePermissions,
+                'assignable_count' => count($assignablePermissions),
             ]);
 
-            $this->syncRegionOperatorPermissions($request->all(), $targetUser, $oldRoleName, $targetRoleName);
+            // Sync modern permissions (Spatie ONLY - no legacy system)
+            $this->regionAdminPermissionService->syncDirectPermissions($targetUser, $assignablePermissions);
 
-            // Sync modern permissions for all roles (including RegionOperator)
-            if ($targetRoleName === 'regionoperator') {
-                // For RegionOperator, extract modern permissions from assignable_permissions
-                $modernPermissions = $request->input('assignable_permissions', []);
-                if (! empty($modernPermissions)) {
-                    $this->regionAdminPermissionService->syncDirectPermissions($targetUser, $modernPermissions);
-                    Log::info('🔍 [RegionAdminUserController] RegionOperator modern permissions synced', [
-                        'user_id' => $targetUser->id,
-                        'permissions' => $modernPermissions,
-                        'count' => count($modernPermissions),
-                    ]);
-                }
-            } else {
-                $this->regionAdminPermissionService->syncDirectPermissions($targetUser, $assignablePermissions);
-            }
+            // 🔍 VERIFY: Read back the permissions to confirm they were saved
+            $targetUser->refresh();
+            $savedDirectPermissions = $targetUser->getDirectPermissions()->pluck('name')->toArray();
+            Log::info('✅ [RegionAdminUserController] UPDATE - After syncDirectPermissions VERIFICATION', [
+                'user_id' => $targetUser->id,
+                'saved_direct_permissions_count' => count($savedDirectPermissions),
+                'saved_direct_permissions' => $savedDirectPermissions,
+                'matches_input' => array_diff($savedDirectPermissions, $assignablePermissions) === array_diff($assignablePermissions, $savedDirectPermissions),
+            ]);
 
             return response()->json([
                 'success' => true,
                 'message' => 'User updated successfully',
-                'data' => $targetUser->load(['roles', 'institution', 'department', 'regionOperatorPermissions'])
-                    ->setAttribute('assignable_permissions', $assignablePermissions),
+                'data' => $targetUser->load(['roles', 'institution', 'department'])
+                    ->setAttribute('assignable_permissions', $savedDirectPermissions),
             ]);
         } catch (\Exception $e) {
             return response()->json([
@@ -800,91 +799,49 @@ class RegionAdminUserController extends Controller
 
     private function enforceRegionOperatorPermissionRules(Request $request, ?string $targetRoleName, bool $requirePayload = false): void
     {
+        // 🔧 LEGACY METHOD - Now a no-op stub
+        // RegionOperatorPermission system removed - now using Spatie permissions
+        // This method kept for backward compatibility but does nothing
         if (strtolower($targetRoleName ?? '') !== 'regionoperator') {
             return;
         }
 
-        $this->regionOperatorPermissionService->assertValidPayload($request->all(), $requirePayload);
-
-        \Log::info('RegionAdminUserController enforcing CRUD permissions', [
+        \Log::info('RegionAdminUserController enforceRegionOperatorPermissionRules (LEGACY STUB)', [
             'target_role' => $targetRoleName,
             'require_payload' => $requirePayload,
             'user_id' => auth()->id(),
-            'payload_keys' => array_keys($request->all()),
+            'note' => 'Legacy method - no validation performed, using Spatie instead',
         ]);
     }
 
     private function regionOperatorPermissionValidationRules(): array
     {
-        $rules = [
-            'region_operator_permissions' => 'nullable|array',
+        // ✅ UNIFIED SPATIE PERMISSION VALIDATION
+        // All roles now use the same Spatie permission system
+        return [
+            'assignable_permissions' => 'nullable|array',
+            'assignable_permissions.*' => 'string|exists:permissions,name',
         ];
-
-        foreach (RegionOperatorPermissionService::getCrudFields() as $field) {
-            $rules["region_operator_permissions.$field"] = 'sometimes|boolean';
-            $rules[$field] = 'sometimes|boolean';
-        }
-
-        foreach (array_keys(RegionOperatorPermissionService::LEGACY_FIELD_MAP) as $legacyField) {
-            $rules[$legacyField] = 'sometimes|boolean';
-        }
-
-        return $rules;
     }
+
+    // 🔧 LEGACY METHOD - Completely removed
+    // syncRegionOperatorPermissions() deleted - RegionOperatorPermission system dropped
+    // Now using Spatie's syncDirectPermissions() via RegionAdminPermissionService
 
     private function syncRegionOperatorPermissions(array $payload, User $targetUser, ?string $oldRole = null, ?string $newRole = null): void
     {
-        Log::info('🔍 [syncRegionOperatorPermissions] START', [
+        // 🔧 LEGACY STUB - This method is no longer used
+        // RegionOperatorPermission system has been completely removed
+        // All permission management now uses Spatie Laravel Permission
+        // See RegionAdminPermissionService::syncDirectPermissions() instead
+
+        Log::info('🔧 [syncRegionOperatorPermissions] LEGACY STUB CALLED', [
             'user_id' => $targetUser->id,
             'old_role' => $oldRole,
             'new_role' => $newRole,
-            'payload_keys' => array_keys($payload),
+            'note' => 'This is a legacy stub - no action taken. Use Spatie permissions instead.',
         ]);
 
-        $isRegionOperator = $this->regionOperatorPermissionService->shouldHandle($targetUser);
-
-        Log::info('🔍 [syncRegionOperatorPermissions] Role check', [
-            'is_regionoperator' => $isRegionOperator,
-        ]);
-
-        if (! $isRegionOperator) {
-            if ($oldRole === 'regionoperator' && $newRole !== 'regionoperator') {
-                Log::info('RegionOperator permissions removed due to role change', [
-                    'admin_id' => auth()->id(),
-                    'operator_id' => $targetUser->id,
-                    'old_role' => $oldRole,
-                    'new_role' => $newRole,
-                ]);
-            }
-
-            $this->regionOperatorPermissionService->deletePermissions($targetUser);
-
-            return;
-        }
-
-        $hasCrudPayload = $this->regionOperatorPermissionService->hasCrudPayload($payload);
-
-        Log::info('🔍 [syncRegionOperatorPermissions] CRUD payload check', [
-            'has_crud_payload' => $hasCrudPayload,
-            'payload_keys' => array_keys($payload),
-            'region_operator_permissions' => $payload['region_operator_permissions'] ?? 'NOT SET',
-        ]);
-
-        if ($hasCrudPayload) {
-            $permissions = $this->regionOperatorPermissionService->extractPermissions($payload);
-
-            Log::info('🔍 [syncRegionOperatorPermissions] Extracted permissions', [
-                'permissions' => $permissions,
-                'count' => count($permissions),
-            ]);
-
-            $this->regionOperatorPermissionService->syncPermissions($targetUser, $permissions);
-
-            Log::info('RegionOperator permissions updated via RegionAdminUserController', [
-                'admin_id' => auth()->id(),
-                'operator_id' => $targetUser->id,
-                'updated_fields' => array_keys($permissions),
-            ]);
-        }
+        // No-op: All permission syncing now handled by RegionAdminPermissionService
     }
 }

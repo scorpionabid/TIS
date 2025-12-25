@@ -140,6 +140,10 @@ class RegionAdminPermissionService
         $allowedForRole = $this->collectAllowedPermissionsForRole($roleName);
         $adminPermissions = $this->getUserPermissionNames($regionAdmin);
 
+        // 🔧 FIX: Auto-add required permissions for this role
+        $requiredPermissions = $this->getRequiredPermissionsForRole($roleName);
+        $permissions = array_unique(array_merge($permissions, $requiredPermissions));
+
         foreach ($permissions as $permission) {
             if (! $allowedForRole->contains($permission)) {
                 throw ValidationException::withMessages([
@@ -154,8 +158,11 @@ class RegionAdminPermissionService
             }
         }
 
-        $this->assertDependenciesSatisfied($permissions);
-        $this->assertRequiredPermissionsPresent($permissions, $roleName);
+        // ✅ AUTO-ENRICH: Automatically add missing dependencies instead of throwing error
+        $permissions = $this->permissionValidationService->validateAndEnrich($permissions);
+
+        // No need to assert required permissions anymore since we auto-added them
+        // $this->assertRequiredPermissionsPresent($permissions, $roleName);
 
         return $permissions;
     }
@@ -172,6 +179,24 @@ class RegionAdminPermissionService
             })
             ->flatMap(function (array $module) {
                 return $module['defaults'] ?? [];
+            })
+            ->unique()
+            ->values()
+            ->all();
+    }
+
+    public function getRequiredPermissionsForRole(string $roleName): array
+    {
+        $modules = $this->getNormalizedModules();
+
+        return collect($modules)
+            ->filter(function (array $module) use ($roleName) {
+                $roles = $module['roles'] ?? [];
+
+                return empty($roles) || in_array($roleName, $roles, true);
+            })
+            ->flatMap(function (array $module) {
+                return $module['required'] ?? [];
             })
             ->unique()
             ->values()
@@ -197,6 +222,18 @@ class RegionAdminPermissionService
 
         // Perform the actual sync
         $user->syncPermissions($permissions);
+
+        // 🔧 CRITICAL FIX: Force clear Spatie permission cache for this user
+        // Spatie should auto-clear cache, but explicitly force it to ensure fresh data
+        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+
+        // Also refresh the user model to clear any Laravel model cache
+        $user->refresh();
+
+        Log::info('🔄 Spatie permission cache forcibly cleared after sync', [
+            'user_id' => $user->id,
+            'synced_permissions_count' => count($permissions),
+        ]);
 
         // Record an audit log entry for the permission change
         try {

@@ -23,7 +23,7 @@ class UserCrudService
      */
     public function getPaginatedList(array $params): LengthAwarePaginator
     {
-        $query = User::with(['roles', 'institution', 'profile', 'regionOperatorPermissions']);
+        $query = User::with(['roles', 'institution', 'profile']);
 
         // Apply filters
         $this->applyFilters($query, $params);
@@ -135,10 +135,8 @@ class UserCrudService
                 $user->assignRole($role->name);
                 Log::info("Assigned role {$role->name} to user {$user->id}");
 
-                // Handle RegionOperator permissions
-                if ($role->name === 'regionoperator' && ! empty($data['region_operator_permissions'])) {
-                    $this->syncRegionOperatorPermissions($user, $data['region_operator_permissions']);
-                }
+                // NOTE: Permission syncing is now handled by RegionAdminUserController
+                // using RegionAdminPermissionService for unified permission management
             }
 
             // Create profile if data provided
@@ -197,10 +195,8 @@ class UserCrudService
 
             $user->update($updateData);
 
-            // Handle RegionOperator permissions on update
-            if ($user->hasRole('regionoperator') && isset($data['region_operator_permissions'])) {
-                $this->syncRegionOperatorPermissions($user, $data['region_operator_permissions']);
-            }
+            // NOTE: Permission syncing is now handled by RegionAdminUserController
+            // using RegionAdminPermissionService for unified permission management
 
             // Update or create profile
             $profileFields = ['first_name', 'last_name', 'patronymic', 'birth_date', 'gender', 'national_id', 'contact_phone', 'emergency_contact', 'address'];
@@ -551,7 +547,7 @@ class UserCrudService
                 'full_name' => $user->profile->full_name,
                 'contact_phone' => $user->profile->contact_phone,
             ] : null,
-            'region_operator_permissions' => $this->serializeRegionOperatorPermissions($user),
+            // NOTE: region_operator_permissions removed - using Spatie permissions only
         ];
     }
 
@@ -604,36 +600,21 @@ class UserCrudService
                 'department_type' => $user->department?->department_type,
             ],
             'profile' => $user->profile,
-            'permissions' => $user->role?->permissions->pluck('name') ?? [],
-            'region_operator_permissions' => $this->serializeRegionOperatorPermissions($user),
+            'permissions' => [
+                'direct' => $user->getDirectPermissions()->pluck('name')->toArray(),
+                'via_roles' => $user->getPermissionsViaRoles()->pluck('name')->toArray(),
+                'all' => $user->getAllPermissions()->pluck('name')->toArray(),
+                'role_metadata' => $user->roles->map(function($role) {
+                    return [
+                        'role_id' => $role->id,
+                        'role_name' => $role->name,
+                        'role_display_name' => $role->display_name,
+                        'permissions' => $role->permissions->pluck('name')->toArray()
+                    ];
+                })->toArray()
+            ],
+            // NOTE: region_operator_permissions removed - using Spatie permissions only
         ];
-    }
-
-    /**
-     * Sync RegionOperator permissions to both custom table and Spatie permissions
-     *
-     * This ensures RegionOperator granular permissions work with route middleware
-     */
-    protected function syncRegionOperatorPermissions(User $user, array $roPermissions): void
-    {
-        // 1. Sync to region_operator_permissions table (existing functionality)
-        app(RegionOperatorPermissionService::class)->syncPermissions($user, $roPermissions);
-
-        // 2. Map to Spatie permissions and sync (NEW functionality)
-        $mappingService = new RegionOperatorPermissionMappingService;
-        $spatiePermissions = $mappingService->toSpatiePermissions($roPermissions);
-
-        // Grant only the permissions selected by RegionAdmin
-        // This overrides the default read-only permissions from PermissionSeeder
-        $user->syncPermissions($spatiePermissions);
-
-        Log::info('RegionOperator permissions synced to both systems', [
-            'user_id' => $user->id,
-            'username' => $user->username,
-            'ro_permissions_count' => count(array_filter($roPermissions)),
-            'spatie_permissions_count' => count($spatiePermissions),
-            'spatie_permissions' => $spatiePermissions,
-        ]);
     }
 
     /**
@@ -649,19 +630,6 @@ class UserCrudService
         ], $additionalData);
 
         ActivityLog::logActivity($data);
-    }
-
-    protected function serializeRegionOperatorPermissions(User $user): ?array
-    {
-        if (! $user->relationLoaded('regionOperatorPermissions')) {
-            $user->load('regionOperatorPermissions');
-        }
-
-        $permissions = $user->regionOperatorPermissions;
-
-        return $permissions
-            ? $permissions->only(RegionOperatorPermissionService::getCrudFields())
-            : null;
     }
 
     // ========================================

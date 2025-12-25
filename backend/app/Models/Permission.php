@@ -33,6 +33,7 @@ class Permission extends Model
         'department',
         'resource',
         'action',
+        'scope',
         'is_active',
     ];
 
@@ -207,41 +208,101 @@ class Permission extends Model
      */
     public function getScopeLabel(): string
     {
-        $scope = $this->getScopeAttribute();
-
-        return match ($scope) {
+        return match ($this->scope) {
             'global' => 'Global',
             'system' => 'Sistem',
             'regional' => 'Regional',
             'sector' => 'Sektor',
             'institution' => 'Məktəb',
             'classroom' => 'Sinif',
-            default => ucfirst($scope),
+            default => 'Məktəb', // Default fallback
         };
     }
 
     /**
-     * Get permission scope based on name.
+     * Scope query to filter by scope.
      */
-    public function getScopeAttribute(): string
+    public function scopeByScope($query, string $scope)
     {
-        if (str_contains($this->name, 'system')) {
-            return 'system';
-        }
-        if (str_contains($this->name, 'reports') || str_contains($this->name, 'analytics')) {
-            return 'global';
-        }
-        if (str_contains($this->name, 'institutions') || str_contains($this->name, 'institution-types')) {
-            return 'regional';
-        }
-        if (str_contains($this->name, 'users') && str_contains($this->name, 'manage')) {
-            return 'sector';
-        }
-        if (str_contains($this->name, 'surveys') || str_contains($this->name, 'tasks') || str_contains($this->name, 'documents')) {
-            return 'institution';
-        }
+        return $query->where('scope', $scope);
+    }
 
-        return 'classroom';
+    /**
+     * Check if permission is global scope (SuperAdmin only).
+     */
+    public function isGlobalScope(): bool
+    {
+        return $this->scope === 'global';
+    }
+
+    /**
+     * Check if permission is system scope.
+     */
+    public function isSystemScope(): bool
+    {
+        return $this->scope === 'system';
+    }
+
+    /**
+     * Check if permission is regional scope.
+     */
+    public function isRegionalScope(): bool
+    {
+        return $this->scope === 'regional';
+    }
+
+    /**
+     * Check if permission is allowed for a given role level.
+     *
+     * @param int $roleLevel Role hierarchy level (1-10)
+     * @return bool
+     */
+    public function isAllowedForLevel(int $roleLevel): bool
+    {
+        $scopeLevelMap = [
+            'global' => 1,      // Only SuperAdmin (Level 1)
+            'system' => 2,      // SuperAdmin + RegionAdmin (Level 1-2)
+            'regional' => 4,    // Up to SektorAdmin (Level 1-4)
+            'sector' => 6,      // Up to school staff (Level 1-6)
+            'institution' => 8, // Up to SchoolAdmin (Level 1-8)
+            'classroom' => 10,  // All roles (Level 1-10)
+        ];
+
+        $maxAllowedLevel = $scopeLevelMap[$this->scope] ?? 10;
+
+        return $roleLevel <= $maxAllowedLevel;
+    }
+
+    /**
+     * Get minimum role level required for this permission.
+     */
+    public function getMinimumRoleLevel(): int
+    {
+        return match ($this->scope) {
+            'global' => 1,
+            'system' => 1,
+            'regional' => 1,
+            'sector' => 1,
+            'institution' => 1,
+            'classroom' => 1,
+            default => 1,
+        };
+    }
+
+    /**
+     * Get maximum role level allowed for this permission.
+     */
+    public function getMaximumRoleLevel(): int
+    {
+        return match ($this->scope) {
+            'global' => 1,      // Only level 1
+            'system' => 2,      // Up to level 2
+            'regional' => 4,    // Up to level 4
+            'sector' => 6,      // Up to level 6
+            'institution' => 8, // Up to level 8
+            'classroom' => 10,  // All levels
+            default => 10,
+        };
     }
 
     /**

@@ -55,6 +55,11 @@ class PermissionController extends Controller
             $query->where('action', $request->action);
         }
 
+        // Scope filter
+        if ($request->has('scope') && $request->scope !== 'all') {
+            $query->where('scope', $request->scope);
+        }
+
         // Status filter
         if ($request->has('is_active')) {
             $query->where('is_active', $request->is_active === 'true' || $request->is_active === true);
@@ -104,7 +109,7 @@ class PermissionController extends Controller
                 'resource' => $permission->resource ?? $parsed['resource'],
                 'action' => $permission->action ?? $parsed['action'],
                 'is_active' => $permission->is_active,
-                'scope' => $this->getPermissionScope($permission->name),
+                'scope' => $permission->scope ?? $this->getPermissionScope($permission->name),
                 'roles_count' => $rolesCount,
                 'users_count' => $totalUsersCount,
                 'created_at' => $permission->created_at,
@@ -146,7 +151,7 @@ class PermissionController extends Controller
                 'resource' => $permission->resource,
                 'action' => $permission->action,
                 'is_active' => $permission->is_active,
-                'scope' => $this->getPermissionScope($permission->name),
+                'scope' => $permission->scope ?? $this->getPermissionScope($permission->name),
                 'roles_count' => $roles->count(),
                 'users_count' => $usersCount,
                 'roles' => $roles,
@@ -445,24 +450,21 @@ class PermissionController extends Controller
      */
     public function getScopes(): JsonResponse
     {
+        // Get actual scope counts from database
+        $scopeCounts = Permission::select('scope', DB::raw('count(*) as count'))
+            ->whereNotNull('scope')
+            ->groupBy('scope')
+            ->pluck('count', 'scope')
+            ->toArray();
+
         $scopes = [
-            ['name' => 'global', 'label' => 'Global', 'count' => 0],
-            ['name' => 'system', 'label' => 'Sistem', 'count' => 0],
-            ['name' => 'regional', 'label' => 'Regional', 'count' => 0],
-            ['name' => 'sector', 'label' => 'Sektor', 'count' => 0],
-            ['name' => 'institution', 'label' => 'Məktəb', 'count' => 0],
-            ['name' => 'classroom', 'label' => 'Sinif', 'count' => 0],
+            ['name' => 'global', 'label' => 'Global', 'count' => $scopeCounts['global'] ?? 0],
+            ['name' => 'system', 'label' => 'Sistem', 'count' => $scopeCounts['system'] ?? 0],
+            ['name' => 'regional', 'label' => 'Regional', 'count' => $scopeCounts['regional'] ?? 0],
+            ['name' => 'sector', 'label' => 'Sektor', 'count' => $scopeCounts['sector'] ?? 0],
+            ['name' => 'institution', 'label' => 'Məktəb', 'count' => $scopeCounts['institution'] ?? 0],
+            ['name' => 'classroom', 'label' => 'Sinif', 'count' => $scopeCounts['classroom'] ?? 0],
         ];
-
-        $permissions = Permission::all();
-
-        foreach ($permissions as $permission) {
-            $scope = $this->getPermissionScope($permission->name);
-            $scopeIndex = array_search($scope, array_column($scopes, 'name'));
-            if ($scopeIndex !== false) {
-                $scopes[$scopeIndex]['count']++;
-            }
-        }
 
         return response()->json(['scopes' => $scopes]);
     }

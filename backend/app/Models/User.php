@@ -131,14 +131,6 @@ class User extends Authenticatable
     }
 
     /**
-     * Get RegionOperator permission profile when applicable.
-     */
-    public function regionOperatorPermissions(): HasOne
-    {
-        return $this->hasOne(RegionOperatorPermission::class);
-    }
-
-    /**
      * Get the user's profile.
      */
     public function profile(): HasOne
