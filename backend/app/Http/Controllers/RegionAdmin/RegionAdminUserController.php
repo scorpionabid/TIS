@@ -190,6 +190,72 @@ class RegionAdminUserController extends Controller
             ], 422);
         }
 
+        // CRITICAL: Role-specific institution level validation
+        // This validation must happen AFTER basic validation passes
+        $roleName = $request->input('role_name');
+        $institutionId = $request->input('institution_id');
+        $institution = Institution::find($institutionId);
+
+        if ($institution) {
+            switch ($roleName) {
+                case 'sektoradmin':
+                    // SektorAdmin must be assigned to sector (level 3)
+                    if ($institution->level !== 3) {
+                        return response()->json([
+                            'message' => 'Validation failed',
+                            'errors' => [
+                                'institution_id' => ['SektorAdmin yalnız sektor səviyyəli (level 3) müəssisəyə təyin edilə bilər.'],
+                            ],
+                        ], 422);
+                    }
+                    // SektorAdmin MUST NOT have department_id
+                    if ($request->input('department_id')) {
+                        return response()->json([
+                            'message' => 'Validation failed',
+                            'errors' => [
+                                'department_id' => ['SektorAdmin roluna department təyin edilə bilməz. Departamentlər yalnız məktəblərdədir.'],
+                            ],
+                        ], 422);
+                    }
+                    break;
+
+                case 'schooladmin':
+                case 'məktəbadmin':
+                    // SchoolAdmin must be assigned to school (level 4+)
+                    if ($institution->level < 4) {
+                        return response()->json([
+                            'message' => 'Validation failed',
+                            'errors' => [
+                                'institution_id' => ['SchoolAdmin yalnız məktəb səviyyəli (level 4+) müəssisəyə təyin edilə bilər.'],
+                            ],
+                        ], 422);
+                    }
+                    // SchoolAdmin MUST NOT have department_id
+                    if ($request->input('department_id')) {
+                        return response()->json([
+                            'message' => 'Validation failed',
+                            'errors' => [
+                                'department_id' => ['SchoolAdmin roluna department təyin edilə bilməz. Departamentlər yalnız RegionOperator üçündür.'],
+                            ],
+                        ], 422);
+                    }
+                    break;
+
+                case 'regionoperator':
+                    // RegionOperator can be assigned to level 4+ institutions (schools)
+                    // because departments exist only in schools
+                    if ($institution->level < 4) {
+                        return response()->json([
+                            'message' => 'Validation failed',
+                            'errors' => [
+                                'institution_id' => ['RegionOperator yalnız məktəb səviyyəli (level 4+) müəssisəyə təyin edilə bilər, çünki departamentlər yalnız məktəblərdə mövcuddur.'],
+                            ],
+                        ], 422);
+                    }
+                    break;
+            }
+        }
+
         $data = $validator->validated();
         $assignablePermissions = [];
         if ($data['role_name'] !== 'regionoperator') {
