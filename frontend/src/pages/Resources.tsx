@@ -12,6 +12,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { ResourceModal } from "@/components/modals/ResourceModal";
+import { LinkFilterPanel } from "@/components/resources/LinkFilterPanel";
 import type { LinkFilters } from "@/components/resources/LinkFilterPanel";
 import { ResourceHeader } from "@/components/resources/ResourceHeader";
 import { ResourceToolbar } from "@/components/resources/ResourceToolbar";
@@ -43,6 +44,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Switch } from "@/components/ui/switch";
 
 type InstitutionOption = {
   id: number;
@@ -86,6 +88,7 @@ const filtersToValue = (value?: string | null) => {
 
 const LINK_SELECTION_STORAGE_KEY = 'resources_selected_link_id';
 const DOCUMENT_FILTER_PANEL_STORAGE_KEY = 'resources_document_filter_panel_open';
+const LINK_SCOPE_STORAGE_KEY = 'resources_link_scope';
 
 const readStoredLinkId = (): number | null => {
   try {
@@ -144,6 +147,10 @@ export default function Resources() {
   const canFetchDocumentStats = canViewDocuments;
   const canFetchDocumentList = canViewDocuments;
   const canBulkUploadLinks = linksAccess.canManage || linksAccess.canCreate;
+  const canUseGlobalLinkScope =
+    hasAnyRole([USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]) ||
+    hasPermission('links.analytics') ||
+    hasPermission('links.bulk');
 
   const {
     userInstitutionId,
@@ -170,8 +177,8 @@ export default function Resources() {
       setActiveTab(nextTab);
     }
   }, [searchParams, activeTab, normalizeTab]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [documentSearchTerm, setDocumentSearchTerm] = useState('');
+  const [debouncedDocumentSearch, setDebouncedDocumentSearch] = useState('');
   const [sortBy, setSortBy] = useState<'created_at' | 'title'>('created_at');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const LINK_SORT_BY: 'created_at' | 'title' = 'created_at';
@@ -191,10 +198,10 @@ export default function Resources() {
 
   useEffect(() => {
     const timeout = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
+      setDebouncedDocumentSearch(documentSearchTerm);
     }, 400);
     return () => clearTimeout(timeout);
-  }, [searchTerm]);
+  }, [documentSearchTerm]);
 
   useEffect(() => {
     const nextPageParam = Number.parseInt(searchParams.get('page') ?? '', 10);
@@ -244,9 +251,21 @@ export default function Resources() {
   const {
     linkFilters,
     documentFilters,
+    setLinkFilters,
     setDocumentFilters,
+    filterPanelOpen: linkFilterPanelOpen,
+    toggleFilterPanel: toggleLinkFilterPanel,
     getFiltersForTab,
   } = useResourceFilters();
+
+  const [linkSearchInput, setLinkSearchInput] = useState(() => linkFilters.search || '');
+  const [linkScope, setLinkScope] = useState<'scoped' | 'global'>(() => {
+    if (typeof window === 'undefined') {
+      return 'scoped';
+    }
+    const stored = window.localStorage.getItem(LINK_SCOPE_STORAGE_KEY);
+    return stored === 'global' ? 'global' : 'scoped';
+  });
 
   const [selectedLink, setSelectedLink] = useState<Resource | null>(null);
   const [linkPage, setLinkPage] = useState(1);
@@ -273,11 +292,61 @@ export default function Resources() {
     );
   }, [documentFilterPanelOpen]);
 
+  useEffect(() => {
+    setLinkSearchInput(linkFilters.search || '');
+  }, [linkFilters.search]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setLinkFilters((prev) => {
+        const normalized = linkSearchInput || undefined;
+        if ((prev.search || '') === (normalized || '')) {
+          return prev;
+        }
+        return {
+          ...prev,
+          search: normalized,
+        };
+      });
+    }, 400);
+
+    return () => clearTimeout(handler);
+  }, [linkSearchInput, setLinkFilters]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    window.localStorage.setItem(LINK_SCOPE_STORAGE_KEY, linkScope);
+  }, [linkScope]);
+
+  useEffect(() => {
+    if (!canUseGlobalLinkScope && linkScope === 'global') {
+      setLinkScope('scoped');
+    }
+  }, [canUseGlobalLinkScope, linkScope]);
+
   const normalizedLinkFilters = useMemo(() => ({
+    search: filtersToValue(linkFilters.search),
     link_type: filtersToValue(linkFilters.link_type),
+    share_scope: filtersToValue(linkFilters.share_scope),
     status: filtersToValue(linkFilters.status)?.toLowerCase(),
+    creator_id: linkFilters.creator_id,
+    institution_id: linkFilters.institution_id,
     institution_ids: linkFilters.institution_ids,
-  }), [linkFilters.link_type, linkFilters.status, linkFilters.institution_ids]);
+    is_featured: linkFilters.is_featured,
+    my_links: linkFilters.my_links,
+    date_from: linkFilters.date_from,
+    date_to: linkFilters.date_to,
+    access_level: filtersToValue(linkFilters.access_level),
+    category: filtersToValue(linkFilters.category),
+    mime_type: filtersToValue(linkFilters.mime_type),
+    sort_by: linkFilters.sort_by,
+    sort_direction: linkFilters.sort_direction,
+  }), [linkFilters]);
+
+  const linkSortBy = normalizedLinkFilters.sort_by || LINK_SORT_BY;
+  const linkSortDirection = normalizedLinkFilters.sort_direction || LINK_SORT_DIRECTION;
 
   const scopedLinkInstitutionIds = useMemo(() => {
     if (!shouldRestrictByInstitution) {
@@ -295,22 +364,41 @@ export default function Resources() {
   }, [shouldRestrictByInstitution, normalizedLinkFilters.institution_ids, accessibleInstitutionIds, accessibleInstitutionSet]);
 
   const linkFilterSignature = useMemo(
-    () => JSON.stringify(normalizedLinkFilters),
-    [normalizedLinkFilters]
+    () => JSON.stringify({ ...normalizedLinkFilters, scope: linkScope }),
+    [normalizedLinkFilters, linkScope]
   );
 
-  const linkQueryParams = useMemo(() => ({
-    link_type: normalizedLinkFilters.link_type,
-    status: normalizedLinkFilters.status,
-    // Don't send institution_ids for role-based users (regionadmin/sektoradmin)
-    // Backend will automatically filter based on user's role and institution
-    // Only send institution_ids if user manually selected institutions in the filter
-    institution_ids: shouldRestrictByInstitution ? undefined : normalizedLinkFilters.institution_ids,
-    sort_by: LINK_SORT_BY,
-    sort_direction: LINK_SORT_DIRECTION,
-    page: linkPage,
-    per_page: linkPerPage,
-  }), [normalizedLinkFilters, shouldRestrictByInstitution, linkPage, linkPerPage]);
+  const linkQueryParams = useMemo(() => {
+    const params: ResourceFilters = {
+      search: normalizedLinkFilters.search,
+      link_type: normalizedLinkFilters.link_type,
+      share_scope: normalizedLinkFilters.share_scope,
+      status: normalizedLinkFilters.status,
+      creator_id: normalizedLinkFilters.creator_id,
+      institution_id: normalizedLinkFilters.institution_id,
+      // Don't send institution_ids for role-based users (regionadmin/sektoradmin)
+      // Backend will automatically filter based on user's role and institution
+      // Only send institution_ids if user manually selected institutions in the filter
+      institution_ids: shouldRestrictByInstitution ? undefined : normalizedLinkFilters.institution_ids,
+      is_featured: normalizedLinkFilters.is_featured,
+      my_links: normalizedLinkFilters.my_links,
+      date_from: normalizedLinkFilters.date_from,
+      date_to: normalizedLinkFilters.date_to,
+      access_level: normalizedLinkFilters.access_level,
+      category: normalizedLinkFilters.category,
+      mime_type: normalizedLinkFilters.mime_type,
+      sort_by: linkSortBy,
+      sort_direction: linkSortDirection,
+      page: linkPage,
+      per_page: linkPerPage,
+    };
+
+    if (linkScope === 'global') {
+      params.scope = 'global';
+    }
+
+    return params;
+  }, [normalizedLinkFilters, shouldRestrictByInstitution, linkPage, linkPerPage, linkSortBy, linkSortDirection, linkScope]);
 
   const {
     data: linkResponse,
@@ -327,11 +415,11 @@ export default function Resources() {
 
   const linkData = useMemo(() => {
     const raw = linkResponse?.data || [];
-    if (!shouldRestrictByInstitution || !accessibleInstitutionSet) {
+    if (linkScope === 'global' || !shouldRestrictByInstitution || !accessibleInstitutionSet) {
       return raw;
     }
     return raw.filter((link) => resourceMatchesScope(link, accessibleInstitutionSet));
-  }, [linkResponse?.data, shouldRestrictByInstitution, accessibleInstitutionSet]);
+  }, [linkResponse?.data, shouldRestrictByInstitution, accessibleInstitutionSet, linkScope]);
   const isLinkLoading = linkLoading && !linkResponse;
   const isLinkFetching = linkFetching;
   const isLinkRefreshing = isLinkFetching && !isLinkLoading;
@@ -482,6 +570,25 @@ export default function Resources() {
     });
   }, [normalizeTab, setSearchParams]);
 
+  const handleLinkSortChange = useCallback((value: string) => {
+    const [field, direction] = value.split('-');
+    const nextSortBy = field === 'title' ? 'title' : 'created_at';
+    const nextSortDirection = direction === 'asc' ? 'asc' : 'desc';
+    setLinkFilters((prev) => {
+      if (
+        prev.sort_by === nextSortBy &&
+        prev.sort_direction === nextSortDirection
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        sort_by: nextSortBy,
+        sort_direction: nextSortDirection,
+      };
+    });
+  }, [setLinkFilters]);
+
   // Fetch resources (enhanced with filters)
   const appliedFilters = useMemo(() => {
     if (activeTab === 'documents') {
@@ -494,7 +601,7 @@ export default function Resources() {
 
   useEffect(() => {
     setPage(DEFAULT_PAGE);
-  }, [debouncedSearchTerm, activeFilterSignature, activeTab]);
+  }, [debouncedDocumentSearch, activeFilterSignature, activeTab]);
 
   const resourceType: ResourceFilters['type'] | undefined = activeTab === 'documents'
     ? 'document'
@@ -504,7 +611,7 @@ export default function Resources() {
 
   const resourceQueryParams = {
     type: resourceType,
-    search: activeTab === 'documents' ? (debouncedSearchTerm || undefined) : undefined,
+    search: activeTab === 'documents' ? (debouncedDocumentSearch || undefined) : undefined,
     sort_by: sortBy,
     sort_direction: sortDirection,
     page,
@@ -1234,8 +1341,8 @@ export default function Resources() {
       }
       return value !== undefined && value !== '';
     });
-    return Boolean(debouncedSearchTerm) || hasFilterValue;
-  }, [appliedFilters, debouncedSearchTerm, activeTab]);
+    return Boolean(debouncedDocumentSearch) || hasFilterValue;
+  }, [appliedFilters, debouncedDocumentSearch, activeTab]);
 
   const filteredStats = useMemo<ResourceStats>(() => {
     const total = resourceResponse?.meta?.total ?? resourcesData.length;
@@ -1379,7 +1486,17 @@ export default function Resources() {
     // UX IMPROVEMENT: Keep user on current tab to see their creation
     // Only reset search term for better UX
     if (!isEditing) {
-      setSearchTerm('');
+      setDocumentSearchTerm('');
+      setLinkSearchInput('');
+      setLinkFilters((prev) => {
+        if (!prev.search) {
+          return prev;
+        }
+        return {
+          ...prev,
+          search: undefined,
+        };
+      });
       // Keep activeTab, sortBy, sortDirection as-is
     }
   };
@@ -1460,10 +1577,20 @@ export default function Resources() {
         onBulkUpload={() => setIsBulkUploadModalOpen(true)}
       />
 
-      {activeTab !== 'links' && (
+      {activeTab === 'links' && (
         <ResourceToolbar
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
+          searchTerm={linkSearchInput}
+          onSearchChange={setLinkSearchInput}
+          sortValue={`${linkSortBy}-${linkSortDirection}`}
+          onSortChange={handleLinkSortChange}
+          isUpdating={isLinkRefreshing}
+        />
+      )}
+
+      {activeTab === 'documents' && (
+        <ResourceToolbar
+          searchTerm={documentSearchTerm}
+          onSearchChange={setDocumentSearchTerm}
           sortValue={`${sortBy}-${sortDirection}`}
           onSortChange={(value) => {
             const [field, direction] = value.split('-');
@@ -1535,6 +1662,39 @@ export default function Resources() {
         </TabsList>
 
         <TabsContent value="links" className="mt-6 space-y-6">
+          {canUseGlobalLinkScope && (
+            <div className="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="font-medium">
+                  {linkScope === 'global' ? 'Qlobal baxış aktivdir' : 'Qlobal baxış deaktivdir'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {linkScope === 'global'
+                    ? 'Bütün müəssisələrin paylaşılan linklərini filtrləyə bilərsiniz.'
+                    : 'Yalnız səlahiyyətli olduğunuz müəssisələrin linkləri göstərilir.'}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground">Qlobal baxış</span>
+                <Switch
+                  disabled={!canUseGlobalLinkScope}
+                  checked={linkScope === 'global'}
+                  onCheckedChange={(checked) => {
+                    setLinkScope(checked ? 'global' : 'scoped');
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          <LinkFilterPanel
+            filters={linkFilters}
+            onFiltersChange={setLinkFilters}
+            availableInstitutions={institutionFilterOptions}
+            availableCreators={availableCreators}
+            isOpen={linkFilterPanelOpen}
+            onToggle={toggleLinkFilterPanel}
+            mode="links"
+          />
           <LinkTabContent
             error={linkError}
             linkData={linkData}

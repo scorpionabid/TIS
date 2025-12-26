@@ -281,6 +281,7 @@ class ResourceService {
       sort_direction: filters.sort_direction,
       page: filters.page,
       per_page: filters.per_page,
+      scope: filters.scope,
     };
 
     const response = await linkService.getAll(linkFilters);

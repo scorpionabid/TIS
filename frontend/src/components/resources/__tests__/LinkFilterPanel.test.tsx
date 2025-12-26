@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 import { LinkFilterPanel } from '../LinkFilterPanel';
@@ -61,5 +61,22 @@ describe('LinkFilterPanel', () => {
     );
 
     expect(screen.getAllByText('Test Məktəb').length).toBeGreaterThan(0);
+  });
+
+  it('does not count search or sort fields as active filters', () => {
+    render(
+      <LinkFilterPanel
+        {...defaultProps}
+        filters={{
+          search: 'foo',
+          sort_by: 'title',
+          sort_direction: 'asc',
+        }}
+        isOpen={false}
+      />
+    );
+
+    const toggle = screen.getByRole('button', { name: /filtr seçimləri/i });
+    expect(within(toggle).queryByText('1')).not.toBeInTheDocument();
   });
 });

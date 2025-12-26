@@ -54,6 +54,14 @@ class LinkSharingService extends BaseService
     }
 
     /**
+     * Check whether current user can view all links (global scope)
+     */
+    public function canViewAllLinks($user): bool
+    {
+        return $this->permissionService->canViewAllLinks($user);
+    }
+
+    /**
      * Create new link share
      */
     public function createLinkShare(array $data, $user)

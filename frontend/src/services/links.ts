@@ -72,6 +72,10 @@ export interface LinkFilters extends PaginationParams {
   date_from?: string;
   date_to?: string;
   my_links?: boolean;
+  scope?: 'global' | 'scoped';
+  target_institution_id?: number;
+  target_user_id?: number;
+  requires_login?: boolean;
 }
 
 export interface LinkStatistics {

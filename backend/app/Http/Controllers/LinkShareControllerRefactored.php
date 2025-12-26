@@ -50,6 +50,9 @@ class LinkShareControllerRefactored extends BaseController
                 'institution_id' => 'nullable|exists:institutions,id',
                 'institution_ids' => 'nullable|array',
                 'institution_ids.*' => 'integer|exists:institutions,id',
+                'target_institution_id' => 'nullable|integer|exists:institutions,id',
+                'target_user_id' => 'nullable|integer|exists:users,id',
+                'requires_login' => 'nullable|boolean',
                 'is_active' => 'nullable|boolean',
                 'has_password' => 'nullable|boolean',
                 'date_from' => 'nullable|date',
@@ -57,9 +60,15 @@ class LinkShareControllerRefactored extends BaseController
                 'sort_by' => 'nullable|string|in:created_at,expires_at,access_count,document_name',
                 'sort_direction' => 'nullable|string|in:asc,desc',
                 'per_page' => 'nullable|integer|min:1|max:500',
+                'scope' => 'nullable|string|in:scoped,global',
             ]);
 
             $user = Auth::user();
+
+            if ($request->input('scope') === 'global' && ! $this->linkSharingService->canViewAllLinks($user)) {
+                abort(403, 'Qlobal link siyahısına baxmaq icazəniz yoxdur');
+            }
+
             $result = $this->linkSharingService->getAccessibleLinks($request, $user);
 
             return $this->successResponse($result, 'Bağlantılar uğurla alındı');

@@ -75,6 +75,33 @@ export interface InstitutionFilters extends PaginationParams {
 class InstitutionService extends BaseService<Institution> {
   // Cache for 404 institution IDs to prevent infinite retry loops
   private failedInstitutionIds = new Set<number>();
+  private static readonly SUMMARY_CHUNK_SIZE = 50;
+
+  private normalizeInstitutionResponse(
+    response: any
+  ): { items: Institution[]; pagination: any } {
+    if (!response) {
+      return { items: [], pagination: null };
+    }
+
+    if (response?.data?.data && Array.isArray(response.data.data)) {
+      return { items: response.data.data, pagination: response.data };
+    }
+
+    if (Array.isArray(response?.data)) {
+      return { items: response.data, pagination: response };
+    }
+
+    if (Array.isArray(response?.institutions)) {
+      return { items: response.institutions, pagination: response.pagination };
+    }
+
+    if (Array.isArray(response)) {
+      return { items: response, pagination: null };
+    }
+
+    return { items: [], pagination: null };
+  }
 
   constructor() {
     super('/institutions');
@@ -202,7 +229,41 @@ class InstitutionService extends BaseService<Institution> {
   }
 
   private summariesEndpointAvailable = true;
-  private static readonly SUMMARY_CHUNK_SIZE = 50;
+
+  async getAllByLevel(level: number, params?: PaginationParams): Promise<Institution[]> {
+    const perPage = params?.per_page ?? 200;
+    let page = params?.page ?? 1;
+    let lastPage = 1;
+    const aggregated: Institution[] = [];
+
+    do {
+      const response = await this.getAll({ ...params, per_page: perPage, page, level });
+      const { items, pagination } = this.normalizeInstitutionResponse(response);
+
+      aggregated.push(
+        ...items.filter((institution) => {
+          if (typeof institution.level === 'number') {
+            return institution.level === level;
+          }
+
+          if (typeof (institution as any)?.type === 'object' && (institution as any).type?.level) {
+            return (institution as any).type.level === level;
+          }
+
+          return false;
+        })
+      );
+
+      lastPage = pagination?.last_page ?? pagination?.lastPage ?? pagination?.total_pages ?? page;
+      if (!pagination || lastPage <= page) {
+        break;
+      }
+
+      page += 1;
+    } while (page <= lastPage);
+
+    return aggregated.sort((a, b) => a.name.localeCompare(b.name));
+  }
 
   async getSummaries(ids: number[]) {
     if (!ids || ids.length === 0) {

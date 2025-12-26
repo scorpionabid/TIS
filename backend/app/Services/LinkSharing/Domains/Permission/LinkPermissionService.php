@@ -16,6 +16,30 @@ use App\Models\Institution;
 class LinkPermissionService
 {
     /**
+     * Determine whether user can view all links globally (skip scope restrictions)
+     */
+    public function canViewAllLinks($user): bool
+    {
+        if (! $user) {
+            return false;
+        }
+
+        if ($user->hasRole('superadmin')) {
+            return true;
+        }
+
+        if ($user->can('links.analytics') || $user->can('links.bulk')) {
+            return true;
+        }
+
+        if ($user->hasAnyRole(['regionadmin', 'sektoradmin']) && $user->can('links.update')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
      * Check if user can create link with specified scope
      */
     public function canCreateLinkWithScope($user, $scope): bool

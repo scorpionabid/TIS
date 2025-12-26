@@ -115,6 +115,7 @@ export interface ResourceFilters {
   institution_ids?: number[];
   date_from?: string;
   date_to?: string;
+  scope?: 'global' | 'scoped';
 
   // Link filters
   link_type?: 'external' | 'video' | 'form' | 'document';

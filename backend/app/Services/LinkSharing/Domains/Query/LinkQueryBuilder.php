@@ -39,7 +39,11 @@ class LinkQueryBuilder
         $query = LinkShare::with(['sharedBy', 'institution'])->active();
 
         // Apply regional hierarchy filtering
-        $this->applyRegionalFilter($query, $user);
+        $shouldApplyRegionalFilter = ! ($request->input('scope') === 'global' && $this->permissionService->canViewAllLinks($user));
+
+        if ($shouldApplyRegionalFilter) {
+            $this->applyRegionalFilter($query, $user);
+        }
 
         // Apply filters
         $query = $this->applyRequestFilters($query, $request);
@@ -55,8 +59,8 @@ class LinkQueryBuilder
         }
 
         // Apply sorting
-        $sortField = $request->get('sort', 'created_at');
-        $direction = $request->get('direction', 'desc');
+        $sortField = $request->get('sort_by', $request->get('sort', 'created_at'));
+        $direction = $request->get('sort_direction', $request->get('direction', 'desc'));
 
         if ($sortField === 'popularity') {
             $query->orderBy('access_count', $direction);
@@ -128,6 +132,11 @@ class LinkQueryBuilder
             $institutionFilterIds = $this->resolveInstitutionHierarchyIds((int) $request->institution_id);
         }
 
+        if ($request->filled('target_institution_id')) {
+            $targetHierarchy = $this->resolveInstitutionHierarchyIds((int) $request->target_institution_id);
+            $institutionFilterIds = array_merge($institutionFilterIds, $targetHierarchy);
+        }
+
         if (! empty($institutionFilterIds)) {
             $institutionFilterIds = array_values(array_unique(array_filter(
                 array_map('intval', $institutionFilterIds),
@@ -149,6 +158,18 @@ class LinkQueryBuilder
                             }
                         }
                     });
+            });
+        }
+
+        if ($request->filled('requires_login')) {
+            $query->where('requires_login', $request->boolean('requires_login'));
+        }
+
+        if ($request->filled('target_user_id')) {
+            $targetUserId = (int) $request->target_user_id;
+            $query->where(function ($targetUserQuery) use ($targetUserId) {
+                $targetUserQuery->whereJsonContains('target_users', $targetUserId)
+                    ->orWhereJsonContains('target_users', (string) $targetUserId);
             });
         }
 

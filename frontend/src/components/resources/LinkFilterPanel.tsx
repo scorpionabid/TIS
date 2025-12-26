@@ -17,6 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 
 export interface LinkFilters {
+  search?: string;
   link_type?: string;
   share_scope?: string;
   status?: string;
@@ -30,6 +31,8 @@ export interface LinkFilters {
   access_level?: string;
   category?: string;
   mime_type?: string;
+  sort_by?: 'created_at' | 'title';
+  sort_direction?: 'asc' | 'desc';
 }
 
 interface LinkFilterPanelProps {
@@ -65,8 +68,24 @@ export function LinkFilterPanel({
     setInstitutionSearch('');
   };
 
+  const inactiveKeys = React.useMemo(
+    () => new Set<keyof LinkFilters>(['search', 'sort_by', 'sort_direction']),
+    []
+  );
+
   const getActiveFilterCount = () => {
-    return Object.values(filters).filter(v => v !== undefined && v !== '').length;
+    return Object.entries(filters).filter(([key, value]) => {
+      if (inactiveKeys.has(key as keyof LinkFilters)) {
+        return false;
+      }
+      if (Array.isArray(value)) {
+        return value.length > 0;
+      }
+      if (typeof value === 'boolean') {
+        return value;
+      }
+      return value !== undefined && value !== '';
+    }).length;
   };
 
   const activeCount = getActiveFilterCount();
