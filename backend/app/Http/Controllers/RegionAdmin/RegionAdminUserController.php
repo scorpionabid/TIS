@@ -169,12 +169,7 @@ class RegionAdminUserController extends Controller
             'password' => 'required|string|min:8|confirmed',
             'role_name' => ['required', 'string', Rule::in(['regionoperator', 'sektoradmin', 'schooladmin', 'məktəbadmin', 'müəllim'])],
             'institution_id' => ['required', 'integer', Rule::in($allowedInstitutionIds)],
-            'department_id' => [
-                Rule::requiredIf(fn () => $request->input('role_name') === 'regionoperator'),
-                'nullable',
-                'integer',
-                'exists:departments,id',
-            ],
+            'department_id' => 'nullable|integer|exists:departments,id',
             // RegionOperator permissions (optional)
             'can_manage_surveys' => 'sometimes|boolean',
             'can_manage_tasks' => 'sometimes|boolean',
@@ -252,6 +247,15 @@ class RegionAdminUserController extends Controller
                             ],
                         ], 422);
                     }
+                    // RegionOperator MUST have department_id
+                    if (!$request->input('department_id')) {
+                        return response()->json([
+                            'message' => 'Validation failed',
+                            'errors' => [
+                                'department_id' => ['RegionOperator roluna malik istifadəçi üçün departament seçilməlidir.'],
+                            ],
+                        ], 422);
+                    }
                     break;
             }
         }
@@ -268,13 +272,6 @@ class RegionAdminUserController extends Controller
                 $data['role_name'],
                 $user
             );
-        }
-
-        // Ensure RegionOperator always has department assignment
-        if ($data['role_name'] === 'regionoperator' && empty($data['department_id'])) {
-            return response()->json([
-                'message' => 'RegionOperator üçün departament seçilməlidir',
-            ], 422);
         }
 
         // Validate department belongs to institution
