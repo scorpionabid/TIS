@@ -1,5 +1,6 @@
 import { apiClient, ApiResponse } from './api';
 import { logger } from '@/utils/logger';
+import { PaginationMeta } from '@/types/api';
 
 export interface Grade {
   id: number;
@@ -83,6 +84,11 @@ export interface GradeFilters {
   page?: number;
   per_page?: number;
   include?: string;
+}
+
+interface GradeListResult {
+  items: Grade[];
+  pagination?: PaginationMeta | null;
 }
 
 export interface GradeCreateData {
@@ -174,15 +180,22 @@ class GradeService {
   /**
    * Get grades - alias for getGrades (for compatibility with EntityManagerV2)
    */
-  async get(filters?: GradeFilters): Promise<Grade[]> {
+  async get(filters?: GradeFilters): Promise<GradeListResult> {
     const response = await this.getGrades(filters);
-    // Backend returns: { success: true, data: { grades: [...], pagination: {...} } }
-    // Extract the grades array from the nested data structure
-    if (response.data && typeof response.data === 'object' && 'grades' in response.data) {
-      return (response.data as any).grades || [];
+
+    if (response?.data && typeof response.data === 'object' && 'grades' in response.data) {
+      const payload = response.data as any;
+      return {
+        items: Array.isArray(payload.grades) ? payload.grades : [],
+        pagination: payload.pagination || response.meta || null,
+      };
     }
-    // Fallback: if data is already an array
-    return Array.isArray(response.data) ? response.data : [];
+
+    const items = Array.isArray(response?.data) ? (response.data as Grade[]) : [];
+    return {
+      items,
+      pagination: (response as any)?.pagination || response?.meta || null,
+    };
   }
 
   /**
@@ -275,7 +288,21 @@ class GradeService {
   }
 
   /**
+   * Deactivate a grade (soft delete) - makes grade inactive but preserves data
+   */
+  async deactivate(id: number, reason?: string): Promise<ApiResponse<void>> {
+    logger.debug('Deactivating grade', {
+      component: 'GradeService',
+      action: 'deactivate',
+      data: { id, reason }
+    });
+
+    return apiClient.post<void>(`${this.baseURL}/${id}/deactivate`, { reason });
+  }
+
+  /**
    * Delete grade - alias for deleteGrade (for compatibility with EntityManagerV2)
+   * WARNING: This performs a HARD DELETE (permanent removal)
    */
   async delete(id: number): Promise<void> {
     const response = await this.deleteGrade(id);
@@ -283,10 +310,11 @@ class GradeService {
   }
 
   /**
-   * Delete/deactivate a grade
+   * Permanently delete a grade (hard delete)
+   * WARNING: This permanently removes the grade and cannot be undone
    */
   async deleteGrade(id: number): Promise<ApiResponse<void>> {
-    logger.debug('Deleting grade', {
+    logger.debug('Permanently deleting grade', {
       component: 'GradeService',
       action: 'deleteGrade',
       data: { id }

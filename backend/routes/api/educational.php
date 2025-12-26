@@ -266,6 +266,7 @@ Route::prefix('grades')->group(function () {
     Route::post('/', [GradeUnifiedController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     Route::get('/{grade}', [GradeUnifiedController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
     Route::put('/{grade}', [GradeUnifiedController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::post('/{grade}/deactivate', [GradeUnifiedController::class, 'deactivate'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     Route::delete('/{grade}', [GradeUnifiedController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
 
     // Student management within grades

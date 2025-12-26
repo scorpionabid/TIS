@@ -1,10 +1,10 @@
 import React from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { Grade, GradeFilters } from '@/services/grades';
 import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent } from './configurations/gradeConfig';
 import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
-import { GradeDetailsDialog } from './GradeDetailsDialog';
 import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
 import { GradeAnalyticsModal } from './GradeAnalyticsModal';
@@ -17,6 +17,17 @@ import { gradeService } from '@/services/grades';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
 import { useEntityManagerV2 } from '@/hooks/useEntityManagerV2';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Textarea } from '@/components/ui/textarea';
 
 interface GradeManagerProps {
   className?: string;
@@ -42,6 +53,9 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   const [studentsGrade, setStudentsGrade] = React.useState<Grade | null>(null);
   const [analyticsModalOpen, setAnalyticsModalOpen] = React.useState(false);
   const [analyticsGrade, setAnalyticsGrade] = React.useState<Grade | null>(null);
+  const [softDeleteTarget, setSoftDeleteTarget] = React.useState<Grade | null>(null);
+  const [hardDeleteTarget, setHardDeleteTarget] = React.useState<Grade | null>(null);
+  const [softDeleteReason, setSoftDeleteReason] = React.useState('');
 
   // Role-based access and filtering
   const { currentUser } = useAuth();
@@ -100,43 +114,46 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     return academicYearsResponse.data;
   }, [academicYearsResponse]);
 
-  // Soft delete mutation
+  // Soft delete mutation (deactivate)
   const softDeleteMutation = useMutation({
-    mutationFn: (gradeId: number) => gradeService.update(gradeId, { is_active: false }),
+    mutationFn: ({ gradeId, reason }: { gradeId: number; reason?: string }) =>
+      gradeService.deactivate(gradeId, reason),
     onSuccess: () => {
       toast.success('Sinif deaktiv edildi');
       // Invalidate all grade-related queries with more specific patterns
       queryClient.invalidateQueries({ queryKey: ['grades'] });
-      queryClient.invalidateQueries({ predicate: (query) => 
-        query.queryKey[0] === 'grades' || 
+      queryClient.invalidateQueries({ predicate: (query) =>
+        query.queryKey[0] === 'grades' ||
         (Array.isArray(query.queryKey) && query.queryKey.includes('grades'))
       });
       // Force refetch to ensure immediate UI update
       queryClient.refetchQueries({ queryKey: ['grades'] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       logger.error('Soft delete failed', { error });
-      toast.error('Sinif deaktiv edilə bilmədi');
+      const message = error?.response?.data?.message || 'Sinif deaktiv edilə bilmədi';
+      toast.error(message);
     },
   });
 
-  // Hard delete mutation
+  // Hard delete mutation (permanent delete)
   const hardDeleteMutation = useMutation({
     mutationFn: (gradeId: number) => gradeService.delete(gradeId),
     onSuccess: () => {
-      toast.success('Sinif silindi');
+      toast.success('Sinif tamamilə silindi');
       // Invalidate all grade-related queries with more specific patterns
       queryClient.invalidateQueries({ queryKey: ['grades'] });
-      queryClient.invalidateQueries({ predicate: (query) => 
-        query.queryKey[0] === 'grades' || 
+      queryClient.invalidateQueries({ predicate: (query) =>
+        query.queryKey[0] === 'grades' ||
         (Array.isArray(query.queryKey) && query.queryKey.includes('grades'))
       });
       // Force refetch to ensure immediate UI update
       queryClient.refetchQueries({ queryKey: ['grades'] });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       logger.error('Hard delete failed', { error });
-      toast.error('Sinif silinə bilmədi');
+      const message = error?.response?.data?.message || 'Sinif silinə bilmədi';
+      toast.error(message);
     },
   });
 
@@ -202,14 +219,11 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
               setAnalyticsModalOpen(true);
               break;
             case 'soft-delete':
-              if (confirm(`"${grade.name}" sinfini deaktiv etmək istədiyinizə əminsiniz?`)) {
-                softDeleteMutation.mutate(grade.id);
-              }
+              setSoftDeleteTarget(grade);
+              setSoftDeleteReason('');
               break;
             case 'hard-delete':
-              if (confirm(`"${grade.name}" sinfini tamamilə silmək istədiyinizə əminsiniz? Bu əməliyyat geri qaytarıla bilməz.`)) {
-                hardDeleteMutation.mutate(grade.id);
-              }
+              setHardDeleteTarget(grade);
               break;
             default:
               logger.warn('Unknown action', { action: action.key });
@@ -277,7 +291,39 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setStudentsGrade(null);
     setAnalyticsModalOpen(false);
     setAnalyticsGrade(null);
-  }, []);
+    if (!softDeleteMutation.isPending) {
+      setSoftDeleteTarget(null);
+      setSoftDeleteReason('');
+    }
+    if (!hardDeleteMutation.isPending) {
+      setHardDeleteTarget(null);
+    }
+  }, [softDeleteMutation.isPending, hardDeleteMutation.isPending]);
+
+  const handleSoftDeleteConfirm = React.useCallback(() => {
+    if (!softDeleteTarget) return;
+    softDeleteMutation.mutate(
+      {
+        gradeId: softDeleteTarget.id,
+        reason: softDeleteReason.trim() || undefined,
+      },
+      {
+        onSettled: () => {
+          setSoftDeleteTarget(null);
+          setSoftDeleteReason('');
+        },
+      }
+    );
+  }, [softDeleteMutation, softDeleteTarget, softDeleteReason]);
+
+  const handleHardDeleteConfirm = React.useCallback(() => {
+    if (!hardDeleteTarget) return;
+    hardDeleteMutation.mutate(hardDeleteTarget.id, {
+      onSettled: () => {
+        setHardDeleteTarget(null);
+      },
+    });
+  }, [hardDeleteTarget, hardDeleteMutation]);
 
   // Debug logging for institution filter
   React.useEffect(() => {
@@ -362,6 +408,94 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
           }}
         />
       )}
+
+      <AlertDialog
+        open={!!softDeleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !softDeleteMutation.isPending) {
+            setSoftDeleteTarget(null);
+            setSoftDeleteReason('');
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sinifi deaktiv et</AlertDialogTitle>
+            <AlertDialogDescription>
+              "{softDeleteTarget?.full_name || softDeleteTarget?.name}" sinfini deaktiv etmək istəyirsiniz? Bu sinif şablonlarda görünməyəcək, lakin məlumatları saxlanacaq.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Səbəb (opsional)
+            </label>
+            <Textarea
+              value={softDeleteReason}
+              onChange={(e) => setSoftDeleteReason(e.target.value)}
+              placeholder="Məsələn: sinif yeni tədris ili üçün bağlandı"
+              rows={3}
+              disabled={softDeleteMutation.isPending}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={softDeleteMutation.isPending}>
+              Ləğv et
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant="destructive"
+                onClick={handleSoftDeleteConfirm}
+                disabled={softDeleteMutation.isPending}
+              >
+                {softDeleteMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                )}
+                Deaktiv et
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={!!hardDeleteTarget}
+        onOpenChange={(open) => {
+          if (!open && !hardDeleteMutation.isPending) {
+            setHardDeleteTarget(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Sinifi tamamilə sil</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2">
+              <p>
+                "{hardDeleteTarget?.full_name || hardDeleteTarget?.name}" sinfini silmək geri qaytarıla bilməz. Müəllim, şagird və plan məlumatları da silinə bilər.
+              </p>
+              <p className="font-semibold text-red-600">
+                Təsdiqləmədən əvvəl ehtiyat nüsxə olduğuna əmin olun.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={hardDeleteMutation.isPending}>
+              Ləğv et
+            </AlertDialogCancel>
+            <AlertDialogAction asChild>
+              <Button
+                variant="destructive"
+                onClick={handleHardDeleteConfirm}
+                disabled={hardDeleteMutation.isPending}
+              >
+                {hardDeleteMutation.isPending && (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                )}
+                Tamamilə sil
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };

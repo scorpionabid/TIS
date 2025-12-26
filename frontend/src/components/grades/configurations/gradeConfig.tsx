@@ -65,21 +65,35 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   },
 
   // Tab configuration
+  serverSide: {
+    pagination: true,
+    filtering: true,
+  },
+
   tabs: [
     {
       key: 'all',
       label: 'Bütün Siniflər',
-      filter: (grades: Grade[]) => grades
+      filter: (grades: Grade[]) => grades,
+      serverFilters: {
+        is_active: undefined,
+      },
     },
     {
       key: 'active',
       label: 'Aktiv Siniflər',
-      filter: (grades: Grade[]) => grades.filter(g => g.is_active)
+      filter: (grades: Grade[]) => grades.filter(g => g.is_active),
+      serverFilters: {
+        is_active: true,
+      },
     },
     {
       key: 'inactive',
       label: 'Deaktiv Siniflər',
-      filter: (grades: Grade[]) => grades.filter(g => !g.is_active)
+      filter: (grades: Grade[]) => grades.filter(g => !g.is_active),
+      serverFilters: {
+        is_active: false,
+      },
     }
   ],
   
@@ -296,7 +310,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   // Default filter values
   defaultFilters: {
     is_active: true,
-    per_page: 20
+    page: 1,
+    per_page: 20,
   },
 
   // Default create data
@@ -453,6 +468,18 @@ export const GradeFiltersComponent: React.FC<{
   availableInstitutions = [],
   availableAcademicYears = []
 }) => {
+  const currentFilters = filters || {};
+  const applyFilterChange = (patch: Partial<GradeFilters>, options?: { resetPage?: boolean }) => {
+    const nextFilters: GradeFilters = {
+      ...currentFilters,
+      ...patch,
+    };
+    if (options?.resetPage !== false) {
+      nextFilters.page = 1;
+    }
+    onFiltersChange(nextFilters);
+  };
+
   return (
     <div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg">
       {/* Institution Filter */}
@@ -460,11 +487,12 @@ export const GradeFiltersComponent: React.FC<{
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium">Məktəb</label>
           <select
-            value={filters.institution_id || ''}
-            onChange={(e) => onFiltersChange({
-              ...filters,
-              institution_id: e.target.value ? parseInt(e.target.value) : undefined
-            })}
+            value={currentFilters.institution_id || ''}
+            onChange={(e) =>
+              applyFilterChange({
+                institution_id: e.target.value ? parseInt(e.target.value, 10) : undefined,
+              })
+            }
             className="px-3 py-2 border border-input rounded-md text-sm bg-background"
           >
             <option value="">Bütün məktəblər</option>
@@ -479,11 +507,12 @@ export const GradeFiltersComponent: React.FC<{
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium">Sinif Səviyyəsi</label>
         <select
-          value={filters.class_level || ''}
-          onChange={(e) => onFiltersChange({
-            ...filters,
-            class_level: e.target.value ? parseInt(e.target.value) : undefined
-          })}
+          value={currentFilters.class_level || ''}
+          onChange={(e) =>
+            applyFilterChange({
+              class_level: e.target.value ? parseInt(e.target.value, 10) : undefined,
+            })
+          }
           className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
           <option value="">Bütün səviyyələr</option>
@@ -498,11 +527,12 @@ export const GradeFiltersComponent: React.FC<{
         <div className="flex flex-col gap-2">
           <label className="text-sm font-medium">Təhsil İli</label>
           <select
-            value={filters.academic_year_id || ''}
-            onChange={(e) => onFiltersChange({
-              ...filters,
-              academic_year_id: e.target.value ? parseInt(e.target.value) : undefined
-            })}
+            value={currentFilters.academic_year_id || ''}
+            onChange={(e) =>
+              applyFilterChange({
+                academic_year_id: e.target.value ? parseInt(e.target.value, 10) : undefined,
+              })
+            }
             className="px-3 py-2 border border-input rounded-md text-sm bg-background"
           >
             <option value="">Bütün təhsil illəri</option>
@@ -519,11 +549,12 @@ export const GradeFiltersComponent: React.FC<{
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium">Tutum Vəziyyəti</label>
         <select
-          value={filters.capacity_status || ''}
-          onChange={(e) => onFiltersChange({
-            ...filters,
-            capacity_status: e.target.value || undefined
-          })}
+          value={currentFilters.capacity_status || ''}
+          onChange={(e) =>
+            applyFilterChange({
+              capacity_status: e.target.value || undefined,
+            })
+          }
           className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
           <option value="">Bütün statuslar</option>
@@ -539,11 +570,16 @@ export const GradeFiltersComponent: React.FC<{
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium">Müəllim Təyinatı</label>
         <select
-          value={filters.has_teacher !== undefined ? filters.has_teacher.toString() : ''}
-          onChange={(e) => onFiltersChange({
-            ...filters,
-            has_teacher: e.target.value === '' ? undefined : e.target.value === 'true'
-          })}
+          value={
+            currentFilters.has_teacher !== undefined
+              ? currentFilters.has_teacher.toString()
+              : ''
+          }
+          onChange={(e) =>
+            applyFilterChange({
+              has_teacher: e.target.value === '' ? undefined : e.target.value === 'true',
+            })
+          }
           className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
           <option value="">Hamısı</option>
@@ -556,11 +592,14 @@ export const GradeFiltersComponent: React.FC<{
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium">Otaq Təyinatı</label>
         <select
-          value={filters.has_room !== undefined ? filters.has_room.toString() : ''}
-          onChange={(e) => onFiltersChange({
-            ...filters,
-            has_room: e.target.value === '' ? undefined : e.target.value === 'true'
-          })}
+          value={
+            currentFilters.has_room !== undefined ? currentFilters.has_room.toString() : ''
+          }
+          onChange={(e) =>
+            applyFilterChange({
+              has_room: e.target.value === '' ? undefined : e.target.value === 'true',
+            })
+          }
           className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
           <option value="">Hamısı</option>
@@ -573,11 +612,16 @@ export const GradeFiltersComponent: React.FC<{
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium">Status</label>
         <select
-          value={filters.is_active !== undefined ? filters.is_active.toString() : 'true'}
-          onChange={(e) => onFiltersChange({
-            ...filters,
-            is_active: e.target.value === '' ? undefined : e.target.value === 'true'
-          })}
+          value={
+            currentFilters.is_active !== undefined
+              ? currentFilters.is_active.toString()
+              : 'true'
+          }
+          onChange={(e) =>
+            applyFilterChange({
+              is_active: e.target.value === '' ? undefined : e.target.value === 'true',
+            })
+          }
           className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
           <option value="true">Aktiv</option>
@@ -592,7 +636,20 @@ export const GradeFiltersComponent: React.FC<{
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onFiltersChange({ is_active: true, per_page: 20 })}
+          onClick={() =>
+            applyFilterChange(
+              {
+                institution_id: undefined,
+                class_level: undefined,
+                academic_year_id: undefined,
+                capacity_status: undefined,
+                has_teacher: undefined,
+                has_room: undefined,
+                is_active: true,
+              },
+              { resetPage: true }
+            )
+          }
           className="px-4"
         >
           <Settings className="h-4 w-4 mr-2" />

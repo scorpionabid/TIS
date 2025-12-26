@@ -288,23 +288,12 @@ class GradeCRUDController extends Controller
     }
 
     /**
-     * Remove the specified grade (soft delete).
+     * Deactivate the specified grade (soft delete).
      */
-    public function destroy(Grade $grade): JsonResponse
+    public function deactivate(Grade $grade): JsonResponse
     {
         // Check authorization using Policy
         Gate::authorize('delete', $grade);
-
-        // Check if grade has active students
-        $activeStudents = \App\Models\StudentEnrollment::where('grade_id', $grade->id)
-            ->where('status', 'active')
-            ->count();
-        if ($activeStudents > 0) {
-            return response()->json([
-                'success' => false,
-                'message' => "Bu sinifdə {$activeStudents} aktiv şagird var. Əvvəlcə onları başqa sinifə köçürün",
-            ], 422);
-        }
 
         try {
             // Deactivate instead of hard delete
@@ -318,6 +307,62 @@ class GradeCRUDController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Sinif deaktiv edilərkən xəta baş verdi',
+                'error' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Remove the specified grade (hard delete).
+     * WARNING: This permanently deletes the grade and all related data.
+     */
+    public function destroy(Grade $grade): JsonResponse
+    {
+        // Check authorization using Policy
+        Gate::authorize('delete', $grade);
+
+        // Check if grade has active students
+        $activeStudents = \App\Models\StudentEnrollment::where('grade_id', $grade->id)
+            ->active()
+            ->count();
+        if ($activeStudents > 0) {
+            return response()->json([
+                'success' => false,
+                'message' => "Bu sinifdə {$activeStudents} aktiv şagird var. Əvvəlcə onları başqa sinifə köçürün",
+            ], 422);
+        }
+
+        // Check for any related data that should prevent deletion
+        $hasSubjects = $grade->subjects()->exists();
+        $hasAttendance = \DB::table('daily_attendance_summary')
+            ->where('grade_id', $grade->id)
+            ->exists();
+        $hasEnrollments = \App\Models\StudentEnrollment::where('grade_id', $grade->id)->exists();
+
+        if ($hasSubjects || $hasAttendance || $hasEnrollments) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu sinif silinə bilməz - əlaqəli məlumatlar mövcuddur',
+                'data' => [
+                    'has_subjects' => $hasSubjects,
+                    'has_attendance' => $hasAttendance,
+                    'has_enrollments' => $hasEnrollments,
+                ],
+            ], 422);
+        }
+
+        try {
+            // Hard delete the grade
+            $grade->delete();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Sinif uğurla silindi',
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sinif silinərkən xəta baş verdi',
                 'error' => $e->getMessage(),
             ], 500);
         }

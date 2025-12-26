@@ -6,6 +6,12 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -72,6 +78,9 @@ const BulkAttendanceEntry: React.FC = () => {
   const [dialogSaving, setDialogSaving] = useState(false);
 
   const hasDirtySessions = dirtySessions.morning || dirtySessions.evening;
+  const totalFetchedClasses = classesData?.data.classes?.length ?? 0;
+  const hiddenClasses = Math.max(totalFetchedClasses - classes.length, 0);
+  const savingSession = saveAttendanceMutation.variables?.session ?? null;
 
   const requestProtectedAction = (action: PendingAction) => {
     if (!hasDirtySessions) {
@@ -238,17 +247,17 @@ const BulkAttendanceEntry: React.FC = () => {
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-1">
           <h1 className="text-3xl font-bold text-gray-900">
             Toplu Davamiyyət Qeydiyyatı
           </h1>
-          <p className="text-gray-600 mt-1">
-            <School className="inline h-4 w-4 mr-1" />
+          <p className="text-gray-600 flex items-center gap-2">
+            <School className="inline h-4 w-4" />
             {schoolName}
           </p>
         </div>
-        <div className="flex items-center space-x-4">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
           <div className="flex items-center space-x-2">
             <Calendar className="h-4 w-4 text-gray-500" />
             <Input
@@ -260,38 +269,73 @@ const BulkAttendanceEntry: React.FC = () => {
           </div>
         </div>
       </div>
+      {hiddenClasses > 0 && (
+        <Alert variant="default">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription className="text-sm">
+            {hiddenClasses} sinif siyahıdan çıxarıldı (sistemdə artıq mövcud deyil).
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Quick Actions Toolbar */}
       <Card className="bg-gradient-to-r from-blue-50 to-indigo-50">
-        <CardContent className="py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
+        <CardContent className="py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-2">
               <span className="text-sm font-medium text-gray-700">
-                Sürətli əməliyyatlar:
+                Sürətli əməliyyatlar
               </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleMarkAllPresent}
-                className="flex items-center space-x-1"
-              >
-                <CheckSquare className="h-4 w-4" />
-                <span>Hamısını dərsdə işarələ</span>
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleExportData}
-                disabled={isExporting}
-                className="flex items-center space-x-1"
-              >
-                <Download className="h-4 w-4" />
-                <span>{isExporting ? "Endirilir..." : "Export"}</span>
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center space-x-1"
+                    >
+                      <CheckSquare className="h-4 w-4" />
+                      <span>Hamısını dərsdə işarələ</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem
+                      onClick={() => handleMarkAllPresent("morning")}
+                    >
+                      İlk dərs üçün işarələ
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleMarkAllPresent("evening")}
+                    >
+                      Son dərs üçün işarələ
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportData}
+                  disabled={isExporting}
+                  className="flex items-center space-x-1"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>{isExporting ? "Endirilir..." : "Export"}</span>
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleRefreshClick}>
+                  Yenilə
+                </Button>
+              </div>
             </div>
-            <div className="text-sm text-gray-600">
-              <Users className="inline h-4 w-4 mr-1" />
-              <span className="font-medium">{classes.length}</span> sinif
+            <div className="text-sm text-gray-600 space-y-1">
+              <div>
+                <Users className="inline h-4 w-4 mr-1" />
+                <span className="font-medium">{classes.length}</span> aktiv sinif
+              </div>
+              {hiddenClasses > 0 && (
+                <div className="text-xs text-amber-600">
+                  {hiddenClasses} sinif siyahıdan çıxarıldı
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -304,7 +348,7 @@ const BulkAttendanceEntry: React.FC = () => {
           handleSessionChange(value as AttendanceSession)
         }
       >
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-2 gap-2 sm:gap-0">
           <TabsTrigger value="morning" className="flex items-center space-x-2">
             <Clock className="h-4 w-4" />
             <span>İlk dərs</span>
@@ -365,28 +409,37 @@ const BulkAttendanceEntry: React.FC = () => {
       </Tabs>
 
       {/* Action Buttons */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-col gap-2">
           {renderSaveStatus()}
           {renderDirtyIndicators()}
         </div>
-        <div className="flex justify-end space-x-4">
-          <Button variant="outline" onClick={handleRefreshClick}>
-            Yenilə
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-3">
+          <Button
+            onClick={() => handleSaveSession("morning")}
+            disabled={saveAttendanceMutation.isPending}
+            className="flex items-center justify-center gap-2"
+          >
+            {saveAttendanceMutation.isPending &&
+            savingSession === "morning" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            <span>İlk dərsi saxla</span>
           </Button>
           <Button
-            onClick={handleSaveSession}
+            onClick={() => handleSaveSession("evening")}
             disabled={saveAttendanceMutation.isPending}
-            className="flex items-center space-x-2"
+            className="flex items-center justify-center gap-2"
           >
-            <Save className="h-4 w-4" />
-            <span>
-              {saveAttendanceMutation.isPending
-                ? "Saxlanılır..."
-                : activeSession === "morning"
-                ? "İlk dərsi saxla"
-                : "Son dərsi saxla"}
-            </span>
+            {saveAttendanceMutation.isPending &&
+            savingSession === "evening" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4" />
+            )}
+            <span>Son dərsi saxla</span>
           </Button>
         </div>
       </div>

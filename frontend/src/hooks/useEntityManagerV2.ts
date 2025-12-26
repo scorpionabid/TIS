@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { 
@@ -7,9 +7,17 @@ import {
   ManagerCustomLogic, 
   EnhancedEntityManager,
   StatsConfig,
-  BaseFilters
+  BaseFilters,
+  PaginatedItems
 } from '@/components/generic/types';
 import { Users, CheckCircle, XCircle } from 'lucide-react';
+import { PaginationMeta } from '@/types/api';
+
+interface NormalizedResult<T> {
+  items: T[];
+  pagination?: PaginationMeta | null;
+  raw?: any;
+}
 
 export function useEntityManagerV2<
   T extends BaseEntity,
@@ -21,10 +29,15 @@ export function useEntityManagerV2<
 ): EnhancedEntityManager<T> {
   const queryClient = useQueryClient();
   const { entityType, entityName, service, defaultFilters, defaultCreateData, queryKey } = config;
+  const serverSide = config.serverSide || {};
+  const useServerPagination = Boolean(serverSide.pagination);
+  const useServerFiltering = Boolean(serverSide.filtering);
+  const dataMode: 'client' | 'server' = (useServerPagination || useServerFiltering) ? 'server' : 'client';
+  const initialFilters = useMemo(() => ({ ...((defaultFilters || {}) as object) }) as TFilters, [defaultFilters]);
   
   // State management
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filters, setFilters] = useState<TFilters>(defaultFilters);
+  const [searchTerm, setSearchTerm] = useState<string>((initialFilters as any)?.search || '');
+  const [filters, setFilters] = useState<TFilters>(initialFilters);
   const [selectedTab, setSelectedTab] = useState('all');
   const [selectedEntity, setSelectedEntity] = useState<T | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -35,10 +48,48 @@ export function useEntityManagerV2<
     console.log(`🎭 useEntityManagerV2(${entityType}) createModalOpen changed:`, createModalOpen);
   }, [createModalOpen, entityType]);
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
+  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta | null>(null);
+
+  const normalizeServiceResult = useCallback((result: T[] | PaginatedItems<T> | any): NormalizedResult<T> => {
+    if (Array.isArray(result)) {
+      return { items: result };
+    }
+
+    if (result && Array.isArray((result as PaginatedItems<T>).items)) {
+      const payload = result as PaginatedItems<T>;
+      return {
+        items: payload.items,
+        pagination: payload.pagination || (payload.raw as any)?.pagination || null,
+        raw: payload.raw || result,
+      };
+    }
+
+    if (result?.data && Array.isArray(result.data)) {
+      return {
+        items: result.data,
+        pagination: result.pagination || result.meta || null,
+        raw: result,
+      };
+    }
+
+    if (result?.data && typeof result.data === 'object' && 'grades' in result.data) {
+      return {
+        items: Array.isArray(result.data.grades) ? result.data.grades : [],
+        pagination: result.data.pagination || result.meta || null,
+        raw: result,
+      };
+    }
+
+    return {
+      items: [],
+      pagination: result?.pagination || result?.meta || null,
+      raw: result,
+    };
+  }, []);
 
   // Data fetching with enhanced logging
   const { 
-    data: entities, 
+    data: queryResult, 
     isLoading, 
     error,
     refetch 
@@ -48,34 +99,100 @@ export function useEntityManagerV2<
       console.log(`🔍 EntityManagerV2(${entityType}): Fetching entities with filters:`, filters);
       try {
         const result = await service.get(filters);
-        console.log(`✅ EntityManagerV2(${entityType}): Fetched ${Array.isArray(result) ? result.length : 'unknown'} entities`);
-        console.log(`📊 EntityManagerV2(${entityType}): Raw result:`, result);
-
-        // Deep inspection of first entity
-        if (Array.isArray(result) && result.length > 0) {
-          console.log(`🔬 DEEP INSPECTION - First entity:`, {
-            fullObject: result[0],
-            id: result[0]?.id,
-            name: result[0]?.name,
-            name_type: typeof result[0]?.name,
-            class_level: result[0]?.class_level,
-            keys: Object.keys(result[0] || {})
-          });
-        }
-
-        return Array.isArray(result) ? result : [];
-      } catch (error) {
-        console.error(`❌ EntityManagerV2(${entityType}): Failed to fetch entities:`, error);
-        throw error;
+        const normalized = normalizeServiceResult(result);
+        console.log(`✅ EntityManagerV2(${entityType}): Fetched ${normalized.items.length} entities`);
+        return normalized;
+      } catch (fetchError) {
+        console.error(`❌ EntityManagerV2(${entityType}): Failed to fetch entities:`, fetchError);
+        throw fetchError;
       }
     },
     refetchOnWindowFocus: false,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
+  const entities = queryResult?.items ?? [];
+
+  React.useEffect(() => {
+    if (queryResult?.pagination) {
+      setPaginationMeta(queryResult.pagination);
+    } else if (useServerPagination) {
+      setPaginationMeta({
+        current_page: filters?.page || 1,
+        per_page: filters?.per_page || 20,
+        total: entities.length,
+        total_pages: 1,
+        from: entities.length > 0 ? 1 : 0,
+        to: entities.length,
+      });
+    }
+  }, [queryResult, useServerPagination, filters, entities.length]);
+
+  React.useEffect(() => {
+    if (!useServerFiltering) {
+      return;
+    }
+    const normalizedSearch = (searchTerm || '').trim();
+    setFilters((prev) => {
+      const current = (prev as any)?.search || '';
+      if (current === normalizedSearch || (!normalizedSearch && !current)) {
+        return prev;
+      }
+      const nextFilters = { ...(prev as any), search: normalizedSearch || undefined, page: 1 };
+      if (!normalizedSearch) {
+        delete nextFilters.search;
+      }
+      return nextFilters as TFilters;
+    });
+  }, [searchTerm, useServerFiltering]);
+
+  React.useEffect(() => {
+    if (!useServerFiltering) {
+      return;
+    }
+    const filterSearchValue = ((filters as any)?.search || '') as string;
+    if (filterSearchValue !== searchTerm) {
+      setSearchTerm(filterSearchValue || '');
+    }
+  }, [filters, useServerFiltering]);
+
+  React.useEffect(() => {
+    if (!useServerFiltering) {
+      return;
+    }
+    const tabConfig = config.tabs.find((tab) => tab.key === selectedTab);
+    const serverFilters = tabConfig?.serverFilters;
+    if (!serverFilters) {
+      return;
+    }
+    setFilters((prev) => {
+      let changed = false;
+      const next = { ...(prev as any) };
+      Object.entries(serverFilters).forEach(([key, value]) => {
+        if (value === undefined || value === null || value === '') {
+          if (key in next) {
+            delete next[key];
+            changed = true;
+          }
+        } else if (next[key] !== value) {
+          next[key] = value;
+          changed = true;
+        }
+      });
+      if (!changed) {
+        return prev;
+      }
+      next.page = 1;
+      return next as TFilters;
+    });
+  }, [selectedTab, useServerFiltering, config.tabs]);
+
   // Enhanced filtering with tab and search logic
   const filteredEntities = useMemo(() => {
     if (!entities) return [];
+    if (useServerFiltering) {
+      return entities;
+    }
     
     console.log(`🔄 EntityManagerV2(${entityType}): Filtering ${entities.length} entities`);
     console.log(`📊 Current filters - Tab: ${selectedTab}, Search: "${searchTerm}"`);
@@ -115,7 +232,7 @@ export function useEntityManagerV2<
     
     console.log(`✅ EntityManagerV2(${entityType}): Filtered to ${filtered.length} entities`);
     return filtered;
-  }, [entities, selectedTab, searchTerm, config.tabs, config.columns, entityType]);
+  }, [entities, selectedTab, searchTerm, config.tabs, config.columns, entityType, useServerFiltering]);
 
   // Enhanced stats calculation
   const stats = useMemo(() => {
@@ -162,6 +279,36 @@ export function useEntityManagerV2<
     
     return defaultStats;
   }, [entities, customLogic]);
+
+  const setPageHandler = useCallback(
+    (page: number) => {
+      if (!useServerPagination) {
+        return;
+      }
+      setFilters((prev) => {
+        if ((prev as any)?.page === page) {
+          return prev;
+        }
+        return { ...(prev as any), page } as TFilters;
+      });
+    },
+    [useServerPagination]
+  );
+
+  const setPerPageHandler = useCallback(
+    (perPage: number) => {
+      if (!useServerPagination) {
+        return;
+      }
+      setFilters((prev) => {
+        if ((prev as any)?.per_page === perPage) {
+          return prev;
+        }
+        return { ...(prev as any), per_page: perPage, page: 1 } as TFilters;
+      });
+    },
+    [useServerPagination]
+  );
 
   // Enhanced cache invalidation function (learned from grades system)
   const invalidateEntityCaches = React.useCallback(() => {
@@ -309,6 +456,8 @@ export function useEntityManagerV2<
     filteredEntities,
     isLoading,
     error,
+    pagination: paginationMeta,
+    dataMode,
     
     // Enhanced data
     selectedItems,
@@ -335,6 +484,8 @@ export function useEntityManagerV2<
     toggleItemSelection,
     selectAllItems,
     clearSelection,
+    setPage: setPageHandler,
+    setPerPage: setPerPageHandler,
     
     // Handlers
     handleCreate,

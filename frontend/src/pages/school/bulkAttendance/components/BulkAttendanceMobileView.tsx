@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, AlertCircle } from "lucide-react";
 import { ClassWithAttendance } from "@/services/bulkAttendance";
@@ -12,6 +11,7 @@ import {
   AttendanceSession,
   ServerErrorMap,
 } from "../types";
+import AttendanceNumberInput from "./AttendanceNumberInput";
 
 interface MobileViewProps {
   session: AttendanceSession;
@@ -147,21 +147,22 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
                   >
                     🟡 Üzürlü
                   </Label>
-                  <Input
+                  <AttendanceNumberInput
                     id={`mobile_${session}_excused_${cls.id}`}
-                    type="number"
-                    min="0"
-                    max={cls.total_students}
+                    className="w-full"
                     value={excused}
-                    onChange={(e) =>
+                    min={0}
+                    max={cls.total_students}
+                    size="compact"
+                    disabled={!hasStudentCount}
+                    aria-label={`${cls.name} ${session} üzürlü`}
+                    onChange={(next) =>
                       updateAttendance(
                         cls.id,
                         `${session}_excused`,
-                        parseInt(e.target.value, 10) || 0
+                        next
                       )
                     }
-                    className="h-10 text-center"
-                    disabled={!hasStudentCount}
                   />
                 </div>
                 <div>
@@ -171,21 +172,22 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
                   >
                     🔴 Üzürsüz
                   </Label>
-                  <Input
+                  <AttendanceNumberInput
                     id={`mobile_${session}_unexcused_${cls.id}`}
-                    type="number"
-                    min="0"
-                    max={cls.total_students}
+                    className="w-full"
                     value={unexcused}
-                    onChange={(e) =>
+                    min={0}
+                    max={cls.total_students}
+                    size="compact"
+                    disabled={!hasStudentCount}
+                    aria-label={`${cls.name} ${session} üzürsüz`}
+                    onChange={(next) =>
                       updateAttendance(
                         cls.id,
                         `${session}_unexcused`,
-                        parseInt(e.target.value, 10) || 0
+                        next
                       )
                     }
-                    className="h-10 text-center"
-                    disabled={!hasStudentCount}
                   />
                 </div>
               </div>

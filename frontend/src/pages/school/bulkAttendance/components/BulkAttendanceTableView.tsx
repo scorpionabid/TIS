@@ -7,7 +7,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -24,6 +23,7 @@ import {
   AttendanceSession,
   ServerErrorMap,
 } from "../types";
+import AttendanceNumberInput from "./AttendanceNumberInput";
 
 interface TableViewProps {
   session: AttendanceSession;
@@ -61,19 +61,37 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
         const data = attendanceData[cls.id];
         if (!data || cls.total_students === 0) return acc;
 
-        const excused = toSafeNumber(data[`${session}_excused`]);
-        const unexcused = toSafeNumber(data[`${session}_unexcused`]);
-        const present = Math.max(
+        const morningExcused = toSafeNumber(data.morning_excused);
+        const morningUnexcused = toSafeNumber(data.morning_unexcused);
+        const eveningExcused = toSafeNumber(data.evening_excused);
+        const eveningUnexcused = toSafeNumber(data.evening_unexcused);
+
+        const morningPresent = Math.max(
           0,
-          cls.total_students - (excused + unexcused)
+          cls.total_students - (morningExcused + morningUnexcused)
         );
+        const eveningPresent = Math.max(
+          0,
+          cls.total_students - (eveningExcused + eveningUnexcused)
+        );
+        const sessionExcused =
+          session === "morning" ? morningExcused : eveningExcused;
+        const sessionUnexcused =
+          session === "morning" ? morningUnexcused : eveningUnexcused;
+        const sessionPresent =
+          session === "morning" ? morningPresent : eveningPresent;
 
         acc.totalStudents += cls.total_students;
-        acc.totalPresent += present;
-        acc.totalExcused += excused;
-        acc.totalUnexcused += unexcused;
+        acc.totalPresent += sessionPresent;
+        acc.totalExcused += sessionExcused;
+        acc.totalUnexcused += sessionUnexcused;
         acc.classesCompleted +=
-          present + excused + unexcused === cls.total_students ? 1 : 0;
+          sessionPresent + sessionExcused + sessionUnexcused ===
+          cls.total_students
+            ? 1
+            : 0;
+        acc.totalStudentSessions += cls.total_students * 2;
+        acc.totalPresentSessions += morningPresent + eveningPresent;
 
         return acc;
       },
@@ -83,13 +101,21 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
         totalExcused: 0,
         totalUnexcused: 0,
         classesCompleted: 0,
+        totalStudentSessions: 0,
+        totalPresentSessions: 0,
       }
     );
   }, [attendanceData, classes, session]);
 
-  const overallRate =
+  const sessionRate =
     summary.totalStudents > 0
       ? Math.round((summary.totalPresent / summary.totalStudents) * 100)
+      : 0;
+  const overallDailyRate =
+    summary.totalStudentSessions > 0
+      ? Math.round(
+          (summary.totalPresentSessions / summary.totalStudentSessions) * 100
+        )
       : 0;
 
   return (
@@ -103,8 +129,12 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               <TableHead className="min-w-[100px]">Sinif</TableHead>
               <TableHead className="w-16 text-center">Say</TableHead>
               <TableHead className="w-24 text-center">🟢 Dərsdə</TableHead>
-              <TableHead className="w-24 text-center">🟡 Üzürlü</TableHead>
-              <TableHead className="w-24 text-center">🔴 Üzürsüz</TableHead>
+              <TableHead className="min-w-[140px] text-center">
+                🟡 Üzürlü
+              </TableHead>
+              <TableHead className="min-w-[140px] text-center">
+                🔴 Üzürsüz
+              </TableHead>
               <TableHead className="w-28 text-center">Davamiyyət</TableHead>
               <TableHead className="w-20 text-center">Qeyd</TableHead>
               <TableHead className="w-16 text-center">Status</TableHead>
@@ -192,38 +222,38 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
                   <TableCell className="text-center font-semibold text-green-600">
                     {hasStudentCount ? present : "—"}
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Input
-                      type="number"
-                      min="0"
-                      max={cls.total_students}
+                  <TableCell className="text-center px-2 min-w-[140px]">
+                    <AttendanceNumberInput
+                      className="w-full"
                       value={excused}
-                      onChange={(e) =>
+                      min={0}
+                      max={cls.total_students}
+                      disabled={!hasStudentCount}
+                      aria-label={`${cls.name} ${session} üzürlü`}
+                      onChange={(next) =>
                         updateAttendance(
                           cls.id,
                           `${session}_excused`,
-                          parseInt(e.target.value, 10) || 0
+                          next
                         )
                       }
-                      className="w-16 h-8 text-center"
-                      disabled={!hasStudentCount}
                     />
                   </TableCell>
-                  <TableCell className="text-center">
-                    <Input
-                      type="number"
-                      min="0"
-                      max={cls.total_students}
+                  <TableCell className="text-center px-2 min-w-[140px]">
+                    <AttendanceNumberInput
+                      className="w-full"
                       value={unexcused}
-                      onChange={(e) =>
+                      min={0}
+                      max={cls.total_students}
+                      disabled={!hasStudentCount}
+                      aria-label={`${cls.name} ${session} üzürsüz`}
+                      onChange={(next) =>
                         updateAttendance(
                           cls.id,
                           `${session}_unexcused`,
-                          parseInt(e.target.value, 10) || 0
+                          next
                         )
                       }
-                      className="w-16 h-8 text-center"
-                      disabled={!hasStudentCount}
                     />
                   </TableCell>
                   <TableCell className="text-center">
@@ -293,7 +323,7 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
 
       <Card className="bg-gradient-to-r from-green-50 to-emerald-50">
         <CardContent className="py-4">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
                 {summary.totalStudents}
@@ -304,7 +334,9 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               <div className="text-2xl font-bold text-green-600">
                 {summary.totalPresent}
               </div>
-              <div className="text-sm text-gray-600">Dərsdə</div>
+              <div className="text-sm text-gray-600">
+                {session === "morning" ? "İlk dərs" : "Son dərs"} · Dərsdə
+              </div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">
@@ -320,13 +352,21 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
             </div>
             <div className="text-center">
               <div className="text-3xl font-bold text-blue-600">
-                {overallRate}%
+                {sessionRate}%
               </div>
               <div className="text-sm text-gray-600">
-                Ümumi Davamiyyət
-                <span className="text-xs">
+                Sessiya Davamiyyəti
+                <span className="text-xs block">
                   ({summary.classesCompleted}/{classes.length} tamamlandı)
                 </span>
+              </div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-indigo-600">
+                {overallDailyRate}%
+              </div>
+              <div className="text-sm text-gray-600">
+                Günün Davamiyyəti
               </div>
             </div>
           </div>

@@ -2,7 +2,6 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, RefreshCw, Download, Upload, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useEntityManagerV2 } from '@/hooks/useEntityManagerV2';
@@ -26,6 +25,7 @@ export function GenericManagerV2<
   
   const manager = useEntityManagerV2(config, customLogic);
   const features = config.features || {};
+  const useServerPagination = Boolean(config.serverSide?.pagination);
 
   // Pagination for filtered entities (ensure we always pass an array)
   const safeFilteredEntities = manager.filteredEntities || [];
@@ -33,20 +33,21 @@ export function GenericManagerV2<
     initialPage: 1,
     initialItemsPerPage: 20
   });
+  const tableItems = useServerPagination ? safeFilteredEntities : pagination.paginatedItems;
 
   // Handle bulk selection
   const handleSelectAll = () => {
-    if (manager.selectedItems.length === pagination.paginatedItems.length) {
+    if (manager.selectedItems.length === tableItems.length) {
       manager.clearSelection();
     } else {
-      manager.setSelectedItems([...pagination.paginatedItems]);
+      manager.setSelectedItems([...tableItems]);
     }
   };
 
-  const isAllSelected = pagination.paginatedItems.length > 0 && 
-    manager.selectedItems.length === pagination.paginatedItems.length;
+  const isAllSelected = tableItems.length > 0 && 
+    manager.selectedItems.length === tableItems.length;
   const isIndeterminate = manager.selectedItems.length > 0 && 
-    manager.selectedItems.length < pagination.paginatedItems.length;
+    manager.selectedItems.length < tableItems.length;
 
   // Error state
   if (manager.error) {
@@ -208,11 +209,11 @@ export function GenericManagerV2<
                   isAllSelected={isAllSelected}
                   isIndeterminate={isIndeterminate}
                 />
-              ) : pagination.totalItems > 0 ? (
+              ) : (useServerPagination ? tableItems.length > 0 : pagination.totalItems > 0) ? (
                 <>
                   <GenericTable
                     columns={config.columns}
-                    data={pagination.paginatedItems}
+                    data={tableItems}
                     actions={config.actions}
                     isLoading={false}
                     onRowSelect={features.bulk !== false ? manager.toggleItemSelection : undefined}
@@ -224,20 +225,39 @@ export function GenericManagerV2<
                   />
                   
                   {/* Pagination */}
-                  <TablePagination
-                    currentPage={pagination.currentPage}
-                    totalPages={pagination.totalPages}
-                    totalItems={pagination.totalItems}
-                    itemsPerPage={pagination.itemsPerPage}
-                    startIndex={pagination.startIndex}
-                    endIndex={pagination.endIndex}
-                    onPageChange={pagination.goToPage}
-                    onItemsPerPageChange={pagination.setItemsPerPage}
-                    onPrevious={pagination.goToPreviousPage}
-                    onNext={pagination.goToNextPage}
-                    canGoPrevious={pagination.canGoPrevious}
-                    canGoNext={pagination.canGoNext}
-                  />
+                  {useServerPagination ? (
+                    <TablePagination
+                      currentPage={manager.pagination?.current_page || manager.filters?.page || 1}
+                      totalPages={manager.pagination?.total_pages || manager.pagination?.last_page || 1}
+                      totalItems={manager.pagination?.total || tableItems.length}
+                      itemsPerPage={manager.pagination?.per_page || manager.filters?.per_page || tableItems.length || 20}
+                      startIndex={(manager.pagination?.from ?? 0) > 0 ? (manager.pagination!.from! - 1) : 0}
+                      endIndex={manager.pagination?.to ?? tableItems.length}
+                      onPageChange={manager.setPage}
+                      onItemsPerPageChange={manager.setPerPage}
+                      canGoPrevious={manager.pagination ? manager.pagination.current_page > 1 : undefined}
+                      canGoNext={
+                        manager.pagination
+                          ? manager.pagination.current_page < (manager.pagination.total_pages || manager.pagination.last_page || 1)
+                          : undefined
+                      }
+                    />
+                  ) : (
+                    <TablePagination
+                      currentPage={pagination.currentPage}
+                      totalPages={pagination.totalPages}
+                      totalItems={pagination.totalItems}
+                      itemsPerPage={pagination.itemsPerPage}
+                      startIndex={pagination.startIndex}
+                      endIndex={pagination.endIndex}
+                      onPageChange={pagination.goToPage}
+                      onItemsPerPageChange={pagination.setItemsPerPage}
+                      onPrevious={pagination.goToPreviousPage}
+                      onNext={pagination.goToNextPage}
+                      canGoPrevious={pagination.canGoPrevious}
+                      canGoNext={pagination.canGoNext}
+                    />
+                  )}
                 </>
               ) : (
                 <Card>

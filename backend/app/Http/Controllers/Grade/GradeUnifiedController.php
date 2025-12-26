@@ -94,7 +94,19 @@ class GradeUnifiedController extends Controller
     }
 
     /**
-     * Soft delete the specified grade
+     * Deactivate the specified grade (soft delete)
+     *
+     * DELEGATED to GradeCRUDController::deactivate() (Sprint 6 Phase 2)
+     */
+    public function deactivate(Grade $grade): JsonResponse
+    {
+        $controller = app(GradeCRUDController::class);
+
+        return $controller->deactivate($grade);
+    }
+
+    /**
+     * Permanently delete the specified grade (hard delete)
      *
      * DELEGATED to GradeCRUDController::destroy() (Sprint 6 Phase 2)
      */

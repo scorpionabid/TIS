@@ -67,6 +67,16 @@ const useBulkAttendanceEntry = () => {
     staleTime: 5 * 60 * 1000,
   });
 
+  const classes = useMemo(() => {
+    const list = classesQuery.data?.data.classes ?? [];
+    return list.filter(
+      (cls) =>
+        typeof cls?.id === "number" &&
+        Boolean(cls.name) &&
+        !(cls as Record<string, unknown>)?.deleted_at
+    );
+  }, [classesQuery.data]);
+
   const saveAttendanceMutation = useMutation<
     BulkAttendanceSaveResponse,
     AttendanceError,
@@ -194,75 +204,98 @@ const useBulkAttendanceEntry = () => {
   });
 
   useEffect(() => {
-    if (classesQuery.data?.data.classes) {
-      let initialData: AttendanceFormData = {};
-
-      classesQuery.data.data.classes.forEach((cls) => {
-        initialData[cls.id] = {
-          morning_present:
-            cls.attendance?.morning_present ?? cls.total_students,
-          morning_excused: cls.attendance?.morning_excused ?? 0,
-          morning_unexcused: cls.attendance?.morning_unexcused ?? 0,
-          evening_present:
-            cls.attendance?.evening_present ?? cls.total_students,
-          evening_excused: cls.attendance?.evening_excused ?? 0,
-          evening_unexcused: cls.attendance?.evening_unexcused ?? 0,
-          morning_notes: cls.attendance?.morning_notes || "",
-          evening_notes: cls.attendance?.evening_notes || "",
-        };
-      });
-
-      let dirtyState: DirtySessionsState = {
-        morning: false,
-        evening: false,
-      };
-      let restoredDraft = false;
-
-      if (hasWindow) {
-        const storageKey = getDraftStorageKey(selectedDate);
-        const storedDraft = window.localStorage.getItem(storageKey);
-        if (storedDraft) {
-          try {
-            const parsed = JSON.parse(
-              storedDraft
-            ) as AttendanceDraftPayload;
-            if (parsed?.data) {
-              const merged: AttendanceFormData = { ...initialData };
-              Object.entries(parsed.data).forEach(([gradeId, entry]) => {
-                if (merged[gradeId]) {
-                  merged[gradeId] = {
-                    ...merged[gradeId],
-                    ...entry,
-                  };
-                }
-              });
-              initialData = merged;
-              dirtyState = parsed.dirty ?? {
-                morning: true,
-                evening: true,
-              };
-              restoredDraft = true;
-            }
-          } catch (draftError) {
-            console.error(
-              "[BulkAttendance] Draft parse failed",
-              draftError
-            );
-            window.localStorage.removeItem(storageKey);
-          }
-        }
-      }
-
-      setAttendanceData(initialData);
-      setDirtySessions(dirtyState);
+    if (!classes.length) {
+      setAttendanceData({});
+      setDirtySessions({ morning: false, evening: false });
       setErrors({});
       setServerErrors({});
+      return;
+    }
 
-      if (restoredDraft) {
-        toast.info("Son saxlanılmamış məlumatlar bərpa olundu");
+    let initialData: AttendanceFormData = {};
+    const validClassIds = new Set<string>(
+      classes.map((cls) => String(cls.id))
+    );
+
+    classes.forEach((cls) => {
+      initialData[cls.id] = {
+        morning_present:
+          cls.attendance?.morning_present ?? cls.total_students,
+        morning_excused: cls.attendance?.morning_excused ?? 0,
+        morning_unexcused: cls.attendance?.morning_unexcused ?? 0,
+        evening_present:
+          cls.attendance?.evening_present ?? cls.total_students,
+        evening_excused: cls.attendance?.evening_excused ?? 0,
+        evening_unexcused: cls.attendance?.evening_unexcused ?? 0,
+        morning_notes: cls.attendance?.morning_notes || "",
+        evening_notes: cls.attendance?.evening_notes || "",
+      };
+    });
+
+    let dirtyState: DirtySessionsState = {
+      morning: false,
+      evening: false,
+    };
+    let restoredDraft = false;
+
+    if (hasWindow) {
+      const storageKey = getDraftStorageKey(selectedDate);
+      const storedDraft = window.localStorage.getItem(storageKey);
+      if (storedDraft) {
+        try {
+          const parsed = JSON.parse(storedDraft) as AttendanceDraftPayload;
+          if (parsed?.data) {
+            const merged: AttendanceFormData = { ...initialData };
+            let draftPruned = false;
+
+            Object.entries(parsed.data).forEach(([gradeId, entry]) => {
+              if (validClassIds.has(String(gradeId))) {
+                merged[gradeId] = {
+                  ...merged[gradeId],
+                  ...entry,
+                };
+              } else {
+                draftPruned = true;
+              }
+            });
+
+            if (draftPruned) {
+              const filteredDraftEntries = Object.entries(parsed.data).filter(
+                ([gradeId]) => validClassIds.has(String(gradeId))
+              );
+              const filteredDraft = Object.fromEntries(filteredDraftEntries);
+              window.localStorage.setItem(
+                storageKey,
+                JSON.stringify({
+                  ...parsed,
+                  data: filteredDraft,
+                })
+              );
+            }
+
+            initialData = merged;
+            dirtyState = parsed.dirty ?? {
+              morning: true,
+              evening: true,
+            };
+            restoredDraft = true;
+          }
+        } catch (draftError) {
+          console.error("[BulkAttendance] Draft parse failed", draftError);
+          window.localStorage.removeItem(storageKey);
+        }
       }
     }
-  }, [classesQuery.data, selectedDate, hasWindow]);
+
+    setAttendanceData(initialData);
+    setDirtySessions(dirtyState);
+    setErrors({});
+    setServerErrors({});
+
+    if (restoredDraft) {
+      toast.info("Son saxlanılmamış məlumatlar bərpa olundu");
+    }
+  }, [classes, selectedDate, hasWindow]);
 
   useEffect(() => {
     if (!hasWindow) return;
@@ -278,7 +311,6 @@ const useBulkAttendanceEntry = () => {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [dirtySessions, hasWindow]);
 
-  const classes = classesQuery.data?.data.classes || [];
   const academicYearId = classesQuery.data?.data.academic_year?.id;
   const refetchClasses = () => classesQuery.refetch();
 
@@ -547,30 +579,34 @@ const useBulkAttendanceEntry = () => {
     setActiveSession(nextSession);
   };
 
-  const handleSaveSession = () => {
+  const handleSaveSession = (
+    sessionOverride?: AttendanceSession
+  ) => {
+    const sessionToSave = sessionOverride ?? activeSession;
     if (import.meta.env.DEV) {
       console.log("[BulkAttendance] handleSaveSession fired", {
         activeSession,
+        sessionToSave,
         classesCount: classes.length,
         academicYearId,
         dirtySessions,
       });
     }
 
-    const payload = prepareSessionPayload(activeSession);
+    const payload = prepareSessionPayload(sessionToSave);
     if (!payload) {
       return;
     }
 
     saveAttendanceMutation.mutate({
       payload,
-      session: activeSession,
+      session: sessionToSave,
       isAutoSave: false,
     });
 
     if (import.meta.env.DEV) {
       console.log("[BulkAttendance] Save mutation dispatched", {
-        session: activeSession,
+        session: sessionToSave,
         classPayloadCount: payload.classes.length,
       });
     }
@@ -600,11 +636,14 @@ const useBulkAttendanceEntry = () => {
     }
   };
 
-  const handleMarkAllPresent = () => {
+  const handleMarkAllPresent = (
+    sessionOverride?: AttendanceSession
+  ) => {
     if (!classes.length) {
       return;
     }
 
+    const targetSession = sessionOverride ?? activeSession;
     const newData = { ...attendanceData };
     classes.forEach((cls) => {
       if (cls.total_students > 0) {
@@ -621,9 +660,9 @@ const useBulkAttendanceEntry = () => {
 
         newData[cls.id] = {
           ...previous,
-          [`${activeSession}_present`]: cls.total_students,
-          [`${activeSession}_excused`]: 0,
-          [`${activeSession}_unexcused`]: 0,
+          [`${targetSession}_present`]: cls.total_students,
+          [`${targetSession}_excused`]: 0,
+          [`${targetSession}_unexcused`]: 0,
         };
       }
     });
@@ -631,7 +670,7 @@ const useBulkAttendanceEntry = () => {
     setAttendanceData(newData);
     setDirtySessions((prev) => ({
       ...prev,
-      [activeSession]: true,
+      [targetSession]: true,
     }));
     setServerErrors((prev) => {
       if (!Object.keys(prev).length) {
@@ -646,7 +685,11 @@ const useBulkAttendanceEntry = () => {
       return next;
     });
 
-    toast.success('Bütün siniflər "dərsdə olan" olaraq işarələndi');
+    const sessionLabel =
+      targetSession === "morning" ? "İlk dərs" : "Son dərs";
+    toast.success(
+      `Bütün siniflər "${sessionLabel}" üçün dərsdə olan kimi işarələndi`
+    );
   };
 
   const getAttendanceRate = (present: number, total: number): number =>

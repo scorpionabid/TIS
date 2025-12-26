@@ -156,6 +156,8 @@ class RegionTeacherService
             ->whereNotNull('user_profiles.position_type')
             ->select('user_profiles.position_type', DB::raw('COUNT(*) as count'))
             ->groupBy('user_profiles.position_type')
+            ->reorder() // ⚠️ Clear previous ORDER BY before GROUP BY
+            ->orderBy('count', 'desc') // New ordering for grouped results
             ->pluck('count', 'position_type')
             ->toArray();
 
@@ -165,6 +167,8 @@ class RegionTeacherService
             ->whereNotNull('user_profiles.employment_status')
             ->select('user_profiles.employment_status', DB::raw('COUNT(*) as count'))
             ->groupBy('user_profiles.employment_status')
+            ->reorder() // ⚠️ Clear previous ORDER BY before GROUP BY
+            ->orderBy('count', 'desc') // New ordering for grouped results
             ->pluck('count', 'employment_status')
             ->toArray();
 
@@ -173,7 +177,8 @@ class RegionTeacherService
             ->join('institutions', 'users.institution_id', '=', 'institutions.id')
             ->select('institutions.name', DB::raw('COUNT(*) as count'))
             ->groupBy('institutions.id', 'institutions.name')
-            ->orderByDesc('count')
+            ->reorder() // ⚠️ Clear previous ORDER BY before GROUP BY
+            ->orderByDesc('count') // New ordering for grouped results
             ->limit(10)
             ->pluck('count', 'name')
             ->toArray();

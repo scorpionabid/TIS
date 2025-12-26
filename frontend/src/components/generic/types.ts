@@ -3,6 +3,7 @@
 import { ReactNode, ComponentType } from 'react';
 import { LucideIcon } from 'lucide-react';
 import { PaginationParams } from '@/services/BaseService';
+import { PaginationMeta } from '@/types/api';
 
 // Base filters interface for all entity managers
 export interface BaseFilters extends PaginationParams {
@@ -18,6 +19,12 @@ export interface BaseEntity {
 }
 
 // Column configuration for table
+export interface PaginatedItems<T> {
+  items: T[];
+  pagination?: PaginationMeta | null;
+  raw?: any;
+}
+
 export interface ColumnConfig<T = any> {
   key: keyof T | string;
   label: string;
@@ -45,6 +52,7 @@ export interface TabConfig {
   label: string;
   count?: number;
   filter?: (items: any[]) => any[];
+  serverFilters?: Record<string, any>;
 }
 
 // Stats card configuration
@@ -115,7 +123,7 @@ export interface EntityConfig<T extends BaseEntity, TFilters extends BaseFilters
   
   // API service
   service: {
-    get: (filters: TFilters) => Promise<T[]>;
+    get: (filters: TFilters) => Promise<T[] | PaginatedItems<T> | { data?: any }>;
     create: (data: Partial<TCreateData>) => Promise<any>;
     update: (id: number, data: Partial<TCreateData>) => Promise<any>;
     delete: (id: number) => Promise<any>;
@@ -131,6 +139,11 @@ export interface EntityConfig<T extends BaseEntity, TFilters extends BaseFilters
   actions: ActionConfig<T>[];
   tabs: TabConfig[];
   filterFields: FilterFieldConfig[];
+  serverSide?: {
+    pagination?: boolean;
+    filtering?: boolean;
+    sorting?: boolean;
+  };
   
   // Feature flags
   features?: {
@@ -171,6 +184,8 @@ export interface EnhancedEntityManager<T extends BaseEntity> {
   filteredEntities: T[];
   selectedItems: T[];
   stats: StatsConfig[];
+  pagination?: PaginationMeta | null;
+  dataMode: 'client' | 'server';
   
   // Original actions
   setSearchTerm: (term: string) => void;
@@ -188,6 +203,8 @@ export interface EnhancedEntityManager<T extends BaseEntity> {
   toggleItemSelection: (item: T) => void;
   selectAllItems: () => void;
   clearSelection: () => void;
+  setPage: (page: number) => void;
+  setPerPage: (perPage: number) => void;
   
   // Loading states
   isCreating: boolean;
