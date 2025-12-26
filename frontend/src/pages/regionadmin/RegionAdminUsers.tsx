@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { debugLogger } from "@/utils/debugLogger";
 import { usePermissionMetadata } from "@/hooks/usePermissionMetadata";
 import {
   Card,
@@ -194,8 +195,21 @@ export default function RegionAdminUsers() {
 
   const handleSaveUser = async (userData: any) => {
     try {
+      debugLogger.info('USER_CREATE', 'Starting user save operation', {
+        isUpdate: !!selectedUserId,
+        userId: selectedUserId,
+        userData: {
+          username: userData.username,
+          email: userData.email,
+          role_name: userData.role_name,
+          institution_id: userData.institution_id,
+          department_id: userData.department_id,
+        },
+      });
+
       if (selectedUserId) {
         // Update existing user
+        debugLogger.info('USER_UPDATE', 'Updating existing user', { userId: selectedUserId });
         await regionAdminService.updateUser(selectedUserId, userData);
 
         // 🔄 FIX: Refetch updated user details to show fresh data on next modal open
@@ -206,20 +220,41 @@ export default function RegionAdminUsers() {
           permissions_count: updatedUser?.permissions?.all?.length || 0,
           assignable_permissions_count: updatedUser?.assignable_permissions?.length || 0,
         });
+        debugLogger.success('USER_UPDATE', 'User updated successfully', { userId: selectedUserId });
       } else {
         // Create new user
-        await regionAdminService.createUser(userData);
+        debugLogger.info('USER_CREATE', 'Creating new user', {
+          username: userData.username,
+          role: userData.role_name,
+        });
+
+        const result = await regionAdminService.createUser(userData);
+
+        debugLogger.success('USER_CREATE', 'User created successfully', {
+          result,
+          newUserId: result?.data?.id,
+        });
       }
 
       // Refresh the user lists
+      debugLogger.info('USER_LIST_REFRESH', 'Refreshing user lists');
       operatorsQuery.refetch();
       sektorAdminsQuery.refetch();
       schoolAdminsQuery.refetch();
       teachersQuery.refetch();
 
       handleCloseUserModal();
-    } catch (error) {
+    } catch (error: any) {
       console.error("User save error:", error);
+      debugLogger.error('USER_SAVE_ERROR', 'Failed to save user', {
+        error: error?.message || String(error),
+        errorResponse: error?.response?.data,
+        userData: {
+          username: userData.username,
+          role: userData.role_name,
+          institution_id: userData.institution_id,
+        },
+      });
       throw error;
     }
   };
