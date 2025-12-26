@@ -137,6 +137,13 @@ export default function RegionAttendanceReports() {
     return 'Gözlənilməz xəta baş verdi.';
   };
 
+  const filteredSchoolOptions = useMemo(() => {
+    if (selectedSectorId === 'all') {
+      return schools;
+    }
+    return schools.filter((school) => school.sector_id === Number(selectedSectorId));
+  }, [schools, selectedSectorId]);
+
   if (!hasAccess) {
     return (
       <div className="p-6">
@@ -201,13 +208,6 @@ export default function RegionAttendanceReports() {
       </div>
     );
   };
-
-  const filteredSchoolOptions = useMemo(() => {
-    if (selectedSectorId === 'all') {
-      return schools;
-    }
-    return schools.filter((school) => school.sector_id === Number(selectedSectorId));
-  }, [schools, selectedSectorId]);
 
   return (
     <div className="px-2 py-4 sm:px-4 space-y-6">
