@@ -27,22 +27,47 @@ class DepartmentBelongsToInstitution implements ValidationRule
     /**
      * Run the validation rule.
      *
+     * IMPORTANT: Departments only exist at institution level 4+ (schools).
+     * Sectors (level 3), Regions (level 2) DO NOT have departments.
+     * Only RegionOperator role uses departments.
+     *
      * @param \Closure(string): \Illuminate\Translation\PotentiallyTranslatedString $fail
      */
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
-        // Skip validation if either institution_id or department_id is null
-        if (! $this->institutionId || ! $value) {
+        // If department_id is NULL, always valid (departments are optional)
+        if (! $value) {
             return;
         }
 
-        // Check if the department belongs to the specified institution
+        // If no institution selected, cannot validate department
+        if (! $this->institutionId) {
+            $fail('Departament seçməzdən əvvəl müəssisə seçilməlidir.');
+            return;
+        }
+
+        // Get institution to check level
+        $institution = \App\Models\Institution::find($this->institutionId);
+
+        if (! $institution) {
+            $fail('Seçilmiş müəssisə tapılmadı.');
+            return;
+        }
+
+        // CRITICAL: Sectors (level 3) and Regions (level 2) don't have departments
+        // Only schools (level 4+) have departments
+        if ($institution->level < 4) {
+            $fail('Departamentlər yalnız məktəb səviyyəli müəssisələrdə mövcuddur. Sektor və region müəssisələrində departament yoxdur.');
+            return;
+        }
+
+        // Schools (level 4+) must have valid department that belongs to the institution
         $exists = Department::where('id', $value)
             ->where('institution_id', $this->institutionId)
             ->exists();
 
         if (! $exists) {
-            $fail('Seçilmiş departament bu təşkilata aid deyil.');
+            $fail('Seçilmiş departament bu müəssisəyə aid deyil.');
         }
     }
 }
