@@ -52,6 +52,7 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
 }) => {
   const [filters, setFilters] = useState<LinkGroupFilters>({});
   const [pendingDelete, setPendingDelete] = useState<Resource | null>(null);
+  const [sortMode, setSortMode] = useState<'count' | 'title-asc' | 'title-desc'>('count');
 
   // Group links by title
   const groupedLinks = useMemo(() => {
@@ -63,7 +64,19 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
     return filterGroupedLinks(groupedLinks, filters);
   }, [groupedLinks, filters]);
 
-  const pagination = usePagination(filteredGroups, {
+  const sortedGroups = useMemo(() => {
+    if (sortMode === 'count') {
+      return filteredGroups;
+    }
+    const next = [...filteredGroups];
+    next.sort((a, b) => {
+      const direction = sortMode === 'title-asc' ? 1 : -1;
+      return a.title.localeCompare(b.title, 'az') * direction;
+    });
+    return next;
+  }, [filteredGroups, sortMode]);
+
+  const pagination = usePagination(sortedGroups, {
     initialItemsPerPage: 5,
   });
 
@@ -178,7 +191,7 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
               className="pl-9 h-9"
             />
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <Select
               value={filters.share_scope || 'all'}
               onValueChange={(value) => setFilters(prev => ({
@@ -213,6 +226,19 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
                     {option.label}
                   </SelectItem>
                 ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={sortMode}
+              onValueChange={(value) => setSortMode(value as 'count' | 'title-asc' | 'title-desc')}
+            >
+              <SelectTrigger className="h-9 text-left">
+                <SelectValue placeholder="Sıralama" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="count">Ən çox paylaşım</SelectItem>
+                <SelectItem value="title-asc">Başlıq (A-Z)</SelectItem>
+                <SelectItem value="title-desc">Başlıq (Z-A)</SelectItem>
               </SelectContent>
             </Select>
           </div>
