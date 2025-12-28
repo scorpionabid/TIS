@@ -107,25 +107,34 @@ const getAssigneeInitials = (name: string) => {
 };
 
 const formatUserName = (name: string) => {
-  if (!name) return "Anonim İstifadəçi";
+  if (!name) {
+    console.log('[formatUserName] Empty name, returning Anonim');
+    return "Anonim İstifadəçi";
+  }
 
   // If name is an email address, format it nicely
   if (name.includes("@")) {
     const username = name.split("@")[0];
-    // Convert "zulfiyya.h" to "Zulfiyya H."
+    // Convert "zulfiyya.h" to "Zulfiyya H"
     // Convert "firstname.lastname" to "Firstname Lastname"
     const emailParts = username.split(/[._-]/).filter(Boolean);
+    console.log('[formatUserName] Email detected:', name, 'Parts:', emailParts);
+
     if (emailParts.length >= 2) {
       const formatted = emailParts.map(part =>
         part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
       ).join(" ");
+      console.log('[formatUserName] Formatted:', formatted);
       return formatted;
     }
     // Single part email username: "john" -> "John"
-    return username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
+    const formatted = username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
+    console.log('[formatUserName] Single part formatted:', formatted);
+    return formatted;
   }
 
   // Return normal name as-is
+  console.log('[formatUserName] Normal name:', name);
   return name;
 };
 
