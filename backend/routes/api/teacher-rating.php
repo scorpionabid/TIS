@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\TeacherRating\TeacherRatingController;
 use App\Http\Controllers\TeacherRating\TeacherProfileController;
+use App\Http\Controllers\TeacherRating\TeacherRatingImportController;
 
 /*
 |--------------------------------------------------------------------------
@@ -98,4 +99,31 @@ Route::prefix('teacher-rating')->group(function () {
     Route::get('/compare/{teacherId}', [TeacherRatingController::class, 'compareYears'])
         ->middleware('permission:teacher_rating.view')
         ->name('teacher-rating.compare');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Excel Import & Templates
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('import')->group(function () {
+        // Import awards
+        Route::post('/awards', [TeacherRatingImportController::class, 'importAwards'])
+            ->middleware('permission:teacher_rating.manage')
+            ->name('teacher-rating.import.awards');
+
+        // Import certificates
+        Route::post('/certificates', [TeacherRatingImportController::class, 'importCertificates'])
+            ->middleware('permission:teacher_rating.manage')
+            ->name('teacher-rating.import.certificates');
+
+        // Import academic results
+        Route::post('/academic-results', [TeacherRatingImportController::class, 'importAcademicResults'])
+            ->middleware('permission:teacher_rating.manage')
+            ->name('teacher-rating.import.academic-results');
+
+        // Download Excel templates
+        Route::get('/template/{type}', [TeacherRatingImportController::class, 'downloadTemplate'])
+            ->middleware('permission:teacher_rating.view')
+            ->name('teacher-rating.import.template');
+    });
 });
