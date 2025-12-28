@@ -2161,3 +2161,282 @@ User modal sisteminin **production data analizi** tamamlandı.
 
 **v2.0 (2025-11-17):** Refined analysis
 **v1.0 (2025-11-17):** Initial analysis (contained errors)
+
+---
+
+## 🏆 MÜƏLLİM REYTİNQ SİSTEMİ (Teacher Rating System)
+
+**📅 Plan tarixi**: 2025-12-28
+**📋 PRD Referansı**: [Muellim_Reytinq_Sistemi_PRD.pdf](./Muellim_Reytinq_Sistemi_PRD.pdf)
+**📖 Detallı Plan**: [MUELLIM_REYTINQ_IMPLEMENTATION_PLAN.md](./MUELLIM_REYTINQ_IMPLEMENTATION_PLAN.md)
+**🎯 Əhatə**: Bütün regionlar (pilot: Lənkəran-Astara RTİ - 550 məktəb, 10,800 müəllim)
+**📚 Akademik illər**: 2022-2023, 2023-2024, 2024-2025
+
+### 📊 Sistem Xülasəsi
+
+Müəllimlərin ümumi və peşəkar göstəricilərini vahid sistemdə toplamaq, son 3 tədris ili üzrə nəticələrə əsaslanan reytinq formalaşdırmaq, məktəb/rayon/region/fənn üzrə Top 20 liderbordlar və rayonlararası müqayisə analitikası təqdim etmək.
+
+**İnteqrasiya Strategiyası**: ✅ ATİS-ə yeni modul olaraq əlavə edilir (standalone deyil)
+
+### 🎯 MVP Scope (4-6 həftə development)
+
+**Daxil olanlar**:
+- ✅ Referens idarəetməsi: rayonlar, məktəblər, fənnlər, akademik illər
+- ✅ Müəllim profili: ümumi + peşəkar məlumatlar + foto (5MB limit)
+- ✅ Excel import (multi-sheet) + strict validation + conflict resolution (UTIS əsaslı)
+- ✅ Reytinq hesablanması (6 komponent, 25/30/45 illik çəki, growth bonus)
+- ✅ Top 20 Liderbordlar: məktəb/rayon/region/fənn üzrə
+- ✅ Filtrlər: tədris ili, rayon, məktəb, fənn, qiymətləndirmə növü
+- ✅ Export: Excel + PDF
+- ✅ Rayonlararası müqayisə dashboard
+- ✅ Audit log (100% CRUD və import əməliyyatları)
+
+**Sonraya saxlanılanlar (v2/v3)**:
+- 2FA, SMS/email bildirişlər
+- Mobil tətbiq
+- UTIS ilə sinxronizasiya
+- Qabaqcıl analitika (trend, proqnoz)
+
+### 👥 İstifadəçi Rolları
+
+| Rol | Profil CRUD | Excel Import | Reytinq Config | Liderbord | Export | Audit Log |
+|-----|------------|-------------|---------------|-----------|--------|-----------|
+| SuperAdmin | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| RegionAdmin | ✔ | ✔ | ✔ | ✔ | ✔ | ✔ |
+| RayonAdmin | R | - | - | ✔ | ✔ | R |
+| MəktəbAdmin | R | - | - | ✔ | ✔ | R |
+| Müəllim | R (öz) | - | - | öz breakdown | öz profili | - |
+| Viewer | R | - | - | R | ✔ | - |
+
+### 🗄️ Database Struktur (14 Cədvəl)
+
+**Core Tables**:
+1. `teachers` - UTIS əsaslı müəllim profili (utis_code UNIQUE, FK to users)
+2. `education_history` - Təhsil tarixi
+3. `teaching_assignments` - Tədris tapşırıqları (eyni ildə çox sinif)
+4. `class_academic_results` - Sinif akademik nəticələri (0-100)
+5. `lesson_observations` - Dərs müşahidələri (0-100 + rəy)
+6. `assessment_scores` - Sertifikasiya/MİQ/Diaqnostik (ən son nəticə)
+7. `certificates` - Sertifikatlar (növə görə bal)
+8. `olympiad_achievements` - Olimpiada uğurları (səviyyə × yer × şagird sayı)
+9. `awards` - Təltiflər (Əməkdar müəllim, Medal və s.)
+10. `rating_results` - Hesablanmış reytinq + breakdown (JSON)
+
+**Reference Tables**:
+11. `academic_years` - 2022-2023, 2023-2024, 2024-2025
+12. `subjects` - Fənnlər (Riyaziyyat, Fizika, Kimya, etc.)
+13. `certificate_types` - Sertifikat növləri və balları
+14. `award_types` - Təltif növləri və balları
+
+**Configuration**:
+- `rating_configuration` - Komponent çəkiləri (Wi), illik çəkilər (25/30/45), growth bonus
+
+### 🧮 Reytinq Hesablanması
+
+**Komponentlər və Çəkilər** (RegionAdmin konfiqurasiya edir):
+- Akademik göstəricilər: 30% (illər üzrə 25/30/45)
+- Dərs müşahidəsi: 20% (illər üzrə 25/30/45)
+- Olimpiada uğurları: 15% (illər üzrə 25/30/45)
+- Qiymətləndirmə: 15% (ən son nəticə)
+- Sertifikatlar: 10% (növə görə bal)
+- Təltiflər: 10% (növə görə bal)
+
+**Formula**:
+```
+TotalScore = Σ(Wi × ComponentScorei) + GrowthBonus
+
+Growth Bonus:
+  IF score_2024_2025 - score_2022_2023 >= 25: +5
+  ELSE IF >= 15: +2
+  ELSE: 0
+```
+
+**Missing Data**: Məlumat yoxdursa 0 sayılır (sərt qayda)
+
+### 📁 Excel Import (Multi-Sheet)
+
+**9 Sheet**:
+1. `Teachers` - UTIS, məktəb, fənn, başlanğıc ili, foto, yaş aralığı
+2. `Education` - Təhsil tarixi
+3. `TeachingAssignments` - Sinif tapşırıqları (eyni ildə çox sətir ola bilər)
+4. `ClassResults` - Sinif nəticələri (0-100)
+5. `LessonObservations` - Müşahidələr
+6. `Assessments` - Qiymətləndirmə balları
+7. `Certificates` - Sertifikatlar
+8. `Olympiads` - Olimpiada uğurları
+9. `Awards` - Təltiflər
+
+**Validasiya**:
+- Sərt validasiya (səhv sətirlər import olunmur)
+- UTIS conflict detection (manual resolution UI)
+- Error report generation
+- FK validation (school_code, subject_code)
+
+### 🏅 Liderbordlar və Filtrlər
+
+**4 Liderbord Növü** (Top 20):
+1. Məktəb üzrə
+2. Rayon üzrə
+3. Region üzrə
+4. Fənn üzrə (+ region/rayon/məktəb context)
+
+**Filtrlər**:
+- Tədris ili (2022-2023, 2023-2024, 2024-2025)
+- Rayon (hierarxy-based)
+- Məktəb (rayondan asılı)
+- Fənn
+- Qiymətləndirmə növü (MİQ/Sertifikasiya/Diaqnostik)
+
+**Export**: Excel + PDF (eyni filter konteksti)
+
+### 🔐 Təhlükəsizlik və Performans
+
+**PII Protection**:
+- Doğum tarixi UI-da göstərilmir (yalnız yaş aralığı: 20-29, 30-39, etc.)
+- Export-da maskalanır
+
+**Performance**:
+- 300 aktiv istifadəçi (pik)
+- Redis cache (1-5 dəq TTL)
+- Cache invalidation: import/update zamanı
+- DB indexing: utis_code, school_id, academic_year_id
+- Virtual scrolling (large lists)
+
+**Audit Log**:
+- 100% CRUD və import əməliyyatları
+- Actor, entity, action, timestamp, əvvəl/sonra
+
+### 🏗️ Backend Struktur
+
+**Services**:
+```
+app/Services/TeacherRating/
+├── TeacherRatingService.php        # Core rating calculations
+├── RatingConfigurationService.php  # Admin konfigurasiya
+├── ExcelImportService.php         # Multi-sheet import
+└── LeaderboardService.php         # Top 20 queries
+```
+
+**Controllers**:
+```
+app/Http/Controllers/TeacherRating/
+├── TeacherController.php
+├── EducationHistoryController.php
+├── TeachingAssignmentController.php
+├── ClassAcademicResultController.php
+├── LessonObservationController.php
+├── AssessmentScoreController.php
+├── CertificateController.php
+├── OlympiadAchievementController.php
+├── AwardController.php
+├── RatingResultController.php      # Read-only (auto-calculated)
+├── LeaderboardController.php       # Top 20 endpoints
+├── DashboardController.php         # Rayonlararası müqayisə
+├── ExcelImportController.php       # Import + conflict resolution
+└── AuditLogController.php          # Read-only
+```
+
+**Routes**:
+```
+/api/teacher-rating/
+  ├── teachers (CRUD)
+  ├── leaderboards/{school|district|region|subject}
+  ├── dashboards/district-comparison
+  ├── import/excel
+  ├── export/{excel|pdf}
+  └── audit-logs
+```
+
+### 🎨 Frontend Struktur
+
+**Pages**:
+```
+frontend/src/pages/teacher-rating/
+├── TeacherList.tsx              # Siyahı və axtarış
+├── TeacherProfile.tsx           # Profil və breakdown
+├── TeacherForm.tsx              # Yaratma/redaktə
+├── ExcelImport.tsx              # Import wizard + conflict UI
+├── Leaderboards.tsx             # Top 20 liderbordlar
+├── DistrictComparison.tsx       # Rayonlararası dashboard
+├── RatingConfiguration.tsx      # RegionAdmin konfiqurasiya
+└── AuditLog.tsx                 # Audit izləmə
+```
+
+**Components**:
+```
+frontend/src/components/teacher-rating/
+├── TeacherCard.tsx
+├── TeacherTable.tsx
+├── RatingBreakdown.tsx          # Komponentlər + illər chart
+├── LeaderboardTable.tsx
+├── FilterPanel.tsx
+├── ExcelImportWizard.tsx
+├── ConflictResolutionModal.tsx
+└── RatingConfigModal.tsx
+```
+
+**Services**:
+```typescript
+frontend/src/services/teacherRating/
+├── teacherService.ts
+├── leaderboardService.ts
+├── excelImportService.ts
+├── ratingService.ts
+└── auditLogService.ts
+```
+
+### 📊 Development Timeline (8 Faza)
+
+| Faza | Təsvir | Müddət | Cumulative |
+|------|--------|--------|-----------|
+| 1 | Database Migrations (14 tables) | 1-2 gün | 2 gün |
+| 2 | Models və Relationships (14 models) | 1-2 gün | 4 gün |
+| 3 | Rating Engine Service | 3-4 gün | 8 gün |
+| 4 | API Endpoints (40+ endpoints) | 3-4 gün | 12 gün |
+| 5 | Excel Import System | 4-5 gün | 17 gün |
+| 6 | Frontend Core Pages (8 pages) | 5-6 gün | 23 gün |
+| 7 | Frontend Advanced (charts, export) | 3-4 gün | 27 gün |
+| 8 | Testing və Deployment (300+ tests) | 2-3 gün | **30 gün** |
+
+**TOTAL**: 4-6 həftə (1 full-stack developer)
+
+### ✅ Acceptance Criteria
+
+**UTIS Code**:
+- ✅ Boş ola bilməz, unique constraint
+- ✅ Conflict resolution UI işləyir
+
+**Çox Sinif**:
+- ✅ Eyni ildə bir neçə sinif → orta bal hesablanır
+
+**İllər Üzrə Çəkilər**:
+- ✅ Akademik/dərs dinləmə/olimpiada üçün 25/30/45 tətbiq olunur
+
+**Missing Data**:
+- ✅ Məlumat yoxdursa 0 sayılır
+
+**Export**:
+- ✅ Liderbord filterləri Excel və PDF-ə tətbiq olunur
+
+**Breakdown**:
+- ✅ Müəllim profilində total score + komponentlər + illər breakdown göstərilir
+
+### 🚀 Development Status
+
+**Current Phase**: ⏸️ Planning Complete - Ready to Start
+**Next Step**: Faza 1 - Database Migrations
+**Branch**: `feature/teacher-rating-system` (yaradılmalı)
+
+**Key Decisions**:
+- ✅ ATİS-ə modul olaraq əlavə edilir (standalone deyil)
+- ✅ UTIS kodu `users` cədvəlində mövcuddur
+- ✅ Bütün regionlar üçün (pilot: Lənkəran-Astara)
+- ✅ Full MVP development (8 faza)
+
+**Resources**:
+- 1 Full-stack developer (100% workload)
+- 4-6 həftə development time
+- 300+ tests (backend + frontend + E2E)
+- Documentation: API (Swagger) + User Guide (AZ) + Developer Docs
+
+---
