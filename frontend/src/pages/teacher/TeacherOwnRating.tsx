@@ -25,10 +25,10 @@ import {
 } from '../../components/teacher-rating';
 import { Calendar, Info, TrendingUp, Award, RefreshCcw } from 'lucide-react';
 import { teacherRatingService, ratingCalculationService } from '../../services/teacherRating';
-import { useAuthStore } from '../../store/authStore';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function TeacherOwnRating() {
-  const { user } = useAuthStore();
+  const { currentUser } = useAuth();
   const [selectedYearId, setSelectedYearId] = useState<number | null>(null);
 
   // Queries
@@ -36,7 +36,7 @@ export default function TeacherOwnRating() {
     queryKey: ['teacher-rating-own-profile'],
     queryFn: () =>
       fetch('/api/teacher-rating/teachers/me').then((res) => res.json()),
-    enabled: !!user,
+    enabled: !!currentUser,
   });
 
   const { data: academicYearsData } = useQuery({
