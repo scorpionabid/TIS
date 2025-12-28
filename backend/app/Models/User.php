@@ -139,6 +139,15 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the teacher's rating profile (for müəllim role only)
+     * This is for the Teacher Rating System extended profile
+     */
+    public function teacherProfile(): HasOne
+    {
+        return $this->hasOne(TeacherProfile::class, 'user_id');
+    }
+
+    /**
      * Get the surveys created by this user.
      */
     public function createdSurveys(): HasMany
