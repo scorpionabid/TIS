@@ -5,7 +5,7 @@
  * Note: Backend API not yet implemented - placeholder for future
  */
 
-import api from '../api';
+import { apiClient as api } from '../api';
 import type { RatingConfiguration } from '../../types/teacherRating';
 
 const BASE_URL = '/teacher-rating/configuration';

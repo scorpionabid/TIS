@@ -4,7 +4,7 @@
  * CRUD operations for teacher rating profiles
  */
 
-import api from '../api';
+import { apiClient as api } from '../api';
 import type {
   TeacherRatingProfile,
   TeacherRatingListParams,

@@ -4,7 +4,7 @@
  * Rating calculation and results API
  */
 
-import api from '../api';
+import { apiClient as api } from '../api';
 import type {
   CalculateRatingRequest,
   RatingResult,

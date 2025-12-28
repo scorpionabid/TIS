@@ -4,7 +4,7 @@
  * Leaderboard and statistics API
  */
 
-import api from '../api';
+import { apiClient as api } from '../api';
 import type {
   LeaderboardParams,
   StatisticsParams,

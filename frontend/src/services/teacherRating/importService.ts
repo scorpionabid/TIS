@@ -4,7 +4,7 @@
  * Excel import and template download API
  */
 
-import api from '../api';
+import { apiClient as api } from '../api';
 import type { ImportResult, ImportDataType } from '../../types/teacherRating';
 
 const BASE_URL = '/teacher-rating/import';
