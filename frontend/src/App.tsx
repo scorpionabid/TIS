@@ -63,6 +63,15 @@ const RegionTeacherManagement = lazy(() => import("./pages/regionadmin/RegionTea
 const RegionClassManagement = lazy(() => import("./pages/regionadmin/RegionClassManagement"));
 const RegionAttendanceReports = lazy(() => import("./pages/regionadmin/RegionAttendanceReports"));
 
+// Teacher Rating pages
+const RegionAdminTeacherRating = lazy(() => import("./pages/regionadmin/RegionAdminTeacherRating"));
+const TeacherRatingProfile = lazy(() => import("./pages/regionadmin/TeacherRatingProfile"));
+const TeacherRatingImport = lazy(() => import("./pages/regionadmin/TeacherRatingImport"));
+const TeacherRatingLeaderboard = lazy(() => import("./pages/regionadmin/TeacherRatingLeaderboard"));
+const TeacherRatingComparison = lazy(() => import("./pages/regionadmin/TeacherRatingComparison"));
+const TeacherRatingConfiguration = lazy(() => import("./pages/regionadmin/TeacherRatingConfiguration"));
+const TeacherOwnRating = lazy(() => import("./pages/teacher/TeacherOwnRating"));
+
 // School pages  
 const SchoolTeachers = lazy(() => import("./pages/school/SchoolTeachers"));
 const SchoolClasses = lazy(() => import("./pages/school/SchoolClasses"));
@@ -641,6 +650,69 @@ const App = () => {
                   </LazyWrapper>
                 } />
                 <Route path="regionadmin/schedules" element={<LazyWrapper><RegionSchedules /></LazyWrapper>} />
+
+                {/* Teacher Rating Routes */}
+                <Route path="regionadmin/teacher-rating" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                      requiredPermissions={['teacher_rating.view']}
+                    >
+                      <RegionAdminTeacherRating />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
+                <Route path="regionadmin/teacher-rating/profile/:teacherId" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                      requiredPermissions={['teacher_rating.view']}
+                    >
+                      <TeacherRatingProfile />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
+                <Route path="regionadmin/teacher-rating/import" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]}
+                      requiredPermissions={['teacher_rating.manage']}
+                    >
+                      <TeacherRatingImport />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
+                <Route path="regionadmin/teacher-rating/leaderboard" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                      requiredPermissions={['teacher_rating.view']}
+                    >
+                      <TeacherRatingLeaderboard />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
+                <Route path="regionadmin/teacher-rating/comparison" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                      requiredPermissions={['teacher_rating.view']}
+                    >
+                      <TeacherRatingComparison />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
+                <Route path="regionadmin/teacher-rating/configuration" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[USER_ROLES.SUPERADMIN]}
+                      requiredPermissions={['teacher_rating.configure']}
+                    >
+                      <TeacherRatingConfiguration />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
+
                 <Route path="regionadmin/folders" element={<Navigate to="/resources?tab=folders" replace />} />
                 <Route path="regionadmin/schedule-dashboard" element={
                   <LazyWrapper>
@@ -744,6 +816,16 @@ const App = () => {
                 <LazyWrapper>
                   <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
                     <TeacherSchedule />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="teacher/rating/profile" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute
+                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}
+                    requiredPermissions={['teacher_rating.view_own']}
+                  >
+                    <TeacherOwnRating />
                   </RoleProtectedRoute>
                 </LazyWrapper>
               } />
