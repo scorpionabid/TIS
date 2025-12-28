@@ -141,17 +141,21 @@ export function TasksTable({
 
   const renderAssignees = (task: Task) => {
     const assignments = Array.isArray(task.assignments) ? task.assignments : [];
-    const users = assignments
+    const allUsers = assignments
       .map((assignment) => assignment.assignedUser ?? (assignment as any)?.assigned_user)
       .filter(Boolean);
 
-    console.log('[TasksTable] assignments debug', {
-      taskId: task.id,
-      assignments,
-      mappedUsers: users,
-      legacyAssignee: task.assignee,
+    // Get unique users by ID to avoid duplicates (same user can have multiple institution assignments)
+    const uniqueUsersMap = new Map();
+    allUsers.forEach((user) => {
+      if (user && user.id && !uniqueUsersMap.has(user.id)) {
+        uniqueUsersMap.set(user.id, user);
+      }
     });
 
+    const users = Array.from(uniqueUsersMap.values());
+
+    // Fallback to legacy assignee field if no assignments
     if (!users.length && task.assignee) {
       users.push(task.assignee);
     }
@@ -165,30 +169,37 @@ export function TasksTable({
     const remaining = users.length - visibleUsers.length;
 
     return (
-      <div className="flex items-center gap-2 overflow-hidden">
-        <div className="flex -space-x-2">
+      <div className="flex items-center gap-3 overflow-hidden">
+        <div className="flex -space-x-2.5">
           {visibleUsers.map((user, index) => (
             <div
               key={user.id}
-              className={`relative flex h-7 w-7 items-center justify-center rounded-full border border-background text-[11px] font-semibold shadow-sm ${assigneeAvatarColors[index % assigneeAvatarColors.length]}`}
+              className={`relative flex h-8 w-8 items-center justify-center rounded-full border-2 border-background text-xs font-semibold shadow-sm ${assigneeAvatarColors[index % assigneeAvatarColors.length]}`}
               title={user.name}
             >
               {getAssigneeInitials(user.name)}
             </div>
           ))}
           {remaining > 0 && (
-            <div className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-muted text-[11px] font-semibold text-muted-foreground">
+            <div
+              className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-dashed border-muted-foreground/40 bg-muted/30 text-xs font-semibold text-muted-foreground"
+              title={`və ${remaining} nəfər daha`}
+            >
               +{remaining}
             </div>
           )}
         </div>
-        <div className="flex flex-col text-xs text-muted-foreground leading-tight">
-          {visibleUsers.slice(0, 2).map((user) => (
-            <span key={user.id} className="truncate max-w-[160px]" title={user.name}>
-              {user.name}
-            </span>
+        <div className="flex flex-col gap-0.5">
+          {users.map((user, index) => (
+            <div key={user.id} className="flex items-center gap-1.5">
+              <div
+                className={`h-1.5 w-1.5 rounded-full ${assigneeAvatarColors[index % assigneeAvatarColors.length].split(' ')[0].replace('bg-', 'bg-').replace('/15', '/80')}`}
+              />
+              <span className="text-xs font-medium text-foreground truncate max-w-[180px]" title={user.name}>
+                {user.name}
+              </span>
+            </div>
           ))}
-          {remaining > 0 && <span className="text-[11px]">və {remaining} nəfər daha</span>}
         </div>
       </div>
     );
