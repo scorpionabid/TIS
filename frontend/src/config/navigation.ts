@@ -298,6 +298,56 @@ export const improvedNavigationConfig: MenuGroup[] = [
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
           }
         ]
+      },
+      {
+        id: 'teacher-rating',
+        label: 'Müəllim Reytinqi',
+        icon: 'Award',
+        panel: 'management',
+        items: [
+          {
+            id: 'teacher-rating-list',
+            label: 'Reytinq Siyahısı',
+            path: '/regionadmin/teacher-rating',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR],
+            requiredPermissions: ['teacher_rating.view']
+          },
+          {
+            id: 'teacher-rating-leaderboard',
+            label: 'Liderlər',
+            path: '/regionadmin/teacher-rating/leaderboard',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR],
+            requiredPermissions: ['teacher_rating.view']
+          },
+          {
+            id: 'teacher-rating-comparison',
+            label: 'Müqayisə',
+            path: '/regionadmin/teacher-rating/comparison',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR],
+            requiredPermissions: ['teacher_rating.view']
+          },
+          {
+            id: 'teacher-rating-import',
+            label: 'İdxal',
+            path: '/regionadmin/teacher-rating/import',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+            requiredPermissions: ['teacher_rating.manage']
+          },
+          {
+            id: 'teacher-rating-config',
+            label: 'Konfiqurasiya',
+            path: '/regionadmin/teacher-rating/configuration',
+            roles: [USER_ROLES.SUPERADMIN],
+            requiredPermissions: ['teacher_rating.configure']
+          },
+          {
+            id: 'teacher-own-rating',
+            label: 'Mənim Reytinqim',
+            path: '/teacher/rating/profile',
+            roles: [USER_ROLES.MUELLIM],
+            requiredPermissions: ['teacher_rating.view_own']
+          }
+        ]
       }
     ]
   },
