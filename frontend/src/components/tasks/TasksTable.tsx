@@ -85,11 +85,48 @@ const assigneeAvatarColors = [
 ];
 
 const getAssigneeInitials = (name: string) => {
+  if (!name) return "??";
+
+  // If name is an email address, extract username part before @
+  if (name.includes("@")) {
+    const username = name.split("@")[0];
+    // Handle email usernames like "zulfiyya.h" or "firstname.lastname"
+    const emailParts = username.split(/[._-]/).filter(Boolean);
+    if (emailParts.length >= 2) {
+      return (emailParts[0][0] + emailParts[1][0]).toUpperCase();
+    }
+    return username.slice(0, 2).toUpperCase();
+  }
+
+  // Normal name handling
   const parts = name.split(" ").filter(Boolean);
   if (parts.length === 1) {
     return parts[0].slice(0, 2).toUpperCase();
   }
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+const formatUserName = (name: string) => {
+  if (!name) return "Anonim İstifadəçi";
+
+  // If name is an email address, format it nicely
+  if (name.includes("@")) {
+    const username = name.split("@")[0];
+    // Convert "zulfiyya.h" to "Zulfiyya H."
+    // Convert "firstname.lastname" to "Firstname Lastname"
+    const emailParts = username.split(/[._-]/).filter(Boolean);
+    if (emailParts.length >= 2) {
+      const formatted = emailParts.map(part =>
+        part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()
+      ).join(" ");
+      return formatted;
+    }
+    // Single part email username: "john" -> "John"
+    return username.charAt(0).toUpperCase() + username.slice(1).toLowerCase();
+  }
+
+  // Return normal name as-is
+  return name;
 };
 
 // Priority dot colors and labels
@@ -196,7 +233,7 @@ export function TasksTable({
                 className={`h-1.5 w-1.5 rounded-full ${assigneeAvatarColors[index % assigneeAvatarColors.length].split(' ')[0].replace('bg-', 'bg-').replace('/15', '/80')}`}
               />
               <span className="text-xs font-medium text-foreground truncate max-w-[180px]" title={user.name}>
-                {user.name}
+                {formatUserName(user.name)}
               </span>
             </div>
           ))}
