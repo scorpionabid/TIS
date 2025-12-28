@@ -124,6 +124,13 @@ Route::middleware('permission:tasks.approve')->group(function () {
     Route::get('tasks/pending-approval', [TaskController::class, 'getPendingApproval']);
 });
 
+// Task Approval Workflow Routes (NEW)
+Route::middleware('permission:tasks.read')->group(function () {
+    Route::post('tasks/{task}/submit-for-approval', [TaskController::class, 'submitForApproval']);
+    Route::get('tasks/{task}/approval-history', [TaskController::class, 'getApprovalHistory']);
+    Route::get('tasks/{task}/audit-history', [TaskController::class, 'getAuditHistory']);
+});
+
 Route::middleware('permission:tasks.analytics')->group(function () {
     Route::get('tasks/analytics/overview', [TaskController::class, 'getAnalyticsOverview']);
     Route::get('tasks/analytics/performance', [TaskController::class, 'getPerformanceAnalytics']);

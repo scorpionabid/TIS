@@ -6,6 +6,7 @@ use App\Models\Task;
 use App\Models\User;
 use App\Services\NotificationService;
 use App\Services\TaskAssignmentService;
+use App\Services\TaskAuditService;
 use App\Services\TaskPermissionService;
 use App\Services\TaskStatisticsService;
 use Illuminate\Http\JsonResponse;
@@ -24,16 +25,20 @@ class TaskControllerRefactored extends Controller
 
     protected NotificationService $notificationService;
 
+    protected TaskAuditService $auditService;
+
     public function __construct(
         TaskPermissionService $permissionService,
         TaskAssignmentService $assignmentService,
         TaskStatisticsService $statisticsService,
-        NotificationService $notificationService
+        NotificationService $notificationService,
+        TaskAuditService $auditService
     ) {
         $this->permissionService = $permissionService;
         $this->assignmentService = $assignmentService;
         $this->statisticsService = $statisticsService;
         $this->notificationService = $notificationService;
+        $this->auditService = $auditService;
     }
 
     /**
@@ -57,14 +62,24 @@ class TaskControllerRefactored extends Controller
         $user = Auth::user();
 
         try {
+            // Optimized query with selective eager loading
             $query = Task::with([
-                'creator',
-                'assignee',
-                'assignedInstitution',
-                'approver',
-                'assignments.assignedUser',
-                'assignments.institution',
-            ]);
+                'creator:id,first_name,last_name,email',
+                'assignee:id,first_name,last_name',
+                'assignedInstitution:id,name,type',
+                'approver:id,first_name,last_name',
+                'assignments' => function($query) {
+                    $query->select('id', 'task_id', 'assigned_user_id', 'institution_id', 'assignment_status', 'progress')
+                        ->with([
+                            'assignedUser:id,first_name,last_name',
+                            'institution:id,name'
+                        ])
+                        ->latest()
+                        ->limit(10); // Limit assignments to avoid memory issues
+                }
+            ])
+            ->withCount(['assignments', 'comments', 'progressLogs'])
+            ->select('tasks.*'); // Explicit column selection for performance
 
             $this->permissionService->applyTaskAccessControl($query, $user);
 
@@ -123,19 +138,19 @@ class TaskControllerRefactored extends Controller
                 'assignments.institution',
             ])
                 ->where(function ($assignedQuery) use ($user, $institutionId) {
+                    // Tasks directly assigned to this user
                     $assignedQuery->where('assigned_to', $user->id)
-                        ->orWhereHas('assignments', function ($assignmentQuery) use ($user, $institutionId) {
+                        // OR tasks with assignment record for this user
+                        ->orWhereHas('assignments', function ($assignmentQuery) use ($user) {
                             $assignmentQuery->where('assigned_user_id', $user->id);
-
+                        })
+                        // OR tasks assigned to user's institution (only if user has institution)
+                        ->orWhere(function ($instQuery) use ($institutionId) {
                             if ($institutionId) {
-                                $assignmentQuery->orWhere('institution_id', $institutionId);
+                                $instQuery->where('assigned_to_institution_id', $institutionId)
+                                    ->orWhereJsonContains('target_institutions', $institutionId);
                             }
                         });
-
-                    if ($institutionId) {
-                        $assignedQuery->orWhere('assigned_to_institution_id', $institutionId)
-                            ->orWhereJsonContains('target_institutions', $institutionId);
-                    }
                 });
 
             $this->applyFilters($query, $request);
@@ -216,6 +231,9 @@ class TaskControllerRefactored extends Controller
         try {
             $result = $this->assignmentService->createHierarchicalTask($request->all(), $user);
 
+            // Log task creation
+            $this->auditService->logTaskCreated($result['task']);
+
             // Send task assignment notifications
             $this->sendTaskAssignmentNotification($result['task'], $result['assignments'] ?? [], $user);
 
@@ -293,10 +311,19 @@ class TaskControllerRefactored extends Controller
         ]);
 
         try {
+            // Capture old values before update
+            $oldValues = $task->only([
+                'title', 'description', 'category', 'priority',
+                'status', 'progress', 'deadline', 'notes',
+            ]);
+
             $task->update($request->only([
                 'title', 'description', 'category', 'priority',
                 'status', 'progress', 'deadline', 'notes',
             ]));
+
+            // Log task update
+            $this->auditService->logTaskUpdated($task, $oldValues);
 
             $task->load(['creator', 'assignee', 'assignedInstitution']);
 
@@ -328,6 +355,10 @@ class TaskControllerRefactored extends Controller
             DB::beginTransaction();
 
             $taskTitle = $task->title;
+
+            // Log deletion before actually deleting
+            $this->auditService->logTaskDeleted($task);
+
             $task->delete();
 
             DB::commit();
@@ -923,18 +954,29 @@ class TaskControllerRefactored extends Controller
             ], 403);
         }
 
-        // Get eligible users from same region/sector
+        // Get current user's role and level
+        $currentUserRole = $currentUser->roles->first();
+        $currentUserLevel = $currentUserRole?->level ?? 999;
+
+        // Get eligible users: same level OR lower level (hierarchy-based)
+        // Also support same institution OR subordinate institutions
         $eligibleUsers = User::query()
             ->where('id', '!=', $currentUser->id)
-            ->where('institution_id', $currentUser->institution_id)
-            ->whereHas('roles', function ($query) {
-                $query->whereIn('name', [
-                    'regionadmin',
-                    'regionoperator',
-                    'sektoradmin',
-                    'sektoroperator',
-                    'schooladmin',
-                ]);
+            ->where(function ($query) use ($currentUser) {
+                // Same institution
+                $query->where('institution_id', $currentUser->institution_id);
+
+                // OR subordinate institutions (if user has institutional hierarchy access)
+                if ($currentUser->institution) {
+                    $query->orWhereHas('institution', function ($instQuery) use ($currentUser) {
+                        // Users from institutions under current user's institution
+                        $instQuery->where('parent_id', $currentUser->institution_id);
+                    });
+                }
+            })
+            ->whereHas('roles', function ($query) use ($currentUserLevel) {
+                // Users with same level or lower level (higher level number = lower authority)
+                $query->where('level', '>=', $currentUserLevel);
             })
             ->with(['institution', 'roles'])
             ->get()
@@ -945,12 +987,15 @@ class TaskControllerRefactored extends Controller
                     'email' => $user->email,
                     'role' => $user->roles->first()?->name,
                     'role_display' => $user->roles->first()?->display_name,
+                    'role_level' => $user->roles->first()?->level,
                     'institution' => [
                         'id' => $user->institution?->id,
                         'name' => $user->institution?->name,
                     ],
                 ];
-            });
+            })
+            ->sortBy('role_level')  // Sort by level (lower level first)
+            ->values();
 
         return response()->json([
             'success' => true,
@@ -1015,6 +1060,14 @@ class TaskControllerRefactored extends Controller
                 'updated_by' => $currentUser->id,
             ]);
 
+            // Log delegation
+            $this->auditService->logTaskDelegated(
+                $task,
+                $currentUser->id,
+                $request->new_assignee_id,
+                $request->delegation_reason
+            );
+
             DB::commit();
 
             return response()->json([
@@ -1045,5 +1098,213 @@ class TaskControllerRefactored extends Controller
             'success' => true,
             'history' => $history,
         ]);
+    }
+
+    /**
+     * Submit task for approval
+     */
+    public function submitForApproval(Request $request, Task $task): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$this->permissionService->canUserUpdateTask($task, $user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu tapşırığı yeniləməyə icazəniz yoxdur.',
+            ], 403);
+        }
+
+        if ($task->status !== 'completed') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Yalnız tamamlanmış tapşırıqlar təsdiq üçün göndərilə bilər.',
+            ], 422);
+        }
+
+        if (!$task->requires_approval) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu tapşırıq təsdiq tələb etmir.',
+            ], 422);
+        }
+
+        if ($task->approval_status === 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tapşırıq artıq təsdiq gözləyir.',
+            ], 422);
+        }
+
+        try {
+            $task->update([
+                'approval_status' => 'pending',
+                'submitted_for_approval_at' => now(),
+            ]);
+
+            // Log submission
+            $this->auditService->logSubmittedForApproval($task);
+
+            // Notify approver
+            // TODO: Implement notification
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tapşırıq təsdiq üçün göndərildi.',
+                'data' => $task->fresh(),
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Tapşırıq təsdiq üçün göndərilərkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Approve task
+     */
+    public function approve(Request $request, Task $task): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$user->hasPermissionTo('tasks.approve')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tapşırıq təsdiq etmə səlahiyyətiniz yoxdur.',
+            ], 403);
+        }
+
+        if ($task->approval_status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Yalnız gözləyən tapşırıqlar təsdiq edilə bilər.',
+            ], 422);
+        }
+
+        $request->validate([
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        try {
+            $task->update([
+                'approval_status' => 'approved',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+                'approval_notes' => $request->notes,
+            ]);
+
+            // Log approval
+            $this->auditService->logTaskApproved($task, $request->notes);
+
+            // Notify creator
+            // TODO: Implement notification
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tapşırıq təsdiqləndi.',
+                'data' => $task->fresh(['creator', 'approver']),
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Tapşırıq təsdiqlənərkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Reject task
+     */
+    public function reject(Request $request, Task $task): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$user->hasPermissionTo('tasks.approve')) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tapşırıq rədd etmə səlahiyyətiniz yoxdur.',
+            ], 403);
+        }
+
+        if ($task->approval_status !== 'pending') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Yalnız gözləyən tapşırıqlar rədd edilə bilər.',
+            ], 422);
+        }
+
+        $request->validate([
+            'notes' => 'required|string|max:1000',
+        ]);
+
+        try {
+            $task->update([
+                'approval_status' => 'rejected',
+                'approved_by' => $user->id,
+                'approved_at' => now(),
+                'approval_notes' => $request->notes,
+                'status' => 'pending', // Reset status for rework
+            ]);
+
+            // Log rejection
+            $this->auditService->logTaskRejected($task, $request->notes);
+
+            // Notify creator
+            // TODO: Implement notification
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tapşırıq rədd edildi.',
+                'data' => $task->fresh(['creator', 'approver']),
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Tapşırıq rədd edilərkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Get approval history for a task
+     */
+    public function getApprovalHistory(Task $task): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$this->permissionService->canUserAccessTask($task, $user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu tapşırığa giriş icazəniz yoxdur.',
+            ], 403);
+        }
+
+        try {
+            $history = $this->auditService->getApprovalHistory($task);
+
+            return response()->json([
+                'success' => true,
+                'history' => $history,
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Təsdiq tarixçəsi alınarkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Get task audit history
+     */
+    public function getAuditHistory(Task $task): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (!$this->permissionService->canUserAccessTask($task, $user)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu tapşırığa giriş icazəniz yoxdur.',
+            ], 403);
+        }
+
+        try {
+            $history = $this->auditService->getTaskHistory($task);
+
+            return response()->json([
+                'success' => true,
+                'history' => $history,
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Audit tarixçəsi alınarkən xəta baş verdi.');
+        }
     }
 }

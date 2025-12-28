@@ -17,6 +17,10 @@ import { Task, taskService } from '@/services/tasks';
 import { Skeleton } from '@/components/ui/skeleton';
 import { AlertTriangle, CheckCircle, Clock, User, Building2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { TaskApprovalBadge } from './TaskApprovalBadge';
+import { TaskApprovalActions } from './TaskApprovalActions';
+import { TaskApprovalHistory } from './TaskApprovalHistory';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface TaskDetailsDrawerProps {
   taskId: number | null;
@@ -42,6 +46,8 @@ const DetailRow = ({ label, value }: { label: string; value?: string | number | 
 );
 
 export const TaskDetailsDrawer = ({ taskId, open, onOpenChange, fallbackTask }: TaskDetailsDrawerProps) => {
+  const { user: currentUser } = useAuth();
+
   const {
     data: detailedTask,
     isLoading,
@@ -54,6 +60,18 @@ export const TaskDetailsDrawer = ({ taskId, open, onOpenChange, fallbackTask }: 
   });
 
   const task = useMemo(() => detailedTask ?? fallbackTask ?? null, [detailedTask, fallbackTask]);
+
+  // Check if user can approve tasks
+  const userCanApprove = useMemo(() => {
+    if (!currentUser) return false;
+    return currentUser.permissions?.includes('tasks.approve') || false;
+  }, [currentUser]);
+
+  // Check if current user is the task creator
+  const userIsCreator = useMemo(() => {
+    if (!currentUser || !task) return false;
+    return task.created_by === currentUser.id;
+  }, [currentUser, task]);
 
   const statusChip = useMemo(() => {
     if (!task) return null;
@@ -192,6 +210,26 @@ export const TaskDetailsDrawer = ({ taskId, open, onOpenChange, fallbackTask }: 
             )}
           </div>
         </section>
+
+        {/* Approval Workflow Section */}
+        {task.requires_approval && (
+          <>
+            <Separator />
+            <section className="space-y-3">
+              <h4 className="text-sm font-semibold">Təsdiq Əməliyyatları</h4>
+              <TaskApprovalActions
+                task={task}
+                userCanApprove={userCanApprove}
+                userIsCreator={userIsCreator}
+              />
+            </section>
+
+            <Separator />
+            <section>
+              <TaskApprovalHistory taskId={task.id} />
+            </section>
+          </>
+        )}
       </div>
     );
   };
@@ -202,9 +240,15 @@ export const TaskDetailsDrawer = ({ taskId, open, onOpenChange, fallbackTask }: 
         <DrawerHeader className="border-b pb-4">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <DrawerTitle className="flex items-center gap-2">
+              <DrawerTitle className="flex items-center gap-2 flex-wrap">
                 {task?.title || 'Tapşırıq detalları'}
                 {statusChip}
+                {task && (
+                  <TaskApprovalBadge
+                    approvalStatus={task.approval_status}
+                    requiresApproval={task.requires_approval}
+                  />
+                )}
               </DrawerTitle>
               <DrawerDescription className="mt-1">
                 ID: {task?.id ?? taskId ?? '—'}

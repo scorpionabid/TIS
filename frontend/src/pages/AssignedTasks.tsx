@@ -160,6 +160,19 @@ const AssignedTasks = () => {
   const error = activeQuery.error as Error | null | undefined;
   const tasks = Array.isArray(activeQuery.data?.data) ? (activeQuery.data?.data as Task[]) : [];
 
+  // DEBUG: Log to check data flow
+  useEffect(() => {
+    console.log('🔍 AssignedTasks Debug:', {
+      activeTab,
+      hasAccess,
+      isLoading,
+      error: error?.message,
+      rawResponse: activeQuery.data,
+      tasksCount: tasks.length,
+      tasks: tasks.map(t => ({ id: t.id, title: t.title, status: t.status })),
+    });
+  }, [activeTab, hasAccess, isLoading, error, activeQuery.data, tasks]);
+
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
 
@@ -497,8 +510,24 @@ const AssignedTasks = () => {
           <TableBody>
             {filteredTasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                  Bu kriteriyalara uyğun tapşırıq tapılmadı.
+                <TableCell colSpan={8} className="h-24 text-center">
+                  <div className="space-y-2">
+                    <p className="text-muted-foreground">Bu kriteriyalara uyğun tapşırıq tapılmadı.</p>
+                    {/* DEBUG INFO */}
+                    <details className="text-xs text-left">
+                      <summary className="cursor-pointer text-blue-600">🔍 Debug Məlumat</summary>
+                      <pre className="mt-2 p-2 bg-gray-50 rounded overflow-auto">
+                        {JSON.stringify({
+                          activeTab,
+                          hasAccess,
+                          isLoading,
+                          tasksCount: tasks.length,
+                          filteredCount: filteredTasks.length,
+                          filters: { searchTerm, statusFilter },
+                        }, null, 2)}
+                      </pre>
+                    </details>
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (

@@ -471,6 +471,21 @@ class ApiClientOptimized {
         });
       }
 
+      // Log TASKS response (assigned-to-me) - ALWAYS (even in production for debugging)
+      if (response.url.includes('/tasks/assigned-to-me')) {
+        console.log('📦 TASKS ASSIGNED API RESPONSE:', {
+          url: response.url,
+          hasData: 'data' in data,
+          hasSuccess: 'success' in data,
+          dataType: typeof data.data,
+          dataIsArray: Array.isArray(data.data),
+          dataLength: Array.isArray(data.data) ? data.data.length : 0,
+          topLevelKeys: Object.keys(data),
+          firstTask: Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : null,
+          fullResponse: data
+        });
+      }
+
       return data;
     } else {
       if (!response.ok) {

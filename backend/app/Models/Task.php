@@ -34,6 +34,9 @@ class Task extends Model
         'completion_notes',
         'attachments',
         'requires_approval',
+        'approval_status',
+        'submitted_for_approval_at',
+        'approval_notes',
         'approved_by',
         'approved_at',
     ];
@@ -42,6 +45,7 @@ class Task extends Model
         'deadline' => 'datetime',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'submitted_for_approval_at' => 'datetime',
         'approved_at' => 'datetime',
         'target_institutions' => 'array',
         'target_departments' => 'array',
