@@ -259,16 +259,7 @@ export function TasksTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  {task.assignee && task.assignee.name ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-xs">
-                        {task.assignee.name.charAt(0).toUpperCase()}
-                      </div>
-                      <span className="text-sm">{task.assignee.name}</span>
-                    </div>
-                  ) : (
-                    <span className="text-muted-foreground">-</span>
-                  )}
+                  {renderAssignees(task)}
                 </TableCell>
                 <TableCell>
                   <TaskPriorityBadge priority={task.priority} />
