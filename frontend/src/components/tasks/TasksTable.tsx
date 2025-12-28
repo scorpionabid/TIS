@@ -9,6 +9,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Task } from "@/services/tasks";
 import { TaskStatusBadge } from "@/components/tasks/TaskStatusBadge";
 import { TaskPriorityBadge } from "@/components/tasks/TaskPriorityBadge";
@@ -33,6 +39,7 @@ import {
   Loader2,
 } from "lucide-react";
 import React from "react";
+import { cn } from "@/lib/utils";
 
 type PaginationMeta = {
   current_page?: number;
@@ -63,11 +70,11 @@ type TasksTableProps = {
 };
 
 const sortableColumns: Array<{ field: SortField; label: string; className?: string }> = [
-  { field: "title", label: "Tapşırıq", className: "w-[320px]" },
-  { field: "assignee", label: "Məsul şəxslər", className: "w-[260px]" },
-  { field: "priority", label: "Prioritet" },
-  { field: "status", label: "Status" },
-  { field: "deadline", label: "Son tarix" },
+  { field: "title", label: "Tapşırıq", className: "w-[350px]" },
+  { field: "assignee", label: "Məsul şəxslər", className: "w-[280px]" },
+  { field: "priority", label: "", className: "w-[40px]" },
+  { field: "status", label: "", className: "w-[40px]" },
+  { field: "deadline", label: "Son tarix", className: "w-[120px]" },
 ];
 
 const assigneeAvatarColors = [
@@ -83,6 +90,23 @@ const getAssigneeInitials = (name: string) => {
     return parts[0].slice(0, 2).toUpperCase();
   }
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
+// Priority dot colors and labels
+const priorityConfig = {
+  urgent: { color: "bg-red-500", label: "Təcili" },
+  high: { color: "bg-orange-500", label: "Yüksək" },
+  medium: { color: "bg-yellow-500", label: "Orta" },
+  low: { color: "bg-green-500", label: "Aşağı" },
+};
+
+// Status dot colors and labels
+const statusConfig = {
+  pending: { color: "bg-gray-400", label: "Gözləyir" },
+  in_progress: { color: "bg-blue-500", label: "Davam edir" },
+  review: { color: "bg-purple-500", label: "Yoxlanır" },
+  completed: { color: "bg-green-500", label: "Tamamlandı" },
+  cancelled: { color: "bg-red-500", label: "Ləğv edildi" },
 };
 
 export function TasksTable({
@@ -200,18 +224,27 @@ export function TasksTable({
           <TableRow>
             {sortableColumns.map((column) => (
               <TableHead key={column.field} className={column.className}>
-                <Button
-                  variant="ghost"
-                  onClick={() => onSort(column.field)}
-                  className="h-auto p-0 font-semibold hover:bg-transparent"
-                >
-                  {column.label}
-                  {getSortIcon(column.field)}
-                </Button>
+                {column.label ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => onSort(column.field)}
+                    className="h-auto p-0 font-semibold hover:bg-transparent"
+                  >
+                    {column.label}
+                    {getSortIcon(column.field)}
+                  </Button>
+                ) : (
+                  <div className="flex items-center justify-center">
+                    <div
+                      className="w-2 h-2 rounded-full bg-muted-foreground/30"
+                      title={column.field === "priority" ? "Prioritet" : "Status"}
+                    />
+                  </div>
+                )}
               </TableHead>
             ))}
             <TableHead>İrəliləyiş</TableHead>
-            <TableHead className="text-right w-[120px]">Əməliyyat</TableHead>
+            <TableHead className="text-right w-[60px]"></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -261,11 +294,17 @@ export function TasksTable({
                 <TableCell>
                   {renderAssignees(task)}
                 </TableCell>
-                <TableCell>
-                  <TaskPriorityBadge priority={task.priority} />
+                <TableCell className="text-center">
+                  <div
+                    className={cn("w-2.5 h-2.5 rounded-full mx-auto", priorityConfig[task.priority]?.color)}
+                    title={priorityConfig[task.priority]?.label}
+                  />
                 </TableCell>
-                <TableCell>
-                  <TaskStatusBadge status={task.status} />
+                <TableCell className="text-center">
+                  <div
+                    className={cn("w-2.5 h-2.5 rounded-full mx-auto", statusConfig[task.status]?.color)}
+                    title={statusConfig[task.status]?.label}
+                  />
                 </TableCell>
                 <TableCell>
                   <div className="text-sm">{formatDate(task.deadline)}</div>
@@ -282,39 +321,39 @@ export function TasksTable({
                   </div>
                 </TableCell>
                 <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => onViewTask(task)}
-                    >
-                      <span className="sr-only">Ətraflı bax</span>
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                    {canEditTaskItem(task) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => onEditTask(task)}
                       >
-                        <span className="sr-only">Redaktə et</span>
-                        <Edit className="h-4 w-4" />
+                        <span className="sr-only">Əməliyyatlar</span>
+                        <MoreHorizontal className="h-4 w-4" />
                       </Button>
-                    )}
-                    {canDeleteTaskItem(task) && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => onDeleteTask(task)}
-                      >
-                        <span className="sr-only">Tapşırığı sil</span>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => onViewTask(task)}>
+                        <Eye className="h-4 w-4 mr-2" />
+                        Ətraflı bax
+                      </DropdownMenuItem>
+                      {canEditTaskItem(task) && (
+                        <DropdownMenuItem onClick={() => onEditTask(task)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Redaktə et
+                        </DropdownMenuItem>
+                      )}
+                      {canDeleteTaskItem(task) && (
+                        <DropdownMenuItem
+                          onClick={() => onDeleteTask(task)}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Sil
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))
