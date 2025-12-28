@@ -109,6 +109,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Specialized Module Routes
     require __DIR__ . '/api/specialized.php';
+
+    // Teacher Rating System Routes
+    require __DIR__ . '/api/teacher-rating.php';
 });
 Route::get('/test-approval', function () {
     return response()->json(['status' => 'working']);
