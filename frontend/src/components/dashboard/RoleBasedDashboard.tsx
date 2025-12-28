@@ -6,29 +6,34 @@ import { AlertTriangle, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 // Lazy load dashboard components for better performance
-const SchoolAdminDashboard = lazy(() => 
+const SchoolAdminDashboard = lazy(() =>
   import('./SchoolAdminDashboard').then(module => ({
     default: module.SchoolAdminDashboard
   }))
 );
-const MuavinDashboard = lazy(() => 
+const MuavinDashboard = lazy(() =>
   import('./MuavinDashboard').then(module => ({
     default: module.MuavinDashboard
   }))
 );
-const UBRDashboard = lazy(() => 
+const UBRDashboard = lazy(() =>
   import('./UBRDashboard').then(module => ({
     default: module.UBRDashboard
   }))
 );
-const TesarrufatDashboard = lazy(() => 
+const TesarrufatDashboard = lazy(() =>
   import('./TesarrufatDashboard').then(module => ({
     default: module.TesarrufatDashboard
   }))
 );
-const PsixoloquDashboard = lazy(() => 
+const PsixoloquDashboard = lazy(() =>
   import('./PsixoloquDashboard').then(module => ({
     default: module.PsixoloquDashboard
+  }))
+);
+const TeacherDashboard = lazy(() =>
+  import('./TeacherDashboard').then(module => ({
+    default: module.TeacherDashboard
   }))
 );
 
@@ -138,11 +143,10 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ classNam
       );
     
     case SCHOOL_ROLES.MUELLIM:
-      // Teachers use a simplified version of the school admin dashboard
-      // with limited functionality based on their permissions
+      // Teachers use their own dedicated dashboard
       return (
         <Suspense fallback={<DashboardLoader />}>
-          <SchoolAdminDashboard className={className} />
+          <TeacherDashboard className={className} />
         </Suspense>
       );
     

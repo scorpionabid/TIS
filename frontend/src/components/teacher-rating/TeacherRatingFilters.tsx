@@ -12,6 +12,8 @@ import { Button } from '../ui/button';
 import { Search, X } from 'lucide-react';
 import type { TeacherRatingFilters } from '../../types/teacherRating';
 
+const ALL_OPTION_VALUE = '__ALL__';
+
 interface TeacherRatingFiltersProps {
   filters: TeacherRatingFilters;
   onChange: (filters: TeacherRatingFilters) => void;
@@ -78,16 +80,23 @@ export function TeacherRatingFiltersComponent({
         <div className="space-y-2">
           <Label htmlFor="academicYear">Tədris İli</Label>
           <Select
-            value={filters.academicYearId?.toString() || ''}
+            value={
+              filters.academicYearId === null || filters.academicYearId === undefined
+                ? ALL_OPTION_VALUE
+                : filters.academicYearId.toString()
+            }
             onValueChange={(value) =>
-              handleChange('academicYearId', value ? parseInt(value) : null)
+              handleChange(
+                'academicYearId',
+                value === ALL_OPTION_VALUE ? null : parseInt(value)
+              )
             }
           >
             <SelectTrigger id="academicYear">
               <SelectValue placeholder="Hamısı" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Hamısı</SelectItem>
+              <SelectItem value={ALL_OPTION_VALUE}>Hamısı</SelectItem>
               {academicYears.map((year) => (
                 <SelectItem key={year.id} value={year.id.toString()}>
                   {year.name}
@@ -101,16 +110,23 @@ export function TeacherRatingFiltersComponent({
         <div className="space-y-2">
           <Label htmlFor="school">Məktəb</Label>
           <Select
-            value={filters.schoolId?.toString() || ''}
+            value={
+              filters.schoolId === null || filters.schoolId === undefined
+                ? ALL_OPTION_VALUE
+                : filters.schoolId.toString()
+            }
             onValueChange={(value) =>
-              handleChange('schoolId', value ? parseInt(value) : null)
+              handleChange(
+                'schoolId',
+                value === ALL_OPTION_VALUE ? null : parseInt(value)
+              )
             }
           >
             <SelectTrigger id="school">
               <SelectValue placeholder="Hamısı" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Hamısı</SelectItem>
+              <SelectItem value={ALL_OPTION_VALUE}>Hamısı</SelectItem>
               {schools.map((school) => (
                 <SelectItem key={school.id} value={school.id.toString()}>
                   {school.name}
@@ -124,16 +140,23 @@ export function TeacherRatingFiltersComponent({
         <div className="space-y-2">
           <Label htmlFor="subject">Fənn</Label>
           <Select
-            value={filters.subjectId?.toString() || ''}
+            value={
+              filters.subjectId === null || filters.subjectId === undefined
+                ? ALL_OPTION_VALUE
+                : filters.subjectId.toString()
+            }
             onValueChange={(value) =>
-              handleChange('subjectId', value ? parseInt(value) : null)
+              handleChange(
+                'subjectId',
+                value === ALL_OPTION_VALUE ? null : parseInt(value)
+              )
             }
           >
             <SelectTrigger id="subject">
               <SelectValue placeholder="Hamısı" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Hamısı</SelectItem>
+              <SelectItem value={ALL_OPTION_VALUE}>Hamısı</SelectItem>
               {subjects.map((subject) => (
                 <SelectItem key={subject.id} value={subject.id.toString()}>
                   {subject.name}
@@ -147,14 +170,16 @@ export function TeacherRatingFiltersComponent({
         <div className="space-y-2">
           <Label htmlFor="ageBand">Yaş Qrupu</Label>
           <Select
-            value={filters.ageBand || ''}
-            onValueChange={(value) => handleChange('ageBand', value || null)}
+            value={filters.ageBand ?? ALL_OPTION_VALUE}
+            onValueChange={(value) =>
+              handleChange('ageBand', value === ALL_OPTION_VALUE ? null : value)
+            }
           >
             <SelectTrigger id="ageBand">
               <SelectValue placeholder="Hamısı" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Hamısı</SelectItem>
+              <SelectItem value={ALL_OPTION_VALUE}>Hamısı</SelectItem>
               <SelectItem value="20-29">20-29</SelectItem>
               <SelectItem value="30-39">30-39</SelectItem>
               <SelectItem value="40-49">40-49</SelectItem>
@@ -170,7 +195,7 @@ export function TeacherRatingFiltersComponent({
           <Select
             value={
               filters.isActive === null
-                ? ''
+                ? ALL_OPTION_VALUE
                 : filters.isActive
                 ? 'active'
                 : 'inactive'
@@ -178,7 +203,7 @@ export function TeacherRatingFiltersComponent({
             onValueChange={(value) =>
               handleChange(
                 'isActive',
-                value === '' ? null : value === 'active'
+                value === ALL_OPTION_VALUE ? null : value === 'active'
               )
             }
           >
@@ -186,7 +211,7 @@ export function TeacherRatingFiltersComponent({
               <SelectValue placeholder="Hamısı" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Hamısı</SelectItem>
+              <SelectItem value={ALL_OPTION_VALUE}>Hamısı</SelectItem>
               <SelectItem value="active">Aktiv</SelectItem>
               <SelectItem value="inactive">Qeyri-aktiv</SelectItem>
             </SelectContent>

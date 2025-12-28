@@ -823,7 +823,6 @@ const App = () => {
                 <LazyWrapper>
                   <RoleProtectedRoute
                     allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}
-                    requiredPermissions={['teacher_rating.view_own']}
                   >
                     <TeacherOwnRating />
                   </RoleProtectedRoute>

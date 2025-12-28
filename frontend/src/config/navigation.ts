@@ -344,8 +344,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'teacher-own-rating',
             label: 'Mənim Reytinqim',
             path: '/teacher/rating/profile',
-            roles: [USER_ROLES.MUELLIM],
-            requiredPermissions: ['teacher_rating.view_own']
+            roles: [USER_ROLES.MUELLIM]
           }
         ]
       }
