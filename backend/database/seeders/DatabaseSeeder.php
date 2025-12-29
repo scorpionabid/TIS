@@ -20,6 +20,8 @@ class DatabaseSeeder extends Seeder
         $coreSeeders = [
             RoleSeeder::class,
             PermissionSeeder::class,
+            TeacherRatingPermissionSeeder::class, // Teacher rating permissions
+            StaffRatingPermissionSeeder::class,   // Staff rating permissions
             SuperAdminSeeder::class, // Create superadmin after roles
             SystemConfigSeeder::class,
         ];
