@@ -192,10 +192,35 @@ export const improvedNavigationConfig: MenuGroup[] = [
       {
         id: 'resources',
         label: 'Resurs İdarəetməsi',
-        path: '/resources',
         icon: Archive,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
-        description: 'Linklər, sənədlər və folderlərin paylaşılması'
+        description: 'Linklər, sənədlər və folderlərin paylaşılması',
+        children: [
+          {
+            id: 'resources-links',
+            label: 'Linklər',
+            path: '/resources/links',
+            icon: Link,
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+            description: 'Paylaşılan linkləri idarə edin'
+          },
+          {
+            id: 'resources-documents',
+            label: 'Sənədlər',
+            path: '/resources/documents',
+            icon: FileText,
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+            description: 'Rəsmi sənəd resurslarını izləyin'
+          },
+          {
+            id: 'resources-folders',
+            label: 'Folderlər',
+            path: '/resources/folders',
+            icon: Folder,
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+            description: 'Regional folder strukturlarını idarə edin'
+          }
+        ]
       },
       {
         id: 'my-resources',

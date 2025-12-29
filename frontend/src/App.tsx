@@ -33,7 +33,10 @@ const SurveyArchive = lazy(() => import("./pages/SurveyArchive"));
 const SurveyResponse = lazy(() => import("./pages/SurveyResponse"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const AssignedTasks = lazy(() => import("./pages/AssignedTasks"));
-const Resources = lazy(() => import("./pages/Resources"));
+const ResourcesRedirect = lazy(() => import("./pages/ResourcesRedirect"));
+const ResourcesLinksPage = lazy(() => import("./pages/resources/LinksPage"));
+const ResourcesDocumentsPage = lazy(() => import("./pages/resources/DocumentsPage"));
+const ResourcesFoldersPage = lazy(() => import("./pages/resources/FoldersPage"));
 const MyResources = lazy(() => import("./pages/MyResources"));
 const Reports = lazy(() => import("./pages/Reports"));
 const InstitutionTypesManagement = lazy(() => import("./pages/InstitutionTypesManagement"));
@@ -485,13 +488,16 @@ const App = () => {
                 }
               />
 
-              {/* New unified Resources page */}
-              <Route path="resources" element={<LazyWrapper><Resources /></LazyWrapper>} />
+              {/* Resources section routes */}
+              <Route path="resources" element={<LazyWrapper><ResourcesRedirect /></LazyWrapper>} />
+              <Route path="resources/links" element={<LazyWrapper><ResourcesLinksPage /></LazyWrapper>} />
+              <Route path="resources/documents" element={<LazyWrapper><ResourcesDocumentsPage /></LazyWrapper>} />
+              <Route path="resources/folders" element={<LazyWrapper><ResourcesFoldersPage /></LazyWrapper>} />
               <Route path="my-resources" element={<LazyWrapper><MyResources /></LazyWrapper>} />
 
-              {/* Redirect old paths to new unified page */}
-              <Route path="documents" element={<Navigate to="/resources?tab=documents" replace />} />
-              <Route path="links" element={<Navigate to="/resources?tab=links" replace />} />
+              {/* Redirect old paths to new resources routes */}
+              <Route path="documents" element={<Navigate to="/resources/documents" replace />} />
+              <Route path="links" element={<Navigate to="/resources/links" replace />} />
 
               <Route path="reports" element={
                 <LazyWrapper>
@@ -750,7 +756,7 @@ const App = () => {
                     </RoleProtectedRoute>
                   </LazyWrapper>
                 } />
-                <Route path="regionadmin/folders" element={<Navigate to="/resources?tab=folders" replace />} />
+                <Route path="regionadmin/folders" element={<Navigate to="/resources/folders" replace />} />
                 <Route path="regionadmin/schedule-dashboard" element={
                   <LazyWrapper>
                     <RegionalSchedulesDashboard />
