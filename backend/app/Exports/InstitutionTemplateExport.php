@@ -272,7 +272,7 @@ class InstitutionTemplateExport implements FromArray, WithColumnWidths, WithHead
             'staff_count (İşçi sayı)',
             'founded_year (Təsis ili)',
             'established_date (Təsis tarixi YYYY-MM-DD)',
-            'utis_code (UTIS kodu - könüllü, 8 rəqəmli)',
+            'utis_code (UTIS kodu - könüllü, 8-12 rəqəmli)',
         ];
     }
 

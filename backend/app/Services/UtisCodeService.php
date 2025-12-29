@@ -20,7 +20,8 @@ class UtisCodeService
     }
 
     /**
-     * Generate unique UTIS code for institutions (schools/kindergartens) - 8 digits
+     * Generate unique UTIS code for institutions (schools/kindergartens) - 8 digits (legacy format)
+     * Validation layer supports up to 12 digits when codes are provided externally.
      */
     public static function generateInstitutionUtisCode(): string
     {
@@ -97,7 +98,7 @@ class UtisCodeService
         if ($type === 'user') {
             return preg_match('/^\d{7}$/', $code);
         } elseif ($type === 'institution') {
-            return preg_match('/^\d{8}$/', $code);
+            return preg_match('/^\d{8,12}$/', $code);
         }
 
         return false;

@@ -72,6 +72,12 @@ const TeacherRatingComparison = lazy(() => import("./pages/regionadmin/TeacherRa
 const TeacherRatingConfiguration = lazy(() => import("./pages/regionadmin/TeacherRatingConfiguration"));
 const TeacherOwnRating = lazy(() => import("./pages/teacher/TeacherOwnRating"));
 
+// Staff Rating pages
+const MyRating = lazy(() => import("./pages/staff-rating/MyRating"));
+const RatingDashboard = lazy(() => import("./pages/staff-rating/RatingDashboard"));
+const DirectorManagement = lazy(() => import("./pages/staff-rating/DirectorManagement"));
+const RatingConfiguration = lazy(() => import("./pages/staff-rating/RatingConfiguration"));
+
 // School pages  
 const SchoolTeachers = lazy(() => import("./pages/school/SchoolTeachers"));
 const SchoolClasses = lazy(() => import("./pages/school/SchoolClasses"));
@@ -713,6 +719,37 @@ const App = () => {
                   </LazyWrapper>
                 } />
 
+                {/* Staff Rating Routes (Directors, SektorAdmin, RegionOperator) */}
+                <Route path="regionadmin/staff-rating/dashboard" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                      requiredPermissions={['staff_rating.view']}
+                    >
+                      <RatingDashboard />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
+                <Route path="regionadmin/staff-rating/directors" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]}
+                      requiredPermissions={['staff_rating.manage_directors']}
+                    >
+                      <DirectorManagement />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
+                <Route path="regionadmin/staff-rating/configuration" element={
+                  <LazyWrapper>
+                    <RoleProtectedRoute
+                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN]}
+                      requiredPermissions={['staff_rating.configure']}
+                    >
+                      <RatingConfiguration />
+                    </RoleProtectedRoute>
+                  </LazyWrapper>
+                } />
                 <Route path="regionadmin/folders" element={<Navigate to="/resources?tab=folders" replace />} />
                 <Route path="regionadmin/schedule-dashboard" element={
                   <LazyWrapper>
@@ -725,6 +762,24 @@ const App = () => {
                   </LazyWrapper>
                 } />
               </Route>
+
+              {/* Staff Rating - My Rating (accessible to all staff) */}
+              <Route path="/staff-rating/my-rating" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute
+                    allowedRoles={[
+                      USER_ROLES.SUPERADMIN,
+                      USER_ROLES.REGIONADMIN,
+                      USER_ROLES.REGIONOPERATOR,
+                      USER_ROLES.SEKTORADMIN,
+                      USER_ROLES.SCHOOLADMIN
+                    ]}
+                    requiredPermissions={['view_staff_ratings']}
+                  >
+                    <MyRating />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
 
               {/* REDIRECTS for old routes - backward compatibility */}
               <Route path="my-documents" element={<Navigate to="/my-resources?tab=folders" replace />} />

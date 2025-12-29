@@ -501,7 +501,14 @@ class PermissionSeeder extends Seeder
                 $permissionObjects = Permission::whereIn('name', $permissions)
                     ->where('guard_name', $guard)
                     ->get();
-                $role->syncPermissions($permissionObjects);
+
+                // Use givePermissionTo instead of syncPermissions to avoid removing permissions
+                // added by other seeders (e.g., StaffRatingPermissionSeeder, TeacherRatingPermissionSeeder)
+                foreach ($permissionObjects as $permission) {
+                    if (!$role->hasPermissionTo($permission)) {
+                        $role->givePermissionTo($permission);
+                    }
+                }
             }
         }
     }

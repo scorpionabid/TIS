@@ -112,6 +112,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Teacher Rating System Routes
     require __DIR__ . '/api/teacher-rating.php';
+
+    // Staff Rating System Routes (Directors, SektorAdmin, RegionOperator)
+    require __DIR__ . '/api/staff-rating.php';
 });
 Route::get('/test-approval', function () {
     return response()->json(['status' => 'working']);

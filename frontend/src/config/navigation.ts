@@ -146,7 +146,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'school-assessments-manage',
             label: 'Qiymətləndirmə İdarəetməsi',
             path: '/school/assessments',
-            icon: TrendingUp,
+            icon: 'TrendingUp',
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
             description: 'Qiymətləndirmə kampaniyalarını yaradın və izləyin'
           },
@@ -250,7 +250,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
           }
         ]
-      }
+      },
     ]
   },
 
@@ -345,6 +345,42 @@ export const improvedNavigationConfig: MenuGroup[] = [
             label: 'Mənim Reytinqim',
             path: '/teacher/rating/profile',
             roles: [USER_ROLES.MUELLIM]
+          }
+        ]
+      },
+      {
+        id: 'staff-rating',
+        label: 'Personal Reytinqi',
+        icon: 'TrendingUp',
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+        children: [
+          {
+            id: 'my-staff-rating',
+            label: 'Mənim Reytinqim',
+            path: '/staff-rating/my-rating',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+            requiredPermissions: ['view_staff_ratings']
+          },
+          {
+            id: 'staff-rating-dashboard',
+            label: 'Dashboard',
+            path: '/regionadmin/staff-rating/dashboard',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR],
+            requiredPermissions: ['staff_rating.view']
+          },
+          {
+            id: 'staff-rating-directors',
+            label: 'Direktor İdarəetməsi',
+            path: '/regionadmin/staff-rating/directors',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+            requiredPermissions: ['staff_rating.manage_directors']
+          },
+          {
+            id: 'staff-rating-config',
+            label: 'Konfiqurasiya',
+            path: '/regionadmin/staff-rating/configuration',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+            requiredPermissions: ['staff_rating.configure']
           }
         ]
       }

@@ -1,12 +1,19 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronRight, Circle } from 'lucide-react';
+import { ChevronRight, Circle, Award, TrendingUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { MenuGroup, MenuItem } from '@/config/navigation';
 import { useSidebarBehavior } from '@/hooks/useSidebar';
+
+// Icon mapping for string-based icons
+const iconMap: Record<string, React.ComponentType<any>> = {
+  Award,
+  TrendingUp,
+  Circle,
+};
 
 interface SidebarMenuProps {
   menuGroups: MenuGroup[];
@@ -30,7 +37,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
     const hasChildren = item.children && item.children.length > 0;
     const isItemActive = isActive(item.path);
     const isGroupOpen = openGroups.includes(item.id);
-    const IconComponent = item.icon ?? Circle;
+    const IconComponent = typeof item.icon === 'string' ? (iconMap[item.icon] ?? Circle) : (item.icon ?? Circle);
 
     if (!isExpanded && !hasChildren) {
       return (

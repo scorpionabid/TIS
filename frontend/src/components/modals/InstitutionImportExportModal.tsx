@@ -488,7 +488,7 @@ export function InstitutionImportExportModal({
                   <li>• Mövcud məlumatlar template-də əvvəlcədən doldurulacaq</li>
                   <li>• Yalnız dəyişdirmək istədiyiniz sahələri yeniləyin</li>
                   <li>• Sütun başlıqlarını dəyişdirməyin</li>
-                  <li>• UTIS kodları 8 rəqəmli olmalıdır (məcburi deyil)</li>
+                  <li>• UTIS kodları 8-12 rəqəm arasında ola bilər (məcburi deyil)</li>
                 </ul>
               </div>
             </div>

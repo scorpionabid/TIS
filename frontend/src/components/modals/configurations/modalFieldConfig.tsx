@@ -124,12 +124,12 @@ export const institutionFields = {
   }),
   
   utisCode: createField('utis_code', 'UTIS Kodu', 'text', {
-    placeholder: '8 rəqəmli UTIS kodu',
-    description: 'UTIS kodu 8 rəqəmdən ibarət olmalıdır (məsələn: 12345678). Könüllü sahədir.',
+    placeholder: '8-12 rəqəmli UTIS kodu',
+    description: 'UTIS kodu 8-12 rəqəmdən ibarət olmalıdır (məsələn: 123456789012). Könüllü sahədir.',
     validation: (value: string) => {
       if (!value) return true;
-      if (!/^\d{8}$/.test(value)) {
-        return 'UTIS kodu 8 rəqəmdən ibarət olmalıdır';
+      if (!/^\d{8,12}$/.test(value)) {
+        return 'UTIS kodu 8-12 rəqəmdən ibarət olmalıdır';
       }
       return true;
     },
