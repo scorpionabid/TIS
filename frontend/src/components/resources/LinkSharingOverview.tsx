@@ -242,11 +242,12 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
           parent_id: normalized.parent_id ?? normalized.parent?.id ?? null,
         };
       } catch (error: any) {
-        // Cache 404 errors to prevent retry loops
-        if (error?.response?.status === 404 || error?.status === 404) {
+        // Cache 404 and 403 errors to prevent retry loops
+        if (error?.response?.status === 404 || error?.status === 404 ||
+            error?.response?.status === 403 || error?.status === 403) {
           failedInstitutionIds.current.add(institutionId);
           console.warn(
-            "Institution not found (404) - caching to prevent retries:",
+            `Institution ${error?.response?.status === 403 || error?.status === 403 ? 'access denied (403)' : 'not found (404)'} - caching to prevent retries:`,
             institutionId
           );
         } else {

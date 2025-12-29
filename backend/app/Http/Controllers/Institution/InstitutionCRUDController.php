@@ -140,7 +140,80 @@ class InstitutionCRUDController extends Controller
      */
     public function show(Institution $institution): JsonResponse
     {
+        $user = Auth::user();
+
+        // Apply role-based access control for RegionAdmin and below
+        if (!$user->hasRole('superadmin')) {
+            // Check if user can access this institution
+            if (!$this->canAccessInstitution($user, $institution)) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'You do not have permission to access this institution.',
+                ], 403);
+            }
+        }
+
         return response()->json($institution);
+    }
+
+    /**
+     * Check if user can access the given institution based on hierarchy
+     */
+    private function canAccessInstitution($user, Institution $institution): bool
+    {
+        if ($user->hasRole('superadmin')) {
+            return true;
+        }
+
+        $userInstitution = $user->institution;
+        if (!$userInstitution) {
+            return false;
+        }
+
+        if ($user->hasRole('regionadmin')) {
+            // RegionAdmin can access their own region and child institutions
+            if ($userInstitution->level !== 2) {
+                return false;
+            }
+
+            // Their own regional institution
+            if ($institution->id === $userInstitution->id) {
+                return true;
+            }
+
+            // Direct child (sector)
+            if ($institution->parent_id === $userInstitution->id) {
+                return true;
+            }
+
+            // Grandchild (school under sector)
+            if ($institution->parent_id) {
+                $parent = Institution::find($institution->parent_id);
+                if ($parent && $parent->parent_id === $userInstitution->id) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if ($user->hasRole('sektoradmin')) {
+            // SectorAdmin can access their own sector and child schools
+            if ($userInstitution->level !== 3) {
+                return false;
+            }
+
+            return $institution->id === $userInstitution->id ||
+                   $institution->parent_id === $userInstitution->id;
+        }
+
+        if ($user->hasRole('schooladmin')) {
+            // SchoolAdmin can only access their own school
+            return $institution->id === $userInstitution->id;
+        }
+
+        // Other roles have no institution access
+        return false;
     }
 
     /**
