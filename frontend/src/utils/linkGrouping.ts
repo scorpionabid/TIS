@@ -18,6 +18,7 @@ export interface GroupedLink {
   share_scope: string;
   links: Resource[];
   total_count: number;
+  total_clicks: number;
   unique_urls: number;
   latest_created_at: string;
   earliest_created_at: string;
@@ -66,6 +67,7 @@ export function groupLinksByTitle(links: Resource[]): GroupedLink[] {
         share_scope: link.share_scope || 'institutional',
         links: [],
         total_count: 0,
+        total_clicks: 0,
         unique_urls: 0,
         latest_created_at: link.created_at || '',
         earliest_created_at: link.created_at || '',
@@ -76,6 +78,7 @@ export function groupLinksByTitle(links: Resource[]): GroupedLink[] {
     const group = groups.get(key)!;
     group.links.push(link);
     group.total_count++;
+    group.total_clicks += link.click_count || 0;
 
     // Update description if current one is empty and this link has one
     if (!group.description && link.description) {

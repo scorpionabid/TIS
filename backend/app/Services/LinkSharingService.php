@@ -114,6 +114,31 @@ class LinkSharingService extends BaseService
     }
 
     /**
+     * Delete all link shares matching a title
+     */
+    public function deleteLinksByTitle(string $title, $user): int
+    {
+        $links = LinkShare::where('title', $title)->get();
+
+        if ($links->isEmpty()) {
+            return 0;
+        }
+
+        DB::beginTransaction();
+        try {
+            foreach ($links as $linkShare) {
+                $this->crudManager->deleteLinkShare($linkShare, $user);
+            }
+            DB::commit();
+        } catch (\Throwable $exception) {
+            DB::rollBack();
+            throw $exception;
+        }
+
+        return $links->count();
+    }
+
+    /**
      * Access link and log the access
      */
     public function accessLink($linkShare, $request, $user = null)

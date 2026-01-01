@@ -407,6 +407,8 @@ class PermissionSeeder extends Seeder
                 'reports.read',
                 'institutions.read',
                 'links.read',
+                'attendance.read',
+                'attendance.update',
             ],
             'sektoradmin' => [
                 'users.read', 'users.create', 'users.update',

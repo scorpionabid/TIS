@@ -20,6 +20,7 @@ import { AssignableUser } from '@/services/tasks';
 export type LinkSharingOverview = LinkSharingOverviewResponse;
 
 const isDevEnv = typeof import.meta !== 'undefined' ? Boolean(import.meta.env?.DEV) : false;
+const MAX_LINKS_PAGE_SIZE = 1000;
 const debugLog = (...args: unknown[]) => {
   if (isDevEnv) {
     console.log(...args);
@@ -265,6 +266,18 @@ class ResourceService {
    * Fetch link resources using backend pagination metadata
    */
   async getLinksPaginated(filters: ResourceFilters = {}): Promise<ResourceListResponse> {
+    const requestedPerPage = typeof filters.per_page === 'number' ? filters.per_page : undefined;
+    const sanitizedPerPage = typeof requestedPerPage === 'number'
+      ? Math.min(Math.max(requestedPerPage, 1), MAX_LINKS_PAGE_SIZE)
+      : undefined;
+
+    if (requestedPerPage && requestedPerPage > MAX_LINKS_PAGE_SIZE) {
+      debugWarn('⚠️ getLinksPaginated per_page exceeded backend limit, clamping', {
+        requestedPerPage,
+        maxAllowed: MAX_LINKS_PAGE_SIZE,
+      });
+    }
+
     const linkFilters: LinkFilters = {
       search: filters.search,
       link_type: filters.link_type,
@@ -280,7 +293,7 @@ class ResourceService {
       sort_by: filters.sort_by,
       sort_direction: filters.sort_direction,
       page: filters.page,
-      per_page: filters.per_page,
+      per_page: sanitizedPerPage,
       scope: filters.scope,
     };
 
@@ -614,8 +627,24 @@ class ResourceService {
   }
 
   async getAssignedResourcesPaginated(filters: ResourceFilters = {}): Promise<ResourceListResponse> {
-    const resources = await this.getAssignedResources(filters);
-    return this.buildPaginatedResponse(resources, filters.per_page);
+    debugLog('📋 ResourceService.getAssignedResourcesPaginated called', filters);
+    try {
+      const resources = await this.getAssignedResources(filters);
+      return this.buildPaginatedResponse(resources, filters.per_page);
+    } catch (error: any) {
+      if (!this.isForbiddenResourceError(error)) {
+        debugWarn('⚠️ Assigned resources endpoint unavailable, falling back to global links', {
+          filters,
+          error: error?.message,
+        });
+        const fallback = await this.getLinksPaginated({
+          ...filters,
+          scope: 'scoped',
+        });
+        return fallback;
+      }
+      throw error;
+    }
   }
 
   private buildPaginatedResponse(resources: Resource[], perPage?: number): ResourceListResponse {
@@ -828,6 +857,21 @@ class ResourceService {
       return [];
     } catch (error) {
       console.error('❌ Failed to fetch superior institutions:', error);
+      throw error;
+    }
+  }
+
+  async deleteLinkGroupByTitle(title: string): Promise<{ deleted: number; title: string }> {
+    debugLog('🗑️ ResourceService.deleteLinkGroupByTitle called', title);
+    try {
+      const response = await apiClient.delete('/links/bulk-delete-by-title', { title });
+      const payload = (response as any)?.data ?? response ?? {};
+      return {
+        deleted: typeof payload.deleted === 'number' ? payload.deleted : 0,
+        title: payload.title || title,
+      };
+    } catch (error) {
+      console.error('❌ ResourceService.deleteLinkGroupByTitle failed:', error);
       throw error;
     }
   }

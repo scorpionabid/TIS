@@ -36,7 +36,17 @@ class LinkQueryBuilder
      */
     public function getAccessibleLinks(Request $request, $user): LengthAwarePaginator
     {
-        $query = LinkShare::with(['sharedBy', 'institution'])->active();
+        $query = LinkShare::with(['sharedBy', 'institution']);
+
+        // Apply status filter
+        $status = $request->input('status', 'active');
+        if ($status !== 'all') {
+            if ($status === 'active') {
+                $query->active();
+            } else {
+                $query->where('status', $status);
+            }
+        }
 
         // Apply regional hierarchy filtering
         $shouldApplyRegionalFilter = ! ($request->input('scope') === 'global' && $this->permissionService->canViewAllLinks($user));

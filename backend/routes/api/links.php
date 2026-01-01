@@ -20,6 +20,7 @@ Route::prefix('links')->group(function () {
     Route::get('/popular/list', [LinkShareController::class, 'getPopularLinks'])->middleware('permission:links.read');
     Route::get('/featured/list', [LinkShareController::class, 'getFeaturedLinks'])->middleware('permission:links.read');
     Route::get('/grouped-sharing-overview', [LinkShareController::class, 'groupedSharingOverview'])->middleware('permission:links.read');
+    Route::delete('/bulk-delete-by-title', [LinkShareController::class, 'bulkDeleteByTitle'])->middleware('permission:links.delete|links.bulk');
     Route::post('/bulk-create', [LinkShareController::class, 'bulkCreate'])->middleware('permission:links.bulk');
     Route::post('/bulk-delete', [LinkShareController::class, 'bulkDelete'])->middleware('permission:links.bulk');
     Route::get('/bulk-template', [LinkShareController::class, 'downloadBulkTemplate'])->middleware('permission:links.bulk');

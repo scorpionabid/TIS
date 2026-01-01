@@ -55,11 +55,12 @@ class LinkShareControllerRefactored extends BaseController
                 'requires_login' => 'nullable|boolean',
                 'is_active' => 'nullable|boolean',
                 'has_password' => 'nullable|boolean',
+                'status' => 'nullable|string|in:active,disabled,expired,all',
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',
                 'sort_by' => 'nullable|string|in:created_at,expires_at,access_count,document_name',
                 'sort_direction' => 'nullable|string|in:asc,desc',
-                'per_page' => 'nullable|integer|min:1|max:500',
+                'per_page' => 'nullable|integer|min:1|max:1000',
                 'scope' => 'nullable|string|in:scoped,global',
             ]);
 
@@ -124,6 +125,26 @@ class LinkShareControllerRefactored extends BaseController
     }
 
     /**
+     * Bulk delete all links with the provided title
+     */
+    public function bulkDeleteByTitle(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $validated = $request->validate([
+                'title' => 'required|string|max:255',
+            ]);
+
+            $user = Auth::user();
+            $deletedCount = $this->linkSharingService->deleteLinksByTitle($validated['title'], $user);
+
+            return $this->successResponse([
+                'deleted' => $deletedCount,
+                'title' => $validated['title'],
+            ], 'Başlıq üzrə linklər uğurla silindi');
+        }, 'linkshare.bulk_delete_by_title');
+    }
+
+    /**
      * Create new link share
      */
     public function store(Request $request): JsonResponse
@@ -135,6 +156,7 @@ class LinkShareControllerRefactored extends BaseController
                 'description' => 'nullable|string|max:500',
                 'link_type' => 'required|string|in:external,video,form,document',
                 'share_scope' => 'required|string|in:public,regional,sectoral,institutional,specific_users',
+                'institution_id' => 'nullable|integer|exists:institutions,id',
                 'is_featured' => 'boolean',
                 'expires_at' => 'nullable|date|after:now',
                 'target_institutions' => 'nullable|array',

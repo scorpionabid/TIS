@@ -165,6 +165,38 @@ describe('ResourceService.getAll', () => {
   });
 });
 
+describe('ResourceService.getLinksPaginated', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('clamps per_page above backend limit', async () => {
+    mockedLinkService.getAll.mockResolvedValue({
+      data: [],
+      pagination: { total: 0, per_page: 20, current_page: 1 },
+    });
+
+    await resourceService.getLinksPaginated({ per_page: 1000 });
+
+    expect(mockedLinkService.getAll).toHaveBeenCalledWith(
+      expect.objectContaining({ per_page: 500 })
+    );
+  });
+
+  it('passes through valid per_page values', async () => {
+    mockedLinkService.getAll.mockResolvedValue({
+      data: [],
+      pagination: { total: 0, per_page: 20, current_page: 1 },
+    });
+
+    await resourceService.getLinksPaginated({ per_page: 50 });
+
+    expect(mockedLinkService.getAll).toHaveBeenCalledWith(
+      expect.objectContaining({ per_page: 50 })
+    );
+  });
+});
+
 describe('ResourceService.getStats', () => {
   beforeEach(() => {
     vi.clearAllMocks();

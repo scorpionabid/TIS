@@ -161,11 +161,16 @@ export interface LinkSharingSectorSummary {
     name: string;
     utis_code?: string | null;
     institution_code?: string | null;
+    has_accessed?: boolean;
+    access_count?: number;
+    last_accessed_at?: string | null;
+    first_accessed_at?: string | null;
+    link_url?: string | null;
   }>;
 }
 
 export interface LinkSharingOverviewResponse {
-  link_id: number;
+  link_id: number | null;
   link_title: string;
   share_scope?: string | null;
   target_counts?: {
@@ -176,6 +181,9 @@ export interface LinkSharingOverviewResponse {
   };
   total_sectors: number;
   total_schools: number;
+  accessed_count?: number;
+  not_accessed_count?: number;
+  access_rate?: number;
   target_users?: Array<{
     id: number;
     name: string;
