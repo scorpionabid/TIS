@@ -39,7 +39,7 @@ class LinkQueryBuilder
         $query = LinkShare::with(['sharedBy', 'institution']);
 
         // Apply status filter
-        $status = $request->input('status', 'active');
+        $status = $request->input('status', 'all'); // Changed default from 'active' to 'all'
         if ($status !== 'all') {
             if ($status === 'active') {
                 $query->active();
@@ -82,6 +82,13 @@ class LinkQueryBuilder
 
         // Paginate results
         $perPage = $request->get('per_page', 15);
+
+        // CRITICAL DEBUG: Log final SQL query before pagination
+        \Log::info('🔍 FINAL SQL QUERY before pagination', [
+            'sql' => $query->toSql(),
+            'bindings' => $query->getBindings(),
+            'count_before_paginate' => $query->count(),
+        ]);
 
         return $query->paginate($perPage);
     }
@@ -180,6 +187,59 @@ class LinkQueryBuilder
             $query->where(function ($targetUserQuery) use ($targetUserId) {
                 $targetUserQuery->whereJsonContains('target_users', $targetUserId)
                     ->orWhereJsonContains('target_users', (string) $targetUserId);
+            });
+        }
+
+        // Target role filter - show links assigned to specific role(s)
+        // Also includes links assigned to specific users who have this role
+        \Log::info('🔍 LinkQueryBuilder: Checking target_role_id parameter', [
+            'has_target_role_id' => $request->has('target_role_id'),
+            'filled_target_role_id' => $request->filled('target_role_id'),
+            'target_role_id_value' => $request->input('target_role_id'),
+            'all_request_params' => $request->all(),
+        ]);
+
+        if ($request->filled('target_role_id')) {
+            $targetRoleId = (int) $request->target_role_id;
+
+            // Get all user IDs who have this role
+            $userIdsWithRole = \DB::table('model_has_roles')
+                ->where('role_id', $targetRoleId)
+                ->where('model_type', 'App\\Models\\User')
+                ->pluck('model_id')
+                ->toArray();
+
+            \Log::info('🔍 LinkQueryBuilder: target_role_id filter APPLIED', [
+                'target_role_id' => $targetRoleId,
+                'user_ids_with_role' => $userIdsWithRole,
+                'user_count' => count($userIdsWithRole),
+            ]);
+
+            $query->where(function ($targetRoleQuery) use ($targetRoleId, $userIdsWithRole) {
+                // Links assigned to the role itself (try both int and string)
+                $targetRoleQuery->where(function ($roleSubQuery) use ($targetRoleId) {
+                    $roleSubQuery->whereJsonContains('target_roles', $targetRoleId)
+                        ->orWhereJsonContains('target_roles', (string) $targetRoleId);
+                });
+
+                // OR links assigned to specific users who have this role
+                if (!empty($userIdsWithRole)) {
+                    $targetRoleQuery->orWhere(function ($userSubQuery) use ($userIdsWithRole) {
+                        foreach ($userIdsWithRole as $userId) {
+                            $userSubQuery->orWhereJsonContains('target_users', $userId)
+                                ->orWhereJsonContains('target_users', (string) $userId);
+                        }
+                    });
+                }
+            });
+        }
+
+        // Target department filter - show links assigned to specific department(s)
+        if ($request->filled('target_department_id')) {
+            $targetDepartmentId = (int) $request->target_department_id;
+            $query->where(function ($targetDeptQuery) use ($targetDepartmentId) {
+                $targetDeptQuery->whereJsonContains('target_departments', $targetDepartmentId)
+                    ->orWhereJsonContains('target_departments', (string) $targetDepartmentId);
             });
         }
 
@@ -335,43 +395,49 @@ class LinkQueryBuilder
             return;
         }
 
-        if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
-            // Regional admin can see links from their region
-            $childIds = $userInstitution->getAllChildrenIds();
-            $query->whereIn('institution_id', $childIds)
-                ->orWhere('share_scope', 'regional')
-                ->orWhere('share_scope', 'national');
-        } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
-            // Sector admin can only see links explicitly targeted to their sector hierarchy
-            $childIds = $userInstitution->getAllChildrenIds() ?? [];
-            $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
+        // CRITICAL FIX: Wrap ALL hierarchy and user-targeting filters in ONE where clause
+        // This ensures proper SQL operator precedence when combined with other filters
+        $query->where(function ($scopeQuery) use ($user, $userInstitution) {
+            if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
+                // Regional admin can see links from their region
+                $childIds = $userInstitution->getAllChildrenIds();
+                $scopeQuery->where(function ($regionalQuery) use ($childIds) {
+                    $regionalQuery->whereIn('institution_id', $childIds)
+                        ->orWhere('share_scope', 'regional')
+                        ->orWhere('share_scope', 'national');
+                });
+            } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
+                // Sector admin can only see links explicitly targeted to their sector hierarchy
+                $childIds = $userInstitution->getAllChildrenIds() ?? [];
+                $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
 
-            $query->where(function ($q) use ($scopeIds) {
-                $q->whereIn('institution_id', $scopeIds)
-                    ->orWhere(function ($subQ) use ($scopeIds) {
-                        foreach ($scopeIds as $instId) {
-                            $subQ->orWhereJsonContains('target_institutions', (int) $instId)
-                                ->orWhereJsonContains('target_institutions', (string) $instId);
-                        }
-                    });
-            });
-        } elseif ($user->hasRole(['schooladmin', 'müəllim', 'şagird'])) {
-            // School users can see their own links and public ones
-            $query->where(function ($q) use ($userInstitution, $user) {
-                $q->where('institution_id', $userInstitution->id)
-                    ->orWhere('share_scope', 'public')
-                    ->orWhere('share_scope', 'national')
-                    ->orWhere('shared_by', $user->id)
-                    ->orWhereJsonContains('target_institutions', (string) $userInstitution->id)
-                    ->orWhereJsonContains('target_users', $user->id); // NEW: User-based targeting
-            });
-        }
+                $scopeQuery->where(function ($q) use ($scopeIds) {
+                    $q->whereIn('institution_id', $scopeIds)
+                        ->orWhere(function ($subQ) use ($scopeIds) {
+                            foreach ($scopeIds as $instId) {
+                                $subQ->orWhereJsonContains('target_institutions', (int) $instId)
+                                    ->orWhereJsonContains('target_institutions', (string) $instId);
+                            }
+                        });
+                });
+            } elseif ($user->hasRole(['schooladmin', 'müəllim', 'şagird'])) {
+                // School users can see their own links and public ones
+                $scopeQuery->where(function ($q) use ($userInstitution, $user) {
+                    $q->where('institution_id', $userInstitution->id)
+                        ->orWhere('share_scope', 'public')
+                        ->orWhere('share_scope', 'national')
+                        ->orWhere('shared_by', $user->id)
+                        ->orWhereJsonContains('target_institutions', (string) $userInstitution->id)
+                        ->orWhereJsonContains('target_users', $user->id);
+                });
+            }
 
-        // ENHANCEMENT: Add user-based targeting check for ALL roles (not just school users)
-        // This ensures that if a link is specifically targeted to a user, they can see it
-        $query->orWhere(function ($userTargetQuery) use ($user) {
-            $userTargetQuery->where('share_scope', 'specific_users')
-                ->whereJsonContains('target_users', $user->id);
+            // ENHANCEMENT: Add user-based targeting check for ALL roles
+            // This ensures that if a link is specifically targeted to a user, they can see it
+            $scopeQuery->orWhere(function ($userTargetQuery) use ($user) {
+                $userTargetQuery->where('share_scope', 'specific_users')
+                    ->whereJsonContains('target_users', $user->id);
+            });
         });
     }
 

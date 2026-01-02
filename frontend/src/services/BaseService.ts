@@ -39,7 +39,10 @@ export abstract class BaseService<T extends BaseEntity> {
    */
   protected getCacheKey(method: string, suffix: string = '', params?: Record<string, unknown>): string {
     const paramString = params ? JSON.stringify(params) : '';
-    return `${this.baseEndpoint}_${method}_${suffix}_${btoa(paramString).substring(0, 10)}`;
+    // Use full base64 encoded params for unique cache keys (removed substring limit)
+    // This ensures different filter combinations get different cache keys
+    const encodedParams = paramString ? btoa(paramString) : '';
+    return `${this.baseEndpoint}_${method}_${suffix}_${encodedParams}`;
   }
 
   async getAll(params?: PaginationParams, useCache: boolean = true): Promise<PaginatedResponse<T>> {

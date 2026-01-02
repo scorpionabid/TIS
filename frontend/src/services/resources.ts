@@ -295,7 +295,20 @@ class ResourceService {
       page: filters.page,
       per_page: sanitizedPerPage,
       scope: filters.scope,
+      // Advanced filters for target assignment
+      target_role_id: filters.target_role_id,
+      target_user_id: filters.target_user_id,
+      target_institution_id: filters.target_institution_id,
+      target_department_id: filters.target_department_id,
     };
+
+    console.log('🔍 resources.ts: linkFilters before API call', {
+      target_role_id: linkFilters.target_role_id,
+      target_user_id: linkFilters.target_user_id,
+      target_institution_id: linkFilters.target_institution_id,
+      target_department_id: linkFilters.target_department_id,
+      allFilters: linkFilters,
+    });
 
     const response = await linkService.getAll(linkFilters);
 
