@@ -75,6 +75,8 @@ export interface LinkFilters extends PaginationParams {
   scope?: 'global' | 'scoped';
   target_institution_id?: number;
   target_user_id?: number;
+  target_role_id?: number;
+  target_department_id?: number;
   requires_login?: boolean;
 }
 
@@ -147,6 +149,32 @@ export interface LinkBulkMetadata {
     institution_code?: string;
     utis_code?: string;
   }>;
+}
+
+export interface UserLinkAssignment {
+  user_id: number;
+  user_name: string;
+  user_email: string;
+  role_name: string;
+  role_display: string;
+  institution: {
+    id: number;
+    name: string;
+  } | null;
+  total_links_assigned: number;
+  link_groups: Array<{
+    title: string;
+    count: number;
+    link_ids: number[];
+    link_type: string;
+    latest_created: string;
+  }>;
+}
+
+export interface UserLinkAssignmentsResponse {
+  users: UserLinkAssignment[];
+  total_users: number;
+  total_links_assigned: number;
 }
 
 export interface LinkSharingSectorSummary {
@@ -468,6 +496,44 @@ class LinkService extends BaseService<LinkShare> {
       throw new Error('Bulk metadata tapılmadı');
     }
     return response.data;
+  }
+
+  /**
+   * Get user-specific link assignments
+   * Shows RegionOperators and SektorAdmins with their assigned links
+   */
+  async getUserLinkAssignments(params?: {
+    role_names?: string[];
+    user_id?: number;
+  }): Promise<UserLinkAssignmentsResponse> {
+    console.log('👥 LinkService.getUserLinkAssignments called', params);
+
+    const queryParams = new URLSearchParams();
+
+    if (params?.role_names?.length) {
+      params.role_names.forEach(role => queryParams.append('role_names[]', role));
+    }
+
+    if (params?.user_id) {
+      queryParams.append('user_id', params.user_id.toString());
+    }
+
+    try {
+      const response = await apiClient.get<UserLinkAssignmentsResponse>(
+        `${this.baseEndpoint}/user-assignments${queryParams.toString() ? `?${queryParams.toString()}` : ''}`
+      );
+
+      if (!response.data) {
+        console.error('❌ No data in response:', response);
+        throw new Error('İstifadəçi link təyinatları tapılmadı');
+      }
+
+      console.log('✅ UserLinkAssignments successful:', response.data);
+      return response.data;
+    } catch (error) {
+      console.error('❌ getUserLinkAssignments failed:', error);
+      throw error;
+    }
   }
 }
 

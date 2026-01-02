@@ -43,6 +43,14 @@ class LinkShareControllerRefactored extends BaseController
     public function index(Request $request): JsonResponse
     {
         return $this->executeWithErrorHandling(function () use ($request) {
+            \Log::info('🔍 LinkShareController: index method called', [
+                'all_params' => $request->all(),
+                'target_role_id' => $request->input('target_role_id'),
+                'target_role_id_type' => gettype($request->input('target_role_id')),
+                'has_target_role_id' => $request->has('target_role_id'),
+                'filled_target_role_id' => $request->filled('target_role_id'),
+            ]);
+
             $request->validate([
                 'search' => 'nullable|string|max:255',
                 'document_type' => 'nullable|string',
@@ -52,6 +60,8 @@ class LinkShareControllerRefactored extends BaseController
                 'institution_ids.*' => 'integer|exists:institutions,id',
                 'target_institution_id' => 'nullable|integer|exists:institutions,id',
                 'target_user_id' => 'nullable|integer|exists:users,id',
+                'target_role_id' => 'nullable|integer|exists:roles,id',
+                'target_department_id' => 'nullable|integer|exists:departments,id',
                 'requires_login' => 'nullable|boolean',
                 'is_active' => 'nullable|boolean',
                 'has_password' => 'nullable|boolean',
@@ -694,5 +704,85 @@ class LinkShareControllerRefactored extends BaseController
                 'total' => count($assignedResources),
             ], 'Təyin edilmiş resurslər alındı');
         }, 'linkshare.getAssignedResources');
+    }
+
+    /**
+     * Get user-specific link assignments
+     * Shows which users (RegionOperator, SektorAdmin) have which links assigned
+     */
+    public function getUserLinkAssignments(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $request->validate([
+                'role_names' => 'nullable|array',
+                'role_names.*' => 'string|in:regionoperator,sektoradmin',
+                'user_id' => 'nullable|integer|exists:users,id',
+            ]);
+
+            $roleNames = $request->input('role_names', ['regionoperator', 'sektoradmin']);
+
+            // Get users with specified roles
+            $users = \App\Models\User::query()
+                ->whereHas('roles', function ($q) use ($roleNames) {
+                    $q->whereIn('name', $roleNames);
+                })
+                ->with(['roles', 'institution'])
+                ->get();
+
+            $result = [];
+            foreach ($users as $user) {
+                // Get links assigned to this user
+                // target_users is a JSONB array of integers, use @> operator with explicit cast
+                $assignedLinks = \App\Models\LinkShare::query()
+                    ->where('status', 'active')
+                    ->whereRaw("target_users::jsonb @> ?::jsonb", [json_encode([$user->id])])
+                    ->select('id', 'title', 'link_type', 'created_at')
+                    ->get();
+
+                // Group by title
+                $groupedByTitle = $assignedLinks->groupBy('title')->map(function ($group, $title) {
+                    return [
+                        'title' => $title,
+                        'count' => $group->count(),
+                        'link_ids' => $group->pluck('id')->toArray(),
+                        'link_type' => $group->first()->link_type,
+                        'latest_created' => $group->max('created_at'),
+                    ];
+                })->values();
+
+                $result[] = [
+                    'user_id' => $user->id,
+                    'user_name' => $user->name,
+                    'user_email' => $user->email,
+                    'role_name' => $user->roles->first()->name ?? 'N/A',
+                    'role_display' => $user->roles->first()->display_name ?? 'N/A',
+                    'institution' => $user->institution ? [
+                        'id' => $user->institution->id,
+                        'name' => $user->institution->name,
+                    ] : null,
+                    'total_links_assigned' => $assignedLinks->count(),
+                    'link_groups' => $groupedByTitle,
+                ];
+            }
+
+            // Sort by role priority (regionoperator > sektoradmin) then by name
+            usort($result, function ($a, $b) {
+                $rolePriority = ['regionoperator' => 1, 'sektoradmin' => 2];
+                $aPriority = $rolePriority[$a['role_name']] ?? 99;
+                $bPriority = $rolePriority[$b['role_name']] ?? 99;
+
+                if ($aPriority !== $bPriority) {
+                    return $aPriority <=> $bPriority;
+                }
+
+                return strcasecmp($a['user_name'], $b['user_name']);
+            });
+
+            return $this->successResponse([
+                'users' => $result,
+                'total_users' => count($result),
+                'total_links_assigned' => array_sum(array_column($result, 'total_links_assigned')),
+            ], 'İstifadəçi link təyinatları alındı');
+        }, 'linkshare.user_assignments');
     }
 }

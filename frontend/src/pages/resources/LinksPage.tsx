@@ -16,6 +16,8 @@ import { groupLinksByTitle, type GroupedLink } from '@/utils/linkGrouping';
 import type { Resource } from '@/types/resources';
 import { LinkSelectionPanel } from '@/components/resources/LinkSelectionPanel';
 import { InstitutionBreakdownTable } from '@/components/resources/InstitutionBreakdownTable';
+import { LinkAdvancedFilters, type LinkFilterParams } from '@/components/resources/LinkAdvancedFilters';
+import { UserLinkAssignmentPanel } from '@/components/resources/UserLinkAssignmentPanel';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -54,34 +56,78 @@ export default function LinksPage() {
   const [groupPendingDelete, setGroupPendingDelete] = useState<GroupedLink | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeletingGroup, setIsDeletingGroup] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<'active' | 'disabled' | 'expired' | 'all'>('all');
+  const [filters, setFilters] = useState<LinkFilterParams>({
+    status: 'all',
+    assignmentType: 'all',
+  });
+  const [selectedUserIdForFilter, setSelectedUserIdForFilter] = useState<number | null>(null);
+  const [showUserAssignmentPanel, setShowUserAssignmentPanel] = useState(false);
 
-  // Debug: Log status filter changes
+  // Debug: Log filter changes
   useEffect(() => {
-    console.log('🔄 Status filter changed to:', statusFilter);
-  }, [statusFilter]);
+    console.log('🔄 Filters changed:', filters);
+  }, [filters]);
+
+  // Add handler to show/hide user panel
+  useEffect(() => {
+    if (filters.assignmentType === 'users') {
+      setShowUserAssignmentPanel(true);
+    } else {
+      setShowUserAssignmentPanel(false);
+      setSelectedUserIdForFilter(null);
+    }
+  }, [filters.assignmentType]);
 
   const { data: linkResponse, isLoading, error, refetch } = useQuery({
-    queryKey: ['links-simplified', { assignedOnly: shouldUseAssignedResources, status: statusFilter }],
+    queryKey: [
+      'links-simplified',
+      {
+        assignedOnly: shouldUseAssignedResources,
+        status: filters.status,
+        assignmentType: filters.assignmentType,
+        target_institution_id: filters.target_institution_id,
+        target_role_id: filters.target_role_id,
+        target_user_id: selectedUserIdForFilter || filters.target_user_id,
+        target_department_id: filters.target_department_id,
+        share_scope: filters.share_scope,
+        link_type: filters.link_type,
+      },
+    ],
     queryFn: async () => {
       try {
-        if (shouldUseAssignedResources) {
-          return await resourceService.getAssignedResourcesPaginated({
-            per_page: MAX_LINKS_PER_PAGE,
-            status: statusFilter,
-          });
-        }
-        return await resourceService.getLinksPaginated({
+        const queryParams = {
           per_page: MAX_LINKS_PER_PAGE,
-          status: statusFilter,
+          status: filters.status !== 'all' ? filters.status : undefined,
+          target_institution_id: filters.target_institution_id,
+          target_role_id: filters.target_role_id,
+          target_user_id: selectedUserIdForFilter || filters.target_user_id,
+          target_department_id: filters.target_department_id,
+          share_scope: filters.share_scope,
+          link_type: filters.link_type,
+        };
+
+        console.log('🎯 LinksPage: queryParams before API call', {
+          target_role_id: queryParams.target_role_id,
+          target_role_id_type: typeof queryParams.target_role_id,
+          filters_target_role_id: filters.target_role_id,
+          filters_target_role_id_type: typeof filters.target_role_id,
+          allQueryParams: queryParams,
+          allFilters: filters,
         });
+
+        if (shouldUseAssignedResources) {
+          return await resourceService.getAssignedResourcesPaginated(queryParams);
+        }
+        return await resourceService.getLinksPaginated(queryParams);
       } catch (err: any) {
         console.warn('links-simplified query failed', err);
         throw err;
       }
     },
     enabled: isAuthenticated && canViewLinks && institutionScopeReady,
-    staleTime: 2 * 60 * 1000,
+    // CRITICAL: Force fresh requests every time - disable cache for debugging
+    staleTime: 0,
+    gcTime: 0,
   });
 
   const links = linkResponse?.data || [];
@@ -98,13 +144,13 @@ export default function LinksPage() {
   // Debug: Log link counts
   useEffect(() => {
     console.log('📊 Links stats:', {
-      status: statusFilter,
+      filters,
       totalFromAPI: links.length,
       visibleAfterScope: visibleLinks.length,
       uniqueTitles: groupedTitleOptions.length,
       titles: groupedTitleOptions.map(g => g.title)
     });
-  }, [links, visibleLinks, groupedTitleOptions, statusFilter]);
+  }, [links, visibleLinks, groupedTitleOptions, filters]);
   const totalClicks = useMemo(
     () => visibleLinks.reduce((sum, link) => sum + (link.click_count || 0), 0),
     [visibleLinks]
@@ -238,6 +284,20 @@ export default function LinksPage() {
     setSelectedTitle(title);
   }, []);
 
+  // NEW: User assignment panel handlers
+  const handleUserSelect = useCallback((userId: number) => {
+    setSelectedUserIdForFilter(userId);
+  }, []);
+
+  const handleTitleSelectFromUserPanel = useCallback((title: string) => {
+    setSelectedTitle(title);
+    // Scroll to institution breakdown table
+    document.querySelector('[data-institution-breakdown]')?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }, []);
+
   if (!isAuthenticated) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -269,30 +329,20 @@ export default function LinksPage() {
         createLabel="Yeni Link"
       />
 
-      {/* Status Filter */}
-      <div className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border">
-        <span className="text-sm font-semibold">Status:</span>
-        <div className="flex gap-2">
-          {(['all', 'active', 'disabled', 'expired'] as const).map((status) => (
-            <Button
-              key={status}
-              variant={statusFilter === status ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => {
-                console.log('Status filter clicked:', status);
-                setStatusFilter(status);
-              }}
-              className={statusFilter === status ? 'shadow-md' : ''}
-            >
-              {status === 'all' && 'Hamısı'}
-              {status === 'active' && 'Aktiv'}
-              {status === 'disabled' && 'Passiv'}
-              {status === 'expired' && 'Müddəti keçib'}
-              {statusFilter === status && ` (${totalLinks})`}
-            </Button>
-          ))}
-        </div>
-      </div>
+      {/* Advanced Filters */}
+      <LinkAdvancedFilters
+        filters={filters}
+        onFiltersChange={setFilters}
+      />
+
+      {/* NEW: User Assignment Panel - shown when assignmentType is 'users' */}
+      {showUserAssignmentPanel && (
+        <UserLinkAssignmentPanel
+          selectedUserId={selectedUserIdForFilter}
+          onUserSelect={handleUserSelect}
+          onTitleSelect={handleTitleSelectFromUserPanel}
+        />
+      )}
 
       {error && (
         <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-6 text-center space-y-4">
@@ -369,24 +419,26 @@ export default function LinksPage() {
         />
 
         {/* Bottom Section: Institution Breakdown Table */}
-        {selectedTitle ? (
-          <InstitutionBreakdownTable
-            selectedTitle={selectedTitle}
-            links={linksForSelectedTitle}
-            isLoadingLinks={isLoading}
-            onEditLink={handleResourceAction}
-            onDeleteLink={handleDeleteSingleLink}
-            canManageLinks={canCreateLinks}
-          />
-        ) : (
-          <div className="flex min-h-[200px] items-center justify-center rounded-lg border-2 border-dashed border-border/60 bg-white text-center text-muted-foreground">
-            <div className="space-y-2">
-              <LinkIcon className="h-12 w-12 mx-auto opacity-30" />
-              <p className="text-base font-medium">Link başlığı seçin</p>
-              <p className="text-sm">Yuxarıdakı paneldən başlıq seçdikdə məktəb siyahısı burada görünəcək.</p>
+        <div data-institution-breakdown>
+          {selectedTitle ? (
+            <InstitutionBreakdownTable
+              selectedTitle={selectedTitle}
+              links={linksForSelectedTitle}
+              isLoadingLinks={isLoading}
+              onEditLink={handleResourceAction}
+              onDeleteLink={handleDeleteSingleLink}
+              canManageLinks={canCreateLinks}
+            />
+          ) : (
+            <div className="flex min-h-[200px] items-center justify-center rounded-lg border-2 border-dashed border-border/60 bg-white text-center text-muted-foreground">
+              <div className="space-y-2">
+                <LinkIcon className="h-12 w-12 mx-auto opacity-30" />
+                <p className="text-base font-medium">Link başlığı seçin</p>
+                <p className="text-sm">Yuxarıdakı paneldən başlıq seçdikdə məktəb siyahısı burada görünəcək.</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
 
       {(isLinkModalOpen || !!linkBeingEdited) && (

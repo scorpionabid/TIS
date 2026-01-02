@@ -16,6 +16,7 @@ use Illuminate\Support\Facades\Route;
 Route::prefix('links')->group(function () {
     Route::get('/', [LinkShareController::class, 'index'])->middleware('permission:links.read');
     Route::get('/stats', [LinkShareController::class, 'getStats'])->middleware('permission:links.read');
+    Route::get('/user-assignments', [LinkShareController::class, 'getUserLinkAssignments'])->middleware('auth:sanctum');
     Route::post('/', [LinkShareController::class, 'store'])->middleware('permission:links.create');
     Route::get('/popular/list', [LinkShareController::class, 'getPopularLinks'])->middleware('permission:links.read');
     Route::get('/featured/list', [LinkShareController::class, 'getFeaturedLinks'])->middleware('permission:links.read');
