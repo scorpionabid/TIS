@@ -78,6 +78,25 @@ if [[ $CLAUDE_TOOL == "Edit" || $CLAUDE_TOOL == "Write" || $CLAUDE_TOOL == "Mult
     fi
 fi
 
+# Auto-format TypeScript/React files after edit
+if [[ $CLAUDE_TOOL == "Edit" || $CLAUDE_TOOL == "Write" ]] && [[ $CLAUDE_FILE_PATH == *.tsx || $CLAUDE_FILE_PATH == *.ts ]] && [[ $CLAUDE_FILE_PATH == *"frontend"* ]]; then
+    echo "✨ Auto-formatting TypeScript file..."
+    if command -v npx >/dev/null 2>&1 && [ -f "frontend/package.json" ]; then
+        cd frontend && npx prettier --write "$(basename $CLAUDE_FILE_PATH)" 2>/dev/null && echo "✅ Prettier formatting tamamlandı" || echo "⚠️  Prettier xətası"
+        cd - >/dev/null
+    fi
+fi
+
+# Permission/Role seeder changed - remind cache clear
+if [[ $CLAUDE_FILE_PATH == *"PermissionSeeder"* ]] || [[ $CLAUDE_FILE_PATH == *"RoleSeeder"* ]]; then
+    echo ""
+    echo "🔐 PERMISSION/ROLE SEEDER DƏYİŞDİ!"
+    echo "   Növbəti addımlar:"
+    echo "   1. Seed: docker exec atis_backend php artisan db:seed --class=$(basename $CLAUDE_FILE_PATH .php)"
+    echo "   2. Cache: docker exec atis_backend php artisan permission:cache-reset"
+    echo ""
+fi
+
 # Performance monitoring
 EXECUTION_TIME=$(($(date +%s%N)/1000000))
 echo "⏱️  Alət icra müddəti: ${EXECUTION_TIME}ms" >> ~/.claude/atis-performance.log

@@ -30,6 +30,35 @@ if [[ $CLAUDE_TOOL == "Bash" ]] && [[ $CLAUDE_COMMAND == *"npm run dev"* ]] && [
     exit 1
 fi
 
+# Code duplication check - Yeni komponent yaradılarkən
+if [[ $CLAUDE_TOOL == "Write" ]] && [[ $CLAUDE_FILE_PATH == *"components"* ]] || [[ $CLAUDE_FILE_PATH == *"pages"* ]]; then
+    echo "🔍 Təkrarçılıq yoxlanılır..."
+    filename=$(basename "$CLAUDE_FILE_PATH" .tsx .ts .php)
+
+    # Similar file check
+    similar_count=$(find . -name "*$filename*" 2>/dev/null | wc -l)
+    if [ "$similar_count" -gt 0 ]; then
+        echo "⚠️  Diqqət: '$filename' adlı oxşar fayllar tapıldı ($similar_count ədəd)"
+        echo "   Mövcud fayldan istifadə etməyi nəzərdən keçirin."
+    fi
+fi
+
+# Permission check reminder - Permission ilə bağlı fayllar dəyişəndə
+if [[ $CLAUDE_FILE_PATH == *"Permission"* ]] || [[ $CLAUDE_FILE_PATH == *"permission"* ]] || [[ $CLAUDE_FILE_PATH == *"Role"* ]]; then
+    echo "🔐 XATIRLATMA: Permission/Role dəyişikliyi!"
+    echo "   - Cache clear lazım ola bilər: php artisan permission:cache-reset"
+    echo "   - Seeder update: PermissionSeeder.php"
+    echo "   - Frontend permission hooks update lazım ola bilər"
+fi
+
+# Migration safety check
+if [[ $CLAUDE_TOOL == "Write" ]] && [[ $CLAUDE_FILE_PATH == *"migrations"* ]]; then
+    echo "🗄️  XƏBƏRDARLIQ: Migration faylı yaradılır!"
+    echo "   - Development-də test edin: php artisan migrate:fresh"
+    echo "   - Production-da rollback planı hazırlayın"
+    echo "   - Əgər data loss riski varsa, backup alın!"
+fi
+
 # Code style yoxlaması (TypeScript/React fayllar üçün)
 if [[ $CLAUDE_TOOL == "Edit" || $CLAUDE_TOOL == "Write" || $CLAUDE_TOOL == "MultiEdit" ]] && [[ $CLAUDE_FILE_PATH == *.tsx || $CLAUDE_FILE_PATH == *.ts ]]; then
     echo "📝 TypeScript code style yoxlanılır..."
