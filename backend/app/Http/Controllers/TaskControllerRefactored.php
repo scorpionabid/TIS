@@ -204,11 +204,16 @@ class TaskControllerRefactored extends Controller
                 'nullable',
                 Rule::in(array_keys(Task::CATEGORIES)),
             ],
+            'source' => [
+                'nullable',
+                Rule::in(array_keys(Task::SOURCES)),
+            ],
             'priority' => [
                 'required',
                 Rule::in(array_keys(Task::PRIORITIES)),
             ],
             'deadline' => 'nullable|date|after:now',
+            'deadline_time' => 'nullable|date_format:H:i',
             'target_institution_id' => 'nullable|integer|exists:institutions,id',
             'target_scope' => [
                 'nullable',
@@ -297,6 +302,10 @@ class TaskControllerRefactored extends Controller
                 'sometimes',
                 Rule::in(array_keys(Task::CATEGORIES)),
             ],
+            'source' => [
+                'sometimes',
+                Rule::in(array_keys(Task::SOURCES)),
+            ],
             'priority' => [
                 'sometimes',
                 Rule::in(array_keys(Task::PRIORITIES)),
@@ -307,19 +316,20 @@ class TaskControllerRefactored extends Controller
             ],
             'progress' => 'sometimes|integer|min:0|max:100',
             'deadline' => 'nullable|date|after:now',
+            'deadline_time' => 'nullable|date_format:H:i',
             'notes' => 'nullable|string',
         ]);
 
         try {
             // Capture old values before update
             $oldValues = $task->only([
-                'title', 'description', 'category', 'priority',
-                'status', 'progress', 'deadline', 'notes',
+                'title', 'description', 'category', 'source', 'priority',
+                'status', 'progress', 'deadline', 'deadline_time', 'notes',
             ]);
 
             $task->update($request->only([
-                'title', 'description', 'category', 'priority',
-                'status', 'progress', 'deadline', 'notes',
+                'title', 'description', 'category', 'source', 'priority',
+                'status', 'progress', 'deadline', 'deadline_time', 'notes',
             ]));
 
             // Log task update

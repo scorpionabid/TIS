@@ -16,10 +16,12 @@ class Task extends Model
         'title',
         'description',
         'category',
+        'source',           // NEW: dms, email, whatsapp, other
         'priority',
         'status',
         'progress',
         'deadline',
+        'deadline_time',    // NEW: HH:MM format
         'started_at',
         'completed_at',
         'created_by',
@@ -57,6 +59,7 @@ class Task extends Model
 
     protected $appends = [
         'category_label',
+        'source_label',
         'priority_label',
         'status_label',
         'origin_scope_label',
@@ -70,6 +73,13 @@ class Task extends Model
         'audit' => 'Audit and Control Tasks',
         'instruction' => 'Instructions and Methodical Materials',
         'other' => 'Other Tasks',
+    ];
+
+    const SOURCES = [
+        'dms' => 'DMS',
+        'email' => 'E-poçt',
+        'whatsapp' => 'WhatsApp',
+        'other' => 'Digər',
     ];
 
     const PRIORITIES = [
@@ -296,6 +306,14 @@ class Task extends Model
     public function getCategoryLabelAttribute(): string
     {
         return self::CATEGORIES[$this->category] ?? $this->category;
+    }
+
+    /**
+     * Get source label
+     */
+    public function getSourceLabelAttribute(): ?string
+    {
+        return $this->source ? (self::SOURCES[$this->source] ?? $this->source) : null;
     }
 
     /**
