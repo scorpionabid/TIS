@@ -105,6 +105,10 @@ function DelegationHistoryItem({ item, isFirst, isLast }: DelegationHistoryItemP
   const isMultiDelegation = item.delegation_metadata?.is_multi_delegation;
   const isAdditional = item.delegation_metadata?.is_additional_assignment;
 
+  // Safe access to user data with fallbacks
+  const fromUserName = item.delegated_from_user?.name || item.delegated_from_user_id?.toString() || 'İstifadəçi';
+  const toUserName = item.delegated_to_user?.name || item.delegated_to_user_id?.toString() || 'İstifadəçi';
+
   return (
     <Card className="relative ml-10">
       {/* Timeline dot */}
@@ -119,9 +123,9 @@ function DelegationHistoryItem({ item, isFirst, isLast }: DelegationHistoryItemP
           <div className="space-y-1">
             <CardTitle className="text-base flex items-center gap-2">
               <User className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{item.delegated_from_user.name}</span>
+              <span className="font-medium">{fromUserName}</span>
               <ArrowRight className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium text-primary">{item.delegated_to_user.name}</span>
+              <span className="font-medium text-primary">{toUserName}</span>
             </CardTitle>
             <CardDescription className="flex items-center gap-2 text-xs">
               <Clock className="h-3 w-3" />

@@ -22,15 +22,18 @@ export interface DelegationHistoryItem {
   id: number;
   task_id: number;
   assignment_id: number;
-  delegated_from_user: {
+  delegated_from_user_id: number;
+  delegated_to_user_id: number;
+  delegated_by_user_id: number;
+  delegated_from_user?: {
     id: number;
     name: string;
   };
-  delegated_to_user: {
+  delegated_to_user?: {
     id: number;
     name: string;
   };
-  delegated_by_user: {
+  delegated_by_user?: {
     id: number;
     name: string;
   };
