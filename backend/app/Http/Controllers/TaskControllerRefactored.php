@@ -1134,13 +1134,18 @@ class TaskControllerRefactored extends Controller
 
             DB::commit();
 
+            // Load relationships for all delegations
+            foreach ($delegations as $delegation) {
+                $delegation->load(['fromUser', 'toUser']);
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => count($request->new_assignee_ids) > 1
                     ? 'Tapşırıq ' . count($request->new_assignee_ids) . ' nəfərə uğurla yönləndirildi.'
                     : 'Tapşırıq uğurla yönləndirildi.',
                 'data' => [
-                    'delegations' => collect($delegations)->load(['fromUser', 'toUser']),
+                    'delegations' => $delegations,
                     'delegated_count' => count($request->new_assignee_ids),
                 ],
             ]);
