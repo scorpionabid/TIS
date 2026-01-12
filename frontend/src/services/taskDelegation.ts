@@ -41,17 +41,17 @@ export interface DelegationHistoryItem {
 class TaskDelegationService {
   async getEligibleDelegates(taskId: number): Promise<EligibleDelegate[]> {
     const response = await apiClient.get(`/tasks/${taskId}/eligible-delegates`);
-    return response.data.users || [];
+    return response.users || [];
   }
 
   async delegate(taskId: number, data: DelegateTaskRequest) {
     const response = await apiClient.post(`/tasks/${taskId}/delegate`, data);
-    return response.data;
+    return response;
   }
 
   async getDelegationHistory(taskId: number): Promise<DelegationHistoryItem[]> {
     const response = await apiClient.get(`/tasks/${taskId}/delegation-history`);
-    return response.data.history || [];
+    return response.history || [];
   }
 }
 

@@ -941,13 +941,8 @@ class TaskControllerRefactored extends Controller
     {
         $currentUser = Auth::user();
 
-        // Get current assignment
-        $currentAssignment = $task->assignments()
-            ->where('assigned_user_id', $currentUser->id)
-            ->whereIn('assignment_status', ['pending', 'accepted'])
-            ->first();
-
-        if (!$currentAssignment) {
+        // Check delegation permission using permission service
+        if (!$this->permissionService->canUserDelegateTask($task, $currentUser)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tapşırığı yönləndirmək səlahiyyətiniz yoxdur.',
@@ -958,8 +953,8 @@ class TaskControllerRefactored extends Controller
         $currentUserRole = $currentUser->roles->first();
         $currentUserLevel = $currentUserRole?->level ?? 999;
 
-        // Get eligible users: same level OR lower level (hierarchy-based)
-        // Also support same institution OR subordinate institutions
+        // Get eligible users: SAME level (özü) OR LOWER authority (aşağı səviyyə)
+        // Lower authority = HIGHER level number (level 3 can delegate to 3, 4, 5, 6, 7)
         $eligibleUsers = User::query()
             ->where('id', '!=', $currentUser->id)
             ->where(function ($query) use ($currentUser) {
@@ -968,22 +963,32 @@ class TaskControllerRefactored extends Controller
 
                 // OR subordinate institutions (if user has institutional hierarchy access)
                 if ($currentUser->institution) {
-                    $query->orWhereHas('institution', function ($instQuery) use ($currentUser) {
-                        // Users from institutions under current user's institution
-                        $instQuery->where('parent_id', $currentUser->institution_id);
-                    });
+                    $subordinateIds = \DB::table('institutions')
+                        ->where('parent_id', $currentUser->institution_id)
+                        ->pluck('id');
+
+                    if ($subordinateIds->isNotEmpty()) {
+                        $query->orWhereIn('institution_id', $subordinateIds);
+                    }
                 }
             })
             ->whereHas('roles', function ($query) use ($currentUserLevel) {
-                // Users with same level or lower level (higher level number = lower authority)
+                // Same level OR lower authority (higher level number)
+                // level >= currentUserLevel means same or below in hierarchy
                 $query->where('level', '>=', $currentUserLevel);
             })
             ->with(['institution', 'roles'])
             ->get()
             ->map(function ($user) {
+                // Generate display name: prefer full name, fallback to email
+                $displayName = trim($user->name);
+                if (empty($displayName)) {
+                    $displayName = $user->email;
+                }
+
                 return [
                     'id' => $user->id,
-                    'name' => $user->name,
+                    'name' => $displayName,
                     'email' => $user->email,
                     'role' => $user->roles->first()?->name,
                     'role_display' => $user->roles->first()?->display_name,
@@ -1000,7 +1005,7 @@ class TaskControllerRefactored extends Controller
         return response()->json([
             'success' => true,
             'users' => $eligibleUsers,
-        ]);
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     }
 
     /**
@@ -1015,25 +1020,29 @@ class TaskControllerRefactored extends Controller
 
         $currentUser = Auth::user();
 
-        // Get current assignment
-        $currentAssignment = $task->assignments()
-            ->where('assigned_user_id', $currentUser->id)
-            ->whereIn('assignment_status', ['pending', 'accepted'])
-            ->first();
-
-        if (!$currentAssignment) {
+        // Check delegation permission using permission service
+        if (!$this->permissionService->canUserDelegateTask($task, $currentUser)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tapşırığı yönləndirmək səlahiyyətiniz yoxdur.',
             ], 403);
         }
 
-        // Check if already delegated once (1 delegation limit)
-        $existingDelegation = \App\Models\TaskDelegationHistory::where('assignment_id', $currentAssignment->id)->first();
-        if ($existingDelegation) {
+        // Get current assignment
+        $currentAssignment = $task->assignments()
+            ->where('assigned_user_id', $currentUser->id)
+            ->whereIn('assignment_status', ['pending', 'accepted'])
+            ->first();
+
+        // Validate new assignee level (must be same or lower authority)
+        $newAssignee = User::with('roles')->findOrFail($request->new_assignee_id);
+        $currentUserLevel = $currentUser->roles->first()?->level ?? 999;
+        $newAssigneeLevel = $newAssignee->roles->first()?->level ?? 999;
+
+        if ($newAssigneeLevel < $currentUserLevel) {
             return response()->json([
                 'success' => false,
-                'message' => 'Bu tapşırıq artıq yönləndirilmişdir. Bir tapşırıq yalnız 1 dəfə yönləndirilə bilər.',
+                'message' => 'Tapşırığı yalnız öz səviyyənizdə və ya aşağı səviyyəli istifadəçilərə yönləndirə bilərsiniz.',
             ], 400);
         }
 
