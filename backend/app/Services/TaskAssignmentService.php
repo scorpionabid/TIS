@@ -521,7 +521,8 @@ class TaskAssignmentService extends BaseService
     private function getStatusTransitionMap(): array
     {
         return [
-            'pending' => ['in_progress', 'completed', 'cancelled'],
+            'pending' => ['in_progress', 'accepted', 'completed', 'cancelled'],
+            'accepted' => ['in_progress', 'completed', 'cancelled'], // Accepted assignments can be started or completed
             'in_progress' => ['completed', 'cancelled', 'pending'],
             'completed' => ['in_progress'], // Allow reopening
             'cancelled' => ['pending', 'in_progress'],

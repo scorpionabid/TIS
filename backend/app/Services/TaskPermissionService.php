@@ -164,6 +164,13 @@ class TaskPermissionService extends BaseService
             return in_array($assignment->institution_id, $childIds);
         }
 
+        // Region operators can update assignments in their scope (same as regionadmin)
+        if ($user->hasRole('regionoperator') && $userInstitution->level == 2) {
+            $childIds = $userInstitution->getAllChildrenIds();
+
+            return in_array($assignment->institution_id, $childIds);
+        }
+
         if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             $childIds = $userInstitution->getAllChildrenIds();
 
