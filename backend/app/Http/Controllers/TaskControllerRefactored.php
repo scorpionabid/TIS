@@ -1092,9 +1092,14 @@ class TaskControllerRefactored extends Controller
             for ($i = 1; $i < count($request->new_assignee_ids); $i++) {
                 $assigneeId = $request->new_assignee_ids[$i];
 
+                // Get assignee's institution_id
+                $assignee = $newAssignees->firstWhere('id', $assigneeId);
+
                 // Create new assignment
                 $newAssignment = $task->assignments()->create([
                     'assigned_user_id' => $assigneeId,
+                    'institution_id' => $assignee->institution_id,
+                    'assigned_role' => $assignee->roles->first()?->name,
                     'assignment_status' => 'pending',
                     'assigned_by' => $currentUser->id,
                     'created_by' => $currentUser->id,
