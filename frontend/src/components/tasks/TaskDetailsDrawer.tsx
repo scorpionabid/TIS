@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Drawer,
@@ -13,13 +13,16 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Task, taskService } from '@/services/tasks';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, CheckCircle, Clock, User, Building2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, User, Building2, History, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { TaskApprovalBadge } from './TaskApprovalBadge';
 import { TaskApprovalActions } from './TaskApprovalActions';
 import { TaskApprovalHistory } from './TaskApprovalHistory';
+import { TaskDelegationHistory } from '../task/TaskDelegationHistory';
+import { TaskAssignmentsSummary } from '../task/TaskAssignmentsSummary';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface TaskDetailsDrawerProps {
@@ -47,6 +50,7 @@ const DetailRow = ({ label, value }: { label: string; value?: string | number | 
 
 export const TaskDetailsDrawer = ({ taskId, open, onOpenChange, fallbackTask }: TaskDetailsDrawerProps) => {
   const { user: currentUser } = useAuth();
+  const [activeTab, setActiveTab] = useState('details');
 
   const {
     data: detailedTask,
@@ -183,8 +187,15 @@ export const TaskDetailsDrawer = ({ taskId, open, onOpenChange, fallbackTask }: 
 
         <Separator />
 
-        <section className="space-y-2">
+        <section className="space-y-3">
           <h4 className="text-sm font-semibold">Təyinatlar</h4>
+
+          {/* Multi-Assignee Summary */}
+          {task.assignments && task.assignments.length > 1 && (
+            <TaskAssignmentsSummary task={task} />
+          )}
+
+          {/* Individual Assignments Details */}
           {renderAssignments()}
         </section>
 
@@ -261,7 +272,33 @@ export const TaskDetailsDrawer = ({ taskId, open, onOpenChange, fallbackTask }: 
         </DrawerHeader>
 
         <ScrollArea className="px-6 py-4 h-[60vh]">
-          {renderContent()}
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="details" className="flex items-center gap-2">
+                <Info className="h-4 w-4" />
+                Əsas Məlumat
+              </TabsTrigger>
+              <TabsTrigger value="delegation" className="flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Yönləndirmə Tarixçəsi
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="details" className="mt-0">
+              {renderContent()}
+            </TabsContent>
+
+            <TabsContent value="delegation" className="mt-0">
+              {task ? (
+                <TaskDelegationHistory
+                  taskId={task.id}
+                  currentUserId={currentUser?.id}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">Tapşırıq seçilməyib.</p>
+              )}
+            </TabsContent>
+          </Tabs>
         </ScrollArea>
 
         <DrawerFooter className="border-t pt-4">
