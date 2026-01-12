@@ -9,6 +9,31 @@
  */
 
 // ============================================
+// Source Configuration (NEW for Excel view)
+// ============================================
+
+export const sourceOptions = [
+  { label: 'DMS', value: 'dms' },
+  { label: 'E-poçt', value: 'email' },
+  { label: 'WhatsApp', value: 'whatsapp' },
+  { label: 'Digər', value: 'other' },
+] as const;
+
+export const sourceLabels: Record<string, string> = {
+  dms: 'DMS',
+  email: 'E-poçt',
+  whatsapp: 'WhatsApp',
+  other: 'Digər',
+};
+
+export const sourceColors: Record<string, string> = {
+  dms: 'bg-blue-100 text-blue-800 border-blue-300',
+  email: 'bg-purple-100 text-purple-800 border-purple-300',
+  whatsapp: 'bg-green-100 text-green-800 border-green-300',
+  other: 'bg-gray-100 text-gray-800 border-gray-300',
+};
+
+// ============================================
 // Category Configuration
 // ============================================
 
@@ -177,6 +202,20 @@ export type TaskFormValues = typeof taskDefaultValues;
 // ============================================
 // Helper Functions
 // ============================================
+
+/**
+ * Get source label by value
+ */
+export function getSourceLabel(value: string): string {
+  return sourceLabels[value] || value;
+}
+
+/**
+ * Get source color classes
+ */
+export function getSourceColor(value: string): string {
+  return sourceColors[value] || sourceColors.other;
+}
 
 /**
  * Get category label by value

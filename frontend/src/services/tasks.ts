@@ -5,10 +5,13 @@ export interface Task extends BaseEntity {
   title: string;
   description?: string;
   category: 'report' | 'maintenance' | 'event' | 'audit' | 'instruction' | 'other';
+  source?: 'dms' | 'email' | 'whatsapp' | 'other';
+  source_label?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
   status: 'pending' | 'in_progress' | 'review' | 'completed' | 'cancelled';
   progress: number;
   deadline?: string;
+  deadline_time?: string;
   started_at?: string;
   completed_at?: string;
   created_by: number;
@@ -95,8 +98,10 @@ export interface CreateTaskData {
   title: string;
   description: string;
   category: Task['category'];
+  source?: Task['source'];
   priority: Task['priority'];
   deadline?: string;
+  deadline_time?: string;
   assigned_to?: number | null;
   assigned_institution_id?: number | null;
   target_institution_id?: number | null;
@@ -115,9 +120,12 @@ export interface CreateTaskData {
 export interface UpdateTaskData {
   title?: string;
   description?: string;
+  category?: Task['category'];
+  source?: Task['source'];
   status?: Task['status'];
   priority?: Task['priority'];
   deadline?: string;
+  deadline_time?: string;
   progress?: number;
   notes?: string;
   completion_notes?: string;
