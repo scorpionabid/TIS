@@ -11,6 +11,7 @@ export interface EligibleDelegate {
   email: string;
   role: string;
   role_display: string;
+  role_level: number;
   institution: {
     id: number;
     name: string;
