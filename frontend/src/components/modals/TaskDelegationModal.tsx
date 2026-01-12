@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -48,7 +48,7 @@ export function TaskDelegationModal({
   onSuccess,
 }: TaskDelegationModalProps) {
   const { toast } = useToast();
-  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [reason, setReason] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -94,13 +94,13 @@ export function TaskDelegationModal({
   const delegateMutation = useMutation({
     mutationFn: () =>
       taskDelegationService.delegate(task.id, {
-        new_assignee_id: selectedUserId!,
+        new_assignee_ids: selectedUserIds,
         delegation_reason: reason || undefined,
       }),
     onSuccess: () => {
       toast({
         title: 'Uğurlu',
-        description: 'Tapşırıq uğurla yönləndirildi',
+        description: `Tapşırıq ${selectedUserIds.length} nəfərə uğurla yönləndirildi`,
       });
       onSuccess();
       handleClose();
@@ -115,15 +115,31 @@ export function TaskDelegationModal({
   });
 
   const handleClose = () => {
-    setSelectedUserId(null);
+    setSelectedUserIds([]);
     setReason('');
     setSearchQuery('');
     onClose();
   };
 
   const handleDelegate = () => {
-    if (!selectedUserId) return;
+    if (selectedUserIds.length === 0) return;
     delegateMutation.mutate();
+  };
+
+  const handleToggleUser = (userId: number) => {
+    setSelectedUserIds(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const handleSelectAll = () => {
+    setSelectedUserIds(filteredUsers.map(user => user.id));
+  };
+
+  const handleClearAll = () => {
+    setSelectedUserIds([]);
   };
 
   return (
@@ -150,109 +166,140 @@ export function TaskDelegationModal({
           {/* User Selection */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <Label>Yeni məsul şəxs seçin *</Label>
-              {eligibleUsers && eligibleUsers.length > 0 && (
-                <Badge variant="secondary" className="text-xs">
-                  {filteredUsers.length} / {eligibleUsers.length} nəfər
-                </Badge>
-              )}
+              <Label>Yeni məsul şəxs(lər) seçin *</Label>
+              <div className="flex items-center gap-2">
+                {selectedUserIds.length > 0 && (
+                  <Badge variant="default" className="text-xs">
+                    {selectedUserIds.length} seçildi
+                  </Badge>
+                )}
+                {eligibleUsers && eligibleUsers.length > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {filteredUsers.length} / {eligibleUsers.length} nəfər
+                  </Badge>
+                )}
+              </div>
             </div>
 
             {/* Search Input */}
             {eligibleUsers && eligibleUsers.length > 0 && (
-              <div className="relative mb-3">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Ad, email, müəssisə və ya rol axtar..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-10"
-                />
-                {searchQuery && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSearchQuery('')}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+              <div className="space-y-2 mb-3">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Ad, email, müəssisə və ya rol axtar..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-10"
+                  />
+                  {searchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7 p-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {filteredUsers.length > 0 && (
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleSelectAll}
+                      className="h-8 text-xs"
+                    >
+                      Hamısını seç
+                    </Button>
+                    {selectedUserIds.length > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleClearAll}
+                        className="h-8 text-xs"
+                      >
+                        Təmizlə
+                      </Button>
+                    )}
+                  </div>
                 )}
               </div>
             )}
 
-            <RadioGroup
-              value={selectedUserId?.toString()}
-              onValueChange={(v) => setSelectedUserId(Number(v))}
-            >
-              <ScrollArea className="h-[350px] border rounded-lg p-3">
-                {isLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                    <span className="ml-2 text-sm text-muted-foreground">İstifadəçilər yüklənir...</span>
-                  </div>
-                ) : filteredUsers.length > 0 ? (
-                  groupedUsers.map(([roleDisplay, users]) => (
-                    <div key={roleDisplay} className="mb-4 last:mb-0">
-                      {/* Role Group Header */}
-                      <div className="flex items-center justify-between px-2 py-1 mb-2">
-                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                          {roleDisplay}
-                        </div>
-                        <Badge
-                          variant="outline"
-                          className={cn("text-xs", getLevelColor(users[0]?.role_level || 0))}
-                        >
-                          {users.length}
-                        </Badge>
+            <ScrollArea className="h-[350px] border rounded-lg p-3">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-sm text-muted-foreground">İstifadəçilər yüklənir...</span>
+                </div>
+              ) : filteredUsers.length > 0 ? (
+                groupedUsers.map(([roleDisplay, users]) => (
+                  <div key={roleDisplay} className="mb-4 last:mb-0">
+                    {/* Role Group Header */}
+                    <div className="flex items-center justify-between px-2 py-1 mb-2">
+                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                        {roleDisplay}
                       </div>
-
-                      {/* Users in this role */}
-                      {users.map((user) => (
-                        <div
-                          key={user.id}
-                          className={cn(
-                            "flex items-center space-x-3 mb-2 p-3 rounded-lg border transition-all",
-                            selectedUserId === user.id
-                              ? "bg-primary/10 border-primary shadow-sm"
-                              : "hover:bg-accent hover:border-border border-transparent"
-                          )}
-                        >
-                          <RadioGroupItem value={user.id.toString()} id={`user-${user.id}`} />
-                          <Label htmlFor={`user-${user.id}`} className="flex-1 cursor-pointer">
-                            <div className="flex items-center justify-between gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium truncate">{user.name}</div>
-                                <div className="text-xs text-muted-foreground truncate">{user.email}</div>
-                                <div className="text-sm text-muted-foreground truncate mt-0.5">
-                                  {user.institution.name}
-                                </div>
-                              </div>
-                              <Badge
-                                variant="outline"
-                                className={cn("shrink-0", getLevelColor(user.role_level))}
-                              >
-                                {user.role_display}
-                              </Badge>
-                            </div>
-                          </Label>
-                        </div>
-                      ))}
+                      <Badge
+                        variant="outline"
+                        className={cn("text-xs", getLevelColor(users[0]?.role_level || 0))}
+                      >
+                        {users.length}
+                      </Badge>
                     </div>
-                  ))
-                ) : eligibleUsers && eligibleUsers.length > 0 ? (
-                  <div className="text-center py-8">
-                    <Search className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
-                    <p className="text-sm text-muted-foreground">Axtarış nəticəsi tapılmadı</p>
-                    <p className="text-xs text-muted-foreground mt-1">"{searchQuery}" üzrə heç bir istifadəçi yoxdur</p>
+
+                    {/* Users in this role */}
+                    {users.map((user) => (
+                      <div
+                        key={user.id}
+                        className={cn(
+                          "flex items-center space-x-3 mb-2 p-3 rounded-lg border transition-all cursor-pointer",
+                          selectedUserIds.includes(user.id)
+                            ? "bg-primary/10 border-primary shadow-sm"
+                            : "hover:bg-accent hover:border-border border-transparent"
+                        )}
+                        onClick={() => handleToggleUser(user.id)}
+                      >
+                        <Checkbox
+                          id={`user-${user.id}`}
+                          checked={selectedUserIds.includes(user.id)}
+                          onCheckedChange={() => handleToggleUser(user.id)}
+                        />
+                        <Label htmlFor={`user-${user.id}`} className="flex-1 cursor-pointer">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-medium truncate">{user.name}</div>
+                              <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                              <div className="text-sm text-muted-foreground truncate mt-0.5">
+                                {user.institution.name}
+                              </div>
+                            </div>
+                            <Badge
+                              variant="outline"
+                              className={cn("shrink-0", getLevelColor(user.role_level))}
+                            >
+                              {user.role_display}
+                            </Badge>
+                          </div>
+                        </Label>
+                      </div>
+                    ))}
                   </div>
-                ) : (
-                  <div className="text-center py-8 text-sm text-muted-foreground">
-                    Uyğun istifadəçi tapılmadı
-                  </div>
-                )}
-              </ScrollArea>
-            </RadioGroup>
+                ))
+              ) : eligibleUsers && eligibleUsers.length > 0 ? (
+                <div className="text-center py-8">
+                  <Search className="h-12 w-12 text-muted-foreground mx-auto mb-2 opacity-50" />
+                  <p className="text-sm text-muted-foreground">Axtarış nəticəsi tapılmadı</p>
+                  <p className="text-xs text-muted-foreground mt-1">"{searchQuery}" üzrə heç bir istifadəçi yoxdur</p>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-sm text-muted-foreground">
+                  Uyğun istifadəçi tapılmadı
+                </div>
+              )}
+            </ScrollArea>
           </div>
 
           {/* Reason */}
@@ -272,7 +319,7 @@ export function TaskDelegationModal({
           <Alert variant="default" className="bg-blue-50 border-blue-200">
             <Info className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-sm text-blue-900">
-              Qeyd: Tapşırıq yalnız 1 dəfə yönləndirilə bilər. Yönləndirdikdən sonra yeni məsul tapşırığı yerinə yetirə bilər.
+              Qeyd: Tapşırıq yalnız 1 dəfə yönləndirilə bilər. Seçilən hər kəs üçün ayrıca tapşırıq təyinatı yaradılacaq.
             </AlertDescription>
           </Alert>
         </div>
@@ -281,9 +328,9 @@ export function TaskDelegationModal({
           <Button variant="outline" onClick={handleClose} disabled={delegateMutation.isPending}>
             İmtina
           </Button>
-          <Button onClick={handleDelegate} disabled={!selectedUserId || delegateMutation.isPending}>
+          <Button onClick={handleDelegate} disabled={selectedUserIds.length === 0 || delegateMutation.isPending}>
             {delegateMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Yönləndir
+            Yönləndir ({selectedUserIds.length})
           </Button>
         </DialogFooter>
       </DialogContent>

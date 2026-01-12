@@ -1,7 +1,7 @@
 import { apiClient } from './api';
 
 export interface DelegateTaskRequest {
-  new_assignee_id: number;
+  new_assignee_ids: number[];
   delegation_reason?: string;
 }
 

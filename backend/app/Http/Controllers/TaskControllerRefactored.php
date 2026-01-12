@@ -1009,12 +1009,13 @@ class TaskControllerRefactored extends Controller
     }
 
     /**
-     * Delegate task to another user
+     * Delegate task to one or more users
      */
     public function delegate(Request $request, Task $task): JsonResponse
     {
         $request->validate([
-            'new_assignee_id' => 'required|exists:users,id',
+            'new_assignee_ids' => 'required|array|min:1',
+            'new_assignee_ids.*' => 'required|exists:users,id',
             'delegation_reason' => 'nullable|string|max:500',
         ]);
 
@@ -1034,56 +1035,108 @@ class TaskControllerRefactored extends Controller
             ->whereIn('assignment_status', ['pending', 'accepted'])
             ->first();
 
-        // Validate new assignee level (must be same or lower authority)
-        $newAssignee = User::with('roles')->findOrFail($request->new_assignee_id);
+        // Validate all new assignees' levels (must be same or lower authority)
         $currentUserLevel = $currentUser->roles->first()?->level ?? 999;
-        $newAssigneeLevel = $newAssignee->roles->first()?->level ?? 999;
+        $newAssignees = User::with('roles')->whereIn('id', $request->new_assignee_ids)->get();
 
-        if ($newAssigneeLevel < $currentUserLevel) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tapşırığı yalnız öz səviyyənizdə və ya aşağı səviyyəli istifadəçilərə yönləndirə bilərsiniz.',
-            ], 400);
+        foreach ($newAssignees as $newAssignee) {
+            $newAssigneeLevel = $newAssignee->roles->first()?->level ?? 999;
+            if ($newAssigneeLevel < $currentUserLevel) {
+                return response()->json([
+                    'success' => false,
+                    'message' => "Tapşırığı yalnız öz səviyyənizdə və ya aşağı səviyyəli istifadəçilərə yönləndirə bilərsiniz. ({$newAssignee->name})",
+                ], 400);
+            }
         }
 
         DB::beginTransaction();
         try {
-            // Create delegation history
+            $delegations = [];
+            $newAssignments = [];
+
+            // For the first user, update the existing assignment
+            $firstAssigneeId = $request->new_assignee_ids[0];
+
+            // Create delegation history for first user
             $delegation = \App\Models\TaskDelegationHistory::create([
                 'task_id' => $task->id,
                 'assignment_id' => $currentAssignment->id,
                 'delegated_from_user_id' => $currentUser->id,
-                'delegated_to_user_id' => $request->new_assignee_id,
+                'delegated_to_user_id' => $firstAssigneeId,
                 'delegated_by_user_id' => $currentUser->id,
                 'delegation_reason' => $request->delegation_reason,
                 'delegation_metadata' => [
                     'previous_status' => $currentAssignment->assignment_status,
                     'previous_progress' => $currentAssignment->progress ?? 0,
+                    'is_multi_delegation' => count($request->new_assignee_ids) > 1,
                 ],
             ]);
+            $delegations[] = $delegation;
 
-            // Update assignment
+            // Update existing assignment to first user
             $currentAssignment->update([
-                'assigned_user_id' => $request->new_assignee_id,
+                'assigned_user_id' => $firstAssigneeId,
                 'assignment_status' => 'pending',
                 'updated_by' => $currentUser->id,
             ]);
 
-            // Log delegation
+            // Log delegation for first user
             $this->auditService->logTaskDelegated(
                 $task,
                 $currentUser->id,
-                $request->new_assignee_id,
+                $firstAssigneeId,
                 $request->delegation_reason
             );
+
+            // For remaining users, create new assignments
+            for ($i = 1; $i < count($request->new_assignee_ids); $i++) {
+                $assigneeId = $request->new_assignee_ids[$i];
+
+                // Create new assignment
+                $newAssignment = $task->assignments()->create([
+                    'assigned_user_id' => $assigneeId,
+                    'assignment_status' => 'pending',
+                    'assigned_by' => $currentUser->id,
+                    'created_by' => $currentUser->id,
+                    'updated_by' => $currentUser->id,
+                ]);
+                $newAssignments[] = $newAssignment;
+
+                // Create delegation history for this user
+                $delegation = \App\Models\TaskDelegationHistory::create([
+                    'task_id' => $task->id,
+                    'assignment_id' => $newAssignment->id,
+                    'delegated_from_user_id' => $currentUser->id,
+                    'delegated_to_user_id' => $assigneeId,
+                    'delegated_by_user_id' => $currentUser->id,
+                    'delegation_reason' => $request->delegation_reason,
+                    'delegation_metadata' => [
+                        'is_multi_delegation' => true,
+                        'is_additional_assignment' => true,
+                        'original_assignment_id' => $currentAssignment->id,
+                    ],
+                ]);
+                $delegations[] = $delegation;
+
+                // Log delegation
+                $this->auditService->logTaskDelegated(
+                    $task,
+                    $currentUser->id,
+                    $assigneeId,
+                    $request->delegation_reason
+                );
+            }
 
             DB::commit();
 
             return response()->json([
                 'success' => true,
-                'message' => 'Tapşırıq uğurla yönləndirildi.',
+                'message' => count($request->new_assignee_ids) > 1
+                    ? 'Tapşırıq ' . count($request->new_assignee_ids) . ' nəfərə uğurla yönləndirildi.'
+                    : 'Tapşırıq uğurla yönləndirildi.',
                 'data' => [
-                    'delegation' => $delegation->load(['fromUser', 'toUser']),
+                    'delegations' => collect($delegations)->load(['fromUser', 'toUser']),
+                    'delegated_count' => count($request->new_assignee_ids),
                 ],
             ]);
         } catch (\Exception $e) {
