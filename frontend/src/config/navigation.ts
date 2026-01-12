@@ -91,14 +91,14 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'attendance-record',
             label: 'Davamiyyət Qeydiyyatı',
             path: '/school/attendance',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR],
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
             permissions: ['attendance.create', 'attendance.update']
           },
           {
             id: 'attendance-bulk',
             label: 'Toplu Davamiyyət Qeydiyyatı',
             path: '/school/attendance/bulk',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR],
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
             permissions: ['attendance.create', 'attendance.update'],
             description: 'Siniflərdə toplu şəkildə davamiyyət qeyd edin'
           },
@@ -106,7 +106,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'attendance-reports',
             label: 'Davamiyyət Hesabatları',
             path: '/school/attendance/reports',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR],
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
             permissions: ['attendance.read']
           },
           {
@@ -180,7 +180,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: 'Tapşırıqlar',
         path: '/tasks',
         icon: ClipboardCheck,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]
       },
       {
         id: 'assigned-tasks',
