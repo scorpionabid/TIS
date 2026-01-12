@@ -237,13 +237,24 @@ class RegionAdminUserController extends Controller
                     break;
 
                 case 'regionoperator':
-                    // RegionOperator can be assigned to level 4+ institutions (schools)
-                    // because departments exist only in schools
-                    if ($institution->level < 4) {
+                    // RegionOperator can ONLY be assigned to:
+                    // - Level 2 (Sektor) - departments exist only at sector level
+                    // Reality check: departments are only in level 2 institutions
+
+                    // 🔍 DEBUG: Log institution details
+                    Log::info('🔍 RegionOperator validation', [
+                        'institution_id' => $institution->id,
+                        'institution_name' => $institution->name,
+                        'institution_level' => $institution->level,
+                        'validation_condition' => '$institution->level != 2',
+                        'will_fail' => ($institution->level != 2),
+                    ]);
+
+                    if ($institution->level != 2) {
                         return response()->json([
                             'message' => 'Validation failed',
                             'errors' => [
-                                'institution_id' => ['RegionOperator yalnız məktəb səviyyəli (level 4+) müəssisəyə təyin edilə bilər, çünki departamentlər yalnız məktəblərdə mövcuddur.'],
+                                'institution_id' => ['RegionOperator yalnız sektor səviyyəli (level 2) müəssisəyə təyin edilə bilər, çünki departamentlər yalnız bu səviyyədə mövcuddur.'],
                             ],
                         ], 422);
                     }

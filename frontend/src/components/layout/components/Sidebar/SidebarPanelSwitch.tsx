@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { SidebarPanel } from '@/types/sidebar';
 import { useLayout } from '@/contexts/LayoutContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { getManagementMenuForRole, getWorkMenuForRole } from '@/config/navigation';
 
 interface SidebarPanelSwitchProps {
   isExpanded: boolean;
@@ -12,6 +14,20 @@ interface SidebarPanelSwitchProps {
 
 export const SidebarPanelSwitch: React.FC<SidebarPanelSwitchProps> = ({ isExpanded }) => {
   const { sidebarPreferences, setSidebarPreferences } = useLayout();
+  const { currentUser } = useAuth();
+
+  // Check if user has access to both panels
+  const hasManagementAccess = currentUser
+    ? getManagementMenuForRole(currentUser.role, currentUser.permissions || []).length > 0
+    : false;
+  const hasWorkAccess = currentUser
+    ? getWorkMenuForRole(currentUser.role, currentUser.permissions || []).length > 0
+    : false;
+
+  // If user only has access to one panel, don't show panel switcher
+  if (!hasManagementAccess || !hasWorkAccess) {
+    return null;
+  }
 
   const handlePanelSwitch = (panel: SidebarPanel) => {
     setSidebarPreferences({

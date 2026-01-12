@@ -169,12 +169,13 @@ class UpdateUserRequest extends FormRequest
                     break;
 
                 case 'regionoperator':
-                    // RegionOperator can be assigned to level 4+ institutions (schools)
-                    // because departments exist only in schools
-                    if ($institution->level < 4) {
+                    // RegionOperator can ONLY be assigned to:
+                    // - Level 2 (Sektor) - departments exist only at sector level
+                    // Reality check: departments are only in level 2 institutions
+                    if ($institution->level != 2) {
                         $validator->errors()->add(
                             'institution_id',
-                            'RegionOperator yalnız məktəb səviyyəli (level 4+) müəssisəyə təyin edilə bilər, çünki departamentlər yalnız məktəblərdə mövcuddur.'
+                            'RegionOperator yalnız sektor səviyyəli (level 2) müəssisəyə təyin edilə bilər, çünki departamentlər yalnız bu səviyyədə mövcuddur.'
                         );
                     }
                     break;
