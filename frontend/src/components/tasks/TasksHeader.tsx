@@ -23,8 +23,6 @@ type TasksHeaderProps = {
   availableTabs: TaskTab[];
   activeTab: TaskTabValue;
   onTabChange: (value: TaskTabValue) => void;
-  showCreateButton: boolean;
-  onCreateTask: () => void;
   stats: TaskStats;
   searchTerm: string;
   onSearchChange: (value: string) => void;
@@ -48,8 +46,6 @@ export function TasksHeader({
   availableTabs,
   activeTab,
   onTabChange,
-  showCreateButton,
-  onCreateTask,
   stats,
   searchTerm,
   onSearchChange,
@@ -166,12 +162,6 @@ export function TasksHeader({
               : "Sistem genelində bütün tapşırıqların görülməsi və idarəsi"}
           </p>
         </div>
-        {showCreateButton && (
-          <Button className="flex items-center gap-2 self-start md:self-auto" onClick={onCreateTask} disabled={disabled}>
-            <Plus className="h-4 w-4" />
-            Yeni Tapşırıq
-          </Button>
-        )}
       </div>
 
       {availableTabs.length > 0 && (

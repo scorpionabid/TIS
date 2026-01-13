@@ -29,7 +29,6 @@ interface ExcelTaskTableProps {
   onViewTask: (task: Task) => void;
   onEditTask: (task: Task) => void;
   onDeleteTask: (task: Task) => void;
-  onCreateTask: () => void;
   canEditTaskItem: (task: Task) => boolean;
   canDeleteTaskItem: (task: Task) => boolean;
   showCreateButton: boolean;
@@ -38,6 +37,8 @@ interface ExcelTaskTableProps {
   availableUsers?: Array<{ id: number; name: string; email?: string }>;
   availableDepartments?: Array<{ id: number; name: string }>;
   onRefresh?: () => Promise<void>;
+  onTaskCreated: () => Promise<void>;
+  originScope: 'region' | 'sector' | null;
 }
 
 export function ExcelTaskTable({
@@ -48,7 +49,6 @@ export function ExcelTaskTable({
   onViewTask,
   onEditTask,
   onDeleteTask,
-  onCreateTask,
   canEditTaskItem,
   canDeleteTaskItem,
   showCreateButton,
@@ -57,6 +57,8 @@ export function ExcelTaskTable({
   availableUsers = [],
   availableDepartments = [],
   onRefresh,
+  onTaskCreated,
+  originScope,
 }: ExcelTaskTableProps) {
   const { toast } = useToast();
   const editContext = useInlineEdit();
@@ -239,10 +241,13 @@ export function ExcelTaskTable({
               />
             ))
           )}
-          {showCreateButton && !bulkEditContext.isSelectionMode && (
+          {!bulkEditContext.isSelectionMode && (
             <ExcelCreateRow
-              onCreateClick={onCreateTask}
-              colSpan={excelColumns.length}
+              availableUsers={availableUsers}
+              availableDepartments={availableDepartments}
+              onTaskCreated={onTaskCreated}
+              originScope={originScope}
+              showCreateButton={showCreateButton}
             />
           )}
         </tbody>
