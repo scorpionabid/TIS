@@ -2,7 +2,8 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Loader2, Table as TableIcon, Grid3x3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { CreateTaskData, Task, UpdateTaskData, taskService } from "@/services/tasks";
+import { CreateTaskData, Task, UpdateTaskData, taskService, AssignableUser } from "@/services/tasks";
+import { Department, departmentService } from "@/services/departments";
 import { TasksHeader } from "@/components/tasks/TasksHeader";
 import { TasksTable } from "@/components/tasks/TasksTable";
 import { ExcelTaskTable } from "@/components/tasks/excel-view/ExcelTaskTable";
@@ -20,6 +21,8 @@ export default function Tasks() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<'table' | 'excel'>('excel');
+  const [availableUsers, setAvailableUsers] = useState<AssignableUser[]>([]);
+  const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
 
   const {
     searchTerm,
@@ -122,6 +125,38 @@ export default function Tasks() {
     }, 60_000);
     return () => clearInterval(interval);
   }, [hasAccess, refreshTasks]);
+
+  // Fetch assignable users for Excel view
+  useEffect(() => {
+    if (!hasAccess) return;
+
+    const fetchUsers = async () => {
+      try {
+        const response = await taskService.getAssignableUsers({ per_page: 1000 });
+        setAvailableUsers(response.data);
+      } catch (error) {
+        console.error('[Tasks] Failed to fetch assignable users', error);
+      }
+    };
+
+    fetchUsers();
+  }, [hasAccess]);
+
+  // Fetch departments for Excel view
+  useEffect(() => {
+    if (!hasAccess) return;
+
+    const fetchDepartments = async () => {
+      try {
+        const response = await departmentService.getAll({ per_page: 1000, is_active: true });
+        setAvailableDepartments(response.data || []);
+      } catch (error) {
+        console.error('[Tasks] Failed to fetch departments', error);
+      }
+    };
+
+    fetchDepartments();
+  }, [hasAccess]);
 
   if (!hasAccess || availableTabs.length === 0) {
     return <TaskAccessRestricted />;
@@ -296,6 +331,9 @@ export default function Tasks() {
           showCreateButton={showCreateButton}
           page={page}
           perPage={perPage}
+          availableUsers={availableUsers}
+          availableDepartments={availableDepartments}
+          onRefresh={refreshTasks}
         />
       ) : (
         <TasksTable

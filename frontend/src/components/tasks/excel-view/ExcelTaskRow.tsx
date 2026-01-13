@@ -11,6 +11,8 @@ import { DropdownCell } from './cells/DropdownCell';
 import { DateCell } from './cells/DateCell';
 import { TimeCell } from './cells/TimeCell';
 import { ProgressCell } from './cells/ProgressCell';
+import { TextareaCell } from './cells/TextareaCell';
+import { MultiSelectCell } from './cells/MultiSelectCell';
 import {
   sourceOptions,
   priorityOptions,
@@ -19,10 +21,28 @@ import {
   getPriorityColor,
   getStatusColor,
 } from '../config/taskFormFields';
-import { formatUserName } from '../TasksTable';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Eye, Edit, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// Helper function to format user names
+function formatUserName(name: string): string {
+  if (!name) return '';
+
+  // If name contains @, extract username before @
+  if (name.includes('@')) {
+    const username = name.split('@')[0];
+    // Capitalize first letter and handle dots/underscores
+    return username
+      .split(/[._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+  }
+
+  // Otherwise, just return the name as is
+  return name;
+}
 
 interface ExcelTaskRowProps {
   task: Task;
@@ -33,6 +53,11 @@ interface ExcelTaskRowProps {
   onDelete: (task: Task) => void;
   canEdit: boolean;
   canDelete: boolean;
+  availableUsers?: Array<{ id: number; name: string; email?: string }>;
+  availableDepartments?: Array<{ id: number; name: string }>;
+  isSelectionMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelection?: (taskId: number) => void;
 }
 
 export function ExcelTaskRow({
@@ -44,6 +69,11 @@ export function ExcelTaskRow({
   onDelete,
   canEdit,
   canDelete,
+  availableUsers = [],
+  availableDepartments = [],
+  isSelectionMode = false,
+  isSelected = false,
+  onToggleSelection,
 }: ExcelTaskRowProps) {
   const { startEdit, saveEdit, cancelEdit, isEditing, isSaving } = editContext;
 
@@ -77,9 +107,21 @@ export function ExcelTaskRow({
     <tr
       className={cn(
         'border-b hover:bg-muted/30 transition-colors',
-        isSaving && 'opacity-50 pointer-events-none'
+        isSaving && 'opacity-50 pointer-events-none',
+        isSelected && 'bg-primary/5'
       )}
     >
+      {/* Selection Checkbox (visible in selection mode) */}
+      {isSelectionMode && (
+        <td className="px-2 py-2 text-center">
+          <Checkbox
+            checked={isSelected}
+            onCheckedChange={() => onToggleSelection?.(task.id)}
+            aria-label={`Tapşırığı seç ${task.title}`}
+          />
+        </td>
+      )}
+
       {/* Row Number */}
       <td className="px-4 py-2 text-center text-sm text-muted-foreground font-medium">
         {rowNumber}
@@ -112,9 +154,24 @@ export function ExcelTaskRow({
         />
       </td>
 
-      {/* Department - For now, display only */}
-      <td className="px-4 py-2 text-sm text-muted-foreground">
-        -
+      {/* Department - Editable dropdown */}
+      <td className="px-2 py-1">
+        <DropdownCell
+          value={task.target_departments?.[0] ? String(task.target_departments[0]) : ''}
+          options={availableDepartments.map(dept => ({
+            value: String(dept.id),
+            label: dept.name,
+            color: undefined,
+          }))}
+          isEditing={isEditing(task.id, 'department')}
+          onEdit={() => canEdit && startEdit(task.id, 'department', task.target_departments?.[0])}
+          onSave={(value) => {
+            const departmentId = value ? parseInt(value) : null;
+            saveEdit(task.id, { target_departments: departmentId ? [departmentId] : [] } as any);
+          }}
+          onCancel={cancelEdit}
+          showBadge={false}
+        />
       </td>
 
       {/* Priority */}
@@ -143,19 +200,31 @@ export function ExcelTaskRow({
         />
       </td>
 
-      {/* Assignees - Read-only for now */}
-      <td className="px-4 py-2 text-sm truncate max-w-[200px]" title={assigneeNames}>
-        {assigneeNames}
+      {/* Assignees - Now editable with MultiSelectCell */}
+      <td className="px-2 py-1">
+        <MultiSelectCell
+          selectedIds={task.assignments?.map(a => a.assigned_user_id).filter(Boolean) as number[] || []}
+          options={availableUsers}
+          isEditing={isEditing(task.id, 'assignees')}
+          onEdit={() => canEdit && startEdit(task.id, 'assignees', task.assignments)}
+          onSave={(ids) => saveEdit(task.id, { assigned_user_ids: ids } as any)}
+          onCancel={cancelEdit}
+          placeholder="Məsul şəxs seçin"
+        />
       </td>
 
-      {/* Description */}
+      {/* Description - Now editable with TextareaCell */}
       <td className="px-2 py-1 max-w-[300px]">
-        <div
-          className="px-3 py-2 text-sm truncate cursor-pointer hover:bg-muted/50 rounded"
-          title={task.description}
-        >
-          {task.description || 'Təsvir yoxdur'}
-        </div>
+        <TextareaCell
+          value={task.description}
+          isEditing={isEditing(task.id, 'description')}
+          onEdit={() => canEdit && startEdit(task.id, 'description', task.description)}
+          onSave={(value) => saveEdit(task.id, { description: value })}
+          onCancel={cancelEdit}
+          placeholder="Tapşırıq təsvirini daxil edin..."
+          maxLength={2000}
+          rows={3}
+        />
       </td>
 
       {/* Started At */}
