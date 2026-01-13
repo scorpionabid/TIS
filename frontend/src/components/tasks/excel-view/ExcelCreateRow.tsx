@@ -213,9 +213,9 @@ export function ExcelCreateRow({
           {/* 4. Departament */}
           <td className="px-2 py-3 w-[160px]">
             <Select
-              value={formData.department_id?.toString() || ''}
+              value={formData.department_id?.toString() || 'none'}
               onValueChange={(value) =>
-                handleFieldChange('department_id', value ? Number(value) : null)
+                handleFieldChange('department_id', value === 'none' ? null : Number(value))
               }
               disabled={isSubmitting}
             >
@@ -223,7 +223,7 @@ export function ExcelCreateRow({
                 <SelectValue placeholder="Departament" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Heç biri</SelectItem>
+                <SelectItem value="none">Heç biri</SelectItem>
                 {availableDepartments.map((dept) => (
                   <SelectItem key={dept.id} value={dept.id.toString()}>
                     {dept.name}
@@ -261,9 +261,9 @@ export function ExcelCreateRow({
           {/* 7. Məsul Şəxs */}
           <td className="px-2 py-3 w-[200px]">
             <Select
-              value={formData.assigned_user_ids[0]?.toString() || ''}
+              value={formData.assigned_user_ids[0]?.toString() || 'none'}
               onValueChange={(value) =>
-                handleFieldChange('assigned_user_ids', value ? [Number(value)] : [])
+                handleFieldChange('assigned_user_ids', value === 'none' ? [] : [Number(value)])
               }
               disabled={isSubmitting}
             >
@@ -271,7 +271,7 @@ export function ExcelCreateRow({
                 <SelectValue placeholder="Məsul seç" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Heç biri</SelectItem>
+                <SelectItem value="none">Heç biri</SelectItem>
                 {availableUsers.map((user) => (
                   <SelectItem key={user.id} value={user.id.toString()}>
                     {user.name}
