@@ -1,10 +1,11 @@
-import { useEffect } from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AlertTriangle, Loader2, Table as TableIcon, Grid3x3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { CreateTaskData, Task, UpdateTaskData, taskService } from "@/services/tasks";
 import { TasksHeader } from "@/components/tasks/TasksHeader";
 import { TasksTable } from "@/components/tasks/TasksTable";
+import { ExcelTaskTable } from "@/components/tasks/excel-view/ExcelTaskTable";
 import { TaskModals } from "@/components/tasks/TaskModals";
 import { TaskFilterState, useTaskFilters } from "@/hooks/tasks/useTaskFilters";
 import { useTaskPermissions } from "@/hooks/tasks/useTaskPermissions";
@@ -12,10 +13,13 @@ import { useTasksData } from "@/hooks/tasks/useTasksData";
 import { useTaskModals } from "@/hooks/tasks/useTaskModals";
 import { normalizeCreatePayload } from "@/utils/taskActions";
 import { usePrefetchTaskFormData } from "@/hooks/tasks/useTaskFormData";
+import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 
 export default function Tasks() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
+  const [viewMode, setViewMode] = useState<'table' | 'excel'>('excel');
 
   const {
     searchTerm,
@@ -262,25 +266,58 @@ export default function Tasks() {
         disabled={isFetching}
       />
 
-      <TasksTable
-        tasks={tasks}
-        sortField={sortField}
-        sortDirection={sortDirection}
-        onSort={handleSort}
-        onViewTask={(task) => openDetailsDrawer(task)}
-        onEditTask={handleOpenModal}
-        onDeleteTask={(task) => openDeleteModal(task)}
-        canEditTaskItem={canEditTaskItem}
-        canDeleteTaskItem={canDeleteTaskItem}
-        showCreateButton={showCreateButton}
-        onCreateTask={() => handleOpenModal()}
-        pagination={pagination}
-        page={page}
-        perPage={perPage}
-        onPageChange={setPage}
-        onPerPageChange={setPerPage}
-        isFetching={isFetching}
-      />
+      {/* View Mode Toggle */}
+      <div className="flex justify-end">
+        <ToggleGroup type="single" value={viewMode} onValueChange={(value) => value && setViewMode(value as 'table' | 'excel')}>
+          <ToggleGroupItem value="table" aria-label="Cədvəl görünüşü" className="gap-2">
+            <TableIcon className="h-4 w-4" />
+            <span className="hidden sm:inline">Cədvəl</span>
+          </ToggleGroupItem>
+          <ToggleGroupItem value="excel" aria-label="Excel görünüşü" className="gap-2">
+            <Grid3x3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Excel</span>
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      {/* Conditional Rendering Based on View Mode */}
+      {viewMode === 'excel' ? (
+        <ExcelTaskTable
+          tasks={tasks}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          onViewTask={(task) => openDetailsDrawer(task)}
+          onEditTask={handleOpenModal}
+          onDeleteTask={(task) => openDeleteModal(task)}
+          onCreateTask={() => handleOpenModal()}
+          canEditTaskItem={canEditTaskItem}
+          canDeleteTaskItem={canDeleteTaskItem}
+          showCreateButton={showCreateButton}
+          page={page}
+          perPage={perPage}
+        />
+      ) : (
+        <TasksTable
+          tasks={tasks}
+          sortField={sortField}
+          sortDirection={sortDirection}
+          onSort={handleSort}
+          onViewTask={(task) => openDetailsDrawer(task)}
+          onEditTask={handleOpenModal}
+          onDeleteTask={(task) => openDeleteModal(task)}
+          canEditTaskItem={canEditTaskItem}
+          canDeleteTaskItem={canDeleteTaskItem}
+          showCreateButton={showCreateButton}
+          onCreateTask={() => handleOpenModal()}
+          pagination={pagination}
+          page={page}
+          perPage={perPage}
+          onPageChange={setPage}
+          onPerPageChange={setPerPage}
+          isFetching={isFetching}
+        />
+      )}
 
       <TaskModals
         isTaskModalOpen={isTaskModalOpen}
