@@ -200,15 +200,27 @@ export default function Tasks() {
         };
 
         await updateTask.mutateAsync({ id: selectedTask.id, data: updatePayload });
+        toast({
+          title: "Tapşırıq yeniləndi",
+          description: "Tapşırıq məlumatları uğurla yeniləndi.",
+        });
       } else {
         await createTask.mutateAsync(payload);
+        toast({
+          title: "Tapşırıq əlavə edildi",
+          description: "Yeni tapşırıq uğurla yaradıldı.",
+        });
       }
 
       await refreshTasks();
       closeTaskModal();
     } catch (saveError) {
       console.error("[Tasks] Save əməliyyatı alınmadı", saveError);
-      // Toast notifications are now handled by the mutation hooks
+      toast({
+        title: "Xəta baş verdi",
+        description: saveError instanceof Error ? saveError.message : "Əməliyyat zamanı problem yarandı.",
+        variant: "destructive",
+      });
       throw saveError;
     }
   };
@@ -223,10 +235,13 @@ export default function Tasks() {
 
     try {
       await deleteTask.mutateAsync(task.id);
+      toast({
+        title: "Tapşırıq silindi",
+        description: deleteType === "hard" ? "Tapşırıq sistemdən tam silindi." : "Tapşırıq uğurla silindi.",
+      });
       await refreshTasks();
     } catch (deleteError) {
       console.error("[Tasks] Silmə əməliyyatında xəta", deleteError);
-      // Toast notifications are now handled by the mutation hooks
       toast({
         title: "Silinə bilmədi",
         description:
