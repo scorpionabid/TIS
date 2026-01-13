@@ -1,7 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tantml:react-query";
 import { taskService, Task } from "@/services/tasks";
-import { categoryLabels } from "@/components/tasks/config/taskFormFields";
 import { User } from "@/types/user";
 import { TaskFilterState } from "./useTaskFilters";
 import { TaskTabValue } from "./useTaskPermissions";
@@ -37,10 +36,14 @@ export function useTasksData({
   const scope = activeTab === "region" ? "region" : "sector";
   const hasScopeAccess = scope === "region" ? canSeeRegionTab : canSeeSectorTab;
 
-  const serverSortableFields: Partial<Record<SortField, "created_at" | "deadline" | "priority" | "status">> = {
+  // All sorting is now done on the server-side
+  const serverSortableFields: Partial<Record<SortField, string>> = {
+    title: "title",
+    category: "category",
     deadline: "deadline",
     priority: "priority",
     status: "status",
+    assignee: "title", // Map assignee to title for backward compatibility (backend doesn't support assignee sorting yet)
   };
 
   const queryFilters = useMemo(() => {
@@ -50,11 +53,10 @@ export function useTasksData({
       per_page: perPage,
     };
 
-    const apiSortField = serverSortableFields[sortField];
-    if (apiSortField) {
-      nextFilters.sort_by = apiSortField;
-      nextFilters.sort_direction = sortDirection;
-    }
+    // All fields are now server-sortable
+    const apiSortField = serverSortableFields[sortField] || sortField;
+    nextFilters.sort_by = apiSortField;
+    nextFilters.sort_direction = sortDirection;
 
     if (filters.searchTerm) {
       nextFilters.search = filters.searchTerm;
@@ -105,54 +107,33 @@ export function useTasksData({
   const error = tasksQuery.error as Error | null | undefined;
   const pagination = tasksResponse?.pagination;
 
+  // Use statistics from API response (server-side calculated on filtered data)
   const stats = useMemo(() => {
-    const total = pagination?.total ?? rawTasks.length;
-    const pending = rawTasks.filter((task) => task.status === "pending").length;
-    const inProgress = rawTasks.filter((task) => task.status === "in_progress").length;
-    const completed = rawTasks.filter((task) => task.status === "completed").length;
-    const overdue = rawTasks.filter((task) => {
-      if (!task.deadline) return false;
-      const deadlineDate = new Date(task.deadline);
-      return deadlineDate < new Date() && task.status !== "completed";
-    }).length;
+    // Backend now returns statistics in the response
+    const apiStatistics = (tasksResponse as any)?.statistics;
 
-    return { total, pending, in_progress: inProgress, completed, overdue };
-  }, [pagination?.total, rawTasks]);
-
-  const tasks = useMemo(() => {
-    if (serverSortableFields[sortField]) {
-      return rawTasks;
+    if (apiStatistics) {
+      return {
+        total: apiStatistics.total || 0,
+        pending: apiStatistics.pending || 0,
+        in_progress: apiStatistics.in_progress || 0,
+        completed: apiStatistics.completed || 0,
+        overdue: apiStatistics.overdue || 0,
+      };
     }
 
-    const sorted = [...rawTasks];
-    sorted.sort((a, b) => {
-      let aValue: string | number = "";
-      let bValue: string | number = "";
+    // Fallback to pagination total if statistics not available (backward compatibility)
+    return {
+      total: pagination?.total ?? 0,
+      pending: 0,
+      in_progress: 0,
+      completed: 0,
+      overdue: 0,
+    };
+  }, [tasksResponse, pagination?.total]);
 
-      switch (sortField) {
-        case "title":
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
-          break;
-        case "category":
-          aValue = (categoryLabels[a.category] || a.category || "").toLowerCase();
-          bValue = (categoryLabels[b.category] || b.category || "").toLowerCase();
-          break;
-        case "assignee":
-          aValue = (a.assignee?.name || "").toLowerCase();
-          bValue = (b.assignee?.name || "").toLowerCase();
-          break;
-        default:
-          break;
-      }
-
-      if (aValue < bValue) return sortDirection === "asc" ? -1 : 1;
-      if (aValue > bValue) return sortDirection === "asc" ? 1 : -1;
-      return 0;
-    });
-
-    return sorted;
-  }, [rawTasks, sortDirection, sortField]);
+  // All sorting is now server-side, no need for client-side sorting
+  const tasks = rawTasks;
 
   const handleSort = useCallback(
     (field: SortField) => {

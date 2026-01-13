@@ -139,7 +139,7 @@ export interface TaskFilters extends PaginationParams {
   created_by?: number;
   search?: string;
   deadline_filter?: 'approaching' | 'overdue' | 'all';
-  sort_by?: 'created_at' | 'deadline' | 'priority' | 'status';
+  sort_by?: 'created_at' | 'deadline' | 'priority' | 'status' | 'title' | 'category' | 'progress';
   sort_direction?: 'asc' | 'desc';
   origin_scope?: 'region' | 'sector';
 }

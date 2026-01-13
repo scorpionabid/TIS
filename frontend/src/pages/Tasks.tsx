@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertTriangle, Loader2, Table as TableIcon, Grid3x3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { CreateTaskData, Task, UpdateTaskData, taskService, AssignableUser } from "@/services/tasks";
-import { Department, departmentService } from "@/services/departments";
+import { CreateTaskData, Task, UpdateTaskData, taskService } from "@/services/tasks";
 import { TasksHeader } from "@/components/tasks/TasksHeader";
 import { TasksTable } from "@/components/tasks/TasksTable";
 import { ExcelTaskTable } from "@/components/tasks/excel-view/ExcelTaskTable";
@@ -12,6 +11,9 @@ import { TaskFilterState, useTaskFilters } from "@/hooks/tasks/useTaskFilters";
 import { useTaskPermissions } from "@/hooks/tasks/useTaskPermissions";
 import { useTasksData } from "@/hooks/tasks/useTasksData";
 import { useTaskModals } from "@/hooks/tasks/useTaskModals";
+import { useAssignableUsers } from "@/hooks/tasks/useAssignableUsers";
+import { useAvailableDepartments } from "@/hooks/tasks/useAvailableDepartments";
+import { useTaskMutations } from "@/hooks/tasks/useTaskMutations";
 import { normalizeCreatePayload } from "@/utils/taskActions";
 import { usePrefetchTaskFormData } from "@/hooks/tasks/useTaskFormData";
 import { Button } from "@/components/ui/button";
@@ -21,8 +23,6 @@ export default function Tasks() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [viewMode, setViewMode] = useState<'table' | 'excel'>('excel');
-  const [availableUsers, setAvailableUsers] = useState<AssignableUser[]>([]);
-  const [availableDepartments, setAvailableDepartments] = useState<Department[]>([]);
 
   const {
     searchTerm,
@@ -114,10 +114,23 @@ export default function Tasks() {
     handleDetailDrawerChange,
   } = useTaskModals();
 
+  // Use new centralized hooks for fetching users and departments
+  const { users: availableUsers } = useAssignableUsers({
+    perPage: 1000,
+    enabled: hasAccess,
+  });
+
+  const { departments: availableDepartments } = useAvailableDepartments({
+    enabled: hasAccess,
+  });
+
+  const { createTask, updateTask, deleteTask } = useTaskMutations();
+
   usePrefetchTaskFormData(null, showCreateButton);
   usePrefetchTaskFormData("region", showCreateButton && canSeeRegionTab);
   usePrefetchTaskFormData("sector", showCreateButton && canSeeSectorTab);
 
+  // Auto-refresh tasks every minute
   useEffect(() => {
     if (!hasAccess) return;
     const interval = setInterval(() => {
@@ -125,38 +138,6 @@ export default function Tasks() {
     }, 60_000);
     return () => clearInterval(interval);
   }, [hasAccess, refreshTasks]);
-
-  // Fetch assignable users for Excel view
-  useEffect(() => {
-    if (!hasAccess) return;
-
-    const fetchUsers = async () => {
-      try {
-        const response = await taskService.getAssignableUsers({ per_page: 1000 });
-        setAvailableUsers(response.data);
-      } catch (error) {
-        console.error('[Tasks] Failed to fetch assignable users', error);
-      }
-    };
-
-    fetchUsers();
-  }, [hasAccess]);
-
-  // Fetch departments for Excel view
-  useEffect(() => {
-    if (!hasAccess) return;
-
-    const fetchDepartments = async () => {
-      try {
-        const response = await departmentService.getAll({ per_page: 1000, is_active: true });
-        setAvailableDepartments(response.data || []);
-      } catch (error) {
-        console.error('[Tasks] Failed to fetch departments', error);
-      }
-    };
-
-    fetchDepartments();
-  }, [hasAccess]);
 
   if (!hasAccess || availableTabs.length === 0) {
     return <TaskAccessRestricted />;
@@ -218,28 +199,16 @@ export default function Tasks() {
           notes: payload.notes,
         };
 
-        await taskService.update(selectedTask.id, updatePayload);
-        toast({
-          title: "Tapşırıq yeniləndi",
-          description: "Tapşırıq məlumatları uğurla yeniləndi.",
-        });
+        await updateTask.mutateAsync({ id: selectedTask.id, data: updatePayload });
       } else {
-        await taskService.create(payload);
-        toast({
-          title: "Tapşırıq əlavə edildi",
-          description: "Yeni tapşırıq uğurla yaradıldı.",
-        });
+        await createTask.mutateAsync(payload);
       }
 
       await refreshTasks();
       closeTaskModal();
     } catch (saveError) {
       console.error("[Tasks] Save əməliyyatı alınmadı", saveError);
-      toast({
-        title: "Xəta baş verdi",
-        description: saveError instanceof Error ? saveError.message : "Əməliyyat zamanı problem yarandı.",
-        variant: "destructive",
-      });
+      // Toast notifications are now handled by the mutation hooks
       throw saveError;
     }
   };
@@ -253,17 +222,11 @@ export default function Tasks() {
     });
 
     try {
-      await taskService.delete(task.id);
-
-      toast({
-        title: "Tapşırıq silindi",
-        description:
-          deleteType === "hard" ? "Tapşırıq sistemdən tam silindi." : "Tapşırıq uğurla silindi.",
-      });
-
+      await deleteTask.mutateAsync(task.id);
       await refreshTasks();
     } catch (deleteError) {
       console.error("[Tasks] Silmə əməliyyatında xəta", deleteError);
+      // Toast notifications are now handled by the mutation hooks
       toast({
         title: "Silinə bilmədi",
         description:

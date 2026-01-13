@@ -54,7 +54,7 @@ class TaskControllerRefactored extends Controller
             'created_by' => 'nullable|integer|exists:users,id',
             'search' => 'nullable|string|max:255',
             'deadline_filter' => 'nullable|string|in:approaching,overdue,all',
-            'sort_by' => 'nullable|string|in:created_at,deadline,priority,status',
+            'sort_by' => 'nullable|string|in:created_at,deadline,priority,status,title,category,progress',
             'sort_direction' => 'nullable|string|in:asc,desc',
             'origin_scope' => 'nullable|string|in:region,sector',
         ]);
@@ -85,6 +85,19 @@ class TaskControllerRefactored extends Controller
 
             $this->applyFilters($query, $request);
 
+            // Calculate statistics on filtered query BEFORE pagination
+            $statisticsQuery = clone $query;
+            $statistics = [
+                'total' => $statisticsQuery->count(),
+                'pending' => (clone $query)->where('status', 'pending')->count(),
+                'in_progress' => (clone $query)->where('status', 'in_progress')->count(),
+                'completed' => (clone $query)->where('status', 'completed')->count(),
+                'overdue' => (clone $query)->where('deadline', '<', now())
+                    ->whereNotIn('status', ['completed', 'cancelled'])
+                    ->count(),
+            ];
+
+            // Apply sorting
             $sortBy = $request->sort_by ?? 'created_at';
             $sortDirection = $request->sort_direction ?? 'desc';
             $query->orderBy($sortBy, $sortDirection);
@@ -103,6 +116,7 @@ class TaskControllerRefactored extends Controller
                     'to' => $tasks->lastItem(),
                     'total' => $tasks->total(),
                 ],
+                'statistics' => $statistics,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Error retrieving tasks');
@@ -120,7 +134,7 @@ class TaskControllerRefactored extends Controller
             'priority' => 'nullable|string|in:low,medium,high,urgent',
             'search' => 'nullable|string|max:255',
             'deadline_filter' => 'nullable|string|in:approaching,overdue,all',
-            'sort_by' => 'nullable|string|in:created_at,deadline,priority,status',
+            'sort_by' => 'nullable|string|in:created_at,deadline,priority,status,title,category,progress',
             'sort_direction' => 'nullable|string|in:asc,desc',
             'origin_scope' => 'nullable|string|in:region,sector',
         ]);
@@ -155,6 +169,19 @@ class TaskControllerRefactored extends Controller
 
             $this->applyFilters($query, $request);
 
+            // Calculate statistics on filtered query BEFORE pagination
+            $statisticsQuery = clone $query;
+            $statistics = [
+                'total' => $statisticsQuery->count(),
+                'pending' => (clone $query)->where('status', 'pending')->count(),
+                'in_progress' => (clone $query)->where('status', 'in_progress')->count(),
+                'completed' => (clone $query)->where('status', 'completed')->count(),
+                'overdue' => (clone $query)->where('deadline', '<', now())
+                    ->whereNotIn('status', ['completed', 'cancelled'])
+                    ->count(),
+            ];
+
+            // Apply sorting
             $sortBy = $request->sort_by ?? 'deadline';
             $sortDirection = $request->sort_direction ?? 'asc';
             $query->orderBy($sortBy, $sortDirection);
@@ -177,6 +204,7 @@ class TaskControllerRefactored extends Controller
                     'to' => $tasks->lastItem(),
                     'total' => $tasks->total(),
                 ],
+                'statistics' => $statistics,
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Təyin edilmiş tapşırıqlar alınarkən xəta baş verdi.');
