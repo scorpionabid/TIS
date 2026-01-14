@@ -34,8 +34,7 @@ interface ExcelTaskTableProps {
   showCreateButton: boolean;
   page: number;
   perPage: number;
-  availableUsers?: Array<{ id: number; name: string; email?: string }>;
-  availableDepartments?: Array<{ id: number; name: string }>;
+  availableUsers?: Array<{ id: number; name: string; email?: string; role?: string; role_display?: string }>;
   onRefresh?: () => Promise<void>;
   onTaskCreated: () => Promise<void>;
   originScope: 'region' | 'sector' | null;
@@ -55,7 +54,6 @@ export function ExcelTaskTable({
   page,
   perPage,
   availableUsers = [],
-  availableDepartments = [],
   onRefresh,
   onTaskCreated,
   originScope,
@@ -244,7 +242,6 @@ export function ExcelTaskTable({
           {!bulkEditContext.isSelectionMode && (
             <ExcelCreateRow
               availableUsers={availableUsers}
-              availableDepartments={availableDepartments}
               onTaskCreated={onTaskCreated}
               originScope={originScope}
               showCreateButton={showCreateButton}

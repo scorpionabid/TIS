@@ -11,7 +11,6 @@ import { useTaskPermissions } from "@/hooks/tasks/useTaskPermissions";
 import { useTasksData } from "@/hooks/tasks/useTasksData";
 import { useTaskModals } from "@/hooks/tasks/useTaskModals";
 import { useAssignableUsers } from "@/hooks/tasks/useAssignableUsers";
-import { useAvailableDepartments } from "@/hooks/tasks/useAvailableDepartments";
 import { useTaskMutations } from "@/hooks/tasks/useTaskMutations";
 import { normalizeCreatePayload } from "@/utils/taskActions";
 import { usePrefetchTaskFormData } from "@/hooks/tasks/useTaskFormData";
@@ -110,14 +109,11 @@ export default function Tasks() {
     handleDetailDrawerChange,
   } = useTaskModals();
 
-  // Use new centralized hooks for fetching users and departments
+  // Use new centralized hooks for fetching users (lower-level users only)
   const { users: availableUsers } = useAssignableUsers({
     perPage: 1000,
     enabled: hasAccess,
-  });
-
-  const { departments: availableDepartments } = useAvailableDepartments({
-    enabled: hasAccess,
+    originScope: activeTab === 'region' ? 'region' : activeTab === 'sector' ? 'sector' : null,
   });
 
   const { createTask, updateTask, deleteTask } = useTaskMutations();
@@ -293,7 +289,6 @@ export default function Tasks() {
           page={page}
           perPage={perPage}
           availableUsers={availableUsers}
-          availableDepartments={availableDepartments}
           onRefresh={refreshTasks}
           onTaskCreated={handleTaskCreated}
           originScope={activeTab}

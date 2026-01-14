@@ -22,8 +22,7 @@ import {
 import { cn } from '@/lib/utils';
 
 interface ExcelCreateRowProps {
-  availableUsers: Array<{ id: number; name: string; email?: string }>;
-  availableDepartments: Array<{ id: number; name: string }>;
+  availableUsers: Array<{ id: number; name: string; email?: string; role?: string; role_display?: string }>;
   onTaskCreated: () => Promise<void>;
   originScope: 'region' | 'sector' | null;
   showCreateButton: boolean;
@@ -33,7 +32,6 @@ interface FormState {
   title: string;
   description: string;
   source: string;
-  department_id: number | null;
   priority: string;
   assigned_user_ids: number[];
   deadline: string;
@@ -44,7 +42,6 @@ const initialFormState: FormState = {
   title: '',
   description: '',
   source: 'other',
-  department_id: null,
   priority: 'medium',
   assigned_user_ids: [],
   deadline: '',
@@ -53,7 +50,6 @@ const initialFormState: FormState = {
 
 export function ExcelCreateRow({
   availableUsers,
-  availableDepartments,
   onTaskCreated,
   originScope,
   showCreateButton,
@@ -112,7 +108,6 @@ export function ExcelCreateRow({
         deadline: formData.deadline || undefined,
         deadline_time: formData.deadline_time || undefined,
         assigned_user_ids: formData.assigned_user_ids.length > 0 ? formData.assigned_user_ids : undefined,
-        target_departments: formData.department_id ? [formData.department_id] : undefined,
         origin_scope: originScope || undefined,
         target_scope: originScope === 'region' ? 'regional' : 'sector',
         category: 'other', // Default category
@@ -210,30 +205,7 @@ export function ExcelCreateRow({
             </Select>
           </td>
 
-          {/* 4. Departament */}
-          <td className="px-2 py-3 w-[160px]">
-            <Select
-              value={formData.department_id?.toString() || 'none'}
-              onValueChange={(value) =>
-                handleFieldChange('department_id', value === 'none' ? null : Number(value))
-              }
-              disabled={isSubmitting}
-            >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Departament" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Heç biri</SelectItem>
-                {availableDepartments.map((dept) => (
-                  <SelectItem key={dept.id} value={dept.id.toString()}>
-                    {dept.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </td>
-
-          {/* 5. Prioritet */}
+          {/* 4. Prioritet */}
           <td className="px-2 py-3 w-[120px]">
             <Select
               value={formData.priority}
@@ -253,12 +225,12 @@ export function ExcelCreateRow({
             </Select>
           </td>
 
-          {/* 6. Status (Yeni tapşırıq üçün həmişə "Gözləyir") */}
+          {/* 5. Status (Yeni tapşırıq üçün həmişə "Gözləyir") */}
           <td className="px-2 py-3 text-center text-muted-foreground text-sm w-[130px]">
             Gözləyir
           </td>
 
-          {/* 7. Məsul Şəxs */}
+          {/* 6. Məsul Şəxs */}
           <td className="px-2 py-3 w-[200px]">
             <Select
               value={formData.assigned_user_ids[0]?.toString() || 'none'}
@@ -281,7 +253,7 @@ export function ExcelCreateRow({
             </Select>
           </td>
 
-          {/* 8. Təsvir */}
+          {/* 7. Təsvir */}
           <td className="px-2 py-3 w-[300px]">
             <Textarea
               value={formData.description}
@@ -292,12 +264,12 @@ export function ExcelCreateRow({
             />
           </td>
 
-          {/* 9. Başlama Tarixi (Backend set edir, boş göstər) */}
+          {/* 8. Başlama Tarixi (Backend set edir, boş göstər) */}
           <td className="px-2 py-3 text-center text-muted-foreground text-sm w-[140px]">
             —
           </td>
 
-          {/* 10. Son Tarix */}
+          {/* 9. Son Tarix */}
           <td className="px-2 py-3 w-[140px]">
             <Input
               type="date"
@@ -308,7 +280,7 @@ export function ExcelCreateRow({
             />
           </td>
 
-          {/* 11. Son Saat */}
+          {/* 10. Son Saat */}
           <td className="px-2 py-3 w-[110px]">
             <Input
               type="time"
@@ -319,12 +291,12 @@ export function ExcelCreateRow({
             />
           </td>
 
-          {/* 12. İrəliləyiş (Yeni tapşırıqda 0%) */}
+          {/* 11. İrəliləyiş (Yeni tapşırıqda 0%) */}
           <td className="px-2 py-3 text-center text-muted-foreground text-sm w-[140px]">
             0%
           </td>
 
-          {/* 13. Əməliyyatlar (Saxla və Ləğv et) */}
+          {/* 12. Əməliyyatlar (Saxla və Ləğv et) */}
           <td className="px-2 py-3 w-[100px]">
             <div className="flex items-center gap-2">
               <Button
