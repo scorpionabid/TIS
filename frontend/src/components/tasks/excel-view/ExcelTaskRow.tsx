@@ -54,7 +54,6 @@ interface ExcelTaskRowProps {
   canEdit: boolean;
   canDelete: boolean;
   availableUsers?: Array<{ id: number; name: string; email?: string }>;
-  availableDepartments?: Array<{ id: number; name: string }>;
   isSelectionMode?: boolean;
   isSelected?: boolean;
   onToggleSelection?: (taskId: number) => void;
@@ -70,7 +69,6 @@ export function ExcelTaskRow({
   canEdit,
   canDelete,
   availableUsers = [],
-  availableDepartments = [],
   isSelectionMode = false,
   isSelected = false,
   onToggleSelection,
@@ -151,26 +149,6 @@ export function ExcelTaskRow({
           onCancel={cancelEdit}
           placeholder="Seçin"
           showBadge
-        />
-      </td>
-
-      {/* Department - Editable dropdown */}
-      <td className="px-2 py-1">
-        <DropdownCell
-          value={task.target_departments?.[0] ? String(task.target_departments[0]) : ''}
-          options={availableDepartments.map(dept => ({
-            value: String(dept.id),
-            label: dept.name,
-            color: undefined,
-          }))}
-          isEditing={isEditing(task.id, 'department')}
-          onEdit={() => canEdit && startEdit(task.id, 'department', task.target_departments?.[0])}
-          onSave={(value) => {
-            const departmentId = value ? parseInt(value) : null;
-            saveEdit(task.id, { target_departments: departmentId ? [departmentId] : [] } as any);
-          }}
-          onCancel={cancelEdit}
-          showBadge={false}
         />
       </td>
 

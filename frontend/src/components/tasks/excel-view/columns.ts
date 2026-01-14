@@ -32,14 +32,6 @@ export const excelColumns: ExcelColumn[] = [
     type: 'dropdown',
   },
   {
-    id: 'department',
-    label: 'Departament',
-    width: 'w-[160px]',
-    sortable: true,
-    editable: true,
-    type: 'dropdown',
-  },
-  {
     id: 'priority',
     label: 'Prioritet',
     width: 'w-[120px]',

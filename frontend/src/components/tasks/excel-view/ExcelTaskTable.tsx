@@ -232,7 +232,6 @@ export function ExcelTaskTable({
                 canEdit={canEditTaskItem(task)}
                 canDelete={canDeleteTaskItem(task)}
                 availableUsers={availableUsers}
-                availableDepartments={availableDepartments}
                 isSelectionMode={bulkEditContext.isSelectionMode}
                 isSelected={bulkEditContext.selectedIds.has(task.id)}
                 onToggleSelection={bulkEditContext.toggleSelection}
