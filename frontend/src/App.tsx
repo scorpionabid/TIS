@@ -33,7 +33,9 @@ const SurveyArchive = lazy(() => import("./pages/SurveyArchive"));
 const SurveyResponse = lazy(() => import("./pages/SurveyResponse"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const AssignedTasks = lazy(() => import("./pages/AssignedTasks"));
-const Resources = lazy(() => import("./pages/Resources"));
+const Links = lazy(() => import("./pages/Links"));
+const Documents = lazy(() => import("./pages/Documents"));
+const Folders = lazy(() => import("./pages/Folders"));
 const MyResources = lazy(() => import("./pages/MyResources"));
 const Reports = lazy(() => import("./pages/Reports"));
 const InstitutionTypesManagement = lazy(() => import("./pages/InstitutionTypesManagement"));
@@ -470,13 +472,13 @@ const App = () => {
                 }
               />
 
-              {/* New unified Resources page */}
-              <Route path="resources" element={<LazyWrapper><Resources /></LazyWrapper>} />
+              <Route path="links" element={<LazyWrapper><Links /></LazyWrapper>} />
+              <Route path="documents" element={<LazyWrapper><Documents /></LazyWrapper>} />
+              <Route path="folders" element={<LazyWrapper><Folders /></LazyWrapper>} />
               <Route path="my-resources" element={<LazyWrapper><MyResources /></LazyWrapper>} />
 
               {/* Redirect old paths to new unified page */}
-              <Route path="documents" element={<Navigate to="/resources?tab=documents" replace />} />
-              <Route path="links" element={<Navigate to="/resources?tab=links" replace />} />
+              <Route path="resources" element={<Navigate to="/links" replace />} />
 
               <Route path="reports" element={
                 <LazyWrapper>

@@ -191,11 +191,35 @@ export const improvedNavigationConfig: MenuGroup[] = [
       },
       {
         id: 'resources',
-        label: 'Resurs İdarəetməsi',
-        path: '/resources',
+        label: 'Resurslar',
         icon: Archive,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
-        description: 'Linklər, sənədlər və folderlərin paylaşılması'
+        children: [
+          {
+            id: 'links',
+            label: 'Linklər',
+            path: '/links',
+            icon: Link,
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+            description: 'Linklərin paylaşılması'
+          },
+          {
+            id: 'documents',
+            label: 'Sənədlər',
+            path: '/documents',
+            icon: FileText,
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+            description: 'Sənədlərin paylaşılması'
+          },
+          {
+            id: 'folders',
+            label: 'Folderlər',
+            path: '/folders',
+            icon: Folder,
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+            description: 'Folderlərin paylaşılması'
+          },
+        ]
       },
       {
         id: 'my-resources',
