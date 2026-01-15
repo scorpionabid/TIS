@@ -38,8 +38,18 @@ export abstract class BaseService<T extends BaseEntity> {
    * Generate cache key for requests
    */
   protected getCacheKey(method: string, suffix: string = '', params?: Record<string, unknown>): string {
-    const paramString = params ? JSON.stringify(params) : '';
-    return `${this.baseEndpoint}_${method}_${suffix}_${btoa(paramString).substring(0, 10)}`;
+    const paramString = params ? JSON.stringify(params, Object.keys(params).sort()) : '';
+    const signature = paramString ? this.hashString(paramString) : 'no_params';
+    return `${this.baseEndpoint}_${method}_${suffix}_${signature}`;
+  }
+
+  protected hashString(value: string): string {
+    let hash = 2166136261;
+    for (let i = 0; i < value.length; i += 1) {
+      hash ^= value.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return `${(hash >>> 0).toString(16)}_${value.length}`;
   }
 
   async getAll(params?: PaginationParams, useCache: boolean = true): Promise<PaginatedResponse<T>> {
@@ -73,10 +83,33 @@ export abstract class BaseService<T extends BaseEntity> {
 
     const response = await apiClient.get<T[]>(this.baseEndpoint, params);
     const data = handleArrayResponse<T>(response, `BaseService.getAll(${this.baseEndpoint})`);
+    const meta = (response as any)?.meta;
     
     // Handle paginated response structure
     if (response.data && typeof response.data === 'object' && 'data' in response.data) {
       return response.data as PaginatedResponse<T>;
+    }
+
+    if (meta && typeof meta === 'object') {
+      const totalFromMeta = Number(meta.total);
+      const perPageFromMeta = Number(meta.per_page);
+      const currentPageFromMeta = Number(meta.current_page);
+      const lastPageFromMeta = Number(meta.last_page);
+
+      const total = Number.isFinite(totalFromMeta) ? totalFromMeta : data.length;
+      const perPage = Number.isFinite(perPageFromMeta) ? perPageFromMeta : data.length;
+      const currentPage = Number.isFinite(currentPageFromMeta) ? currentPageFromMeta : 1;
+      const totalPages = Number.isFinite(lastPageFromMeta) ? lastPageFromMeta : 1;
+
+      return {
+        data,
+        pagination: {
+          current_page: currentPage,
+          per_page: perPage,
+          total,
+          total_pages: totalPages
+        }
+      } as PaginatedResponse<T>;
     }
     
     // Fallback to simple array structure

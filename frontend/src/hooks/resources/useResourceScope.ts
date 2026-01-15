@@ -56,6 +56,22 @@ export const resourceMatchesScope = (
     return true;
   }
 
+  const linkShareScope = (resource as { share_scope?: unknown }).share_scope;
+  if (
+    typeof linkShareScope === 'string' &&
+    (linkShareScope === 'public' || linkShareScope === 'regional' || linkShareScope === 'national')
+  ) {
+    return true;
+  }
+
+  const documentAccessLevel = (resource as { access_level?: unknown }).access_level;
+  if (
+    typeof documentAccessLevel === 'string' &&
+    (documentAccessLevel === 'public' || documentAccessLevel === 'regional')
+  ) {
+    return true;
+  }
+
   const institutionId = toNumericId(
     resource.institution?.id ?? (resource as { institution_id?: number | string }).institution_id,
   );

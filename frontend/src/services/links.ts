@@ -8,7 +8,7 @@ export interface LinkShare extends BaseEntity {
   link_type: 'external' | 'video' | 'form' | 'document';
   shared_by: number;
   institution_id?: number;
-  share_scope: 'public' | 'regional' | 'sectoral' | 'institutional' | 'specific_users';
+  share_scope: 'public' | 'regional' | 'national' | 'sectoral' | 'institutional' | 'specific_users';
   target_institutions?: number[];
   target_roles?: string[];
   target_departments?: number[];
@@ -43,7 +43,7 @@ export interface CreateLinkData {
   description?: string;
   url: string;
   link_type?: 'external' | 'video' | 'form' | 'document';
-  share_scope: 'public' | 'regional' | 'sectoral' | 'institutional' | 'specific_users';
+  share_scope: 'public' | 'regional' | 'national' | 'sectoral' | 'institutional' | 'specific_users';
   target_institutions?: number[];
   target_roles?: string[];
   target_departments?: number[];
@@ -60,7 +60,7 @@ export interface CreateLinkData {
 
 export interface LinkFilters extends PaginationParams {
   link_type?: 'external' | 'video' | 'form' | 'document';
-  share_scope?: 'public' | 'regional' | 'sectoral' | 'institutional' | 'specific_users';
+  share_scope?: 'public' | 'regional' | 'national' | 'sectoral' | 'institutional' | 'specific_users';
   is_featured?: boolean;
   search?: string;
   sort_by?: string;

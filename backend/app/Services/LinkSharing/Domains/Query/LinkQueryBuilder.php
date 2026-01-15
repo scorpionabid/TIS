@@ -326,11 +326,21 @@ class LinkQueryBuilder
         }
 
         if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
-            // Regional admin can see links from their region
-            $childIds = $userInstitution->getAllChildrenIds();
-            $query->whereIn('institution_id', $childIds)
-                ->orWhere('share_scope', 'regional')
-                ->orWhere('share_scope', 'national');
+            // Regional admin can see links from their region, including their own institution's
+            $childIds = $userInstitution->getAllChildrenIds() ?? [];
+            $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
+
+            $query->where(function ($q) use ($scopeIds, $user) {
+                $q->whereIn('institution_id', $scopeIds)
+                    ->orWhereIn('share_scope', ['public', 'regional', 'national'])
+                    ->orWhere('shared_by', $user->id)
+                    ->orWhere(function ($subQ) use ($scopeIds) {
+                        foreach ($scopeIds as $instId) {
+                            $subQ->orWhereJsonContains('target_institutions', (int) $instId)
+                                ->orWhereJsonContains('target_institutions', (string) $instId);
+                        }
+                    });
+            });
         } elseif ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
             // Sector admin can only see links explicitly targeted to their sector hierarchy
             $childIds = $userInstitution->getAllChildrenIds() ?? [];

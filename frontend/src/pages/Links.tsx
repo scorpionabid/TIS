@@ -274,6 +274,70 @@ export default function Links() {
     return params;
   }, [normalizedLinkFilters, shouldRestrictByInstitution, linkPage, linkPerPage, linkSortBy, linkSortDirection, linkScope]);
 
+  const fetchAllLinkPages = useCallback(async (params: ResourceFilters) => {
+    const perPage = Math.min(Number(params.per_page ?? 500) || 500, 500);
+    const maxPages = 50;
+    let page = 1;
+    let total = 0;
+    let aggregated: Resource[] = [];
+
+    while (page <= maxPages) {
+      const response = await resourceService.getLinksPaginated({
+        ...params,
+        page,
+        per_page: perPage,
+      });
+
+      if (import.meta.env?.DEV) {
+        console.log('[Links][fetchAllLinkPages] page response', {
+          page,
+          perPage,
+          responseMeta: response?.meta,
+          receivedCount: response?.data?.length ?? 0,
+        });
+      }
+
+      if (page === 1) {
+        total = response?.meta?.total ?? 0;
+
+        if (import.meta.env?.DEV) {
+          console.log('[Links][fetchAllLinkPages] initial total', {
+            total,
+          });
+        }
+      }
+
+      const data = response?.data ?? [];
+      aggregated = aggregated.concat(data);
+
+      if (import.meta.env?.DEV) {
+        console.log('[Links][fetchAllLinkPages] aggregated', {
+          page,
+          aggregatedCount: aggregated.length,
+        });
+      }
+
+      if (data.length < perPage) {
+        break;
+      }
+
+      if (total > 0 && aggregated.length >= total) {
+        break;
+      }
+
+      page += 1;
+    }
+
+    return {
+      data: aggregated,
+      meta: {
+        total: total > 0 ? total : aggregated.length,
+        per_page: perPage,
+        current_page: 1,
+      },
+    };
+  }, []);
+
   const {
     data: linkResponse,
     isLoading: linkLoading,
@@ -281,7 +345,7 @@ export default function Links() {
     error: linkError,
   } = useQuery({
     queryKey: ['link-resources', linkQueryParams],
-    queryFn: () => resourceService.getLinksPaginated(linkQueryParams),
+    queryFn: () => fetchAllLinkPages(linkQueryParams),
     enabled: isAuthenticated && canViewLinks && institutionScopeReady,
     keepPreviousData: true,
     staleTime: 60 * 1000,
@@ -290,9 +354,32 @@ export default function Links() {
   const linkData = useMemo(() => {
     const raw = linkResponse?.data || [];
     if (linkScope === 'global' || !shouldRestrictByInstitution || !accessibleInstitutionSet) {
+      if (import.meta.env?.DEV) {
+        const distinctTitles = new Set(raw.map((l) => l.title)).size;
+        console.log('[Links][linkData] no client filter', {
+          rawCount: raw.length,
+          distinctTitles,
+          linkScope,
+          shouldRestrictByInstitution,
+          hasAccessibleSet: Boolean(accessibleInstitutionSet),
+        });
+      }
       return raw;
     }
-    return raw.filter((link) => resourceMatchesScope(link, accessibleInstitutionSet));
+    const filtered = raw.filter((link) => resourceMatchesScope(link, accessibleInstitutionSet));
+    if (import.meta.env?.DEV) {
+      const rawDistinct = new Set(raw.map((l) => l.title)).size;
+      const filteredDistinct = new Set(filtered.map((l) => l.title)).size;
+      console.log('[Links][linkData] client filter applied', {
+        rawCount: raw.length,
+        filteredCount: filtered.length,
+        rawDistinctTitles: rawDistinct,
+        filteredDistinctTitles: filteredDistinct,
+        accessibleInstitutionSetSize: accessibleInstitutionSet.size,
+        linkScope,
+      });
+    }
+    return filtered;
   }, [linkResponse?.data, shouldRestrictByInstitution, accessibleInstitutionSet, linkScope]);
   const isLinkLoading = linkLoading && !linkResponse;
   const isLinkFetching = linkFetching;
@@ -1092,61 +1179,7 @@ export default function Links() {
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      <ResourceHeader
-        canCreate={canCreateLinks}
-        canBulkUpload={canBulkUploadLinks}
-        title="Linklər"
-        description="Linklərin vahid idarə edilməsi"
-        buttonText="Yeni Link"
-        onCreate={() => {
-            setLinkBeingEdited(null);
-            setIsLinkModalOpen(true);
-        }}
-        onBulkUpload={() => setIsBulkUploadModalOpen(true)}
-      />
-
-      <ResourceToolbar
-        searchTerm={linkSearchInput}
-        onSearchChange={setLinkSearchInput}
-        sortValue={`${linkSortBy}-${linkSortDirection}`}
-        onSortChange={handleLinkSortChange}
-        isUpdating={isLinkRefreshing}
-      />
-
       <div className="mt-6 space-y-6">
-          {canUseGlobalLinkScope && (
-            <div className="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="font-medium">
-                  {linkScope === 'global' ? 'Qlobal baxış aktivdir' : 'Qlobal baxış deaktivdir'}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {linkScope === 'global'
-                    ? 'Bütün müəssisələrin paylaşılan linklərini filtrləyə bilərsiniz.'
-                    : 'Yalnız səlahiyyətli olduğunuz müəssisələrin linkləri göstərilir.'}
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-muted-foreground">Qlobal baxış</span>
-                <Switch
-                  disabled={!canUseGlobalLinkScope}
-                  checked={linkScope === 'global'}
-                  onCheckedChange={(checked) => {
-                    setLinkScope(checked ? 'global' : 'scoped');
-                  }}
-                />
-              </div>
-            </div>
-          )}
-          <LinkFilterPanel
-            filters={linkFilters}
-            onFiltersChange={setLinkFilters}
-            availableInstitutions={institutionFilterOptions}
-            availableCreators={availableCreators}
-            isOpen={linkFilterPanelOpen}
-            onToggle={toggleLinkFilterPanel}
-            mode="links"
-          />
           <LinkTabContent
             error={linkError}
             linkData={linkData}

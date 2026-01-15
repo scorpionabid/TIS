@@ -286,6 +286,19 @@ class ResourceService {
 
     const response = await linkService.getAll(linkFilters);
 
+    if (import.meta.env?.DEV) {
+      console.log('[Links][getLinksPaginated] request', {
+        linkFilters,
+      });
+      console.log('[Links][getLinksPaginated] raw response keys', {
+        responseType: typeof response,
+        keys: response && typeof response === 'object' ? Object.keys(response as any) : null,
+        hasDataArray: Array.isArray((response as any)?.data),
+        hasPagination: Boolean((response as any)?.pagination),
+        pagination: (response as any)?.pagination,
+      });
+    }
+
     const payload: any = response ?? {};
     const linkData: LinkShare[] = Array.isArray(payload?.data)
       ? payload.data
@@ -293,14 +306,27 @@ class ResourceService {
         ? (payload as LinkShare[])
         : [];
 
-    const paginationSource = payload?.pagination ?? payload ?? {};
-    const total = typeof paginationSource?.total === 'number' ? paginationSource.total : linkData.length;
-    const perPage = typeof paginationSource?.per_page === 'number'
-      ? paginationSource.per_page
+    const metaSource = payload?.meta ?? payload?.pagination ?? payload ?? {};
+    const total = typeof metaSource?.total === 'number' ? metaSource.total : linkData.length;
+    const perPage = typeof metaSource?.per_page === 'number'
+      ? metaSource.per_page
       : (filters.per_page ?? (linkData.length || 20));
-    const currentPage = typeof paginationSource?.current_page === 'number'
-      ? paginationSource.current_page
+    const currentPage = typeof metaSource?.current_page === 'number'
+      ? metaSource.current_page
       : filters.page ?? 1;
+
+    if (import.meta.env?.DEV) {
+      console.log('[Links][getLinksPaginated] parsed', {
+        page: filters.page,
+        per_page: filters.per_page,
+        receivedCount: linkData.length,
+        total,
+        perPage,
+        currentPage,
+        hasMeta: Boolean(payload?.meta),
+        meta: payload?.meta,
+      });
+    }
 
     return {
       data: linkData.map(link => this.transformLinkResult(link)),
