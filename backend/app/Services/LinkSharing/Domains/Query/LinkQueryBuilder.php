@@ -45,7 +45,23 @@ class LinkQueryBuilder
         }
 
         // Apply regional hierarchy filtering
+        // selection_mode=true: Bypass regional filter to show all active link titles for selection UI
         $shouldApplyRegionalFilter = ! ($request->input('scope') === 'global' && $this->permissionService->canViewAllLinks($user));
+
+        /*
+         * ═══════════════════════════════════════════════════════════════════════════
+         * CRITICAL: Link Selection UI - Bütün aktiv link başlıqlarının görünməsi
+         * ═══════════════════════════════════════════════════════════════════════════
+         * selection_mode=true olduqda regional filter tətbiq edilmir.
+         * Bu, Links səhifəsindəki link seçimi hissəsində BÜTÜN istifadəçilərin
+         * bütün aktiv linkləri görə bilməsi üçün vacibdir.
+         *
+         * Frontend: useLinkData.ts faylında selection_mode: true göndərilir
+         * ═══════════════════════════════════════════════════════════════════════════
+         */
+        if ($request->boolean('selection_mode')) {
+            $shouldApplyRegionalFilter = false;
+        }
 
         if ($shouldApplyRegionalFilter) {
             $this->applyRegionalFilter($query, $user);
@@ -53,6 +69,27 @@ class LinkQueryBuilder
 
         // Apply filters
         $query = $this->applyRequestFilters($query, $request);
+
+        /*
+         * ═══════════════════════════════════════════════════════════════════════════
+         * CRITICAL: Link Grouping - Unikal başlıqların göstərilməsi
+         * ═══════════════════════════════════════════════════════════════════════════
+         * group_by_title=true olduqda eyni başlıqlı linklərdən yalnız BİRİ qaytarılır.
+         * DB-da 700+ link ola bilər, lakin yalnız 6 FƏRQLİ BAŞLIQ var.
+         * Bu parametr link seçimi UI-da yalnız unikal başlıqların görünməsini təmin edir.
+         *
+         * Məsələn: "Məktəb pasportu" başlığı ilə 353 link var, amma UI-da yalnız 1 dəfə görünür.
+         * Frontend: useLinkData.ts faylında group_by_title: true göndərilir
+         * ═══════════════════════════════════════════════════════════════════════════
+         */
+        if ($request->boolean('group_by_title')) {
+            $query->whereIn('id', function ($subQuery) {
+                $subQuery->selectRaw('MIN(id)')
+                    ->from('link_shares')
+                    ->where('status', 'active')
+                    ->groupBy('title');
+            });
+        }
 
         // Apply search
         if ($request->filled('search')) {

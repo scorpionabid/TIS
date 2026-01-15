@@ -77,7 +77,7 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
   }, [filteredGroups, sortMode]);
 
   const pagination = usePagination(sortedGroups, {
-    initialItemsPerPage: 5,
+    initialItemsPerPage: 50,
   });
 
   const paginatedGroups = pagination.paginatedItems;

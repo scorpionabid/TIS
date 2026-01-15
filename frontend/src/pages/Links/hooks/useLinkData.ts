@@ -27,12 +27,40 @@ export const useLinkData = (
   }, [statusTab]);
 
   // Build query params
-  const queryParams = useMemo(() => ({
-    ...normalizedFilters,
-    statuses,
-    page: linkPage,
-    per_page: linkPerPage,
-  }), [normalizedFilters, statuses, linkPage, linkPerPage]);
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * CRITICAL: Link Selection Parameters
+   * ═══════════════════════════════════════════════════════════════════════════
+   * selection_mode: true  → Regional filter bypass - bütün istifadəçilər bütün linkləri görür
+   * group_by_title: true  → Eyni başlıqlı linklərdən yalnız 1-i göstərilir (700+ → 6 link)
+   *
+   * Bu parametrlər olmadan:
+   * - İstifadəçilər yalnız öz müəssisələrinə aid linkləri görərdilər
+   * - 700+ link siyahısı göstərilərdi (hər müəssisə üçün ayrı link)
+   *
+   * Backend: LinkQueryBuilder.php faylında bu parametrlər işlənir
+   * ═══════════════════════════════════════════════════════════════════════════
+   */
+  const queryParams = useMemo(() => {
+    const params = {
+      ...normalizedFilters,
+      statuses,
+      page: linkPage,
+      per_page: linkPerPage,
+      selection_mode: true,
+      group_by_title: true,
+    };
+
+    if (import.meta.env?.DEV) {
+      console.log('[useLinkData] Query params:', {
+        statusTab,
+        statuses,
+        finalParams: params,
+      });
+    }
+
+    return params;
+  }, [normalizedFilters, statuses, linkPage, linkPerPage]);
 
   // Fetch links
   const {
@@ -43,6 +71,9 @@ export const useLinkData = (
   } = useQuery({
     queryKey: ['link-resources', queryParams],
     queryFn: async () => {
+      if (import.meta.env?.DEV) {
+        console.log('[useLinkData] Calling resourceService.getLinksPaginated with:', queryParams);
+      }
       const response = await resourceService.getLinksPaginated(queryParams);
       return response;
     },

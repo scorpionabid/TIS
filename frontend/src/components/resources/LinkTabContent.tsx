@@ -2,7 +2,7 @@ import React from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
-import LinkSelectionCard from "@/components/resources/LinkSelectionCard";
+import { SimpleLinkList } from "@/components/resources/SimpleLinkList";
 import LinkSharingOverview from "@/components/resources/LinkSharingOverview";
 import { LinkSharingOverview as LinkSharingOverviewType } from "@/services/resources";
 import type { Resource } from "@/types/resources";
@@ -87,13 +87,11 @@ export const LinkTabContent: React.FC<LinkTabContentProps> = ({
             </span>
           )}
         </div>
-        <LinkSelectionCard
+        <SimpleLinkList
           links={linkData}
           selectedLink={selectedLink}
           onSelect={onSelectLink}
           isLoading={isLinkLoading}
-          isRefreshing={isRefreshing}
-          onResourceAction={onResourceAction}
         />
         <LinkSharingOverview
           selectedLink={selectedLink}

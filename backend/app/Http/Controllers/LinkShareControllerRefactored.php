@@ -64,6 +64,8 @@ class LinkShareControllerRefactored extends BaseController
                 'status' => 'nullable|string|in:active,expired,disabled',
                 'statuses' => 'nullable|array',
                 'statuses.*' => 'string|in:active,expired,disabled',
+                'selection_mode' => 'nullable|boolean',
+                'group_by_title' => 'nullable|boolean',
             ]);
 
             $user = Auth::user();

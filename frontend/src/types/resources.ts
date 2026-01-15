@@ -140,6 +140,11 @@ export interface ResourceFilters {
   per_page?: number;
   sort_by?: string;
   sort_direction?: 'asc' | 'desc';
+
+  // Selection mode - bypasses regional filter to show all active links
+  selection_mode?: boolean;
+  statuses?: string[];
+  group_by_title?: boolean;
 }
 
 // Resource statistics

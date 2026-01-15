@@ -271,7 +271,7 @@ class ResourceService {
       share_scope: filters.share_scope,
       is_featured: filters.is_featured,
       status: filters.status,
-      statuses: filters.statuses, // Add this line
+      statuses: filters.statuses,
       creator_id: filters.creator_id,
       institution_id: filters.institution_id,
       institution_ids: filters.institution_ids,
@@ -283,6 +283,8 @@ class ResourceService {
       page: filters.page,
       per_page: filters.per_page,
       scope: filters.scope,
+      selection_mode: filters.selection_mode, // Bypass regional filter for link selection UI
+      group_by_title: filters.group_by_title, // Return only one link per unique title
     };
 
     const response = await linkService.getAll(linkFilters);

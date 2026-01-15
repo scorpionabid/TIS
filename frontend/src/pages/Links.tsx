@@ -220,7 +220,20 @@ export default function Links() {
     refetch: refetchLinkSharingOverview,
   } = useLinkSharingOverview(selectedLink, isAuthenticated && canViewLinks, false); // TODO: Add isGroupedLink logic
 
-  // Client-side filtering for institution scope
+  /*
+   * ═══════════════════════════════════════════════════════════════════════════
+   * CRITICAL: Client-side filtering deaktiv edilib
+   * ═══════════════════════════════════════════════════════════════════════════
+   * Əvvəllər burada resourceMatchesScope() ilə client-side filter var idi.
+   * İndi backend-də selection_mode=true və group_by_title=true göndərilir,
+   * ona görə client-side filter lazım deyil.
+   *
+   * Nəticə: Bütün istifadəçilər 6 unikal link başlığını görür.
+   * Əgər filter bərpa edilsə, bəzi istifadəçilər linkləri görməyəcək!
+   *
+   * Bax: useLinkData.ts - selection_mode və group_by_title parametrləri
+   * ═══════════════════════════════════════════════════════════════════════════
+   */
   const finalLinkData = useMemo(() => {
     if (import.meta.env?.DEV) {
       console.log('[Links] finalLinkData debug:', {
@@ -233,36 +246,7 @@ export default function Links() {
       });
     }
 
-    // Don't filter until institution scope is ready
-    if (!institutionScopeReady || !accessibleInstitutionSet) {
-      return linkData;
-    }
-
-    if (linkScope === 'global' || !shouldRestrictByInstitution) {
-      return linkData;
-    }
-    
-    const filtered = linkData.filter((link) => {
-      const matches = resourceMatchesScope(link, accessibleInstitutionSet);
-      if (import.meta.env?.DEV && linkData.length <= 5) {
-        console.log('[Links] Filtering link:', {
-          linkId: link.id,
-          linkTitle: link.title,
-          linkInstitutionId: link.institution_id,
-          matches,
-        });
-      }
-      return matches;
-    });
-    
-    if (import.meta.env?.DEV) {
-      console.log('[Links] Filtered result:', {
-        originalCount: linkData.length,
-        filteredCount: filtered.length,
-      });
-    }
-    
-    return filtered;
+    return linkData;
   }, [linkData, shouldRestrictByInstitution, accessibleInstitutionSet, linkScope, institutionScopeReady]);
 
   // Effects for page reset and selection

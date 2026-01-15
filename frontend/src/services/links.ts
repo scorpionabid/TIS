@@ -76,6 +76,8 @@ export interface LinkFilters extends PaginationParams {
   target_institution_id?: number;
   target_user_id?: number;
   requires_login?: boolean;
+  selection_mode?: boolean;
+  group_by_title?: boolean;
 }
 
 export interface LinkStatistics {
