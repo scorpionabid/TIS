@@ -80,13 +80,21 @@ class LinkQueryBuilder
          *
          * Məsələn: "Məktəb pasportu" başlığı ilə 353 link var, amma UI-da yalnız 1 dəfə görünür.
          * Frontend: useLinkData.ts faylında group_by_title: true göndərilir
+         *
+         * IMPORTANT: Status filter-ə uyğun qruplaşdırır (active/disabled/expired)
          * ═══════════════════════════════════════════════════════════════════════════
          */
         if ($request->boolean('group_by_title')) {
-            $query->whereIn('id', function ($subQuery) {
+            // Get statuses from request, default to active if not provided
+            $statusFilter = $request->input('statuses', ['active']);
+            if (!is_array($statusFilter)) {
+                $statusFilter = [$statusFilter];
+            }
+
+            $query->whereIn('id', function ($subQuery) use ($statusFilter) {
                 $subQuery->selectRaw('MIN(id)')
                     ->from('link_shares')
-                    ->where('status', 'active')
+                    ->whereIn('status', $statusFilter)
                     ->groupBy('title');
             });
         }

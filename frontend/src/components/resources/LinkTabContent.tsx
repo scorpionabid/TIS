@@ -2,7 +2,7 @@ import React from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Loader2, AlertCircle } from "lucide-react";
-import { SimpleLinkList } from "@/components/resources/SimpleLinkList";
+import { SimpleLinkList, type StatusTab, type LinkAction } from "@/components/resources/SimpleLinkList";
 import LinkSharingOverview from "@/components/resources/LinkSharingOverview";
 import { LinkSharingOverview as LinkSharingOverviewType } from "@/services/resources";
 import type { Resource } from "@/types/resources";
@@ -23,7 +23,7 @@ interface LinkTabContentProps {
   isLinkLoading: boolean;
   onResourceAction: (
     resource: Resource,
-    action: "edit" | "delete"
+    action: LinkAction
   ) => Promise<void> | void;
   selectedLink: Resource | null;
   onSelectLink: (link: Resource) => void;
@@ -33,6 +33,7 @@ interface LinkTabContentProps {
   institutionMetadata: Record<number, InstitutionMeta>;
   onRetryLinks?: () => void;
   restrictedInstitutionIds?: number[] | null;
+  statusTab?: StatusTab;
 }
 
 export const LinkTabContent: React.FC<LinkTabContentProps> = ({
@@ -50,6 +51,7 @@ export const LinkTabContent: React.FC<LinkTabContentProps> = ({
   institutionMetadata,
   onRetryLinks,
   restrictedInstitutionIds,
+  statusTab = 'active',
 }) => {
   return (
     <>
@@ -92,6 +94,8 @@ export const LinkTabContent: React.FC<LinkTabContentProps> = ({
           selectedLink={selectedLink}
           onSelect={onSelectLink}
           isLoading={isLinkLoading}
+          statusTab={statusTab}
+          onAction={onResourceAction}
         />
         <LinkSharingOverview
           selectedLink={selectedLink}

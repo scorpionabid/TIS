@@ -391,6 +391,7 @@ export default function Links() {
           onRetrySharingOverview={() => refetchLinkSharingOverview()}
           institutionMetadata={{}}
           onRetryLinks={refreshLinks}
+          statusTab={statusTab}
           restrictedInstitutionIds={
             isSectorAdmin && accessibleInstitutionIds
               ? accessibleInstitutionIds
