@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +23,7 @@ import {
   Info,
   ExternalLink,
   Edit,
+  Users,
 } from "lucide-react";
 import type { Resource } from "@/types/resources";
 import type { LinkSharingOverview } from "@/services/resources";
@@ -651,54 +653,90 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
   return (
     <TooltipProvider>
-      <>
-        <Card>
-          <CardHeader className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
-              <CardTitle>Paylaşılan müəssisələr</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {overview.link_title} ({overview.share_scope || "—"})
-              </p>
-            </div>
+      <Card>
+        <CardHeader className="flex flex-col gap-3 pb-2">
+          <div className="flex flex-col gap-1">
+            <CardTitle>Paylaşım məlumatları</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              {overview.link_title} ({overview.share_scope || "—"})
+            </p>
+          </div>
+        </CardHeader>
 
-            {/* Statistics Badges */}
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary" className="bg-blue-50 text-blue-700">
-                {totalSectors} sektor
-              </Badge>
-              <Badge variant="secondary" className="bg-green-50 text-green-700">
-                {totalSchools} məktəb
-              </Badge>
-              {accessedCount !== undefined && (
-                <Badge
-                  variant="secondary"
-                  className="bg-emerald-50 text-emerald-700"
-                >
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  {accessedCount} açılıb
-                </Badge>
-              )}
-              {notAccessedCount !== undefined && notAccessedCount > 0 && (
-                <Badge variant="secondary" className="bg-red-50 text-red-700">
-                  <XCircle className="h-3 w-3 mr-1" />
-                  {notAccessedCount} açılmayıb
-                </Badge>
-              )}
-            </div>
+        <CardContent className="pt-0">
+          {/*
+           * ═══════════════════════════════════════════════════════════════════════════
+           * TABS: Müəssisələr və İstifadəçilər ayrı tab-larda göstərilir
+           * ═══════════════════════════════════════════════════════════════════════════
+           */}
+          <Tabs defaultValue="institutions" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="institutions" className="flex items-center gap-2">
+                <Building2 className="h-4 w-4" />
+                Müəssisələr
+                {totalSchools > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                    {totalSchools}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="users" className="flex items-center gap-2">
+                <Users className="h-4 w-4" />
+                İstifadəçilər
+                {hasUserTargets && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                    {overview.target_users?.length || 0}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-            {/* Access Progress Bar */}
-            {accessRate !== undefined && totalSchools > 0 && (
-              <div className="space-y-1">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Açılma faizi</span>
-                  <span className="font-medium">{accessRate}%</span>
-                </div>
-                <Progress value={accessRate} className="h-2" />
+            {/* ═══════════════ INSTITUTIONS TAB ═══════════════ */}
+            <TabsContent value="institutions" className="space-y-4 mt-0">
+              {/* Statistics Badges */}
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                  {totalSectors} sektor
+                </Badge>
+                <Badge variant="secondary" className="bg-green-50 text-green-700">
+                  {totalSchools} məktəb
+                </Badge>
+                {accessedCount !== undefined && (
+                  <Badge
+                    variant="secondary"
+                    className="bg-emerald-50 text-emerald-700"
+                  >
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    {accessedCount} açılıb
+                  </Badge>
+                )}
+                {notAccessedCount !== undefined && notAccessedCount > 0 && (
+                  <Badge variant="secondary" className="bg-red-50 text-red-700">
+                    <XCircle className="h-3 w-3 mr-1" />
+                    {notAccessedCount} açılmayıb
+                  </Badge>
+                )}
               </div>
-            )}
-          </CardHeader>
 
-          <CardContent className="space-y-4">
+              {/* Access Progress Bar */}
+              {accessRate !== undefined && totalSchools > 0 && (
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">Açılma faizi</span>
+                    <span className="font-medium">{accessRate}%</span>
+                  </div>
+                  <Progress value={accessRate} className="h-2" />
+                </div>
+              )}
+
+              {/* Sectors List */}
+              {!hasSectors ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Building2 className="h-10 w-10 mb-3 opacity-50" />
+                  <p className="text-sm">Heç bir müəssisə ilə paylaşılmayıb.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
             {sectorsForDisplay.map((sector) => {
               const sectorKey = sector.id ?? "ungrouped";
               const isExpanded = expandedSectors.has(sectorKey);
@@ -911,90 +949,96 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
                 </div>
               );
             })}
-          </CardContent>
-        </Card>
+                </div>
+              )}
 
-        {/* Not Accessed Institutions Section */}
-        {notAccessedInstitutions.length > 0 && (
-          <Card className="mt-4 border-red-200">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base flex items-center gap-2">
-                <AlertCircle className="h-4 w-4 text-red-500" />
-                Açılmamış müəssisələr ({notAccessedInstitutions.length})
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Bu müəssisələr hələ linki açmayıb
-              </p>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {notAccessedInstitutions.map((inst) => (
-                  <div
-                    key={inst.id}
-                    className="flex items-center justify-between p-2 border rounded-lg bg-red-50/50"
-                  >
-                    <div className="flex items-center gap-2">
-                      <School className="h-3.5 w-3.5 text-muted-foreground" />
-                      <div>
-                        <p className="font-medium text-sm">{inst.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {inst.sector_name}
-                        </p>
-                      </div>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className="text-red-600 border-red-200 bg-red-50"
-                    >
-                      <XCircle className="h-3 w-3 mr-1" />
-                      Açılmayıb
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Target Users Section */}
-        {hasUserTargets && (
-          <Card className="mt-4">
-            <CardHeader>
-              <CardTitle className="text-base">
-                Birbaşa paylaşılan istifadəçilər
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {overview.target_users?.map((user) => (
-                <div
-                  key={user.id}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border rounded-lg px-3 py-2"
-                >
-                  <div>
-                    <p className="font-medium text-sm">{user.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {user.username || user.email || `İstifadəçi #${user.id}`}
+              {/* Not Accessed Institutions - inside Institutions Tab */}
+              {notAccessedInstitutions.length > 0 && (
+                <div className="mt-4 border border-red-200 rounded-lg">
+                  <div className="p-3 border-b border-red-200 bg-red-50/30">
+                    <h4 className="text-sm font-medium flex items-center gap-2">
+                      <AlertCircle className="h-4 w-4 text-red-500" />
+                      Açılmamış müəssisələr ({notAccessedInstitutions.length})
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Bu müəssisələr hələ linki açmayıb
                     </p>
                   </div>
-                  {user.roles && user.roles.length > 0 && (
-                    <div className="flex flex-wrap gap-2">
-                      {user.roles.map((role) => (
+                  <div className="p-3 space-y-2 max-h-[300px] overflow-y-auto">
+                    {notAccessedInstitutions.map((inst) => (
+                      <div
+                        key={inst.id}
+                        className="flex items-center justify-between p-2 border rounded-lg bg-red-50/50"
+                      >
+                        <div className="flex items-center gap-2">
+                          <School className="h-3.5 w-3.5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium text-sm">{inst.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {inst.sector_name}
+                            </p>
+                          </div>
+                        </div>
                         <Badge
-                          key={`${user.id}-${role}`}
                           variant="outline"
-                          className="text-xs"
+                          className="text-red-600 border-red-200 bg-red-50"
                         >
-                          {role}
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Açılmayıb
                         </Badge>
-                      ))}
-                    </div>
-                  )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-        )}
-      </>
+              )}
+            </TabsContent>
+
+            {/* ═══════════════ USERS TAB ═══════════════ */}
+            <TabsContent value="users" className="space-y-4 mt-0">
+              {!hasUserTargets ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <Users className="h-10 w-10 mb-3 opacity-50" />
+                  <p className="text-sm">Heç bir istifadəçi ilə paylaşılmayıb.</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                    <Users className="h-4 w-4" />
+                    <span>Birbaşa paylaşılan istifadəçilər</span>
+                    <Badge variant="secondary">{overview.target_users?.length || 0}</Badge>
+                  </div>
+                  {overview.target_users?.map((user) => (
+                    <div
+                      key={user.id}
+                      className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border rounded-lg px-3 py-2"
+                    >
+                      <div>
+                        <p className="font-medium text-sm">{user.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {user.username || user.email || `İstifadəçi #${user.id}`}
+                        </p>
+                      </div>
+                      {user.roles && user.roles.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {user.roles.map((role) => (
+                            <Badge
+                              key={`${user.id}-${role}`}
+                              variant="outline"
+                              className="text-xs"
+                            >
+                              {role}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
     </TooltipProvider>
   );
 };
