@@ -37,7 +37,7 @@ interface LinkSelectionCardProps {
   // New props for grouped selection
   selectedGroup?: GroupedLink | null;
   onSelectGroup?: (group: GroupedLink) => void;
-  onResourceAction?: (resource: Resource, action: 'edit' | 'delete') => void;
+  onResourceAction?: (resource: Resource, action: 'edit' | 'delete' | 'restore' | 'forceDelete') => void;
 }
 
 const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
@@ -130,8 +130,7 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
     specific_users: 'Xüsusi istifadəçilər',
   };
 
-  const handleEditClick = (event: React.MouseEvent<HTMLButtonElement>, link: Resource) => {
-    event.stopPropagation();
+  const handleEdit = (link: Resource) => {
     if (onSelect) {
       onSelect(link);
     }
@@ -141,14 +140,27 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
     }, 'edit');
   };
 
-  const confirmDelete = () => {
+  const handleDelete = () => {
     if (!pendingDelete) return;
     onSelect?.(pendingDelete);
     onResourceAction?.({
       ...pendingDelete,
       type: (pendingDelete.type || 'link') as Resource['type'],
     }, 'delete');
-    setPendingDelete(null);
+  };
+
+  const handleRestore = (link: Resource) => {
+    onResourceAction?.({
+      ...link,
+      type: (link.type || 'link') as Resource['type'],
+    }, 'restore');
+  };
+
+  const handleForceDelete = (link: Resource) => {
+    onResourceAction?.({
+      ...link,
+      type: (link.type || 'link') as Resource['type'],
+    }, 'forceDelete');
   };
 
   return (
@@ -358,6 +370,34 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
+                      {/* Show Restore button for disabled links */}
+                      {link.status === 'disabled' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-green-600 hover:bg-green-50"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleRestore(link);
+                          }}
+                        >
+                          <Loader2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      {/* Show Hard Delete button for disabled links */}
+                      {link.status === 'disabled' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 text-orange-600 hover:bg-orange-50"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleForceDelete(link);
+                          }}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
                     </div>
                   </div>
                       ))}
@@ -418,7 +458,7 @@ const LinkSelectionCard: React.FC<LinkSelectionCardProps> = ({
               <AlertDialogCancel>Bağla</AlertDialogCancel>
               <AlertDialogAction
                 className="bg-red-600 hover:bg-red-700"
-                onClick={confirmDelete}
+                onClick={handleDelete}
               >
                 Sil
               </AlertDialogAction>

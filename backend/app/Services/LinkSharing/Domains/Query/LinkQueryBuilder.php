@@ -36,7 +36,13 @@ class LinkQueryBuilder
      */
     public function getAccessibleLinks(Request $request, $user): LengthAwarePaginator
     {
-        $query = LinkShare::with(['sharedBy', 'institution'])->active();
+        $query = LinkShare::with(['sharedBy', 'institution']);
+
+        // Apply active() scope only when no explicit status filter is provided
+        // This allows fetching disabled/expired links when statuses[] is passed
+        if (!$request->filled('statuses') && !$request->filled('status')) {
+            $query->active();
+        }
 
         // Apply regional hierarchy filtering
         $shouldApplyRegionalFilter = ! ($request->input('scope') === 'global' && $this->permissionService->canViewAllLinks($user));
@@ -176,6 +182,15 @@ class LinkQueryBuilder
         // Status filter (active, expired, disabled)
         if ($request->filled('status')) {
             $query->where('status', $request->status);
+        }
+
+        // Multiple statuses filter (e.g., statuses[]=active&statuses[]=disabled)
+        if ($request->filled('statuses')) {
+            $statuses = (array) $request->input('statuses', []);
+            $validStatuses = array_filter($statuses, static fn($s) => in_array($s, ['active', 'expired', 'disabled'], true));
+            if (!empty($validStatuses)) {
+                $query->whereIn('status', $validStatuses);
+            }
         }
 
         // Date range filters

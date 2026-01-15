@@ -61,6 +61,9 @@ class LinkShareControllerRefactored extends BaseController
                 'sort_direction' => 'nullable|string|in:asc,desc',
                 'per_page' => 'nullable|integer|min:1|max:500',
                 'scope' => 'nullable|string|in:scoped,global',
+                'status' => 'nullable|string|in:active,expired,disabled',
+                'statuses' => 'nullable|array',
+                'statuses.*' => 'string|in:active,expired,disabled',
             ]);
 
             $user = Auth::user();
@@ -220,6 +223,76 @@ class LinkShareControllerRefactored extends BaseController
 
             return $this->successResponse($linkShare, 'Bağlantı yeniləndi');
         }, 'linkshare.update');
+    }
+
+    /**
+     * Restore a disabled link share
+     */
+    public function restore(int $id): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($id) {
+            $user = Auth::user();
+
+            $linkShare = \App\Models\LinkShare::findOrFail($id);
+
+            // Check permission: only owner or superadmin can restore
+            if (! ($this->linkSharingService->canViewAllLinks($user) || $linkShare->shared_by === $user->id)) {
+                abort(403, 'Bu linki bərpa etmək icazəniz yoxdur');
+            }
+
+            if ($linkShare->status !== 'disabled') {
+                abort(422, 'Yalnız disabled olan linklər bərpa edilə bilər');
+            }
+
+            $linkShare->update(['status' => 'active']);
+
+            return $this->successResponse($linkShare, 'Bağlantı uğurla bərpa edildi');
+        }, 'linkshare.restore');
+    }
+
+    /**
+     * Permanently delete (hard delete) a disabled link share
+     */
+    public function forceDelete(int $id): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($id) {
+            $user = Auth::user();
+
+            $linkShare = \App\Models\LinkShare::findOrFail($id);
+
+            // Only allow hard delete of disabled links
+            if ($linkShare->status !== 'disabled') {
+                abort(422, 'Yalnız disabled olan linklər silinə bilər');
+            }
+
+            // Permission: superadmin, owner, or regionadmin within scope
+            $canDelete = $this->linkSharingService->canViewAllLinks($user) 
+                || $linkShare->shared_by === $user->id
+                || ($user->hasRole('regionadmin') && $this->isLinkInUserRegion($linkShare, $user));
+
+            if (!$canDelete) {
+                abort(403, 'Bu linki silmək icazəniz yoxdur');
+            }
+
+            $linkShare->delete(); // Hard delete
+
+            return $this->successResponse(null, 'Bağlantı birdəfəlik silindi');
+        }, 'linkshare.force_delete');
+    }
+
+    /**
+     * Check if link belongs to user's region (for regionadmin permission)
+     */
+    protected function isLinkInUserRegion($linkShare, $user): bool
+    {
+        if (!$user->institution || $user->institution->level != 2) {
+            return false;
+        }
+
+        $userRegionIds = $user->institution->getAllChildrenIds() ?? [];
+        $userRegionIds[] = $user->institution->id;
+
+        return in_array($linkShare->institution_id, $userRegionIds);
     }
 
     /**
@@ -563,6 +636,8 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request) {
             $request->validate([
+                'statuses' => 'nullable|array',
+                'statuses.*' => 'string|in:active,expired,disabled',
                 'format' => 'nullable|string|in:csv,excel,pdf',
                 'date_from' => 'nullable|date',
                 'date_to' => 'nullable|date|after_or_equal:date_from',

@@ -265,12 +265,13 @@ class ResourceService {
    * Fetch link resources using backend pagination metadata
    */
   async getLinksPaginated(filters: ResourceFilters = {}): Promise<ResourceListResponse> {
-    const linkFilters: LinkFilters = {
+    const linkFilters = {
       search: filters.search,
       link_type: filters.link_type,
       share_scope: filters.share_scope,
       is_featured: filters.is_featured,
       status: filters.status,
+      statuses: filters.statuses, // Add this line
       creator_id: filters.creator_id,
       institution_id: filters.institution_id,
       institution_ids: filters.institution_ids,
@@ -491,6 +492,21 @@ class ResourceService {
       console.error('❌ ResourceService.update failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Restore a disabled link
+   */
+  async restoreLink(id: number): Promise<Resource> {
+    const response = await apiClient.post(`/link-shares/${id}/restore`);
+    return this.transformLinkResult(response.data.data);
+  }
+
+  /**
+   * Permanently delete (hard delete) a disabled link
+   */
+  async forceDeleteLink(id: number): Promise<void> {
+    await apiClient.delete(`/link-shares/${id}/force`);
   }
 
   /**
