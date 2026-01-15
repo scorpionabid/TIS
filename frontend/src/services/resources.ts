@@ -500,7 +500,7 @@ class ResourceService {
    * Restore a disabled link
    */
   async restoreLink(id: number): Promise<Resource> {
-    const response = await apiClient.post(`/link-shares/${id}/restore`);
+    const response = await apiClient.patch(`/links/${id}/restore`);
     return this.transformLinkResult(response.data.data);
   }
 
@@ -508,7 +508,7 @@ class ResourceService {
    * Permanently delete (hard delete) a disabled link
    */
   async forceDeleteLink(id: number): Promise<void> {
-    await apiClient.delete(`/link-shares/${id}/force`);
+    await apiClient.delete(`/links/${id}/force`);
   }
 
   /**
