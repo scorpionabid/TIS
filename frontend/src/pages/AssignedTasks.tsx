@@ -581,8 +581,8 @@ const AssignedTasks = () => {
                       {assignment ? (
                         <div className="flex flex-col gap-2">
                           <div className="flex flex-wrap justify-end gap-2">
-                            {/* Delegation button - only for pending/accepted status */}
-                            {(assignment.status === 'pending' || assignment.status === 'accepted') && (
+                            {/* Delegation button - now controlled by backend permission flag */}
+                            {assignment.can_delegate && (
                               <Button
                                 size="sm"
                                 variant="outline"

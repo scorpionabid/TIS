@@ -82,6 +82,7 @@ export interface UserAssignmentSummary {
     type?: string;
   } | null;
   can_update: boolean;
+  can_delegate: boolean;
   allowed_transitions: Task['status'][];
 }
 

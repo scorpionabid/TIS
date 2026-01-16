@@ -505,6 +505,7 @@ class TaskControllerRefactored extends Controller
                 'type' => $assignment->institution->type,
             ] : null,
             'can_update' => $this->permissionService->canUserUpdateAssignment($assignment, $user),
+            'can_delegate' => $this->permissionService->canUserDelegateTask($task, $user),
             'allowed_transitions' => $this->assignmentService->getAllowedTransitions($assignment),
         ];
     }
