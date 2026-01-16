@@ -84,9 +84,27 @@ class ClassBulkAttendance extends Model
 
     public function calculateDailyRate(): void
     {
-        if ($this->total_students > 0) {
+        if ($this->total_students <= 0) {
+            $this->daily_attendance_rate = 0;
+            return;
+        }
+
+        // Check which sessions are actually recorded
+        $hasMorning = $this->morning_recorded_at !== null;
+        $hasEvening = $this->evening_recorded_at !== null;
+
+        if ($hasMorning && $hasEvening) {
+            // Both sessions recorded - calculate average
             $averagePresent = ($this->morning_present + $this->evening_present) / 2;
             $this->daily_attendance_rate = ($averagePresent / $this->total_students) * 100;
+        } elseif ($hasMorning) {
+            // Only morning recorded - use morning rate
+            $this->daily_attendance_rate = ($this->morning_present / $this->total_students) * 100;
+        } elseif ($hasEvening) {
+            // Only evening recorded - use evening rate
+            $this->daily_attendance_rate = ($this->evening_present / $this->total_students) * 100;
+        } else {
+            $this->daily_attendance_rate = 0;
         }
     }
 
