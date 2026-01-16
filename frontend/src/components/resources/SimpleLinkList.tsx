@@ -47,7 +47,9 @@ export const SimpleLinkList: React.FC<SimpleLinkListProps> = ({
     if (!currentUser) return false;
 
     // SuperAdmin can edit all links
-    const userRole = currentUser.roles?.[0]?.name?.toLowerCase();
+    const userRole = typeof currentUser.role === 'string'
+      ? currentUser.role.toLowerCase()
+      : '';
     if (userRole === 'superadmin') return true;
 
     // Creator can edit their own links
