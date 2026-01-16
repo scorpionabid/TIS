@@ -373,6 +373,17 @@ export default function Links() {
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
+      {/* Page Header with Create Button */}
+      <ResourceHeader
+        canCreate={canCreateLinks}
+        canBulkUpload={canBulkUploadLinks}
+        title="Linklər"
+        description="Müəssisələrə paylaşılan linkləri idarə edin"
+        buttonText="Yeni link"
+        onCreate={() => setIsLinkModalOpen(true)}
+        onBulkUpload={() => setIsBulkUploadModalOpen(true)}
+      />
+
       <div className="mt-6 space-y-6">
         {/* Status Tabs */}
         <LinkStatusTabs statusTab={statusTab} setStatusTab={setStatusTab} />
