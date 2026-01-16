@@ -8,7 +8,6 @@ use Carbon\Carbon;
 use Exception;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 /**
  * Link CRUD Manager
@@ -26,6 +25,7 @@ class LinkCrudManager
      * Create new link share
      *
      * LOGIC PRESERVED FROM ORIGINAL (lines 70-123)
+     * FIXED: Removed non-existent columns (link_hash, is_active, priority, tags, access_restrictions)
      */
     public function createLinkShare(array $data, $user)
     {
@@ -35,32 +35,25 @@ class LinkCrudManager
                 throw new Exception('Bu paylaşım sahəsi üçün icazəniz yoxdur', 403);
             }
 
-            // Generate unique link hash
-            // CRITICAL: Collision prevention (lines 79-81)
-            do {
-                $linkHash = Str::random(32);
-            } while (LinkShare::where('link_hash', $linkHash)->exists());
-
-            // Prepare link data
+            // Prepare link data - only use columns that exist in link_shares table
             $linkData = [
                 'title' => $data['title'],
                 'description' => $data['description'] ?? null,
                 'url' => $data['url'],
-                'link_type' => $data['link_type'],
+                'link_type' => $data['link_type'] ?? 'external',
                 'share_scope' => $data['share_scope'],
                 'target_roles' => $data['target_roles'] ?? null,
                 'target_institutions' => $data['target_institutions'] ?? null,
                 'target_users' => $data['target_users'] ?? null,
-                'target_users' => $data['target_users'] ?? null,
+                'target_departments' => $data['target_departments'] ?? null,
                 'shared_by' => $user->id,
                 'institution_id' => $data['institution_id'] ?? $user->institution_id,
-                'link_hash' => $linkHash,
-                'is_active' => $data['is_active'] ?? true,
+                'status' => $data['status'] ?? 'active',
                 'is_featured' => $data['is_featured'] ?? false,
                 'expires_at' => ! empty($data['expires_at']) ? Carbon::parse($data['expires_at']) : null,
-                'priority' => $data['priority'] ?? 'normal',
-                'tags' => $data['tags'] ?? null,
-                'access_restrictions' => $data['access_restrictions'] ?? null,
+                'requires_login' => $data['requires_login'] ?? true,
+                'max_clicks' => $data['max_clicks'] ?? null,
+                'thumbnail_url' => $data['thumbnail_url'] ?? null,
                 'metadata' => $data['metadata'] ?? null,
             ];
 
@@ -92,7 +85,7 @@ class LinkCrudManager
                 }
             }
 
-            // Update link data
+            // Update link data - only use columns that exist in link_shares table
             $updateData = array_filter([
                 'title' => $data['title'] ?? null,
                 'description' => $data['description'] ?? null,
@@ -102,12 +95,13 @@ class LinkCrudManager
                 'target_roles' => $data['target_roles'] ?? null,
                 'target_institutions' => $data['target_institutions'] ?? null,
                 'target_users' => $data['target_users'] ?? null,
-                'is_active' => $data['is_active'] ?? null,
+                'target_departments' => $data['target_departments'] ?? null,
+                'status' => $data['status'] ?? null,
                 'is_featured' => $data['is_featured'] ?? null,
                 'expires_at' => isset($data['expires_at']) ? ($data['expires_at'] ? Carbon::parse($data['expires_at']) : null) : null,
-                'priority' => $data['priority'] ?? null,
-                'tags' => $data['tags'] ?? null,
-                'access_restrictions' => $data['access_restrictions'] ?? null,
+                'requires_login' => $data['requires_login'] ?? null,
+                'max_clicks' => $data['max_clicks'] ?? null,
+                'thumbnail_url' => $data['thumbnail_url'] ?? null,
                 'metadata' => $data['metadata'] ?? null,
             ], function ($value) {
                 return $value !== null;
