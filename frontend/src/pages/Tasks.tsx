@@ -111,7 +111,7 @@ export default function Tasks() {
 
   // Use new centralized hooks for fetching users (lower-level users only)
   const { users: availableUsers } = useAssignableUsers({
-    perPage: 1000,
+    perPage: 200,
     enabled: hasAccess,
     originScope: activeTab === 'region' ? 'region' : activeTab === 'sector' ? 'sector' : null,
   });
