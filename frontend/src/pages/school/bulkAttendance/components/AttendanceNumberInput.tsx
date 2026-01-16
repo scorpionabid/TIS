@@ -45,10 +45,10 @@ const AttendanceNumberInput: React.FC<AttendanceNumberInputProps> = ({
     onChange(clampValue(parsed, min, max));
   };
 
-  const containerClass = size === "compact" ? "h-9" : "h-10";
+  const containerClass = "h-10";
   const buttonClass =
     size === "compact"
-      ? "h-9 w-9 rounded-none"
+      ? "h-10 w-9 rounded-none"
       : "h-10 w-10 rounded-none";
 
   return (
@@ -81,7 +81,10 @@ const AttendanceNumberInput: React.FC<AttendanceNumberInputProps> = ({
         disabled={disabled}
         min={min}
         max={max}
-        className="flex-1 h-full border-0 text-center focus-visible:ring-0"
+        className={cn(
+          "flex-1 h-full border-0 text-center focus-visible:ring-0",
+          size === "compact" && "py-1 text-sm"
+        )}
       />
       <Button
         type="button"
