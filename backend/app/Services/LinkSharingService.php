@@ -227,26 +227,15 @@ class LinkSharingService extends BaseService
             'sectors' => [],
         ];
 
-        if (empty($targetIds)) {
-            return $overview;
-        }
-
-        $targetInstitutions = Institution::whereIn('id', $targetIds)
-            ->with(['parent:id,name,level,parent_id'])
-            ->get(['id', 'name', 'level', 'parent_id', 'utis_code', 'institution_code']);
-
-        $targetsByLevel = $targetInstitutions->groupBy('level');
-        $regionTargets = $targetsByLevel->get(2, collect());
-        $sectorTargets = $targetsByLevel->get(3, collect());
-        $schoolTargets = $targetsByLevel->get(4, collect());
-
-        $overview['target_counts'] = [
-            'regions' => $regionTargets->count(),
-            'sectors' => $sectorTargets->count(),
-            'schools' => $schoolTargets->count(),
-            'users' => 0,
-        ];
-
+        /*
+         * ═══════════════════════════════════════════════════════════════════════════
+         * CRITICAL FIX: Process target_users BEFORE early return
+         * ═══════════════════════════════════════════════════════════════════════════
+         * Previously, if target_institutions was empty, we returned early without
+         * processing target_users. This caused user-targeted links to show
+         * "No targets selected" even when they had users.
+         * ═══════════════════════════════════════════════════════════════════════════
+         */
         $targetUsersRaw = $linkShare->target_users;
         if (is_string($targetUsersRaw)) {
             $decodedUsers = json_decode($targetUsersRaw, true);
@@ -259,6 +248,7 @@ class LinkSharingService extends BaseService
 
         $targetUserIds = array_values(array_unique(array_filter(array_map('intval', $targetUsersRaw))));
 
+        // Process target users
         if (! empty($targetUserIds)) {
             $users = User::whereIn('id', $targetUserIds)
                 ->with('roles:id,name')
@@ -279,6 +269,30 @@ class LinkSharingService extends BaseService
 
             $overview['target_counts']['users'] = count($overview['target_users']);
         }
+
+        // Early return ONLY if BOTH institutions AND users are empty
+        if (empty($targetIds) && empty($targetUserIds)) {
+            return $overview;
+        }
+
+        // If only users are targeted (no institutions), return now with user data
+        if (empty($targetIds)) {
+            return $overview;
+        }
+
+        // Process target institutions
+        $targetInstitutions = Institution::whereIn('id', $targetIds)
+            ->with(['parent:id,name,level,parent_id'])
+            ->get(['id', 'name', 'level', 'parent_id', 'utis_code', 'institution_code']);
+
+        $targetsByLevel = $targetInstitutions->groupBy('level');
+        $regionTargets = $targetsByLevel->get(2, collect());
+        $sectorTargets = $targetsByLevel->get(3, collect());
+        $schoolTargets = $targetsByLevel->get(4, collect());
+
+        $overview['target_counts']['regions'] = $regionTargets->count();
+        $overview['target_counts']['sectors'] = $sectorTargets->count();
+        $overview['target_counts']['schools'] = $schoolTargets->count();
 
         $sectorConfigs = [];
 
