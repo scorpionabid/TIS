@@ -37,22 +37,19 @@ export const SimpleLinkList: React.FC<SimpleLinkListProps> = ({
   statusTab = 'active',
   onAction,
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, hasPermission } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [linkToDelete, setLinkToDelete] = useState<Resource | null>(null);
 
-  // Check if current user can edit the link (creator or superadmin)
+  // Check if current user can edit the link (has links.update permission or is creator)
   const canEditLink = (link: Resource): boolean => {
     if (!currentUser) return false;
 
-    // SuperAdmin can edit all links
-    const userRole = typeof currentUser.role === 'string'
-      ? currentUser.role.toLowerCase()
-      : '';
-    if (userRole === 'superadmin') return true;
+    // Check if user has links.update permission
+    if (hasPermission && hasPermission('links.update')) return true;
 
-    // Creator can edit their own links
+    // Creator can still edit their own links
     const creatorId = link.created_by || (link as any).shared_by || (link as any).creator_id;
     return creatorId === currentUser.id;
   };
