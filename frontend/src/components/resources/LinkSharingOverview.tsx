@@ -604,12 +604,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
   // Determine default tab based on what's available
   // If only users are targeted (no institutions), show users tab by default
-  const defaultTab = useMemo(() => {
-    if (hasUserTargets && !hasSectors) {
-      return 'users';
-    }
-    return 'institutions';
-  }, [hasUserTargets, hasSectors]);
+  const defaultTab = hasUserTargets && !hasSectors ? 'users' : 'institutions';
   const preferDerived = Boolean(
     restrictedInstitutionSet || sectorsToRender.length > 0
   );
