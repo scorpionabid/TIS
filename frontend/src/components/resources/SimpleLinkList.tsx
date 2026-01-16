@@ -13,8 +13,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, Link as LinkIcon, Search, RotateCcw, Trash2, Users, Building2 } from 'lucide-react';
+import { Loader2, Link as LinkIcon, Search, RotateCcw, Trash2, Users, Building2, Edit } from 'lucide-react';
 import type { Resource } from '@/types/resources';
+import { useAuth } from '@/contexts/AuthContext';
 
 export type LinkAction = 'edit' | 'delete' | 'restore' | 'forceDelete';
 export type StatusTab = 'active' | 'disabled' | 'all';
@@ -36,9 +37,30 @@ export const SimpleLinkList: React.FC<SimpleLinkListProps> = ({
   statusTab = 'active',
   onAction,
 }) => {
+  const { currentUser } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [linkToDelete, setLinkToDelete] = useState<Resource | null>(null);
+
+  // Check if current user can edit the link (creator or superadmin)
+  const canEditLink = (link: Resource): boolean => {
+    if (!currentUser) return false;
+
+    // SuperAdmin can edit all links
+    const userRole = currentUser.roles?.[0]?.name?.toLowerCase();
+    if (userRole === 'superadmin') return true;
+
+    // Creator can edit their own links
+    const creatorId = link.created_by || (link as any).shared_by || (link as any).creator_id;
+    return creatorId === currentUser.id;
+  };
+
+  const handleEdit = (link: Resource, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onAction) {
+      onAction(link, 'edit');
+    }
+  };
 
   const handleForceDelete = (link: Resource, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -187,6 +209,21 @@ export const SimpleLinkList: React.FC<SimpleLinkListProps> = ({
                     <p className="mt-1 text-[11px] text-muted-foreground truncate">
                       {link.url}
                     </p>
+                  )}
+
+                  {/* Edit Button for Active Links - visible to creator and superadmin */}
+                  {statusTab === 'active' && onAction && canEditLink(link) && (
+                    <div className="mt-3 pt-2 border-t flex items-center">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                        onClick={(e) => handleEdit(link, e)}
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Redaktə et
+                      </Button>
+                    </div>
                   )}
 
                   {/* Action Buttons for Disabled Links */}
