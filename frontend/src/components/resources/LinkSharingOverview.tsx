@@ -601,6 +601,15 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
 
   const hasUserTargets = (overview.target_users?.length ?? 0) > 0;
   const hasSectors = (overview.sectors?.length ?? 0) > 0;
+
+  // Determine default tab based on what's available
+  // If only users are targeted (no institutions), show users tab by default
+  const defaultTab = useMemo(() => {
+    if (hasUserTargets && !hasSectors) {
+      return 'users';
+    }
+    return 'institutions';
+  }, [hasUserTargets, hasSectors]);
   const preferDerived = Boolean(
     restrictedInstitutionSet || sectorsToRender.length > 0
   );
@@ -630,9 +639,9 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Paylaşılan müəssisələr</CardTitle>
+            <CardTitle>Paylaşım məlumatları</CardTitle>
             <p className="text-sm text-muted-foreground">
-              Seçilmiş link heç bir müəssisə ilə paylaşılmayıb.
+              {overview.link_title}
             </p>
           </div>
           {onRetry && (
@@ -643,8 +652,9 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
         </CardHeader>
         <CardContent>
           <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
-            <Building2 className="h-10 w-10 mb-3 opacity-50" />
-            <p className="text-sm">Müəssisə qeyd olunmayıb.</p>
+            <AlertCircle className="h-10 w-10 mb-3 opacity-50" />
+            <p className="text-sm">Heç bir hədəf seçilməyib.</p>
+            <p className="text-xs mt-1">Bu link nə müəssisə, nə də istifadəçi ilə paylaşılmayıb.</p>
           </div>
         </CardContent>
       </Card>
@@ -669,7 +679,7 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
            * TABS: Müəssisələr və İstifadəçilər ayrı tab-larda göstərilir
            * ═══════════════════════════════════════════════════════════════════════════
            */}
-          <Tabs defaultValue="institutions" className="w-full">
+          <Tabs defaultValue={defaultTab} key={overview.link_id} className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-4">
               <TabsTrigger value="institutions" className="flex items-center gap-2">
                 <Building2 className="h-4 w-4" />
@@ -733,7 +743,16 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
               {!hasSectors ? (
                 <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
                   <Building2 className="h-10 w-10 mb-3 opacity-50" />
-                  <p className="text-sm">Heç bir müəssisə ilə paylaşılmayıb.</p>
+                  <p className="text-sm">
+                    {hasUserTargets
+                      ? 'Bu link müəssisələrlə deyil, xüsusi istifadəçilərlə paylaşılıb.'
+                      : 'Heç bir müəssisə ilə paylaşılmayıb.'}
+                  </p>
+                  {hasUserTargets && (
+                    <p className="text-xs mt-2 text-violet-600">
+                      İstifadəçilər tabına keçin
+                    </p>
+                  )}
                 </div>
               ) : (
                 <div className="space-y-4">

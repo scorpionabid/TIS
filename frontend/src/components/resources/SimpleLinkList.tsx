@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Loader2, Link as LinkIcon, Search, RotateCcw, Trash2 } from 'lucide-react';
+import { Loader2, Link as LinkIcon, Search, RotateCcw, Trash2, Users, Building2 } from 'lucide-react';
 import type { Resource } from '@/types/resources';
 
 export type LinkAction = 'edit' | 'delete' | 'restore' | 'forceDelete';
@@ -139,13 +139,32 @@ export const SimpleLinkList: React.FC<SimpleLinkListProps> = ({
                   {/* Header */}
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <LinkIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                      {/* Icon based on target type */}
+                      {link.share_scope === 'specific_users' ? (
+                        <Users className="h-4 w-4 text-violet-600 flex-shrink-0" />
+                      ) : (
+                        <Building2 className="h-4 w-4 text-primary flex-shrink-0" />
+                      )}
                       <p className="font-medium text-sm truncate">{link.title}</p>
                     </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
                       {link.share_scope && (
-                        <Badge variant="outline" className="text-xs">
-                          {shareScopeLabels[link.share_scope] || link.share_scope}
+                        <Badge
+                          variant="outline"
+                          className={`text-xs ${
+                            link.share_scope === 'specific_users'
+                              ? 'bg-violet-50 text-violet-700 border-violet-200'
+                              : ''
+                          }`}
+                        >
+                          {link.share_scope === 'specific_users' ? (
+                            <span className="flex items-center gap-1">
+                              <Users className="h-3 w-3" />
+                              İstifadəçilər
+                            </span>
+                          ) : (
+                            shareScopeLabels[link.share_scope] || link.share_scope
+                          )}
                         </Badge>
                       )}
                       {active && (
