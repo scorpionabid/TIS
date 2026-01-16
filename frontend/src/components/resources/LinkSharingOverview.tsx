@@ -24,6 +24,7 @@ import {
   ExternalLink,
   Edit,
   Users,
+  Link as LinkIcon,
 } from "lucide-react";
 import type { Resource } from "@/types/resources";
 import type { LinkSharingOverview } from "@/services/resources";
@@ -661,10 +662,52 @@ const LinkSharingOverviewCard: React.FC<LinkSharingOverviewProps> = ({
       <Card>
         <CardHeader className="flex flex-col gap-3 pb-2">
           <div className="flex flex-col gap-1">
-            <CardTitle>Paylaşım məlumatları</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              {overview.link_title} ({overview.share_scope || "—"})
-            </p>
+            <CardTitle className="flex items-center gap-2">
+              <LinkIcon className="h-5 w-5 text-primary" />
+              {overview.link_title}
+            </CardTitle>
+            {/* Link URL */}
+            {selectedLink?.url && (
+              <a
+                href={selectedLink.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1 truncate"
+              >
+                <ExternalLink className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{selectedLink.url}</span>
+              </a>
+            )}
+            {/* Share scope badge */}
+            <div className="flex items-center gap-2 mt-1">
+              <Badge
+                variant="outline"
+                className={
+                  overview.share_scope === 'specific_users'
+                    ? 'bg-violet-50 text-violet-700 border-violet-200'
+                    : 'bg-blue-50 text-blue-700 border-blue-200'
+                }
+              >
+                {overview.share_scope === 'specific_users' ? (
+                  <span className="flex items-center gap-1">
+                    <Users className="h-3 w-3" />
+                    Xüsusi istifadəçilər
+                  </span>
+                ) : overview.share_scope === 'institutional' ? (
+                  <span className="flex items-center gap-1">
+                    <Building2 className="h-3 w-3" />
+                    Müəssisələr
+                  </span>
+                ) : (
+                  overview.share_scope || 'Paylaşım növü'
+                )}
+              </Badge>
+              {selectedLink?.is_featured && (
+                <Badge variant="secondary" className="bg-amber-50 text-amber-700 border-amber-200">
+                  ⭐ Seçilmiş
+                </Badge>
+              )}
+            </div>
           </div>
         </CardHeader>
 
