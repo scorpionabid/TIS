@@ -41,3 +41,26 @@ Route::prefix('my-resources')->group(function () {
     Route::get('/assigned', [LinkShareController::class, 'getAssignedResources'])
         ->middleware(['auth:sanctum', 'role:sektoradmin|schooladmin|regionoperator|müəllim|teacher']);
 });
+
+// Link Database Routes (Department and Sector based link management)
+Route::prefix('link-database')->middleware('permission:links.read')->group(function () {
+    // Get links by department type
+    Route::get('/by-department/{departmentType}', [LinkShareController::class, 'getLinksByDepartmentType']);
+
+    // Get links by sector
+    Route::get('/by-sector/{sectorId}', [LinkShareController::class, 'getLinksBySector']);
+
+    // Get all sectors for dropdown
+    Route::get('/sectors', [LinkShareController::class, 'getSectorsForLinkDatabase']);
+
+    // Get department types
+    Route::get('/department-types', [LinkShareController::class, 'getDepartmentTypes']);
+
+    // Create link for specific department
+    Route::post('/department/{departmentType}', [LinkShareController::class, 'createLinkForDepartment'])
+        ->middleware('permission:links.create');
+
+    // Create link for specific sector
+    Route::post('/sector/{sectorId}', [LinkShareController::class, 'createLinkForSector'])
+        ->middleware('permission:links.create');
+});

@@ -750,4 +750,434 @@ class LinkShareControllerRefactored extends BaseController
             ], 'Təyin edilmiş resurslər alındı');
         }, 'linkshare.getAssignedResources');
     }
+
+    /**
+     * Get links filtered by department ID
+     * Used in Link Database page for department tabs
+     */
+    public function getLinksByDepartmentType(Request $request, string $departmentId): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request, $departmentId) {
+            $user = Auth::user();
+
+            // Validate department exists
+            $department = \App\Models\Department::find($departmentId);
+            if (!$department) {
+                abort(404, 'Departament tapılmadı: ' . $departmentId);
+            }
+
+            // Get links that target this department (by ID)
+            // Don't apply institution filter here - we want to see all links targeting this department
+            $query = LinkShare::with(['sharedBy', 'institution'])
+                ->where('status', 'active')
+                ->where(function ($q) use ($departmentId) {
+                    // Links that specifically target this department by ID
+                    $q->whereJsonContains('target_departments', (int) $departmentId)
+                      ->orWhereJsonContains('target_departments', (string) $departmentId);
+                });
+
+            // For non-superadmin, also show links they created
+            if (!$user->hasRole('superadmin')) {
+                $query->orWhere(function ($q) use ($user, $departmentId) {
+                    $q->where('shared_by', $user->id)
+                      ->where(function ($q2) use ($departmentId) {
+                          $q2->whereJsonContains('target_departments', (int) $departmentId)
+                             ->orWhereJsonContains('target_departments', (string) $departmentId);
+                      });
+                });
+            }
+
+            // Apply search if provided
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'LIKE', "%{$search}%")
+                      ->orWhere('description', 'LIKE', "%{$search}%")
+                      ->orWhere('url', 'LIKE', "%{$search}%");
+                });
+            }
+
+            // Sorting
+            $sortBy = $request->get('sort_by', 'created_at');
+            $sortDirection = $request->get('sort_direction', 'desc');
+            $query->orderBy($sortBy, $sortDirection);
+
+            // Pagination
+            $perPage = $request->get('per_page', 15);
+            $links = $query->paginate($perPage);
+
+            \Log::info('📚 LinkDatabase: getLinksByDepartmentType', [
+                'department_id' => $departmentId,
+                'user_id' => $user->id,
+                'links_count' => $links->total(),
+                'sql' => $query->toSql(),
+            ]);
+
+            return $this->successResponse($links, 'Departament linkləri alındı');
+        }, 'linkshare.getLinksByDepartmentType');
+    }
+
+    /**
+     * Get links filtered by sector
+     * Used in Link Database page for sector tab
+     */
+    public function getLinksBySector(Request $request, int $sectorId): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request, $sectorId) {
+            $user = Auth::user();
+
+            // Verify sector exists (check by institution type, not level)
+            $sector = \App\Models\Institution::where('id', $sectorId)
+                ->first();
+
+            if (!$sector) {
+                abort(404, 'Sektor tapılmadı');
+            }
+
+            // Get links that target this sector
+            $query = LinkShare::with(['sharedBy', 'institution'])
+                ->where('status', 'active')
+                ->where(function ($q) use ($sectorId) {
+                    // Links that target this sector
+                    $q->whereJsonContains('target_institutions', $sectorId)
+                      ->orWhereJsonContains('target_institutions', (string) $sectorId);
+                });
+
+            // For non-superadmin, also show links they created
+            if (!$user->hasRole('superadmin')) {
+                $query->orWhere(function ($q) use ($user, $sectorId) {
+                    $q->where('shared_by', $user->id)
+                      ->where(function ($q2) use ($sectorId) {
+                          $q2->whereJsonContains('target_institutions', $sectorId)
+                             ->orWhereJsonContains('target_institutions', (string) $sectorId);
+                      });
+                });
+            }
+
+            // Apply search if provided
+            if ($request->filled('search')) {
+                $search = $request->search;
+                $query->where(function ($q) use ($search) {
+                    $q->where('title', 'LIKE', "%{$search}%")
+                      ->orWhere('description', 'LIKE', "%{$search}%")
+                      ->orWhere('url', 'LIKE', "%{$search}%");
+                });
+            }
+
+            // Sorting
+            $sortBy = $request->get('sort_by', 'created_at');
+            $sortDirection = $request->get('sort_direction', 'desc');
+            $query->orderBy($sortBy, $sortDirection);
+
+            // Pagination
+            $perPage = $request->get('per_page', 15);
+            $links = $query->paginate($perPage);
+
+            \Log::info('📚 LinkDatabase: getLinksBySector', [
+                'sector_id' => $sectorId,
+                'user_id' => $user->id,
+                'links_count' => $links->total(),
+            ]);
+
+            return $this->successResponse($links, 'Sektor linkləri alındı');
+        }, 'linkshare.getLinksBySector');
+    }
+
+    /**
+     * Get sectors for Link Database dropdown
+     */
+    public function getSectorsForLinkDatabase(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $user = Auth::user();
+
+            // Get sectors based on user's access level
+            // Try both 'sektor' type and level 3
+            $query = \App\Models\Institution::where('is_active', true)
+                ->where(function ($q) {
+                    $q->where('type', 'sektor')
+                      ->orWhere('type', 'sector')
+                      ->orWhere('level', 3);
+                })
+                ->select('id', 'name', 'short_name', 'parent_id', 'type', 'level');
+
+            // Apply regional filtering
+            if ($user->hasRole('superadmin')) {
+                // SuperAdmin sees all sectors
+            } elseif ($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) {
+                // Region admin sees only their region's sectors
+                $regionId = $user->institution_id;
+                $query->where('parent_id', $regionId);
+            } elseif ($user->hasRole('sektoradmin')) {
+                // Sector admin sees only their own sector
+                $query->where('id', $user->institution_id);
+            } else {
+                // Other roles see no sectors
+                $query->whereRaw('1 = 0');
+            }
+
+            $sectors = $query->orderBy('name')->get();
+
+            \Log::info('📚 LinkDatabase: getSectorsForLinkDatabase', [
+                'user_id' => $user->id,
+                'sectors_count' => $sectors->count(),
+                'sectors' => $sectors->pluck('name', 'id'),
+            ]);
+
+            return $this->successResponse($sectors, 'Sektorlar alındı');
+        }, 'linkshare.getSectorsForLinkDatabase');
+    }
+
+    /**
+     * Get departments from database for Link Database tabs
+     * Returns actual departments, not hardcoded types
+     */
+    public function getDepartmentTypes(): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () {
+            $user = Auth::user();
+
+            // Get departments based on user's access level
+            $query = \App\Models\Department::where('is_active', true)
+                ->select('id', 'name', 'short_name', 'department_type', 'institution_id');
+
+            // Apply regional filtering
+            if ($user->hasRole('superadmin')) {
+                // SuperAdmin sees all departments
+            } elseif ($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) {
+                // Region admin sees departments in their region hierarchy
+                $userInstitution = $user->institution;
+                if ($userInstitution) {
+                    $childIds = $userInstitution->getAllChildrenIds() ?? [];
+                    $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
+                    $query->whereIn('institution_id', $scopeIds);
+                }
+            } elseif ($user->hasRole('sektoradmin')) {
+                // Sector admin sees departments in their sector
+                $userInstitution = $user->institution;
+                if ($userInstitution) {
+                    $childIds = $userInstitution->getAllChildrenIds() ?? [];
+                    $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
+                    $query->whereIn('institution_id', $scopeIds);
+                }
+            } else {
+                // Other roles see no departments
+                $query->whereRaw('1 = 0');
+            }
+
+            $departments = $query->orderBy('name')->get()->map(function ($dept) {
+                return [
+                    'id' => $dept->id,
+                    'key' => (string) $dept->id, // Use ID as key for consistency
+                    'name' => $dept->name,
+                    'short_name' => $dept->short_name,
+                    'label' => $dept->name,
+                    'department_type' => $dept->department_type,
+                    'institution_id' => $dept->institution_id,
+                ];
+            });
+
+            return $this->successResponse($departments, 'Departamentlər alındı');
+        }, 'linkshare.getDepartmentTypes');
+    }
+
+    /**
+     * Create a link for a specific department (by ID)
+     * Also supports selecting additional target departments and sectors
+     */
+    public function createLinkForDepartment(Request $request, string $departmentId): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request, $departmentId) {
+            // Validate department exists
+            $department = \App\Models\Department::find($departmentId);
+            if (!$department) {
+                abort(404, 'Departament tapılmadı: ' . $departmentId);
+            }
+
+            $validated = $request->validate([
+                'title' => 'required|string|max:255',
+                'url' => 'required|url',
+                'description' => 'nullable|string|max:500',
+                'link_type' => 'required|string|in:external,video,form,document',
+                'is_featured' => 'boolean',
+                'expires_at' => 'nullable|date|after:now',
+                // Additional targets
+                'target_departments' => 'nullable|array',
+                'target_departments.*' => 'integer|exists:departments,id',
+                'target_institutions' => 'nullable|array',
+                'target_institutions.*' => 'integer|exists:institutions,id',
+            ]);
+
+            $user = Auth::user();
+
+            // Merge the current department with any additional targets
+            $targetDepartments = $validated['target_departments'] ?? [];
+            if (!in_array((int) $departmentId, $targetDepartments)) {
+                array_unshift($targetDepartments, (int) $departmentId);
+            }
+            $validated['target_departments'] = $targetDepartments;
+
+            // Set share scope based on targets
+            if (!empty($validated['target_institutions'])) {
+                $validated['share_scope'] = 'sectoral';
+            } else {
+                $validated['share_scope'] = 'regional';
+            }
+
+            $linkShare = $this->linkSharingService->createLinkShare($validated, $user);
+
+            return $this->successResponse($linkShare, 'Link uğurla yaradıldı', 201);
+        }, 'linkshare.createLinkForDepartment');
+    }
+
+    /**
+     * Create a link for a specific sector
+     * Also supports selecting additional target departments and sectors
+     */
+    public function createLinkForSector(Request $request, int $sectorId): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request, $sectorId) {
+            // Verify sector exists
+            $sector = \App\Models\Institution::where('id', $sectorId)
+                ->where('level', 3)
+                ->first();
+
+            if (!$sector) {
+                abort(404, 'Sektor tapılmadı');
+            }
+
+            $validated = $request->validate([
+                'title' => 'required|string|max:255',
+                'url' => 'required|url',
+                'description' => 'nullable|string|max:500',
+                'link_type' => 'required|string|in:external,video,form,document',
+                'is_featured' => 'boolean',
+                'expires_at' => 'nullable|date|after:now',
+                // Additional targets
+                'target_departments' => 'nullable|array',
+                'target_departments.*' => 'integer|exists:departments,id',
+                'target_institutions' => 'nullable|array',
+                'target_institutions.*' => 'integer|exists:institutions,id',
+            ]);
+
+            $user = Auth::user();
+
+            // Merge the current sector with any additional institution targets
+            $targetInstitutions = $validated['target_institutions'] ?? [];
+            if (!in_array($sectorId, $targetInstitutions)) {
+                array_unshift($targetInstitutions, $sectorId);
+            }
+            $validated['target_institutions'] = $targetInstitutions;
+            $validated['share_scope'] = 'sectoral';
+
+            $linkShare = $this->linkSharingService->createLinkShare($validated, $user);
+
+            return $this->successResponse($linkShare, 'Link uğurla yaradıldı', 201);
+        }, 'linkshare.createLinkForSector');
+    }
+
+    /**
+     * Helper: Apply regional filtering based on user role
+     */
+    private function applyUserRegionalFilter($query, $user): void
+    {
+        if ($user->hasRole('superadmin')) {
+            return; // No filter for superadmin
+        }
+
+        $userInstitution = $user->institution;
+        if (!$userInstitution) {
+            $query->where('shared_by', $user->id);
+            return;
+        }
+
+        if ($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) {
+            // Region admin/operator sees all links in their region
+            $childIds = $userInstitution->getAllChildrenIds() ?? [];
+            $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
+            $query->whereIn('institution_id', $scopeIds);
+        } elseif ($user->hasRole('sektoradmin')) {
+            // Sector admin sees links in their sector
+            $childIds = $userInstitution->getAllChildrenIds() ?? [];
+            $scopeIds = array_values(array_unique(array_merge([$userInstitution->id], $childIds)));
+            $query->whereIn('institution_id', $scopeIds);
+        }
+    }
+
+    /**
+     * Track link click for analytics
+     */
+    public function recordClick(Request $request, int $id): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request, $id) {
+            $user = Auth::user();
+
+            $linkShare = LinkShare::findOrFail($id);
+            $linkShare->increment('click_count');
+
+            // Log access
+            \App\Models\LinkAccessLog::create([
+                'link_share_id' => $id,
+                'user_id' => $user?->id,
+                'ip_address' => $request->ip(),
+                'user_agent' => $request->userAgent(),
+                'referrer' => $request->header('referer'),
+            ]);
+
+            return $this->successResponse(['click_count' => $linkShare->click_count], 'Klik qeydə alındı');
+        }, 'linkshare.recordClick');
+    }
+
+    /**
+     * Get tracking activity for links
+     */
+    public function getTrackingActivity(Request $request): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request) {
+            $user = Auth::user();
+
+            $query = \App\Models\LinkAccessLog::with(['linkShare', 'user'])
+                ->orderBy('created_at', 'desc');
+
+            // Apply filters
+            if ($request->filled('link_id')) {
+                $query->where('link_share_id', $request->link_id);
+            }
+
+            if ($request->filled('date_from')) {
+                $query->whereDate('created_at', '>=', $request->date_from);
+            }
+
+            if ($request->filled('date_to')) {
+                $query->whereDate('created_at', '<=', $request->date_to);
+            }
+
+            $perPage = $request->get('per_page', 50);
+            $activity = $query->paginate($perPage);
+
+            return $this->successResponse($activity, 'Aktivlik məlumatları alındı');
+        }, 'linkshare.getTrackingActivity');
+    }
+
+    /**
+     * Get link access history
+     */
+    public function getLinkHistory(Request $request, int $id): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request, $id) {
+            $linkShare = LinkShare::findOrFail($id);
+
+            $history = \App\Models\LinkAccessLog::where('link_share_id', $id)
+                ->with('user')
+                ->orderBy('created_at', 'desc')
+                ->limit($request->get('limit', 100))
+                ->get();
+
+            return $this->successResponse([
+                'link' => $linkShare,
+                'history' => $history,
+                'total_clicks' => $linkShare->click_count,
+            ], 'Link tarixçəsi alındı');
+        }, 'linkshare.getLinkHistory');
+    }
 }

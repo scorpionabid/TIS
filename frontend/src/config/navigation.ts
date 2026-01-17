@@ -31,6 +31,7 @@ import {
   Archive,
   Folder,
   LucideIcon,
+  Library,
 } from 'lucide-react';
 import { UserRole, USER_ROLES } from '@/constants/roles';
 import { SidebarPanel } from '@/types/sidebar';
@@ -195,6 +196,15 @@ export const improvedNavigationConfig: MenuGroup[] = [
         icon: Archive,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
         children: [
+          {
+            id: 'link-database',
+            label: 'Link Bazası',
+            path: '/link-database',
+            icon: Library,
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR],
+            description: 'Departament və sektor üzrə linklər',
+            permissions: ['links.read']
+          },
           {
             id: 'links',
             label: 'Linklər',

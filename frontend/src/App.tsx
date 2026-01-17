@@ -34,6 +34,7 @@ const SurveyResponse = lazy(() => import("./pages/SurveyResponse"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const AssignedTasks = lazy(() => import("./pages/AssignedTasks"));
 const Links = lazy(() => import("./pages/Links"));
+const LinkDatabase = lazy(() => import("./pages/LinkDatabase"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Folders = lazy(() => import("./pages/Folders"));
 const MyResources = lazy(() => import("./pages/MyResources"));
@@ -473,6 +474,17 @@ const App = () => {
               />
 
               <Route path="links" element={<LazyWrapper><Links /></LazyWrapper>} />
+              <Route path="link-database" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute
+                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                    requiredPermissions={['links.read']}
+                    permissionMatch="any"
+                  >
+                    <LinkDatabase />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
               <Route path="documents" element={<LazyWrapper><Documents /></LazyWrapper>} />
               <Route path="folders" element={<LazyWrapper><Folders /></LazyWrapper>} />
               <Route path="my-resources" element={<LazyWrapper><MyResources /></LazyWrapper>} />
