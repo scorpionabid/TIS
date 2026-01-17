@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { CreateTaskData, Task, UpdateTaskData, taskService } from "@/services/tasks";
@@ -14,6 +14,8 @@ import { useAssignableUsers } from "@/hooks/tasks/useAssignableUsers";
 import { useTaskMutations } from "@/hooks/tasks/useTaskMutations";
 import { normalizeCreatePayload } from "@/utils/taskActions";
 import { usePrefetchTaskFormData } from "@/hooks/tasks/useTaskFormData";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export default function Tasks() {
   const { currentUser } = useAuth();
@@ -293,6 +295,56 @@ export default function Tasks() {
           onTaskCreated={handleTaskCreated}
           originScope={activeTab}
         />
+
+      {/* Pagination */}
+      {pagination && pagination.total > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Səhifədə:</span>
+            <Select
+              value={String(perPage)}
+              onValueChange={(value) => setPerPage(Number(value))}
+            >
+              <SelectTrigger className="w-[70px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="hidden sm:inline">
+              Ümumi {pagination.total} tapşırıqdan {((page - 1) * perPage) + 1}-{Math.min(page * perPage, pagination.total)} göstərilir
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page - 1)}
+              disabled={page <= 1 || isFetching}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Əvvəlki
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              Səhifə {page} / {pagination.last_page || Math.ceil(pagination.total / perPage)}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page + 1)}
+              disabled={page >= (pagination.last_page || Math.ceil(pagination.total / perPage)) || isFetching}
+            >
+              Sonrakı
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <TaskModals
         isTaskModalOpen={isTaskModalOpen}

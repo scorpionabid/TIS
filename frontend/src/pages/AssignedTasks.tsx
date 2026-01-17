@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Clock, CheckCircle, Filter, Search, Loader2, Forward } from "lucide-react";
+import { AlertTriangle, Clock, CheckCircle, Filter, Search, Loader2, Forward, ChevronLeft, ChevronRight } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { taskService, Task, UserAssignmentSummary } from "@/services/tasks";
@@ -83,6 +83,8 @@ const AssignedTasks = () => {
   const [activeTab, setActiveTab] = useState<"region" | "sector">("region");
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(15);
   const [decisionContext, setDecisionContext] = useState<{ task: Task; assignment: UserAssignmentSummary } | null>(null);
   const [completionContext, setCompletionContext] = useState<{ task: Task; assignment: UserAssignmentSummary } | null>(null);
   const [delegationContext, setDelegationContext] = useState<{ task: Task; assignment: UserAssignmentSummary } | null>(null);
@@ -160,18 +162,10 @@ const AssignedTasks = () => {
   const error = activeQuery.error as Error | null | undefined;
   const tasks = Array.isArray(activeQuery.data?.data) ? (activeQuery.data?.data as Task[]) : [];
 
-  // DEBUG: Log to check data flow
+  // Reset page when filters change
   useEffect(() => {
-    console.log('🔍 AssignedTasks Debug:', {
-      activeTab,
-      hasAccess,
-      isLoading,
-      error: error?.message,
-      rawResponse: activeQuery.data,
-      tasksCount: tasks.length,
-      tasks: tasks.map(t => ({ id: t.id, title: t.title, status: t.status })),
-    });
-  }, [activeTab, hasAccess, isLoading, error, activeQuery.data, tasks]);
+    setPage(1);
+  }, [searchTerm, statusFilter, activeTab]);
 
   const filteredTasks = useMemo(() => {
     let result = [...tasks];
@@ -195,6 +189,14 @@ const AssignedTasks = () => {
 
     return result;
   }, [tasks, searchTerm, statusFilter]);
+
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / perPage));
+  const paginatedTasks = useMemo(() => {
+    const start = (page - 1) * perPage;
+    const end = start + perPage;
+    return filteredTasks.slice(start, end);
+  }, [filteredTasks, page, perPage]);
 
   const stats = useMemo(() => {
     const assignmentContexts = tasks
@@ -508,30 +510,14 @@ const AssignedTasks = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredTasks.length === 0 ? (
+            {paginatedTasks.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="h-24 text-center">
-                  <div className="space-y-2">
-                    <p className="text-muted-foreground">Bu kriteriyalara uyğun tapşırıq tapılmadı.</p>
-                    {/* DEBUG INFO */}
-                    <details className="text-xs text-left">
-                      <summary className="cursor-pointer text-blue-600">🔍 Debug Məlumat</summary>
-                      <pre className="mt-2 p-2 bg-gray-50 rounded overflow-auto">
-                        {JSON.stringify({
-                          activeTab,
-                          hasAccess,
-                          isLoading,
-                          tasksCount: tasks.length,
-                          filteredCount: filteredTasks.length,
-                          filters: { searchTerm, statusFilter },
-                        }, null, 2)}
-                      </pre>
-                    </details>
-                  </div>
+                  <p className="text-muted-foreground">Bu kriteriyalara uyğun tapşırıq tapılmadı.</p>
                 </TableCell>
               </TableRow>
             ) : (
-              filteredTasks.map((task) => {
+              paginatedTasks.map((task) => {
                 const assignment = task.user_assignment;
                 const statusForUser = assignment?.status ?? task.status;
                 const progressValue = assignment?.progress ?? task.progress ?? 0;
@@ -649,6 +635,59 @@ const AssignedTasks = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Pagination */}
+      {filteredTasks.length > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>Səhifədə:</span>
+            <Select
+              value={String(perPage)}
+              onValueChange={(value) => {
+                setPerPage(Number(value));
+                setPage(1);
+              }}
+            >
+              <SelectTrigger className="w-[70px] h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="15">15</SelectItem>
+                <SelectItem value="25">25</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="hidden sm:inline">
+              Ümumi {filteredTasks.length} tapşırıqdan {((page - 1) * perPage) + 1}-{Math.min(page * perPage, filteredTasks.length)} göstərilir
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page - 1)}
+              disabled={page <= 1}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Əvvəlki
+            </Button>
+            <span className="text-sm text-muted-foreground px-2">
+              Səhifə {page} / {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(page + 1)}
+              disabled={page >= totalPages}
+            >
+              Sonrakı
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       <Dialog open={Boolean(decisionContext)} onOpenChange={(open) => (!open ? closeDecisionDialog() : null)}>
         <DialogContent>

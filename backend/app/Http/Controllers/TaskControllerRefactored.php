@@ -879,20 +879,27 @@ class TaskControllerRefactored extends Controller
         if ($request->origin_scope) {
             $originScope = $request->origin_scope;
             $query->where(function ($q) use ($originScope) {
+                // Filter by origin_scope field
                 $q->where('origin_scope', $originScope);
 
                 if ($originScope === 'region') {
+                    // Also include tasks with target_scope = 'regional'
                     $q->orWhere(function ($subQ) {
                         $subQ->whereNull('origin_scope')
                             ->where('target_scope', 'regional');
                     });
+                    // Also include tasks where target_roles contains 'regionoperator'
+                    $q->orWhereJsonContains('target_roles', 'regionoperator');
                 }
 
                 if ($originScope === 'sector') {
+                    // Also include tasks with target_scope = 'sector' or 'sectoral'
                     $q->orWhere(function ($subQ) {
                         $subQ->whereNull('origin_scope')
                             ->whereIn('target_scope', ['sector', 'sectoral']);
                     });
+                    // Also include tasks where target_roles contains 'sektoradmin'
+                    $q->orWhereJsonContains('target_roles', 'sektoradmin');
                 }
             });
         }
