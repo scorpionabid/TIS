@@ -18,7 +18,7 @@ import { useExportActions } from './hooks/useExportActions';
 import BulkActionsBar from './components/BulkActionsBar';
 import ResponseTableHeader from './components/ResponseTableHeader';
 import ResponseTableRow from './components/ResponseTableRow';
-import TablePagination from './components/TablePagination';
+import { TablePagination } from '@/components/common/TablePagination';
 import UnifiedResponseEditModal from '../UnifiedResponseEditModal';
 
 // Import utilities
@@ -217,12 +217,16 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
       </div>
 
       {/* Pagination */}
-      <TablePagination
-        pagination={pagination}
-        onPageChange={tableState.handlePageChange}
-        onPageSizeChange={tableState.handlePageSizeChange}
-        loading={loading}
-      />
+      {pagination && (
+        <TablePagination
+          currentPage={pagination.current_page}
+          totalPages={pagination.last_page}
+          totalItems={pagination.total}
+          itemsPerPage={pagination.per_page}
+          onPageChange={tableState.handlePageChange}
+          onItemsPerPageChange={tableState.handlePageSizeChange}
+        />
+      )}
 
       {/* Edit Modal */}
       {responseActions.editModalOpen && responseActions.selectedResponseForEdit && (
