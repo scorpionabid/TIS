@@ -1,9 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Clock, CheckCircle, Filter, Search, Loader2, Forward, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, Clock, CheckCircle, Filter, Search, Loader2, Forward, ArrowUpDown, ArrowUp, ArrowDown, ClipboardList } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { taskService, Task, UserAssignmentSummary } from "@/services/tasks";
+import { useAssignedTasksFilters, type SortField, type SortDirection } from "@/hooks/tasks/useAssignedTasksFilters";
+import { useAssignmentDialogs } from "@/hooks/tasks/useAssignmentDialogs";
+import { useAssignmentMutations } from "@/hooks/tasks/useAssignmentMutations";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,39 +14,15 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   categoryLabels,
   priorityLabels,
   statusLabels,
 } from "@/components/tasks/config/taskFormFields";
-import { useToast } from "@/hooks/use-toast";
 import { TaskDelegationModal } from "@/components/modals/TaskDelegationModal";
-
-const COMPLETION_TYPES = [
-  { value: "report_submitted", label: "Hesabat göndərildi" },
-  { value: "data_updated", label: "Məlumatlar yeniləndi" },
-  { value: "onsite_visit", label: "Yerində yoxlanıldı" },
-  { value: "other", label: "Digər" },
-] as const;
-
-const DEFAULT_COMPLETION_TYPE = COMPLETION_TYPES[0].value;
-
-type AssignmentActionPayload = {
-  assignmentId: number;
-  payload: {
-    status: Task["status"];
-    progress?: number;
-    completion_notes?: string;
-    completion_data?: Record<string, unknown>;
-  };
-  successMessage: {
-    title: string;
-    description?: string;
-  };
-};
+import { TablePagination } from "@/components/common/TablePagination";
+import { StatSkeleton, TableSkeleton } from "@/components/common/loading/LoadingStates";
+import { TaskCompletionDialog, TaskCancellationDialog } from "@/components/tasks/dialogs";
 
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return "-";
@@ -75,51 +54,94 @@ const getPriorityBadgeVariant = (priority: string) => {
   return variants[priority] || "secondary";
 };
 
+// Sortable header helper component
+interface SortableHeaderProps {
+  field: SortField;
+  label: string;
+  currentField: SortField;
+  direction: SortDirection;
+  onSort: (field: SortField) => void;
+}
+
+const SortableHeader: React.FC<SortableHeaderProps> = ({ field, label, currentField, direction, onSort }) => {
+  const isActive = currentField === field;
+  return (
+    <TableHead
+      className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+      onClick={() => onSort(field)}
+    >
+      <div className="flex items-center gap-1">
+        {label}
+        {isActive ? (
+          direction === "asc" ? (
+            <ArrowUp className="h-4 w-4" />
+          ) : (
+            <ArrowDown className="h-4 w-4" />
+          )
+        ) : (
+          <ArrowUpDown className="h-4 w-4 opacity-30" />
+        )}
+      </div>
+    </TableHead>
+  );
+};
+
 const AssignedTasks = () => {
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
-  const { toast } = useToast();
 
-  const [activeTab, setActiveTab] = useState<"region" | "sector">("region");
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(15);
-  const [decisionContext, setDecisionContext] = useState<{ task: Task; assignment: UserAssignmentSummary } | null>(null);
-  const [completionContext, setCompletionContext] = useState<{ task: Task; assignment: UserAssignmentSummary } | null>(null);
-  const [delegationContext, setDelegationContext] = useState<{ task: Task; assignment: UserAssignmentSummary } | null>(null);
-  const [decisionReason, setDecisionReason] = useState("");
-  const [completionType, setCompletionType] = useState<string>(DEFAULT_COMPLETION_TYPE);
-  const [completionNotes, setCompletionNotes] = useState("");
-  const [pendingAssignmentId, setPendingAssignmentId] = useState<number | null>(null);
+  // Custom hooks for state management
+  const {
+    activeTab,
+    setActiveTab,
+    searchTerm,
+    setSearchTerm,
+    debouncedSearchTerm,
+    statusFilter,
+    setStatusFilter,
+    priorityFilter,
+    setPriorityFilter,
+    sortField,
+    sortDirection,
+    handleSort,
+    page,
+    setPage,
+    perPage,
+    setPerPage,
+    isFiltering,
+    clearFilters,
+  } = useAssignedTasksFilters();
 
-  const closeDecisionDialog = () => {
-    setDecisionContext(null);
-    setDecisionReason("");
-  };
+  const {
+    decisionContext,
+    decisionReason,
+    setDecisionReason,
+    openDecisionDialog,
+    closeDecisionDialog,
+    isDecisionValid,
+    completionContext,
+    completionType,
+    setCompletionType,
+    completionNotes,
+    setCompletionNotes,
+    openCompletionDialog,
+    closeCompletionDialog,
+    isCompletionValid,
+    delegationContext,
+    openDelegationDialog,
+    closeDelegationDialog,
+  } = useAssignmentDialogs();
 
-  const closeCompletionDialog = () => {
-    setCompletionContext(null);
-    setCompletionNotes("");
-    setCompletionType(DEFAULT_COMPLETION_TYPE);
-  };
-
-  const closeDelegationDialog = () => {
-    setDelegationContext(null);
-  };
-
-  const openDelegationDialog = (task: Task, assignment: UserAssignmentSummary) => {
-    // Only allow delegation for pending or accepted status
-    if (assignment.status !== 'pending' && assignment.status !== 'accepted') {
-      toast({
-        title: "Yönləndirmə mümkün deyil",
-        description: "Yalnız pending və ya accepted statusunda olan tapşırıqları yönləndirə bilərsiniz.",
-        variant: "destructive",
-      });
-      return;
-    }
-    setDelegationContext({ task, assignment });
-  };
+  const {
+    isPending: isMutationPending,
+    isAssignmentPending,
+    markInProgress,
+    markCompleted,
+    markCancelled,
+  } = useAssignmentMutations(() => {
+    closeDecisionDialog();
+    closeCompletionDialog();
+  });
 
   const allowedRoles = useMemo(
     () => ["superadmin", "regionadmin", "sektoradmin", "schooladmin", "regionoperator"],
@@ -146,11 +168,14 @@ const AssignedTasks = () => {
   }, [activeTab, availableTabs]);
 
   const regionTasksQuery = useQuery({
-    queryKey: ["assigned-tasks", "region", currentUser?.id, searchTerm, statusFilter, page, perPage],
+    queryKey: ["assigned-tasks", "region", currentUser?.id, debouncedSearchTerm, statusFilter, priorityFilter, sortField, sortDirection, page, perPage],
     queryFn: () => taskService.getAssignedToMe({
       origin_scope: "region",
-      search: searchTerm || undefined,
+      search: debouncedSearchTerm || undefined,
       status: statusFilter !== "all" ? statusFilter as Task["status"] : undefined,
+      priority: priorityFilter !== "all" ? priorityFilter as Task["priority"] : undefined,
+      sort_by: sortField,
+      sort_direction: sortDirection,
       page,
       per_page: perPage,
     }),
@@ -158,11 +183,14 @@ const AssignedTasks = () => {
   });
 
   const sectorTasksQuery = useQuery({
-    queryKey: ["assigned-tasks", "sector", currentUser?.id, searchTerm, statusFilter, page, perPage],
+    queryKey: ["assigned-tasks", "sector", currentUser?.id, debouncedSearchTerm, statusFilter, priorityFilter, sortField, sortDirection, page, perPage],
     queryFn: () => taskService.getAssignedToMe({
       origin_scope: "sector",
-      search: searchTerm || undefined,
+      search: debouncedSearchTerm || undefined,
       status: statusFilter !== "all" ? statusFilter as Task["status"] : undefined,
+      priority: priorityFilter !== "all" ? priorityFilter as Task["priority"] : undefined,
+      sort_by: sortField,
+      sort_direction: sortDirection,
       page,
       per_page: perPage,
     }),
@@ -182,7 +210,7 @@ const AssignedTasks = () => {
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, statusFilter, activeTab]);
+  }, [debouncedSearchTerm, statusFilter, priorityFilter, sortField, sortDirection, activeTab]);
 
   // Server-side pagination metadata
   const totalPages = meta?.last_page ?? 1;
@@ -203,124 +231,37 @@ const AssignedTasks = () => {
     };
   }, [serverStats, totalItems]);
 
-  const assignmentMutation = useMutation<unknown, Error, AssignmentActionPayload>({
-    mutationFn: async ({ assignmentId, payload }) => {
-      return taskService.updateAssignmentStatus(assignmentId, payload);
-    },
-    onSuccess: (_, variables) => {
-      toast({
-        title: variables.successMessage.title,
-        description: variables.successMessage.description,
-      });
-      queryClient.invalidateQueries({ queryKey: ["assigned-tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      closeDecisionDialog();
-      closeCompletionDialog();
-    },
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : "Əməliyyat zamanı xəta baş verdi.";
-      toast({
-        title: "Əməliyyat uğursuz oldu",
-        description: message,
-        variant: "destructive",
-      });
-    },
-    onSettled: () => {
-      setPendingAssignmentId(null);
-    },
-  });
-
+  // Helper function to check if transition is allowed
   const canTransition = (assignment: UserAssignmentSummary | null | undefined, status: Task["status"]) =>
     Boolean(assignment?.can_update && assignment.allowed_transitions?.includes(status));
 
+  // Action handlers using hook mutations
   const handleMarkInProgress = (task: Task, assignment: UserAssignmentSummary) => {
     if (!canTransition(assignment, "in_progress")) return;
-    setPendingAssignmentId(assignment.id);
-    assignmentMutation.mutate({
-      assignmentId: assignment.id,
-      payload: {
-        status: "in_progress",
-        progress: Math.max(assignment.progress ?? 0, 25),
-      },
-      successMessage: {
-        title: "Tapşırıq icraya götürüldü",
-        description: `${task.title} tapşırığı icraya götürüldü kimi qeyd edildi.`,
-      },
-    });
+    markInProgress(task, assignment.id, assignment.progress ?? 0);
   };
 
-  const openCompletionDialog = (task: Task, assignment: UserAssignmentSummary) => {
+  const handleOpenCompletionDialog = (task: Task, assignment: UserAssignmentSummary) => {
     if (!canTransition(assignment, "completed")) return;
-    setCompletionContext({ task, assignment });
-    setCompletionType(DEFAULT_COMPLETION_TYPE);
-    setCompletionNotes("");
+    openCompletionDialog(task, assignment);
   };
 
-  const openNotCompletedDialog = (task: Task, assignment: UserAssignmentSummary) => {
+  const handleOpenCancellationDialog = (task: Task, assignment: UserAssignmentSummary) => {
     if (!canTransition(assignment, "cancelled")) return;
-    setDecisionContext({ task, assignment });
-    setDecisionReason("");
+    openDecisionDialog(task, assignment);
   };
 
   const submitCompletion = () => {
-    if (!completionContext) return;
+    if (!completionContext || !isCompletionValid) return;
     const { assignment, task } = completionContext;
-    if (!completionType) {
-      toast({
-        title: "Tamamlama növü tələb olunur",
-        description: "Zəhmət olmasa tamamlama növünü seçin.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setPendingAssignmentId(assignment.id);
-    assignmentMutation.mutate({
-      assignmentId: assignment.id,
-      payload: {
-        status: "completed",
-        progress: 100,
-        completion_notes: completionNotes.trim() || undefined,
-        completion_data: {
-          completion_type: completionType,
-        },
-      },
-      successMessage: {
-        title: "Tapşırıq tamamlandı",
-        description: `${task.title} tapşırığı tamamlandı kimi qeyd edildi.`,
-      },
-    });
+    markCompleted(task, assignment.id, completionType, completionNotes);
   };
 
-  const submitNotCompleted = () => {
-    if (!decisionContext) return;
+  const submitCancellation = () => {
+    if (!decisionContext || !isDecisionValid) return;
     const { assignment, task } = decisionContext;
-    const trimmedReason = decisionReason.trim();
-
-    if (trimmedReason.length < 5) {
-      toast({
-        title: "Səbəb tələb olunur",
-        description: "Zəhmət olmasa ən azı 5 simvol uzunluğunda səbəb daxil edin.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setPendingAssignmentId(assignment.id);
-    assignmentMutation.mutate({
-      assignmentId: assignment.id,
-      payload: {
-        status: "cancelled",
-        completion_notes: trimmedReason,
-      },
-      successMessage: {
-        title: "Tapşırıq ləğv edildi",
-        description: `${task.title} tapşırığı ilə bağlı səbəb qeyd edildi.`,
-      },
-    });
+    markCancelled(task, assignment.id, decisionReason);
   };
-
-  const isDecisionInvalid = decisionReason.trim().length < 5;
 
   if (!hasAccess) {
     return (
@@ -337,10 +278,12 @@ const AssignedTasks = () => {
   if (isLoading) {
     return (
       <div className="space-y-4 px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
-        <div>
+        <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold text-foreground">Təyin olunmuş tapşırıqlar</h1>
-          <p className="text-muted-foreground">Tapşırıqlar yüklənir...</p>
+          <p className="text-muted-foreground">Regional və sektor tapşırıqlarını ayrıca tablarda izləyin</p>
         </div>
+        <StatSkeleton count={4} className="grid-cols-1 md:grid-cols-2 lg:grid-cols-4" />
+        <TableSkeleton columns={7} rows={5} hasActions />
       </div>
     );
   }
@@ -445,18 +388,29 @@ const AssignedTasks = () => {
               ))}
             </SelectContent>
           </Select>
+
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Prioritet" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Bütün prioritetlər</SelectItem>
+              {Object.entries(priorityLabels).map(([key, label]) => (
+                <SelectItem key={key} value={key}>
+                  {label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">{totalItems} tapşırıq</span>
-          {(searchTerm || statusFilter !== "all") && (
+          {(searchTerm || statusFilter !== "all" || priorityFilter !== "all") && (
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("all");
-              }}
+              onClick={clearFilters}
             >
               <Filter className="h-4 w-4 mr-1" />
               Filterləri təmizlə
@@ -469,12 +423,36 @@ const AssignedTasks = () => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Tapşırıq</TableHead>
+              <SortableHeader
+                field="title"
+                label="Tapşırıq"
+                currentField={sortField}
+                direction={sortDirection}
+                onSort={handleSort}
+              />
               <TableHead>Kateqoriya</TableHead>
               <TableHead>Göndərən</TableHead>
-              <TableHead>Prioritet</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Son tarix</TableHead>
+              <SortableHeader
+                field="priority"
+                label="Prioritet"
+                currentField={sortField}
+                direction={sortDirection}
+                onSort={handleSort}
+              />
+              <SortableHeader
+                field="status"
+                label="Status"
+                currentField={sortField}
+                direction={sortDirection}
+                onSort={handleSort}
+              />
+              <SortableHeader
+                field="deadline"
+                label="Son tarix"
+                currentField={sortField}
+                direction={sortDirection}
+                onSort={handleSort}
+              />
               <TableHead>İrəliləyiş</TableHead>
               <TableHead className="text-right w-[280px]">Əməliyyat</TableHead>
             </TableRow>
@@ -482,8 +460,30 @@ const AssignedTasks = () => {
           <TableBody>
             {tasks.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="h-24 text-center">
-                  <p className="text-muted-foreground">Bu kriteriyalara uyğun tapşırıq tapılmadı.</p>
+                <TableCell colSpan={8} className="h-48">
+                  <div className="flex flex-col items-center justify-center text-center">
+                    <ClipboardList className="h-12 w-12 text-muted-foreground/50 mb-3" />
+                    <p className="text-lg font-medium text-muted-foreground mb-1">
+                      {isFiltering ? "Nəticə tapılmadı" : "Tapşırıq yoxdur"}
+                    </p>
+                    <p className="text-sm text-muted-foreground/70">
+                      {isFiltering
+                        ? "Axtarış kriteriyalarınıza uyğun tapşırıq tapılmadı. Filterləri dəyişdirməyi sınayın."
+                        : "Hal-hazırda sizə təyin olunmuş tapşırıq yoxdur."
+                      }
+                    </p>
+                    {isFiltering && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-4"
+                        onClick={clearFilters}
+                      >
+                        <Filter className="h-4 w-4 mr-2" />
+                        Filterləri təmizlə
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ) : (
@@ -543,7 +543,7 @@ const AssignedTasks = () => {
                                 size="sm"
                                 variant="outline"
                                 onClick={() => openDelegationDialog(task, assignment)}
-                                disabled={assignmentMutation.isPending}
+                                disabled={isMutationPending}
                               >
                                 <Forward className="mr-2 h-4 w-4" />
                                 Yönləndir
@@ -554,9 +554,9 @@ const AssignedTasks = () => {
                                 size="sm"
                                 variant="secondary"
                                 onClick={() => handleMarkInProgress(task, assignment)}
-                                disabled={assignmentMutation.isPending}
+                                disabled={isMutationPending}
                               >
-                                {assignmentMutation.isPending && pendingAssignmentId === assignment.id ? (
+                                {isAssignmentPending(assignment.id) ? (
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : null}
                                 İcraya götürüldü
@@ -566,8 +566,8 @@ const AssignedTasks = () => {
                               <Button
                                 size="sm"
                                 variant="default"
-                                onClick={() => openCompletionDialog(task, assignment)}
-                                disabled={assignmentMutation.isPending}
+                                onClick={() => handleOpenCompletionDialog(task, assignment)}
+                                disabled={isMutationPending}
                               >
                                 Tamamlandı
                               </Button>
@@ -576,8 +576,8 @@ const AssignedTasks = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => openNotCompletedDialog(task, assignment)}
-                                disabled={assignmentMutation.isPending}
+                                onClick={() => handleOpenCancellationDialog(task, assignment)}
+                                disabled={isMutationPending}
                               >
                                 Ləğv et
                               </Button>
@@ -608,155 +608,44 @@ const AssignedTasks = () => {
 
       {/* Pagination */}
       {totalItems > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Səhifədə:</span>
-            <Select
-              value={String(perPage)}
-              onValueChange={(value) => {
-                setPerPage(Number(value));
-                setPage(1);
-              }}
-            >
-              <SelectTrigger className="w-[70px] h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="15">15</SelectItem>
-                <SelectItem value="25">25</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-              </SelectContent>
-            </Select>
-            <span className="hidden sm:inline">
-              Ümumi {totalItems} tapşırıqdan {meta?.from ?? 1}-{meta?.to ?? tasks.length} göstərilir
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(page - 1)}
-              disabled={page <= 1}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Əvvəlki
-            </Button>
-            <span className="text-sm text-muted-foreground px-2">
-              Səhifə {meta?.current_page ?? page} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(page + 1)}
-              disabled={page >= totalPages}
-            >
-              Sonrakı
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
-          </div>
-        </div>
+        <TablePagination
+          currentPage={page}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          itemsPerPage={perPage}
+          onPageChange={setPage}
+          onItemsPerPageChange={(value) => {
+            setPerPage(value);
+            setPage(1);
+          }}
+        />
       )}
 
-      <Dialog open={Boolean(decisionContext)} onOpenChange={(open) => (!open ? closeDecisionDialog() : null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tapşırığı ləğv et</DialogTitle>
-          </DialogHeader>
+      {/* Task Cancellation Dialog */}
+      <TaskCancellationDialog
+        open={Boolean(decisionContext)}
+        context={decisionContext}
+        reason={decisionReason}
+        onReasonChange={setDecisionReason}
+        onSubmit={submitCancellation}
+        onClose={closeDecisionDialog}
+        isPending={decisionContext ? isAssignmentPending(decisionContext.assignment.id) : false}
+        isValid={isDecisionValid}
+      />
 
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {decisionContext?.task.title ?? "Tapşırıq"} üçün səbəb daxil edin.
-              </p>
-            </div>
-            <div>
-              <Label htmlFor="decision-reason">Səbəb</Label>
-              <Textarea
-                id="decision-reason"
-                rows={4}
-                value={decisionReason}
-                onChange={(event) => setDecisionReason(event.target.value)}
-                placeholder="Niyə icra edilmədiyini izah edin..."
-              />
-              <p className="mt-1 text-xs text-muted-foreground">Səbəb ən azı 5 simvol olmalıdır.</p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={closeDecisionDialog} disabled={assignmentMutation.isPending}>
-              Ləğv et
-            </Button>
-            <Button onClick={submitNotCompleted} disabled={isDecisionInvalid || assignmentMutation.isPending}>
-              {assignmentMutation.isPending &&
-              decisionContext?.assignment.id &&
-              pendingAssignmentId === decisionContext.assignment.id ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Səbəbi göndər
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={Boolean(completionContext)} onOpenChange={(open) => (!open ? closeCompletionDialog() : null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Tapşırığı tamamla</DialogTitle>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div>
-              <p className="text-sm text-muted-foreground">
-                {completionContext?.task.title ?? "Tapşırıq"} üçün tamamlama məlumatı daxil edin.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>Tamamlama növü</Label>
-              <Select value={completionType} onValueChange={setCompletionType}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Tamamlama növü" />
-                </SelectTrigger>
-                <SelectContent>
-                  {COMPLETION_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      {type.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="completion-notes">Qeydlər (isteğe bağlı)</Label>
-              <Textarea
-                id="completion-notes"
-                rows={4}
-                value={completionNotes}
-                onChange={(event) => setCompletionNotes(event.target.value)}
-                placeholder="Qısa qeydlər əlavə edin..."
-              />
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={closeCompletionDialog} disabled={assignmentMutation.isPending}>
-              Ləğv et
-            </Button>
-            <Button
-              onClick={submitCompletion}
-              disabled={!completionType || assignmentMutation.isPending}
-            >
-              {assignmentMutation.isPending &&
-              completionContext?.assignment.id &&
-              pendingAssignmentId === completionContext.assignment.id ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              Tamamlandı kimi qeyd et
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Task Completion Dialog */}
+      <TaskCompletionDialog
+        open={Boolean(completionContext)}
+        context={completionContext}
+        completionType={completionType}
+        completionNotes={completionNotes}
+        onCompletionTypeChange={setCompletionType}
+        onCompletionNotesChange={setCompletionNotes}
+        onSubmit={submitCompletion}
+        onClose={closeCompletionDialog}
+        isPending={completionContext ? isAssignmentPending(completionContext.assignment.id) : false}
+        isValid={isCompletionValid}
+      />
 
       {/* Task Delegation Modal */}
       {delegationContext && (
