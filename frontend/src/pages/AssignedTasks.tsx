@@ -146,92 +146,62 @@ const AssignedTasks = () => {
   }, [activeTab, availableTabs]);
 
   const regionTasksQuery = useQuery({
-    queryKey: ["assigned-tasks", "region", currentUser?.id],
-    queryFn: () => taskService.getAssignedToMe({ origin_scope: "region" }),
-    enabled: hasAccess,
+    queryKey: ["assigned-tasks", "region", currentUser?.id, searchTerm, statusFilter, page, perPage],
+    queryFn: () => taskService.getAssignedToMe({
+      origin_scope: "region",
+      search: searchTerm || undefined,
+      status: statusFilter !== "all" ? statusFilter as Task["status"] : undefined,
+      page,
+      per_page: perPage,
+    }),
+    enabled: hasAccess && activeTab === "region",
   });
 
   const sectorTasksQuery = useQuery({
-    queryKey: ["assigned-tasks", "sector", currentUser?.id],
-    queryFn: () => taskService.getAssignedToMe({ origin_scope: "sector" }),
-    enabled: hasAccess,
+    queryKey: ["assigned-tasks", "sector", currentUser?.id, searchTerm, statusFilter, page, perPage],
+    queryFn: () => taskService.getAssignedToMe({
+      origin_scope: "sector",
+      search: searchTerm || undefined,
+      status: statusFilter !== "all" ? statusFilter as Task["status"] : undefined,
+      page,
+      per_page: perPage,
+    }),
+    enabled: hasAccess && activeTab === "sector",
   });
 
   const activeQuery = activeTab === "region" ? regionTasksQuery : sectorTasksQuery;
   const isLoading = activeQuery.isLoading || activeQuery.isFetching;
   const error = activeQuery.error as Error | null | undefined;
-  const tasks = Array.isArray(activeQuery.data?.data) ? (activeQuery.data?.data as Task[]) : [];
+
+  // Server-side data extraction
+  const responseData = activeQuery.data as { data?: Task[]; meta?: { current_page: number; last_page: number; per_page: number; total: number; from: number; to: number }; statistics?: { total: number; pending: number; in_progress: number; completed: number; overdue: number } } | undefined;
+  const tasks = Array.isArray(responseData?.data) ? responseData.data : [];
+  const meta = responseData?.meta;
+  const serverStats = responseData?.statistics;
 
   // Reset page when filters change
   useEffect(() => {
     setPage(1);
   }, [searchTerm, statusFilter, activeTab]);
 
-  const filteredTasks = useMemo(() => {
-    let result = [...tasks];
+  // Server-side pagination metadata
+  const totalPages = meta?.last_page ?? 1;
+  const totalItems = meta?.total ?? 0;
 
-    if (searchTerm.trim().length > 0) {
-      const normalized = searchTerm.toLowerCase();
-      result = result.filter(
-        (task) =>
-          task.title.toLowerCase().includes(normalized) ||
-          (task.description && task.description.toLowerCase().includes(normalized)) ||
-          (task.creator?.name && task.creator.name.toLowerCase().includes(normalized))
-      );
-    }
-
-    if (statusFilter !== "all") {
-      result = result.filter((task) => {
-        const assignmentStatus = task.user_assignment?.status ?? task.status;
-        return assignmentStatus === statusFilter;
-      });
-    }
-
-    return result;
-  }, [tasks, searchTerm, statusFilter]);
-
-  // Pagination calculations
-  const totalPages = Math.max(1, Math.ceil(filteredTasks.length / perPage));
-  const paginatedTasks = useMemo(() => {
-    const start = (page - 1) * perPage;
-    const end = start + perPage;
-    return filteredTasks.slice(start, end);
-  }, [filteredTasks, page, perPage]);
-
+  // Use server-side statistics (more accurate and efficient)
   const stats = useMemo(() => {
-    const assignmentContexts = tasks
-      .map((task) => task.user_assignment)
-      .filter((assignment): assignment is UserAssignmentSummary => Boolean(assignment));
-
-    const totalSource = assignmentContexts.length > 0 ? assignmentContexts : tasks;
-
-    const countStatus = (status: Task["status"]) => {
-      if (assignmentContexts.length > 0) {
-        return assignmentContexts.filter((assignment) => assignment.status === status).length;
-      }
-      return tasks.filter((task) => task.status === status).length;
-    };
-
-    const overdueCount =
-      assignmentContexts.length > 0
-        ? assignmentContexts.filter(
-            (assignment) =>
-              assignment.due_date &&
-              new Date(assignment.due_date) < new Date() &&
-              assignment.status !== "completed"
-          ).length
-        : tasks.filter(
-            (task) => task.deadline && new Date(task.deadline) < new Date() && task.status !== "completed"
-          ).length;
-
+    if (serverStats) {
+      return serverStats;
+    }
+    // Fallback to default values if server stats not available
     return {
-      total: totalSource.length,
-      pending: countStatus("pending"),
-      in_progress: countStatus("in_progress"),
-      completed: countStatus("completed"),
-      overdue: overdueCount,
+      total: totalItems,
+      pending: 0,
+      in_progress: 0,
+      completed: 0,
+      overdue: 0,
     };
-  }, [tasks]);
+  }, [serverStats, totalItems]);
 
   const assignmentMutation = useMutation<unknown, Error, AssignmentActionPayload>({
     mutationFn: async ({ assignmentId, payload }) => {
@@ -478,7 +448,7 @@ const AssignedTasks = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">{filteredTasks.length} tapşırıq</span>
+          <span className="text-sm text-muted-foreground">{totalItems} tapşırıq</span>
           {(searchTerm || statusFilter !== "all") && (
             <Button
               variant="outline"
@@ -510,14 +480,14 @@ const AssignedTasks = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedTasks.length === 0 ? (
+            {tasks.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={8} className="h-24 text-center">
                   <p className="text-muted-foreground">Bu kriteriyalara uyğun tapşırıq tapılmadı.</p>
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedTasks.map((task) => {
+              tasks.map((task) => {
                 const assignment = task.user_assignment;
                 const statusForUser = assignment?.status ?? task.status;
                 const progressValue = assignment?.progress ?? task.progress ?? 0;
@@ -637,7 +607,7 @@ const AssignedTasks = () => {
       </div>
 
       {/* Pagination */}
-      {filteredTasks.length > 0 && (
+      {totalItems > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Səhifədə:</span>
@@ -659,7 +629,7 @@ const AssignedTasks = () => {
               </SelectContent>
             </Select>
             <span className="hidden sm:inline">
-              Ümumi {filteredTasks.length} tapşırıqdan {((page - 1) * perPage) + 1}-{Math.min(page * perPage, filteredTasks.length)} göstərilir
+              Ümumi {totalItems} tapşırıqdan {meta?.from ?? 1}-{meta?.to ?? tasks.length} göstərilir
             </span>
           </div>
 
@@ -674,7 +644,7 @@ const AssignedTasks = () => {
               Əvvəlki
             </Button>
             <span className="text-sm text-muted-foreground px-2">
-              Səhifə {page} / {totalPages}
+              Səhifə {meta?.current_page ?? page} / {totalPages}
             </span>
             <Button
               variant="outline"
