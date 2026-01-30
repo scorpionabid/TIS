@@ -395,21 +395,30 @@ class TaskAssignmentService extends BaseService
             if (! empty($selectedUserIds) && ! in_array($roleName, ['regionadmin', 'regionoperator', 'sektoradmin'])) {
                 continue;
             }
+            // Check for duplicate assignment before creating
+            $existingAssignment = TaskAssignment::where("task_id", $task->id)
+                ->where("assigned_user_id", $targetUser->id)
+                ->first();
+
+            if ($existingAssignment) {
+                // Skip this user as they already have an assignment for this task
+                continue;
+            }
 
             $assignments[] = TaskAssignment::create([
-                'task_id' => $task->id,
-                'institution_id' => $institution->id,
-                'assigned_role' => ! empty($selectedUserIds) ? ($roleName ?? $targetRole) : $targetRole,
-                'assigned_user_id' => $targetUser->id,
-                'priority' => $priority,
-                'progress' => 0,
-                'due_date' => $dueDate,
-                'assignment_notes' => $assignmentNotes,
-                'assignment_metadata' => array_merge(
+                "task_id" => $task->id,
+                "institution_id" => $institution->id,
+                "assigned_role" => ! empty($selectedUserIds) ? ($roleName ?? $targetRole) : $targetRole,
+                "assigned_user_id" => $targetUser->id,
+                "priority" => $priority,
+                "progress" => 0,
+                "due_date" => $dueDate,
+                "assignment_notes" => $assignmentNotes,
+                "assignment_metadata" => array_merge(
                     is_array($assignmentMetadata) ? $assignmentMetadata : [],
-                    ! empty($selectedUserIds) ? ['selected_by_creator' => true] : []
+                    ! empty($selectedUserIds) ? ["selected_by_creator" => true] : []
                 ),
-                'assignment_status' => 'pending',
+                "assignment_status" => "pending",
             ]);
         }
 

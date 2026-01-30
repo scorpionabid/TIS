@@ -262,21 +262,53 @@ class TaskControllerRefactored extends Controller
         ]);
 
         try {
+            // Additional validation: check for potential duplicate assignments
+            $assignedUserIds = $request->input("assigned_user_ids", []);
+            $assignmentDataUserIds = $request->input("assignment_data.selected_user_ids", []);
+            $allUserIds = array_unique(array_merge($assignedUserIds, $assignmentDataUserIds));
+            
+            if (!empty($allUserIds)) {
+                // Check if any of these users already have assignments for existing tasks
+                // This is a pre-emptive check to provide better error messages
+                foreach ($allUserIds as $userId) {
+                    // We can't check task_id since task doesn't exist yet,
+                    // but we can validate the user exists and is active
+                    $user = User::find($userId);
+                    if (!$user || !$user->is_active) {
+                        return response()->json([
+                            "success" => false,
+                            "message" => "Seçilmiş istifadəçi mövcud deyil və ya aktiv deyil.",
+                        ], 422);
+                    }
+                }
+            }
+            
             $result = $this->assignmentService->createHierarchicalTask($request->all(), $user);
 
             // Log task creation
-            $this->auditService->logTaskCreated($result['task']);
+            $this->auditService->logTaskCreated($result["task"]);
 
             // Send task assignment notifications
-            $this->sendTaskAssignmentNotification($result['task'], $result['assignments'] ?? [], $user);
+            $this->sendTaskAssignmentNotification($result["task"], $result["assignments"] ?? [], $user);
 
             return response()->json([
-                'success' => true,
-                'message' => 'Tapşırıq uğurla yaradıldı.',
-                'data' => $result,
+                "success" => true,
+                "message" => "Tapşırıq uğurla yaradıldı.",
+                "data" => $result,
             ], 201);
-        } catch (\Exception $e) {
-            return $this->handleError($e, 'Tapşırıq yaradılarkən xəta baş verdi.');
+        } catch (IlluminateDatabaseQueryException $e) {
+            // Handle database constraint violations specifically
+            if (str_contains($e->getMessage(), "task_assignments_task_user_unique")) {
+                return response()->json([
+                    "success" => false,
+                    "message" => "Bu istifadəçi artıq bu tapşırıq üçün təyin edilib. Təkrar təyinat mümkün deyil.",
+                    "error" => "Duplicate assignment detected",
+                ], 422);
+            }
+            
+            return $this->handleError($e, "Tapşırıq yaradılarkən xəta baş verdi.");
+        } catch (Exception $e) {
+            return $this->handleError($e, "Tapşırıq yaradılarkən xəta baş verdi.");
         }
     }
 

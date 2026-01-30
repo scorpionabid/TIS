@@ -78,6 +78,11 @@ export function ExcelCreateRow({
   }, []);
 
   const handleSubmit = useCallback(async () => {
+    // Double submit protection
+    if (isSubmitting) {
+      return;
+    }
+
     // Validation
     if (!formData.title.trim()) {
       toast({
@@ -127,15 +132,28 @@ export function ExcelCreateRow({
       await onTaskCreated();
     } catch (error) {
       console.error('[ExcelCreateRow] Yaratma xətası', error);
-      toast({
-        title: 'Xəta baş verdi',
-        description: error instanceof Error ? error.message : 'Tapşırıq yaradılarkən xəta baş verdi',
-        variant: 'destructive',
-      });
+      
+      // Handle duplicate assignment errors specifically
+      const errorMessage = error instanceof Error ? error.message : 'Tapşırıq yaradılarkən xəta baş verdi';
+      
+      if (errorMessage.includes('Duplicate assignment detected') || 
+          errorMessage.includes('artıq bu tapşırıq üçün təyin edilib')) {
+        toast({
+          title: 'Təkrar təyinat',
+          description: 'Bu istifadəçi artıq bu tapşırıq üçün təyin edilib. Zəhmət olmasa başqa istifadəçi seçin.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Xəta baş verdi',
+          description: errorMessage,
+          variant: 'destructive',
+        });
+      }
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, createTask, toast, onTaskCreated, handleReset, originScope]);
+  }, [formData, createTask, toast, onTaskCreated, handleReset, originScope, isSubmitting]);
 
   return (
     <>

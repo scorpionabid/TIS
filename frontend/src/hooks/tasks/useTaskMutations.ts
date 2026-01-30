@@ -22,6 +22,13 @@ export function useTaskMutations() {
     },
     onError: (error: Error) => {
       console.error('Task creation failed:', error);
+      
+      // Handle duplicate assignment errors specifically
+      if (error.message.includes('Duplicate assignment detected') || 
+          error.message.includes('artıq bu tapşırıq üçün təyin edilib')) {
+        // This is a user-friendly error, no need for additional handling
+        return;
+      }
     },
   });
 
