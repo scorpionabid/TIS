@@ -7,11 +7,7 @@ import { PerformanceCharts, AdvancedAnalytics } from '@/components/rating/Perfor
 import { ratingService, RatingItem } from '@/services/ratingService';
 import { Users, BarChart3 } from 'lucide-react';
 
-interface TeacherRatingPageProps {
-  // Props can be added later if needed
-}
-
-export const TeacherRating: React.FC<TeacherRatingPageProps> = () => {
+export const TeacherRating: React.FC = () => {
   const [activeTab, setActiveTab] = useState('table');
   const [data, setData] = useState<RatingItem[]>([]);
   const [filteredData, setFilteredData] = useState<RatingItem[]>([]);

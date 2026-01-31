@@ -60,11 +60,6 @@ export function ExcelCreateRow({
   const [formData, setFormData] = useState<FormState>(initialFormState);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // İcazə yoxlaması
-  if (!showCreateButton) {
-    return null;
-  }
-
   const handleFieldChange = useCallback((field: keyof FormState, value: any) => {
     setFormData((prev) => ({
       ...prev,
@@ -154,6 +149,11 @@ export function ExcelCreateRow({
       setIsSubmitting(false);
     }
   }, [formData, createTask, toast, onTaskCreated, handleReset, originScope, isSubmitting]);
+
+  // İcazə yoxlaması
+  if (!showCreateButton) {
+    return null;
+  }
 
   return (
     <>

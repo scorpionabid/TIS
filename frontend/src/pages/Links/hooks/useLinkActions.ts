@@ -13,11 +13,11 @@ export const useLinkActions = () => {
   const handleResourceAction = useCallback(async (resource: Resource, action: LinkAction) => {
     try {
       switch (action) {
-        case 'edit':
+        case 'edit': {
           const detailedLink = await resourceService.getLinkById(resource.id);
           // Return detailed link for modal
           return { action: 'open-edit-modal', data: detailedLink };
-          
+        }
         case 'delete':
           await resourceService.delete(resource.id, resource.type);
           toast({
