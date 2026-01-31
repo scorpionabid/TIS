@@ -32,6 +32,7 @@ import {
   Folder,
   LucideIcon,
   Library,
+  Star,
 } from 'lucide-react';
 import { UserRole, USER_ROLES } from '@/constants/roles';
 import { SidebarPanel } from '@/types/sidebar';
@@ -284,6 +285,61 @@ export const improvedNavigationConfig: MenuGroup[] = [
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
           }
         ]
+      }
+    ]
+  },
+
+  // 🎯 Təhsil Reytingi
+  {
+    id: 'education-rating',
+    label: 'Təhsil Reytingi',
+    panel: 'work',
+    roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+    items: [
+      {
+        id: 'education-rating-main',
+        label: 'Reytinq Paneli',
+        path: '/education-rating',
+        icon: Star,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+        description: 'Təhsil işçilərinin performans qiymətləndirməsi',
+        permissions: ['ratings.read']
+      },
+      {
+        id: 'sector-rating',
+        label: 'Sektor Reytingləri',
+        path: '/sector-rating',
+        icon: Award,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR],
+        description: 'Sektor administratorlarının reytinq analizi',
+        permissions: ['ratings.read']
+      },
+      {
+        id: 'school-admin-rating',
+        label: 'Direktor Reytingləri',
+        path: '/school-admin-rating',
+        icon: Award,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+        description: 'Məktəb rəhbərlərinin reytinq analizi',
+        permissions: ['ratings.read']
+      },
+      {
+        id: 'teacher-rating',
+        label: 'Müəllim Reytingləri',
+        path: '/teacher-rating',
+        icon: Award,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
+        description: 'Müəllimlərin performans qiymətləndirməsi',
+        permissions: ['ratings.read']
+      },
+      {
+        id: 'rating-configuration',
+        label: 'Reytinq Konfiqurasiyası',
+        path: '/rating-configuration',
+        icon: Settings,
+        roles: [USER_ROLES.SUPERADMIN],
+        description: 'Reytinq sistem konfiqurasiyaları',
+        permissions: ['rating-configs.manage']
       }
     ]
   },

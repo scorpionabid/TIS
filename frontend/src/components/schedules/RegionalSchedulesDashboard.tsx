@@ -562,3 +562,5 @@ export const RegionalSchedulesDashboard: React.FC = () => {
     </div>
   );
 };
+
+export default RegionalSchedulesDashboard;

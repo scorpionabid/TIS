@@ -643,3 +643,5 @@ export const ScheduleComparisonTool: React.FC = () => {
     </div>
   );
 };
+
+export default ScheduleComparisonTool;

@@ -256,6 +256,21 @@ class PermissionSeeder extends Seeder
             'inventory.transactions',
             'inventory.analytics',
 
+
+            // Rating System Permissions
+            'ratings.read',
+            'ratings.update',
+            'ratings.delete',
+            'ratings.write',
+            'ratings.manage',
+            'ratings.calculate',
+
+            // Rating Configuration Permissions
+            'rating-configs.read',
+            'rating-configs.update',
+            'rating-configs.delete',
+            'rating-configs.write',
+            'rating-configs.manage',
             // Teacher Performance Management - Phase 3 API
             'view teacher_performance',
             'create teacher_performance',
@@ -328,6 +343,8 @@ class PermissionSeeder extends Seeder
                 'documents.create', 'documents.read', 'documents.update', 'documents.delete', 'documents.share', 'documents.bulk', 'documents.analytics', 'documents.tracking',
                 'tasks.create', 'tasks.read', 'tasks.update', 'tasks.delete', 'tasks.bulk', 'tasks.analytics',
                 'reports.read', 'reports.create', 'reports.export',
+                'ratings.read', 'ratings.update', 'ratings.delete', 'ratings.write', 'ratings.manage', 'ratings.calculate',
+                'rating-configs.read', 'rating-configs.update', 'rating-configs.delete', 'rating-configs.write', 'rating-configs.manage',
                 'assessments.create', 'assessments.read', 'assessments.update', 'assessments.delete', 'assessments.approve', 'assessments.manage', 'assessments.export',
                 'assessment-types.create', 'assessment-types.read', 'assessment-types.update', 'assessment-types.delete', 'assessment-types.manage',
                 'subjects.create', 'subjects.read', 'subjects.update', 'subjects.delete', 'subjects.manage', 'subjects.assign',

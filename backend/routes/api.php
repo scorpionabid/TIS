@@ -107,6 +107,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Link Share Management Routes
     require __DIR__ . '/api/links.php';
 
+    // Rating System Routes
+    require __DIR__ . '/api/ratings.php';
+
     // Specialized Module Routes
     require __DIR__ . '/api/specialized.php';
 });

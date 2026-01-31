@@ -414,3 +414,5 @@ export const PasswordReset: React.FC = () => {
     </div>
   );
 };
+
+export default PasswordReset;

@@ -57,6 +57,10 @@ const SurveyAnalytics = lazy(() => import("./pages/SurveyAnalytics"));
 const SurveyExport = lazy(() => import("./pages/SurveyExport"));
 const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 
+// Rating pages
+const EducationRating = lazy(() => import("./pages/EducationRating"));
+
+
 // RegionAdmin pages
 const RegionAdminIndex = lazy(() => import("./pages/regionadmin/RegionAdminIndex"));
 const RegionAdminUsers = lazy(() => import("./pages/regionadmin/RegionAdminUsers"));
@@ -765,16 +769,21 @@ const App = () => {
               {/* My Surveys Routes */}
               <Route path="my-surveys/pending" element={<LazyWrapper><PendingSurveys /></LazyWrapper>} />
               <Route path="my-surveys/responses" element={<LazyWrapper><MyResponses /></LazyWrapper>} />
+
+              <Route path="education-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="sector-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
+              <Route path="school-admin-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
+              <Route path="teacher-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
+              <Route path="*" element={<NotFound />} />
             </Route>
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
           </Routes>
-              </BrowserRouter>
-            </TooltipProvider>
-          </WebSocketProvider>
-        </DebugProvider>
-      </AuthProvider>
-    </QueryClientProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </WebSocketProvider>
+  </DebugProvider>
+</AuthProvider>
+</QueryClientProvider>
   );
 };
 
