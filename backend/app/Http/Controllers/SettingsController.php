@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\UserNotificationPreference;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class SettingsController extends Controller
 {
@@ -12,18 +14,41 @@ class SettingsController extends Controller
      */
     public function getNotifications(): JsonResponse
     {
-        // For now, return default notification settings
+        $user = Auth::user();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        $preferences = UserNotificationPreference::getForUser($user->id);
+
         return response()->json([
             'success' => true,
             'data' => [
-                'email_enabled' => true,
-                'sms_enabled' => false,
-                'push_enabled' => true,
-                'daily_digest' => true,
-                'weekly_report' => true,
-                'survey_notifications' => true,
-                'task_notifications' => true,
-                'system_notifications' => true,
+                // Task notifications
+                'task_deadline_reminder' => $preferences->task_deadline_reminder,
+                'task_reminder_days' => $preferences->task_reminder_days,
+                'task_assigned_notification' => $preferences->task_assigned_notification,
+                'task_status_change_notification' => $preferences->task_status_change_notification,
+                'task_comment_notification' => $preferences->task_comment_notification,
+                'task_mention_notification' => $preferences->task_mention_notification,
+
+                // Email preferences
+                'email_enabled' => $preferences->email_enabled,
+                'email_daily_digest' => $preferences->email_daily_digest,
+                'email_digest_time' => $preferences->email_digest_time,
+
+                // In-app notification preferences
+                'in_app_enabled' => $preferences->in_app_enabled,
+                'browser_push_enabled' => $preferences->browser_push_enabled,
+
+                // Quiet hours
+                'quiet_hours_enabled' => $preferences->quiet_hours_enabled,
+                'quiet_hours_start' => $preferences->quiet_hours_start,
+                'quiet_hours_end' => $preferences->quiet_hours_end,
             ],
         ]);
     }
@@ -33,10 +58,46 @@ class SettingsController extends Controller
      */
     public function updateNotifications(Request $request): JsonResponse
     {
-        // For now, just return success
+        $user = Auth::user();
+
+        if (! $user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized',
+            ], 401);
+        }
+
+        $validated = $request->validate([
+            // Task notifications
+            'task_deadline_reminder' => 'boolean',
+            'task_reminder_days' => 'integer|min:1|max:14',
+            'task_assigned_notification' => 'boolean',
+            'task_status_change_notification' => 'boolean',
+            'task_comment_notification' => 'boolean',
+            'task_mention_notification' => 'boolean',
+
+            // Email preferences
+            'email_enabled' => 'boolean',
+            'email_daily_digest' => 'boolean',
+            'email_digest_time' => 'string|date_format:H:i',
+
+            // In-app notification preferences
+            'in_app_enabled' => 'boolean',
+            'browser_push_enabled' => 'boolean',
+
+            // Quiet hours
+            'quiet_hours_enabled' => 'boolean',
+            'quiet_hours_start' => 'string|date_format:H:i',
+            'quiet_hours_end' => 'string|date_format:H:i',
+        ]);
+
+        $preferences = UserNotificationPreference::getForUser($user->id);
+        $preferences->update($validated);
+
         return response()->json([
             'success' => true,
-            'message' => 'Notification settings updated successfully',
+            'message' => 'Bildiriş tənzimləmələri uğurla yeniləndi',
+            'data' => $preferences->fresh(),
         ]);
     }
 

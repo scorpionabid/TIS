@@ -252,6 +252,22 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's notification preferences.
+     */
+    public function notificationPreferences(): HasOne
+    {
+        return $this->hasOne(UserNotificationPreference::class);
+    }
+
+    /**
+     * Get or create notification preferences for this user.
+     */
+    public function getNotificationPreferences(): UserNotificationPreference
+    {
+        return UserNotificationPreference::getForUser($this->id);
+    }
+
+    /**
      * Get the user's storage quota.
      */
     public function storageQuota(): HasOne
