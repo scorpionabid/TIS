@@ -1,6 +1,6 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Clock, CheckCircle, Filter, Search, Loader2, Forward, ArrowUpDown, ArrowUp, ArrowDown, ClipboardList } from "lucide-react";
+import { AlertTriangle, CheckCircle, Filter, Search, Loader2, Forward, ArrowUpDown, ArrowUp, ArrowDown, ClipboardList, Send, Eye } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { taskService, Task, UserAssignmentSummary } from "@/services/tasks";
@@ -8,7 +8,6 @@ import { useAssignedTasksFilters, type SortField, type SortDirection } from "@/h
 import { useAssignmentDialogs } from "@/hooks/tasks/useAssignmentDialogs";
 import { useAssignmentMutations } from "@/hooks/tasks/useAssignmentMutations";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -21,8 +20,9 @@ import {
 } from "@/components/tasks/config/taskFormFields";
 import { TaskDelegationModal } from "@/components/modals/TaskDelegationModal";
 import { TablePagination } from "@/components/common/TablePagination";
-import { StatSkeleton, TableSkeleton } from "@/components/common/loading/LoadingStates";
+import { TableSkeleton } from "@/components/common/loading/LoadingStates";
 import { TaskCompletionDialog, TaskCancellationDialog } from "@/components/tasks/dialogs";
+import TaskDetailsDrawer from "@/components/tasks/TaskDetailsDrawer";
 
 const formatDate = (dateString?: string | null) => {
   if (!dateString) return "-";
@@ -36,12 +36,23 @@ const formatDate = (dateString?: string | null) => {
 const getStatusBadgeVariant = (status: string) => {
   const variants: Record<string, "secondary" | "default" | "outline" | "success" | "destructive"> = {
     pending: "secondary",
+    accepted: "default",
     in_progress: "default",
     review: "outline",
     completed: "success",
     cancelled: "destructive",
   };
   return variants[status] || "secondary";
+};
+
+// Extended status labels for assignment statuses
+const assignmentStatusLabels: Record<string, string> = {
+  pending: "Gözləyir",
+  accepted: "Qəbul edilib",
+  in_progress: "İcrada",
+  completed: "Tamamlanıb",
+  cancelled: "Ləğv edilib",
+  review: "Nəzərdən keçirilir",
 };
 
 const getPriorityBadgeVariant = (priority: string) => {
@@ -135,6 +146,7 @@ const AssignedTasks = () => {
   const {
     isPending: isMutationPending,
     isAssignmentPending,
+    markAccepted,
     markInProgress,
     markCompleted,
     markCancelled,
@@ -202,10 +214,9 @@ const AssignedTasks = () => {
   const error = activeQuery.error as Error | null | undefined;
 
   // Server-side data extraction
-  const responseData = activeQuery.data as { data?: Task[]; meta?: { current_page: number; last_page: number; per_page: number; total: number; from: number; to: number }; statistics?: { total: number; pending: number; in_progress: number; completed: number; overdue: number } } | undefined;
+  const responseData = activeQuery.data as { data?: Task[]; meta?: { current_page: number; last_page: number; per_page: number; total: number; from: number; to: number } } | undefined;
   const tasks = Array.isArray(responseData?.data) ? responseData.data : [];
   const meta = responseData?.meta;
-  const serverStats = responseData?.statistics;
 
   // Reset page when filters change
   useEffect(() => {
@@ -216,20 +227,9 @@ const AssignedTasks = () => {
   const totalPages = meta?.last_page ?? 1;
   const totalItems = meta?.total ?? 0;
 
-  // Use server-side statistics (more accurate and efficient)
-  const stats = useMemo(() => {
-    if (serverStats) {
-      return serverStats;
-    }
-    // Fallback to default values if server stats not available
-    return {
-      total: totalItems,
-      pending: 0,
-      in_progress: 0,
-      completed: 0,
-      overdue: 0,
-    };
-  }, [serverStats, totalItems]);
+  // Task details drawer state
+  const [selectedTaskId, setSelectedTaskId] = useState<number | null>(null);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // Helper function to check if transition is allowed
   const canTransition = (assignment: UserAssignmentSummary | null | undefined, status: Task["status"]) =>
@@ -263,6 +263,23 @@ const AssignedTasks = () => {
     markCancelled(task, assignment.id, decisionReason);
   };
 
+  // Handle accepting a task
+  const handleAcceptTask = (task: Task, assignment: UserAssignmentSummary) => {
+    if (!canTransition(assignment, "accepted" as Task["status"])) return;
+    markAccepted(task, assignment.id);
+  };
+
+  // Handle submit for review
+  const handleSubmitForReview = async (task: Task) => {
+    try {
+      await taskService.submitForReview(task.id);
+      queryClient.invalidateQueries({ queryKey: ["assigned-tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    } catch {
+      // Error handling is done in the service
+    }
+  };
+
   if (!hasAccess) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -282,8 +299,7 @@ const AssignedTasks = () => {
           <h1 className="text-3xl font-bold text-foreground">Təyin olunmuş tapşırıqlar</h1>
           <p className="text-muted-foreground">Regional və sektor tapşırıqlarını ayrıca tablarda izləyin</p>
         </div>
-        <StatSkeleton count={4} className="grid-cols-1 md:grid-cols-2 lg:grid-cols-4" />
-        <TableSkeleton columns={7} rows={5} hasActions />
+        <TableSkeleton columns={8} rows={5} hasActions />
       </div>
     );
   }
@@ -316,52 +332,6 @@ const AssignedTasks = () => {
           ))}
         </TabsList>
       </Tabs>
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Aktiv tapşırıqlar</p>
-                <p className="text-2xl font-bold">{stats.in_progress}</p>
-              </div>
-              <Clock className="h-8 w-8 text-orange-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Tamamlanmış</p>
-                <p className="text-2xl font-bold">{stats.completed}</p>
-              </div>
-              <CheckCircle className="h-8 w-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Gecikmiş</p>
-                <p className="text-2xl font-bold">{stats.overdue}</p>
-              </div>
-              <AlertTriangle className="h-8 w-8 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Ümumi tapşırıqlar</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
 
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
@@ -495,12 +465,22 @@ const AssignedTasks = () => {
                 return (
                   <TableRow key={task.id}>
                     <TableCell className="font-medium">
-                      {task.origin_scope_label && (
-                        <Badge variant="outline" className="mr-2">
-                          {task.origin_scope_label}
-                        </Badge>
-                      )}
-                      {task.title}
+                      <div className="flex items-center gap-2">
+                        {task.origin_scope_label && (
+                          <Badge variant="outline">
+                            {task.origin_scope_label}
+                          </Badge>
+                        )}
+                        <button
+                          className="text-left hover:text-primary hover:underline cursor-pointer"
+                          onClick={() => {
+                            setSelectedTaskId(task.id);
+                            setSelectedTask(task);
+                          }}
+                        >
+                          {task.title}
+                        </button>
+                      </div>
                     </TableCell>
                     <TableCell>{categoryLabels[task.category]}</TableCell>
                     <TableCell>{task.creator?.name ?? "—"}</TableCell>
@@ -512,11 +492,11 @@ const AssignedTasks = () => {
                     <TableCell>
                       <div className="flex flex-col gap-1">
                         <Badge variant={getStatusBadgeVariant(statusForUser)}>
-                          {statusLabels[statusForUser] || statusForUser}
+                          {assignmentStatusLabels[statusForUser] || statusLabels[statusForUser] || statusForUser}
                         </Badge>
                         {assignment && task.status !== statusForUser && (
                           <span className="text-xs text-muted-foreground">
-                            Ümumi status: {statusLabels[task.status] || task.status}
+                            Ümumi: {statusLabels[task.status] || task.status}
                           </span>
                         )}
                       </div>
@@ -537,6 +517,33 @@ const AssignedTasks = () => {
                       {assignment ? (
                         <div className="flex flex-col gap-2">
                           <div className="flex flex-wrap justify-end gap-2">
+                            {/* View details button */}
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setSelectedTaskId(task.id);
+                                setSelectedTask(task);
+                              }}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            {/* Accept button - for pending tasks */}
+                            {canTransition(assignment, "accepted" as Task["status"]) && statusForUser === "pending" && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => handleAcceptTask(task, assignment)}
+                                disabled={isMutationPending}
+                              >
+                                {isAssignmentPending(assignment.id) ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="mr-2 h-4 w-4" />
+                                )}
+                                Qəbul et
+                              </Button>
+                            )}
                             {/* Delegation button - now controlled by backend permission flag */}
                             {assignment.can_delegate && (
                               <Button
@@ -549,6 +556,7 @@ const AssignedTasks = () => {
                                 Yönləndir
                               </Button>
                             )}
+                            {/* Start working button - for accepted tasks */}
                             {canTransition(assignment, "in_progress") && (
                               <Button
                                 size="sm"
@@ -559,9 +567,10 @@ const AssignedTasks = () => {
                                 {isAssignmentPending(assignment.id) ? (
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 ) : null}
-                                İcraya götürüldü
+                                İcraya götür
                               </Button>
                             )}
+                            {/* Complete button */}
                             {canTransition(assignment, "completed") && (
                               <Button
                                 size="sm"
@@ -569,9 +578,22 @@ const AssignedTasks = () => {
                                 onClick={() => handleOpenCompletionDialog(task, assignment)}
                                 disabled={isMutationPending}
                               >
-                                Tamamlandı
+                                Tamamla
                               </Button>
                             )}
+                            {/* Submit for review button - for completed tasks */}
+                            {statusForUser === "completed" && task.requires_approval && task.approval_status !== "pending" && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleSubmitForReview(task)}
+                                disabled={isMutationPending}
+                              >
+                                <Send className="mr-2 h-4 w-4" />
+                                Təsdiqə göndər
+                              </Button>
+                            )}
+                            {/* Cancel button */}
                             {canTransition(assignment, "cancelled") && (
                               <Button
                                 size="sm"
@@ -660,6 +682,19 @@ const AssignedTasks = () => {
           }}
         />
       )}
+
+      {/* Task Details Drawer */}
+      <TaskDetailsDrawer
+        taskId={selectedTaskId}
+        open={!!selectedTaskId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedTaskId(null);
+            setSelectedTask(null);
+          }
+        }}
+        fallbackTask={selectedTask}
+      />
     </div>
   );
 };

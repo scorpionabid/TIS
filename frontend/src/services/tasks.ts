@@ -28,8 +28,10 @@ export interface Task extends BaseEntity {
   requires_approval: boolean;
   origin_scope?: 'region' | 'sector' | null;
   origin_scope_label?: string | null;
+  approval_status?: 'pending' | 'approved' | 'rejected' | null;
   approved_by?: number;
   approved_at?: string;
+  approval_notes?: string;
 
   // Subtask support
   parent_id?: number | null;
@@ -82,9 +84,11 @@ export interface Task extends BaseEntity {
   user_assignment?: UserAssignmentSummary | null;
 }
 
+export type AssignmentStatus = 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+
 export interface UserAssignmentSummary {
   id: number;
-  status: Task['status'];
+  status: AssignmentStatus;
   progress: number | null;
   due_date?: string | null;
   completion_notes?: string | null;
@@ -96,7 +100,7 @@ export interface UserAssignmentSummary {
   } | null;
   can_update: boolean;
   can_delegate: boolean;
-  allowed_transitions: Task['status'][];
+  allowed_transitions: AssignmentStatus[];
 }
 
 export interface TaskAttachment {
@@ -317,6 +321,36 @@ class TaskService extends BaseService<Task> {
   ) {
     const response = await apiClient.post(`/tasks/assignments/${assignmentId}/status`, data);
     return response.data ?? response;
+  }
+
+  /**
+   * Submit a completed task for approval/review by the creator
+   */
+  async submitForReview(taskId: number, notes?: string): Promise<Task> {
+    const response = await apiClient.post<{ data: Task }>(`${this.baseEndpoint}/${taskId}/submit-for-approval`, {
+      notes,
+    });
+    return response.data ?? response as unknown as Task;
+  }
+
+  /**
+   * Approve a task (for approvers/creators)
+   */
+  async approveTask(taskId: number, notes?: string): Promise<Task> {
+    const response = await apiClient.post<{ data: Task }>(`${this.baseEndpoint}/${taskId}/approve`, {
+      notes,
+    });
+    return response.data ?? response as unknown as Task;
+  }
+
+  /**
+   * Reject a task (for approvers/creators)
+   */
+  async rejectTask(taskId: number, notes: string): Promise<Task> {
+    const response = await apiClient.post<{ data: Task }>(`${this.baseEndpoint}/${taskId}/reject`, {
+      notes,
+    });
+    return response.data ?? response as unknown as Task;
   }
 }
 

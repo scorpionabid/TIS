@@ -41,6 +41,20 @@ export function useAssignmentMutations(onSuccess?: () => void) {
     onSettled: () => setPendingAssignmentId(null),
   });
 
+  const markAccepted = useCallback((task: Task, assignmentId: number) => {
+    setPendingAssignmentId(assignmentId);
+    mutation.mutate({
+      assignmentId,
+      payload: {
+        status: 'accepted' as Task['status'],
+      },
+      successMessage: {
+        title: 'Tapşırıq qəbul edildi',
+        description: `${task.title} tapşırığı qəbul edildi.`,
+      },
+    });
+  }, [mutation]);
+
   const markInProgress = useCallback((task: Task, assignmentId: number, currentProgress: number) => {
     setPendingAssignmentId(assignmentId);
     mutation.mutate({
@@ -101,6 +115,7 @@ export function useAssignmentMutations(onSuccess?: () => void) {
     isPending: mutation.isPending,
     pendingAssignmentId,
     isAssignmentPending,
+    markAccepted,
     markInProgress,
     markCompleted,
     markCancelled,
