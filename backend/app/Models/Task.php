@@ -41,6 +41,10 @@ class Task extends Model
         'approval_notes',
         'approved_by',
         'approved_at',
+        // Subtask support
+        'parent_id',
+        'position',
+        'is_milestone',
     ];
 
     protected $casts = [
@@ -55,6 +59,10 @@ class Task extends Model
         'attachments' => 'array',
         'requires_approval' => 'boolean',
         'progress' => 'integer',
+        // Subtask support
+        'parent_id' => 'integer',
+        'position' => 'integer',
+        'is_milestone' => 'boolean',
     ];
 
     protected $appends = [
@@ -180,6 +188,133 @@ class Task extends Model
     public function delegationHistory(): HasMany
     {
         return $this->hasMany(TaskDelegationHistory::class);
+    }
+
+    /**
+     * Parent task relationship (for subtasks)
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Task::class, 'parent_id');
+    }
+
+    /**
+     * Subtasks relationship
+     */
+    public function subtasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'parent_id')->orderBy('position');
+    }
+
+    /**
+     * Get all subtasks including nested ones (recursive)
+     */
+    public function allSubtasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'parent_id')->with('allSubtasks');
+    }
+
+    /**
+     * Check if this task is a subtask
+     */
+    public function isSubtask(): bool
+    {
+        return $this->parent_id !== null;
+    }
+
+    /**
+     * Check if this task has subtasks
+     */
+    public function hasSubtasks(): bool
+    {
+        return $this->subtasks()->exists();
+    }
+
+    /**
+     * Get the root parent task
+     */
+    public function getRootTask(): Task
+    {
+        if (! $this->parent_id) {
+            return $this;
+        }
+
+        return $this->parent->getRootTask();
+    }
+
+    /**
+     * Calculate progress based on subtask completion
+     */
+    public function calculateSubtaskProgress(): int
+    {
+        $subtasks = $this->subtasks;
+
+        if ($subtasks->isEmpty()) {
+            return $this->progress ?? 0;
+        }
+
+        $totalProgress = $subtasks->sum('progress');
+
+        return (int) round($totalProgress / $subtasks->count());
+    }
+
+    /**
+     * Get subtask completion stats
+     */
+    public function getSubtaskStats(): array
+    {
+        $subtasks = $this->subtasks;
+
+        if ($subtasks->isEmpty()) {
+            return [
+                'total' => 0,
+                'completed' => 0,
+                'in_progress' => 0,
+                'pending' => 0,
+                'completion_percentage' => 0,
+            ];
+        }
+
+        return [
+            'total' => $subtasks->count(),
+            'completed' => $subtasks->where('status', 'completed')->count(),
+            'in_progress' => $subtasks->where('status', 'in_progress')->count(),
+            'pending' => $subtasks->where('status', 'pending')->count(),
+            'completion_percentage' => $this->calculateSubtaskProgress(),
+        ];
+    }
+
+    /**
+     * Checklist items relationship
+     */
+    public function checklistItems(): HasMany
+    {
+        return $this->hasMany(TaskChecklistItem::class)->orderBy('position');
+    }
+
+    /**
+     * Get checklist completion stats
+     */
+    public function getChecklistStats(): array
+    {
+        $items = $this->checklistItems;
+
+        if ($items->isEmpty()) {
+            return [
+                'total' => 0,
+                'completed' => 0,
+                'completion_percentage' => 0,
+            ];
+        }
+
+        $completed = $items->where('is_completed', true)->count();
+        $total = $items->count();
+
+        return [
+            'total' => $total,
+            'completed' => $completed,
+            'completion_percentage' => (int) round(($completed / $total) * 100),
+        ];
     }
 
     /**

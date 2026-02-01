@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { AlertTriangle, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useEffect, useState, useCallback } from "react";
+import { AlertTriangle, Loader2, ChevronLeft, ChevronRight, BarChart2, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { CreateTaskData, Task, UpdateTaskData, taskService } from "@/services/tasks";
@@ -16,10 +16,39 @@ import { normalizeCreatePayload } from "@/utils/taskActions";
 import { usePrefetchTaskFormData } from "@/hooks/tasks/useTaskFormData";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { TaskViewToggle, TaskViewMode } from "@/components/tasks/TaskViewToggle";
+import { TaskKanbanView } from "@/components/tasks/TaskKanbanView";
+import { TaskStatsWidget } from "@/components/tasks/TaskStatsWidget";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 export default function Tasks() {
   const { currentUser } = useAuth();
   const { toast } = useToast();
+
+  // View mode state (persisted in localStorage)
+  const [viewMode, setViewMode] = useState<TaskViewMode>(() => {
+    const saved = localStorage.getItem("tasks-view-mode");
+    return (saved as TaskViewMode) || "table";
+  });
+  const [showCharts, setShowCharts] = useState(() => {
+    const saved = localStorage.getItem("tasks-show-charts");
+    return saved !== "false"; // Default to true
+  });
+
+  // Persist view mode
+  const handleViewModeChange = useCallback((mode: TaskViewMode) => {
+    setViewMode(mode);
+    localStorage.setItem("tasks-view-mode", mode);
+  }, []);
+
+  // Persist charts visibility
+  const handleToggleCharts = useCallback(() => {
+    setShowCharts((prev) => {
+      const newValue = !prev;
+      localStorage.setItem("tasks-show-charts", String(newValue));
+      return newValue;
+    });
+  }, []);
 
   const {
     searchTerm,
@@ -119,6 +148,26 @@ export default function Tasks() {
   });
 
   const { createTask, updateTask, deleteTask } = useTaskMutations();
+
+  // Handle status change for Kanban view
+  const handleStatusChange = useCallback(async (taskId: number, newStatus: Task["status"]) => {
+    try {
+      await updateTask.mutateAsync({ id: taskId, data: { status: newStatus } });
+      toast({
+        title: "Status yeniləndi",
+        description: "Tapşırıq statusu uğurla dəyişdirildi.",
+      });
+      await refreshTasks();
+    } catch (error) {
+      console.error("[Tasks] Status change failed", error);
+      toast({
+        title: "Xəta baş verdi",
+        description: error instanceof Error ? error.message : "Status dəyişdirilə bilmədi.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  }, [updateTask, refreshTasks, toast]);
 
   usePrefetchTaskFormData(null, showCreateButton);
   usePrefetchTaskFormData("region", showCreateButton && canSeeRegionTab);
@@ -276,8 +325,45 @@ export default function Tasks() {
         disabled={isFetching}
       />
 
-      {/* Excel Task Table */}
-      <ExcelTaskTable
+      {/* Enhanced Stats with Charts */}
+      <Collapsible open={showCharts} onOpenChange={setShowCharts}>
+        <div className="flex items-center justify-between">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="gap-2">
+              <BarChart2 className="h-4 w-4" />
+              {showCharts ? "Statistikanı gizlə" : "Statistikanı göstər"}
+            </Button>
+          </CollapsibleTrigger>
+          <div className="flex items-center gap-2">
+            <TaskViewToggle
+              value={viewMode}
+              onChange={handleViewModeChange}
+              showCalendar={false}
+              showAnalytics={false}
+              disabled={isFetching}
+            />
+          </div>
+        </div>
+        <CollapsibleContent className="mt-4">
+          <TaskStatsWidget stats={stats} showCharts={true} />
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Conditional View Rendering */}
+      {viewMode === "kanban" ? (
+        <TaskKanbanView
+          tasks={tasks}
+          onViewTask={(task) => openDetailsDrawer(task)}
+          onEditTask={handleOpenModal}
+          onDeleteTask={(task) => openDeleteModal(task)}
+          onStatusChange={handleStatusChange}
+          canEditTaskItem={canEditTaskItem}
+          canDeleteTaskItem={canDeleteTaskItem}
+          isLoading={isFetching}
+        />
+      ) : (
+        /* Excel Task Table */
+        <ExcelTaskTable
           tasks={tasks}
           sortField={sortField}
           sortDirection={sortDirection}
@@ -295,9 +381,10 @@ export default function Tasks() {
           onTaskCreated={handleTaskCreated}
           originScope={activeTab}
         />
+      )}
 
-      {/* Pagination */}
-      {pagination && pagination.total > 0 && (
+      {/* Pagination - Only show for table view */}
+      {viewMode === "table" && pagination && pagination.total > 0 && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>Səhifədə:</span>

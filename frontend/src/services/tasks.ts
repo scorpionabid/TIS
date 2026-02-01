@@ -30,7 +30,20 @@ export interface Task extends BaseEntity {
   origin_scope_label?: string | null;
   approved_by?: number;
   approved_at?: string;
-  
+
+  // Subtask support
+  parent_id?: number | null;
+  position?: number;
+  is_milestone?: boolean;
+  subtasks?: Task[];
+  subtask_stats?: {
+    total: number;
+    completed: number;
+    in_progress: number;
+    pending: number;
+    completion_percentage: number;
+  };
+
   // Relations
   creator?: {
     id: number;

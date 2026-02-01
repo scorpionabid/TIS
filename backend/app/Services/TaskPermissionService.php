@@ -205,7 +205,7 @@ class TaskPermissionService extends BaseService
             ->whereIn('assignment_status', ['pending', 'accepted'])
             ->first();
 
-        if (!$userAssignment) {
+        if (! $userAssignment) {
             return false;  // No assignment = cannot delegate
         }
 
