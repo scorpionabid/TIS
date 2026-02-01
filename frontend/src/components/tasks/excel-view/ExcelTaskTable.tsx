@@ -160,18 +160,23 @@ export function ExcelTaskTable({
         />
       )}
 
-      {/* Action Bar */}
-      {!bulkEditContext.isSelectionMode && (
+      {/* Action Bar - shown when tasks are selected */}
+      {bulkEditContext.selectedCount > 0 && !bulkEditContext.isSelectionMode && (
         <div className="flex items-center justify-between p-2 border-b bg-muted/20">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={bulkEditContext.enterSelectionMode}
-            className="gap-2"
-          >
-            <CheckSquare className="h-4 w-4" />
-            Toplu Seçim
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {bulkEditContext.selectedCount} tapşırıq seçildi
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={bulkEditContext.enterSelectionMode}
+              className="gap-2"
+            >
+              <CheckSquare className="h-4 w-4" />
+              Toplu Əməliyyat
+            </Button>
+          </div>
         </div>
       )}
 
@@ -179,16 +184,14 @@ export function ExcelTaskTable({
       <table className="w-full border-collapse">
         <thead className="bg-muted/50">
           <tr className="border-b">
-            {/* Select All Checkbox */}
-            {bulkEditContext.isSelectionMode && (
-              <th className="px-2 py-3 text-center w-[50px]">
-                <Checkbox
-                  checked={bulkEditContext.selectedCount === tasks.length && tasks.length > 0}
-                  onCheckedChange={bulkEditContext.toggleAll}
-                  aria-label="Hamısını seç"
-                />
-              </th>
-            )}
+            {/* Select All Checkbox - always visible */}
+            <th className="px-2 py-3 text-center w-[50px]">
+              <Checkbox
+                checked={bulkEditContext.selectedCount === tasks.length && tasks.length > 0}
+                onCheckedChange={bulkEditContext.toggleAll}
+                aria-label="Hamısını seç"
+              />
+            </th>
             {excelColumns.map((column) => {
               const sortFieldForColumn = sortableColumnMap[column.id];
               const isSortable = column.sortable && sortFieldForColumn;
@@ -215,7 +218,7 @@ export function ExcelTaskTable({
         <tbody>
           {tasks.length === 0 ? (
             <tr>
-              <td colSpan={excelColumns.length} className="px-4 py-12 text-center text-muted-foreground">
+              <td colSpan={excelColumns.length + 1} className="px-4 py-12 text-center text-muted-foreground">
                 Heç bir tapşırıq tapılmadı
               </td>
             </tr>
@@ -232,20 +235,18 @@ export function ExcelTaskTable({
                 canEdit={canEditTaskItem(task)}
                 canDelete={canDeleteTaskItem(task)}
                 availableUsers={availableUsers}
-                isSelectionMode={bulkEditContext.isSelectionMode}
+                isSelectionMode={true}
                 isSelected={bulkEditContext.selectedIds.has(task.id)}
                 onToggleSelection={bulkEditContext.toggleSelection}
               />
             ))
           )}
-          {!bulkEditContext.isSelectionMode && (
-            <ExcelCreateRow
-              availableUsers={availableUsers}
-              onTaskCreated={onTaskCreated}
-              originScope={originScope}
-              showCreateButton={showCreateButton}
-            />
-          )}
+          <ExcelCreateRow
+            availableUsers={availableUsers}
+            onTaskCreated={onTaskCreated}
+            originScope={originScope}
+            showCreateButton={showCreateButton}
+          />
         </tbody>
       </table>
       </div>

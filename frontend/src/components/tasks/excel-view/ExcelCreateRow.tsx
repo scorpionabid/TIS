@@ -186,6 +186,8 @@ export function ExcelCreateRow({
       {/* Expanded State - Inline Form */}
       {isExpanded && (
         <tr className="border-t-2 border-primary/30 bg-blue-50/50 dark:bg-blue-950/20">
+          {/* Empty checkbox cell for alignment */}
+          <td className="px-2 py-3 w-[50px]"></td>
           {/* 1. № (boş, Plus icon) */}
           <td className="px-2 py-3 text-center text-muted-foreground w-[60px]">
             <Plus className="h-4 w-4 mx-auto" />

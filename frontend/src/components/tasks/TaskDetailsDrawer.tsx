@@ -16,13 +16,16 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Task, taskService } from '@/services/tasks';
 import { Skeleton } from '@/components/ui/skeleton';
-import { AlertTriangle, CheckCircle, Clock, User, Building2, History, Info } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, User, Building2, History, Info, ListTodo, CheckSquare, Activity } from 'lucide-react';
 import { format } from 'date-fns';
 import { TaskApprovalBadge } from './TaskApprovalBadge';
 import { TaskApprovalActions } from './TaskApprovalActions';
 import { TaskApprovalHistory } from './TaskApprovalHistory';
 import { TaskDelegationHistory } from '../task/TaskDelegationHistory';
 import { TaskAssignmentsSummary } from '../task/TaskAssignmentsSummary';
+import { SubtaskList } from './subtasks/SubtaskList';
+import { TaskChecklist } from './checklists/TaskChecklist';
+import { TaskActivityFeedCompact } from './activity/TaskActivityFeed';
 import { useAuth } from '@/contexts/AuthContext';
 
 interface TaskDetailsDrawerProps {
@@ -273,19 +276,62 @@ export const TaskDetailsDrawer = ({ taskId, open, onOpenChange, fallbackTask }: 
 
         <ScrollArea className="px-6 py-4 h-[60vh]">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-4">
-              <TabsTrigger value="details" className="flex items-center gap-2">
-                <Info className="h-4 w-4" />
-                Əsas Məlumat
+            <TabsList className="grid w-full grid-cols-5 mb-4">
+              <TabsTrigger value="details" className="flex items-center gap-1 text-xs">
+                <Info className="h-3 w-3" />
+                Əsas
               </TabsTrigger>
-              <TabsTrigger value="delegation" className="flex items-center gap-2">
-                <History className="h-4 w-4" />
-                Yönləndirmə Tarixçəsi
+              <TabsTrigger value="subtasks" className="flex items-center gap-1 text-xs">
+                <ListTodo className="h-3 w-3" />
+                Subtask
+              </TabsTrigger>
+              <TabsTrigger value="checklist" className="flex items-center gap-1 text-xs">
+                <CheckSquare className="h-3 w-3" />
+                Checklist
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="flex items-center gap-1 text-xs">
+                <Activity className="h-3 w-3" />
+                Aktivlik
+              </TabsTrigger>
+              <TabsTrigger value="delegation" className="flex items-center gap-1 text-xs">
+                <History className="h-3 w-3" />
+                Tarixçə
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="mt-0">
               {renderContent()}
+            </TabsContent>
+
+            <TabsContent value="subtasks" className="mt-0">
+              {task ? (
+                <SubtaskList
+                  parentTaskId={task.id}
+                  subtasks={task.subtasks || []}
+                  canEdit={userIsCreator || userCanApprove}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">Tapşırıq seçilməyib.</p>
+              )}
+            </TabsContent>
+
+            <TabsContent value="checklist" className="mt-0">
+              {task ? (
+                <TaskChecklist
+                  taskId={task.id}
+                  canEdit={userIsCreator || userCanApprove}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">Tapşırıq seçilməyib.</p>
+              )}
+            </TabsContent>
+
+            <TabsContent value="activity" className="mt-0">
+              {task ? (
+                <TaskActivityFeedCompact taskId={task.id} />
+              ) : (
+                <p className="text-sm text-muted-foreground">Tapşırıq seçilməyib.</p>
+              )}
             </TabsContent>
 
             <TabsContent value="delegation" className="mt-0">

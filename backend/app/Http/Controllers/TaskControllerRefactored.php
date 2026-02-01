@@ -68,18 +68,18 @@ class TaskControllerRefactored extends Controller
                 'assignee:id,first_name,last_name',
                 'assignedInstitution:id,name,type',
                 'approver:id,first_name,last_name',
-                'assignments' => function($query) {
+                'assignments' => function ($query) {
                     $query->select('id', 'task_id', 'assigned_user_id', 'institution_id', 'assignment_status', 'progress')
                         ->with([
                             'assignedUser:id,first_name,last_name',
-                            'institution:id,name'
+                            'institution:id,name',
                         ])
                         ->latest()
                         ->limit(10); // Limit assignments to avoid memory issues
-                }
+                },
             ])
-            ->withCount(['assignments', 'comments', 'progressLogs'])
-            ->select('tasks.*'); // Explicit column selection for performance
+                ->withCount(['assignments', 'comments', 'progressLogs'])
+                ->select('tasks.*'); // Explicit column selection for performance
 
             $this->permissionService->applyTaskAccessControl($query, $user);
 
@@ -263,52 +263,52 @@ class TaskControllerRefactored extends Controller
 
         try {
             // Additional validation: check for potential duplicate assignments
-            $assignedUserIds = $request->input("assigned_user_ids", []);
-            $assignmentDataUserIds = $request->input("assignment_data.selected_user_ids", []);
+            $assignedUserIds = $request->input('assigned_user_ids', []);
+            $assignmentDataUserIds = $request->input('assignment_data.selected_user_ids', []);
             $allUserIds = array_unique(array_merge($assignedUserIds, $assignmentDataUserIds));
-            
-            if (!empty($allUserIds)) {
+
+            if (! empty($allUserIds)) {
                 // Check if any of these users already have assignments for existing tasks
                 // This is a pre-emptive check to provide better error messages
                 foreach ($allUserIds as $userId) {
                     // We can't check task_id since task doesn't exist yet,
                     // but we can validate the user exists and is active
                     $user = User::find($userId);
-                    if (!$user || !$user->is_active) {
+                    if (! $user || ! $user->is_active) {
                         return response()->json([
-                            "success" => false,
-                            "message" => "Seçilmiş istifadəçi mövcud deyil və ya aktiv deyil.",
+                            'success' => false,
+                            'message' => 'Seçilmiş istifadəçi mövcud deyil və ya aktiv deyil.',
                         ], 422);
                     }
                 }
             }
-            
+
             $result = $this->assignmentService->createHierarchicalTask($request->all(), $user);
 
             // Log task creation
-            $this->auditService->logTaskCreated($result["task"]);
+            $this->auditService->logTaskCreated($result['task']);
 
             // Send task assignment notifications
-            $this->sendTaskAssignmentNotification($result["task"], $result["assignments"] ?? [], $user);
+            $this->sendTaskAssignmentNotification($result['task'], $result['assignments'] ?? [], $user);
 
             return response()->json([
-                "success" => true,
-                "message" => "Tapşırıq uğurla yaradıldı.",
-                "data" => $result,
+                'success' => true,
+                'message' => 'Tapşırıq uğurla yaradıldı.',
+                'data' => $result,
             ], 201);
         } catch (IlluminateDatabaseQueryException $e) {
             // Handle database constraint violations specifically
-            if (str_contains($e->getMessage(), "task_assignments_task_user_unique")) {
+            if (str_contains($e->getMessage(), 'task_assignments_task_user_unique')) {
                 return response()->json([
-                    "success" => false,
-                    "message" => "Bu istifadəçi artıq bu tapşırıq üçün təyin edilib. Təkrar təyinat mümkün deyil.",
-                    "error" => "Duplicate assignment detected",
+                    'success' => false,
+                    'message' => 'Bu istifadəçi artıq bu tapşırıq üçün təyin edilib. Təkrar təyinat mümkün deyil.',
+                    'error' => 'Duplicate assignment detected',
                 ], 422);
             }
-            
-            return $this->handleError($e, "Tapşırıq yaradılarkən xəta baş verdi.");
+
+            return $this->handleError($e, 'Tapşırıq yaradılarkən xəta baş verdi.');
         } catch (Exception $e) {
-            return $this->handleError($e, "Tapşırıq yaradılarkən xəta baş verdi.");
+            return $this->handleError($e, 'Tapşırıq yaradılarkən xəta baş verdi.');
         }
     }
 
@@ -1020,7 +1020,7 @@ class TaskControllerRefactored extends Controller
         $currentUser = Auth::user();
 
         // Check delegation permission using permission service
-        if (!$this->permissionService->canUserDelegateTask($task, $currentUser)) {
+        if (! $this->permissionService->canUserDelegateTask($task, $currentUser)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tapşırığı yönləndirmək səlahiyyətiniz yoxdur.',
@@ -1100,7 +1100,7 @@ class TaskControllerRefactored extends Controller
         $currentUser = Auth::user();
 
         // Check delegation permission using permission service
-        if (!$this->permissionService->canUserDelegateTask($task, $currentUser)) {
+        if (! $this->permissionService->canUserDelegateTask($task, $currentUser)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tapşırığı yönləndirmək səlahiyyətiniz yoxdur.',
@@ -1257,7 +1257,7 @@ class TaskControllerRefactored extends Controller
     {
         $user = Auth::user();
 
-        if (!$this->permissionService->canUserUpdateTask($task, $user)) {
+        if (! $this->permissionService->canUserUpdateTask($task, $user)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tapşırığı yeniləməyə icazəniz yoxdur.',
@@ -1271,7 +1271,7 @@ class TaskControllerRefactored extends Controller
             ], 422);
         }
 
-        if (!$task->requires_approval) {
+        if (! $task->requires_approval) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tapşırıq təsdiq tələb etmir.',
@@ -1314,7 +1314,7 @@ class TaskControllerRefactored extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasPermissionTo('tasks.approve')) {
+        if (! $user->hasPermissionTo('tasks.approve')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tapşırıq təsdiq etmə səlahiyyətiniz yoxdur.',
@@ -1363,7 +1363,7 @@ class TaskControllerRefactored extends Controller
     {
         $user = Auth::user();
 
-        if (!$user->hasPermissionTo('tasks.approve')) {
+        if (! $user->hasPermissionTo('tasks.approve')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tapşırıq rədd etmə səlahiyyətiniz yoxdur.',
@@ -1413,7 +1413,7 @@ class TaskControllerRefactored extends Controller
     {
         $user = Auth::user();
 
-        if (!$this->permissionService->canUserAccessTask($task, $user)) {
+        if (! $this->permissionService->canUserAccessTask($task, $user)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tapşırığa giriş icazəniz yoxdur.',
@@ -1439,7 +1439,7 @@ class TaskControllerRefactored extends Controller
     {
         $user = Auth::user();
 
-        if (!$this->permissionService->canUserAccessTask($task, $user)) {
+        if (! $this->permissionService->canUserAccessTask($task, $user)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Bu tapşırığa giriş icazəniz yoxdur.',
@@ -1455,6 +1455,102 @@ class TaskControllerRefactored extends Controller
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Audit tarixçəsi alınarkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Get mentionable users for task comments
+     */
+    public function getMentionableUsers(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        $request->validate([
+            'task_id' => 'nullable|integer|exists:tasks,id',
+            'search' => 'nullable|string|max:100',
+        ]);
+
+        try {
+            $taskId = $request->task_id;
+            $search = $request->search;
+
+            // Build base query - get users from same institution/region hierarchy
+            $query = User::query()
+                ->select(['id', 'first_name', 'last_name', 'username', 'email'])
+                ->where('is_active', true);
+
+            // If task is specified, get users related to the task
+            if ($taskId) {
+                $task = Task::find($taskId);
+                if ($task) {
+                    // Get users from: task creator, assignees, and same institution/region
+                    $relatedUserIds = collect();
+
+                    // Task creator
+                    $relatedUserIds->push($task->created_by);
+
+                    // Task assignees
+                    $assigneeIds = $task->assignments()->pluck('user_id');
+                    $relatedUserIds = $relatedUserIds->merge($assigneeIds);
+
+                    // Add users from same institution
+                    if ($task->target_institution_id) {
+                        $institutionUserIds = User::where('institution_id', $task->target_institution_id)
+                            ->where('is_active', true)
+                            ->pluck('id');
+                        $relatedUserIds = $relatedUserIds->merge($institutionUserIds);
+                    }
+
+                    $query->whereIn('id', $relatedUserIds->unique());
+                }
+            } else {
+                // No task specified - return users from same institution/region as current user
+                if ($user->institution_id) {
+                    $query->where(function ($q) use ($user) {
+                        $q->where('institution_id', $user->institution_id);
+
+                        // Also include users from same region if applicable
+                        if ($user->institution && $user->institution->region_id) {
+                            $q->orWhereHas('institution', function ($q2) use ($user) {
+                                $q2->where('region_id', $user->institution->region_id);
+                            });
+                        }
+                    });
+                }
+            }
+
+            // Apply search filter
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('first_name', 'ILIKE', "%{$search}%")
+                        ->orWhere('last_name', 'ILIKE', "%{$search}%")
+                        ->orWhere('username', 'ILIKE', "%{$search}%")
+                        ->orWhere('email', 'ILIKE', "%{$search}%");
+                });
+            }
+
+            // Exclude current user
+            $query->where('id', '!=', $user->id);
+
+            $users = $query->orderBy('first_name')
+                ->orderBy('last_name')
+                ->limit(20)
+                ->get()
+                ->map(function ($u) {
+                    return [
+                        'id' => $u->id,
+                        'name' => trim($u->first_name . ' ' . $u->last_name),
+                        'username' => $u->username,
+                        'email' => $u->email,
+                    ];
+                });
+
+            return response()->json([
+                'success' => true,
+                'data' => $users,
+            ]);
+        } catch (\Exception $e) {
+            return $this->handleError($e, 'Mention istifadəçiləri alınarkən xəta baş verdi.');
         }
     }
 }

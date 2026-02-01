@@ -4,6 +4,7 @@ use App\Http\Controllers\DocumentCollectionController;
 use App\Http\Controllers\DocumentControllerRefactored as DocumentController;
 use App\Http\Controllers\DocumentShareController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\TaskChecklistController;
 use App\Http\Controllers\TaskControllerRefactored as TaskController;
 use Illuminate\Support\Facades\Route;
 
@@ -84,6 +85,7 @@ Route::prefix('document-shares')->middleware('permission:documents.share')->grou
 Route::middleware('permission:tasks.read')->group(function () {
     Route::get('tasks', [TaskController::class, 'index']);
     Route::get('tasks/assigned-to-me', [TaskController::class, 'getAssignedToCurrentUser']);
+    Route::get('users/mentionable', [TaskController::class, 'getMentionableUsers']);
     Route::get('tasks/{task}', [TaskController::class, 'show']);
     Route::get('tasks/{task}/progress', [TaskController::class, 'getProgress']);
     Route::get('tasks/{task}/history', [TaskController::class, 'getHistory']);
@@ -135,6 +137,15 @@ Route::middleware('permission:tasks.analytics')->group(function () {
     Route::get('tasks/analytics/overview', [TaskController::class, 'getAnalyticsOverview']);
     Route::get('tasks/analytics/performance', [TaskController::class, 'getPerformanceAnalytics']);
     Route::get('tasks/reports/summary', [TaskController::class, 'getSummaryReport']);
+});
+
+// Task Checklist Routes
+Route::middleware('permission:tasks.read')->group(function () {
+    Route::get('tasks/{task}/checklists', [TaskChecklistController::class, 'index']);
+    Route::post('tasks/{task}/checklists', [TaskChecklistController::class, 'store']);
+    Route::put('tasks/{task}/checklists/{checklist}', [TaskChecklistController::class, 'update']);
+    Route::delete('tasks/{task}/checklists/{checklist}', [TaskChecklistController::class, 'destroy']);
+    Route::post('tasks/{task}/checklists/reorder', [TaskChecklistController::class, 'reorder']);
 });
 
 // Notification Management Routes
