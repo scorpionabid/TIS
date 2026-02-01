@@ -268,11 +268,11 @@ class LinkShareControllerRefactored extends BaseController
             }
 
             // Permission: superadmin, owner, or regionadmin within scope
-            $canDelete = $this->linkSharingService->canViewAllLinks($user) 
+            $canDelete = $this->linkSharingService->canViewAllLinks($user)
                 || $linkShare->shared_by === $user->id
                 || ($user->hasRole('regionadmin') && $this->isLinkInUserRegion($linkShare, $user));
 
-            if (!$canDelete) {
+            if (! $canDelete) {
                 abort(403, 'Bu linki silmək icazəniz yoxdur');
             }
 
@@ -287,7 +287,7 @@ class LinkShareControllerRefactored extends BaseController
      */
     protected function isLinkInUserRegion($linkShare, $user): bool
     {
-        if (!$user->institution || $user->institution->level != 2) {
+        if (! $user->institution || $user->institution->level != 2) {
             return false;
         }
 
@@ -762,7 +762,7 @@ class LinkShareControllerRefactored extends BaseController
 
             // Validate department exists
             $department = \App\Models\Department::find($departmentId);
-            if (!$department) {
+            if (! $department) {
                 abort(404, 'Departament tapılmadı: ' . $departmentId);
             }
 
@@ -773,17 +773,17 @@ class LinkShareControllerRefactored extends BaseController
                 ->where(function ($q) use ($departmentId) {
                     // Links that specifically target this department by ID
                     $q->whereJsonContains('target_departments', (int) $departmentId)
-                      ->orWhereJsonContains('target_departments', (string) $departmentId);
+                        ->orWhereJsonContains('target_departments', (string) $departmentId);
                 });
 
             // For non-superadmin, also show links they created
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $query->orWhere(function ($q) use ($user, $departmentId) {
                     $q->where('shared_by', $user->id)
-                      ->where(function ($q2) use ($departmentId) {
-                          $q2->whereJsonContains('target_departments', (int) $departmentId)
-                             ->orWhereJsonContains('target_departments', (string) $departmentId);
-                      });
+                        ->where(function ($q2) use ($departmentId) {
+                            $q2->whereJsonContains('target_departments', (int) $departmentId)
+                                ->orWhereJsonContains('target_departments', (string) $departmentId);
+                        });
                 });
             }
 
@@ -792,8 +792,8 @@ class LinkShareControllerRefactored extends BaseController
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('title', 'LIKE', "%{$search}%")
-                      ->orWhere('description', 'LIKE', "%{$search}%")
-                      ->orWhere('url', 'LIKE', "%{$search}%");
+                        ->orWhere('description', 'LIKE', "%{$search}%")
+                        ->orWhere('url', 'LIKE', "%{$search}%");
                 });
             }
 
@@ -830,7 +830,7 @@ class LinkShareControllerRefactored extends BaseController
             $sector = \App\Models\Institution::where('id', $sectorId)
                 ->first();
 
-            if (!$sector) {
+            if (! $sector) {
                 abort(404, 'Sektor tapılmadı');
             }
 
@@ -840,17 +840,17 @@ class LinkShareControllerRefactored extends BaseController
                 ->where(function ($q) use ($sectorId) {
                     // Links that target this sector
                     $q->whereJsonContains('target_institutions', $sectorId)
-                      ->orWhereJsonContains('target_institutions', (string) $sectorId);
+                        ->orWhereJsonContains('target_institutions', (string) $sectorId);
                 });
 
             // For non-superadmin, also show links they created
-            if (!$user->hasRole('superadmin')) {
+            if (! $user->hasRole('superadmin')) {
                 $query->orWhere(function ($q) use ($user, $sectorId) {
                     $q->where('shared_by', $user->id)
-                      ->where(function ($q2) use ($sectorId) {
-                          $q2->whereJsonContains('target_institutions', $sectorId)
-                             ->orWhereJsonContains('target_institutions', (string) $sectorId);
-                      });
+                        ->where(function ($q2) use ($sectorId) {
+                            $q2->whereJsonContains('target_institutions', $sectorId)
+                                ->orWhereJsonContains('target_institutions', (string) $sectorId);
+                        });
                 });
             }
 
@@ -859,8 +859,8 @@ class LinkShareControllerRefactored extends BaseController
                 $search = $request->search;
                 $query->where(function ($q) use ($search) {
                     $q->where('title', 'LIKE', "%{$search}%")
-                      ->orWhere('description', 'LIKE', "%{$search}%")
-                      ->orWhere('url', 'LIKE', "%{$search}%");
+                        ->orWhere('description', 'LIKE', "%{$search}%")
+                        ->orWhere('url', 'LIKE', "%{$search}%");
                 });
             }
 
@@ -888,7 +888,7 @@ class LinkShareControllerRefactored extends BaseController
      */
     public function getSectorsForLinkDatabase(Request $request): JsonResponse
     {
-        return $this->executeWithErrorHandling(function () use ($request) {
+        return $this->executeWithErrorHandling(function () {
             $user = Auth::user();
 
             // Get sectors based on user's access level
@@ -896,8 +896,8 @@ class LinkShareControllerRefactored extends BaseController
             $query = \App\Models\Institution::where('is_active', true)
                 ->where(function ($q) {
                     $q->where('type', 'sektor')
-                      ->orWhere('type', 'sector')
-                      ->orWhere('level', 3);
+                        ->orWhere('type', 'sector')
+                        ->orWhere('level', 3);
                 })
                 ->select('id', 'name', 'short_name', 'parent_id', 'type', 'level');
 
@@ -990,7 +990,7 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request, $departmentId) {
             // Validate department exists
             $department = \App\Models\Department::find($departmentId);
-            if (!$department) {
+            if (! $department) {
                 abort(404, 'Departament tapılmadı: ' . $departmentId);
             }
 
@@ -1012,13 +1012,13 @@ class LinkShareControllerRefactored extends BaseController
 
             // Merge the current department with any additional targets
             $targetDepartments = $validated['target_departments'] ?? [];
-            if (!in_array((int) $departmentId, $targetDepartments)) {
+            if (! in_array((int) $departmentId, $targetDepartments)) {
                 array_unshift($targetDepartments, (int) $departmentId);
             }
             $validated['target_departments'] = $targetDepartments;
 
             // Set share scope based on targets
-            if (!empty($validated['target_institutions'])) {
+            if (! empty($validated['target_institutions'])) {
                 $validated['share_scope'] = 'sectoral';
             } else {
                 $validated['share_scope'] = 'regional';
@@ -1042,7 +1042,7 @@ class LinkShareControllerRefactored extends BaseController
                 ->where('level', 3)
                 ->first();
 
-            if (!$sector) {
+            if (! $sector) {
                 abort(404, 'Sektor tapılmadı');
             }
 
@@ -1064,7 +1064,7 @@ class LinkShareControllerRefactored extends BaseController
 
             // Merge the current sector with any additional institution targets
             $targetInstitutions = $validated['target_institutions'] ?? [];
-            if (!in_array($sectorId, $targetInstitutions)) {
+            if (! in_array($sectorId, $targetInstitutions)) {
                 array_unshift($targetInstitutions, $sectorId);
             }
             $validated['target_institutions'] = $targetInstitutions;
@@ -1086,8 +1086,9 @@ class LinkShareControllerRefactored extends BaseController
         }
 
         $userInstitution = $user->institution;
-        if (!$userInstitution) {
+        if (! $userInstitution) {
             $query->where('shared_by', $user->id);
+
             return;
         }
 

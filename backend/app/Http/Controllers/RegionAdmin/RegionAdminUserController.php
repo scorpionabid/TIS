@@ -259,7 +259,7 @@ class RegionAdminUserController extends Controller
                         ], 422);
                     }
                     // RegionOperator MUST have department_id
-                    if (!$request->input('department_id')) {
+                    if (! $request->input('department_id')) {
                         return response()->json([
                             'message' => 'Validation failed',
                             'errors' => [

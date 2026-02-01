@@ -57,10 +57,10 @@ class SyncUserRoles extends Command
             $this->error('🚫 ROLSUZ İSTİFADƏÇİLƏR (heç bir rol yoxdur):');
             $this->table(
                 ['ID', 'Username', 'Email', 'Yaradılma'],
-                $orphanUsers->map(fn($u) => [$u->id, $u->username, $u->email, $u->created_at])->toArray()
+                $orphanUsers->map(fn ($u) => [$u->id, $u->username, $u->email, $u->created_at])->toArray()
             );
 
-            if ($deleteOrphans && !$dryRun) {
+            if ($deleteOrphans && ! $dryRun) {
                 if ($this->confirm('Bu istifadəçiləri silmək istəyirsiniz?', true)) {
                     $this->deleteOrphanUsers($orphanUsers);
                 }
@@ -87,7 +87,7 @@ class SyncUserRoles extends Command
                 })->toArray()
             );
 
-            if ($fixConflicts && !$dryRun) {
+            if ($fixConflicts && ! $dryRun) {
                 if ($this->confirm('Ziddiyyətli rolları düzəltmək istəyirsiniz? (Spatie rolu əsas götürüləcək)', true)) {
                     $this->fixConflictingUsers($conflictingUsers);
                 }
@@ -100,7 +100,7 @@ class SyncUserRoles extends Command
             $this->info('');
             $this->info("📊 Sinxronizasiya ediləcək istifadəçi sayı: {$usersToSync->count()}");
 
-            if (!$dryRun) {
+            if (! $dryRun) {
                 if ($this->confirm('role_id sütununu Spatie rollarından sinxronlaşdırmaq istəyirsiniz?', true)) {
                     $this->syncUserRoles($usersToSync);
                 }
@@ -112,7 +112,7 @@ class SyncUserRoles extends Command
         }
 
         // 5. Son statistika
-        if (!$dryRun) {
+        if (! $dryRun) {
             $this->info('');
             $this->info('═══════════════════════════════════════════════════════════');
             $this->info('📊 YENİLƏNMİŞ STATİSTİKA:');
@@ -187,7 +187,7 @@ class SyncUserRoles extends Command
                 'r1.name as role_id_name',
                 'm.role_id as spatie_role_id',
                 'r2.name as spatie_role_name',
-                DB::raw("r2.name as correct_role"), // Spatie rolu düzgün hesab edilir
+                DB::raw('r2.name as correct_role'), // Spatie rolu düzgün hesab edilir
             ])
             ->get();
     }

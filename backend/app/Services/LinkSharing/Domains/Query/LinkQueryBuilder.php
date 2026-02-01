@@ -40,7 +40,7 @@ class LinkQueryBuilder
 
         // Apply active() scope only when no explicit status filter is provided
         // This allows fetching disabled/expired links when statuses[] is passed
-        if (!$request->filled('statuses') && !$request->filled('status')) {
+        if (! $request->filled('statuses') && ! $request->filled('status')) {
             $query->active();
         }
 
@@ -87,7 +87,7 @@ class LinkQueryBuilder
         if ($request->boolean('group_by_title')) {
             // Get statuses from request, default to active if not provided
             $statusFilter = $request->input('statuses', ['active']);
-            if (!is_array($statusFilter)) {
+            if (! is_array($statusFilter)) {
                 $statusFilter = [$statusFilter];
             }
 
@@ -232,8 +232,8 @@ class LinkQueryBuilder
         // Multiple statuses filter (e.g., statuses[]=active&statuses[]=disabled)
         if ($request->filled('statuses')) {
             $statuses = (array) $request->input('statuses', []);
-            $validStatuses = array_filter($statuses, static fn($s) => in_array($s, ['active', 'expired', 'disabled'], true));
-            if (!empty($validStatuses)) {
+            $validStatuses = array_filter($statuses, static fn ($s) => in_array($s, ['active', 'expired', 'disabled'], true));
+            if (! empty($validStatuses)) {
                 $query->whereIn('status', $validStatuses);
             }
         }

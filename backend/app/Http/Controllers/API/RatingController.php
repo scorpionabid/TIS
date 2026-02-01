@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\BaseController;
 use App\Models\Rating;
-use App\Models\RatingConfig;
 use App\Services\RatingCalculationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;

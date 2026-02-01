@@ -79,7 +79,7 @@ class SectorCrudService extends BaseService
      */
     public function createSector(array $data, $user): Institution
     {
-        return DB::transaction(function () use ($data, $user) {
+        return DB::transaction(function () use ($data) {
             // Validate parent region exists
             $parentRegion = Institution::where('id', $data['parent_id'])
                 ->where('type', 'regional_education_department')

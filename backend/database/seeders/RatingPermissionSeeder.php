@@ -19,7 +19,7 @@ class RatingPermissionSeeder extends Seeder
             'ratings.write',
             'ratings.manage',
             'ratings.calculate',
-            
+
             // Rating Configuration
             'rating-configs.read',
             'rating-configs.update',

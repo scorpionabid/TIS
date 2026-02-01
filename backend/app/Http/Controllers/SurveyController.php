@@ -21,6 +21,7 @@ class SurveyController extends BaseController
     use ResponseHelpers, ValidationRules;
 
     protected SurveyCrudService $crudService;
+
     protected NotificationService $notificationService;
 
     protected int $deadlineApproachingDays = 3;

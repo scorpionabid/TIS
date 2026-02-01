@@ -4,19 +4,20 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 class CopySqliteToPostgres extends Command
 {
     protected $signature = 'db:copy-sqlite {sqlite_path}';
+
     protected $description = 'Copy data from SQLite database to PostgreSQL';
 
     public function handle()
     {
         $sqlitePath = $this->argument('sqlite_path');
 
-        if (!file_exists($sqlitePath)) {
+        if (! file_exists($sqlitePath)) {
             $this->error("SQLite file not found: $sqlitePath");
+
             return 1;
         }
 
@@ -28,9 +29,9 @@ class CopySqliteToPostgres extends Command
             'foreign_key_constraints' => false,
         ]]);
 
-        $this->info("🔄 Starting data copy from SQLite to PostgreSQL...");
+        $this->info('🔄 Starting data copy from SQLite to PostgreSQL...');
         $this->info("SQLite: $sqlitePath");
-        $this->info("PostgreSQL: " . env('DB_DATABASE'));
+        $this->info('PostgreSQL: ' . env('DB_DATABASE'));
 
         // Get all tables from PostgreSQL
         $pgTables = DB::connection('pgsql')->table('information_schema.tables')
@@ -40,7 +41,7 @@ class CopySqliteToPostgres extends Command
             ->pluck('table_name')
             ->toArray();
 
-        $this->info("Found " . count($pgTables) . " tables to copy");
+        $this->info('Found ' . count($pgTables) . ' tables to copy');
 
         $totalRecords = 0;
         $bar = $this->output->createProgressBar(count($pgTables));
@@ -55,8 +56,9 @@ class CopySqliteToPostgres extends Command
                     ->where('name', $table)
                     ->exists();
 
-                if (!$sqliteTableExists) {
+                if (! $sqliteTableExists) {
                     $bar->advance();
+
                     continue;
                 }
 
@@ -82,7 +84,7 @@ class CopySqliteToPostgres extends Command
                             })
                             ->toArray();
 
-                        if (!empty($data)) {
+                        if (! empty($data)) {
                             DB::connection('pgsql')->table($table)->insert($data);
                         }
                     }
@@ -92,7 +94,6 @@ class CopySqliteToPostgres extends Command
 
                 // Re-enable foreign key checks
                 DB::connection('pgsql')->statement('SET session_replication_role = DEFAULT');
-
             } catch (\Exception $e) {
                 $this->warn("\n⚠️  Error copying $table: " . $e->getMessage());
             }
@@ -104,7 +105,7 @@ class CopySqliteToPostgres extends Command
         $this->newLine(2);
 
         // Fix sequences
-        $this->info("🔧 Fixing PostgreSQL sequences...");
+        $this->info('🔧 Fixing PostgreSQL sequences...');
         $this->fixSequences();
 
         // Validation
@@ -150,6 +151,6 @@ class CopySqliteToPostgres extends Command
             }
         }
 
-        $this->info("✅ Sequences fixed");
+        $this->info('✅ Sequences fixed');
     }
 }

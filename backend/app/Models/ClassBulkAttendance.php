@@ -86,6 +86,7 @@ class ClassBulkAttendance extends Model
     {
         if ($this->total_students <= 0) {
             $this->daily_attendance_rate = 0;
+
             return;
         }
 

@@ -86,7 +86,7 @@ class PermissionValidationService
         ];
 
         // Scope validation
-        if (!$permission->isAllowedForLevel($role->level)) {
+        if (! $permission->isAllowedForLevel($role->level)) {
             $result['valid'] = false;
             $result['errors'][] = sprintf(
                 "Permission '%s' (scope: %s) cannot be assigned to role '%s' (level: %d). Maximum level for this scope is %d.",
@@ -99,7 +99,7 @@ class PermissionValidationService
         }
 
         // Check if permission is active
-        if (!$permission->is_active) {
+        if (! $permission->is_active) {
             $result['warnings'][] = sprintf(
                 "Permission '%s' is currently inactive.",
                 $permission->name
@@ -112,7 +112,7 @@ class PermissionValidationService
                 ? $role->department_access
                 : json_decode($role->department_access, true) ?? [];
 
-            if (!in_array($permission->department, $departmentAccess)) {
+            if (! in_array($permission->department, $departmentAccess)) {
                 $result['valid'] = false;
                 $result['errors'][] = sprintf(
                     "Role '%s' does not have access to department '%s' required by permission '%s'.",
@@ -145,13 +145,14 @@ class PermissionValidationService
         foreach ($permissionIds as $permissionId) {
             $permission = Permission::find($permissionId);
 
-            if (!$permission) {
+            if (! $permission) {
                 $results['invalid_permissions']++;
                 $results['permissions'][] = [
                     'permission_id' => $permissionId,
                     'valid' => false,
                     'errors' => ["Permission with ID {$permissionId} not found."],
                 ];
+
                 continue;
             }
 
@@ -170,7 +171,7 @@ class PermissionValidationService
                 $results['summary_errors'] = array_merge($results['summary_errors'], $validation['errors']);
             }
 
-            if (!empty($validation['warnings'])) {
+            if (! empty($validation['warnings'])) {
                 $results['summary_warnings'] = array_merge($results['summary_warnings'], $validation['warnings']);
             }
         }

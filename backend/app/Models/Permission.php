@@ -255,7 +255,6 @@ class Permission extends Model
      * Check if permission is allowed for a given role level.
      *
      * @param int $roleLevel Role hierarchy level (1-10)
-     * @return bool
      */
     public function isAllowedForLevel(int $roleLevel): bool
     {

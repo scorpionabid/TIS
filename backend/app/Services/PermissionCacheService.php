@@ -25,8 +25,11 @@ class PermissionCacheService
      * Cache key prefix for permissions
      */
     private const PREFIX_USER_PERMISSIONS = 'user_permissions:';
+
     private const PREFIX_ROLE_PERMISSIONS = 'role_permissions:';
+
     private const PREFIX_PERMISSION_USERS = 'permission_users:';
+
     private const PREFIX_PERMISSION_ROLES = 'permission_roles:';
 
     /**
@@ -77,7 +80,7 @@ class PermissionCacheService
     {
         $userPermissions = $this->getUserPermissions($user);
 
-        return !empty(array_intersect($permissions, $userPermissions));
+        return ! empty(array_intersect($permissions, $userPermissions));
     }
 
     /**
@@ -186,7 +189,7 @@ class PermissionCacheService
             Cache::forget($roleCacheKey);
         }
 
-        Log::info("Cache INVALIDATED: Permission {$permission->id} - " . count($userIds) . " users, " . count($roleIds) . " roles");
+        Log::info("Cache INVALIDATED: Permission {$permission->id} - " . count($userIds) . ' users, ' . count($roleIds) . ' roles');
     }
 
     /**

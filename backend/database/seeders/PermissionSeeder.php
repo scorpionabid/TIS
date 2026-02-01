@@ -2,9 +2,9 @@
 
 namespace Database\Seeders;
 
+use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
-use Illuminate\Database\Seeder;
 
 class PermissionSeeder extends Seeder
 {
@@ -255,7 +255,6 @@ class PermissionSeeder extends Seeder
             'inventory.maintenance',
             'inventory.transactions',
             'inventory.analytics',
-
 
             // Rating System Permissions
             'ratings.read',

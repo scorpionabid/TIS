@@ -73,7 +73,7 @@ class UpdateUserRequest extends FormRequest
             $roleId = $this->input('role_id') ?? $this->route('user')->role_id;
             $role = Role::find($roleId);
 
-            if (!$role) {
+            if (! $role) {
                 return;
             }
 
@@ -91,13 +91,13 @@ class UpdateUserRequest extends FormRequest
             }
 
             // 2. Role-specific institution level validation (only if institution is being updated)
-            if (!$this->has('institution_id')) {
+            if (! $this->has('institution_id')) {
                 return; // Skip if institution not being updated
             }
 
             $institutionId = $this->input('institution_id');
 
-            if (!$institutionId) {
+            if (! $institutionId) {
                 // Institution is required for these roles
                 if (in_array($role->name, ['regionadmin', 'sektoradmin', 'schooladmin', 'regionoperator'])) {
                     $validator->errors()->add(
@@ -105,13 +105,15 @@ class UpdateUserRequest extends FormRequest
                         ucfirst($role->display_name) . ' üçün müəssisə seçilməlidir.'
                     );
                 }
+
                 return;
             }
 
             $institution = \App\Models\Institution::find($institutionId);
 
-            if (!$institution) {
+            if (! $institution) {
                 $validator->errors()->add('institution_id', 'Seçilmiş müəssisə tapılmadı.');
+
                 return;
             }
 

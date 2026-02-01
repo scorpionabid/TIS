@@ -1,4 +1,5 @@
 <?php
+
 /**
  * SQLite to PostgreSQL Data Migration Script
  * This script reads from SQLite backup and writes to PostgreSQL
@@ -10,15 +11,14 @@ $app = require_once __DIR__ . '/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
 
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 echo "🔄 Starting SQLite to PostgreSQL migration...\n\n";
 
 // SQLite database path (inside container)
 $sqlitePath = '/app/archive/sqlite/snapshots/TIS/backend/database/database.sqlite';
 
-if (!file_exists($sqlitePath)) {
-    die("❌ SQLite file not found at: $sqlitePath\n");
+if (! file_exists($sqlitePath)) {
+    exit("❌ SQLite file not found at: $sqlitePath\n");
 }
 
 // Create SQLite connection
@@ -41,7 +41,7 @@ try {
     echo "   PostgreSQL users (current): $postgresUserCount\n\n";
 
     if ($sqliteUserCount == 0) {
-        die("❌ No users found in SQLite backup\n");
+        exit("❌ No users found in SQLite backup\n");
     }
 
     // Confirm migration
@@ -49,12 +49,12 @@ try {
     echo "   Do you want to continue? This cannot be undone!\n";
     echo "   Type 'YES' to continue: ";
 
-    $handle = fopen("php://stdin", "r");
+    $handle = fopen('php://stdin', 'r');
     $line = trim(fgets($handle));
     fclose($handle);
 
     if ($line !== 'YES') {
-        die("❌ Migration cancelled\n");
+        exit("❌ Migration cancelled\n");
     }
 
     echo "\n🔄 Starting data migration...\n\n";
@@ -95,6 +95,7 @@ try {
 
             if ($count === 0) {
                 echo "   ⚠️  No data in table\n\n";
+
                 continue;
             }
 
@@ -103,8 +104,8 @@ try {
 
             // Migrate in chunks using chunk method (memory efficient)
             $migrated = 0;
-            $sqliteConnection->table($tableName)->orderBy('id')->chunk(500, function($rows) use ($postgresConnection, $tableName, &$migrated) {
-                $dataArray = array_map(function($item) {
+            $sqliteConnection->table($tableName)->orderBy('id')->chunk(500, function ($rows) use ($postgresConnection, $tableName, &$migrated) {
+                $dataArray = array_map(function ($item) {
                     return (array) $item;
                 }, $rows->toArray());
 
@@ -113,9 +114,8 @@ try {
             });
 
             echo "   ✅ Migrated $migrated records\n\n";
-
         } catch (\Exception $e) {
-            echo "   ❌ Error: " . $e->getMessage() . "\n\n";
+            echo '   ❌ Error: ' . $e->getMessage() . "\n\n";
             // Continue with other tables instead of stopping
         }
     }
@@ -136,12 +136,14 @@ try {
 
             if ($count === 0) {
                 echo "   ⚠️  No data in table\n\n";
+
                 continue;
             }
 
             // Skip very large tables
             if ($count > 10000) {
                 echo "   ⚠️  Table too large ($count records), skipping for performance\n\n";
+
                 continue;
             }
 
@@ -150,8 +152,8 @@ try {
 
             // Migrate in chunks
             $migrated = 0;
-            $sqliteConnection->table($tableName)->chunk(500, function($rows) use ($postgresConnection, $tableName, &$migrated) {
-                $dataArray = array_map(function($item) {
+            $sqliteConnection->table($tableName)->chunk(500, function ($rows) use ($postgresConnection, $tableName, &$migrated) {
+                $dataArray = array_map(function ($item) {
                     return (array) $item;
                 }, $rows->toArray());
 
@@ -160,9 +162,8 @@ try {
             });
 
             echo "   ✅ Migrated $migrated records\n\n";
-
         } catch (\Exception $e) {
-            echo "   ❌ Error: " . $e->getMessage() . "\n\n";
+            echo '   ❌ Error: ' . $e->getMessage() . "\n\n";
         }
     }
 
@@ -194,8 +195,7 @@ try {
 
     echo "   Users: $finalUserCount\n";
     echo "   Institutions: $finalInstitutionCount\n";
-
 } catch (\Exception $e) {
-    echo "❌ Migration failed: " . $e->getMessage() . "\n";
+    echo '❌ Migration failed: ' . $e->getMessage() . "\n";
     exit(1);
 }

@@ -38,7 +38,7 @@ class TaskAuditLog extends Model
         parent::boot();
 
         static::creating(function ($model) {
-            if (!$model->created_at) {
+            if (! $model->created_at) {
                 $model->created_at = now();
             }
         });
@@ -65,7 +65,7 @@ class TaskAuditLog extends Model
      */
     public function getActionLabelAttribute(): string
     {
-        return match($this->action) {
+        return match ($this->action) {
             'created' => 'Yaradıldı',
             'updated' => 'Yeniləndi',
             'deleted' => 'Silindi',
@@ -84,7 +84,7 @@ class TaskAuditLog extends Model
      */
     public function getChangesSummary(): array
     {
-        if (!$this->old_values || !$this->new_values) {
+        if (! $this->old_values || ! $this->new_values) {
             return [];
         }
 
@@ -93,7 +93,7 @@ class TaskAuditLog extends Model
         $newValues = $this->new_values;
 
         foreach ($newValues as $key => $newValue) {
-            if (!isset($oldValues[$key]) || $oldValues[$key] !== $newValue) {
+            if (! isset($oldValues[$key]) || $oldValues[$key] !== $newValue) {
                 $changes[$key] = [
                     'old' => $oldValues[$key] ?? null,
                     'new' => $newValue,

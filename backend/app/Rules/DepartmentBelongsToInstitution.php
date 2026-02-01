@@ -43,6 +43,7 @@ class DepartmentBelongsToInstitution implements ValidationRule
         // If no institution selected, cannot validate department
         if (! $this->institutionId) {
             $fail('Departament seçməzdən əvvəl müəssisə seçilməlidir.');
+
             return;
         }
 
@@ -51,6 +52,7 @@ class DepartmentBelongsToInstitution implements ValidationRule
 
         if (! $institution) {
             $fail('Seçilmiş müəssisə tapılmadı.');
+
             return;
         }
 
@@ -58,6 +60,7 @@ class DepartmentBelongsToInstitution implements ValidationRule
         // Only schools (level 4+) have departments
         if ($institution->level < 4) {
             $fail('Departamentlər yalnız məktəb səviyyəli müəssisələrdə mövcuddur. Sektor və region müəssisələrində departament yoxdur.');
+
             return;
         }
 

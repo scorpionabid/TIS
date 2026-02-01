@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         // Check if scope column already exists (snapshot restore protection)
-        if (!Schema::hasColumn('permissions', 'scope')) {
+        if (! Schema::hasColumn('permissions', 'scope')) {
             Schema::table('permissions', function (Blueprint $table) {
                 // Add scope column with enum type
                 $table->enum('scope', [
@@ -21,7 +21,7 @@ return new class extends Migration
                     'regional',    // Regional əməliyyatlar (Level 1-4)
                     'sector',      // Sektor əməliyyatları (Level 1-6)
                     'institution', // Məktəb səviyyəsi (Level 1-8)
-                    'classroom'    // Sinif səviyyəsi (Level 1-10)
+                    'classroom',    // Sinif səviyyəsi (Level 1-10)
                 ])->default('institution')->after('action');
 
                 // Add index for better query performance

@@ -140,10 +140,10 @@ class PermissionAuditLog extends Model
         return match ($this->action) {
             'assigned' => "{$userName} '{$permissionName}' səlahiyyətini " .
                          ($this->target_user_id ? $this->targetUser?->name : $this->targetRole?->name) .
-                         "-a təyin etdi",
+                         '-a təyin etdi',
             'revoked' => "{$userName} '{$permissionName}' səlahiyyətini " .
                         ($this->target_user_id ? $this->targetUser?->name : $this->targetRole?->name) .
-                        "-dan ləğv etdi",
+                        '-dan ləğv etdi',
             'updated' => "{$userName} '{$permissionName}' səlahiyyətini yenilədi",
             'activated' => "{$userName} '{$permissionName}' səlahiyyətini aktivləşdirdi",
             'deactivated' => "{$userName} '{$permissionName}' səlahiyyətini deaktivləşdirdi",
@@ -157,7 +157,7 @@ class PermissionAuditLog extends Model
      */
     public function getChangesSummary(): ?array
     {
-        if (!$this->old_values || !$this->new_values) {
+        if (! $this->old_values || ! $this->new_values) {
             return null;
         }
 

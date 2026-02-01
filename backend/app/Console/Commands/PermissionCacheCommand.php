@@ -43,6 +43,7 @@ class PermissionCacheCommand extends Command
             default:
                 $this->error("Unknown action: {$action}");
                 $this->info('Available actions: stats, warmup, clear');
+
                 return 1;
         }
     }
@@ -80,8 +81,8 @@ class PermissionCacheCommand extends Command
         $this->info('🔥 Warming up permission caches...');
         $this->newLine();
 
-        $warmupUsers = $this->option('users') || !$this->option('roles');
-        $warmupRoles = $this->option('roles') || !$this->option('users');
+        $warmupUsers = $this->option('users') || ! $this->option('roles');
+        $warmupRoles = $this->option('roles') || ! $this->option('users');
 
         if ($warmupUsers) {
             $this->info('Warming up user permissions...');
@@ -106,8 +107,9 @@ class PermissionCacheCommand extends Command
      */
     private function clearCache(PermissionCacheService $cacheService): int
     {
-        if (!$this->confirm('Are you sure you want to clear ALL permission caches?', false)) {
+        if (! $this->confirm('Are you sure you want to clear ALL permission caches?', false)) {
             $this->info('Operation cancelled');
+
             return 0;
         }
 

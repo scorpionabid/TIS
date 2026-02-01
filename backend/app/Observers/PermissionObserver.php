@@ -16,7 +16,7 @@ class PermissionObserver
         // Invalidate permission cache
         app(\App\Services\PermissionCacheService::class)->invalidatePermissionCache($permission);
         // Skip if no actual changes
-        if (!$permission->isDirty()) {
+        if (! $permission->isDirty()) {
             return;
         }
 
@@ -44,9 +44,9 @@ class PermissionObserver
 
         // Track other metadata changes (display_name, description, etc.)
         $trackedFields = ['display_name', 'description', 'category', 'resource', 'action'];
-        $changedFields = array_filter($trackedFields, fn($field) => $permission->isDirty($field));
+        $changedFields = array_filter($trackedFields, fn ($field) => $permission->isDirty($field));
 
-        if (!empty($changedFields)) {
+        if (! empty($changedFields)) {
             $oldValues = [];
             $newValues = [];
 

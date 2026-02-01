@@ -51,7 +51,7 @@ return new class extends Migration
                 ->where('guard_name', $permissionData['guard_name'])
                 ->exists();
 
-            if (!$exists) {
+            if (! $exists) {
                 Permission::create($permissionData);
                 \Log::info("✅ Permission created: {$permissionData['name']}");
             } else {

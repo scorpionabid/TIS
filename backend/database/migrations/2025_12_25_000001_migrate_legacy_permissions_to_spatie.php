@@ -1,11 +1,11 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use App\Models\User;
+use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\Models\Permission;
 
 /**
@@ -86,8 +86,9 @@ return new class extends Migration
         foreach ($roPermissions as $roPerm) {
             $user = User::find($roPerm->user_id);
 
-            if (!$user) {
+            if (! $user) {
                 Log::warning("⚠️ [MIGRATION] User {$roPerm->user_id} not found, skipping");
+
                 continue;
             }
 
@@ -116,13 +117,14 @@ return new class extends Migration
                     // Check if permission exists
                     $permission = Permission::where('name', $permissionName)->first();
 
-                    if (!$permission) {
+                    if (! $permission) {
                         Log::warning("⚠️ [MIGRATION] Permission '{$permissionName}' not found in database, skipping");
+
                         continue;
                     }
 
                     // Grant permission if user doesn't have it yet
-                    if (!$user->hasPermissionTo($permissionName)) {
+                    if (! $user->hasPermissionTo($permissionName)) {
                         $user->givePermissionTo($permissionName);
                         $totalPermissionsGranted++;
                     }
@@ -133,7 +135,7 @@ return new class extends Migration
 
             $migratedUsers++;
 
-            Log::info("✅ [MIGRATION] User {$user->id} ({$user->username}): Granted " . count($permissionsToGrant) . " permissions");
+            Log::info("✅ [MIGRATION] User {$user->id} ({$user->username}): Granted " . count($permissionsToGrant) . ' permissions');
         }
 
         Log::info("📊 [MIGRATION] Migration complete: {$migratedUsers}/{$totalUsers} users migrated, {$totalPermissionsGranted} permissions granted");

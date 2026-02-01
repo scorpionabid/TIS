@@ -604,14 +604,14 @@ class UserCrudService
                 'direct' => $user->getDirectPermissions()->pluck('name')->toArray(),
                 'via_roles' => $user->getPermissionsViaRoles()->pluck('name')->toArray(),
                 'all' => $user->getAllPermissions()->pluck('name')->toArray(),
-                'role_metadata' => $user->roles->map(function($role) {
+                'role_metadata' => $user->roles->map(function ($role) {
                     return [
                         'role_id' => $role->id,
                         'role_name' => $role->name,
                         'role_display_name' => $role->display_name,
-                        'permissions' => $role->permissions->pluck('name')->toArray()
+                        'permissions' => $role->permissions->pluck('name')->toArray(),
                     ];
-                })->toArray()
+                })->toArray(),
             ],
             // NOTE: region_operator_permissions removed - using Spatie permissions only
         ];

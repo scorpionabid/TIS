@@ -32,8 +32,8 @@ class RatingCalculationService
             $manualScore = 0; // Default manual score
 
             // Calculate overall score based on weights
-            $overallScore = ($taskScore * $config->task_weight) 
-                           + ($surveyScore * $config->survey_weight) 
+            $overallScore = ($taskScore * $config->task_weight)
+                           + ($surveyScore * $config->survey_weight)
                            + ($manualScore * $config->manual_weight);
 
             // Create or update rating
@@ -90,7 +90,7 @@ class RatingCalculationService
 
             // Get all users in the institution
             $users = User::where('institution_id', $institutionId)->get();
-            
+
             $results = [];
             $successCount = 0;
             $errorCount = 0;
@@ -102,7 +102,7 @@ class RatingCalculationService
                         'user_id' => $user->id,
                         'user_name' => $user->full_name,
                         'rating' => $rating,
-                        'status' => 'success'
+                        'status' => 'success',
                     ];
                     $successCount++;
                 } catch (\Exception $e) {
@@ -110,7 +110,7 @@ class RatingCalculationService
                         'user_id' => $user->id,
                         'user_name' => $user->full_name,
                         'status' => 'error',
-                        'error' => $e->getMessage()
+                        'error' => $e->getMessage(),
                     ];
                     $errorCount++;
                 }
@@ -130,7 +130,7 @@ class RatingCalculationService
                     'success_count' => $successCount,
                     'error_count' => $errorCount,
                     'period' => $period,
-                ]
+                ],
             ];
         } catch (\Exception $e) {
             Log::error('Failed to calculate all ratings', [

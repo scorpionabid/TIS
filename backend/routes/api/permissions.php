@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Route;
  * SuperAdmin-only routes for managing system permissions.
  * Includes CRUD operations, permission matrix, audit logs, and validation.
  */
-
 Route::prefix('permissions')->middleware(['auth:sanctum', 'role:superadmin'])->group(function () {
     // List & Search
     Route::get('/', [PermissionController::class, 'index']);

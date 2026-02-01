@@ -27,9 +27,9 @@ class RegionalAttendanceService
         }
 
         $attendanceRecords = ClassBulkAttendance::with([
-                'grade:id,institution_id,name,class_level,student_count',
-                'institution:id,name,parent_id',
-            ])
+            'grade:id,institution_id,name,class_level,student_count',
+            'institution:id,name,parent_id',
+        ])
             ->whereIn('institution_id', $schoolIds)
             ->whereDate('attendance_date', '>=', $startDate)
             ->whereDate('attendance_date', '<=', $endDate)
@@ -103,8 +103,8 @@ class RegionalAttendanceService
             ->keyBy('id');
 
         $records = ClassBulkAttendance::with([
-                'grade:id,institution_id,name,class_level,student_count',
-            ])
+            'grade:id,institution_id,name,class_level,student_count',
+        ])
             ->where('institution_id', $school->id)
             ->whereDate('attendance_date', '>=', $startDate)
             ->whereDate('attendance_date', '<=', $endDate)

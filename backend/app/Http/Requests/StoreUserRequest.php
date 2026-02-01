@@ -86,7 +86,7 @@ class StoreUserRequest extends FormRequest
         $validator->after(function ($validator) {
             $role = Role::find($this->input('role_id'));
 
-            if (!$role) {
+            if (! $role) {
                 return;
             }
 
@@ -105,7 +105,7 @@ class StoreUserRequest extends FormRequest
             // 2. Role-specific institution level validation
             $institutionId = $this->input('institution_id');
 
-            if (!$institutionId) {
+            if (! $institutionId) {
                 // Institution is required for these roles
                 if (in_array($role->name, ['regionadmin', 'sektoradmin', 'schooladmin', 'regionoperator'])) {
                     $validator->errors()->add(
@@ -113,13 +113,15 @@ class StoreUserRequest extends FormRequest
                         ucfirst($role->display_name) . ' üçün müəssisə seçilməlidir.'
                     );
                 }
+
                 return;
             }
 
             $institution = \App\Models\Institution::find($institutionId);
 
-            if (!$institution) {
+            if (! $institution) {
                 $validator->errors()->add('institution_id', 'Seçilmiş müəssisə tapılmadı.');
+
                 return;
             }
 
