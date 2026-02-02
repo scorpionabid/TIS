@@ -1110,7 +1110,7 @@ class TaskControllerRefactored extends Controller
         // Get current assignment
         $currentAssignment = $task->assignments()
             ->where('assigned_user_id', $currentUser->id)
-            ->whereIn('assignment_status', ['pending', 'accepted'])
+            ->whereIn('assignment_status', ['pending', 'accepted', 'in_progress'])
             ->first();
 
         // Validate all new assignees' levels (must be same or lower authority)
@@ -1155,6 +1155,20 @@ class TaskControllerRefactored extends Controller
             $currentAssignment->update([
                 'assigned_user_id' => $firstAssigneeId,
                 'assignment_status' => 'pending',
+                'can_update' => true, // Enable update for delegated user
+                'updated_by' => $currentUser->id,
+            ]);
+
+            // Create new assignment for original user (delegator) with cancelled/delegated status
+            $delegatorAssignment = $task->assignments()->create([
+                'assigned_user_id' => $currentUser->id,
+                'institution_id' => $currentUser->institution_id ?? $currentAssignment->institution_id,
+                'assigned_role' => $currentUser->roles->first()?->name,
+                'assignment_status' => 'cancelled', // Delegator sees task as cancelled
+                'progress' => $currentAssignment->progress,
+                'can_update' => false, // Delegator cannot modify anymore
+                'assigned_by' => $currentUser->id,
+                'created_by' => $currentUser->id,
                 'updated_by' => $currentUser->id,
             ]);
 
@@ -1211,6 +1225,9 @@ class TaskControllerRefactored extends Controller
             }
 
             DB::commit();
+
+            // Sync task status with assignments after delegation
+            $this->syncTaskStatusWithAssignments($task);
 
             // Load relationships for all delegations
             foreach ($delegations as $delegation) {
@@ -1551,6 +1568,25 @@ class TaskControllerRefactored extends Controller
             ]);
         } catch (\Exception $e) {
             return $this->handleError($e, 'Mention istifadəçiləri alınarkən xəta baş verdi.');
+        }
+    }
+
+    /**
+     * Sync task status with active assignments
+     */
+    private function syncTaskStatusWithAssignments(Task $task): void
+    {
+        $activeAssignment = $task->assignments()
+            ->whereIn('assignment_status', ['in_progress', 'accepted'])
+            ->first();
+
+        // If there's an active assignment, update task status
+        if ($activeAssignment) {
+            $newStatus = $activeAssignment->assignment_status === 'in_progress' ? 'in_progress' : 'pending';
+            
+            if ($task->status !== $newStatus) {
+                $task->update(['status' => $newStatus]);
+            }
         }
     }
 }

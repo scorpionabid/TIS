@@ -1,5 +1,5 @@
 import { BaseService, BaseEntity, PaginationParams } from './BaseService';
-import { apiClient } from './api';
+import { apiClient, PaginatedResponse } from './api';
 
 export interface Task extends BaseEntity {
   title: string;
@@ -110,6 +110,79 @@ export interface TaskAttachment {
   file_size: number;
   mime_type: string;
   uploaded_at: string;
+}
+
+export interface User {
+  id: number;
+  name: string;
+  email: string;
+  assignedInstitution?: {
+    id: number;
+    name: string;
+    type: string;
+  };
+}
+
+export interface TaskSubDelegation {
+  id: number;
+  task_id: number;
+  parent_assignment_id: number;
+  delegated_to_user_id: number;
+  delegated_to_institution_id?: number;
+  delegated_by_user_id: number;
+  status: AssignmentStatus;
+  progress: number;
+  deadline?: string;
+  delegation_notes?: string;
+  completion_notes?: string;
+  completion_data?: Record<string, unknown>;
+  accepted_at?: string;
+  started_at?: string;
+  completed_at?: string;
+  cancelled_at?: string;
+
+  // Relations
+  delegatedToUser?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  delegatedByUser?: {
+    id: number;
+    name: string;
+    email: string;
+  };
+  delegatedToInstitution?: {
+    id: number;
+    name: string;
+    type: string;
+  };
+  task?: Task;
+  parentAssignment?: {
+    id: number;
+    user_id: number;
+    user?: {
+      id: number;
+      name: string;
+      email: string;
+    };
+  };
+}
+
+export interface CreateSubDelegationRequest {
+  delegations: Array<{
+    user_id: number;
+    institution_id?: number;
+    deadline?: string;
+    notes?: string;
+  }>;
+}
+
+export interface UpdateSubDelegationStatusRequest {
+  status: AssignmentStatus;
+  progress?: number;
+  completion_notes?: string;
+  completion_data?: Record<string, unknown>;
 }
 
 export interface CreateTaskData {
@@ -351,6 +424,67 @@ class TaskService extends BaseService<Task> {
       notes,
     });
     return response.data ?? response as unknown as Task;
+  }
+
+  // === SUB-DELEGATION METHODS ===
+
+  /**
+   * Get sub-delegations for a task
+   */
+  async getSubDelegations(taskId: number): Promise<TaskSubDelegation[]> {
+    const response = await apiClient.get(`${this.baseEndpoint}/${taskId}/sub-delegations`);
+    return (response.data as any)?.data || (response.data as any) || [];
+  }
+
+  /**
+   * Create multiple sub-delegations for a task
+   */
+  async createSubDelegations(taskId: number, data: CreateSubDelegationRequest): Promise<TaskSubDelegation[]> {
+    const response = await apiClient.post(`${this.baseEndpoint}/${taskId}/sub-delegations`, data);
+    return (response.data as any)?.data || (response.data as any) || [];
+  }
+
+  /**
+   * Update sub-delegation status
+   */
+  async updateSubDelegationStatus(
+    taskId: number, 
+    delegationId: number, 
+    data: UpdateSubDelegationStatusRequest
+  ): Promise<TaskSubDelegation> {
+    const response = await apiClient.post(`${this.baseEndpoint}/${taskId}/sub-delegations/${delegationId}/status`, data);
+    return (response.data as any)?.data || (response.data as any);
+  }
+
+  /**
+   * Get current user's received delegations
+   */
+  async getMyDelegations(params?: PaginationParams): Promise<PaginatedResponse<TaskSubDelegation>> {
+    const response = await apiClient.get('my-delegations', params);
+    return (response.data as any) || response;
+  }
+
+  /**
+   * Get current user's delegation statistics
+   */
+  async getMyDelegationStats(): Promise<{
+    total: number;
+    pending: number;
+    accepted: number;
+    in_progress: number;
+    completed: number;
+    cancelled: number;
+    average_progress: number;
+  }> {
+    const response = await apiClient.get('my-delegations/stats');
+    return (response.data as any)?.data || (response.data as any);
+  }
+
+  /**
+   * Delete a sub-delegation
+   */
+  async deleteSubDelegation(taskId: number, delegationId: number): Promise<void> {
+    await apiClient.delete(`${this.baseEndpoint}/${taskId}/sub-delegations/${delegationId}`);
   }
 }
 

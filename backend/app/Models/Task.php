@@ -191,6 +191,14 @@ class Task extends Model
     }
 
     /**
+     * Task sub-delegations relationship
+     */
+    public function subDelegations(): HasMany
+    {
+        return $this->hasMany(TaskSubDelegation::class);
+    }
+
+    /**
      * Parent task relationship (for subtasks)
      */
     public function parent(): BelongsTo

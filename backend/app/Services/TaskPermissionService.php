@@ -202,7 +202,7 @@ class TaskPermissionService extends BaseService
         // Check if user has an assignment for this task
         $userAssignment = $task->assignments()
             ->where('assigned_user_id', $user->id)
-            ->whereIn('assignment_status', ['pending', 'accepted'])
+            ->whereIn('assignment_status', ['pending', 'accepted', 'in_progress'])
             ->first();
 
         if (! $userAssignment) {

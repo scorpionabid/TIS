@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TaskAssignment extends Model
 {
@@ -28,6 +29,9 @@ class TaskAssignment extends Model
         'completion_data',
         'assignment_metadata',
         'updated_by',
+        'has_sub_delegations',
+        'sub_delegation_count',
+        'completed_sub_delegations',
     ];
 
     protected $casts = [
@@ -70,6 +74,22 @@ class TaskAssignment extends Model
     public function assignedUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    /**
+     * User relationship (alias for assignedUser)
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_user_id');
+    }
+
+    /**
+     * Sub-delegations relationship
+     */
+    public function subDelegations(): HasMany
+    {
+        return $this->hasMany(TaskSubDelegation::class, 'parent_assignment_id');
     }
 
     /**

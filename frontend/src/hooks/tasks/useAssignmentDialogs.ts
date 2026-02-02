@@ -54,10 +54,10 @@ export function useAssignmentDialogs() {
 
   // Delegation dialog handlers
   const openDelegationDialog = useCallback((task: Task, assignment: UserAssignmentSummary) => {
-    if (assignment.status !== 'pending' && assignment.status !== 'accepted') {
+    if (assignment.status !== 'pending' && assignment.status !== 'accepted' && assignment.status !== 'in_progress') {
       toast({
         title: 'Yönləndirmə mümkün deyil',
-        description: 'Yalnız pending və ya accepted statusunda olan tapşırıqları yönləndirə bilərsiniz.',
+        description: 'Yalnız pending, accepted və ya in_progress statusunda olan tapşırıqları yönləndirə bilərsiniz.',
         variant: 'destructive',
       });
       return;

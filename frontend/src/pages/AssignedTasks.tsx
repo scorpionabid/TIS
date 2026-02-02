@@ -557,7 +557,7 @@ const AssignedTasks = () => {
                               </Button>
                             )}
                             {/* Start working button - for accepted tasks */}
-                            {canTransition(assignment, "in_progress") && (
+                            {canTransition(assignment, "in_progress") && statusForUser !== "completed" && (
                               <Button
                                 size="sm"
                                 variant="secondary"
@@ -571,7 +571,7 @@ const AssignedTasks = () => {
                               </Button>
                             )}
                             {/* Complete button */}
-                            {canTransition(assignment, "completed") && (
+                            {canTransition(assignment, "completed") && statusForUser !== "completed" && (
                               <Button
                                 size="sm"
                                 variant="default"

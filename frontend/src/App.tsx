@@ -33,6 +33,7 @@ const SurveyArchive = lazy(() => import("./pages/SurveyArchive"));
 const SurveyResponse = lazy(() => import("./pages/SurveyResponse"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const AssignedTasks = lazy(() => import("./pages/AssignedTasks"));
+const MyDelegations = lazy(() => import("./pages/MyDelegations"));
 const Links = lazy(() => import("./pages/Links"));
 const LinkDatabase = lazy(() => import("./pages/LinkDatabase"));
 const Documents = lazy(() => import("./pages/Documents"));
@@ -460,20 +461,38 @@ const App = () => {
               <Route
                 path="tasks/assigned"
                 element={
-                  <LazyWrapper>
-                    <RoleProtectedRoute
-                      allowedRoles={[
-                        USER_ROLES.SUPERADMIN,
-                        USER_ROLES.REGIONADMIN,
-                        USER_ROLES.REGIONOPERATOR,
-                        USER_ROLES.SEKTORADMIN,
-                        USER_ROLES.SCHOOLADMIN,
-                      ]}
-                      requiredPermissions={['tasks.read']}
-                    >
+                  <RoleProtectedRoute
+                    allowedRoles={[
+                      USER_ROLES.SUPERADMIN,
+                      USER_ROLES.REGIONADMIN,
+                      USER_ROLES.REGIONOPERATOR,
+                      USER_ROLES.SEKTORADMIN,
+                      USER_ROLES.SCHOOLADMIN,
+                    ]}
+                  >
+                    <LazyWrapper>
                       <AssignedTasks />
-                    </RoleProtectedRoute>
-                  </LazyWrapper>
+                    </LazyWrapper>
+                  </RoleProtectedRoute>
+                }
+              />
+              <Route
+                path="my-delegations"
+                element={
+                  <RoleProtectedRoute
+                    allowedRoles={[
+                      USER_ROLES.SUPERADMIN,
+                      USER_ROLES.REGIONADMIN,
+                      USER_ROLES.REGIONOPERATOR,
+                      USER_ROLES.SEKTORADMIN,
+                      USER_ROLES.SCHOOLADMIN,
+                      USER_ROLES.MUELLIM,
+                    ]}
+                  >
+                    <LazyWrapper>
+                      <MyDelegations />
+                    </LazyWrapper>
+                  </RoleProtectedRoute>
                 }
               />
 

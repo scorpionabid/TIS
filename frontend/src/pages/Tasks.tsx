@@ -1,11 +1,13 @@
 import { useEffect, useState, useCallback } from "react";
-import { AlertTriangle, Loader2, ChevronLeft, ChevronRight, BarChart2, X } from "lucide-react";
+import { AlertTriangle, Loader2, ChevronLeft, ChevronRight, BarChart2, X, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
-import { CreateTaskData, Task, UpdateTaskData, taskService } from "@/services/tasks";
+import { CreateTaskData, Task, UpdateTaskData, taskService, CreateSubDelegationRequest } from "@/services/tasks";
 import { TasksHeader } from "@/components/tasks/TasksHeader";
 import { ExcelTaskTable } from "@/components/tasks/excel-view/ExcelTaskTable";
 import { TaskModals } from "@/components/tasks/TaskModals";
+import { MultiDelegationModal } from "@/components/tasks/MultiDelegationModal";
+import { SubDelegationTracker } from "@/components/tasks/SubDelegationTracker";
 import { TaskFilterState, useTaskFilters } from "@/hooks/tasks/useTaskFilters";
 import { useTaskPermissions } from "@/hooks/tasks/useTaskPermissions";
 import { useTasksData } from "@/hooks/tasks/useTasksData";
@@ -146,6 +148,55 @@ export default function Tasks() {
     enabled: hasAccess,
     originScope: activeTab === 'region' ? 'region' : activeTab === 'sector' ? 'sector' : null,
   });
+
+  // Sub-delegation state
+  const [isDelegationModalOpen, setIsDelegationModalOpen] = useState(false);
+  const [selectedTaskForDelegation, setSelectedTaskForDelegation] = useState<Task | null>(null);
+  const [subDelegations, setSubDelegations] = useState<any[]>([]);
+
+  // Delegation handlers
+  const handleOpenDelegationModal = (task: Task) => {
+    setSelectedTaskForDelegation(task);
+    setIsDelegationModalOpen(true);
+  };
+
+  const handleCloseDelegationModal = () => {
+    setIsDelegationModalOpen(false);
+    setSelectedTaskForDelegation(null);
+  };
+
+  const handleDelegate = async (data: CreateSubDelegationRequest) => {
+    if (!selectedTaskForDelegation) return;
+
+    try {
+      await taskService.createSubDelegations(selectedTaskForDelegation.id, data);
+      toast({
+        title: 'Yönləndirmə uğurlu',
+        description: `${data.delegations.length} nəfərə yönləndirmə edildi`,
+      });
+      
+      // Refresh tasks and delegations
+      await refreshTasks();
+      if (selectedTaskForDelegation.id) {
+        const delegations = await taskService.getSubDelegations(selectedTaskForDelegation.id);
+        setSubDelegations(delegations);
+      }
+    } catch (error) {
+      console.error('Delegation error:', error);
+      throw error;
+    }
+  };
+
+  // Load sub-delegations for a task
+  const loadSubDelegations = async (taskId: number) => {
+    try {
+      const delegations = await taskService.getSubDelegations(taskId);
+      setSubDelegations(delegations);
+    } catch (error) {
+      console.error('Error loading sub-delegations:', error);
+      setSubDelegations([]);
+    }
+  };
 
   const { createTask, updateTask, deleteTask } = useTaskMutations();
 
@@ -447,6 +498,15 @@ export default function Tasks() {
         detailTaskId={detailTaskId}
         detailTaskPreview={detailTaskPreview}
         onDetailDrawerChange={handleDetailDrawerChange}
+      />
+
+      {/* Multi-Delegation Modal */}
+      <MultiDelegationModal
+        isOpen={isDelegationModalOpen}
+        onClose={handleCloseDelegationModal}
+        taskId={selectedTaskForDelegation?.id || 0}
+        availableUsers={availableUsers}
+        onDelegate={handleDelegate}
       />
     </div>
   );

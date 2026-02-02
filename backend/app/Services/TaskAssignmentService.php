@@ -533,7 +533,7 @@ class TaskAssignmentService extends BaseService
             'pending' => ['in_progress', 'accepted', 'completed', 'cancelled'],
             'accepted' => ['in_progress', 'completed', 'cancelled'], // Accepted assignments can be started or completed
             'in_progress' => ['completed', 'cancelled', 'pending'],
-            'completed' => ['in_progress'], // Allow reopening
+            'completed' => [], // No transitions allowed - final state
             'cancelled' => ['pending', 'in_progress'],
         ];
     }

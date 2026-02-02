@@ -6,6 +6,7 @@ use App\Http\Controllers\DocumentShareController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\TaskChecklistController;
 use App\Http\Controllers\TaskControllerRefactored as TaskController;
+use App\Http\Controllers\TaskSubDelegationController;
 use Illuminate\Support\Facades\Route;
 
 Route::pattern('task', '[0-9]+');
@@ -97,6 +98,19 @@ Route::middleware('permission:tasks.read')->group(function () {
     Route::get('tasks/{task}/eligible-delegates', [TaskController::class, 'getEligibleDelegates']);
     Route::post('tasks/{task}/delegate', [TaskController::class, 'delegate']);
     Route::get('tasks/{task}/delegation-history', [TaskController::class, 'getDelegationHistory']);
+
+    // Sub-Delegation Routes
+    Route::prefix('tasks/{task}/sub-delegations')->group(function () {
+        Route::get('/', [TaskSubDelegationController::class, 'index']);
+        Route::post('/', [TaskSubDelegationController::class, 'store']);
+        Route::get('/{delegation}', [TaskSubDelegationController::class, 'show']);
+        Route::post('/{delegation}/status', [TaskSubDelegationController::class, 'updateStatus']);
+        Route::delete('/{delegation}', [TaskSubDelegationController::class, 'destroy']);
+    });
+
+    // User's received delegations
+    Route::get('my-delegations', [TaskSubDelegationController::class, 'myDelegations']);
+    Route::get('my-delegations/stats', [TaskSubDelegationController::class, 'myDelegationStats']);
 });
 
 Route::middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin')->group(function () {

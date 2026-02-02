@@ -192,6 +192,13 @@ export const improvedNavigationConfig: MenuGroup[] = [
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]
       },
       {
+        id: 'my-delegations',
+        label: 'Mənim Yönləndirmələrim',
+        path: '/my-delegations',
+        icon: Users,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
+      },
+      {
         id: 'resources',
         label: 'Resurslar',
         icon: Archive,
