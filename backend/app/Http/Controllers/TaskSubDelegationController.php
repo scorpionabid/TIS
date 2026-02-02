@@ -10,13 +10,16 @@ use App\Http\Requests\UpdateSubDelegationStatusRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Foundation\Validation\ValidatesRequests;
 
-class TaskSubDelegationController extends Controller
+class TaskSubDelegationController
 {
-    public function __construct(
-        private TaskSubDelegationService $taskSubDelegationService
-    ) {
-        $this->middleware('auth:sanctum');
+    private TaskSubDelegationService $taskSubDelegationService;
+
+    public function __construct(TaskSubDelegationService $taskSubDelegationService)
+    {
+        $this->taskSubDelegationService = $taskSubDelegationService;
     }
 
     /**
