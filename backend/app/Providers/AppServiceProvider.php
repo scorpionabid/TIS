@@ -34,6 +34,12 @@ class AppServiceProvider extends ServiceProvider
             $this->app->singleton(\App\Services\SurveyAnalytics\Domains\Performance\PerformanceMetricsService::class);
             $this->app->singleton(\App\Services\SurveyAnalytics\Domains\Question\QuestionAnalyticsService::class);
 
+            // Register new modular services (Refactored 2026-02-02)
+            $this->app->singleton(\App\Services\Survey\SurveyStatisticsCalculatorService::class);
+            $this->app->singleton(\App\Services\Survey\SurveyDataExportService::class);
+            $this->app->singleton(\App\Services\Survey\SurveyInsightsGeneratorService::class);
+            $this->app->singleton(\App\Services\Survey\SurveyDashboardAnalyticsService::class);
+
             // Register facade
             $this->app->singleton(\App\Services\SurveyAnalytics\SurveyAnalyticsFacade::class);
 

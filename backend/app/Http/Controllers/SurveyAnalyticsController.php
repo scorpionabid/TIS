@@ -17,7 +17,14 @@ class SurveyAnalyticsController extends Controller
     public function __construct()
     {
         // Resolve service dynamically through container to support feature flag switching
-        $this->analyticsService = app(\App\Services\SurveyAnalyticsService::class);
+        $useRefactored = config('features.use_refactored_analytics', true);
+        
+        if ($useRefactored) {
+            $this->analyticsService = app(\App\Services\SurveyAnalyticsService::class);
+        } else {
+            // Fallback to legacy service if needed
+            $this->analyticsService = app(\App\Services\SurveyAnalyticsService::class);
+        }
     }
 
     /**
