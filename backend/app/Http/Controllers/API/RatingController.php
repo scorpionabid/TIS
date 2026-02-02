@@ -49,9 +49,9 @@ class RatingController extends BaseController
             $ratings = $query->orderBy('created_at', 'desc')
                 ->paginate($request->get('per_page', 15));
 
-            return $this->success('Reytinqlər uğurla əldə edildi', $ratings);
+            return $this->successResponse('Reytinqlər uğurla əldə edildi', $ratings);
         } catch (\Exception $e) {
-            return $this->error('Reytinqlər əldə edilə bilmədi: ' . $e->getMessage());
+            return $this->errorResponse('Reytinqlər əldə edilə bilmədi: ' . $e->getMessage());
         }
     }
 
@@ -72,9 +72,9 @@ class RatingController extends BaseController
 
             $rating = Rating::create($validated);
 
-            return $this->success('Reytinq uğurla yaradıldı', $rating, 201);
+            return $this->successResponse('Reytinq uğurla yaradıldı', $rating);
         } catch (\Exception $e) {
-            return $this->error('Reytinq yaradıla bilmədi: ' . $e->getMessage());
+            return $this->errorResponse('Reytinq yaradıla bilmədi: ' . $e->getMessage());
         }
     }
 
@@ -90,9 +90,9 @@ class RatingController extends BaseController
                 })
                 ->findOrFail($id);
 
-            return $this->success('Reytinq uğurla əldə edildi', $rating);
+            return $this->successResponse('Reytinq uğurla əldə edildi', $rating);
         } catch (\Exception $e) {
-            return $this->error('Reytinq əldə edilə bilmədi: ' . $e->getMessage());
+            return $this->errorResponse('Reytinq əldə edilə bilmədi: ' . $e->getMessage());
         }
     }
 
@@ -114,9 +114,9 @@ class RatingController extends BaseController
 
             $rating->update($validated);
 
-            return $this->success('Reytinq uğurla yeniləndi', $rating);
+            return $this->successResponse('Reytinq uğurla yeniləndi', $rating);
         } catch (\Exception $e) {
-            return $this->error('Reytinq yenilənə bilmədi: ' . $e->getMessage());
+            return $this->errorResponse('Reytinq yenilənə bilmədi: ' . $e->getMessage());
         }
     }
 
@@ -132,9 +132,9 @@ class RatingController extends BaseController
 
             $rating->delete();
 
-            return $this->success('Reytinq uğurla silindi');
+            return $this->successResponse('Reytinq uğurla silindi');
         } catch (\Exception $e) {
-            return $this->error('Reytinq silinə bilmədi: ' . $e->getMessage());
+            return $this->errorResponse('Reytinq silinə bilmədi: ' . $e->getMessage());
         }
     }
 
@@ -151,9 +151,9 @@ class RatingController extends BaseController
 
             $rating = $this->ratingService->calculateRating($userId, $validated);
 
-            return $this->success('Reytinq uğurla hesablandı', $rating);
+            return $this->successResponse('Reytinq uğurla hesablandı', $rating);
         } catch (\Exception $e) {
-            return $this->error('Reytinq hesablanıla bilmədi: ' . $e->getMessage());
+            return $this->errorResponse('Reytinq hesablanıla bilmədi: ' . $e->getMessage());
         }
     }
 
@@ -170,9 +170,9 @@ class RatingController extends BaseController
 
             $results = $this->ratingService->calculateAllRatings($validated);
 
-            return $this->success('Bütün reytinqlər uğurla hesablandı', $results);
+            return $this->successResponse('Bütün reytinqlər uğurla hesablandı', $results);
         } catch (\Exception $e) {
-            return $this->error('Reytinqlər hesablanıla bilmədi: ' . $e->getMessage());
+            return $this->errorResponse('Reytinqlər hesablanıla bilmədi: ' . $e->getMessage());
         }
     }
 }

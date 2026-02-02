@@ -7,7 +7,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 // Production-safe logging
 const log = (level: 'info' | 'warn' | 'error', message: string, data?: any) => {
-  if (isDevelopment) {
+  if (isDevelopment && false) { // Set to true to enable debug logs
     const emoji = { info: '🔍', warn: '⚠️', error: '❌' }[level];
     console[level](`${emoji} ApiClient: ${message}`, data || '');
   }
@@ -41,16 +41,18 @@ function validateAndSetupApiUrls() {
     }
   }
 
-  // FORCE LOG TO BROWSER CONSOLE (always visible)
-  console.warn('🔥 API CONFIGURATION DEBUG:', {
-    apiBaseUrl,
-    sanctumBaseUrl,
-    source: envApiUrl ? 'env' : 'fallback',
-    envValue: envApiUrl,
-    fallback: fallbackUrl,
-    isRelative: apiBaseUrl.startsWith('/'),
-    timestamp: new Date().toISOString()
-  });
+  // Development-only API configuration debug
+  if (isDevelopment && false) { // Set to true to enable debug
+    console.warn('🔥 API CONFIGURATION DEBUG:', {
+      apiBaseUrl,
+      sanctumBaseUrl,
+      source: envApiUrl ? 'env' : 'fallback',
+      envValue: envApiUrl,
+      fallback: fallbackUrl,
+      isRelative: apiBaseUrl.startsWith('/'),
+      timestamp: new Date().toISOString()
+    });
+  }
 
   log('info', 'API URLs configured', { apiBaseUrl, sanctumBaseUrl, source: envApiUrl ? 'env' : 'fallback', isRelative: apiBaseUrl.startsWith('/') });
 
@@ -621,14 +623,16 @@ class ApiClientOptimized {
       this.baseURL = 'http://localhost:8000/api';
     }
 
-    // FORCE DEBUG LOG FOR EVERY REQUEST
-    const fullUrl = `${this.baseURL}/${endpoint.replace(/^\//, '')}`;
-    console.warn(`🚀 REQUEST: ${method} ${fullUrl}`, {
-      baseURL: this.baseURL,
-      endpoint,
-      data: data ? 'present' : 'none',
-      timestamp: new Date().toISOString()
-    });
+    // Development-only request debug
+    if (isDevelopment && false) { // Set to true to enable request debug
+      const fullUrl = `${this.baseURL}/${endpoint.replace(/^\//, '')}`;
+      console.warn(`🚀 REQUEST: ${method} ${fullUrl}`, {
+        baseURL: this.baseURL,
+        endpoint,
+        data: data ? 'present' : 'none',
+        timestamp: new Date().toISOString()
+      });
+    }
 
     // Ensure CSRF cookie is initialized for Laravel Sanctum SPA authentication
     // Skip for public endpoints like /login (handled in auth service)
