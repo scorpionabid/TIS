@@ -116,8 +116,10 @@ Route::middleware('permission:tasks.read')->group(function () {
     });
 
     // User's received delegations
-    Route::get('my-delegations', [TaskSubDelegationController::class, 'myDelegations']);
-    Route::get('my-delegations/stats', [TaskSubDelegationController::class, 'myDelegationStats']);
+    Route::middleware('auth:sanctum')->group(function () {
+        Route::get('my-delegations', [TaskSubDelegationController::class, 'myDelegations']);
+        Route::get('my-delegations/stats', [TaskSubDelegationController::class, 'myDelegationStats']);
+    });
 });
 
 Route::middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin')->group(function () {
