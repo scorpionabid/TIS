@@ -704,4 +704,211 @@ class TaskPermissionService extends BaseService
 
         return 'personal';
     }
+
+    /**
+     * Get assignable users for task creation based on permissions
+     */
+    public function getAssignableUsers($user, array $filters = [])
+    {
+        $allowedRoles = $this->getAllowedTargetRoles($user);
+        $originScope = $filters['origin_scope'] ?? null;
+
+        if ($originScope) {
+            $allowedRoles = $this->filterRolesByOriginScope($allowedRoles, $originScope);
+        }
+
+        if (empty($allowedRoles)) {
+            return collect();
+        }
+
+        $roleFilter = $filters['role'] ?? null;
+        if ($roleFilter && ! in_array($roleFilter, $allowedRoles, true)) {
+            return collect();
+        }
+
+        $institutionScope = $this->getUserInstitutionScope($user, $originScope);
+        $institutionFilter = $filters['institution_id'] ?? null;
+
+        if ($institutionFilter && ! in_array((int) $institutionFilter, $institutionScope, true)) {
+            return collect();
+        }
+
+        \Log::info('TaskPermissionService:getAssignableUsers context', [
+            'user_id' => $user->id,
+            'origin_scope' => $originScope,
+            'allowed_roles' => $allowedRoles,
+            'institution_scope_count' => count($institutionScope),
+        ]);
+
+        $query = \App\Models\User::query()
+            ->with(['roles:id,name', 'institution:id,name,level,parent_id'])
+            ->select(['id', 'first_name', 'last_name', 'email', 'institution_id', 'is_active'])
+            ->where('is_active', true)
+            ->whereHas('roles', function ($roleQuery) use ($allowedRoles, $roleFilter) {
+                if ($roleFilter) {
+                    $roleQuery->where('name', $roleFilter);
+                } else {
+                    $roleQuery->whereIn('name', $allowedRoles);
+                }
+            });
+
+        if (! empty($institutionScope)) {
+            $query->where(function ($institutionQuery) use ($institutionScope) {
+                $institutionQuery->whereIn('institution_id', $institutionScope)
+                    ->orWhereNull('institution_id');
+            });
+        }
+
+        if ($institutionFilter) {
+            $query->where('institution_id', $institutionFilter);
+        }
+
+        if ($search = $filters['search'] ?? null) {
+            $query->where(function ($searchQuery) use ($search) {
+                $searchQuery->where('first_name', 'like', "%{$search}%")
+                    ->orWhere('last_name', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%");
+            });
+        }
+
+        $perPage = (int) ($filters['per_page'] ?? 120);
+        $perPage = max(1, min($perPage, 200));
+
+        $users = $query
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->paginate($perPage);
+
+        \Log::info('TaskPermissionService:getAssignableUsers query result', [
+            'total' => $users->total(),
+            'current_page' => $users->currentPage(),
+            'filter_institution' => $institutionFilter,
+        ]);
+
+        $institutionMap = $this->buildInstitutionHierarchyMap(
+            $users->getCollection()->pluck('institution_id')->filter()->unique()->values()->all()
+        );
+
+        $data = $users->getCollection()->map(function (\App\Models\User $assignableUser) use ($institutionMap) {
+            $primaryRole = $assignableUser->roles->first();
+            $institution = $assignableUser->institution;
+            $institutionId = $institution?->id;
+            $institutionMeta = $institutionId ? ($institutionMap[$institutionId] ?? null) : null;
+
+            return [
+                'id' => $assignableUser->id,
+                'name' => $assignableUser->name,
+                'email' => $assignableUser->email,
+                'institution' => $assignableUser->institution ? [
+                    'id' => $assignableUser->institution->id,
+                    'name' => $assignableUser->institution->name,
+                    'level' => $assignableUser->institution->level,
+                    'parent_id' => $assignableUser->institution->parent_id,
+                    'hierarchy_path' => $institutionMeta['path'] ?? [],
+                    'depth' => $institutionMeta['depth'] ?? 0,
+                ] : null,
+                'role' => $primaryRole?->name,
+                'is_active' => $assignableUser->is_active,
+            ];
+        });
+
+        return [
+            'data' => $data,
+            'meta' => [
+                'current_page' => $users->currentPage(),
+                'last_page' => $users->lastPage(),
+                'per_page' => $users->perPage(),
+                'total' => $users->total(),
+                'filters' => [
+                    'role' => $roleFilter,
+                    'institution_id' => $institutionFilter ? (int) $institutionFilter : null,
+                    'search' => $search ?: null,
+                    'origin_scope' => $originScope,
+                ],
+            ],
+            'links' => [
+                'first' => $users->url(1),
+                'last' => $users->url($users->lastPage()),
+                'prev' => $users->previousPageUrl(),
+                'next' => $users->nextPageUrl(),
+            ],
+        ];
+    }
+
+    /**
+     * Get mentionable users for task comments
+     */
+    public function getMentionableUsers($user, ?int $taskId = null, ?string $search = null)
+    {
+        // Build base query - get users from same institution/region hierarchy
+        $query = \App\Models\User::query()
+            ->select(['id', 'first_name', 'last_name', 'username', 'email'])
+            ->where('is_active', true);
+
+        // If task is specified, get users related to the task
+        if ($taskId) {
+            $task = \App\Models\Task::find($taskId);
+            if ($task) {
+                // Get users from: task creator, assignees, and same institution/region
+                $relatedUserIds = collect();
+
+                // Task creator
+                $relatedUserIds->push($task->created_by);
+
+                // Task assignees
+                $assigneeIds = $task->assignments()->pluck('user_id');
+                $relatedUserIds = $relatedUserIds->merge($assigneeIds);
+
+                // Add users from same institution
+                if ($task->target_institution_id) {
+                    $institutionUserIds = \App\Models\User::where('institution_id', $task->target_institution_id)
+                        ->where('is_active', true)
+                        ->pluck('id');
+                    $relatedUserIds = $relatedUserIds->merge($institutionUserIds);
+                }
+
+                $query->whereIn('id', $relatedUserIds->unique());
+            }
+        } else {
+            // No task specified - return users from same institution/region as current user
+            if ($user->institution_id) {
+                $query->where(function ($q) use ($user) {
+                    $q->where('institution_id', $user->institution_id);
+
+                    // Also include users from same region if applicable
+                    if ($user->institution && $user->institution->region_id) {
+                        $q->orWhereHas('institution', function ($q2) use ($user) {
+                            $q2->where('region_id', $user->institution->region_id);
+                        });
+                    }
+                });
+            }
+        }
+
+        // Apply search filter
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'ILIKE', "%{$search}%")
+                    ->orWhere('last_name', 'ILIKE', "%{$search}%")
+                    ->orWhere('username', 'ILIKE', "%{$search}%")
+                    ->orWhere('email', 'ILIKE', "%{$search}%");
+            });
+        }
+
+        // Exclude current user
+        $query->where('id', '!=', $user->id);
+
+        return $query->orderBy('first_name')
+            ->orderBy('last_name')
+            ->limit(20)
+            ->get()
+            ->map(function ($u) {
+                return [
+                    'id' => $u->id,
+                    'name' => trim($u->first_name . ' ' . $u->last_name),
+                    'username' => $u->username,
+                    'email' => $u->email,
+                ];
+            });
+    }
 }

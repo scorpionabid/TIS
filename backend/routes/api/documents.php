@@ -5,7 +5,13 @@ use App\Http\Controllers\DocumentControllerRefactored as DocumentController;
 use App\Http\Controllers\DocumentShareController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\TaskChecklistController;
-use App\Http\Controllers\TaskControllerRefactored as TaskController;
+use App\Http\Controllers\TaskCrudController;
+use App\Http\Controllers\TaskAssignmentController;
+use App\Http\Controllers\TaskPermissionController;
+use App\Http\Controllers\TaskDelegationController;
+use App\Http\Controllers\TaskApprovalController;
+use App\Http\Controllers\TaskAuditController;
+use App\Http\Controllers\TaskAnalyticsController;
 use App\Http\Controllers\TaskSubDelegationController;
 use Illuminate\Support\Facades\Route;
 
@@ -84,20 +90,21 @@ Route::prefix('document-shares')->middleware('permission:documents.share')->grou
 
 // Task Management Routes
 Route::middleware('permission:tasks.read')->group(function () {
-    Route::get('tasks', [TaskController::class, 'index']);
-    Route::get('tasks/assigned-to-me', [TaskController::class, 'getAssignedToCurrentUser']);
-    Route::get('users/mentionable', [TaskController::class, 'getMentionableUsers']);
-    Route::get('tasks/{task}', [TaskController::class, 'show']);
-    Route::get('tasks/{task}/progress', [TaskController::class, 'getProgress']);
-    Route::get('tasks/{task}/history', [TaskController::class, 'getHistory']);
-    Route::get('tasks/user/{user}', [TaskController::class, 'getUserTasks']);
-    Route::get('tasks/institution/{institution}', [TaskController::class, 'getInstitutionTasks']);
-    Route::post('tasks/assignments/{assignment}/status', [TaskController::class, 'updateAssignmentStatus']);
+    Route::get('tasks', [TaskCrudController::class, 'index']);
+    Route::get('tasks/assigned-to-me', [TaskCrudController::class, 'getAssignedToCurrentUser']);
+    Route::get('users/mentionable', [TaskPermissionController::class, 'getMentionableUsers']);
+    Route::get('tasks/{task}', [TaskCrudController::class, 'show']);
+    Route::get('tasks/{taskId}/progress', [TaskCrudController::class, 'getTaskProgress']);
+    Route::get('tasks/{task}/audit-history', [TaskAuditController::class, 'getAuditHistory']);
+    Route::get('tasks/{task}/approval-history', [TaskAuditController::class, 'getApprovalHistory']);
+    Route::get('tasks/user/{user}', [TaskCrudController::class, 'getUserTasks']);
+    Route::get('tasks/institution/{institution}', [TaskCrudController::class, 'getInstitutionTasks']);
+    Route::put('assignments/{assignmentId}/status', [TaskAssignmentController::class, 'updateAssignmentStatus']);
 
     // Task Delegation Routes
-    Route::get('tasks/{task}/eligible-delegates', [TaskController::class, 'getEligibleDelegates']);
-    Route::post('tasks/{task}/delegate', [TaskController::class, 'delegate']);
-    Route::get('tasks/{task}/delegation-history', [TaskController::class, 'getDelegationHistory']);
+    Route::get('tasks/{task}/eligible-delegates', [TaskDelegationController::class, 'getEligibleDelegates']);
+    Route::post('tasks/{task}/delegate', [TaskDelegationController::class, 'delegate']);
+    Route::get('tasks/{task}/delegation-history', [TaskDelegationController::class, 'getDelegationHistory']);
 
     // Sub-Delegation Routes
     Route::prefix('tasks/{task}/sub-delegations')->group(function () {
@@ -115,42 +122,42 @@ Route::middleware('permission:tasks.read')->group(function () {
 
 Route::middleware('role:superadmin|regionadmin|regionoperator|sektoradmin|schooladmin')->group(function () {
     // Resource-specific helper endpoint (reuses task assignment logic)
-    Route::get('resources/target-users', [TaskController::class, 'getAssignableUsers']);
+    Route::get('resources/target-users', [TaskPermissionController::class, 'getAssignableUsers']);
 });
 
 Route::middleware('role:superadmin|regionadmin|regionoperator|sektoradmin')->group(function () {
-    Route::post('tasks', [TaskController::class, 'store']);
-    Route::put('tasks/{task}', [TaskController::class, 'update']);
-    Route::delete('tasks/{task}', [TaskController::class, 'destroy']);
-    Route::post('tasks/{task}/assign', [TaskController::class, 'assign']);
-    Route::post('tasks/{task}/complete', [TaskController::class, 'complete']);
-    Route::post('tasks/{task}/reopen', [TaskController::class, 'reopen']);
-    Route::post('tasks/{task}/progress', [TaskController::class, 'updateProgress']);
-    Route::post('tasks/bulk-create', [TaskController::class, 'bulkCreate']);
-    Route::post('tasks/bulk-assign', [TaskController::class, 'bulkAssign']);
-    Route::post('tasks/bulk-update-status', [TaskController::class, 'bulkUpdateStatus']);
-    Route::post('tasks/assignments/bulk-update', [TaskController::class, 'bulkUpdateAssignments']);
-    Route::get('tasks/creation-context', [TaskController::class, 'getTaskCreationContext']);
-    Route::get('tasks/assignable-users', [TaskController::class, 'getAssignableUsers']);
+    Route::post('tasks', [TaskCrudController::class, 'store']);
+    Route::put('tasks/{task}', [TaskCrudController::class, 'update']);
+    Route::delete('tasks/{task}', [TaskCrudController::class, 'destroy']);
+    Route::post('tasks/{task}/assign', [TaskCrudController::class, 'assign']);
+    Route::post('tasks/{task}/complete', [TaskCrudController::class, 'complete']);
+    Route::post('tasks/{task}/reopen', [TaskCrudController::class, 'reopen']);
+    Route::post('tasks/{task}/progress', [TaskCrudController::class, 'updateProgress']);
+    Route::post('tasks/bulk-create', [TaskCrudController::class, 'bulkCreate']);
+    Route::post('tasks/bulk-assign', [TaskCrudController::class, 'bulkAssign']);
+    Route::post('tasks/bulk-update-status', [TaskCrudController::class, 'bulkUpdateStatus']);
+    Route::post('assignments/bulk-update', [TaskAssignmentController::class, 'bulkUpdateAssignments']);
+    Route::get('tasks/creation-context', [TaskPermissionController::class, 'getTaskCreationContext']);
+    Route::get('tasks/assignable-users', [TaskPermissionController::class, 'getAssignableUsers']);
 });
 
 Route::middleware('permission:tasks.approve')->group(function () {
-    Route::post('tasks/{task}/approve', [TaskController::class, 'approve']);
-    Route::post('tasks/{task}/reject', [TaskController::class, 'reject']);
-    Route::get('tasks/pending-approval', [TaskController::class, 'getPendingApproval']);
+    Route::post('tasks/{task}/approve', [TaskApprovalController::class, 'approve']);
+    Route::post('tasks/{task}/reject', [TaskApprovalController::class, 'reject']);
+    Route::get('tasks/pending-approval', [TaskCrudController::class, 'getPendingApproval']);
 });
 
 // Task Approval Workflow Routes (NEW)
 Route::middleware('permission:tasks.read')->group(function () {
-    Route::post('tasks/{task}/submit-for-approval', [TaskController::class, 'submitForApproval']);
-    Route::get('tasks/{task}/approval-history', [TaskController::class, 'getApprovalHistory']);
-    Route::get('tasks/{task}/audit-history', [TaskController::class, 'getAuditHistory']);
+    Route::post('tasks/{task}/submit-for-approval', [TaskApprovalController::class, 'submitForApproval']);
+    Route::get('tasks/{task}/approval-history', [TaskAuditController::class, 'getApprovalHistory']);
+    Route::get('tasks/{task}/audit-history', [TaskAuditController::class, 'getAuditHistory']);
 });
 
 Route::middleware('permission:tasks.analytics')->group(function () {
-    Route::get('tasks/analytics/overview', [TaskController::class, 'getAnalyticsOverview']);
-    Route::get('tasks/analytics/performance', [TaskController::class, 'getPerformanceAnalytics']);
-    Route::get('tasks/reports/summary', [TaskController::class, 'getSummaryReport']);
+    Route::get('tasks/analytics/overview', [TaskAnalyticsController::class, 'getAnalyticsOverview']);
+    Route::get('tasks/analytics/performance', [TaskAnalyticsController::class, 'getPerformanceAnalytics']);
+    Route::get('tasks/reports/summary', [TaskAnalyticsController::class, 'getSummaryReport']);
 });
 
 // Task Checklist Routes

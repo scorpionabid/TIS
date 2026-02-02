@@ -110,6 +110,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Rating System Routes
     require __DIR__ . '/api/ratings.php';
 
+    // Task Management Routes (Modular Structure)
+    require __DIR__ . '/api/tasks.php';
+
     // Specialized Module Routes
     require __DIR__ . '/api/specialized.php';
 });
