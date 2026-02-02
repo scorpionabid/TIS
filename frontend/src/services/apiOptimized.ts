@@ -68,7 +68,7 @@ export interface ApiResponse<T = any> {
   status?: string;
 }
 
-export interface PaginatedResponse<T = any> extends ApiResponse<T> {
+export interface PaginatedResponse<T = any> extends Omit<ApiResponse<T>, 'data'> {
   current_page: number;
   data: T[];
   first_page_url: string;
@@ -645,7 +645,7 @@ class ApiClientOptimized {
     if (endpoint.startsWith('/sanctum/')) {
       requestUrl = `${SANCTUM_BASE_URL}${endpoint}`;
     } else {
-      requestUrl = `${this.baseURL}${endpoint}`;
+      requestUrl = `${this.baseURL}/${endpoint.replace(/^\//, '')}`;
       if (method === 'GET' && params) {
         const url = new URL(requestUrl);
         Object.keys(params).forEach(key => {
