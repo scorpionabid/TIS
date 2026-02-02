@@ -128,9 +128,9 @@ class TaskCrudController extends BaseTaskController
                         ->orWhereHas('assignments', function ($assignmentQuery) use ($user) {
                             $assignmentQuery->where('assigned_user_id', $user->id);
                         })
-                        // OR tasks assigned to user's institution (only if user has institution)
-                        ->orWhere(function ($instQuery) use ($institutionId) {
-                            if ($institutionId) {
+                        // OR tasks assigned to user's institution (only if user has institution and NOT schooladmin)
+                        ->orWhere(function ($instQuery) use ($institutionId, $user) {
+                            if ($institutionId && !$user->hasRole('schooladmin')) {
                                 $instQuery->where('assigned_to_institution_id', $institutionId)
                                     ->orWhereJsonContains('target_institutions', $institutionId);
                             }

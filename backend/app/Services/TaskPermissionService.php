@@ -250,8 +250,10 @@ class TaskPermissionService extends BaseService
                 $q->orWhereIn('assigned_to_institution_id', $childIds);
                 $this->appendTargetInstitutionFilterToQuery($q, $childIds);
             } elseif ($user->hasRole('schooladmin')) {
-                $q->orWhere('assigned_to_institution_id', $userInstitution->id);
-                $q->orWhereJsonContains('target_institutions', $userInstitution->id);
+                // Schooladmin yalnız özünə birbaşa təyin olunmuş tapşırıqları görə bilər
+                // Müəssisə səviyyəli tapşırıqları görməməlidir
+                // $q->orWhere('assigned_to_institution_id', $userInstitution->id);
+                // $q->orWhereJsonContains('target_institutions', $userInstitution->id);
             }
 
             // Tasks directly assigned to user

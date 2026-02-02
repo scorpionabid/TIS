@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, CheckCircle, Filter, Search, Loader2, Forward, ArrowUpDown, ArrowUp, ArrowDown, ClipboardList, Send, Eye } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
-import { taskService, Task, UserAssignmentSummary } from "@/services/tasks";
+import { taskService, Task, UserAssignmentSummary, AssignmentStatus } from "@/services/tasks";
 import { useAssignedTasksFilters, type SortField, type SortDirection } from "@/hooks/tasks/useAssignedTasksFilters";
 import { useAssignmentDialogs } from "@/hooks/tasks/useAssignmentDialogs";
 import { useAssignmentMutations } from "@/hooks/tasks/useAssignmentMutations";
@@ -33,13 +33,13 @@ const formatDate = (dateString?: string | null) => {
   });
 };
 
-const getStatusBadgeVariant = (status: string) => {
-  const variants: Record<string, "secondary" | "default" | "outline" | "success" | "destructive"> = {
+const getStatusBadgeVariant = (status: string): "secondary" | "default" | "outline" | "destructive" => {
+  const variants: Record<string, "secondary" | "default" | "outline" | "destructive"> = {
     pending: "secondary",
     accepted: "default",
     in_progress: "default",
     review: "outline",
-    completed: "success",
+    completed: "default",
     cancelled: "destructive",
   };
   return variants[status] || "secondary";
@@ -232,8 +232,8 @@ const AssignedTasks = () => {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // Helper function to check if transition is allowed
-  const canTransition = (assignment: UserAssignmentSummary | null | undefined, status: Task["status"]) =>
-    Boolean(assignment?.can_update && assignment.allowed_transitions?.includes(status));
+  const canTransition = (assignment: UserAssignmentSummary | null | undefined, status: Task["status"] | AssignmentStatus) =>
+    Boolean(assignment?.can_update && assignment.allowed_transitions?.includes(status as AssignmentStatus));
 
   // Action handlers using hook mutations
   const handleMarkInProgress = (task: Task, assignment: UserAssignmentSummary) => {
