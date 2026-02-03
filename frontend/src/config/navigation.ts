@@ -33,6 +33,7 @@ import {
   LucideIcon,
   Library,
   Star,
+  User,
 } from 'lucide-react';
 import { UserRole, USER_ROLES } from '@/constants/roles';
 import { SidebarPanel } from '@/types/sidebar';
@@ -399,7 +400,65 @@ export const improvedNavigationConfig: MenuGroup[] = [
     ]
   },
 
-  // 🎓 Məktəb İdarəetməsi (Sadələşdirilmiş)
+  // 👨‍� Müəllim Profili
+  {
+    id: 'teacher-profile',
+    label: 'Müəllim Profili',
+    panel: 'work',
+    roles: [USER_ROLES.MUELLIM],
+    items: [
+      {
+        id: 'teacher-dashboard',
+        label: 'Dashboard',
+        path: '/teacher/dashboard',
+        icon: LayoutDashboard,
+        roles: [USER_ROLES.MUELLIM],
+        description: 'Müəllim paneli və statistikalar'
+      },
+      {
+        id: 'teacher-profile-info',
+        label: 'Profil Məlumatları',
+        path: '/teacher/profile',
+        icon: User,
+        roles: [USER_ROLES.MUELLIM],
+        description: 'Şəxsi məlumatlar və təhsil tarixçəsi'
+      },
+      {
+        id: 'teacher-schedule',
+        label: 'Dərs Cədvəli',
+        path: '/teacher/schedule',
+        icon: Calendar,
+        roles: [USER_ROLES.MUELLIM],
+        description: 'Həftəlik dərs cədvəli'
+      },
+      {
+        id: 'teacher-classes',
+        label: 'Siniflərim',
+        path: '/teacher/classes',
+        icon: School,
+        roles: [USER_ROLES.MUELLIM],
+        description: 'Təyin edilmiş siniflər və şagirdlər'
+      },
+      {
+        id: 'teacher-performance',
+        label: 'Performans',
+        path: '/teacher/performance',
+        icon: TrendingUp,
+        roles: [USER_ROLES.MUELLIM],
+        description: 'Fəaliyyətin analizi və hesabatlar'
+      },
+      {
+        id: 'teacher-resources',
+        label: 'Resurslarım',
+        path: '/teacher/resources',
+        icon: Folder,
+        roles: [USER_ROLES.MUELLIM],
+        description: 'Dərs materialları və resurslar'
+      }
+    ]
+  },
+
+  // �� Məktəb İdarəetməsi (Sadələşdirilmiş)
   {
     id: 'school-management',
     label: 'Məktəb İdarəsi',
@@ -409,7 +468,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
       {
         id: 'my-classes',
         label: 'Mənim Siniflərim',
-        path: '/teacher/my-classes',
+        path: '/teacher/classes',
         icon: School,
         roles: [USER_ROLES.MUELLIM],
         description: 'Müəllimin təyin edildiyi siniflər'

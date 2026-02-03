@@ -57,7 +57,7 @@ interface MaintenanceRequest {
   location: string;
 }
 
-export const TesarrufatDashboard: React.FC = () => {
+export const TesarrufatDashboard: React.FC<{ className?: string }> = ({ className }) => {
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch dashboard stats

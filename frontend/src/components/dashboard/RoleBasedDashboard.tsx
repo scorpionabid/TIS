@@ -31,6 +31,11 @@ const PsixoloquDashboard = lazy(() =>
     default: module.PsixoloquDashboard
   }))
 );
+const TeacherDashboard = lazy(() => 
+  import('../teacher/TeacherDashboard').then(module => ({
+    default: module.TeacherDashboard
+  }))
+);
 
 interface RoleBasedDashboardProps {
   className?: string;
@@ -138,11 +143,10 @@ export const RoleBasedDashboard: React.FC<RoleBasedDashboardProps> = ({ classNam
       );
     
     case SCHOOL_ROLES.MUELLIM:
-      // Teachers use a simplified version of the school admin dashboard
-      // with limited functionality based on their permissions
+      // Teachers use their dedicated dashboard with teacher-specific functionality
       return (
         <Suspense fallback={<DashboardLoader />}>
-          <SchoolAdminDashboard className={className} />
+          <TeacherDashboard className={className} />
         </Suspense>
       );
     

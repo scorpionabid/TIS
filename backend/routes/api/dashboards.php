@@ -202,10 +202,18 @@ Route::prefix('sektoradmin')->middleware(['role:sektoradmin', 'regional.access:s
 // Teacher Dashboard Routes
 Route::prefix('teacher')->middleware(['role:müəllim', 'regional.access:school', 'audit.logging'])->group(function () {
     // Dashboard endpoints
-    // Teacher dashboard routes - TODO: Implement TeacherDashboardController
-    // Route::get('dashboard', [App\Http\Controllers\TeacherDashboardController::class, 'getDashboard']);
-    // Route::get('dashboard/stats', [App\Http\Controllers\TeacherDashboardController::class, 'getStats']);
-    // Route::get('classes', [App\Http\Controllers\TeacherDashboardController::class, 'getTeacherClasses']);
+    Route::get('dashboard', [App\Http\Controllers\Teacher\TeacherDashboardController::class, 'getDashboardStats']);
+    Route::get('dashboard/stats', [App\Http\Controllers\Teacher\TeacherDashboardController::class, 'getDashboardStats']);
+    Route::get('classes', [App\Http\Controllers\Teacher\TeacherDashboardController::class, 'getTeacherClasses']);
+    Route::get('gradebook', [App\Http\Controllers\Teacher\TeacherDashboardController::class, 'getGradebook']);
+    
+    // Profile endpoints
+    Route::get('profile', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getProfile']);
+    Route::put('profile', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'updateProfile']);
+    Route::get('performance', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getPerformance']);
+    Route::get('achievements', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getAchievements']);
+    Route::get('certificates', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getCertificates']);
+    Route::get('resources', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getResources']);
 });
 
 // School Admin Dashboard Routes - Unified routing structure

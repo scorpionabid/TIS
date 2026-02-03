@@ -1,5 +1,48 @@
 import { apiClient } from './api';
 
+export interface TeacherDashboardStats {
+  assignedClasses: number;
+  totalStudents: number;
+  subjectsTeaching: number;
+  attendanceRate: number;
+  weeklyHours: number;
+  pendingGrades: number;
+  activeSurveys: number;
+  upcomingTasks: number;
+  teacherInfo: {
+    name: string;
+    subject: string;
+    school: string;
+    experienceYears: number;
+    department: string;
+  };
+  weeklySchedule: Array<{
+    day: string;
+    classes: Array<{
+      time: string;
+      subject: string;
+      class: string;
+      room: string;
+    }>;
+  }>;
+  recentActivities: Array<{
+    id: string;
+    type: string;
+    title: string;
+    description: string;
+    time: string;
+    status: string;
+    class?: string;
+  }>;
+  classPerformance: Array<{
+    class: string;
+    subject: string;
+    students: number;
+    averageGrade: number;
+    attendanceRate: number;
+  }>;
+}
+
 export interface DashboardStats {
   users: {
     total: number;
@@ -196,12 +239,37 @@ class DashboardService {
     }
   }
 
-  async getTeacherStats() {
+  async getTeacherStats(): Promise<TeacherDashboardStats> {
     console.log('🔍 DashboardService.getTeacherStats called');
     try {
-      const response = await apiClient.get('/teacher/dashboard');
+      const response = await apiClient.get<TeacherDashboardStats>('/teacher/dashboard');
       console.log('✅ DashboardService.getTeacherStats successful:', response);
-      return response;
+      
+      // Handle both direct data and ApiResponse format
+      let data: TeacherDashboardStats;
+      
+      if (response && typeof response === 'object') {
+        // Check if response is ApiResponse format or direct data
+        if ('data' in response && response.data) {
+          data = response.data as TeacherDashboardStats;
+        } else if ('status' in response || 'errors' in response) {
+          // ApiResponse format but data might be nested differently
+          data = (response as any).data || response as TeacherDashboardStats;
+        } else {
+          // Direct data format
+          data = response as TeacherDashboardStats;
+        }
+      } else {
+        throw new Error('Invalid response format from teacher dashboard API');
+      }
+      
+      // Ensure we always return valid data
+      if (!data || typeof data !== 'object') {
+        throw new Error('No valid data received from teacher dashboard API');
+      }
+      
+      console.log('📊 DashboardService.getTeacherStats parsed data:', data);
+      return data;
     } catch (error) {
       console.error('❌ DashboardService.getTeacherStats failed:', error);
       throw error;

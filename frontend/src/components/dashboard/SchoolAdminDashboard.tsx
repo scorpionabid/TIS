@@ -33,7 +33,7 @@ import {
   SchoolDashboardStats,
 } from "@/services/schoolAdmin";
 
-export const SchoolAdminDashboard = () => {
+export const SchoolAdminDashboard = ({ className }: { className?: string } = {}) => {
   const navigate = useNavigate();
   const [refreshing, setRefreshing] = useState(false);
 

@@ -37,7 +37,7 @@ import { az } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-export const MuavinDashboard: React.FC = () => {
+export const MuavinDashboard: React.FC<{ className?: string }> = ({ className }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [showScheduleBuilder, setShowScheduleBuilder] = useState(false);
   const [showTemplateDialog, setShowTemplateDialog] = useState(false);

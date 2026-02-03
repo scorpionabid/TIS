@@ -83,6 +83,11 @@ const BulkAttendanceEntry = lazy(() => import("./pages/school/BulkAttendanceEntr
 
 // Teacher pages
 const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
+const TeacherDashboard = lazy(() => import("./components/teacher/TeacherDashboard"));
+const TeacherProfile = lazy(() => import("./pages/teacher/TeacherProfile"));
+const TeacherClasses = lazy(() => import("./pages/teacher/TeacherClasses"));
+const TeacherPerformance = lazy(() => import("./pages/teacher/TeacherPerformance"));
+const TeacherResources = lazy(() => import("./pages/teacher/TeacherResources"));
 
 // My Surveys pages
 const PendingSurveys = lazy(() => import("./pages/my-surveys/PendingSurveys"));
@@ -789,6 +794,41 @@ const App = () => {
                 <LazyWrapper>
                   <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
                     <TeacherSchedule />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="teacher/dashboard" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                    <TeacherDashboard />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="teacher/profile" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                    <TeacherProfile />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="teacher/classes" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                    <TeacherClasses />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="teacher/performance" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                    <TeacherPerformance />
+                  </RoleProtectedRoute>
+                </LazyWrapper>
+              } />
+              <Route path="teacher/resources" element={
+                <LazyWrapper>
+                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                    <TeacherResources />
                   </RoleProtectedRoute>
                 </LazyWrapper>
               } />

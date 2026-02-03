@@ -47,7 +47,7 @@ interface Event {
   priority: 'low' | 'medium' | 'high';
 }
 
-export const UBRDashboard: React.FC = () => {
+export const UBRDashboard: React.FC<{ className?: string }> = ({ className }) => {
   const [refreshing, setRefreshing] = useState(false);
 
   // Fetch dashboard stats
