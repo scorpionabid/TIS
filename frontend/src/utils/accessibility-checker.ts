@@ -22,24 +22,93 @@ export class AccessibilityChecker {
     const issues: AccessibilityIssue[] = [];
 
     ariaHiddenElements.forEach((element) => {
+      // Skip Radix UI managed elements - they handle accessibility internally
+      if (this.isRadixUIManaged(element as HTMLElement)) {
+        return;
+      }
+
       const focusableDescendants = element.querySelectorAll(
         'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
       );
 
       focusableDescendants.forEach((focusable) => {
-        if (focusable === document.activeElement) {
+        // Check if element is currently focused OR can receive focus
+        const isActive = focusable === document.activeElement;
+        const isFocusable = this.isElementFocusable(focusable as HTMLElement);
+        
+        // Additional check: skip if element is being transitioned or animated
+        const isBeingTransitioned = this.isElementInTransition(focusable as HTMLElement);
+        
+        if (isActive || (isFocusable && this.isElementVisible(focusable as HTMLElement) && !isBeingTransitioned)) {
           issues.push({
             element: focusable as HTMLElement,
             type: 'aria-hidden-focus',
             severity: 'critical',
-            description: 'Element is focused but hidden from screen readers via aria-hidden',
-            solution: 'Remove aria-hidden from focused elements or use proper focus management'
+            description: 'Element is focusable but hidden from screen readers via aria-hidden ancestor',
+            solution: 'Remove aria-hidden from ancestor or move element outside aria-hidden container'
           });
         }
       });
     });
 
     return issues;
+  }
+
+  /**
+   * Check if element is managed by Radix UI (which handles accessibility internally)
+   */
+  private isRadixUIManaged(element: HTMLElement): boolean {
+    // Check for Radix UI data attributes
+    const radixDataAttrs = [
+      'data-radix-dialog-content',
+      'data-radix-dialog-overlay',
+      'data-state',
+      'data-radix-collection-item'
+    ];
+    
+    return radixDataAttrs.some(attr => element.hasAttribute(attr) || element.closest(`[${attr}]`));
+  }
+
+  /**
+   * Check if element is currently in transition/animation
+   */
+  private isElementInTransition(element: HTMLElement): boolean {
+    const style = window.getComputedStyle(element);
+    return (
+      style.transition !== 'none' && style.transitionDuration !== '0s' ||
+      style.animation !== 'none' && style.animationDuration !== '0s'
+    );
+  }
+
+  /**
+   * Check if element is actually focusable
+   */
+  private isElementFocusable(element: HTMLElement): boolean {
+    const style = window.getComputedStyle(element);
+    return (
+      !element.hasAttribute('disabled') &&
+      !element.hasAttribute('aria-disabled') &&
+      style.display !== 'none' &&
+      style.visibility !== 'hidden' &&
+      element.offsetWidth > 0 &&
+      element.offsetHeight > 0
+    );
+  }
+
+  /**
+   * Check if element is visible
+   */
+  private isElementVisible(element: HTMLElement): boolean {
+    const style = window.getComputedStyle(element);
+    const rect = element.getBoundingClientRect();
+    
+    return (
+      style.display !== 'none' &&
+      style.visibility !== 'hidden' &&
+      style.opacity !== '0' &&
+      rect.width > 0 &&
+      rect.height > 0
+    );
   }
 
   /**

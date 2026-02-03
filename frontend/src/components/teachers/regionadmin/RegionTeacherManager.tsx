@@ -101,13 +101,15 @@ export const RegionTeacherManager: React.FC = () => {
     isSavingTeacher,
   } = useRegionTeacherManager();
 
-  // Debug log
-  console.log('🎯 RegionTeacherManager render:', {
-    teachersCount: teachers.length,
-    isLoading: isLoadingTeachers,
-    hasTeachers: teachers.length > 0,
-    teachers: teachers,
-  });
+  // Debug log (development only)
+  if (process.env.NODE_ENV === 'development') {
+    console.log('🎯 RegionTeacherManager render:', {
+      teachersCount: teachers.length,
+      isLoading: isLoadingTeachers,
+      hasTeachers: teachers.length > 0,
+      teachers: teachers,
+    });
+  }
 
   // Handle bulk activate
   const handleBulkActivate = () => {

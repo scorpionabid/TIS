@@ -7,7 +7,7 @@ const isDevelopment = process.env.NODE_ENV === 'development';
 
 // Production-safe logging
 const log = (level: 'info' | 'warn' | 'error', message: string, data?: any) => {
-  if (isDevelopment && false) { // Set to true to enable debug logs
+  if (isDevelopment && true) { // Enable debug logs for debugging
     const emoji = { info: '🔍', warn: '⚠️', error: '❌' }[level];
     console[level](`${emoji} ApiClient: ${message}`, data || '');
   }

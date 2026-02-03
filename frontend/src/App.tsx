@@ -333,38 +333,46 @@ const LoginPage = () => {
 };
 
 const App = () => {
-  // Development accessibility monitoring
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      // Check accessibility on major DOM changes
-      const observer = new MutationObserver((mutations) => {
-        const hasSignificantChanges = mutations.some(mutation => 
-          mutation.type === 'childList' && mutation.addedNodes.length > 0
-        );
-        
-        if (hasSignificantChanges) {
-          // Debounce accessibility checks
-          setTimeout(() => {
-            const issues = accessibilityChecker.runAllChecks();
-            const criticalIssues = issues.filter(issue => issue.severity === 'critical');
-            
-            if (criticalIssues.length > 0) {
-              console.warn('🚨 Critical Accessibility Issues Found:', criticalIssues);
-            }
-          }, 500);
-        }
-      });
+  // Development accessibility monitoring - DISABLED due to false positives
+  // useEffect(() => {
+  //   if (process.env.NODE_ENV === 'development') {
+  //     // Check accessibility on major DOM changes
+  //     const observer = new MutationObserver((mutations) => {
+  //       const hasSignificantChanges = mutations.some(mutation => 
+  //         mutation.type === 'childList' && mutation.addedNodes.length > 0
+  //       );
+  //       
+  //       if (hasSignificantChanges) {
+  //         // Debounce accessibility checks - only run in development
+  //         if (process.env.NODE_ENV === 'development') {
+  //           setTimeout(() => {
+  //             const issues = accessibilityChecker.runAllChecks();
+  //             const criticalIssues = issues.filter(issue => issue.severity === 'critical');
+  //             
+  //             // Only log if we have real issues (not Radix UI false positives)
+  //             const realIssues = criticalIssues.filter(issue => 
+  //               !issue.element.closest('[data-radix-dialog-content]') &&
+  //               !issue.element.closest('[data-state]')
+  //             );
+  //             
+  //             if (realIssues.length > 0) {
+  //               console.warn('🚨 Critical Accessibility Issues Found:', realIssues);
+  //             }
+  //           }, 1000); // Increased debounce time
+  //         }
+  //       }
+  //     });
 
-      observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        attributes: true,
-        attributeFilter: ['aria-hidden', 'tabindex', 'role']
-      });
+  //     observer.observe(document.body, {
+  //       childList: true,
+  //       subtree: true,
+  //       attributes: true,
+  //       attributeFilter: ['aria-hidden', 'tabindex', 'role']
+  //     });
 
-      return () => observer.disconnect();
-    }
-  }, []);
+  //     return () => observer.disconnect();
+  //   }
+  // }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

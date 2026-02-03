@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             PermissionSeeder::class,
             SuperAdminSeeder::class, // Create superadmin after roles
+            RegionAdminTeacherPermissionsSeeder::class, // Add teacher permissions to RegionAdmin
             SystemConfigSeeder::class,
         ];
 

@@ -449,12 +449,45 @@ class RegionTeacherController extends Controller
     {
         try {
             $user = Auth::user();
+            
+            // Force reload user with permissions
+            if ($user) {
+                $user->load('roles', 'permissions');
+                $user->forgetCachedPermissions();
+            }
+            
+            // Detailed debugging
+            Log::info('🔍 RegionTeacherController::store - AUTH DEBUG', [
+                'user_id' => $user?->id,
+                'user_email' => $user?->email,
+                'user_roles' => $user?->roles->pluck('name')->toArray() ?? [],
+                'can_teachers_create' => $user?->can('teachers.create'),
+                'all_permissions' => $user?->getAllPermissions()->where('name', 'like', 'teachers.%')->pluck('name')->toArray() ?? [],
+                'auth_check' => Auth::check(),
+                'request_headers' => $request->headers->all(),
+                'request_ip' => $request->ip(),
+                'request_user_agent' => $request->userAgent(),
+            ]);
 
             // Authorization check
             if (! $user->can('teachers.create')) {
+                Log::warning('🚫 RegionTeacherController::store - PERMISSION DENIED', [
+                    'user_id' => $user?->id,
+                    'user_email' => $user?->email,
+                    'user_roles' => $user?->roles->pluck('name')->toArray() ?? [],
+                    'required_permission' => 'teachers.create',
+                    'user_permissions' => $user?->getAllPermissions()->where('name', 'like', 'teachers.%')->pluck('name')->toArray() ?? [],
+                ]);
+                
                 return response()->json([
                     'success' => false,
                     'message' => 'Unauthorized - Missing teachers.create permission',
+                    'debug_info' => [
+                        'user_id' => $user?->id,
+                        'user_email' => $user?->email,
+                        'user_roles' => $user?->roles->pluck('name')->toArray() ?? [],
+                        'can_teachers_create' => $user?->can('teachers.create'),
+                    ],
                 ], 403);
             }
 

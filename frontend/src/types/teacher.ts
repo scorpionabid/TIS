@@ -255,6 +255,7 @@ export interface EnhancedTeacherProfile {
 
   // Computed flags
   is_leadership_position?: boolean;
+  is_active?: boolean;
 
   // Timestamps
   created_at: string;
