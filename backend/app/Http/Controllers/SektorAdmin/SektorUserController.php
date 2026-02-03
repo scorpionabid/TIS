@@ -4,6 +4,7 @@ namespace App\Http\Controllers\SektorAdmin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Institution;
+use App\Models\TeacherVerification;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -365,5 +366,197 @@ class SektorUserController extends Controller
                 'name' => $sector->name,
             ],
         ]);
+    }
+
+    /**
+     * Get teachers pending verification
+     */
+    public function getPendingVerifications(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('sektoradmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $sector = $user->institution;
+        if (! $sector) {
+            return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
+        }
+
+        try {
+            // Get sector schools
+            $schoolIds = Institution::where('parent_id', $sector->id)
+                ->where('level', 4)
+                ->pluck('id')
+                ->toArray();
+
+            // Get teachers with pending verification
+            $pendingTeachers = User::whereIn('institution_id', $schoolIds)
+                ->whereHas('roles', function ($q) {
+                    $q->where('name', 'müəllim');
+                })
+                ->whereDoesntHave('teacherVerifications', function ($q) {
+                    $q->where('verification_status', 'approved');
+                })
+                ->with(['institution', 'teacherVerifications' => function ($q) {
+                    $q->latest()->limit(1);
+                }])
+                ->where('is_active', true)
+                ->get();
+
+            $transformedTeachers = $pendingTeachers->map(function ($teacher) {
+                $verification = $teacher->teacherVerifications->first();
+                return [
+                    'id' => $teacher->id,
+                    'name' => $teacher->name,
+                    'email' => $teacher->email,
+                    'username' => $teacher->username,
+                    'institution' => [
+                        'id' => $teacher->institution->id,
+                        'name' => $teacher->institution->name,
+                    ],
+                    'verification_status' => $verification ? $verification->verification_status : 'pending',
+                    'verification_date' => $verification?->verification_date,
+                    'verified_by' => $verification?->verifiedBy?->name,
+                    'rejection_reason' => $verification?->rejection_reason,
+                    'created_at' => $teacher->created_at->format('Y-m-d H:i'),
+                ];
+            });
+
+            return response()->json([
+                'success' => true,
+                'data' => $transformedTeachers,
+                'statistics' => [
+                    'total_pending' => $transformedTeachers->where('verification_status', 'pending')->count(),
+                    'total_approved' => $transformedTeachers->where('verification_status', 'approved')->count(),
+                    'total_rejected' => $transformedTeachers->where('verification_status', 'rejected')->count(),
+                ]
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Məlumatlar yüklənərkən xəta baş verdi',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Approve teacher verification
+     */
+    public function approveTeacher(Request $request, $teacherId): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('sektoradmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'verified_data' => 'nullable|array',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validation error', 'errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $teacher = User::findOrFail($teacherId);
+            
+            // Check if teacher is in sector
+            $sector = $user->institution;
+            $schoolIds = Institution::where('parent_id', $sector->id)
+                ->where('level', 4)
+                ->pluck('id')
+                ->toArray();
+
+            if (! in_array($teacher->institution_id, $schoolIds)) {
+                return response()->json(['message' => 'Bu müəllim sizin sektorunuzda deyil'], 403);
+            }
+
+            // Create or update verification
+            $verification = TeacherVerification::updateOrCreate(
+                ['teacher_id' => $teacherId],
+                [
+                    'verification_status' => 'approved',
+                    'verified_by' => $user->id,
+                    'verification_date' => now(),
+                    'verified_data' => $request->verified_data,
+                    'rejection_reason' => null,
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Müəllim məlumatları uğurla təsdiqləndi',
+                'data' => $verification
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Təsdiqləmə zamanı xəta baş verdi',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Reject teacher verification
+     */
+    public function rejectTeacher(Request $request, $teacherId): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('sektoradmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $validator = Validator::make($request->all(), [
+            'rejection_reason' => 'required|string|max:500',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Validation error', 'errors' => $validator->errors()], 422);
+        }
+
+        try {
+            $teacher = User::findOrFail($teacherId);
+            
+            // Check if teacher is in sector
+            $sector = $user->institution;
+            $schoolIds = Institution::where('parent_id', $sector->id)
+                ->where('level', 4)
+                ->pluck('id')
+                ->toArray();
+
+            if (! in_array($teacher->institution_id, $schoolIds)) {
+                return response()->json(['message' => 'Bu müəllim sizin sektorunuzda deyil'], 403);
+            }
+
+            // Create or update verification
+            $verification = TeacherVerification::updateOrCreate(
+                ['teacher_id' => $teacherId],
+                [
+                    'verification_status' => 'rejected',
+                    'verified_by' => $user->id,
+                    'verification_date' => now(),
+                    'rejection_reason' => $request->rejection_reason,
+                    'verified_data' => null,
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Müəllim məlumatları rədd edildi',
+                'data' => $verification
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Rədd etmə zamanı xəta baş verdi',
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

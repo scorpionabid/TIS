@@ -169,6 +169,11 @@ Route::prefix('sektoradmin')->middleware(['role:sektoradmin', 'regional.access:s
     Route::post('users', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'createSchoolUser']);
     Route::get('available-schools', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getAvailableSchools']);
 
+    // Teacher Verification Management
+    Route::get('teachers/verifications/pending', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getPendingVerifications']);
+    Route::post('teachers/{teacherId}/approve', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'approveTeacher']);
+    Route::post('teachers/{teacherId}/reject', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'rejectTeacher']);
+
     // Student Management
     Route::get('students', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getSectorStudents']);
     Route::get('schools/{schoolId}/students', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getStudentsBySchool']);

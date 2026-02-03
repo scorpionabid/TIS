@@ -341,6 +341,14 @@ export const improvedNavigationConfig: MenuGroup[] = [
         permissions: ['ratings.read']
       },
       {
+        id: 'teacher-verification',
+        label: 'Müəllim Təsdiqi',
+        path: '/teacher-verification',
+        icon: CheckCircle,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN],
+        description: 'Müəllim məlumatlarının təsdiqi və yoxlanması'
+      },
+      {
         id: 'rating-configuration',
         label: 'Reytinq Konfiqurasiyası',
         path: '/rating-configuration',

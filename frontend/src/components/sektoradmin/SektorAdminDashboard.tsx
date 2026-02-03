@@ -27,6 +27,7 @@ import { formatDistanceToNow } from "date-fns";
 import { az } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { TeacherVerification } from "./TeacherVerification";
 
 const isValidDateValue = (value?: string) => {
   if (!value) return false;

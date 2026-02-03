@@ -540,4 +540,20 @@ class User extends Authenticatable
             ->pluck('name')
             ->toArray();
     }
+
+    /**
+     * Get teacher verifications for this user (if they are a teacher)
+     */
+    public function teacherVerifications(): HasMany
+    {
+        return $this->hasMany(TeacherVerification::class, 'teacher_id');
+    }
+
+    /**
+     * Get verifications performed by this user (if they are a sektoradmin)
+     */
+    public function performedVerifications(): HasMany
+    {
+        return $this->hasMany(TeacherVerification::class, 'verified_by');
+    }
 }
