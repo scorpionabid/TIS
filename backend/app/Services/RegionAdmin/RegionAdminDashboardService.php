@@ -206,4 +206,19 @@ class RegionAdminDashboardService
                 ];
             });
     }
+
+    /**
+     * Get dashboard statistics (alias for compatibility)
+     */
+    public function getDashboardStats($user, $userRegionId, $institutionIds)
+    {
+        return [
+            'region_overview' => $this->calculateRegionOverview($userRegionId, $institutionIds),
+            'survey_metrics' => $this->calculateSurveyMetrics($user, $institutionIds),
+            'task_metrics' => $this->calculateTaskMetrics($user, $institutionIds),
+            'sector_performance' => $this->calculateSectorPerformance($userRegionId),
+            'recent_activities' => $this->getRecentActivities($user, $institutionIds),
+            'notifications' => $this->getNotifications($user),
+        ];
+    }
 }

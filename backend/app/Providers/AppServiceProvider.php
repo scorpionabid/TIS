@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Services\UserPermissionService;
+use App\Http\Controllers\Institution\InstitutionCRUDController;
+use App\Http\Controllers\Institution\InstitutionBulkController;
+use App\Http\Controllers\InstitutionHierarchyController;
 use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -18,6 +22,23 @@ class AppServiceProvider extends ServiceProvider
         // Register Survey Approval Bridge service
         $this->app->singleton(\App\Services\SurveyApprovalBridge::class, function ($app) {
             return new \App\Services\SurveyApprovalBridge;
+        });
+
+        // Manual registration for problematic classes
+        $this->app->singleton(UserPermissionService::class, function ($app) {
+            return new UserPermissionService();
+        });
+
+        $this->app->singleton(InstitutionCRUDController::class, function ($app) {
+            return new InstitutionCRUDController();
+        });
+
+        $this->app->singleton(InstitutionBulkController::class, function ($app) {
+            return new InstitutionBulkController();
+        });
+
+        $this->app->singleton(InstitutionHierarchyController::class, function ($app) {
+            return new InstitutionHierarchyController();
         });
 
         // REFACTOR: Register SurveyAnalytics services (Phase 1)
