@@ -30,9 +30,8 @@ export interface TeacherDashboardStats {
     type: string;
     title: string;
     description: string;
-    time: string;
-    status: string;
-    class?: string;
+    timestamp: string;
+    priority: string;
   }>;
   classPerformance: Array<{
     class: string;
@@ -40,6 +39,64 @@ export interface TeacherDashboardStats {
     students: number;
     averageGrade: number;
     attendanceRate: number;
+  }>;
+}
+
+export interface TeacherProfileData {
+  teacherInfo: {
+    name: string;
+    email: string;
+    phone?: string;
+    subject: string;
+    school: string;
+    experienceYears: number;
+    qualifications: string[];
+    photo?: string;
+  };
+  stats: {
+    assignedClasses: number;
+    totalStudents: number;
+    subjectsTeaching: number;
+    attendanceRate: number;
+    weeklyHours: number;
+    pendingGrades: number;
+    activeSurveys: number;
+    upcomingTasks: number;
+  };
+  achievements: Array<{
+    id: string;
+    title: string;
+    description: string;
+    date: string;
+    type: 'award' | 'certification' | 'milestone' | 'recognition' | 'publication' | 'presentation';
+    impactLevel: 'high' | 'medium' | 'low';
+    verificationStatus: boolean;
+    institution?: string;
+    certificateUrl?: string;
+    notes?: string;
+    category?: string;
+    tags?: string[];
+  }>;
+  education: Array<{
+    id: string;
+    degree: string;
+    institution: string;
+    year: string;
+    field: string;
+    status: 'completed' | 'ongoing' | 'planned';
+    type: 'bachelor' | 'master' | 'phd' | 'certificate' | 'diploma' | 'other';
+  }>;
+  certificates: Array<{
+    id: string;
+    name: string;
+    issuer: string;
+    date: string;
+    expiryDate?: string;
+    credentialId?: string;
+    status: 'active' | 'expired' | 'pending' | 'revoked';
+    skills?: string[];
+    level?: string;
+    category?: string;
   }>;
 }
 
@@ -132,6 +189,21 @@ interface Task {
 }
 
 class DashboardService {
+  async getTeacherProfile(): Promise<TeacherProfileData> {
+    console.log('🔍 DashboardService.getTeacherProfile called');
+    try {
+      const response = await apiClient.get<TeacherProfileData>('/teacher/profile');
+      console.log('✅ DashboardService.getTeacherProfile successful:', response);
+      
+      // Return response.data directly
+      return response.data;
+    } catch (error) {
+      console.error('❌ DashboardService.getTeacherProfile failed:', error);
+      throw error;
+    }
+  }
+
+  // ... existing methods
   async getStats(): Promise<DashboardStats> {
     const response = await apiClient.get<DashboardStats>('/dashboard/stats');
     if (!response.data) {

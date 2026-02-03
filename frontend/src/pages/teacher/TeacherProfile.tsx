@@ -23,11 +23,15 @@ import {
   School,
   Users,
   TrendingUp,
-  Star
+  Star,
+  Camera
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { dashboardService } from '@/services/dashboard';
+import { useToast } from '@/hooks/use-toast';
+import TeacherProfileEditModal from './TeacherProfileEditModal';
+import TeacherPhotoUploadModal from './TeacherPhotoUploadModal';
 
 interface TeacherProfileData {
   teacherInfo: {
@@ -55,13 +59,23 @@ interface TeacherProfileData {
     title: string;
     description: string;
     date: string;
-    type: 'award' | 'certification' | 'milestone';
+    type: 'award' | 'certification' | 'milestone' | 'recognition' | 'publication' | 'presentation';
+    impactLevel: 'high' | 'medium' | 'low';
+    verificationStatus: boolean;
+    institution?: string;
+    certificateUrl?: string;
+    notes?: string;
+    category?: string;
+    tags?: string[];
   }>;
   education: Array<{
+    id: string;
     degree: string;
     institution: string;
     year: string;
     field: string;
+    status: 'completed' | 'ongoing' | 'planned';
+    type: 'bachelor' | 'master' | 'phd' | 'certificate' | 'diploma' | 'other';
   }>;
   certificates: Array<{
     name: string;
@@ -74,87 +88,45 @@ interface TeacherProfileData {
 export default function TeacherProfile() {
   const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('personal');
-
-  // Mock data - real API-dən gələcək
-  const { data: profileData, isLoading } = useQuery<TeacherProfileData>({
-    queryKey: ['teacher-profile', currentUser?.id],
-    queryFn: async () => {
-      // Temporary mock data
-      return {
-        teacherInfo: {
-          name: currentUser?.name || 'Müəllim',
-          email: currentUser?.email || 'teacher@atis.az',
-          phone: '+994 50 123 45 67',
-          subject: 'Riyaziyyat',
-          school: 'Bakı Şəhər 123 nömrəli tam orta məktəb',
-          experienceYears: 8,
-          qualifications: ['Ali təhsil', 'Pedaqoji təcrübə', 'İxtisasartırma kursu'],
-          photo: (currentUser as any)?.photo // Optional casting for photo field
-        },
-        stats: {
-          assignedClasses: 5,
-          totalStudents: 110,
-          subjectsTeaching: 2,
-          attendanceRate: 91.5,
-          weeklyHours: 20,
-          pendingGrades: 12,
-          activeSurveys: 3,
-          upcomingTasks: 5
-        },
-        achievements: [
-          {
-            id: '1',
-            title: 'İlin Müəllimi',
-            description: '2023-cü ildə ilin müəllimi mükafatı',
-            date: '2023-06-15',
-            type: 'award'
-          },
-          {
-            id: '2',
-            title: 'Advanced Teaching Certificate',
-            description: 'Modern tədris metodları sertifikatı',
-            date: '2023-03-20',
-            type: 'certification'
-          },
-          {
-            id: '3',
-            title: '1000 saat dərs',
-            description: '1000 dərs saatı tamamlandı',
-            date: '2022-12-01',
-            type: 'milestone'
-          }
-        ],
-        education: [
-          {
-            degree: 'Magistr',
-            institution: 'BDU',
-            year: '2015',
-            field: 'Riyaziyyat müəllimliyi'
-          },
-          {
-            degree: 'Bakalavr',
-            institution: 'BDU',
-            year: '2013',
-            field: 'Riyaziyyat'
-          }
-        ],
-        certificates: [
-          {
-            name: 'Google Certified Educator',
-            issuer: 'Google',
-            date: '2023-01-15',
-            expiryDate: '2025-01-15'
-          },
-          {
-            name: 'Microsoft Innovative Educator',
-            issuer: 'Microsoft',
-            date: '2022-08-20'
-          }
-        ]
-      };
-    },
-    enabled: !!currentUser?.id
+  const { toast } = useToast();
+  
+  // Fetch profile data from API
+  const { data: profileData, isLoading, error, refetch } = useQuery({
+    queryKey: ['teacherProfile'],
+    queryFn: () => dashboardService.getTeacherProfile(),
+    enabled: !!currentUser && currentUser.role === 'müəllim'
   });
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+
+  const handleEditProfile = () => {
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditPhoto = () => {
+    setIsPhotoModalOpen(true);
+  };
+
+  const handleProfileUpdate = (updatedData: TeacherProfileData) => {
+    // Mock update - real API-dən gələcək
+    toast({
+      title: "Profil uğurla yeniləndi",
+      description: "Profil məlumatlarınız saxlanıldı",
+    });
+    setIsEditModalOpen(false);
+    refetch(); // Data-nı yenilə
+  };
+
+  const handlePhotoUpdate = (photoUrl: string) => {
+    // Mock photo update - real API-dən gələcək
+    toast({
+      title: "Şəkil uğurla yeniləndi",
+      description: "Profil şəkliniz saxlanıldı",
+    });
+    setIsPhotoModalOpen(false);
+    refetch(); // Data-nı yenilə
+  };
 
   if (isLoading) {
     return (
@@ -187,10 +159,16 @@ export default function TeacherProfile() {
       <div className="flex flex-col space-y-4">
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-foreground">Müəllim Profili</h1>
-          <Button variant="outline" size="sm">
-            <Edit className="h-4 w-4 mr-2" />
-            Profili Redaktə Et
-          </Button>
+          <div className="flex space-x-2">
+            <Button variant="outline" size="sm" onClick={handleEditPhoto}>
+              <Camera className="h-4 w-4 mr-2" />
+              Şəkil Dəyiş
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleEditProfile}>
+              <Edit className="h-4 w-4 mr-2" />
+              Profili Redaktə Et
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -457,6 +435,22 @@ export default function TeacherProfile() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Edit Modal */}
+      <TeacherProfileEditModal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        profileData={profileData}
+        onProfileUpdate={handleProfileUpdate}
+      />
+
+      {/* Photo Upload Modal */}
+      <TeacherPhotoUploadModal
+        isOpen={isPhotoModalOpen}
+        onClose={() => setIsPhotoModalOpen(false)}
+        currentPhoto={profileData?.teacherInfo.photo}
+        onPhotoUpdate={handlePhotoUpdate}
+      />
     </div>
   );
 }

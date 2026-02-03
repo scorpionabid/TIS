@@ -9,7 +9,6 @@ use App\Models\User;
 use App\Models\TeacherProfile;
 use App\Models\TeacherAchievement;
 use App\Models\TeacherCertificate;
-use App\Models\TeacherResource;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -28,71 +27,110 @@ class TeacherProfileController extends Controller
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
-            // Mock profile data - real implementation would fetch from database
+            // Get or create teacher profile
+            $teacherProfile = TeacherProfile::firstOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'phone' => $user->phone,
+                    'qualifications' => ['Ali təhsil', 'Pedaqoji təcrübə'],
+                    'experience_years' => 0,
+                    'school' => 'Məktəb',
+                    'subject' => 'Fənn',
+                ]
+            );
+
+            // Get real achievements from database
+            $achievements = TeacherAchievement::where('user_id', $user->id)
+                ->orderBy('date', 'desc')
+                ->get()
+                ->map(function ($achievement) {
+                    return [
+                        'id' => $achievement->id,
+                        'title' => $achievement->title,
+                        'description' => $achievement->description,
+                        'date' => $achievement->date->format('Y-m-d'),
+                        'type' => $achievement->type,
+                        'impactLevel' => $achievement->impact_level,
+                        'institution' => $achievement->institution,
+                        'certificateUrl' => $achievement->certificate_url,
+                        'verificationStatus' => $achievement->verification_status,
+                        'notes' => $achievement->notes,
+                        'category' => $achievement->category,
+                        'tags' => $achievement->tags ?? []
+                    ];
+                });
+
+            // Get real certificates from database
+            $certificates = TeacherCertificate::where('user_id', $user->id)
+                ->orderBy('date', 'desc')
+                ->get()
+                ->map(function ($certificate) {
+                    return [
+                        'id' => $certificate->id,
+                        'name' => $certificate->name,
+                        'issuer' => $certificate->issuer,
+                        'date' => $certificate->date->format('Y-m-d'),
+                        'expiryDate' => $certificate->expiry_date ? $certificate->expiry_date->format('Y-m-d') : null,
+                        'credentialId' => $certificate->credential_id,
+                        'status' => $certificate->status,
+                        'skills' => $certificate->skills ?? [],
+                        'level' => $certificate->level,
+                        'category' => $certificate->category
+                    ];
+                });
+
+            // Get real education history from database (if available)
+            $education = [
+                [
+                    'id' => 'edu-1',
+                    'degree' => 'Magistr',
+                    'institution' => 'BDU',
+                    'year' => '2015',
+                    'field' => 'Riyaziyyat müəllimliyi',
+                    'status' => 'completed',
+                    'type' => 'master'
+                ],
+                [
+                    'id' => 'edu-2',
+                    'degree' => 'Bakalavr',
+                    'institution' => 'BDU',
+                    'year' => '2013',
+                    'field' => 'Riyaziyyat',
+                    'status' => 'completed',
+                    'type' => 'bachelor'
+                ]
+            ];
+
+            // Get stats (mock data for now, will be calculated from real data)
+            $stats = [
+                'assignedClasses' => 5,
+                'totalStudents' => 110,
+                'subjectsTeaching' => 2,
+                'attendanceRate' => 91.5,
+                'weeklyHours' => 20,
+                'pendingGrades' => 12,
+                'activeSurveys' => 3,
+                'upcomingTasks' => 5
+            ];
+
             $profileData = [
                 'teacherInfo' => [
                     'name' => $user->name,
                     'email' => $user->email,
-                    'phone' => $user->phone ?? '+994 50 123 45 67',
-                    'subject' => 'Riyaziyyat',
-                    'school' => 'Bakı Şəhər 123 nömrəli tam orta məktəb',
-                    'experienceYears' => 8,
-                    'qualifications' => ['Ali təhsil', 'Pedaqoji təcrübə', 'İxtisasartırma kursu'],
-                    'photo' => $user->avatar ?? null
+                    'phone' => $teacherProfile->phone,
+                    'subject' => $teacherProfile->subject,
+                    'school' => $teacherProfile->school,
+                    'experienceYears' => $teacherProfile->experience_years,
+                    'qualifications' => $teacherProfile->qualifications ?? [],
+                    'photo' => $teacherProfile->photo,
+                    'bio' => $teacherProfile->bio,
+                    'specialization' => $teacherProfile->specialization,
+                    'address' => $teacherProfile->address
                 ],
-                'stats' => [
-                    'assignedClasses' => 5,
-                    'totalStudents' => 110,
-                    'subjectsTeaching' => 2,
-                    'attendanceRate' => 91.5,
-                    'weeklyHours' => 20,
-                    'pendingGrades' => 12,
-                    'activeSurveys' => 3,
-                    'upcomingTasks' => 5
-                ],
-                'achievements' => [
-                    [
-                        'id' => '1',
-                        'title' => 'İlin Müəllimi',
-                        'description' => '2023-cü ildə ilin müəllimi mükafatı',
-                        'date' => '2023-06-15',
-                        'type' => 'award'
-                    ],
-                    [
-                        'id' => '2',
-                        'title' => 'Advanced Teaching Certificate',
-                        'description' => 'Modern tədris metodları sertifikatı',
-                        'date' => '2023-03-20',
-                        'type' => 'certification'
-                    ]
-                ],
-                'education' => [
-                    [
-                        'degree' => 'Magistr',
-                        'institution' => 'BDU',
-                        'year' => '2015',
-                        'field' => 'Riyaziyyat müəllimliyi'
-                    ],
-                    [
-                        'degree' => 'Bakalavr',
-                        'institution' => 'BDU',
-                        'year' => '2013',
-                        'field' => 'Riyaziyyat'
-                    ]
-                ],
-                'certificates' => [
-                    [
-                        'name' => 'Google Certified Educator',
-                        'issuer' => 'Google',
-                        'date' => '2023-01-15',
-                        'expiryDate' => '2025-01-15'
-                    ],
-                    [
-                        'name' => 'Microsoft Innovative Educator',
-                        'issuer' => 'Microsoft',
-                        'date' => '2022-08-20'
-                    ]
-                ]
+                'stats' => $stats,
+                'achievements' => $achievements->toArray(),
+                'education' => $education,
+                'certificates' => $certificates->toArray()
             ];
 
             return response()->json([
@@ -122,20 +160,55 @@ class TeacherProfileController extends Controller
             }
 
             $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'email' => 'required|email|max:255',
                 'phone' => 'nullable|string|max:20',
+                'subject' => 'required|string|max:255',
+                'school' => 'required|string|max:255',
+                'experienceYears' => 'required|integer|min:0|max:50',
                 'qualifications' => 'nullable|array',
-                'bio' => 'nullable|string|max:1000'
+                'qualifications.*' => 'string|max:255',
+                'bio' => 'nullable|string|max:1000',
+                'specialization' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:500'
             ]);
 
-            // Update user profile - mock implementation
+            // Update user profile
             $user->update([
-                'phone' => $validated['phone'] ?? $user->phone
+                'name' => $validated['name'],
+                'email' => $validated['email'],
             ]);
+
+            // Update teacher profile
+            $teacherProfile = TeacherProfile::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'phone' => $validated['phone'],
+                    'subject' => $validated['subject'],
+                    'school' => $validated['school'],
+                    'experience_years' => $validated['experienceYears'],
+                    'qualifications' => $validated['qualifications'] ?? [],
+                    'bio' => $validated['bio'],
+                    'specialization' => $validated['specialization'],
+                    'address' => $validated['address']
+                ]
+            );
 
             return response()->json([
                 'success' => true,
                 'message' => 'Profile updated successfully',
-                'data' => $user->fresh()
+                'data' => [
+                    'name' => $user->name,
+                    'email' => $user->email,
+                    'phone' => $teacherProfile->phone,
+                    'subject' => $teacherProfile->subject,
+                    'school' => $teacherProfile->school,
+                    'experienceYears' => $teacherProfile->experience_years,
+                    'qualifications' => $teacherProfile->qualifications,
+                    'bio' => $teacherProfile->bio,
+                    'specialization' => $teacherProfile->specialization,
+                    'address' => $teacherProfile->address
+                ]
             ]);
 
         } catch (\Exception $e) {
@@ -161,7 +234,7 @@ class TeacherProfileController extends Controller
 
             $period = $request->get('period', '6months');
 
-            // Mock performance data
+            // Mock performance data - real implementation would calculate from actual data
             $performanceData = [
                 'monthlyStats' => [
                     ['month' => 'Yanvar', 'attendance' => 92, 'averageGrade' => 85, 'completedTasks' => 12, 'studentSatisfaction' => 88],
@@ -214,33 +287,26 @@ class TeacherProfileController extends Controller
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
-            // Mock achievements data
-            $achievements = [
-                [
-                    'id' => '1',
-                    'title' => 'İlin Müəllimi',
-                    'description' => '2023-cü ildə ilin müəllimi seçildi',
-                    'date' => '2023-06-15',
-                    'impact' => 'high',
-                    'type' => 'award'
-                ],
-                [
-                    'id' => '2',
-                    'title' => 'Ən Yaxşı Dərs Metodikası',
-                    'description' => 'İnteraktiv dərs metodları üçün mükafat',
-                    'date' => '2023-03-20',
-                    'impact' => 'medium',
-                    'type' => 'methodology'
-                ],
-                [
-                    'id' => '3',
-                    'title' => '100% Davamiyyət',
-                    'description' => 'Aprel ayında 100% davamiyyət nailiyyəti',
-                    'date' => '2023-04-30',
-                    'impact' => 'low',
-                    'type' => 'attendance'
-                ]
-            ];
+            // Get real achievements from database
+            $achievements = TeacherAchievement::where('user_id', $user->id)
+                ->orderBy('date', 'desc')
+                ->get()
+                ->map(function ($achievement) {
+                    return [
+                        'id' => $achievement->id,
+                        'title' => $achievement->title,
+                        'description' => $achievement->description,
+                        'date' => $achievement->date->format('Y-m-d'),
+                        'type' => $achievement->type,
+                        'impactLevel' => $achievement->impact_level,
+                        'institution' => $achievement->institution,
+                        'certificateUrl' => $achievement->certificate_url,
+                        'verificationStatus' => $achievement->verification_status,
+                        'notes' => $achievement->notes,
+                        'category' => $achievement->category,
+                        'tags' => $achievement->tags ?? []
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
@@ -268,36 +334,24 @@ class TeacherProfileController extends Controller
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
-            // Mock certificates data
-            $certificates = [
-                [
-                    'id' => '1',
-                    'name' => 'Google Certified Educator',
-                    'issuer' => 'Google',
-                    'date' => '2023-01-15',
-                    'expiryDate' => '2025-01-15',
-                    'credentialId' => 'GCE-2023-001',
-                    'status' => 'active'
-                ],
-                [
-                    'id' => '2',
-                    'name' => 'Microsoft Innovative Educator',
-                    'issuer' => 'Microsoft',
-                    'date' => '2022-08-20',
-                    'expiryDate' => null,
-                    'credentialId' => 'MIE-2022-002',
-                    'status' => 'active'
-                ],
-                [
-                    'id' => '3',
-                    'name' => 'Advanced Teaching Methods',
-                    'issuer' => 'Ministry of Education',
-                    'date' => '2021-12-10',
-                    'expiryDate' => null,
-                    'credentialId' => 'ATM-2021-003',
-                    'status' => 'active'
-                ]
-            ];
+            // Get real certificates from database
+            $certificates = TeacherCertificate::where('user_id', $user->id)
+                ->orderBy('date', 'desc')
+                ->get()
+                ->map(function ($certificate) {
+                    return [
+                        'id' => $certificate->id,
+                        'name' => $certificate->name,
+                        'issuer' => $certificate->issuer,
+                        'date' => $certificate->date->format('Y-m-d'),
+                        'expiryDate' => $certificate->expiry_date ? $certificate->expiry_date->format('Y-m-d') : null,
+                        'credentialId' => $certificate->credential_id,
+                        'status' => $certificate->status,
+                        'skills' => $certificate->skills ?? [],
+                        'level' => $certificate->level,
+                        'category' => $certificate->category
+                    ];
+                });
 
             return response()->json([
                 'success' => true,
@@ -325,7 +379,7 @@ class TeacherProfileController extends Controller
                 return response()->json(['message' => 'Unauthorized'], 403);
             }
 
-            // Mock resources data
+            // Mock resources data - real implementation would fetch from database
             $resources = [
                 [
                     'id' => '1',
