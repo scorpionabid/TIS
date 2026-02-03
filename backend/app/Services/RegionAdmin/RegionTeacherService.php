@@ -324,6 +324,35 @@ class RegionTeacherService
     }
 
     /**
+     * Generate username from email
+     */
+    private function generateUsernameFromEmail(string $email): string
+    {
+        // Extract username from email (before @)
+        $username = explode('@', $email)[0];
+        
+        // Clean and sanitize
+        $username = strtolower($username);
+        $username = preg_replace('/[^a-z0-9_]/', '', $username);
+        
+        // Ensure it's not empty
+        if (empty($username)) {
+            $username = 'user_' . time();
+        }
+        
+        // Check if username exists and make unique if needed
+        $originalUsername = $username;
+        $counter = 1;
+        
+        while (User::where('username', $username)->exists()) {
+            $username = $originalUsername . '_' . $counter;
+            $counter++;
+        }
+        
+        return $username;
+    }
+
+    /**
      * Create new teacher
      */
     public function createTeacher(array $data, Institution $region): User
@@ -340,6 +369,7 @@ class RegionTeacherService
             // Create user
             $user = User::create([
                 'email' => $data['email'],
+                'username' => $this->generateUsernameFromEmail($data['email']),
                 'password' => bcrypt($data['password'] ?? 'teacher123'), // Default password
                 'institution_id' => $data['institution_id'],
                 'is_active' => true,
