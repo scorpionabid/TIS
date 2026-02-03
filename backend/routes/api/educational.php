@@ -594,3 +594,13 @@ Route::prefix('regional-schedules')->middleware(['auth:sanctum', 'role_or_permis
     // Reporting and export
     Route::post('/export-report', [RegionalScheduleController::class, 'exportRegionalReport']);
 });
+
+// Teacher Profile Approval Routes
+Route::prefix('teacher-approvals')->middleware(['auth:sanctum', 'role:sektoradmin'])->group(function () {
+    Route::get('/', [App\Http\Controllers\Api\TeacherApprovalController::class, 'index']);
+    Route::get('/stats', [App\Http\Controllers\Api\TeacherApprovalController::class, 'stats']);
+    Route::get('/{id}', [App\Http\Controllers\Api\TeacherApprovalController::class, 'show']);
+    Route::post('/{id}/approve', [App\Http\Controllers\Api\TeacherApprovalController::class, 'approve']);
+    Route::post('/{id}/reject', [App\Http\Controllers\Api\TeacherApprovalController::class, 'reject']);
+    Route::post('/bulk-approve', [App\Http\Controllers\Api\TeacherApprovalController::class, 'bulkApprove']);
+});

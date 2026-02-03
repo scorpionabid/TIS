@@ -24,7 +24,9 @@ import {
   Users,
   TrendingUp,
   Star,
-  Camera
+  Camera,
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
@@ -43,6 +45,10 @@ interface TeacherProfileData {
     experienceYears: number;
     qualifications: string[];
     photo?: string;
+    status?: 'pending' | 'approved' | 'rejected';
+    rejectionReason?: string;
+    approvedAt?: string;
+    approvedBy?: string;
   };
   stats: {
     assignedClasses: number;
@@ -67,6 +73,8 @@ interface TeacherProfileData {
     notes?: string;
     category?: string;
     tags?: string[];
+    approvalStatus?: 'pending' | 'approved' | 'rejected';
+    approvalRejectionReason?: string;
   }>;
   education: Array<{
     id: string;
@@ -78,10 +86,28 @@ interface TeacherProfileData {
     type: 'bachelor' | 'master' | 'phd' | 'certificate' | 'diploma' | 'other';
   }>;
   certificates: Array<{
+    id: string;
     name: string;
     issuer: string;
     date: string;
     expiryDate?: string;
+    credentialId?: string;
+    status: 'active' | 'expired' | 'pending' | 'revoked';
+    skills?: string[];
+    level?: string;
+    category?: string;
+    approvalStatus?: 'pending' | 'approved' | 'rejected';
+    approvalRejectionReason?: string;
+  }>;
+  pendingChanges?: Array<{
+    id: string;
+    modelType: string;
+    modelId: string;
+    oldData: any;
+    newData: any;
+    status: string;
+    rejectionReason?: string;
+    createdAt: string;
   }>;
 }
 
@@ -151,7 +177,12 @@ export default function TeacherProfile() {
     );
   }
 
-  const { teacherInfo, stats, achievements, education, certificates } = profileData;
+  const teacherInfo = profileData.teacherInfo;
+  const status = teacherInfo?.status;
+  const stats = profileData.stats;
+  const achievements = profileData.achievements;
+  const education = profileData.education;
+  const certificates = profileData.certificates;
 
   return (
     <div className="space-y-6">
@@ -175,29 +206,50 @@ export default function TeacherProfile() {
       {/* Profile Card */}
       <Card>
         <CardHeader>
-          <div className="flex items-center space-x-4">
-            <Avatar className="h-20 w-20">
-              <AvatarImage src={teacherInfo.photo} alt={teacherInfo.name} />
-              <AvatarFallback className="text-lg">
-                {teacherInfo.name.split(' ').map(n => n[0]).join('')}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex-1">
-              <CardTitle className="text-2xl">{teacherInfo.name}</CardTitle>
-              <CardDescription className="text-lg">
-                {teacherInfo.subject} - {teacherInfo.school}
-              </CardDescription>
-              <div className="flex items-center space-x-4 mt-2">
-                <Badge variant="secondary">
-                  <GraduationCap className="h-3 w-3 mr-1" />
-                  {teacherInfo.experienceYears} il təcrübə
-                </Badge>
-                <Badge variant="outline">
-                  <Star className="h-3 w-3 mr-1" />
-                  {stats.attendanceRate}% davamiyyət
-                </Badge>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <Avatar className="h-20 w-20">
+                <AvatarImage src={teacherInfo.photo} alt={teacherInfo.name} />
+                <AvatarFallback className="text-lg">
+                  {teacherInfo.name.split(' ').map(n => n[0]).join('')}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1">
+                <CardTitle className="text-2xl">{teacherInfo.name}</CardTitle>
+                <CardDescription className="text-lg">
+                  {teacherInfo.subject} - {teacherInfo.school}
+                </CardDescription>
+                <div className="flex items-center space-x-4 mt-2">
+                  <Badge variant="secondary">
+                    <GraduationCap className="h-3 w-3 mr-1" />
+                    {teacherInfo.experienceYears} il təcrübə
+                  </Badge>
+                  <Badge variant="outline">
+                    <Star className="h-3 w-3 mr-1" />
+                    {stats.attendanceRate}% davamiyyət
+                  </Badge>
+                  {status && (
+                    <Badge 
+                      variant={
+                        status === 'approved' ? 'default' :
+                        status === 'pending' ? 'secondary' : 'destructive'
+                      }
+                    >
+                      <CheckCircle className="h-3 w-3 mr-1" />
+                      {status === 'approved' ? 'Təsdiqləndi' :
+                       status === 'pending' ? 'Gözləyir' : 'Rədd edildi'}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
+            <Button 
+              onClick={() => setIsEditModalOpen(true)}
+              className="flex items-center space-x-2"
+            >
+              <Edit className="h-4 w-4" />
+              <span>Profili Redaktə Et</span>
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -356,22 +408,52 @@ export default function TeacherProfile() {
         <TabsContent value="achievements" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Nailiyyətlər</CardTitle>
-              <CardDescription>Müəllimin əldə etdiyi mükafatlar və uğurlar</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Nailiyyətlər</CardTitle>
+                  <CardDescription>Müəllimin əldə etdiyi mükafatlar və uğurlar</CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setIsEditModalOpen(true)}
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Nailiyyət Əlavə Et</span>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {achievements.map((achievement) => (
-                  <div key={achievement.id} className="flex items-center space-x-4 p-4 border rounded-lg">
-                    <div className="flex-shrink-0">
-                      {achievement.type === 'award' && <Award className="h-8 w-8 text-yellow-500" />}
-                      {achievement.type === 'certification' && <GraduationCap className="h-8 w-8 text-blue-500" />}
-                      {achievement.type === 'milestone' && <Target className="h-8 w-8 text-green-500" />}
+                  <div key={achievement.id} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-4 flex-1">
+                      <div className="flex-shrink-0">
+                        {achievement.type === 'award' && <Award className="h-8 w-8 text-yellow-500" />}
+                        {achievement.type === 'certification' && <GraduationCap className="h-8 w-8 text-blue-500" />}
+                        {achievement.type === 'milestone' && <Target className="h-8 w-8 text-green-500" />}
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{achievement.title}</h4>
+                        <p className="text-sm text-muted-foreground">{achievement.description}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{achievement.date}</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <h4 className="font-semibold">{achievement.title}</h4>
-                      <p className="text-sm text-muted-foreground">{achievement.description}</p>
-                      <p className="text-xs text-muted-foreground mt-1">{achievement.date}</p>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsEditModalOpen(true)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -383,18 +465,48 @@ export default function TeacherProfile() {
         <TabsContent value="education" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Təhsil Tarixçəsi</CardTitle>
-              <CardDescription>Müəllimin təhsil məlumatları</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Təhsil Tarixçəsi</CardTitle>
+                  <CardDescription>Müəllimin təhsil məlumatları</CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setIsEditModalOpen(true)}
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Təhsil Əlavə Et</span>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {education.map((edu, index) => (
-                  <div key={index} className="flex items-center space-x-4 p-4 border rounded-lg">
-                    <GraduationCap className="h-8 w-8 text-blue-500 flex-shrink-0" />
-                    <div className="flex-1">
-                      <h4 className="font-semibold">{edu.degree} - {edu.field}</h4>
-                      <p className="text-sm text-muted-foreground">{edu.institution}</p>
-                      <p className="text-xs text-muted-foreground mt-1">Bitirdiyi il: {edu.year}</p>
+                  <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                    <div className="flex items-center space-x-4 flex-1">
+                      <GraduationCap className="h-8 w-8 text-blue-500 flex-shrink-0" />
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{edu.degree} - {edu.field}</h4>
+                        <p className="text-sm text-muted-foreground">{edu.institution}</p>
+                        <p className="text-xs text-muted-foreground mt-1">Bitirdiyi il: {edu.year}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsEditModalOpen(true)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -406,16 +518,28 @@ export default function TeacherProfile() {
         <TabsContent value="certificates" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Sertifikatlar</CardTitle>
-              <CardDescription>Müəllimin əldə etdiyi peşəkar sertifikatlar</CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Sertifikatlar</CardTitle>
+                  <CardDescription>Müəllimin əldə etdiyi peşəkar sertifikatlar</CardDescription>
+                </div>
+                <Button 
+                  onClick={() => setIsEditModalOpen(true)}
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Sertifikat Əlavə Et</span>
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
                 {certificates.map((cert, index) => (
                   <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-4 flex-1">
                       <FileText className="h-8 w-8 text-green-500 flex-shrink-0" />
-                      <div>
+                      <div className="flex-1">
                         <h4 className="font-semibold">{cert.name}</h4>
                         <p className="text-sm text-muted-foreground">{cert.issuer}</p>
                         <p className="text-xs text-muted-foreground mt-1">
@@ -424,10 +548,25 @@ export default function TeacherProfile() {
                         </p>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm">
-                      <Download className="h-4 w-4 mr-2" />
-                      Yüklə
-                    </Button>
+                    <div className="flex items-center space-x-2">
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsEditModalOpen(true)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-red-600 hover:text-red-700"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                      <Button variant="outline" size="sm">
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
               </div>

@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TeacherCertificate extends Model
 {
@@ -23,7 +24,11 @@ class TeacherCertificate extends Model
         'description',
         'skills',
         'level',
-        'category'
+        'category',
+        'approval_status',
+        'approval_rejection_reason',
+        'approved_at',
+        'approved_by'
     ];
 
     protected $casts = [
@@ -32,6 +37,7 @@ class TeacherCertificate extends Model
         'skills' => 'array',
         'verification_url' => 'string',
         'certificate_url' => 'string',
+        'approved_at' => 'datetime',
     ];
 
     /**
@@ -39,8 +45,14 @@ class TeacherCertificate extends Model
      */
     const STATUS_ACTIVE = 'active';
     const STATUS_EXPIRED = 'expired';
-    const STATUS_PENDING = 'pending';
     const STATUS_REVOKED = 'revoked';
+
+    /**
+     * Approval statuses
+     */
+    const APPROVAL_STATUS_PENDING = 'pending';
+    const APPROVAL_STATUS_APPROVED = 'approved';
+    const APPROVAL_STATUS_REJECTED = 'rejected';
 
     /**
      * Certificate levels
@@ -74,6 +86,23 @@ class TeacherCertificate extends Model
     public function teacherProfile(): BelongsTo
     {
         return $this->belongsTo(TeacherProfile::class);
+    }
+
+    /**
+     * Get the approval requests for the certificate.
+     */
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(TeacherProfileApproval::class, 'model_id')
+                    ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_CERTIFICATE);
+    }
+
+    /**
+     * Get the admin who approved the certificate.
+     */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
@@ -349,5 +378,124 @@ class TeacherCertificate extends Model
         }
         
         return $this->date->diffInYears($this->expiry_date);
+    }
+
+    /**
+     * Scope to get pending certificates.
+     */
+    public function scopePending($query)
+    {
+        return $query->where('approval_status', self::APPROVAL_STATUS_PENDING);
+    }
+
+    /**
+     * Scope to get approved certificates.
+     */
+    public function scopeApproved($query)
+    {
+        return $query->where('approval_status', self::APPROVAL_STATUS_APPROVED);
+    }
+
+    /**
+     * Scope to get rejected certificates.
+     */
+    public function scopeRejected($query)
+    {
+        return $query->where('approval_status', self::APPROVAL_STATUS_REJECTED);
+    }
+
+    /**
+     * Check if certificate is pending approval.
+     */
+    public function isPending(): bool
+    {
+        return $this->approval_status === self::APPROVAL_STATUS_PENDING;
+    }
+
+    /**
+     * Check if certificate is approved.
+     */
+    public function isApproved(): bool
+    {
+        return $this->approval_status === self::APPROVAL_STATUS_APPROVED;
+    }
+
+    /**
+     * Check if certificate is rejected.
+     */
+    public function isRejected(): bool
+    {
+        return $this->approval_status === self::APPROVAL_STATUS_REJECTED;
+    }
+
+    /**
+     * Approve the certificate.
+     */
+    public function approve(int $approvedBy): void
+    {
+        $this->update([
+            'approval_status' => self::APPROVAL_STATUS_APPROVED,
+            'approved_by' => $approvedBy,
+            'approved_at' => now(),
+            'approval_rejection_reason' => null
+        ]);
+    }
+
+    /**
+     * Reject the certificate.
+     */
+    public function reject(int $approvedBy, string $reason): void
+    {
+        $this->update([
+            'approval_status' => self::APPROVAL_STATUS_REJECTED,
+            'approved_by' => $approvedBy,
+            'approved_at' => now(),
+            'approval_rejection_reason' => $reason
+        ]);
+    }
+
+    /**
+     * Submit for approval.
+     */
+    public function submitForApproval(): void
+    {
+        $this->update([
+            'approval_status' => self::APPROVAL_STATUS_PENDING,
+            'approval_rejection_reason' => null
+        ]);
+    }
+
+    /**
+     * Get approval status display name.
+     */
+    public function getApprovalStatusDisplayNameAttribute(): string
+    {
+        switch ($this->approval_status) {
+            case self::APPROVAL_STATUS_PENDING:
+                return 'Gözləyir';
+            case self::APPROVAL_STATUS_APPROVED:
+                return 'Təsdiqləndi';
+            case self::APPROVAL_STATUS_REJECTED:
+                return 'Rədd edildi';
+            default:
+                return 'Məlum deyil';
+        }
+    }
+
+    /**
+     * Get approval status color.
+     */
+    public function getApprovalStatusColorAttribute(): string
+    {
+        switch ($this->approval_status) {
+            case self::APPROVAL_STATUS_PENDING:
+                return 'yellow';
+            case self::APPROVAL_STATUS_APPROVED:
+                return 'green';
+            case self::APPROVAL_STATUS_REJECTED:
+                return 'red';
+            default:
+                return 'gray';
+        }
     }
 }

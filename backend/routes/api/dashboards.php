@@ -210,6 +210,9 @@ Route::prefix('teacher')->middleware(['role:müəllim', 'regional.access:school'
     // Profile endpoints
     Route::get('profile', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getProfile']);
     Route::put('profile', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'updateProfile']);
+    Route::put('profile/with-approval', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'updateProfileWithApproval']);
+    Route::get('profile/pending-changes', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getPendingChanges']);
+    Route::post('profile/submit-for-approval', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'submitForApproval']);
     Route::get('performance', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getPerformance']);
     Route::get('achievements', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getAchievements']);
     Route::get('certificates', [App\Http\Controllers\Teacher\TeacherProfileController::class, 'getCertificates']);

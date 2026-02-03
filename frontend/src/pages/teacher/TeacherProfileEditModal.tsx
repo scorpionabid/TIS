@@ -39,6 +39,7 @@ import {
   Save
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { dashboardService } from '@/services/dashboard';
 import EducationTimeline from '@/components/teacher/EducationTimeline';
 import AchievementTimeline from '@/components/teacher/AchievementTimeline';
 
@@ -272,18 +273,22 @@ export default function TeacherProfileEditModal({
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Real API call with approval workflow
+      await dashboardService.updateTeacherProfileWithApproval(formData);
       
       onProfileUpdate(formData);
       toast({
-        title: "Profil uğurla yeniləndi",
-        description: "Profil məlumatlarınız saxlanıldı",
+        title: "Profil təsdiq üçün göndərildi",
+        description: "Profil məlumatlarınız sektoradmin tərəfindən nəzərdən keçirəcək",
       });
+      
+      // Close modal after successful submission
+      onClose();
     } catch (error) {
+      console.error('Profile update error:', error);
       toast({
         title: "Xəta baş verdi",
-        description: "Profil yenilənərkən xəta baş verdi",
+        description: "Profil yenilənərkən xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.",
         variant: "destructive"
       });
     } finally {

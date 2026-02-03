@@ -270,7 +270,7 @@ export default function EducationTimeline({
                         {statusOptions.find(s => s.value === edu.status)?.label}
                       </Badge>
                     </div>
-                    <CardDescription className="text-sm">
+                    <div className="text-sm text-gray-600 space-y-1">
                       <div className="flex items-center space-x-2">
                         <School className="h-4 w-4" />
                         <span>{edu.institution}</span>
@@ -281,7 +281,7 @@ export default function EducationTimeline({
                           </>
                         )}
                       </div>
-                      <div className="flex items-center space-x-2 mt-1">
+                      <div className="flex items-center space-x-2">
                         <Calendar className="h-4 w-4" />
                         <span>{edu.year}</span>
                         {edu.startDate && edu.endDate && (
@@ -290,11 +290,11 @@ export default function EducationTimeline({
                           </>
                         )}
                       </div>
-                      <div className="flex items-center space-x-2 mt-1">
+                      <div className="flex items-center space-x-2">
                         <BookOpen className="h-4 w-4" />
                         <span>{edu.field}</span>
                       </div>
-                    </CardDescription>
+                    </div>
                   </div>
                 </div>
                 

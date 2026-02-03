@@ -26,7 +26,11 @@ class TeacherProfile extends Model
         'emergency_contact_phone',
         'emergency_contact_email',
         'social_links',
-        'preferences'
+        'preferences',
+        'status',
+        'rejection_reason',
+        'approved_at',
+        'approved_by'
     ];
 
     protected $casts = [
@@ -34,6 +38,7 @@ class TeacherProfile extends Model
         'social_links' => 'array',
         'preferences' => 'array',
         'experience_years' => 'integer',
+        'approved_at' => 'datetime',
     ];
 
     /**
@@ -82,6 +87,23 @@ class TeacherProfile extends Model
     public function skills(): HasMany
     {
         return $this->hasMany(TeacherSkill::class);
+    }
+
+    /**
+     * Get the approval requests for the teacher profile.
+     */
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(TeacherProfileApproval::class, 'model_id')
+                    ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_PROFILE);
+    }
+
+    /**
+     * Get the admin who approved the profile.
+     */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
@@ -230,5 +252,131 @@ class TeacherProfile extends Model
         if ($completion >= 70) return 'Good';
         if ($completion >= 50) return 'Fair';
         return 'Incomplete';
+    }
+
+    /**
+     * Approval statuses
+     */
+    const STATUS_PENDING = 'pending';
+    const STATUS_APPROVED = 'approved';
+    const STATUS_REJECTED = 'rejected';
+
+    /**
+     * Scope to get pending profiles.
+     */
+    public function scopePending($query)
+    {
+        return $query->where('status', self::STATUS_PENDING);
+    }
+
+    /**
+     * Scope to get approved profiles.
+     */
+    public function scopeApproved($query)
+    {
+        return $query->where('status', self::STATUS_APPROVED);
+    }
+
+    /**
+     * Scope to get rejected profiles.
+     */
+    public function scopeRejected($query)
+    {
+        return $query->where('status', self::STATUS_REJECTED);
+    }
+
+    /**
+     * Check if profile is pending approval.
+     */
+    public function isPending(): bool
+    {
+        return $this->status === self::STATUS_PENDING;
+    }
+
+    /**
+     * Check if profile is approved.
+     */
+    public function isApproved(): bool
+    {
+        return $this->status === self::STATUS_APPROVED;
+    }
+
+    /**
+     * Check if profile is rejected.
+     */
+    public function isRejected(): bool
+    {
+        return $this->status === self::STATUS_REJECTED;
+    }
+
+    /**
+     * Approve the profile.
+     */
+    public function approve(int $approvedBy): void
+    {
+        $this->update([
+            'status' => self::STATUS_APPROVED,
+            'approved_by' => $approvedBy,
+            'approved_at' => now(),
+            'rejection_reason' => null
+        ]);
+    }
+
+    /**
+     * Reject the profile.
+     */
+    public function reject(int $approvedBy, string $reason): void
+    {
+        $this->update([
+            'status' => self::STATUS_REJECTED,
+            'approved_by' => $approvedBy,
+            'approved_at' => now(),
+            'rejection_reason' => $reason
+        ]);
+    }
+
+    /**
+     * Submit for approval.
+     */
+    public function submitForApproval(): void
+    {
+        $this->update([
+            'status' => self::STATUS_PENDING,
+            'rejection_reason' => null
+        ]);
+    }
+
+    /**
+     * Get status display name.
+     */
+    public function getStatusDisplayNameAttribute(): string
+    {
+        switch ($this->status) {
+            case self::STATUS_PENDING:
+                return 'Gözləyir';
+            case self::STATUS_APPROVED:
+                return 'Təsdiqləndi';
+            case self::STATUS_REJECTED:
+                return 'Rədd edildi';
+            default:
+                return 'Məlum deyil';
+        }
+    }
+
+    /**
+     * Get status color.
+     */
+    public function getStatusColorAttribute(): string
+    {
+        switch ($this->status) {
+            case self::STATUS_PENDING:
+                return 'yellow';
+            case self::STATUS_APPROVED:
+                return 'green';
+            case self::STATUS_REJECTED:
+                return 'red';
+            default:
+                return 'gray';
+        }
     }
 }

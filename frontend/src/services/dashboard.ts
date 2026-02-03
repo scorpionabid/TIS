@@ -52,6 +52,10 @@ export interface TeacherProfileData {
     experienceYears: number;
     qualifications: string[];
     photo?: string;
+    status?: 'pending' | 'approved' | 'rejected';
+    rejectionReason?: string;
+    approvedAt?: string;
+    approvedBy?: string;
   };
   stats: {
     assignedClasses: number;
@@ -76,6 +80,8 @@ export interface TeacherProfileData {
     notes?: string;
     category?: string;
     tags?: string[];
+    approvalStatus?: 'pending' | 'approved' | 'rejected';
+    approvalRejectionReason?: string;
   }>;
   education: Array<{
     id: string;
@@ -97,6 +103,18 @@ export interface TeacherProfileData {
     skills?: string[];
     level?: string;
     category?: string;
+    approvalStatus?: 'pending' | 'approved' | 'rejected';
+    approvalRejectionReason?: string;
+  }>;
+  pendingChanges?: Array<{
+    id: string;
+    modelType: string;
+    modelId: string;
+    oldData: any;
+    newData: any;
+    status: string;
+    rejectionReason?: string;
+    createdAt: string;
   }>;
 }
 
@@ -199,6 +217,45 @@ class DashboardService {
       return response.data;
     } catch (error) {
       console.error('❌ DashboardService.getTeacherProfile failed:', error);
+      throw error;
+    }
+  }
+
+  async updateTeacherProfileWithApproval(data: any): Promise<any> {
+    console.log('🔍 DashboardService.updateTeacherProfileWithApproval called');
+    try {
+      const response = await apiClient.put('/teacher/profile/with-approval', data);
+      console.log('✅ DashboardService.updateTeacherProfileWithApproval successful:', response);
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ DashboardService.updateTeacherProfileWithApproval failed:', error);
+      throw error;
+    }
+  }
+
+  async getPendingChanges(): Promise<any> {
+    console.log('🔍 DashboardService.getPendingChanges called');
+    try {
+      const response = await apiClient.get('/teacher/profile/pending-changes');
+      console.log('✅ DashboardService.getPendingChanges successful:', response);
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ DashboardService.getPendingChanges failed:', error);
+      throw error;
+    }
+  }
+
+  async submitForApproval(): Promise<any> {
+    console.log('🔍 DashboardService.submitForApproval called');
+    try {
+      const response = await apiClient.post('/teacher/profile/submit-for-approval');
+      console.log('✅ DashboardService.submitForApproval successful:', response);
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ DashboardService.submitForApproval failed:', error);
       throw error;
     }
   }

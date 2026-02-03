@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TeacherAchievement extends Model
 {
@@ -20,12 +21,20 @@ class TeacherAchievement extends Model
         'institution',
         'certificate_url',
         'verification_status',
-        'notes'
+        'notes',
+        'category',
+        'tags',
+        'approval_status',
+        'approval_rejection_reason',
+        'approved_at',
+        'approved_by'
     ];
 
     protected $casts = [
         'date' => 'date',
         'verification_status' => 'boolean',
+        'tags' => 'array',
+        'approved_at' => 'datetime',
     ];
 
     /**
@@ -59,6 +68,23 @@ class TeacherAchievement extends Model
     public function teacherProfile(): BelongsTo
     {
         return $this->belongsTo(TeacherProfile::class);
+    }
+
+    /**
+     * Get the approval requests for the achievement.
+     */
+    public function approvals(): HasMany
+    {
+        return $this->hasMany(TeacherProfileApproval::class, 'model_id')
+                    ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_ACHIEVEMENT);
+    }
+
+    /**
+     * Get the admin who approved the achievement.
+     */
+    public function approvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
@@ -210,6 +236,132 @@ class TeacherAchievement extends Model
                 return 'Aşağı';
             default:
                 return 'Məlum deyil';
+        }
+    }
+
+    /**
+     * Approval statuses
+     */
+    const STATUS_PENDING = 'pending';
+    const STATUS_APPROVED = 'approved';
+    const STATUS_REJECTED = 'rejected';
+
+    /**
+     * Scope to get pending achievements.
+     */
+    public function scopePending($query)
+    {
+        return $query->where('approval_status', self::STATUS_PENDING);
+    }
+
+    /**
+     * Scope to get approved achievements.
+     */
+    public function scopeApproved($query)
+    {
+        return $query->where('approval_status', self::STATUS_APPROVED);
+    }
+
+    /**
+     * Scope to get rejected achievements.
+     */
+    public function scopeRejected($query)
+    {
+        return $query->where('approval_status', self::STATUS_REJECTED);
+    }
+
+    /**
+     * Check if achievement is pending approval.
+     */
+    public function isPending(): bool
+    {
+        return $this->approval_status === self::STATUS_PENDING;
+    }
+
+    /**
+     * Check if achievement is approved.
+     */
+    public function isApproved(): bool
+    {
+        return $this->approval_status === self::STATUS_APPROVED;
+    }
+
+    /**
+     * Check if achievement is rejected.
+     */
+    public function isRejected(): bool
+    {
+        return $this->approval_status === self::STATUS_REJECTED;
+    }
+
+    /**
+     * Approve the achievement.
+     */
+    public function approve(int $approvedBy): void
+    {
+        $this->update([
+            'approval_status' => self::STATUS_APPROVED,
+            'approved_by' => $approvedBy,
+            'approved_at' => now(),
+            'approval_rejection_reason' => null
+        ]);
+    }
+
+    /**
+     * Reject the achievement.
+     */
+    public function reject(int $approvedBy, string $reason): void
+    {
+        $this->update([
+            'approval_status' => self::STATUS_REJECTED,
+            'approved_by' => $approvedBy,
+            'approved_at' => now(),
+            'approval_rejection_reason' => $reason
+        ]);
+    }
+
+    /**
+     * Submit for approval.
+     */
+    public function submitForApproval(): void
+    {
+        $this->update([
+            'approval_status' => self::STATUS_PENDING,
+            'approval_rejection_reason' => null
+        ]);
+    }
+
+    /**
+     * Get approval status display name.
+     */
+    public function getApprovalStatusDisplayNameAttribute(): string
+    {
+        switch ($this->approval_status) {
+            case self::STATUS_PENDING:
+                return 'Gözləyir';
+            case self::STATUS_APPROVED:
+                return 'Təsdiqləndi';
+            case self::STATUS_REJECTED:
+                return 'Rədd edildi';
+            default:
+                return 'Məlum deyil';
+        }
+    }
+
+    /**
+     * Get approval status color.
+     */
+    public function getApprovalStatusColorAttribute(): string
+    {
+        switch ($this->approval_status) {
+            case self::STATUS_PENDING:
+                return 'yellow';
+            case self::STATUS_APPROVED:
+                return 'green';
+            case self::STATUS_REJECTED:
+                return 'red';
+            default:
+                return 'gray';
         }
     }
 }

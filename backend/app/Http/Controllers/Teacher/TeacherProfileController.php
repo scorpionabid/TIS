@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\TeacherProfile;
 use App\Models\TeacherAchievement;
 use App\Models\TeacherCertificate;
+use App\Models\TeacherProfileApproval;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
@@ -38,6 +39,22 @@ class TeacherProfileController extends Controller
                     'subject' => 'Fənn',
                 ]
             );
+
+            // Build teacher info with status
+            $teacherInfo = [
+                'name' => $user->name,
+                'email' => $user->email,
+                'phone' => $teacherProfile->phone,
+                'subject' => $teacherProfile->subject,
+                'school' => $teacherProfile->school,
+                'experienceYears' => $teacherProfile->experience_years,
+                'qualifications' => $teacherProfile->qualifications ?? [],
+                'photo' => $teacherProfile->photo,
+                'status' => $teacherProfile->status,
+                'rejectionReason' => $teacherProfile->rejection_reason,
+                'approvedAt' => $teacherProfile->approved_at?->format('Y-m-d H:i:s'),
+                'approvedBy' => $teacherProfile->approvedBy?->name
+            ];
 
             // Get real achievements from database
             $achievements = TeacherAchievement::where('user_id', $user->id)
@@ -114,19 +131,7 @@ class TeacherProfileController extends Controller
             ];
 
             $profileData = [
-                'teacherInfo' => [
-                    'name' => $user->name,
-                    'email' => $user->email,
-                    'phone' => $teacherProfile->phone,
-                    'subject' => $teacherProfile->subject,
-                    'school' => $teacherProfile->school,
-                    'experienceYears' => $teacherProfile->experience_years,
-                    'qualifications' => $teacherProfile->qualifications ?? [],
-                    'photo' => $teacherProfile->photo,
-                    'bio' => $teacherProfile->bio,
-                    'specialization' => $teacherProfile->specialization,
-                    'address' => $teacherProfile->address
-                ],
+                'teacherInfo' => $teacherInfo,
                 'stats' => $stats,
                 'achievements' => $achievements->toArray(),
                 'education' => $education,
@@ -431,6 +436,139 @@ class TeacherProfileController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Resources could not be retrieved',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Update teacher profile with approval workflow.
+     */
+    public function updateProfileWithApproval(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user || !$user->hasRole('müəllim')) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+
+            $validated = $request->validate([
+                'phone' => 'nullable|string|max:20',
+                'bio' => 'nullable|string|max:1000',
+                'qualifications' => 'nullable|array',
+                'qualifications.*' => 'string|max:255',
+                'experience_years' => 'nullable|integer|min:0|max:50',
+                'specialization' => 'nullable|string|max:255',
+                'photo' => 'nullable|string|max:500',
+                'school' => 'nullable|string|max:255',
+                'subject' => 'nullable|string|max:255',
+                'address' => 'nullable|string|max:500',
+                'emergency_contact_name' => 'nullable|string|max:255',
+                'emergency_contact_phone' => 'nullable|string|max:20',
+                'emergency_contact_email' => 'nullable|email|max:255',
+                'social_links' => 'nullable|array',
+                'preferences' => 'nullable|array'
+            ]);
+
+            $profile = TeacherProfile::firstOrCreate(
+                ['user_id' => $user->id],
+                array_merge($validated, [
+                    'status' => TeacherProfile::STATUS_PENDING,
+                    'created_at' => now(),
+                    'updated_at' => now()
+                ])
+            );
+
+            // Create approval request
+            TeacherProfileApproval::create([
+                'user_id' => $user->id,
+                'model_type' => TeacherProfileApproval::MODEL_TEACHER_PROFILE,
+                'model_id' => $profile->id,
+                'old_data' => $profile->getOriginal(),
+                'new_data' => $validated,
+                'status' => TeacherProfileApproval::STATUS_PENDING
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile submitted for approval',
+                'data' => $profile->fresh()
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update profile',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get pending changes for teacher profile.
+     */
+    public function getPendingChanges(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user || !$user->hasRole('müəllim')) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+
+            $pendingApprovals = TeacherProfileApproval::with(['approvedBy'])
+                ->where('user_id', $user->id)
+                ->pending()
+                ->orderBy('created_at', 'desc')
+                ->get();
+
+            return response()->json([
+                'success' => true,
+                'data' => $pendingApprovals
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to get pending changes',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Submit profile for approval.
+     */
+    public function submitForApproval(Request $request): JsonResponse
+    {
+        try {
+            $user = Auth::user();
+            
+            if (!$user || !$user->hasRole('müəllim')) {
+                return response()->json(['message' => 'Unauthorized'], 403);
+            }
+
+            $profile = TeacherProfile::where('user_id', $user->id)->first();
+            
+            if (!$profile) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Profile not found'
+                ], 404);
+            }
+
+            $profile->submitForApproval();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Profile submitted for approval'
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit for approval',
                 'error' => $e->getMessage()
             ], 500);
         }
