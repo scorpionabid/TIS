@@ -369,6 +369,167 @@ class SektorUserController extends Controller
     }
 
     /**
+     * Get teachers with advanced filtering
+     */
+    public function getTeacherVerifications(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('sektoradmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $sector = $user->institution;
+        if (! $sector) {
+            return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
+        }
+
+        try {
+            // Get sector schools
+            $schoolIds = Institution::where('parent_id', $sector->id)
+                ->where('level', 4)
+                ->pluck('id')
+                ->toArray();
+
+            // Start query
+            $query = User::whereIn('institution_id', $schoolIds)
+                ->whereHas('roles', function ($q) {
+                    $q->where('name', 'müəllim');
+                })
+                ->with(['institution', 'teacherVerifications' => function ($q) {
+                    $q->latest('verification_date');
+                }]);
+
+            // Apply filters
+            $status = $request->input('status');
+            if ($status && $status !== 'all') {
+                if ($status === 'pending') {
+                    $query->whereDoesntHave('teacherVerifications', function ($q) {
+                        $q->where('verification_status', 'approved');
+                    });
+                } else {
+                    $query->whereHas('teacherVerifications', function ($q) use ($status) {
+                        $q->where('verification_status', $status);
+                    });
+                }
+            }
+
+            // Institution filter
+            $institutionId = $request->input('institution_id');
+            if ($institutionId && $institutionId !== 'all') {
+                $query->where('institution_id', $institutionId);
+            }
+
+            // Date range filter
+            $dateFrom = $request->input('date_from');
+            $dateTo = $request->input('date_to');
+            if ($dateFrom || $dateTo) {
+                $query->whereHas('teacherVerifications', function ($q) use ($dateFrom, $dateTo) {
+                    if ($dateFrom) {
+                        $q->whereDate('verification_date', '>=', $dateFrom);
+                    }
+                    if ($dateTo) {
+                        $q->whereDate('verification_date', '<=', $dateTo);
+                    }
+                });
+            }
+
+            // Search filter
+            $search = $request->input('search');
+            if ($search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('username', 'like', "%{$search}%");
+                });
+            }
+
+            // Pagination
+            $perPage = $request->input('per_page', 20);
+            $page = $request->input('page', 1);
+            $teachers = $query->paginate($perPage, ['*'], 'page', $page);
+
+            // Transform data
+            $transformedTeachers = $teachers->getCollection()->map(function ($teacher) {
+                $verification = $teacher->teacherVerifications->first();
+                return [
+                    'id' => $teacher->id,
+                    'name' => $teacher->name,
+                    'email' => $teacher->email,
+                    'username' => $teacher->username,
+                    'institution' => [
+                        'id' => $teacher->institution->id,
+                        'name' => $teacher->institution->name,
+                    ],
+                    'verification_status' => $verification ? $verification->verification_status : 'pending',
+                    'verification_date' => $verification ? $verification->verification_date : null,
+                    'verified_by' => $verification ? $verification->verifiedBy?->name : null,
+                    'rejection_reason' => $verification ? $verification->rejection_reason : null,
+                    'created_at' => $teacher->created_at,
+                ];
+            });
+
+            // Get statistics
+            $stats = $this->getVerificationStatistics($schoolIds);
+
+            return response()->json([
+                'success' => true,
+                'data' => $transformedTeachers,
+                'pagination' => [
+                    'current_page' => $teachers->currentPage(),
+                    'last_page' => $teachers->lastPage(),
+                    'per_page' => $teachers->perPage(),
+                    'total' => $teachers->total(),
+                ],
+                'statistics' => $stats,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Məlumatlar alınarkən xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get verification statistics
+     */
+    private function getVerificationStatistics(array $schoolIds): array
+    {
+        $totalTeachers = User::whereIn('institution_id', $schoolIds)
+            ->whereHas('roles', function ($q) {
+                $q->where('name', 'müəllim');
+            })
+            ->count();
+
+        // Get teacher IDs first to avoid nested whereHas issues
+        $teacherIds = User::whereIn('institution_id', $schoolIds)
+            ->whereHas('roles', function ($q) {
+                $q->where('name', 'müəllim');
+            })
+            ->pluck('id')
+            ->toArray();
+
+        $approvedCount = TeacherVerification::whereIn('teacher_id', $teacherIds)
+            ->where('verification_status', 'approved')
+            ->count();
+
+        $rejectedCount = TeacherVerification::whereIn('teacher_id', $teacherIds)
+            ->where('verification_status', 'rejected')
+            ->count();
+
+        $pendingCount = $totalTeachers - $approvedCount - $rejectedCount;
+
+        return [
+            'total_pending' => $pendingCount,
+            'total_approved' => $approvedCount,
+            'total_rejected' => $rejectedCount,
+            'total_teachers' => $totalTeachers,
+        ];
+    }
+
+    /**
      * Get teachers pending verification
      */
     public function getPendingVerifications(Request $request): JsonResponse
@@ -438,6 +599,268 @@ class SektorUserController extends Controller
                 'success' => false,
                 'message' => 'Məlumatlar yüklənərkən xəta baş verdi',
                 'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk approve teachers
+     */
+    public function bulkApproveTeachers(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('sektoradmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $sector = $user->institution;
+        if (! $sector) {
+            return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
+        }
+
+        $validated = $request->validate([
+            'teacher_ids' => 'required|array',
+            'teacher_ids.*' => 'integer|exists:users,id',
+            'verified_data' => 'nullable|array',
+        ]);
+
+        try {
+            $approvedCount = 0;
+            $errors = [];
+
+            foreach ($validated['teacher_ids'] as $teacherId) {
+                // Verify teacher belongs to sector
+                $teacher = User::where('id', $teacherId)
+                    ->whereHas('institution', function ($q) use ($sector) {
+                        $q->where('parent_id', $sector->id);
+                    })
+                    ->whereHas('roles', function ($q) {
+                        $q->where('name', 'müəllim');
+                    })
+                    ->first();
+
+                if (! $teacher) {
+                    $errors[] = "Müəllim ID {$teacherId} sektorunuza aid deyil";
+                    continue;
+                }
+
+                // Check if already verified
+                $existingVerification = TeacherVerification::where('teacher_id', $teacherId)
+                    ->where('verification_status', 'approved')
+                    ->first();
+
+                if ($existingVerification) {
+                    $errors[] = "Müəllim {$teacher->name} artıq təsdiqlənib";
+                    continue;
+                }
+
+                // Create or update verification
+                TeacherVerification::updateOrCreate(
+                    ['teacher_id' => $teacherId],
+                    [
+                        'verified_by' => $user->id,
+                        'verification_status' => 'approved',
+                        'verification_date' => now(),
+                        'verified_data' => $validated['verified_data'] ?? null,
+                        'original_data' => $teacher->toArray(),
+                    ]
+                );
+
+                $approvedCount++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$approvedCount} müəllim uğurla təsdiqləndi",
+                'approved_count' => $approvedCount,
+                'errors' => $errors,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kütləvi təsdiqləmə zamanı xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Bulk reject teachers
+     */
+    public function bulkRejectTeachers(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('sektoradmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $sector = $user->institution;
+        if (! $sector) {
+            return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
+        }
+
+        $validated = $request->validate([
+            'teacher_ids' => 'required|array',
+            'teacher_ids.*' => 'integer|exists:users,id',
+            'rejection_reason' => 'required|string|max:500',
+        ]);
+
+        try {
+            $rejectedCount = 0;
+            $errors = [];
+
+            foreach ($validated['teacher_ids'] as $teacherId) {
+                // Verify teacher belongs to sector
+                $teacher = User::where('id', $teacherId)
+                    ->whereHas('institution', function ($q) use ($sector) {
+                        $q->where('parent_id', $sector->id);
+                    })
+                    ->whereHas('roles', function ($q) {
+                        $q->where('name', 'müəllim');
+                    })
+                    ->first();
+
+                if (! $teacher) {
+                    $errors[] = "Müəllim ID {$teacherId} sektorunuza aid deyil";
+                    continue;
+                }
+
+                // Check if already verified
+                $existingVerification = TeacherVerification::where('teacher_id', $teacherId)
+                    ->where('verification_status', 'approved')
+                    ->first();
+
+                if ($existingVerification) {
+                    $errors[] = "Müəllim {$teacher->name} artıq təsdiqlənib, rədd edilə bilməz";
+                    continue;
+                }
+
+                // Create or update verification
+                TeacherVerification::updateOrCreate(
+                    ['teacher_id' => $teacherId],
+                    [
+                        'verified_by' => $user->id,
+                        'verification_status' => 'rejected',
+                        'verification_date' => now(),
+                        'rejection_reason' => $validated['rejection_reason'],
+                        'original_data' => $teacher->toArray(),
+                    ]
+                );
+
+                $rejectedCount++;
+            }
+
+            return response()->json([
+                'success' => true,
+                'message' => "{$rejectedCount} müəllim uğurla rədd edildi",
+                'rejected_count' => $rejectedCount,
+                'errors' => $errors,
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kütləvi rədd etmə zamanı xəta baş verdi: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get analytics data
+     */
+    public function getVerificationAnalytics(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if (! $user->hasRole('sektoradmin')) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
+
+        $sector = $user->institution;
+        if (! $sector) {
+            return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
+        }
+
+        try {
+            $schoolIds = Institution::where('parent_id', $sector->id)
+                ->where('level', 4)
+                ->pluck('id')
+                ->toArray();
+
+            // Get teacher IDs first to avoid nested whereHas issues
+            $teacherIds = User::whereIn('institution_id', $schoolIds)
+                ->whereHas('roles', function ($q) {
+                    $q->where('name', 'müəllim');
+                })
+                ->pluck('id')
+                ->toArray();
+
+            // Monthly trends (last 6 months)
+            $monthlyTrends = TeacherVerification::whereIn('teacher_id', $teacherIds)
+                ->where('verification_date', '>=', now()->subMonths(6))
+                ->selectRaw('
+                    EXTRACT(YEAR FROM verification_date) as year,
+                    EXTRACT(MONTH FROM verification_date) as month,
+                    verification_status,
+                    COUNT(*) as count
+                ')
+                ->groupBy('year', 'month', 'verification_status')
+                ->orderBy('year')
+                ->orderBy('month')
+                ->get();
+
+            // Institution breakdown
+            $institutionBreakdown = Institution::whereIn('id', $schoolIds)
+                ->withCount(['users' => function ($q) {
+                    $q->whereHas('roles', function ($role) {
+                        $role->where('name', 'müəllim');
+                    });
+                }])
+                ->withCount(['teacherVerifications' => function ($q) {
+                    $q->where('verification_status', 'approved');
+                }, 'teacherVerifications as rejected_count' => function ($q) {
+                    $q->where('verification_status', 'rejected');
+                }])
+                ->get()
+                ->map(function ($institution) {
+                    $totalTeachers = $institution->users_count;
+                    $approvedCount = $institution->teacher_verifications_count;
+                    $rejectedCount = $institution->rejected_count;
+                    $pendingCount = $totalTeachers - $approvedCount - $rejectedCount;
+
+                    return [
+                        'institution_id' => $institution->id,
+                        'institution_name' => $institution->name,
+                        'total_teachers' => $totalTeachers,
+                        'approved_count' => $approvedCount,
+                        'rejected_count' => $rejectedCount,
+                        'pending_count' => $pendingCount,
+                        'approval_rate' => $totalTeachers > 0 ? round(($approvedCount / $totalTeachers) * 100, 2) : 0,
+                    ];
+                });
+
+            // Verification time metrics
+            $avgVerificationTime = TeacherVerification::whereIn('teacher_id', $teacherIds)
+                ->whereNotNull('verification_date')
+                ->whereNotNull('created_at')
+                ->selectRaw('AVG(EXTRACT(EPOCH FROM (verification_date - created_at))/86400) as avg_days')
+                ->value('avg_days');
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'monthly_trends' => $monthlyTrends,
+                    'institution_breakdown' => $institutionBreakdown,
+                    'average_verification_days' => round($avgVerificationTime ?? 0, 1),
+                ],
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Analitik məlumatlar alınarkən xəta baş verdi: ' . $e->getMessage()
             ], 500);
         }
     }

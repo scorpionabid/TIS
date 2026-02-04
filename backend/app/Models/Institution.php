@@ -151,6 +151,17 @@ class Institution extends Model
     }
 
     /**
+     * Get teacher verifications for this institution's teachers
+     */
+    public function teacherVerifications(): HasMany
+    {
+        return $this->hasMany(TeacherVerification::class, 'teacher_id', 'id')
+            ->whereHas('teacher', function ($q) {
+                $q->where('institution_id', $this->id);
+            });
+    }
+
+    /**
      * Get the institution type relationship.
      */
     public function institutionType(): BelongsTo

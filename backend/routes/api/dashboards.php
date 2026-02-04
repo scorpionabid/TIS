@@ -170,9 +170,13 @@ Route::prefix('sektoradmin')->middleware(['role:sektoradmin', 'regional.access:s
     Route::get('available-schools', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getAvailableSchools']);
 
     // Teacher Verification Management
+    Route::get('teachers/verifications', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getTeacherVerifications']);
     Route::get('teachers/verifications/pending', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getPendingVerifications']);
     Route::post('teachers/{teacherId}/approve', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'approveTeacher']);
     Route::post('teachers/{teacherId}/reject', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'rejectTeacher']);
+    Route::post('teachers/verifications/bulk-approve', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'bulkApproveTeachers']);
+    Route::post('teachers/verifications/bulk-reject', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'bulkRejectTeachers']);
+    Route::get('teachers/verifications/analytics', [App\Http\Controllers\SektorAdmin\SektorUserController::class, 'getVerificationAnalytics']);
 
     // Student Management
     Route::get('students', [App\Http\Controllers\SektorAdmin\SektorStudentController::class, 'getSectorStudents']);

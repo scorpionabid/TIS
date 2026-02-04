@@ -377,9 +377,15 @@ class RegionalDataAccessMiddleware
      */
     private function hasInstitutionIdInRequest($request): bool
     {
-        return ($request->has('institution_id') && $request->input('institution_id') !== null) ||
-               $request->route('institution') ||
-               $request->route('institutionId');
+        // Check for numeric institution_id in query parameters
+        if ($request->has('institution_id') && $request->input('institution_id') !== null) {
+            $institutionId = $request->input('institution_id');
+            // Only consider it a valid institution ID if it's numeric and not 'all'
+            return is_numeric($institutionId) && $institutionId !== 'all';
+        }
+
+        // Check for institution ID in route parameters
+        return $request->route('institution') || $request->route('institutionId');
     }
 
     /**
