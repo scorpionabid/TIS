@@ -110,6 +110,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Rating System Routes
     require __DIR__ . '/api/ratings.php';
 
+    // PRD: Teacher Rating System Routes (Müəllim Reytinq Sistemi)
+    require __DIR__ . '/api/teacher-rating.php';
+
     // Task Management Routes (Modular Structure)
     require __DIR__ . '/api/tasks.php';
 

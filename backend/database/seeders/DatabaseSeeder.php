@@ -23,6 +23,9 @@ class DatabaseSeeder extends Seeder
             SuperAdminSeeder::class, // Create superadmin after roles
             RegionAdminTeacherPermissionsSeeder::class, // Add teacher permissions to RegionAdmin
             SystemConfigSeeder::class,
+            // PRD: Teacher Rating System konfiqurasiyaları
+            OlympiadLevelConfigSeeder::class,
+            GrowthBonusConfigSeeder::class,
         ];
 
         $this->call($coreSeeders);
