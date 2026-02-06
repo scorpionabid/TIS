@@ -63,7 +63,7 @@ class TaskAssignmentUpdateTest extends TestCase
         [$task, $assignment, $assignee] = $this->createTaskWithAssignment();
 
         $response = $this->actingAs($assignee, 'sanctum')
-            ->postJson("/api/tasks/assignments/{$assignment->id}/status", [
+            ->putJson("/api/assignments/{$assignment->id}/status", [
                 'status' => 'in_progress',
                 'progress' => 40,
                 'completion_notes' => 'Initial inspection done.',
@@ -89,7 +89,7 @@ class TaskAssignmentUpdateTest extends TestCase
         [$task, $assignment, $assignee, $creator] = $this->createTaskWithAssignment();
 
         $response = $this->actingAs($creator, 'sanctum')
-            ->postJson('/api/tasks/assignments/bulk-update', [
+            ->postJson('/api/assignments/bulk-update', [
                 'assignment_ids' => [$assignment->id],
                 'status' => 'completed',
                 'progress' => 100,

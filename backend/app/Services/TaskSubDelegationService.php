@@ -90,12 +90,7 @@ class TaskSubDelegationService
             match($status) {
                 'accepted' => $updateData['accepted_at'] = now(),
                 'in_progress' => $updateData['started_at'] = now(),
-                'completed' => [
-                    'completed_at' => now(),
-                    'completion_notes' => $data['completion_notes'] ?? null,
-                    'completion_data' => $data['completion_data'] ?? null,
-                    'progress' => 100,
-                ],
+                'completed' => $this->applyCompletedStatus($updateData, $data),
                 'cancelled' => $updateData['cancelled_at'] = now(),
                 default => null
             };
@@ -205,6 +200,17 @@ class TaskSubDelegationService
 
             return true;
         });
+    }
+
+    /**
+     * Completed status üçün updateData-nı yenilə
+     */
+    private function applyCompletedStatus(array &$updateData, array $data): void
+    {
+        $updateData['completed_at'] = now();
+        $updateData['completion_notes'] = $data['completion_notes'] ?? null;
+        $updateData['completion_data'] = $data['completion_data'] ?? null;
+        $updateData['progress'] = 100;
     }
 
     /**

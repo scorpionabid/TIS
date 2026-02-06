@@ -329,22 +329,16 @@ class TaskService extends BaseService<Task> {
   }
 
   async create(data: CreateTaskData): Promise<Task> {
-    console.log('🔥 TaskService.create called', data);
-    
     try {
       const response = await apiClient.post(this.baseEndpoint, data);
-      console.log('📤 API response for task create:', response);
-      
+
       // Backend returns: { success: true, message: '...', data: {...} }
       if (!response.data) {
-        console.error('❌ No data in response:', response);
         throw new Error('Tapşırıq yaratma əməliyyatı uğursuz oldu');
       }
-      
-      console.log('✅ Task create successful:', response.data);
+
       return response.data;
     } catch (error) {
-      console.error('❌ Task create failed:', error);
       throw error;
     }
   }
@@ -356,7 +350,6 @@ class TaskService extends BaseService<Task> {
 
   async getAssignableUsers(params?: AssignableUsersRequestParams): Promise<AssignableUsersResponse> {
     const response = await apiClient.get<AssignableUsersResponse>(`${this.baseEndpoint}/assignable-users`, params);
-    console.log('[TaskService] getAssignableUsers response', response);
 
     const payload = (response as AssignableUsersResponse) ?? { data: [] };
     const primaryData = Array.isArray((payload as any)?.data)

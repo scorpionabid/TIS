@@ -3,12 +3,38 @@
 namespace App\Http\Controllers;
 
 use App\Models\Task;
+use App\Services\NotificationService;
+use App\Services\TaskAssignmentService;
+use App\Services\TaskAuditService;
+use App\Services\TaskNotificationService;
+use App\Services\TaskPermissionService;
+use App\Services\TaskStatisticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class TaskApprovalController extends BaseTaskController
 {
+    protected TaskNotificationService $taskNotificationService;
+
+    public function __construct(
+        TaskPermissionService $permissionService,
+        TaskAssignmentService $assignmentService,
+        TaskStatisticsService $statisticsService,
+        NotificationService $notificationService,
+        TaskAuditService $auditService,
+        TaskNotificationService $taskNotificationService
+    ) {
+        parent::__construct(
+            $permissionService,
+            $assignmentService,
+            $statisticsService,
+            $notificationService,
+            $auditService
+        );
+        $this->taskNotificationService = $taskNotificationService;
+    }
+
     /**
      * Submit task for approval
      */
@@ -54,7 +80,7 @@ class TaskApprovalController extends BaseTaskController
             $this->auditService->logSubmittedForApproval($task);
 
             // Notify approver
-            // TODO: Implement notification
+            $this->taskNotificationService->notifyTaskStatusUpdate($task, 'completed', $user);
 
             return response()->json([
                 'success' => true,
@@ -102,8 +128,8 @@ class TaskApprovalController extends BaseTaskController
             // Log approval
             $this->auditService->logTaskApproved($task, $request->notes);
 
-            // Notify creator
-            // TODO: Implement notification
+            // Notify creator and target users
+            $this->taskNotificationService->notifyTaskApprovalDecision($task, 'approved', $user, $request->notes);
 
             return response()->json([
                 'success' => true,
@@ -152,8 +178,8 @@ class TaskApprovalController extends BaseTaskController
             // Log rejection
             $this->auditService->logTaskRejected($task, $request->notes);
 
-            // Notify creator
-            // TODO: Implement notification
+            // Notify creator and target users about rejection
+            $this->taskNotificationService->notifyTaskApprovalDecision($task, 'rejected', $user, $request->notes);
 
             return response()->json([
                 'success' => true,

@@ -2161,3 +2161,12 @@ User modal sisteminin **production data analizi** tamamlandı.
 
 **v2.0 (2025-11-17):** Refined analysis
 **v1.0 (2025-11-17):** Initial analysis (contained errors)
+
+---
+
+## 📄 Əlaqəli Sənədləşdirmə Faylları
+
+| Fayl | Təsvir | Tarix |
+|------|--------|-------|
+| [TASK_MANAGEMENT_SYSTEM.md](./TASK_MANAGEMENT_SYSTEM.md) | Tapşırıq idarəetmə sisteminin tam sənədləşdirilməsi | 2026-02-06 |
+| [USER_MODAL_PRODUCTION_SAFE_PLAN.md](./USER_MODAL_PRODUCTION_SAFE_PLAN.md) | User modal təkmilləşdirmə planı | 2025-11-17 |

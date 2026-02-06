@@ -24,6 +24,28 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     /*
     |--------------------------------------------------------------------------
+    | Analytics & Statistics - TaskAnalyticsController
+    | ⚠️ Statik routelar {task} parametrindən ƏVVƏL olmalıdır!
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/tasks/statistics', [TaskAnalyticsController::class, 'getStatistics']);
+    Route::get('/tasks/performance-analytics', [TaskAnalyticsController::class, 'getPerformanceAnalytics']);
+    Route::get('/tasks/trend-analysis', [TaskAnalyticsController::class, 'getTrendAnalysis']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Permissions & User Management - TaskPermissionController
+    | ⚠️ Statik routelar {task} parametrindən ƏVVƏL olmalıdır!
+    |--------------------------------------------------------------------------
+    */
+    Route::get('/tasks/targetable-institutions', [TaskPermissionController::class, 'getTargetableInstitutions']);
+    Route::get('/tasks/allowed-target-roles', [TaskPermissionController::class, 'getAllowedTargetRoles']);
+    Route::get('/tasks/creation-context', [TaskPermissionController::class, 'getTaskCreationContext']);
+    Route::get('/tasks/assignable-users', [TaskPermissionController::class, 'getAssignableUsers']);
+    Route::get('/tasks/mentionable-users', [TaskPermissionController::class, 'getMentionableUsers']);
+
+    /*
+    |--------------------------------------------------------------------------
     | CRUD Operations - TaskCrudController
     |--------------------------------------------------------------------------
     */
@@ -43,26 +65,6 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('/tasks/{taskId}/assignments', [TaskAssignmentController::class, 'getTaskAssignments']);
     Route::put('/assignments/{assignmentId}/status', [TaskAssignmentController::class, 'updateAssignmentStatus']);
     Route::post('/assignments/bulk-update', [TaskAssignmentController::class, 'bulkUpdateAssignments']);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Analytics & Statistics - TaskAnalyticsController
-    |--------------------------------------------------------------------------
-    */
-    Route::get('/tasks/statistics', [TaskAnalyticsController::class, 'getStatistics']);
-    Route::get('/tasks/performance-analytics', [TaskAnalyticsController::class, 'getPerformanceAnalytics']);
-    Route::get('/tasks/trend-analysis', [TaskAnalyticsController::class, 'getTrendAnalysis']);
-
-    /*
-    |--------------------------------------------------------------------------
-    | Permissions & User Management - TaskPermissionController
-    |--------------------------------------------------------------------------
-    */
-    Route::get('/tasks/targetable-institutions', [TaskPermissionController::class, 'getTargetableInstitutions']);
-    Route::get('/tasks/allowed-target-roles', [TaskPermissionController::class, 'getAllowedTargetRoles']);
-    Route::get('/tasks/creation-context', [TaskPermissionController::class, 'getTaskCreationContext']);
-    Route::get('/tasks/assignable-users', [TaskPermissionController::class, 'getAssignableUsers']);
-    Route::get('/tasks/mentionable-users', [TaskPermissionController::class, 'getMentionableUsers']);
 
     /*
     |--------------------------------------------------------------------------
