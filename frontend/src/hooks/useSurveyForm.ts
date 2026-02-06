@@ -149,7 +149,8 @@ export const useSurveyForm = ({
    * Add a new question
    */
   const addQuestion = useCallback((newQuestion: Partial<Question>) => {
-    if (!newQuestion.question?.trim()) {
+    // table_input sualları üçün sual mətni ixtiyaridir - sütun adları kifayətdir
+    if (newQuestion.type !== 'table_input' && !newQuestion.question?.trim()) {
       toast({
         title: "Xəta",
         description: "Sual mətni daxil edilməlidir",
@@ -204,9 +205,24 @@ export const useSurveyForm = ({
       return;
     }
 
+    // Validate table_input has columns
+    if (newQuestion.type === 'table_input') {
+      const columns = newQuestion.tableInputColumns || [];
+      if (columns.length === 0) {
+        toast({
+          title: "Xəta",
+          description: "Dinamik cədvəl sualları üçün ən azı bir sütun daxil edilməlidir",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    const shouldAttachTableInputSettings = newQuestion.type === 'table_input';
+
     const question: Question = {
       id: generateQuestionId(),
-      question: newQuestion.question!,
+      question: newQuestion.question || '',
       description: newQuestion.description,
       type: newQuestion.type || 'text',
       options: newQuestion.options || [],
@@ -223,6 +239,8 @@ export const useSurveyForm = ({
       rating_max_label: shouldAttachRatingSettings ? newQuestion.rating_max_label : undefined,
       tableRows: newQuestion.type === 'table_matrix' ? sanitizedRows : undefined,
       tableHeaders: newQuestion.type === 'table_matrix' ? sanitizedHeaders : undefined,
+      tableInputColumns: shouldAttachTableInputSettings ? newQuestion.tableInputColumns : undefined,
+      tableInputMaxRows: shouldAttachTableInputSettings ? (newQuestion.tableInputMaxRows || 20) : undefined,
     };
 
     setQuestions(prev => [...prev, question]);

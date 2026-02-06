@@ -29,10 +29,23 @@ class SurveyExportService
         ]);
 
         try {
-            // Import the export class
-            $export = new \App\Exports\SurveyApprovalExport($survey, $request, $user);
+            // Check if survey has table_input questions
+            $survey->load(['questions' => function ($query) {
+                $query->orderBy('order_index');
+            }]);
 
-            Log::info('✅ [SERVICE] Export class instantiated successfully');
+            $hasTableInputQuestions = $survey->questions->contains(function ($question) {
+                return $question->type === 'table_input';
+            });
+
+            // Use multi-sheet export if there are table_input questions
+            if ($hasTableInputQuestions) {
+                $export = new \App\Exports\SurveyApprovalMultiSheetExport($survey, $request, $user);
+                Log::info('✅ [SERVICE] Multi-sheet export class instantiated (has table_input questions)');
+            } else {
+                $export = new \App\Exports\SurveyApprovalExport($survey, $request, $user);
+                Log::info('✅ [SERVICE] Single-sheet export class instantiated');
+            }
 
             // Determine format
             $format = $request->input('format', 'xlsx');

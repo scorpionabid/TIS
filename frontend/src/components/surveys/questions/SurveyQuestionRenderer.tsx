@@ -8,6 +8,7 @@ import { RatingQuestionInput } from './RatingQuestionInput';
 import { DateQuestionInput } from './DateQuestionInput';
 import { FileUploadQuestionInput } from './FileUploadQuestionInput';
 import { TableMatrixQuestion } from './TableMatrixQuestion';
+import { TableInputQuestion } from './TableInputQuestion';
 import { SurveyQuestionAttachmentDisplay } from './types';
 
 interface SurveyQuestionRendererProps {
@@ -66,6 +67,8 @@ export function SurveyQuestionRenderer({
         );
       case 'table_matrix':
         return <TableMatrixQuestion {...commonProps} />;
+      case 'table_input':
+        return <TableInputQuestion {...commonProps} />;
       default:
         return <TextQuestionInput {...commonProps} />;
     }

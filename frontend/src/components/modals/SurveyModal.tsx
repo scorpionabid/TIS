@@ -22,6 +22,7 @@ import {
   questionNeedsFileValidation,
   questionNeedsMatrixConfiguration,
   questionNeedsRatingConfiguration,
+  questionNeedsTableInputConfiguration,
 } from '@/utils/surveyHelpers';
 import {
   QUESTION_TYPES,
@@ -162,6 +163,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
   const needsFileValidation = questionNeedsFileValidation(newQuestion.type as string);
   const needsMatrixConfiguration = questionNeedsMatrixConfiguration(newQuestion.type as string);
   const needsRatingConfiguration = questionNeedsRatingConfiguration(newQuestion.type as string);
+  const needsTableInputConfiguration = questionNeedsTableInputConfiguration(newQuestion.type as string);
 
   // Step validation functions
   const validateStep1 = useCallback((): boolean => {
@@ -494,6 +496,7 @@ export function SurveyModal({ open, onClose, survey, onSave }: SurveyModalProps)
                 needsFileValidation={needsFileValidation}
                 needsMatrixConfiguration={needsMatrixConfiguration}
                 needsRatingConfiguration={needsRatingConfiguration}
+                needsTableInputConfiguration={needsTableInputConfiguration}
                 questionTypes={QUESTION_TYPES}
                 setQuestions={surveyForm.updateQuestionOrder}
                 setNewQuestion={setNewQuestion}

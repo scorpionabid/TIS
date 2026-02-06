@@ -18,7 +18,16 @@ const questionTypes = [
   { value: 'file_upload', label: 'Fayl yükləmə' },
   { value: 'rating', label: 'Qiymətləndirmə' },
   { value: 'table_matrix', label: 'Cədvəl/Matris' },
+  { value: 'table_input', label: 'Dinamik cədvəl' },
 ];
+
+const columnTypes = [
+  { value: 'text', label: 'Mətn' },
+  { value: 'number', label: 'Rəqəm' },
+  { value: 'date', label: 'Tarix' },
+];
+
+const maxRowsOptions = [5, 10, 15, 20, 25, 30, 40, 50];
 
 interface QuestionEditFormProps {
   question: Question;
@@ -54,9 +63,11 @@ export function QuestionEditForm({
   const restrictions = getQuestionRestrictions(question.id || '');
   const matrixRows = editingQuestion.tableRows || [];
   const matrixColumns = editingQuestion.tableHeaders || [];
+  const tableInputColumns = editingQuestion.tableInputColumns || [];
   const isNumberQuestion = editingQuestion.type === 'number';
   const isFileQuestion = editingQuestion.type === 'file_upload';
   const isRatingQuestion = editingQuestion.type === 'rating';
+  const isTableInputQuestion = editingQuestion.type === 'table_input';
 
   const handleTypeChange = (nextType: Question['type']) => {
     updateEditingQuestion('type', nextType);
@@ -71,6 +82,21 @@ export function QuestionEditForm({
     } else {
       updateEditingQuestion('tableRows', undefined);
       updateEditingQuestion('tableHeaders', undefined);
+    }
+
+    if (nextType === 'table_input') {
+      if (!tableInputColumns.length) {
+        updateEditingQuestion('tableInputColumns', [
+          { key: 'col_1', label: 'Sütun 1', type: 'text' },
+          { key: 'col_2', label: 'Sütun 2', type: 'text' },
+        ]);
+      }
+      if (!editingQuestion.tableInputMaxRows) {
+        updateEditingQuestion('tableInputMaxRows', 20);
+      }
+    } else {
+      updateEditingQuestion('tableInputColumns', undefined);
+      updateEditingQuestion('tableInputMaxRows', undefined);
     }
 
     if (nextType !== 'number') {
@@ -120,21 +146,47 @@ export function QuestionEditForm({
     updateEditingQuestion('tableHeaders', matrixColumns.filter((_, i) => i !== index));
   };
 
+  // Table Input column management
+  const addTableInputColumn = () => {
+    const newKey = `col_${tableInputColumns.length + 1}`;
+    updateEditingQuestion('tableInputColumns', [
+      ...tableInputColumns,
+      { key: newKey, label: `Sütun ${tableInputColumns.length + 1}`, type: 'text' as const },
+    ]);
+  };
+
+  const updateTableInputColumn = (index: number, field: 'label' | 'type', value: string) => {
+    updateEditingQuestion(
+      'tableInputColumns',
+      tableInputColumns.map((col, i) =>
+        i === index ? { ...col, [field]: value } : col
+      )
+    );
+  };
+
+  const removeTableInputColumn = (index: number) => {
+    updateEditingQuestion('tableInputColumns', tableInputColumns.filter((_, i) => i !== index));
+  };
+
   return (
     <div className="space-y-4 p-4 border rounded-lg border-blue-300 bg-blue-50">
       {/* Question Text Edit */}
       <div className="space-y-2">
-        <Label>Sual mətni *</Label>
+        <Label>
+          Sual mətni {isTableInputQuestion ? '(İxtiyari)' : '*'}
+        </Label>
         <Input
           value={editingQuestion.question}
           onChange={(e) => updateEditingQuestion('question', e.target.value)}
-          placeholder="Sual mətnini daxil edin"
+          placeholder={isTableInputQuestion ? "Sual mətni (ixtiyari - sütun adları kifayətdir)" : "Sual mətnini daxil edin"}
           maxLength={MAX_QUESTION_LENGTH}
           className={restrictions?.can_edit_text ? "bg-white" : "bg-gray-100"}
           disabled={!restrictions?.can_edit_text}
         />
         <div className="flex justify-between text-xs text-muted-foreground">
-          {restrictions?.can_edit_text ? (
+          {isTableInputQuestion ? (
+            <span className="text-blue-600">ℹ️ Dinamik cədvəl üçün sütun adları sual yerinə keçir</span>
+          ) : restrictions?.can_edit_text ? (
             <span className="text-green-600">✓ Bu sahə dəyişdirilə bilər</span>
           ) : (
             <span className="text-amber-600">
@@ -431,11 +483,96 @@ export function QuestionEditForm({
         </div>
       )}
 
+      {isTableInputQuestion && (
+        <div className="space-y-4">
+          <div className="bg-blue-50 border border-blue-200 rounded p-3">
+            <p className="text-xs text-blue-700">
+              <strong>Dinamik cədvəl:</strong> Cavab verənlər + düyməsi ilə sətir əlavə edə biləcəklər.
+              Siz yalnız sütun başlıqlarını və tiplərini təyin edin.
+            </p>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <Label>Cədvəl sütunları</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={addTableInputColumn}
+                disabled={tableInputColumns.length >= 10}
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Sütun əlavə et
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {tableInputColumns.map((column, index) => (
+                <div key={column.key} className="flex items-center space-x-2">
+                  <Badge variant="outline" className="text-xs min-w-[24px] text-center">
+                    {index + 1}
+                  </Badge>
+                  <Input
+                    value={column.label}
+                    onChange={(e) => updateTableInputColumn(index, 'label', e.target.value)}
+                    placeholder={`Sütun ${index + 1}`}
+                    className="flex-1 bg-white"
+                  />
+                  <Select
+                    value={column.type}
+                    onValueChange={(value) => updateTableInputColumn(index, 'type', value)}
+                  >
+                    <SelectTrigger className="w-28 bg-white">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {columnTypes.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeTableInputColumn(index)}
+                    disabled={tableInputColumns.length <= 1}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-xs">Maksimum sətir sayı</Label>
+            <Select
+              value={String(editingQuestion.tableInputMaxRows ?? 20)}
+              onValueChange={(value) => updateEditingQuestion('tableInputMaxRows', Number(value))}
+            >
+              <SelectTrigger className="w-32 bg-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {maxRowsOptions.map((num) => (
+                  <SelectItem key={num} value={String(num)}>
+                    {num} sətir
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+      )}
+
       {/* Save/Cancel buttons */}
       <div className="flex items-center gap-2 justify-end mt-4 pt-4 border-t">
         <Button
           onClick={onSave}
-          disabled={!editingQuestion?.question?.trim() || isLoading}
+          disabled={(editingQuestion.type !== 'table_input' && !editingQuestion?.question?.trim()) || isLoading}
         >
           {isLoading ? (
             <>

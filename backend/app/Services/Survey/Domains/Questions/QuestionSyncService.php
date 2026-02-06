@@ -112,9 +112,10 @@ class QuestionSyncService
     public function prepareQuestionPayload(array $questionData, int $index): array
     {
         $backendType = $this->mapQuestionType($questionData['type'] ?? 'text');
+        $title = $this->resolveQuestionTitle($questionData, $backendType);
 
         return [
-            'title' => $questionData['question'] ?? $questionData['title'] ?? 'Unnamed question',
+            'title' => $title,
             'description' => $questionData['description'] ?? null,
             'type' => $backendType,
             'order_index' => $questionData['order'] ?? $questionData['order_index'] ?? $index + 1,
@@ -234,6 +235,7 @@ class QuestionSyncService
             'file_upload' => 'file_upload',
             'rating' => 'rating',
             'table_matrix' => 'table_matrix',
+            'table_input' => 'table_input',
         ];
 
         return $mapping[$frontendType] ?? 'text';
@@ -253,8 +255,57 @@ class QuestionSyncService
             'file_upload' => 'file',
             'rating' => 'rating',
             'table_matrix' => 'table',
+            'table_input' => 'table_input',
         ];
 
         return $mapping[$backendType] ?? 'text';
+    }
+
+    /**
+     * Resolve question title with smart fallback for table_input type
+     *
+     * For table_input questions, generates title from column names if not provided.
+     */
+    private function resolveQuestionTitle(array $questionData, string $type): string
+    {
+        // First, try provided question or title
+        $providedTitle = trim($questionData['question'] ?? $questionData['title'] ?? '');
+        if (! empty($providedTitle)) {
+            return $providedTitle;
+        }
+
+        // For table_input, generate title from column names
+        if ($type === 'table_input') {
+            $columnLabels = $this->extractTableInputColumnLabels($questionData);
+            if (! empty($columnLabels)) {
+                return 'Cədvəl: ' . implode(', ', $columnLabels);
+            }
+
+            return 'Dinamik cədvəl';
+        }
+
+        return 'Adsız sual';
+    }
+
+    /**
+     * Extract column labels from table_input question data
+     *
+     * Tries metadata.table_input.columns first, then falls back to table_headers.
+     */
+    private function extractTableInputColumnLabels(array $questionData): array
+    {
+        // Try metadata.table_input.columns first (preferred source)
+        $columns = $questionData['metadata']['table_input']['columns'] ?? [];
+        if (! empty($columns)) {
+            return array_filter(array_map(fn ($col) => trim($col['label'] ?? ''), $columns));
+        }
+
+        // Fall back to table_headers
+        $headers = $questionData['table_headers'] ?? [];
+        if (! empty($headers) && is_array($headers)) {
+            return array_filter(array_map('trim', $headers));
+        }
+
+        return [];
     }
 }

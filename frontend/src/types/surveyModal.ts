@@ -3,14 +3,14 @@
  * Centralized type definitions for survey modal components
  */
 
-import type { SurveyQuestion } from '@/services/surveys/types';
+import type { SurveyQuestion, SurveyQuestionType, TableInputColumn } from '@/services/surveys/types';
 
 // Question type for modal - extends SurveyQuestion with modal-specific fields
 export interface Question extends Partial<SurveyQuestion> {
   id?: string;
   question: string;
   description?: string;
-  type: 'text' | 'number' | 'date' | 'single_choice' | 'multiple_choice' | 'file_upload' | 'rating' | 'table_matrix';
+  type: SurveyQuestionType;
   options?: string[];
   required: boolean;
   order: number;
@@ -22,6 +22,9 @@ export interface Question extends Partial<SurveyQuestion> {
   };
   tableRows?: string[];
   tableHeaders?: string[];
+  // table_input specific fields
+  tableInputColumns?: TableInputColumn[];
+  tableInputMaxRows?: number;
 }
 
 export interface QuestionRestriction {
@@ -54,6 +57,7 @@ export const QUESTION_TYPES: QuestionType[] = [
   { value: 'file_upload', label: 'Fayl yükləmə' },
   { value: 'rating', label: 'Qiymətləndirmə' },
   { value: 'table_matrix', label: 'Cədvəl/Matris' },
+  { value: 'table_input', label: 'Dinamik cədvəl' },
 ];
 
 export const MAX_TITLE_LENGTH = 200;

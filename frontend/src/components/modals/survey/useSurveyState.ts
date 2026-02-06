@@ -117,10 +117,11 @@ export const useSurveyState = (survey?: Survey | null) => {
 
   // Question management
   const addQuestion = useCallback(() => {
-    if (!newQuestion.question?.trim()) return;
+    // table_input sualları üçün sual mətni ixtiyaridir
+    if (newQuestion.type !== 'table_input' && !newQuestion.question?.trim()) return;
 
     const questionToAdd: Question = {
-      question: newQuestion.question.trim(),
+      question: newQuestion.question?.trim() || '',
       type: newQuestion.type || 'text',
       options: ['single_choice', 'multiple_choice'].includes(newQuestion.type || 'text') 
         ? ['Seçim 1', 'Seçim 2'] 

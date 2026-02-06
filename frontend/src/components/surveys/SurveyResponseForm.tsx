@@ -8,7 +8,7 @@ import { AlertCircle, Save, Send, Clock, CheckCircle2, XCircle } from 'lucide-re
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { surveyService, SurveyResponse, SurveyQuestion, SurveyFormSchema } from '@/services/surveys';
 import { SurveyQuestionAttachmentDisplay } from '@/components/surveys/questions/types';
-import { useToast } from '@/hooks/use-toast';
+import { toast } from 'sonner';
 import { SurveyQuestionRenderer } from '@/components/surveys/questions';
 
 interface SurveyResponseFormProps {
@@ -19,7 +19,6 @@ interface SurveyResponseFormProps {
 }
 
 export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }: SurveyResponseFormProps) {
-  const { toast } = useToast();
   const [responses, setResponses] = useState<Record<string, any>>({});
   const [currentResponse, setCurrentResponse] = useState<SurveyResponse | null>(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -297,6 +296,21 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
         }
         break;
       }
+      case 'table_input': {
+        if (!value || !Array.isArray(value)) {
+          break;
+        }
+        // Check if at least one row has data (for required questions)
+        if (isRequired) {
+          const hasData = value.some((row: Record<string, any>) =>
+            Object.values(row).some((cell) => cell && String(cell).trim().length > 0)
+          );
+          if (!hasData) {
+            return 'Ən azı bir sətir doldurulmalıdır.';
+          }
+        }
+        break;
+      }
       default:
         break;
     }
@@ -380,7 +394,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     }
 
     toast.error(`Avto-saxlama alınmadı. Sistem ${Math.round(autoSaveDelay / 1000)} saniyəyə yenidən cəhd edəcək.`);
-  }, [autoSaveFailureCount, autoSaveDelay, lastSaveSilentFailure, toast]);
+  }, [autoSaveFailureCount, autoSaveDelay, lastSaveSilentFailure]);
 
   // Warn user about unsaved changes before leaving
   useEffect(() => {
@@ -443,7 +457,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     } finally {
       setAttachmentUploading(prev => ({ ...prev, [key]: false }));
     }
-  }, [currentResponse?.id, getAttachmentKey, toast]);
+  }, [currentResponse?.id, getAttachmentKey]);
 
   const handleRemoveAttachment = useCallback(async (question: SurveyQuestion) => {
     if (!currentResponse?.id || !question.id) {
@@ -473,7 +487,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     } finally {
       setAttachmentUploading(prev => ({ ...prev, [key]: false }));
     }
-  }, [attachments, currentResponse?.id, getAttachmentKey, toast]);
+  }, [attachments, currentResponse?.id, getAttachmentKey]);
 
   const handleQuestionChange = (question: SurveyQuestion, value: any) => {
     const key = getQuestionKey(question);
@@ -530,7 +544,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
       autoSubmit,
       silent,
     });
-  }, [currentResponse, surveyData?.questions, responses, saveResponseMutation, toast, validateAllQuestions]);
+  }, [currentResponse, surveyData?.questions, responses, saveResponseMutation, validateAllQuestions]);
 
   // Auto-save with adaptive delay if there are unsaved changes
   useEffect(() => {

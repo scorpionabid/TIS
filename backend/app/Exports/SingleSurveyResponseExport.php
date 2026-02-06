@@ -201,9 +201,62 @@ class SingleSurveyResponseExport implements FromArray, WithColumnWidths, WithHea
                 return implode(' | ', $formatted);
             }
 
+            // Handle table_input type - format as readable table
+            if ($question && $question->type === 'table_input') {
+                return $this->formatTableInputAnswer($answer, $question);
+            }
+
             return implode(', ', $answer);
         }
 
         return (string) $answer;
+    }
+
+    /**
+     * Format table_input answer as multi-line string
+     */
+    protected function formatTableInputAnswer(array $rows, $question): string
+    {
+        if (empty($rows)) {
+            return 'Cavab verilməyib';
+        }
+
+        // Get column labels from metadata
+        $columns = $question->metadata['table_input']['columns'] ?? [];
+
+        // Fallback to table_headers
+        if (empty($columns) && ! empty($question->table_headers)) {
+            foreach ($question->table_headers as $index => $header) {
+                $columns[] = [
+                    'key' => 'col_' . ($index + 1),
+                    'label' => is_string($header) ? $header : ($header['label'] ?? 'Sütun ' . ($index + 1)),
+                ];
+            }
+        }
+
+        $formatted = [];
+
+        // Add header row
+        if (! empty($columns)) {
+            $headerLabels = array_map(fn ($col) => $col['label'] ?? $col['key'], $columns);
+            $formatted[] = implode(' | ', $headerLabels);
+            $formatted[] = str_repeat('-', strlen($formatted[0]));
+        }
+
+        // Add data rows
+        foreach ($rows as $rowIndex => $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+
+            $rowValues = [];
+            foreach ($columns as $column) {
+                $value = $row[$column['key']] ?? '';
+                $rowValues[] = $value;
+            }
+            $formatted[] = implode(' | ', $rowValues);
+        }
+
+        return implode("\n", $formatted);
     }
 }

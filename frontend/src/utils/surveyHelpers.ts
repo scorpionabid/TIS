@@ -10,31 +10,48 @@ import type { CreateSurveyData, Survey } from '@/services/surveys';
  * Map a Question object for backend API submission
  * Handles field name transformations (question -> title, etc.)
  */
-export const mapQuestionForBackend = (question: Question) => ({
-  id: question.id,
-  title: question.question, // Backend expects 'title'
-  question: question.question, // Keep for compatibility
-  description: question.description,
-  type: question.type,
-  options: question.options || [],
-  required: question.required,
-  is_required: question.required, // Backend alias
-  order: question.order || 0,
-  validation: question.validation,
-  metadata: question.metadata,
-  min_value: question.min_value,
-  max_value: question.max_value,
-  min_length: question.min_length,
-  max_length: question.max_length,
-  allowed_file_types: question.allowed_file_types,
-  max_file_size: question.max_file_size,
-  rating_min: question.rating_min,
-  rating_max: question.rating_max,
-  rating_min_label: question.rating_min_label,
-  rating_max_label: question.rating_max_label,
-  table_headers: question.tableHeaders,
-  table_rows: question.tableRows,
-});
+export const mapQuestionForBackend = (question: Question) => {
+  // Prepare metadata for table_input type
+  let metadata = question.metadata || {};
+
+  if (question.type === 'table_input' && question.tableInputColumns) {
+    metadata = {
+      ...metadata,
+      table_input: {
+        max_rows: question.tableInputMaxRows || 20,
+        columns: question.tableInputColumns,
+      },
+    };
+  }
+
+  return {
+    id: question.id,
+    title: question.question, // Backend expects 'title'
+    question: question.question, // Keep for compatibility
+    description: question.description,
+    type: question.type,
+    options: question.options || [],
+    required: question.required,
+    is_required: question.required, // Backend alias
+    order: question.order || 0,
+    validation: question.validation,
+    metadata: Object.keys(metadata).length > 0 ? metadata : undefined,
+    min_value: question.min_value,
+    max_value: question.max_value,
+    min_length: question.min_length,
+    max_length: question.max_length,
+    allowed_file_types: question.allowed_file_types,
+    max_file_size: question.max_file_size,
+    rating_min: question.rating_min,
+    rating_max: question.rating_max,
+    rating_min_label: question.rating_min_label,
+    rating_max_label: question.rating_max_label,
+    table_headers: question.type === 'table_input'
+      ? question.tableInputColumns?.map(col => col.label)
+      : question.tableHeaders,
+    table_rows: question.tableRows,
+  };
+};
 
 const normalizeMatrixList = (value: any): string[] | undefined => {
   if (!Array.isArray(value)) {
@@ -79,6 +96,11 @@ export const mapQuestionFromBackend = (q: any): Question => {
   if (q.rating_min !== undefined) validation.rating_min = q.rating_min;
   if (q.rating_max !== undefined) validation.rating_max = q.rating_max;
 
+  // Extract table_input specific fields from metadata
+  const tableInputConfig = q.metadata?.table_input;
+  const tableInputColumns = tableInputConfig?.columns;
+  const tableInputMaxRows = tableInputConfig?.max_rows;
+
   return {
     id: q.id?.toString(),
     question: q.title || q.question, // Backend might return 'title' field
@@ -101,6 +123,8 @@ export const mapQuestionFromBackend = (q: any): Question => {
     rating_max_label: q.rating_max_label,
     tableHeaders: normalizeMatrixList(q.table_headers),
     tableRows: normalizeMatrixList(q.table_rows),
+    tableInputColumns: Array.isArray(tableInputColumns) ? tableInputColumns : undefined,
+    tableInputMaxRows: tableInputMaxRows,
   };
 };
 
@@ -128,7 +152,8 @@ export const validateSurveyData = (formData: CreateSurveyData, questions: Questi
 
   // Question content validation
   questions.forEach((q, index) => {
-    if (!q.question?.trim()) {
+    // table_input sualları üçün sual mətni ixtiyaridir - sütun adları kifayətdir
+    if (q.type !== 'table_input' && !q.question?.trim()) {
       errors.push(`Sual ${index + 1}: Sual mətni daxil edilməlidir`);
     }
 
@@ -154,6 +179,20 @@ export const validateSurveyData = (formData: CreateSurveyData, questions: Questi
 
       if (headers.length === 0) {
         errors.push(`Sual ${index + 1}: Ən azı bir sütun daxil edilməlidir`);
+      }
+    }
+
+    // Validate table_input questions have columns
+    if (q.type === 'table_input') {
+      const columns = q.tableInputColumns || [];
+      if (columns.length === 0) {
+        errors.push(`Sual ${index + 1}: Dinamik cədvəl üçün ən azı bir sütun daxil edilməlidir`);
+      } else {
+        columns.forEach((col, colIndex) => {
+          if (!col.label?.trim()) {
+            errors.push(`Sual ${index + 1}: Sütun ${colIndex + 1} başlığı daxil edilməlidir`);
+          }
+        });
       }
     }
   });
@@ -205,6 +244,10 @@ export const questionNeedsMatrixConfiguration = (type: string): boolean => {
 
 export const questionNeedsRatingConfiguration = (type: string): boolean => {
   return type === 'rating';
+};
+
+export const questionNeedsTableInputConfiguration = (type: string): boolean => {
+  return type === 'table_input';
 };
 
 /**

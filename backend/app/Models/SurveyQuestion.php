@@ -83,6 +83,7 @@ class SurveyQuestion extends Model
         'file_upload' => 'File Upload - PDF, Excel (max 10MB)',
         'rating' => 'Rating Scale - 1-10 qiymətləndirmə',
         'table_matrix' => 'Table/Matrix - Strukturlaşdırılmış cədvəl',
+        'table_input' => 'Table Input - Dinamik sətirli cədvəl',
     ];
 
     /**
@@ -230,6 +231,9 @@ class SurveyQuestion extends Model
                 break;
             case 'table_matrix':
                 $errors = array_merge($errors, $this->validateTableResponse($responseData));
+                break;
+            case 'table_input':
+                $errors = array_merge($errors, $this->validateTableInputResponse($responseData));
                 break;
         }
 
@@ -667,5 +671,130 @@ class SurveyQuestion extends Model
         }
 
         return $summary;
+    }
+
+    /**
+     * Validate table_input response
+     * Response format: array of rows, each row is associative array with column keys
+     */
+    private function validateTableInputResponse($response): array
+    {
+        $errors = [];
+
+        if (! is_array($response)) {
+            $errors[] = 'Cədvəl məlumatları gözlənilir.';
+
+            return $errors;
+        }
+
+        // Get config from metadata
+        $config = $this->metadata['table_input'] ?? [];
+        $maxRows = $config['max_rows'] ?? 20;
+        $columns = $config['columns'] ?? [];
+
+        // If no columns defined, use table_headers as simple text columns
+        if (empty($columns) && ! empty($this->table_headers)) {
+            foreach ($this->table_headers as $index => $header) {
+                $columns[] = [
+                    'key' => 'col_' . ($index + 1),
+                    'label' => is_string($header) ? $header : ($header['label'] ?? "Sütun " . ($index + 1)),
+                    'type' => 'text',
+                ];
+            }
+        }
+
+        // Validate row count
+        if (count($response) > $maxRows) {
+            $errors[] = "Maksimum {$maxRows} sətir əlavə edilə bilər.";
+
+            return $errors;
+        }
+
+        // Get valid column keys
+        $validKeys = array_column($columns, 'key');
+        $columnTypes = [];
+        foreach ($columns as $col) {
+            $columnTypes[$col['key']] = $col['type'] ?? 'text';
+        }
+
+        // Validate each row
+        foreach ($response as $rowIndex => $row) {
+            if (! is_array($row)) {
+                $errors[] = "Sətir " . ($rowIndex + 1) . " düzgün formatda deyil.";
+
+                continue;
+            }
+
+            // Validate each cell in the row
+            foreach ($row as $colKey => $cellValue) {
+                if (! in_array($colKey, $validKeys)) {
+                    continue; // Skip unknown columns
+                }
+
+                $colType = $columnTypes[$colKey] ?? 'text';
+
+                // Skip empty values
+                if ($cellValue === null || $cellValue === '') {
+                    continue;
+                }
+
+                // Validate by column type
+                switch ($colType) {
+                    case 'number':
+                        if (! is_numeric($cellValue)) {
+                            $colLabel = $this->getColumnLabel($columns, $colKey);
+                            $errors[] = "Sətir " . ($rowIndex + 1) . ", \"{$colLabel}\" sütununda rəqəm gözlənilir.";
+                        }
+                        break;
+                    case 'date':
+                        if (! $this->isValidDate($cellValue)) {
+                            $colLabel = $this->getColumnLabel($columns, $colKey);
+                            $errors[] = "Sətir " . ($rowIndex + 1) . ", \"{$colLabel}\" sütununda düzgün tarix formatı gözlənilir.";
+                        }
+                        break;
+                    case 'text':
+                    default:
+                        if (! is_string($cellValue) && ! is_numeric($cellValue)) {
+                            $colLabel = $this->getColumnLabel($columns, $colKey);
+                            $errors[] = "Sətir " . ($rowIndex + 1) . ", \"{$colLabel}\" sütununda mətn gözlənilir.";
+                        }
+                        break;
+                }
+            }
+        }
+
+        return $errors;
+    }
+
+    /**
+     * Get column label by key
+     */
+    private function getColumnLabel(array $columns, string $key): string
+    {
+        foreach ($columns as $col) {
+            if ($col['key'] === $key) {
+                return $col['label'] ?? $key;
+            }
+        }
+
+        return $key;
+    }
+
+    /**
+     * Check if value is a valid date
+     */
+    private function isValidDate($value): bool
+    {
+        if (! is_string($value)) {
+            return false;
+        }
+
+        try {
+            $date = new \DateTime($value);
+
+            return true;
+        } catch (\Exception $e) {
+            return false;
+        }
     }
 }

@@ -29,11 +29,38 @@ export interface Survey extends BaseEntity {
   deadline_details?: DeadlineDetails;
 }
 
+export type SurveyQuestionType =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'single_choice'
+  | 'multiple_choice'
+  | 'file_upload'
+  | 'rating'
+  | 'table_matrix'
+  | 'table_input';
+
+export interface TableInputColumn {
+  key: string;
+  label: string;
+  type: 'text' | 'number' | 'date';
+}
+
+export interface TableInputConfig {
+  max_rows?: number;
+  columns: TableInputColumn[];
+}
+
+export interface SurveyQuestionMetadata {
+  table_input?: TableInputConfig;
+  [key: string]: unknown;
+}
+
 export interface SurveyQuestion {
   id?: number;
   title: string;
   description?: string;
-  type: 'text' | 'number' | 'date' | 'single_choice' | 'multiple_choice' | 'file_upload' | 'rating' | 'table_matrix';
+  type: SurveyQuestionType;
   options?: string[];
   required?: boolean;
   is_required?: boolean;
@@ -41,7 +68,7 @@ export interface SurveyQuestion {
   order_index?: number;
   is_active?: boolean;
   validation_rules?: Record<string, unknown> | null;
-  metadata?: Record<string, unknown> | null;
+  metadata?: SurveyQuestionMetadata | null;
   min_value?: number;
   max_value?: number;
   min_length?: number;

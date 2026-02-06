@@ -182,8 +182,23 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
 
             // Format the answer based on question type
             if (is_array($answer)) {
-                // For multiple choice questions, join selected options
-                $answer = implode(', ', $answer);
+                // Check if it's a table_input response (array of row objects)
+                if ($question->type === 'table_input' || (isset($answer[0]) && is_array($answer[0]))) {
+                    // Format table_input as readable text
+                    $formattedRows = [];
+                    foreach ($answer as $rowIndex => $row) {
+                        if (is_array($row)) {
+                            $rowValues = array_filter(array_values($row), fn($v) => $v !== null && $v !== '');
+                            if (!empty($rowValues)) {
+                                $formattedRows[] = 'Sətir ' . ($rowIndex + 1) . ': ' . implode(' | ', $rowValues);
+                            }
+                        }
+                    }
+                    $answer = !empty($formattedRows) ? implode("\n", $formattedRows) : '';
+                } else {
+                    // For multiple choice questions, join selected options
+                    $answer = implode(', ', array_map('strval', $answer));
+                }
             } elseif (is_string($answer)) {
                 $answer = trim($answer);
             }

@@ -7,3 +7,4 @@ export { RatingQuestionInput } from './RatingQuestionInput';
 export { DateQuestionInput } from './DateQuestionInput';
 export { FileUploadQuestionInput } from './FileUploadQuestionInput';
 export { TableMatrixQuestion } from './TableMatrixQuestion';
+export { TableInputQuestion } from './TableInputQuestion';

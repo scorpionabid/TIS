@@ -43,12 +43,15 @@ class SurveyActivityTracker
             'survey_id' => $survey->id,
             'user_id' => Auth::id(),
             'action' => $action,
-            'description' => $description,
-            'old_values' => $additionalData['old_values'] ?? null,
-            'new_values' => $additionalData['new_values'] ?? null,
-            'metadata' => $additionalData,
+            'details' => [
+                'description' => $description,
+                'old_values' => $additionalData['old_values'] ?? null,
+                'new_values' => $additionalData['new_values'] ?? null,
+                'user_agent' => request()->userAgent(),
+                ...$additionalData,
+            ],
             'ip_address' => request()->ip(),
-            'user_agent' => request()->userAgent(),
+            'created_at' => now(),
         ]);
     }
 
