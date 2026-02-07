@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import documentCollectionService from '../../services/documentCollectionService';
 import type { DocumentCollection, FolderWithDocuments } from '../../types/documentCollection';
 import { X, Trash2, AlertTriangle } from 'lucide-react';
@@ -10,6 +11,7 @@ interface DeleteFolderDialogProps {
 }
 
 const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose, onSuccess }) => {
+  const queryClient = useQueryClient();
   const [reason, setReason] = useState('');
   const [confirmText, setConfirmText] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,6 +53,11 @@ const DeleteFolderDialog: React.FC<DeleteFolderDialogProps> = ({ folder, onClose
       await documentCollectionService.delete(folder.id, {
         reason: reason.trim() || undefined,
       });
+
+      // Invalidate React Query cache so lists refresh immediately
+      queryClient.invalidateQueries({ queryKey: ['documents'] });
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+      queryClient.invalidateQueries({ queryKey: ['document-collections'] });
 
       onSuccess();
     } catch (err: any) {

@@ -102,23 +102,20 @@ const ScheduleComparisonTool = lazy(() => import("./components/schedules/Schedul
 // Debug Console
 const DebugConsole = lazy(() => import("./pages/DebugConsole"));
 
-// Memory-optimized QueryClient configuration
+// QueryClient configuration - optimized for fresh data after mutations
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      // Reduce memory usage with shorter cache times
-      staleTime: 2 * 60 * 1000, // 2 minutes
-      gcTime: 5 * 60 * 1000, // 5 minutes (was cacheTime)
-      // Reduce network requests
-      refetchOnWindowFocus: false,
-      refetchOnReconnect: false,
+      staleTime: 30 * 1000, // 30 seconds - short enough to keep data fresh
+      gcTime: 5 * 60 * 1000, // 5 minutes garbage collection
+      refetchOnWindowFocus: 'always', // Refetch when tab/window regains focus
+      refetchOnReconnect: true, // Refetch after network reconnection
       refetchInterval: false,
-      // Error handling
-      retry: 1, // Reduce retry attempts
+      retry: 1,
       retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
     },
     mutations: {
-      retry: 1, // Reduce retry attempts for mutations
+      retry: 1,
     },
   },
 });

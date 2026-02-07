@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useRef, useCallback } from 'react';
 import Echo from 'laravel-echo';
 import Pusher from 'pusher-js';
+import { useQueryClient } from '@tanstack/react-query';
 import { useAuth } from './AuthContext';
 import { WebSocketMessage, WebSocketEventHandler } from '@/types/events';
 import { logger } from '@/utils/logger';
@@ -76,6 +77,7 @@ export const useWebSocket = (): WebSocketContextType => {
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
   const { currentUser, getAuthToken } = useAuth();
+  const queryClient = useQueryClient();
 
   // Laravel Echo state
   const [echo, setEcho] = useState<Echo | null>(null);
@@ -157,6 +159,11 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       switch (message.type) {
         case 'bulk-approval-progress':
         case 'bulk-approval-completed':
+          // Invalidate related caches for real-time UI updates
+          queryClient.invalidateQueries({ queryKey: ['surveys'] });
+          queryClient.invalidateQueries({ queryKey: ['approvals'] });
+          queryClient.invalidateQueries({ queryKey: ['pending-approvals'] });
+
           // Route to channel-specific subscribers
           if (message.channel) {
             const channelSubscribers = subscriptions.current.filter(
@@ -174,6 +181,9 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
           break;
           
         case 'notification': {
+          // Invalidate React Query cache for notifications so UI updates in real-time
+          queryClient.invalidateQueries({ queryKey: ['notifications'] });
+
           // Handle general notifications
           const notificationSubscribers = subscriptions.current.filter(
             sub => sub.channel === 'notifications'
@@ -192,7 +202,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     } catch (error) {
       console.error('Error parsing WebSocket message:', error);
     }
-  }, [currentUser?.id]);
+  }, [currentUser?.id, queryClient]);
 
   // Setup Echo connection listeners
   const setupEchoListeners = useCallback((echoInstance: Echo) => {
@@ -435,11 +445,14 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     echo.private(channelName)
       .listen('.notification.sent', (data: any) => {
         logger.info('Received notification via Laravel Echo', data);
+        // Invalidate React Query cache for real-time UI updates
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['tasks'] });
         callback(data);
       });
 
     logger.info(`Subscribed to user channel: ${channelName}`);
-  }, [echo]);
+  }, [echo, queryClient]);
 
   const listenToInstitutionChannel = useCallback((institutionId: number, callback: (data: any) => void): void => {
     if (!echo) {
@@ -452,11 +465,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     echo.private(channelName)
       .listen('.notification.sent', (data: any) => {
         logger.info('Received institution notification via Laravel Echo', data);
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
         callback(data);
       });
 
     logger.info(`Subscribed to institution channel: ${channelName}`);
-  }, [echo]);
+  }, [echo, queryClient]);
 
   const listenToRoleChannel = useCallback((role: string, callback: (data: any) => void): void => {
     if (!echo) {
@@ -469,11 +483,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     echo.private(channelName)
       .listen('.notification.sent', (data: any) => {
         logger.info('Received role notification via Laravel Echo', data);
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
         callback(data);
       });
 
     logger.info(`Subscribed to role channel: ${channelName}`);
-  }, [echo]);
+  }, [echo, queryClient]);
 
   const stopListening = useCallback((channelName: string): void => {
     if (!echo) return;

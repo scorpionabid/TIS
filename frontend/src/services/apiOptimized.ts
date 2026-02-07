@@ -1,6 +1,7 @@
 import { logger } from '@/utils/logger';
 import { storageHelpers } from '@/utils/helpers';
 import { toast } from '@/components/ui/use-toast';
+import { cacheService } from './CacheService';
 
 // Environment check for production optimizations
 const isDevelopment = process.env.NODE_ENV === 'development';
@@ -582,38 +583,43 @@ class ApiClientOptimized {
     }
   }
 
-  // POST/PUT/DELETE methods (no caching, but with deduplication for safety)
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    // Clear related cache entries for this resource
-    // For "/regionadmin/users" → clear all "/regionadmin/users*" keys
+  // Helper: invalidate both in-memory cache and CacheService for a mutation endpoint
+  private invalidateCachesForMutation(endpoint: string): void {
     const resourcePath = endpoint.split('?')[0]; // Remove query params
     const basePath = resourcePath.split('/').slice(0, 3).join('/'); // e.g., "/regionadmin/users"
+
+    // 1. Clear apiOptimized in-memory cache
     this.clearCache(basePath);
+
+    // 2. Clear CacheService cache (tag-based) - fixes stale data from BaseService.getAll/getById
+    // BaseService stores cache entries with tags like [baseEndpoint, 'list'] or [baseEndpoint, 'detail']
+    // clearByTags uses OR matching - any matching tag clears the entry
+    try {
+      cacheService.clearByTags([basePath, resourcePath]);
+    } catch (e) {
+      // CacheService failure should not block the mutation
+      log('warn', 'Failed to clear CacheService', e);
+    }
+  }
+
+  // POST/PUT/DELETE methods (no caching, but with deduplication for safety)
+  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    this.invalidateCachesForMutation(endpoint);
     return this.performRequest<T>('POST', endpoint, data);
   }
 
   async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    // Clear related cache entries for this resource
-    // For "/regionadmin/users/369" → clear all "/regionadmin/users*" keys
-    const resourcePath = endpoint.split('?')[0]; // Remove query params
-    const basePath = resourcePath.split('/').slice(0, 3).join('/'); // e.g., "/regionadmin/users"
-    this.clearCache(basePath);
+    this.invalidateCachesForMutation(endpoint);
     return this.performRequest<T>('PUT', endpoint, data);
   }
 
   async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    const resourcePath = endpoint.split('?')[0];
-    const basePath = resourcePath.split('/').slice(0, 3).join('/');
-    this.clearCache(basePath);
+    this.invalidateCachesForMutation(endpoint);
     return this.performRequest<T>('PATCH', endpoint, data);
   }
 
   async delete<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    // Clear related cache entries for this resource
-    // For "/regionadmin/users/369" → clear all "/regionadmin/users*" keys
-    const resourcePath = endpoint.split('?')[0]; // Remove query params
-    const basePath = resourcePath.split('/').slice(0, 3).join('/'); // e.g., "/regionadmin/users"
-    this.clearCache(basePath);
+    this.invalidateCachesForMutation(endpoint);
     return this.performRequest<T>('DELETE', endpoint, data);
   }
 

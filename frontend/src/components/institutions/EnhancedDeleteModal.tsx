@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
   const [showProgress, setShowProgress] = useState(false);
   const [operationId, setOperationId] = useState<string>('');
 
+  const queryClient = useQueryClient();
   const { toast } = useToast();
 
   const resetForm = useCallback(() => {
@@ -115,6 +117,9 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
       };
 
       const result = await institutionService.delete(institution.id, deleteType, requestData);
+
+      // Invalidate React Query cache so lists refresh immediately
+      queryClient.invalidateQueries({ queryKey: ['institutions'] });
 
       // Close delete modal
       onClose();

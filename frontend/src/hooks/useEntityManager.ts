@@ -69,8 +69,8 @@ export function useEntityManager<
         throw error;
       }
     },
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    refetchOnWindowFocus: 'always',
+    staleTime: 0, // Always refetch after invalidation for fresh data
   });
 
   // Create mutation
