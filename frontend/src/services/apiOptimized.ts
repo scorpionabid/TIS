@@ -601,6 +601,13 @@ class ApiClientOptimized {
     return this.performRequest<T>('PUT', endpoint, data);
   }
 
+  async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+    const resourcePath = endpoint.split('?')[0];
+    const basePath = resourcePath.split('/').slice(0, 3).join('/');
+    this.clearCache(basePath);
+    return this.performRequest<T>('PATCH', endpoint, data);
+  }
+
   async delete<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
     // Clear related cache entries for this resource
     // For "/regionadmin/users/369" → clear all "/regionadmin/users*" keys

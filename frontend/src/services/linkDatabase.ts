@@ -41,6 +41,9 @@ export interface LinkDatabaseFilters {
   sort_direction?: 'asc' | 'desc';
   per_page?: number;
   page?: number;
+  link_type?: string;
+  status?: string;
+  is_featured?: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -73,10 +76,6 @@ export const linkDatabaseService = {
       departments = data.data.data;
     }
 
-    if (import.meta.env?.DEV) {
-      console.log('[LinkDatabase] getDepartments:', { rawData: data, departments });
-    }
-
     return departments;
   },
 
@@ -104,10 +103,6 @@ export const linkDatabaseService = {
       sectors = data.data.data;
     }
 
-    if (import.meta.env?.DEV) {
-      console.log('[LinkDatabase] getSectors:', { rawData: data, sectors });
-    }
-
     return sectors;
   },
 
@@ -125,49 +120,15 @@ export const linkDatabaseService = {
     if (filters.sort_direction) params.append('sort_direction', filters.sort_direction);
     if (filters.per_page) params.append('per_page', filters.per_page.toString());
     if (filters.page) params.append('page', filters.page.toString());
+    if (filters.link_type) params.append('link_type', filters.link_type);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.is_featured !== undefined) params.append('is_featured', filters.is_featured.toString());
 
     const response = await apiClient.get(
       `/link-database/by-department/${departmentType}?${params.toString()}`
     );
 
-    // Parse response - handle both direct and wrapped formats
-    const fullResponse = response.data;
-    let paginatedData: any;
-    let linksArray: LinkShare[] = [];
-
-    // Check if response has 'current_page' (direct paginated response)
-    if (fullResponse && 'current_page' in fullResponse) {
-      paginatedData = fullResponse;
-      linksArray = fullResponse.data || [];
-    }
-    // Check if wrapped in { success, data: {...}, message }
-    else if (fullResponse?.data && typeof fullResponse.data === 'object' && 'current_page' in fullResponse.data) {
-      paginatedData = fullResponse.data;
-      linksArray = paginatedData.data || [];
-    }
-    // Fallback
-    else {
-      paginatedData = fullResponse?.data || fullResponse || {};
-      linksArray = Array.isArray(paginatedData) ? paginatedData : (paginatedData?.data || []);
-    }
-
-    if (import.meta.env?.DEV) {
-      console.log('[LinkDatabase] getLinksByDepartmentType response:', {
-        departmentType,
-        rawResponse: fullResponse,
-        paginatedData,
-        linksArray,
-        linksCount: linksArray.length,
-      });
-    }
-
-    return {
-      data: linksArray,
-      current_page: paginatedData?.current_page || 1,
-      last_page: paginatedData?.last_page || 1,
-      per_page: paginatedData?.per_page || 15,
-      total: paginatedData?.total || 0,
-    };
+    return this.parsePaginatedResponse(response.data);
   },
 
   /**
@@ -184,40 +145,33 @@ export const linkDatabaseService = {
     if (filters.sort_direction) params.append('sort_direction', filters.sort_direction);
     if (filters.per_page) params.append('per_page', filters.per_page.toString());
     if (filters.page) params.append('page', filters.page.toString());
+    if (filters.link_type) params.append('link_type', filters.link_type);
+    if (filters.status) params.append('status', filters.status);
+    if (filters.is_featured !== undefined) params.append('is_featured', filters.is_featured.toString());
 
     const response = await apiClient.get(
       `/link-database/by-sector/${sectorId}?${params.toString()}`
     );
 
-    // Parse response - handle both direct and wrapped formats
-    const fullResponse = response.data;
+    return this.parsePaginatedResponse(response.data);
+  },
+
+  /**
+   * Parse paginated API response (handles both direct and wrapped formats)
+   */
+  parsePaginatedResponse(fullResponse: any): PaginatedResponse<LinkShare> {
     let paginatedData: any;
     let linksArray: LinkShare[] = [];
 
-    // Check if response has 'current_page' (direct paginated response)
     if (fullResponse && 'current_page' in fullResponse) {
       paginatedData = fullResponse;
       linksArray = fullResponse.data || [];
-    }
-    // Check if wrapped in { success, data: {...}, message }
-    else if (fullResponse?.data && typeof fullResponse.data === 'object' && 'current_page' in fullResponse.data) {
+    } else if (fullResponse?.data && typeof fullResponse.data === 'object' && 'current_page' in fullResponse.data) {
       paginatedData = fullResponse.data;
       linksArray = paginatedData.data || [];
-    }
-    // Fallback
-    else {
+    } else {
       paginatedData = fullResponse?.data || fullResponse || {};
       linksArray = Array.isArray(paginatedData) ? paginatedData : (paginatedData?.data || []);
-    }
-
-    if (import.meta.env?.DEV) {
-      console.log('[LinkDatabase] getLinksBySector response:', {
-        sectorId,
-        rawResponse: fullResponse,
-        paginatedData,
-        linksArray,
-        linksCount: linksArray.length,
-      });
     }
 
     return {
@@ -266,14 +220,21 @@ export const linkDatabaseService = {
   },
 
   /**
-   * Delete a link
+   * Soft delete a link (sets status to 'disabled')
    */
   async deleteLink(linkId: number): Promise<void> {
     await apiClient.delete(`/links/${linkId}`);
   },
 
   /**
-   * Restore a disabled link
+   * Hard delete a link (permanently removes, only works on disabled links)
+   */
+  async forceDeleteLink(linkId: number): Promise<void> {
+    await apiClient.delete(`/links/${linkId}/force`);
+  },
+
+  /**
+   * Restore a disabled link (sets status back to 'active')
    */
   async restoreLink(linkId: number): Promise<LinkShare> {
     const response = await apiClient.patch(`/links/${linkId}/restore`);

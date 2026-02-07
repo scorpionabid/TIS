@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -59,6 +59,13 @@ export const GenericDeleteModal: React.FC<GenericDeleteModalProps> = ({
   const [loading, setLoading] = useState(false);
 
   const dialogOpen = isOpen ?? open ?? false;
+
+  // Sync deleteType when modal opens or defaultDeleteType changes
+  useEffect(() => {
+    if (dialogOpen) {
+      setDeleteType(defaultDeleteType);
+    }
+  }, [dialogOpen, defaultDeleteType]);
 
   const getItemDetails = () => {
     if (itemName) {

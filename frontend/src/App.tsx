@@ -35,7 +35,7 @@ const Tasks = lazy(() => import("./pages/Tasks"));
 const AssignedTasks = lazy(() => import("./pages/AssignedTasks"));
 const MyDelegations = lazy(() => import("./pages/MyDelegations"));
 const Links = lazy(() => import("./pages/Links"));
-const LinkDatabase = lazy(() => import("./pages/LinkDatabase"));
+const LinkDatabase = lazy(() => import("./pages/LinkDatabase/index"));
 const Documents = lazy(() => import("./pages/Documents"));
 const Folders = lazy(() => import("./pages/Folders"));
 const MyResources = lazy(() => import("./pages/MyResources"));
