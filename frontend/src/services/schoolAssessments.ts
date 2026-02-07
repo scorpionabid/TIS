@@ -72,32 +72,32 @@ class SchoolAssessmentService {
 
     const query = params.toString();
     const response = await apiClient.get(`/school-assessments${query ? `?${query}` : ''}`);
-    return response.data ?? response;
+    return (response as any)?.data ?? response;
   }
 
   async createAssessment(payload: CreateSchoolAssessmentPayload): Promise<SchoolAssessment> {
     const response = await apiClient.post('/school-assessments', payload);
-    return response.data?.data ?? response.data ?? response;
+    return (response as any)?.data?.data ?? response.data ?? response;
   }
 
   async getAssessment(id: number): Promise<SchoolAssessment> {
     const response = await apiClient.get(`/school-assessments/${id}`);
-    return response.data?.data ?? response.data ?? response;
+    return (response as any)?.data?.data ?? response as SchoolAssessment;
   }
 
   async saveClassResult(assessmentId: number, payload: ClassResultPayload): Promise<ClassAssessmentResult> {
     const response = await apiClient.post(`/school-assessments/${assessmentId}/class-results`, payload);
-    return response.data?.data ?? response.data ?? response;
+    return (response as any)?.data?.data ?? response.data ?? response;
   }
 
   async completeAssessment(assessmentId: number): Promise<{ success: boolean; message: string }> {
     const response = await apiClient.post(`/school-assessments/${assessmentId}/complete`, {});
-    return response.data ?? response;
+    return (response as any)?.data ?? response;
   }
 
   async deleteClassResult(assessmentId: number, resultId: number): Promise<{ success: boolean; message: string }> {
     const response = await apiClient.delete(`/school-assessments/${assessmentId}/class-results/${resultId}`);
-    return response.data ?? response;
+    return (response as any)?.data ?? response;
   }
 
   async getSummaryReport(params: { assessment_type_id: number; assessment_stage_id: number; institution_id?: number; class_label?: string; subject?: string; }): Promise<any> {
@@ -110,14 +110,14 @@ class SchoolAssessmentService {
 
     const query = searchParams.toString();
     const response = await apiClient.get(`/school-assessments/reports/summary${query ? `?${query}` : ''}`);
-    return response.data?.data ?? response.data ?? response;
+    return (response as any)?.data?.data ?? response.data ?? response;
   }
 
   async exportToExcel(assessmentId: number): Promise<Blob> {
     const response = await apiClient.get(`/school-assessments/${assessmentId}/export`, {
       responseType: 'blob',
     });
-    return response.data;
+    return (response as any)?.data ?? response as Blob;
   }
 
   async exportSummaryReport(params: {
@@ -138,7 +138,7 @@ class SchoolAssessmentService {
     const response = await apiClient.get(`/school-assessments/reports/summary/export${query ? `?${query}` : ''}`, {
       responseType: 'blob',
     });
-    return response.data;
+    return (response as any)?.data ?? response as Blob;
   }
 }
 

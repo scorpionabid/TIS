@@ -155,7 +155,7 @@ class AssessmentResultFieldController extends Controller
         if ($fieldId) {
             $uniqueRule .= ',' . $fieldId;
         }
-        $uniqueRule .= ',id,assessment_type_id,' . $assessmentType->id;
+        $uniqueRule .= ',field_key,' . $assessmentType->id . ',id';
 
         $rules['field_key'] .= '|' . $uniqueRule;
 
@@ -169,8 +169,9 @@ class AssessmentResultFieldController extends Controller
         }
 
         if ($user->hasRole('regionadmin')) {
+            // Region admin can manage global types
             if ($assessmentType->institution_id === null) {
-                return false;
+                return true;
             }
 
             return $assessmentType->institution?->region_id === $user->institution?->region_id;

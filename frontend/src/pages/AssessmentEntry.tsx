@@ -65,6 +65,26 @@ const defaultClassForm: ClassResultPayload = {
 };
 
 export default function AssessmentEntry() {
+  const { hasRole } = useAuth();
+  const queryClient = useQueryClient();
+  
+  // Yalnız schooladmin roluna icazə ver
+  if (!hasRole(['schooladmin'])) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold text-destructive mb-2">Giriş İcazəsi Yoxdur</h2>
+              <p className="text-muted-foreground">
+                Bu səhifəyə daxil olmaq üçün Məktəb Rəhbəri rolu lazımdır.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [selectedGradeId, setSelectedGradeId] = useState<number | null>(null);
   const [classForm, setClassForm] = useState<ClassResultPayload>(defaultClassForm);
@@ -77,8 +97,7 @@ export default function AssessmentEntry() {
   const [isExporting, setIsExporting] = useState(false);
 
   const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const { hasRole, currentUser } = useAuth();
+  const { currentUser } = useAuth();
 
   const { data: sessionsData, isLoading: sessionsLoading, refetch: refetchSessions } = useQuery({
     queryKey: ['school-assessments'],
@@ -88,7 +107,11 @@ export default function AssessmentEntry() {
 
   const sessions: SchoolAssessment[] = useMemo(() => {
     const raw = sessionsData?.data ?? sessionsData;
-    return Array.isArray(raw) ? raw : raw?.data ?? [];
+    // Handle both paginated and non-paginated responses
+    if (Array.isArray(raw)) return raw;
+    if (raw?.data && Array.isArray(raw.data)) return raw.data;
+    if (raw?.data && raw.data.data && Array.isArray(raw.data.data)) return raw.data.data;
+    return [];
   }, [sessionsData]);
 
   // Fetch grades for the institution
@@ -114,7 +137,7 @@ export default function AssessmentEntry() {
       if (!selectedGradeId) return null;
       const { apiClient } = await import('@/services/api');
       const response = await apiClient.get(`/grades/${selectedGradeId}/subjects`);
-      return response.data?.data ?? response.data ?? response;
+      return (response as any)?.data?.data ?? response;
     },
     enabled: !!selectedGradeId,
     staleTime: 1000 * 60 * 5,
@@ -132,7 +155,13 @@ export default function AssessmentEntry() {
   });
 
   const resultFields: AssessmentResultField[] = useMemo(
-    () => selectedSession?.assessment_type?.result_fields ?? [],
+    () => {
+      console.log('🔍 AssessmentEntry Debug - selectedSession:', selectedSession);
+      console.log('🔍 AssessmentEntry Debug - assessment_type:', selectedSession?.assessment_type);
+      console.log('🔍 AssessmentEntry Debug - result_fields:', selectedSession?.assessment_type?.result_fields);
+      console.log('🔍 AssessmentEntry Debug - stages:', selectedSession?.assessment_type?.stages);
+      return selectedSession?.assessment_type?.result_fields ?? [];
+    },
     [selectedSession]
   );
 

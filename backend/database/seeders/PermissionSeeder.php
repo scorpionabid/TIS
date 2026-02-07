@@ -92,10 +92,23 @@ class PermissionSeeder extends Seeder
             'tasks.analytics',
             'tasks.assign', // NEW: for RegionOperator mapping
 
-            // Reports Management
-            'reports.read',
-            'reports.create',
-            'reports.export',
+            // Assessment Management
+            'assessments.create',
+            'assessments.read',
+            'assessments.update',
+            'assessments.delete',
+            'assessments.entries.read',
+            'assessments.entries.write',
+            'assessments.entries.bulk',
+            'assessments.students.read',
+            'assessments.students.write',
+            'assessments.students.bulk',
+            'assessment-types.read',
+            'assessment-types.create',
+            'assessment-types.update',
+            'assessment-types.delete',
+            'assessment-types.bulk',
+            'assessment-types.assign',
 
             // System Management
             'system.config',

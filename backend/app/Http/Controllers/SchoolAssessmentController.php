@@ -23,7 +23,7 @@ class SchoolAssessmentController extends Controller
     {
         $user = Auth::user();
 
-        $query = SchoolAssessment::with(['assessmentType', 'stage', 'institution'])
+        $query = SchoolAssessment::with(['assessmentType.resultFields', 'assessmentType.stages', 'stage', 'institution'])
             ->orderBy('created_at', 'desc');
 
         if ($user->hasRole('superadmin')) {
@@ -206,7 +206,7 @@ class SchoolAssessmentController extends Controller
             ], 403);
         }
 
-        $schoolAssessment->load(['assessmentType.resultFields', 'stage', 'classResults']);
+        $schoolAssessment->load(['assessmentType.resultFields', 'assessmentType.stages', 'stage', 'classResults']);
 
         return response()->json([
             'success' => true,
