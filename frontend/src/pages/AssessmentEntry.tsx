@@ -119,15 +119,33 @@ export default function AssessmentEntry() {
     queryKey: ['grades', currentUser?.institution?.id],
     queryFn: async () => {
       if (!currentUser?.institution?.id) return null;
-      const response = await gradeService.getGrades({ institution_id: currentUser.institution.id });
+      const response = await gradeService.getGrades({ 
+        institution_id: currentUser.institution.id,
+        per_page: 100 // Bütün sinifləri göstərmək üçün
+      });
       return response.data;
     },
     enabled: !!currentUser?.institution?.id && !!selectedSessionId,
     staleTime: 1000 * 60 * 5,
   });
 
-  const grades: Grade[] = useMemo(() => {
-    return Array.isArray(gradesData) ? gradesData : [];
+  const grades = useMemo(() => {
+    console.log('🔍 AssessmentEntry Debug - gradesData:', gradesData);
+    console.log('🔍 AssessmentEntry Debug - gradesData type:', typeof gradesData);
+    console.log('🔍 AssessmentEntry Debug - gradesData.data:', gradesData?.data);
+    
+    let result = [];
+    if (Array.isArray(gradesData)) {
+      result = gradesData;
+    } else if (gradesData?.data && Array.isArray(gradesData.data)) {
+      result = gradesData.data;
+    } else if (gradesData?.grades && Array.isArray(gradesData.grades)) {
+      result = gradesData.grades;
+    }
+    
+    console.log('🔍 AssessmentEntry Debug - final grades array:', result);
+    console.log('🔍 AssessmentEntry Debug - grades count:', result.length);
+    return result;
   }, [gradesData]);
 
   // Fetch subjects for selected grade
@@ -144,8 +162,22 @@ export default function AssessmentEntry() {
   });
 
   const subjects = useMemo(() => {
-    if (!subjectsData) return [];
-    return Array.isArray(subjectsData) ? subjectsData : [];
+    console.log('🔍 AssessmentEntry Debug - subjectsData:', subjectsData);
+    console.log('🔍 AssessmentEntry Debug - subjectsData type:', typeof subjectsData);
+    console.log('🔍 AssessmentEntry Debug - subjectsData.data:', subjectsData?.data);
+    
+    let result = [];
+    if (!subjectsData) {
+      result = [];
+    } else if (Array.isArray(subjectsData)) {
+      result = subjectsData;
+    } else if (subjectsData?.data && Array.isArray(subjectsData.data)) {
+      result = subjectsData.data;
+    }
+    
+    console.log('🔍 AssessmentEntry Debug - final subjects array:', result);
+    console.log('🔍 AssessmentEntry Debug - subjects count:', result.length);
+    return result;
   }, [subjectsData]);
 
   const { data: selectedSession, isLoading: sessionLoading } = useQuery({

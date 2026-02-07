@@ -82,7 +82,8 @@ class SchoolAssessmentService {
 
   async getAssessment(id: number): Promise<SchoolAssessment> {
     const response = await apiClient.get(`/school-assessments/${id}`);
-    return (response as any)?.data?.data ?? response as SchoolAssessment;
+    // Handle nested response: {success: true, data: {...}}
+    return (response as any)?.data?.data ?? (response as any)?.data ?? response as SchoolAssessment;
   }
 
   async saveClassResult(assessmentId: number, payload: ClassResultPayload): Promise<ClassAssessmentResult> {
