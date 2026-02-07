@@ -132,15 +132,14 @@ export default function AssessmentEntry() {
   const grades = useMemo(() => {
     console.log('🔍 AssessmentEntry Debug - gradesData:', gradesData);
     console.log('🔍 AssessmentEntry Debug - gradesData type:', typeof gradesData);
-    console.log('🔍 AssessmentEntry Debug - gradesData.data:', gradesData?.data);
     
-    let result = [];
+    let result: Grade[] = [];
     if (Array.isArray(gradesData)) {
-      result = gradesData;
-    } else if (gradesData?.data && Array.isArray(gradesData.data)) {
-      result = gradesData.data;
-    } else if (gradesData?.grades && Array.isArray(gradesData.grades)) {
-      result = gradesData.grades;
+      result = gradesData as Grade[];
+    } else if (gradesData && typeof gradesData === 'object' && 'data' in gradesData && Array.isArray((gradesData as any).data)) {
+      result = (gradesData as any).data as Grade[];
+    } else if (gradesData && typeof gradesData === 'object' && 'grades' in gradesData && Array.isArray((gradesData as any).grades)) {
+      result = (gradesData as any).grades as Grade[];
     }
     
     console.log('🔍 AssessmentEntry Debug - final grades array:', result);
