@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@/hooks/use-toast';
+import { apiClient } from '@/services/api';
 import { linkDatabaseService, type PaginatedResponse } from '@/services/linkDatabase';
 import type { CreateLinkData, LinkShare } from '../types/linkDatabase.types';
 
@@ -23,6 +24,13 @@ export function useLinkDatabaseActions({
   const queryClient = useQueryClient();
 
   const invalidateAll = useCallback(() => {
+    // Clear apiOptimized in-memory cache for link-database GET endpoints.
+    // Mutation endpoints (/link-database/department/X, /links/X) differ from
+    // GET endpoints (/link-database/by-department/X), so apiOptimized's
+    // auto-clear in invalidateCachesForMutation doesn't cover these.
+    apiClient.clearCache('link-database');
+    apiClient.clearCache('/links');
+
     queryClient.invalidateQueries({ queryKey: ['link-database-department'] });
     queryClient.invalidateQueries({ queryKey: ['link-database-sector'] });
   }, [queryClient]);
