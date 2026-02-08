@@ -128,6 +128,10 @@ abstract class BaseTaskController extends Controller
                     });
                     // Also include tasks where target_roles contains 'regionoperator'
                     $q->orWhereJsonContains('target_roles', 'regionoperator');
+                    // Also include tasks with assignments for current user (specific tasks)
+                    $q->orWhereHas('assignments', function ($assignmentQuery) {
+                        $assignmentQuery->where('assigned_user_id', auth()->id());
+                    });
                 }
 
                 if ($originScope === 'sector') {
@@ -138,6 +142,10 @@ abstract class BaseTaskController extends Controller
                     });
                     // Also include tasks where target_roles contains 'sektoradmin'
                     $q->orWhereJsonContains('target_roles', 'sektoradmin');
+                    // Also include tasks with assignments for current user (specific tasks)
+                    $q->orWhereHas('assignments', function ($assignmentQuery) {
+                        $assignmentQuery->where('assigned_user_id', auth()->id());
+                    });
                 }
             });
         }
@@ -214,19 +222,38 @@ abstract class BaseTaskController extends Controller
 
     /**
      * Sync task status with active assignments
+     * Ignores delegated and rejected assignments as they are terminal states
      */
     protected function syncTaskStatusWithAssignments($task): void
     {
+        // Check for active (non-delegated, non-rejected) assignments
         $activeAssignment = $task->assignments()
             ->whereIn('assignment_status', ['in_progress', 'accepted'])
             ->first();
 
-        // If there's an active assignment, update task status
         if ($activeAssignment) {
             $newStatus = $activeAssignment->assignment_status === 'in_progress' ? 'in_progress' : 'pending';
-            
+
             if ($task->status !== $newStatus) {
                 $task->update(['status' => $newStatus]);
+            }
+
+            return;
+        }
+
+        // Check if there are pending assignments (e.g., after delegation)
+        $pendingAssignment = $task->assignments()
+            ->where('assignment_status', 'pending')
+            ->first();
+
+        if ($pendingAssignment && $task->status !== 'in_progress') {
+            // Task stays in_progress when delegated (new pending assignments exist)
+            $hasDelegated = $task->assignments()
+                ->where('assignment_status', 'delegated')
+                ->exists();
+
+            if ($hasDelegated) {
+                $task->update(['status' => 'in_progress']);
             }
         }
     }

@@ -4,6 +4,7 @@
  * Single editable row in the Excel-like task table
  */
 
+import { useMemo } from 'react';
 import { Task } from '@/services/tasks';
 import { InlineEditContext } from './types';
 import { TextCell } from './cells/TextCell';
@@ -94,12 +95,37 @@ export function ExcelTaskRow({
     color: getSourceColor(opt.value),
   }));
 
-  // Get assignee names
-  const assigneeNames = task.assignments
-    ?.map((a) => a.assignedUser?.name || a.assigned_user?.name)
+  // Filter to only show ORIGINAL assignees (not delegation-created ones)
+  const originalAssignments = useMemo(() => {
+    return (task.assignments || []).filter(a => {
+      // Exclude delegation-created assignments (delegated-to users belong to my-delegations page)
+      if (a.assignment_metadata?.is_delegated) return false;
+      // Exclude cancelled/rejected terminal states
+      if (['cancelled', 'rejected'].includes(a.assignment_status || '')) return false;
+      return true;
+    });
+  }, [task.assignments]);
+
+  // Get assignee names from original assignments
+  const assigneeNames = originalAssignments
+    .map((a) => a.assignedUser?.name || a.assigned_user?.name)
     .filter(Boolean)
     .map((name) => formatUserName(name!))
     .join(', ') || '-';
+
+  // Merge users from original assignments into availableUsers so MultiSelectCell
+  // can resolve names even if the assigned user isn't in the assignable users list
+  const mergedUsers = useMemo(() => {
+    const usersMap = new Map<number, { id: number; name: string; email?: string }>();
+    availableUsers.forEach(u => usersMap.set(u.id, u));
+    originalAssignments.forEach(a => {
+      const user = a.assignedUser || (a as any).assigned_user;
+      if (user?.id && !usersMap.has(user.id)) {
+        usersMap.set(user.id, { id: user.id, name: user.name, email: user.email });
+      }
+    });
+    return Array.from(usersMap.values());
+  }, [availableUsers, originalAssignments]);
 
   return (
     <tr
@@ -181,8 +207,8 @@ export function ExcelTaskRow({
       {/* Assignees - Now editable with MultiSelectCell */}
       <td className="px-2 py-1">
         <MultiSelectCell
-          selectedIds={task.assignments?.map(a => a.assigned_user_id).filter(Boolean) as number[] || []}
-          options={availableUsers}
+          selectedIds={originalAssignments.map(a => a.assigned_user_id).filter(Boolean) as number[] || []}
+          options={mergedUsers}
           isEditing={isEditing(task.id, 'assignees')}
           onEdit={() => canEdit && startEdit(task.id, 'assignees', task.assignments)}
           onSave={(ids) => saveEdit(task.id, { assigned_user_ids: ids } as any)}

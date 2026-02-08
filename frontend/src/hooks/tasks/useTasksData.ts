@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { taskService, Task } from "@/services/tasks";
+import { taskService, Task, TasksListResponse } from "@/services/tasks";
 import { User } from "@/types/user";
 import { TaskFilterState } from "./useTaskFilters";
 import { TaskTabValue } from "./useTaskPermissions";
@@ -93,11 +93,11 @@ export function useTasksData({
     [currentUser?.institution?.id, queryFilters, scope]
   );
 
-  const tasksQuery = useQuery({
+  const tasksQuery = useQuery<TasksListResponse, Error>({
     queryKey,
-    queryFn: () => taskService.getAll(queryFilters, false),
+    queryFn: () => taskService.getAllWithStatistics(queryFilters),
     enabled: hasAccess && hasScopeAccess,
-    keepPreviousData: true,
+    placeholderData: (previous) => previous,
   });
 
   const tasksResponse = tasksQuery.data;

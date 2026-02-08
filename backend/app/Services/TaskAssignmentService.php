@@ -218,6 +218,21 @@ class TaskAssignmentService extends BaseService
                 $data['completion_notes'] ?? null
             );
 
+            // Handle rejection of delegated assignment — auto-revert to delegator
+            if ($newStatus === 'rejected') {
+                $this->handleDelegationRejection($assignment, $user);
+            }
+
+            // When delegator completes from 'delegated' status, cancel pending delegatee assignments
+            if ($oldStatus === 'delegated' && $newStatus === 'completed') {
+                $this->cancelDelegatedAssignments($assignment);
+            }
+
+            // When delegatee completes, auto-complete the delegator's assignment too
+            if ($newStatus === 'completed') {
+                $this->handleDelegationCompletion($assignment, $user);
+            }
+
             // Update parent task progress
             $this->updateTaskProgressFromAssignments($assignment->task->fresh('assignments'));
 
@@ -456,12 +471,15 @@ class TaskAssignmentService extends BaseService
     /**
      * Calculate task progress from assignments
      */
-    private function calculateTaskProgress(Task $task): float
+    private function calculateTaskProgress(Task $task): int
     {
-        $assignments = $task->assignments;
+        // Only count active assignments (exclude delegated and rejected — they are terminal states)
+        $assignments = $task->assignments->filter(function ($assignment) {
+            return ! in_array($assignment->assignment_status, ['delegated', 'rejected', 'cancelled']);
+        });
 
         if ($assignments->isEmpty()) {
-            return 0.0;
+            return 0;
         }
 
         $totalWeight = 0;
@@ -478,7 +496,7 @@ class TaskAssignmentService extends BaseService
             }
         }
 
-        return $totalWeight > 0 ? round(($completedWeight / $totalWeight) * 100, 2) : 0;
+        return $totalWeight > 0 ? (int) round(($completedWeight / $totalWeight) * 100) : 0;
     }
 
     /**
@@ -530,11 +548,13 @@ class TaskAssignmentService extends BaseService
     private function getStatusTransitionMap(): array
     {
         return [
-            'pending' => ['in_progress', 'accepted', 'completed', 'cancelled'],
-            'accepted' => ['in_progress', 'completed', 'cancelled'], // Accepted assignments can be started or completed
+            'pending' => ['in_progress', 'accepted', 'completed', 'cancelled', 'rejected'],
+            'accepted' => ['in_progress', 'completed', 'cancelled'],
             'in_progress' => ['completed', 'cancelled', 'pending'],
-            'completed' => [], // No transitions allowed - final state
+            'completed' => [],
             'cancelled' => ['pending', 'in_progress'],
+            'delegated' => ['completed'],  // Delegator hələ də özü tamamlaya bilər
+            'rejected' => [],   // Final state — rədd edildikdən sonra dəyişiklik yoxdur
         ];
     }
 
@@ -597,6 +617,127 @@ class TaskAssignmentService extends BaseService
     /**
      * Additional helper methods would be implemented here
      */
+    /**
+     * Handle rejection of a delegated assignment — revert delegator's assignment to in_progress
+     */
+    private function handleDelegationRejection(TaskAssignment $assignment, $user): void
+    {
+        $metadata = $assignment->assignment_metadata ?? [];
+
+        if (empty($metadata['is_delegated']) || empty($metadata['delegated_from_assignment_id'])) {
+            return;
+        }
+
+        // Revert the original delegator's assignment back to in_progress
+        $originalAssignment = TaskAssignment::find($metadata['delegated_from_assignment_id']);
+        if ($originalAssignment && $originalAssignment->assignment_status === 'delegated') {
+            $originalAssignment->update([
+                'assignment_status' => 'in_progress',
+                'can_update' => true,
+                'updated_by' => $user->id,
+            ]);
+        }
+
+        // Notify the delegator
+        try {
+            $task = $assignment->task;
+            $this->notificationService->send([
+                'title' => 'Yönləndirilmiş tapşırıq imtina edildi',
+                'message' => "{$user->name} yönləndirilmiş tapşırığı imtina etdi: {$task->title}",
+                'type' => 'task_delegation_rejected',
+                'channel' => 'in_app',
+                'user_id' => $metadata['delegated_from_user_id'],
+                'related_type' => Task::class,
+                'related_id' => $task->id,
+                'metadata' => [
+                    'assignment_id' => $assignment->id,
+                    'rejected_by' => $user->id,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Delegation rejection bildirişi göndərilə bilmədi', [
+                'assignment_id' => $assignment->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * When a delegatee completes their assignment, auto-complete the delegator's assignment
+     */
+    private function handleDelegationCompletion(TaskAssignment $assignment, $user): void
+    {
+        $metadata = $assignment->assignment_metadata ?? [];
+
+        // Only for delegated assignments
+        if (empty($metadata['is_delegated']) || empty($metadata['delegated_from_assignment_id'])) {
+            return;
+        }
+
+        $originalAssignment = TaskAssignment::find($metadata['delegated_from_assignment_id']);
+        if (! $originalAssignment || $originalAssignment->assignment_status !== 'delegated') {
+            return;
+        }
+
+        // Auto-complete the delegator's assignment
+        $originalAssignment->update([
+            'assignment_status' => 'completed',
+            'progress' => 100,
+            'completed_at' => now(),
+            'completion_notes' => "Yönləndirilmiş tapşırıq {$user->name} tərəfindən tamamlandı",
+            'updated_by' => $user->id,
+        ]);
+
+        // Notify the delegator
+        try {
+            $task = $assignment->task;
+            $this->notificationService->send([
+                'title' => 'Yönləndirilmiş tapşırıq tamamlandı',
+                'message' => "{$user->name} yönləndirilmiş tapşırığı tamamladı: {$task->title}",
+                'type' => 'task_delegation_completed',
+                'channel' => 'in_app',
+                'user_id' => $metadata['delegated_from_user_id'],
+                'related_type' => Task::class,
+                'related_id' => $task->id,
+                'metadata' => [
+                    'assignment_id' => $assignment->id,
+                    'completed_by' => $user->id,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::warning('Delegation completion bildirişi göndərilə bilmədi', [
+                'assignment_id' => $assignment->id,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Cancel delegated assignments when delegator completes the task themselves
+     */
+    private function cancelDelegatedAssignments(TaskAssignment $delegatorAssignment): void
+    {
+        $task = $delegatorAssignment->task;
+
+        // Find assignments that were delegated from this assignment
+        $delegatedAssignments = $task->assignments()
+            ->whereIn('assignment_status', ['pending', 'accepted', 'in_progress'])
+            ->get()
+            ->filter(function ($assignment) use ($delegatorAssignment) {
+                $metadata = $assignment->assignment_metadata ?? [];
+
+                return ! empty($metadata['is_delegated'])
+                    && ($metadata['delegated_from_assignment_id'] ?? null) == $delegatorAssignment->id;
+            });
+
+        foreach ($delegatedAssignments as $assignment) {
+            $assignment->update([
+                'assignment_status' => 'cancelled',
+                'updated_by' => $delegatorAssignment->assigned_user_id,
+            ]);
+        }
+    }
+
     private function logProgressChange($assignment, $oldStatus, $newStatus, $user, ?string $notes = null): void
     {
         try {

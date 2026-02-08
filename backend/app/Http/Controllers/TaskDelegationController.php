@@ -130,74 +130,36 @@ class TaskDelegationController extends BaseTaskController
             $delegations = [];
             $newAssignments = [];
 
-            // For the first user, update the existing assignment
-            $firstAssigneeId = $request->new_assignee_ids[0];
-
-            // Create delegation history for first user
-            $delegation = \App\Models\TaskDelegationHistory::create([
-                'task_id' => $task->id,
-                'assignment_id' => $currentAssignment->id,
-                'delegated_from_user_id' => $currentUser->id,
-                'delegated_to_user_id' => $firstAssigneeId,
-                'delegated_by_user_id' => $currentUser->id,
-                'delegation_reason' => $request->delegation_reason,
-                'delegation_metadata' => [
-                    'previous_status' => $currentAssignment->assignment_status,
-                    'previous_progress' => $currentAssignment->progress ?? 0,
-                    'is_multi_delegation' => count($request->new_assignee_ids) > 1,
-                ],
-            ]);
-            $delegations[] = $delegation;
-
-            // Update existing assignment to first user
+            // Mark current assignment as delegated (do NOT reuse it for delegatee)
             $currentAssignment->update([
-                'assigned_user_id' => $firstAssigneeId,
-                'assignment_status' => 'pending',
-                'can_update' => true, // Enable update for delegated user
+                'assignment_status' => 'delegated',
+                'can_update' => false,
                 'updated_by' => $currentUser->id,
             ]);
 
-            // Create new assignment for original user (delegator) with cancelled/delegated status
-            $delegatorAssignment = $task->assignments()->create([
-                'assigned_user_id' => $currentUser->id,
-                'institution_id' => $currentUser->institution_id ?? $currentAssignment->institution_id,
-                'assigned_role' => $currentUser->roles->first()?->name,
-                'assignment_status' => 'cancelled', // Delegator sees task as cancelled
-                'progress' => $currentAssignment->progress,
-                'can_update' => false, // Delegator cannot modify anymore
-                'assigned_by' => $currentUser->id,
-                'created_by' => $currentUser->id,
-                'updated_by' => $currentUser->id,
-            ]);
-
-            // Log delegation for first user
-            $this->auditService->logTaskDelegated(
-                $task,
-                $currentUser->id,
-                $firstAssigneeId,
-                $request->delegation_reason
-            );
-
-            // For remaining users, create new assignments
-            for ($i = 1; $i < count($request->new_assignee_ids); $i++) {
-                $assigneeId = $request->new_assignee_ids[$i];
-
-                // Get assignee's institution_id
+            // Create NEW assignments for ALL delegatees
+            foreach ($request->new_assignee_ids as $index => $assigneeId) {
                 $assignee = $newAssignees->firstWhere('id', $assigneeId);
 
-                // Create new assignment
+                // Create new assignment for delegatee
                 $newAssignment = $task->assignments()->create([
                     'assigned_user_id' => $assigneeId,
                     'institution_id' => $assignee->institution_id,
                     'assigned_role' => $assignee->roles->first()?->name,
                     'assignment_status' => 'pending',
-                    'assigned_by' => $currentUser->id,
-                    'created_by' => $currentUser->id,
+                    'priority' => $currentAssignment->priority,
+                    'due_date' => $currentAssignment->due_date,
+                    'assignment_notes' => $currentAssignment->assignment_notes,
+                    'assignment_metadata' => [
+                        'is_delegated' => true,
+                        'delegated_from_user_id' => $currentUser->id,
+                        'delegated_from_assignment_id' => $currentAssignment->id,
+                    ],
                     'updated_by' => $currentUser->id,
                 ]);
                 $newAssignments[] = $newAssignment;
 
-                // Create delegation history for this user
+                // Create delegation history
                 $delegation = \App\Models\TaskDelegationHistory::create([
                     'task_id' => $task->id,
                     'assignment_id' => $newAssignment->id,
@@ -206,8 +168,11 @@ class TaskDelegationController extends BaseTaskController
                     'delegated_by_user_id' => $currentUser->id,
                     'delegation_reason' => $request->delegation_reason,
                     'delegation_metadata' => [
-                        'is_multi_delegation' => true,
-                        'is_additional_assignment' => true,
+                        'previous_status' => $currentAssignment->assignment_status === 'delegated'
+                            ? 'in_progress'
+                            : $currentAssignment->assignment_status,
+                        'previous_progress' => $currentAssignment->progress ?? 0,
+                        'is_multi_delegation' => count($request->new_assignee_ids) > 1,
                         'original_assignment_id' => $currentAssignment->id,
                     ],
                 ]);

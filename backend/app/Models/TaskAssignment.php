@@ -138,6 +138,8 @@ class TaskAssignment extends Model
                     $assignment->accepted_at = now();
                 } elseif ($assignment->assignment_status === 'completed' && ! $assignment->completed_at) {
                     $assignment->completed_at = now();
+                } elseif ($assignment->assignment_status === 'rejected' && ! $assignment->completed_at) {
+                    $assignment->completed_at = now();
                 }
             }
         });

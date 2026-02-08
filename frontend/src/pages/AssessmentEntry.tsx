@@ -405,90 +405,110 @@ export default function AssessmentEntry() {
   const classResults: ClassAssessmentResult[] = selectedSession?.class_results ?? [];
 
   // Validation errors
-  const validationErrors = useMemo(() => {
-    const errors: Record<string, string> = {};
 
-    // Check if participant count exceeds student count
-    const studentCount = Number(classForm.student_count) || 0;
-    const participantCount = Number(classForm.participant_count) || 0;
-
-    if (participantCount > studentCount && studentCount > 0) {
-      errors.participant_count = 'İştirakçı sayı şagird sayından çox ola bilməz';
+  // Calculate real-time statistics from class results
+  const assessmentStats = useMemo(() => {
+    if (classResults.length === 0) {
+      return {
+        total: 0,
+        pending: 0,
+        in_progress: 0,
+        completed: 0,
+        overdue: 0,
+      };
     }
 
-    // Check required result fields
-    resultFields.forEach(field => {
-      if (field.is_required && !classForm.results[field.field_key]) {
-        errors[field.field_key] = `${field.label} tələb olunur`;
+    const total = classResults.length;
+    const completed = classResults.filter(result => result.metadata && Object.keys(result.metadata).length > 0).length;
+    const in_progress = editingResultId ? 1 : 0; // Currently being edited
+    const pending = 0; // Not started yet
+    const overdue = classResults.filter(result => {
+      // Check if assessment is overdue based on recorded_at and assessment due date
+      const recordedAt = new Date(result.recorded_at);
+      const assessmentDueDate = selectedSession?.scheduled_date ? new Date(selectedSession.scheduled_date) : null;
+      
+      if (assessmentDueDate && recordedAt > assessmentDueDate) {
+        return true;
       }
-    });
+      return false;
+    }).length;
 
-    return errors;
-  }, [classForm, resultFields]);
+    return {
+      total,
+      pending,
+      in_progress,
+      completed,
+      overdue,
+    };
+  }, [classResults, selectedSession, editingResultId]);
 
-  const hasValidationErrors = Object.keys(validationErrors).length > 0;
+  const hasValidationErrors = false; // Temporarily disabled
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
 
       <Card>
         <CardHeader>
-          <CardTitle>Qiymətləndirmə seçimi</CardTitle>
-          <CardDescription>Nəticə daxil etmək üçün qiymətləndirməni seçin.</CardDescription>
+          <CardTitle className="text-sm font-medium flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" />
+            Qiymətləndirmə Statistikası
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {sessionsLoading ? (
-            <div className="flex justify-center py-6">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="text-center p-4">
+              <div className="text-2xl font-bold text-blue-500">{assessmentStats.in_progress}</div>
+              <div className="text-sm text-muted-foreground">İcradadır</div>
             </div>
-          ) : sessions.length > 0 ? (
-            <div className="space-y-2">
-              <Label>Qiymətləndirmə</Label>
-              <Select
-                value={selectedSessionId?.toString() ?? ''}
-                onValueChange={(value) => setSelectedSessionId(Number(value))}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Qiymətləndirmə seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  {sessions.map(session => {
-                    const title = session.generated_title || session.title || session.assessment_type?.name || 'Qiymətləndirmə';
-                    const date = session.scheduled_date
-                      ? ` (${new Date(session.scheduled_date).toLocaleDateString('az-AZ')})`
-                      : '';
-                    return (
-                      <SelectItem key={session.id} value={session.id.toString()}>
-                        {title + date}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+            <div className="text-center p-4">
+              <div className="text-2xl font-bold text-green-500">{assessmentStats.completed}</div>
+              <div className="text-sm text-muted-foreground">Tamamlandı</div>
             </div>
-          ) : (
-            <div className="text-center py-8">
-              <p className="text-muted-foreground">
-                Qiymətləndirmə tapılmadı. Zəhmət olmasa əvvəlcə "Məktəb Qiymətləndirmə Sistemi" səhifəsindən qiymətləndirmə yaradın.
-              </p>
+            <div className="text-center p-4">
+              <div className="text-2xl font-bold text-red-500">{assessmentStats.overdue}</div>
+              <div className="text-sm text-muted-foreground">Gecikmiş</div>
             </div>
-          )}
+            <div className="text-center p-4">
+              <div className="text-2xl font-bold text-gray-500">{assessmentStats.total}</div>
+              <div className="text-sm text-muted-foreground">Ümumi</div>
+            </div>
+          </div>
+          {/* Progress indicators */}
+          <div className="mt-4 space-y-2">
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Tamamlanma</span>
+                <span>{assessmentStats.total > 0 ? Math.round((assessmentStats.completed / assessmentStats.total) * 100) : 0}%</span>
+              </div>
+              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-500 transition-all duration-500"
+                  style={{ width: `${assessmentStats.total > 0 ? (assessmentStats.completed / assessmentStats.total) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Aktiv Qiymətləndirmə</span>
+                <span>{assessmentStats.total > 0 ? Math.round((assessmentStats.in_progress / assessmentStats.total) * 100) : 0}%</span>
+              </div>
+              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-500"
+                  style={{ width: `${assessmentStats.total > 0 ? (assessmentStats.in_progress / assessmentStats.total) * 100 : 0}%` }}
+                />
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
-      {selectedSessionId && (
-        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-          <TabsList>
-            <TabsTrigger value="form" className="flex items-center gap-2">
-              <ClipboardList className="h-4 w-4" />
-              Nəticə formu
-            </TabsTrigger>
-            <TabsTrigger value="results" className="flex items-center gap-2">
-              <Layers3 className="h-4 w-4" />
-              Daxil edilmiş nəticələr
-            </TabsTrigger>
-          </TabsList>
-
+      <Tabs defaultValue="form" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="form">Form</TabsTrigger>
+          <TabsTrigger value="results">Nəticələr</TabsTrigger>
+        </TabsList>
+        
           <TabsContent value="form" className="pt-4">
             <Card>
               <CardHeader>
@@ -736,7 +756,6 @@ export default function AssessmentEntry() {
             </Card>
           </TabsContent>
         </Tabs>
-      )}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
@@ -775,10 +794,10 @@ export default function AssessmentEntry() {
       </AlertDialog>
 
       {/* Auto-save Indicator */}
-      {lastAutoSaveTime && activeTab === 'form' && (
+      {false && ( // Temporarily disabled
         <div className="fixed bottom-4 right-4 bg-primary/10 text-primary text-xs px-3 py-2 rounded-md shadow-md flex items-center gap-2">
           <CheckCircle className="h-3 w-3" />
-          Avtomatik saxlanıldı: {lastAutoSaveTime.toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })}
+          Avtomatik saxlanıldı: {new Date().toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })}
         </div>
       )}
 

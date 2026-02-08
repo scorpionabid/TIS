@@ -52,6 +52,8 @@ const assignmentStatusLabels: Record<string, string> = {
   in_progress: "İcrada",
   completed: "Tamamlanıb",
   cancelled: "Ləğv edilib",
+  delegated: "Yönləndirilib",
+  rejected: "İmtina edilib",
   review: "Nəzərdən keçirilir",
 };
 
@@ -150,10 +152,15 @@ const AssignedTasks = () => {
     markInProgress,
     markCompleted,
     markCancelled,
-  } = useAssignmentMutations(() => {
-    closeDecisionDialog();
-    closeCompletionDialog();
-  });
+  } = useAssignmentMutations();
+
+  // Close dialogs on successful mutations
+  useEffect(() => {
+    if (!isMutationPending) {
+      closeDecisionDialog();
+      closeCompletionDialog();
+    }
+  }, [isMutationPending, closeDecisionDialog, closeCompletionDialog]);
 
   const allowedRoles = useMemo(
     () => ["superadmin", "regionadmin", "sektoradmin", "schooladmin", "regionoperator"],
@@ -162,21 +169,27 @@ const AssignedTasks = () => {
 
   const hasAccess = currentUser ? allowedRoles.includes(currentUser.role) : false;
 
-  const availableTabs = useMemo(
-    () =>
-      [
-        { value: "region" as const, label: "Regional Tapşırıqlar" },
-        { value: "sector" as const, label: "Sektor Tapşırıqları" },
-      ] as Array<{ value: "region" | "sector"; label: string }>,
-    []
-  );
+  const availableTabs = useMemo(() => {
+    const tabs: Array<{ value: "region" | "sector"; label: string }> = [];
+    const role = currentUser?.role;
+
+    // Only regional-level roles see regional tab
+    const regionalRoles = ["superadmin", "regionadmin", "regionoperator"];
+    if (role && regionalRoles.includes(role)) {
+      tabs.push({ value: "region" as const, label: "Regional Tapşırıqlar" });
+    }
+    tabs.push({ value: "sector" as const, label: "Sektor Tapşırıqları" });
+
+    return tabs;
+  }, [currentUser?.role]);
 
   useEffect(() => {
     if (availableTabs.some((tab) => tab.value === activeTab)) {
       return;
     }
 
-    setActiveTab("region");
+    // Default to first available tab
+    setActiveTab(availableTabs[0]?.value ?? "sector");
   }, [activeTab, availableTabs]);
 
   const regionTasksQuery = useQuery({
@@ -297,7 +310,7 @@ const AssignedTasks = () => {
       <div className="space-y-4 px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-3xl font-bold text-foreground">Təyin olunmuş tapşırıqlar</h1>
-          <p className="text-muted-foreground">Regional və sektor tapşırıqlarını ayrıca tablarda izləyin</p>
+          <p className="text-muted-foreground">Sizə təyin olunmuş tapşırıqları izləyin</p>
         </div>
         <TableSkeleton columns={8} rows={5} hasActions />
       </div>
@@ -320,18 +333,24 @@ const AssignedTasks = () => {
     <div className="space-y-4 px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">
       <div className="flex flex-col gap-1">
         <h1 className="text-3xl font-bold text-foreground">Təyin olunmuş tapşırıqlar</h1>
-        <p className="text-muted-foreground">Regional və sektor tapşırıqlarını ayrıca tablarda izləyin</p>
+        <p className="text-muted-foreground">
+          {availableTabs.length > 1
+            ? "Regional və sektor tapşırıqlarını ayrıca tablarda izləyin"
+            : "Sizə təyin olunmuş tapşırıqları izləyin"}
+        </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "region" | "sector")}>
-        <TabsList className="w-full sm:w-auto">
-          {availableTabs.map((tab) => (
-            <TabsTrigger key={tab.value} value={tab.value} className="capitalize">
-              {tab.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      {availableTabs.length > 1 && (
+        <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "region" | "sector")}>
+          <TabsList className="w-full sm:w-auto">
+            {availableTabs.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value} className="capitalize">
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      )}
 
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
@@ -528,24 +547,22 @@ const AssignedTasks = () => {
                             >
                               <Eye className="h-4 w-4" />
                             </Button>
-                            {/* Accept button - for pending tasks */}
-                            {canTransition(assignment, "accepted" as Task["status"]) && statusForUser === "pending" && (
+                            {/* Start working button - for pending tasks */}
+                            {canTransition(assignment, "in_progress") && statusForUser === "pending" && (
                               <Button
                                 size="sm"
-                                variant="secondary"
-                                onClick={() => handleAcceptTask(task, assignment)}
+                                variant="default"
+                                onClick={() => handleMarkInProgress(task, assignment)}
                                 disabled={isMutationPending}
                               >
                                 {isAssignmentPending(assignment.id) ? (
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : (
-                                  <CheckCircle className="mr-2 h-4 w-4" />
-                                )}
-                                Qəbul et
+                                ) : null}
+                                İcraya götür
                               </Button>
                             )}
-                            {/* Delegation button - now controlled by backend permission flag */}
-                            {assignment.can_delegate && (
+                            {/* Delegation button - only for in_progress tasks */}
+                            {assignment.can_delegate && statusForUser === "in_progress" && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -556,22 +573,8 @@ const AssignedTasks = () => {
                                 Yönləndir
                               </Button>
                             )}
-                            {/* Start working button - for accepted tasks */}
-                            {canTransition(assignment, "in_progress") && statusForUser !== "completed" && (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => handleMarkInProgress(task, assignment)}
-                                disabled={isMutationPending}
-                              >
-                                {isAssignmentPending(assignment.id) ? (
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                ) : null}
-                                İcraya götür
-                              </Button>
-                            )}
-                            {/* Complete button */}
-                            {canTransition(assignment, "completed") && statusForUser !== "completed" && (
+                            {/* Complete button - for in_progress and delegated tasks */}
+                            {canTransition(assignment, "completed") && (statusForUser === "in_progress" || statusForUser === "delegated") && (
                               <Button
                                 size="sm"
                                 variant="default"

@@ -39,7 +39,7 @@ class TaskCrudController extends BaseTaskController
                 'assignedInstitution:id,name,type',
                 'approver:id,first_name,last_name',
                 'assignments' => function ($query) {
-                    $query->select('id', 'task_id', 'assigned_user_id', 'institution_id', 'assignment_status', 'progress')
+                    $query->select('id', 'task_id', 'assigned_user_id', 'institution_id', 'assignment_status', 'progress', 'assignment_metadata')
                         ->with([
                             'assignedUser:id,first_name,last_name',
                             'institution:id,name',
@@ -128,9 +128,9 @@ class TaskCrudController extends BaseTaskController
                         ->orWhereHas('assignments', function ($assignmentQuery) use ($user) {
                             $assignmentQuery->where('assigned_user_id', $user->id);
                         })
-                        // OR tasks assigned to user's institution (only if user has institution and NOT schooladmin)
+                        // OR tasks assigned to user's institution (only if user has institution)
                         ->orWhere(function ($instQuery) use ($institutionId, $user) {
-                            if ($institutionId && !$user->hasRole('schooladmin')) {
+                            if ($institutionId) {
                                 $instQuery->where('assigned_to_institution_id', $institutionId)
                                     ->orWhereJsonContains('target_institutions', $institutionId);
                             }
@@ -243,8 +243,8 @@ class TaskCrudController extends BaseTaskController
                 foreach ($allUserIds as $userId) {
                     // We can't check task_id since task doesn't exist yet,
                     // but we can validate the user exists and is active
-                    $user = \App\Models\User::find($userId);
-                    if (! $user || ! $user->is_active) {
+                    $selectedUser = \App\Models\User::find($userId);
+                    if (! $selectedUser || ! $selectedUser->is_active) {
                         return response()->json([
                             'success' => false,
                             'message' => 'Seçilmiş istifadəçi mövcud deyil və ya aktiv deyil.',

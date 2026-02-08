@@ -2,6 +2,7 @@
  * MultiSelectCell Component
  *
  * Inline editable multi-select cell for assignees
+ * Shows max 2 users in display mode, with popover for overflow
  */
 
 import { useState, useEffect } from 'react';
@@ -38,6 +39,20 @@ interface MultiSelectCellProps {
   placeholder?: string;
   className?: string;
   isLoading?: boolean;
+  maxVisible?: number;
+}
+
+// Helper to format user name for display
+function formatDisplayName(name: string): string {
+  if (!name) return '';
+  if (name.includes('@')) {
+    const username = name.split('@')[0];
+    return username
+      .split(/[._-]/)
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(' ');
+  }
+  return name;
 }
 
 export function MultiSelectCell({
@@ -50,6 +65,7 @@ export function MultiSelectCell({
   placeholder = 'Seçin...',
   className,
   isLoading = false,
+  maxVisible = 2,
 }: MultiSelectCellProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selected, setSelected] = useState<number[]>(selectedIds);
@@ -112,7 +128,7 @@ export function MultiSelectCell({
               ) : (
                 selectedUsers.map((user) => (
                   <Badge key={user.id} variant="secondary" className="text-xs">
-                    {user.name}
+                    {formatDisplayName(user.name)}
                     <X
                       className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive"
                       onClick={(e) => handleRemove(user.id, e)}
@@ -142,7 +158,7 @@ export function MultiSelectCell({
                     )}
                   />
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium">{user.name}</span>
+                    <span className="text-sm font-medium">{formatDisplayName(user.name)}</span>
                     {user.email && (
                       <span className="text-xs text-muted-foreground">{user.email}</span>
                     )}
@@ -156,6 +172,11 @@ export function MultiSelectCell({
     );
   }
 
+  // Display mode: show limited users with overflow popover
+  const visibleUsers = selectedUsers.slice(0, maxVisible);
+  const hiddenUsers = selectedUsers.slice(maxVisible);
+  const hasOverflow = hiddenUsers.length > 0;
+
   return (
     <div
       onClick={onEdit}
@@ -168,14 +189,56 @@ export function MultiSelectCell({
       {selectedUsers.length === 0 ? (
         placeholder
       ) : (
-        <div className="flex flex-wrap gap-1">
-          {selectedUsers.map((user) => (
-            <Badge key={user.id} variant="secondary" className="text-xs">
-              {user.name}
+        <div className="flex items-center gap-1 overflow-hidden">
+          {visibleUsers.map((user) => (
+            <Badge key={user.id} variant="secondary" className="text-xs truncate max-w-[120px] shrink-0">
+              {formatDisplayName(user.name)}
             </Badge>
           ))}
+          {hasOverflow && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center h-5 min-w-[28px] px-1.5 rounded-full bg-muted text-xs font-medium text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                  title={`və ${hiddenUsers.length} nəfər daha`}
+                >
+                  +{hiddenUsers.length}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[220px] p-2" align="start" onClick={(e) => e.stopPropagation()}>
+                <div className="text-xs font-medium text-muted-foreground mb-2">
+                  Bütün məsul şəxslər ({selectedUsers.length})
+                </div>
+                <div className="flex flex-col gap-1.5 max-h-[200px] overflow-y-auto">
+                  {selectedUsers.map((user) => (
+                    <div key={user.id} className="flex items-center gap-2 py-1 px-1.5 rounded hover:bg-muted/50">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-primary text-[10px] font-semibold shrink-0">
+                        {getInitials(user.name)}
+                      </div>
+                      <span className="text-sm truncate">{formatDisplayName(user.name)}</span>
+                    </div>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
         </div>
       )}
     </div>
   );
+}
+
+function getInitials(name: string): string {
+  if (!name) return '??';
+  if (name.includes('@')) {
+    const parts = name.split('@')[0].split(/[._-]/).filter(Boolean);
+    return parts.length >= 2
+      ? (parts[0][0] + parts[1][0]).toUpperCase()
+      : name.slice(0, 2).toUpperCase();
+  }
+  const parts = name.split(' ').filter(Boolean);
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }

@@ -70,6 +70,14 @@ export interface Task extends BaseEntity {
     id: number;
     assigned_user_id: number | null;
     assigned_role?: string | null;
+    assignment_status?: AssignmentStatus;
+    progress?: number;
+    institution_id?: number | null;
+    assignment_metadata?: {
+      is_delegated?: boolean;
+      delegated_from_user_id?: number;
+      delegated_from_assignment_id?: number;
+    } | null;
     assignedUser?: {
       id: number;
       name: string;
@@ -84,7 +92,7 @@ export interface Task extends BaseEntity {
   user_assignment?: UserAssignmentSummary | null;
 }
 
-export type AssignmentStatus = 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled';
+export type AssignmentStatus = 'pending' | 'accepted' | 'in_progress' | 'completed' | 'cancelled' | 'delegated' | 'rejected';
 
 export interface UserAssignmentSummary {
   id: number;
@@ -269,6 +277,25 @@ export interface TaskCreationContext {
   } | null;
 }
 
+export type TasksListStatistics = {
+  total: number;
+  pending: number;
+  in_progress: number;
+  completed: number;
+  overdue: number;
+};
+
+export type TasksListResponse = {
+  data: Task[];
+  pagination: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    total_pages: number;
+  };
+  statistics?: TasksListStatistics;
+};
+
 export interface AssignableUser {
   id: number;
   name: string;
@@ -328,44 +355,81 @@ class TaskService extends BaseService<Task> {
     super('/tasks');
   }
 
+  private unwrapResponseData<T>(response: unknown): T {
+    const payload = (response as any)?.data ?? response;
+    return ((payload as any)?.data ?? payload) as T;
+  }
+
+  async getAllWithStatistics(params?: PaginationParams): Promise<TasksListResponse> {
+    const response = await apiClient.get(`${this.baseEndpoint}`, params);
+    const payload = (response as any)?.data ?? response;
+
+    const data: Task[] = Array.isArray(payload?.data)
+      ? payload.data
+      : Array.isArray(payload)
+        ? payload
+        : [];
+
+    const meta = payload?.meta;
+    const pagination = meta && typeof meta === 'object'
+      ? {
+          current_page: Number(meta.current_page ?? 1),
+          per_page: Number(meta.per_page ?? data.length),
+          total: Number(meta.total ?? data.length),
+          total_pages: Number(meta.last_page ?? 1),
+        }
+      : {
+          current_page: 1,
+          per_page: data.length,
+          total: data.length,
+          total_pages: 1,
+        };
+
+    return {
+      data,
+      pagination,
+      statistics: payload?.statistics,
+    };
+  }
+
   async create(data: CreateTaskData): Promise<Task> {
     try {
-      const response = await apiClient.post(this.baseEndpoint, data);
+      const response = await apiClient.post<{ success?: boolean; message?: string; data: Task }>(this.baseEndpoint, data);
 
       // Backend returns: { success: true, message: '...', data: {...} }
-      if (!response.data) {
+      if (!(response as any)?.data) {
         throw new Error('Tapşırıq yaratma əməliyyatı uğursuz oldu');
       }
 
-      return response.data;
+      return this.unwrapResponseData<Task>(response);
     } catch (error) {
       throw error;
     }
   }
 
   async getCreationContext(): Promise<TaskCreationContext> {
-    const response = await apiClient.get(`${this.baseEndpoint}/creation-context`);
-    return (response.data?.data ?? response.data) as TaskCreationContext;
+    const response = await apiClient.get<TaskCreationContext>(`${this.baseEndpoint}/creation-context`);
+    return this.unwrapResponseData<TaskCreationContext>(response);
   }
 
   async getAssignableUsers(params?: AssignableUsersRequestParams): Promise<AssignableUsersResponse> {
     const response = await apiClient.get<AssignableUsersResponse>(`${this.baseEndpoint}/assignable-users`, params);
+    const payload = (response as any)?.data ?? response;
 
-    const payload = (response as AssignableUsersResponse) ?? { data: [] };
-    const primaryData = Array.isArray((payload as any)?.data)
+    const data: AssignableUser[] = Array.isArray(payload?.data)
       ? payload.data
-      : Array.isArray((payload as any))
-        ? (payload as unknown as AssignableUser[])
-        : Array.isArray((payload as any)?.data?.data)
-          ? (payload as any).data.data as AssignableUser[]
+      : Array.isArray(payload?.data?.data)
+        ? payload.data.data
+        : Array.isArray(payload)
+          ? payload
           : [];
 
-    const meta = (payload.meta ?? (payload as any)?.data?.meta) as AssignableUsersMeta | undefined;
-    const links = (payload.links ?? (payload as any)?.data?.links) as AssignableUsersLinks | undefined;
+    const meta: AssignableUsersMeta | undefined = payload?.meta ?? payload?.data?.meta;
+    const links: AssignableUsersLinks | undefined = payload?.links ?? payload?.data?.links;
 
     return {
-      success: payload.success ?? true,
-      data: primaryData,
+      success: payload?.success ?? true,
+      data,
       meta,
       links,
     };
@@ -385,7 +449,7 @@ class TaskService extends BaseService<Task> {
       completion_data?: Record<string, unknown>;
     }
   ) {
-    const response = await apiClient.post(`/tasks/assignments/${assignmentId}/status`, data);
+    const response = await apiClient.post(`/assignments/${assignmentId}/status`, data);
     return response.data ?? response;
   }
 
@@ -396,7 +460,7 @@ class TaskService extends BaseService<Task> {
     const response = await apiClient.post<{ data: Task }>(`${this.baseEndpoint}/${taskId}/submit-for-approval`, {
       notes,
     });
-    return response.data ?? response as unknown as Task;
+    return this.unwrapResponseData<Task>(response);
   }
 
   /**
@@ -406,7 +470,7 @@ class TaskService extends BaseService<Task> {
     const response = await apiClient.post<{ data: Task }>(`${this.baseEndpoint}/${taskId}/approve`, {
       notes,
     });
-    return response.data ?? response as unknown as Task;
+    return this.unwrapResponseData<Task>(response);
   }
 
   /**
@@ -416,7 +480,7 @@ class TaskService extends BaseService<Task> {
     const response = await apiClient.post<{ data: Task }>(`${this.baseEndpoint}/${taskId}/reject`, {
       notes,
     });
-    return response.data ?? response as unknown as Task;
+    return this.unwrapResponseData<Task>(response);
   }
 
   // === SUB-DELEGATION METHODS ===

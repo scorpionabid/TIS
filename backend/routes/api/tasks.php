@@ -64,6 +64,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
     */
     Route::get('/tasks/{taskId}/assignments', [TaskAssignmentController::class, 'getTaskAssignments']);
     Route::put('/assignments/{assignmentId}/status', [TaskAssignmentController::class, 'updateAssignmentStatus']);
+    Route::post('/assignments/{assignmentId}/status', [TaskAssignmentController::class, 'updateAssignmentStatus']);
     Route::post('/assignments/bulk-update', [TaskAssignmentController::class, 'bulkUpdateAssignments']);
 
     /*

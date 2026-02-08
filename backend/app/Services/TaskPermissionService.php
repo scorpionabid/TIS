@@ -188,9 +188,9 @@ class TaskPermissionService extends BaseService
      * Check if user can delegate a task
      * Rules:
      * 1. Superadmin can always delegate
-     * 2. User must have an assignment for this task (pending or accepted status)
-     * 3. Assignment must not have been delegated already (1-time delegation limit)
-     * 4. User must be the direct assignee
+     * 2. User must have an in_progress assignment for this task
+     * 3. Assignment must not have been created via delegation (no re-delegation)
+     * 4. Assignment must not have been delegated already (1-time delegation limit)
      */
     public function canUserDelegateTask($task, $user): bool
     {
@@ -199,21 +199,27 @@ class TaskPermissionService extends BaseService
             return true;
         }
 
-        // Check if user has an assignment for this task
+        // Only in_progress assignments can be delegated
         $userAssignment = $task->assignments()
             ->where('assigned_user_id', $user->id)
-            ->whereIn('assignment_status', ['pending', 'accepted', 'in_progress'])
+            ->where('assignment_status', 'in_progress')
             ->first();
 
         if (! $userAssignment) {
-            return false;  // No assignment = cannot delegate
+            return false;
+        }
+
+        // Assignments created via delegation cannot be re-delegated
+        $metadata = $userAssignment->assignment_metadata ?? [];
+        if (! empty($metadata['is_delegated'])) {
+            return false;
         }
 
         // Check if this assignment has already been delegated (1-time limit)
         $existingDelegation = \App\Models\TaskDelegationHistory::where('assignment_id', $userAssignment->id)->exists();
 
         if ($existingDelegation) {
-            return false;  // Already delegated once
+            return false;
         }
 
         return true;
