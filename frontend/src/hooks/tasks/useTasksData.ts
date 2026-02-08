@@ -9,6 +9,7 @@ export type SortField = "title" | "category" | "priority" | "status" | "deadline
 export type SortDirection = "asc" | "desc";
 
 const DEFAULT_PAGE_SIZE = 25;
+const TASKS_REFETCH_INTERVAL_MS = 10000;
 
 type UseTasksDataParams = {
   currentUser: User | null;
@@ -97,6 +98,9 @@ export function useTasksData({
     queryKey,
     queryFn: () => taskService.getAllWithStatistics(queryFilters),
     enabled: hasAccess && hasScopeAccess,
+    refetchOnWindowFocus: true,
+    refetchInterval: hasAccess && hasScopeAccess ? TASKS_REFETCH_INTERVAL_MS : false,
+    refetchIntervalInBackground: false,
     placeholderData: (previous) => previous,
   });
 

@@ -360,14 +360,23 @@ class TaskService extends BaseService<Task> {
     return ((payload as any)?.data ?? payload) as T;
   }
 
-  async getAllWithStatistics(params?: PaginationParams): Promise<TasksListResponse> {
-    const response = await apiClient.get(`${this.baseEndpoint}`, params);
-    const payload = (response as any)?.data ?? response;
+  async getAllWithStatistics(params?: Record<string, any>): Promise<{
+    data: Task[];
+    pagination: any;
+    statistics?: any;
+  }> {
+    const response = await apiClient.get<any>(this.baseEndpoint, params, { cache: false });
+    const axiosPayload = (response as any)?.data;
+    const payload =
+      axiosPayload && typeof axiosPayload === 'object' && 'success' in axiosPayload
+        ? axiosPayload
+        : response;
 
-    const data: Task[] = Array.isArray(payload?.data)
-      ? payload.data
-      : Array.isArray(payload)
-        ? payload
+    const rawData = payload?.data;
+    const data: Task[] = Array.isArray(rawData)
+      ? rawData
+      : Array.isArray(rawData?.data)
+        ? rawData.data
         : [];
 
     const meta = payload?.meta;
@@ -436,7 +445,7 @@ class TaskService extends BaseService<Task> {
   }
 
   async getAssignedToMe(filters?: TaskFilters) {
-    const response = await apiClient.get<Task[]>(`${this.baseEndpoint}/assigned-to-me`, filters);
+    const response = await apiClient.get<Task[]>(`${this.baseEndpoint}/assigned-to-me`, filters, { cache: false });
     return response as any; // PaginatedResponse
   }
 
