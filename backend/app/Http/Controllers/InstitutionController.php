@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Institution\InstitutionBulkController;
+use App\Http\Controllers\BaseController;
 use App\Http\Controllers\Institution\InstitutionCRUDController;
 use App\Models\Institution;
 use Illuminate\Http\JsonResponse;
@@ -18,7 +18,7 @@ use Illuminate\Http\Request;
  *
  * This file acts as a proxy to maintain backward compatibility.
  */
-class InstitutionController extends Controller
+class InstitutionController extends BaseController
 {
     protected InstitutionCRUDController $crudController;
 

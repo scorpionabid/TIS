@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\TeacherProfileApproval;
 use App\Models\TeacherProfile;
 use App\Models\TeacherAchievement;
@@ -12,7 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class TeacherApprovalController extends Controller
+class TeacherApprovalController extends BaseController
 {
     /**
      * Get all pending approval requests.

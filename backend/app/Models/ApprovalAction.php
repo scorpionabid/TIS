@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprover;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ApprovalAction extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApprover;
 
     protected $fillable = [
         'approval_request_id',
@@ -34,14 +35,6 @@ class ApprovalAction extends Model
     public function approvalRequest(): BelongsTo
     {
         return $this->belongsTo(DataApprovalRequest::class, 'approval_request_id');
-    }
-
-    /**
-     * Get the user who performed this action
-     */
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approver_id');
     }
 
     /**

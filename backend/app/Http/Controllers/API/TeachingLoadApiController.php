@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class TeachingLoadApiController extends Controller
+class TeachingLoadApiController extends BaseController
 {
     public function index(Request $request): JsonResponse
     {

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Http\Requests\GenerateScheduleFromWorkloadRequest;
 use App\Http\Requests\UpdateGenerationSettingsRequest;
 use App\Models\ScheduleGenerationSetting;
@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-class ScheduleGenerationController extends Controller
+class ScheduleGenerationController extends BaseController
 {
     private WorkloadScheduleIntegrationService $integrationService;
 

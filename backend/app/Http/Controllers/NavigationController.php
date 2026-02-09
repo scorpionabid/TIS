@@ -2,11 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\BaseController;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class NavigationController extends Controller
+class NavigationController extends BaseController
 {
     /**
      * Get navigation menu for authenticated user

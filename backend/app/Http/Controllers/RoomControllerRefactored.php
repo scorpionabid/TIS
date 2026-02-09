@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Room;
+use App\Http\Controllers\BaseController;
 use App\Services\ClassPermissionService;
 use App\Services\RoomCrudService;
 use App\Services\RoomMaintenanceService;
@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class RoomControllerRefactored extends Controller
+class RoomControllerRefactored extends BaseController
 {
     protected RoomCrudService $crudService;
 
