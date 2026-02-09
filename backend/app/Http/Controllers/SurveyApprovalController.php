@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
-class SurveyApprovalController extends Controller
+class SurveyApprovalController extends BaseController
 {
     use AuthorizesRequests;
 

@@ -8,7 +8,7 @@ use App\Models\Survey;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SurveyAnalyticsController extends Controller
+class SurveyAnalyticsController extends BaseController
 {
     use ResponseHelpers, ValidationRules;
 

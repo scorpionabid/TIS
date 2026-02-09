@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SurveyAuditLog extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser;
 
     /**
      * Indicates if the model should be timestamped.
@@ -59,14 +60,6 @@ class SurveyAuditLog extends Model
     public function response(): BelongsTo
     {
         return $this->belongsTo(SurveyResponse::class, 'response_id');
-    }
-
-    /**
-     * Get the user who performed the action.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     /**

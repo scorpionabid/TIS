@@ -7,7 +7,7 @@ use App\Models\SurveyTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SurveyTemplateController extends Controller
+class SurveyTemplateController extends BaseController
 {
     /**
      * Display a listing of survey templates.

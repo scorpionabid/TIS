@@ -13,7 +13,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class TestWebSocketController extends Controller
+class TestWebSocketController extends BaseController
 {
     /**
      * Return success response

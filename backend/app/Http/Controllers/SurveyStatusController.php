@@ -10,7 +10,7 @@ use App\Services\SurveyStatusService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SurveyStatusController extends Controller
+class SurveyStatusController extends BaseController
 {
     use ResponseHelpers, ValidationRules;
 
