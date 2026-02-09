@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +13,7 @@ use Illuminate\Support\Facades\Auth;
 
 class SurveyResponse extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasInstitution, HasApprover;
 
     /**
      * The attributes that are mass assignable.

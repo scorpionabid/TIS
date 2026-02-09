@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasTeacher;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TeacherVerification extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTeacher, HasApprover;
 
     protected $fillable = [
         'teacher_id',

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTeacher;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TeacherSubject extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTeacher;
 
     protected $fillable = [
         'teacher_id',

@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DocumentCollectionItem extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser;
 
     protected $fillable = [
         'collection_id',

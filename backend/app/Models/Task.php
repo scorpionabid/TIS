@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Task extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCreator, HasApprover, HasInstitution, HasTypeScope;
 
     protected $fillable = [
         'title',

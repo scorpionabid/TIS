@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DocumentCollection extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasCreator, HasInstitution, HasTypeScope;
 
     // Scope types
     const SCOPE_PERSONAL = 'personal';

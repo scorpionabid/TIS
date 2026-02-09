@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTeacher;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TeachingLoad extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasTeacher, HasInstitution, HasAcademicYear;
 
     protected $fillable = [
         'teacher_id',

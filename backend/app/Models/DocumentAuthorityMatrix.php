@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class DocumentAuthorityMatrix extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTypeScope;
 
     protected $fillable = [
         'user_role',

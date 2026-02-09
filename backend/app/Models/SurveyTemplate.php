@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasCreator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class SurveyTemplate extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCreator;
 
     protected $fillable = [
         'name',

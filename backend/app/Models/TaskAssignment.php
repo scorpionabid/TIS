@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TaskAssignment extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasInstitution;
 
     protected $fillable = [
         'task_id',

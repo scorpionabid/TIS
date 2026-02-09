@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SurveyQuestion extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTypeScope;
 
     /**
      * Boot the model and set default values for non-nullable fields
