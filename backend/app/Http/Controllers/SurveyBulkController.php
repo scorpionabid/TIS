@@ -9,7 +9,7 @@ use App\Services\SurveyBulkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SurveyBulkController extends Controller
+class SurveyBulkController extends BaseController
 {
     use ResponseHelpers, ValidationRules;
 

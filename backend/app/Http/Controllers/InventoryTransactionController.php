@@ -9,7 +9,7 @@ use App\Services\InventoryTransactionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class InventoryTransactionController extends Controller
+class InventoryTransactionController extends BaseController
 {
     use ResponseHelpers, ValidationRules;
 

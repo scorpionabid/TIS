@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
-class PermissionController extends Controller
+class PermissionController extends BaseController
 {
     private const AUTH_GUARD = 'sanctum';
 

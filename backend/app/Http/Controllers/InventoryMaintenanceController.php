@@ -10,7 +10,7 @@ use App\Services\InventoryMaintenanceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class InventoryMaintenanceController extends Controller
+class InventoryMaintenanceController extends BaseController
 {
     use ResponseHelpers, ValidationRules;
 

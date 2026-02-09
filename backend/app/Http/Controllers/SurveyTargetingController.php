@@ -6,7 +6,7 @@ use App\Services\SurveyTargetingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SurveyTargetingController extends Controller
+class SurveyTargetingController extends BaseController
 {
     protected SurveyTargetingService $targetingService;
 

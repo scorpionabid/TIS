@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
-class PreschoolController extends Controller
+class PreschoolController extends BaseController
 {
     public function index(Request $request): JsonResponse
     {

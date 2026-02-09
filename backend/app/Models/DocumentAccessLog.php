@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DocumentAccessLog extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasInstitution;
 
     protected $fillable = [
         'document_id',
@@ -31,14 +33,6 @@ class DocumentAccessLog extends Model
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
-    }
-
-    /**
-     * User relationship
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     /**
