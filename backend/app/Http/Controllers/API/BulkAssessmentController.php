@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\AssessmentEntry;
 use App\Models\AssessmentType;
 use App\Models\BulkAssessmentSession;
@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class BulkAssessmentController extends Controller
+class BulkAssessmentController extends BaseController
 {
     /**
      * Create a new bulk assessment session

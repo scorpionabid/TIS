@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\BaseController;
 use App\Models\AssessmentStage;
 use App\Models\AssessmentType;
 use App\Models\User;
@@ -10,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
-class AssessmentStageController extends Controller
+class AssessmentStageController extends BaseController
 {
     /**
      * List stages for a given assessment type.

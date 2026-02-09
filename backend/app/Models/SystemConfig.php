@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasCreator;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SystemConfig extends Model
 {
+    use HasCreator;
     protected $fillable = [
         'key',
         'value',
@@ -18,14 +20,6 @@ class SystemConfig extends Model
     protected $casts = [
         'value' => 'json',
     ];
-
-    /**
-     * Get the user who last updated this configuration
-     */
-    public function updatedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'updated_by');
-    }
 
     /**
      * Get configuration value by key

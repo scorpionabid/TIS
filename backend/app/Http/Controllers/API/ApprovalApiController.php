@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\ApprovalAction;
 use App\Models\ApprovalNotification;
 use App\Models\ApprovalTemplate;
@@ -12,7 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class ApprovalApiController extends Controller
+class ApprovalApiController extends BaseController
 {
     /**
      * Get approval requests with filtering and pagination

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprover;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TeacherEvaluation extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApprover;
 
     /**
      * The attributes that are mass assignable.
@@ -110,11 +111,6 @@ class TeacherEvaluation extends Model
     public function evaluator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'evaluator_id');
-    }
-
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function institution(): BelongsTo

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class TeacherAssessmentScore extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasApprover;
 
     protected $fillable = [
         'teacher_id',
@@ -52,27 +54,11 @@ class TeacherAssessmentScore extends Model
     ];
 
     /**
-     * Get the teacher (user) that owns the assessment score.
-     */
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'teacher_id');
-    }
-
-    /**
      * Get the academic year that owns the assessment score.
      */
     public function academicYear(): BelongsTo
     {
         return $this->belongsTo(AcademicYear::class);
-    }
-
-    /**
-     * Get the user who verified this score.
-     */
-    public function verifier(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'verified_by');
     }
 
     /**

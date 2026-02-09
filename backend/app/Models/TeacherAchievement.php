@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TeacherAchievement extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasApprover;
 
     protected $fillable = [
         'user_id',
@@ -55,14 +57,6 @@ class TeacherAchievement extends Model
     const IMPACT_LOW = 'low';
 
     /**
-     * Get the user that owns the achievement.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
      * Get the teacher profile that owns the achievement.
      */
     public function teacherProfile(): BelongsTo
@@ -77,14 +71,6 @@ class TeacherAchievement extends Model
     {
         return $this->hasMany(TeacherProfileApproval::class, 'model_id')
                     ->where('model_type', TeacherProfileApproval::MODEL_TEACHER_ACHIEVEMENT);
-    }
-
-    /**
-     * Get the admin who approved the achievement.
-     */
-    public function approvedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**

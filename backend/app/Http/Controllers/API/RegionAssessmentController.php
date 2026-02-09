@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\AssessmentEntry;
 use App\Models\Institution;
 use App\Models\RegionPerformanceCache;
@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class RegionAssessmentController extends Controller
+class RegionAssessmentController extends BaseController
 {
     private ?string $databaseDriver = null;
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\BaseController;
 use App\Models\AcademicYear;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
@@ -9,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
-class AcademicYearController extends Controller
+class AcademicYearController extends BaseController
 {
     /**
      * Display a listing of the academic years.

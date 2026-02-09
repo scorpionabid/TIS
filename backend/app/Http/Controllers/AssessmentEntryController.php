@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\BaseController;
 use App\Models\AssessmentEntry;
 use App\Models\AssessmentType;
 use App\Models\Institution;
@@ -12,7 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
-class AssessmentEntryController extends Controller
+class AssessmentEntryController extends BaseController
 {
     /**
      * Display a listing of assessment entries

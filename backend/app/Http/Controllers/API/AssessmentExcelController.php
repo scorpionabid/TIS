@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\API;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\AssessmentEntry;
 use App\Models\AssessmentExcelImport;
 use App\Models\AssessmentType;
@@ -17,7 +17,7 @@ use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
-class AssessmentExcelController extends Controller
+class AssessmentExcelController extends BaseController
 {
     /**
      * Generate Excel template for assessment data entry
