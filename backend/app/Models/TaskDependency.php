@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TaskDependency extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTypeScope;
+
+    protected string $typeColumn = 'dependency_type';
 
     protected $fillable = [
         'task_id',
