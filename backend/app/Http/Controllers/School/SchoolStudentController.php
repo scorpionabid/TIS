@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\School;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Student;
 use App\Models\StudentEnrollment;
 use App\Models\User;
@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
-class SchoolStudentController extends Controller
+class SchoolStudentController extends BaseController
 {
     private SchoolStudentService $studentService;
 

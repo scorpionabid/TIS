@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\School;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Services\GradeManagementService;
 use App\Services\StudentEnrollmentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SchoolClassController extends Controller
+class SchoolClassController extends BaseController
 {
     protected $gradeService;
 

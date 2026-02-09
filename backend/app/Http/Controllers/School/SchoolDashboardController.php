@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\School;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Notification;
 use App\Models\Task;
 use App\Services\SchoolDashboardService;
@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-class SchoolDashboardController extends Controller
+class SchoolDashboardController extends BaseController
 {
     private SchoolDashboardService $dashboardService;
 

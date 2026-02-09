@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\InstitutionAuditLog;
+use App\Http\Controllers\BaseController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-class InstitutionAuditLogController extends Controller
+class InstitutionAuditLogController extends BaseController
 {
     /**
      * Get audit logs for all institutions
