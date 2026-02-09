@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
+use App\Models\Traits\HasApprover;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class TeacherCertificate extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasApprover;
 
     protected $fillable = [
         'user_id',
@@ -71,14 +73,6 @@ class TeacherCertificate extends Model
     const CATEGORY_MANAGEMENT = 'management';
     const CATEGORY_RESEARCH = 'research';
     const CATEGORY_OTHER = 'other';
-
-    /**
-     * Get the user that owns the certificate.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
 
     /**
      * Get the teacher profile that owns the certificate.

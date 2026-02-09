@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\SektorAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Grade;
 use App\Models\Institution;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SektorScheduleController extends Controller
+class SektorScheduleController extends BaseController
 {
     /**
      * Get sector schedules overview

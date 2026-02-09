@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\SektorAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Http\Controllers\SektorAdmin\Dashboard\DashboardStatsController;
 use App\Http\Controllers\SektorAdmin\Dashboard\SchoolManagementController;
 // Note: SurveyApprovalController and TaskApprovalController have been consolidated
@@ -10,7 +10,7 @@ use App\Http\Controllers\SektorAdmin\Dashboard\SchoolManagementController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SektorAdminDashboardController extends Controller
+class SektorAdminDashboardController extends BaseController
 {
     protected $statsController;
 

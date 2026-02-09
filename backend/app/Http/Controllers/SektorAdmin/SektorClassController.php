@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\SektorAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Grade;
 use App\Models\Institution;
 use App\Models\Student;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SektorClassController extends Controller
+class SektorClassController extends BaseController
 {
     /**
      * Get all classes in sector schools

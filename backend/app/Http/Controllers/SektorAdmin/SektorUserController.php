@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\SektorAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\TeacherVerification;
 use App\Models\User;
@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Role;
 
-class SektorUserController extends Controller
+class SektorUserController extends BaseController
 {
     /**
      * Get all users in sector (sector + schools)

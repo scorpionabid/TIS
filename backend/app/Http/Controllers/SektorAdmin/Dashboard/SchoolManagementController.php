@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\SektorAdmin\Dashboard;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SchoolManagementController extends Controller
+class SchoolManagementController extends BaseController
 {
     /**
      * Get detailed schools data for the sector

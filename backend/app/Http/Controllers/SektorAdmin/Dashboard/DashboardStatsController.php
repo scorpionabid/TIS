@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\SektorAdmin\Dashboard;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\Student;
 use App\Models\Survey;
@@ -12,7 +12,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class DashboardStatsController extends Controller
+class DashboardStatsController extends BaseController
 {
     /**
      * Get SektorAdmin dashboard statistics
