@@ -8,7 +8,7 @@ use App\Services\InventoryAnalyticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class InventoryAnalyticsController extends Controller
+class InventoryAnalyticsController extends BaseController
 {
     use ResponseHelpers, ValidationRules;
 

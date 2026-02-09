@@ -8,7 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class DocumentCollectionController extends Controller
+class DocumentCollectionController extends BaseController
 {
     protected DocumentCollectionService $service;
 

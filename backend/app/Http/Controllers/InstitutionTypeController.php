@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
-class InstitutionTypeController extends Controller
+class InstitutionTypeController extends BaseController
 {
     /**
      * Display a listing of institution types.

@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EventRegistration extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser;
 
     /**
      * The attributes that are mass assignable.
@@ -57,14 +58,6 @@ class EventRegistration extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(SchoolEvent::class, 'event_id');
-    }
-
-    /**
-     * Get the participant for this registration.
-     */
-    public function participant(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'participant_id');
     }
 
     /**

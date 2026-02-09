@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
-class GradeSubjectController extends Controller
+class GradeSubjectController extends BaseController
 {
     /**
      * Get all curriculum subjects for a grade.

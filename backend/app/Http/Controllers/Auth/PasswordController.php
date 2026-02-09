@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\ActivityLog;
 use App\Models\SecurityEvent;
 use App\Models\User;
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
-class PasswordController extends Controller
+class PasswordController extends BaseController
 {
     /**
      * Change password

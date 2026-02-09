@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DocumentDownload extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser;
 
     protected $fillable = [
         'document_id',
@@ -44,14 +45,6 @@ class DocumentDownload extends Model
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
-    }
-
-    /**
-     * User relationship (nullable for anonymous downloads)
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     /**

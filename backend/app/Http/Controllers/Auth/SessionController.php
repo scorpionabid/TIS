@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Services\Auth\SessionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SessionController extends Controller
+class SessionController extends BaseController
 {
     protected $sessionService;
 
