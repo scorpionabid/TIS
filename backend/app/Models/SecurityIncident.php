@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SecurityIncident extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTypeScope;
+
+    protected string $typeColumn = 'incident_type';
 
     protected $fillable = [
         'incident_id',
@@ -668,11 +671,6 @@ class SecurityIncident extends Model
     public function scopeRecentIncidents(Builder $query, int $days = 30): Builder
     {
         return $query->where('detected_at', '>=', now()->subDays($days));
-    }
-
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('incident_type', $type);
     }
 
     public function scopeAssignedTo(Builder $query, int $userId): Builder

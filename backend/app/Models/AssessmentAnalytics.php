@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AssessmentAnalytics extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution;
 
     protected $fillable = [
         'institution_id',
@@ -41,14 +42,6 @@ class AssessmentAnalytics extends Model
         'trend_data' => 'array',
         'benchmark_comparison' => 'array',
     ];
-
-    /**
-     * Get the institution this analytics belongs to.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
 
     /**
      * Get the assessment type this analytics belongs to.

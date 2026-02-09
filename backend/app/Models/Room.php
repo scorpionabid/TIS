@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +12,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Room extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution, HasActiveScope, HasTypeScope;
+
+    protected string $typeColumn = 'room_type';
 
     /**
      * The attributes that are mass assignable.
@@ -41,14 +46,6 @@ class Room extends Model
             'facilities' => 'array',
             'is_active' => 'boolean',
         ];
-    }
-
-    /**
-     * Get the institution that owns this room.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**
@@ -108,27 +105,11 @@ class Room extends Model
     }
 
     /**
-     * Scope to get active rooms.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
-
-    /**
      * Scope to get rooms by institution.
      */
     public function scopeByInstitution($query, int $institutionId)
     {
         return $query->where('institution_id', $institutionId);
-    }
-
-    /**
-     * Scope to get rooms by type.
-     */
-    public function scopeByType($query, string $type)
-    {
-        return $query->where('room_type', $type);
     }
 
     /**

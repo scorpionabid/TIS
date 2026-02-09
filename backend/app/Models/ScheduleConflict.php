@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ScheduleConflict extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTypeScope;
+
+    protected string $typeColumn = 'conflict_type';
 
     protected $fillable = [
         'schedule_id',
@@ -208,14 +211,6 @@ class ScheduleConflict extends Model
     public function scopeBlocking(Builder $query): Builder
     {
         return $query->where('blocks_approval', true);
-    }
-
-    /**
-     * Scope: By conflict type
-     */
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('conflict_type', $type);
     }
 
     /**

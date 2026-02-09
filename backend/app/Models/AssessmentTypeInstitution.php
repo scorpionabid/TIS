@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AssessmentTypeInstitution extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution;
 
     protected $fillable = [
         'assessment_type_id',
@@ -34,14 +35,6 @@ class AssessmentTypeInstitution extends Model
     public function assessmentType(): BelongsTo
     {
         return $this->belongsTo(AssessmentType::class);
-    }
-
-    /**
-     * Get the institution that this assignment belongs to.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

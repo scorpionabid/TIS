@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class GrowthBonusConfig extends Model
 {
-    use HasFactory;
+    use HasFactory, HasActiveScope;
 
     protected $fillable = [
         'threshold_min',
@@ -34,14 +35,6 @@ class GrowthBonusConfig extends Model
      * PRD: Maximum growth bonus cap
      */
     public const MAX_BONUS = 5.0;
-
-    /**
-     * Scope active configs.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
 
     /**
      * PRD: Calculate growth bonus based on improvement amount.

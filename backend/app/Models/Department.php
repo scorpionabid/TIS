@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -11,8 +14,10 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Department extends Model
 {
-    use HasFactory;
+    use HasActiveScope, HasFactory, HasInstitution, HasTypeScope;
     use SoftDeletes;
+
+    protected string $typeColumn = 'department_type';
 
     /**
      * Department types based on PRD requirements
@@ -78,14 +83,6 @@ class Department extends Model
     }
 
     /**
-     * Get the institution that owns this department.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
      * Get the parent department.
      */
     public function parent(): BelongsTo
@@ -118,14 +115,6 @@ class Department extends Model
     }
 
     /**
-     * Scope to get active departments.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
-
-    /**
      * Scope to get departments by institution.
      */
     public function scopeByInstitution($query, int $institutionId)
@@ -148,14 +137,6 @@ class Department extends Model
     {
         return $query->where('name', 'LIKE', "%{$search}%")
             ->orWhere('short_name', 'LIKE', "%{$search}%");
-    }
-
-    /**
-     * Scope to filter by department type.
-     */
-    public function scopeByType($query, string $type)
-    {
-        return $query->where('department_type', $type);
     }
 
     /**

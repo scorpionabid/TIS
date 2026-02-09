@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasCreator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ApprovalWorkflow extends Model
 {
-    use HasFactory;
+    use HasActiveScope, HasCreator, HasFactory;
+
+    protected string $activeColumn = 'status';
+    protected $activeValue = 'active';
 
     protected $fillable = [
         'name',
@@ -29,27 +34,11 @@ class ApprovalWorkflow extends Model
     ];
 
     /**
-     * Get the user who created this workflow
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
      * Get all approval requests using this workflow
      */
     public function approvalRequests(): HasMany
     {
         return $this->hasMany(DataApprovalRequest::class, 'workflow_id');
-    }
-
-    /**
-     * Scope for active workflows
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'active');
     }
 
     /**

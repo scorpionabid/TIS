@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Sector extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution, HasActiveScope;
 
     /**
      * The attributes that are mass assignable.
@@ -42,27 +44,11 @@ class Sector extends Model
     }
 
     /**
-     * Get the institution that this sector belongs to.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
      * Get the region that this sector belongs to.
      */
     public function region(): BelongsTo
     {
         return $this->belongsTo(Region::class);
-    }
-
-    /**
-     * Scope to get active sectors.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 
     /**

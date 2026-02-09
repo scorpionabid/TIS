@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
 use App\Services\AcademicContextService;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class DailyAttendanceSummary extends Model
 {
-    use HasFactory;
+    use HasAcademicYear, HasFactory;
 
     protected $table = 'daily_attendance_summary';
 
@@ -93,11 +94,6 @@ class DailyAttendanceSummary extends Model
     public function grade(): BelongsTo
     {
         return $this->belongsTo(Grade::class);
-    }
-
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
     }
 
     public function academicTerm(): BelongsTo

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class LinkShare extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution;
 
     protected $fillable = [
         'title',
@@ -59,14 +60,6 @@ class LinkShare extends Model
     public function sharedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'shared_by');
-    }
-
-    /**
-     * Institution relationship
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

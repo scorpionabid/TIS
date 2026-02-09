@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class DataApprovalRequest extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution;
 
     protected $fillable = [
         'workflow_id',
@@ -46,14 +47,6 @@ class DataApprovalRequest extends Model
     public function workflow(): BelongsTo
     {
         return $this->belongsTo(ApprovalWorkflow::class, 'workflow_id');
-    }
-
-    /**
-     * Get the institution this request belongs to
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

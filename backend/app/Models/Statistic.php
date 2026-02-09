@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Statistic extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution;
 
     /**
      * The attributes that are mass assignable.
@@ -38,14 +39,6 @@ class Statistic extends Model
             'is_verified' => 'boolean',
             'verified_at' => 'datetime',
         ];
-    }
-
-    /**
-     * Get the institution that this statistic belongs to.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

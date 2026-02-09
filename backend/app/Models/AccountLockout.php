@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AccountLockout extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTypeScope, HasUser;
+
+    protected string $typeColumn = 'lockout_type';
 
     protected $fillable = [
         'user_id',
@@ -84,14 +88,6 @@ class AccountLockout extends Model
     ];
 
     /**
-     * User relationship
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
      * Locked by user relationship
      */
     public function lockedBy(): BelongsTo
@@ -136,14 +132,6 @@ class AccountLockout extends Model
     {
         return $query->where('requires_manual_review', true)
             ->where('status', 'active');
-    }
-
-    /**
-     * Scope: By lockout type
-     */
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('lockout_type', $type);
     }
 
     /**

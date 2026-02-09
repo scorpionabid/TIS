@@ -2,13 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprovalScopes;
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasTypeScope;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InventoryTransaction extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasApprover, HasApprovalScopes, HasTypeScope;
+
+    protected string $typeColumn = 'transaction_type';
 
     protected $fillable = [
         'item_id',
@@ -62,11 +68,6 @@ class InventoryTransaction extends Model
         return $this->belongsTo(MaintenanceRecord::class);
     }
 
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
     public function assignedToUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_to');
@@ -75,11 +76,6 @@ class InventoryTransaction extends Model
     public function assignedFromUser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_from');
-    }
-
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function scopeByItem($query, $itemId)
@@ -92,11 +88,6 @@ class InventoryTransaction extends Model
         return $query->where('user_id', $userId);
     }
 
-    public function scopeByType($query, $type)
-    {
-        return $query->where('transaction_type', $type);
-    }
-
     public function scopeByStatus($query, $status)
     {
         return $query->where('status', $status);
@@ -105,11 +96,6 @@ class InventoryTransaction extends Model
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
-    }
-
-    public function scopeApproved($query)
-    {
-        return $query->where('status', 'approved');
     }
 
     public function getTransactionTypeLabelAttribute(): string

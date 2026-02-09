@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,7 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AssessmentType extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasActiveScope, HasCreator, HasFactory, HasInstitution, SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -50,22 +53,6 @@ class AssessmentType extends Model
         'validation_rules' => 'array',
         'minimum_score' => 'decimal:2',
     ];
-
-    /**
-     * Get the user who created this assessment type
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Get the institution this assessment type belongs to
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
 
     /**
      * Get KSQ results for this assessment type
@@ -155,14 +142,6 @@ class AssessmentType extends Model
     public function analytics(): HasMany
     {
         return $this->hasMany(AssessmentAnalytics::class);
-    }
-
-    /**
-     * Scope for active assessment types
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 
     /**

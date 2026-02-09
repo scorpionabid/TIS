@@ -2,11 +2,13 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class FolderAuditLog extends Model
 {
+    use HasUser;
     protected $fillable = [
         'folder_id',
         'user_id',
@@ -30,14 +32,6 @@ class FolderAuditLog extends Model
     public function folder(): BelongsTo
     {
         return $this->belongsTo(DocumentCollection::class, 'folder_id');
-    }
-
-    /**
-     * Get the user who performed the action
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     /**

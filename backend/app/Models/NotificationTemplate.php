@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class NotificationTemplate extends Model
 {
-    use HasFactory;
+    use HasFactory, HasActiveScope, HasTypeScope;
 
     protected $fillable = [
         'key',
@@ -32,22 +34,6 @@ class NotificationTemplate extends Model
         'is_active' => 'boolean',
         'available_variables' => 'array',
     ];
-
-    /**
-     * Scope: Active templates
-     */
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('is_active', true);
-    }
-
-    /**
-     * Scope: Filter by type
-     */
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('type', $type);
-    }
 
     /**
      * Scope: Filter by channel

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -9,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Role extends Model
 {
-    use HasFactory;
+    use HasFactory, HasActiveScope;
 
     /**
      * The attributes that are mass assignable.
@@ -112,14 +113,6 @@ class Role extends Model
     public function hasDepartmentAccess(string $department): bool
     {
         return in_array($department, $this->department_access ?? []);
-    }
-
-    /**
-     * Scope to get active roles.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 
     /**

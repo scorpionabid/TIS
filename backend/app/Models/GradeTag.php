@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class GradeTag extends Model
 {
-    use HasFactory;
+    use HasFactory, HasActiveScope;
 
     /**
      * The attributes that are mass assignable.
@@ -48,14 +49,6 @@ class GradeTag extends Model
     {
         return $this->belongsToMany(Grade::class, 'grade_grade_tag')
             ->withTimestamps();
-    }
-
-    /**
-     * Scope to get active tags.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 
     /**

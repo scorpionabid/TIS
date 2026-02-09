@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Model;
  */
 class OlympiadLevelConfig extends Model
 {
-    use HasFactory;
+    use HasFactory, HasActiveScope;
 
     protected $fillable = [
         'level',
@@ -44,14 +45,6 @@ class OlympiadLevelConfig extends Model
         self::LEVEL_COUNTRY => 'Ölkə',
         self::LEVEL_INTERNATIONAL => 'Beynəlxalq',
     ];
-
-    /**
-     * Scope active configs.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
 
     /**
      * Scope by level.

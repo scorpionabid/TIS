@@ -2,13 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTeacher;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PerformanceMetric extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTeacher, HasTypeScope;
+
+    protected string $typeColumn = 'metric_type';
 
     /**
      * The attributes that are mass assignable.
@@ -65,11 +69,6 @@ class PerformanceMetric extends Model
         return $this->belongsTo(TeacherEvaluation::class, 'evaluation_id');
     }
 
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'teacher_id');
-    }
-
     /**
      * Scopes
      */
@@ -81,11 +80,6 @@ class PerformanceMetric extends Model
     public function scopeByTeacher($query, $teacherId)
     {
         return $query->where('teacher_id', $teacherId);
-    }
-
-    public function scopeByType($query, $type)
-    {
-        return $query->where('metric_type', $type);
     }
 
     public function scopeByAchievementLevel($query, $level)

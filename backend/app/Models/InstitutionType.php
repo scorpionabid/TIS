@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class InstitutionType extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasActiveScope;
 
     protected $fillable = [
         'key',
@@ -39,14 +40,6 @@ class InstitutionType extends Model
     public function institutions()
     {
         return $this->hasMany(Institution::class, 'institution_type_id');
-    }
-
-    /**
-     * Scope for active types only
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 
     /**

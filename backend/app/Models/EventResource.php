@@ -2,13 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprovalScopes;
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class EventResource extends Model
 {
-    use HasFactory;
+    use HasFactory, HasApprover, HasApprovalScopes, HasTypeScope;
+
+    protected string $typeColumn = 'resource_type';
 
     /**
      * The attributes that are mass assignable.
@@ -72,24 +77,11 @@ class EventResource extends Model
     }
 
     /**
-     * Get the user who approved this resource.
-     */
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    /**
      * Scopes
      */
     public function scopeByEvent($query, $eventId)
     {
         return $query->where('event_id', $eventId);
-    }
-
-    public function scopeByType($query, $type)
-    {
-        return $query->where('resource_type', $type);
     }
 
     public function scopeByStatus($query, $status)
@@ -100,11 +92,6 @@ class EventResource extends Model
     public function scopePending($query)
     {
         return $query->where('status', 'pending');
-    }
-
-    public function scopeApproved($query)
-    {
-        return $query->where('status', 'approved');
     }
 
     public function scopeAcquired($query)

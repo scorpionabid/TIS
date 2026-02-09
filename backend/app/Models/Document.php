@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -13,7 +15,10 @@ use Illuminate\Support\Str;
 
 class Document extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasActiveScope, HasFactory, HasInstitution, SoftDeletes;
+
+    protected string $activeColumn = 'status';
+    protected $activeValue = 'active';
 
     protected $fillable = [
         'title',
@@ -149,14 +154,6 @@ class Document extends Model
     }
 
     /**
-     * Institution relationship
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
      * Parent document (for versioning)
      */
     public function parentDocument(): BelongsTo
@@ -196,14 +193,6 @@ class Document extends Model
         return $this->belongsToMany(DocumentCollection::class, 'document_collection_items', 'document_id', 'collection_id')
             ->withPivot(['added_by', 'sort_order', 'notes', 'created_at'])
             ->withTimestamps();
-    }
-
-    /**
-     * Scope: Active documents
-     */
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('status', 'active');
     }
 
     /**

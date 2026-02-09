@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasCreator;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SchoolAttendance extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCreator;
 
     protected $table = 'school_attendance';
 
@@ -44,14 +45,6 @@ class SchoolAttendance extends Model
     public function school(): BelongsTo
     {
         return $this->belongsTo(Institution::class, 'school_id');
-    }
-
-    /**
-     * Get the user who created this attendance record
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
     }
 
     /**

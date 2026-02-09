@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class InstitutionAuditLog extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution, HasUser;
 
     /**
      * The attributes that are mass assignable.
@@ -35,22 +37,6 @@ class InstitutionAuditLog extends Model
             'new_values' => 'array',
             'changes' => 'array',
         ];
-    }
-
-    /**
-     * Get the institution that was audited.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
-     * Get the user who performed the action.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     /**

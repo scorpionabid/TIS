@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +14,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AcademicAssessment extends Model
 {
-    use HasFactory;
+    use HasAcademicYear, HasFactory, HasInstitution, HasTypeScope;
+
+    protected string $typeColumn = 'assessment_type';
 
     protected $fillable = [
         'assessment_title',
@@ -166,16 +171,6 @@ class AcademicAssessment extends Model
     ];
 
     // Relationships
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
-    }
-
     public function academicTerm(): BelongsTo
     {
         return $this->belongsTo(AcademicTerm::class);
@@ -639,11 +634,6 @@ class AcademicAssessment extends Model
     public function scopeForAcademicYear(Builder $query, int $academicYearId): Builder
     {
         return $query->where('academic_year_id', $academicYearId);
-    }
-
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('assessment_type', $type);
     }
 
     public function scopeByLevel(Builder $query, string $level): Builder

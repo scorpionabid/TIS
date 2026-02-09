@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class IndicatorValue extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution;
 
     /**
      * The attributes that are mass assignable.
@@ -49,14 +50,6 @@ class IndicatorValue extends Model
     public function indicator(): BelongsTo
     {
         return $this->belongsTo(Indicator::class);
-    }
-
-    /**
-     * Get the institution that this value belongs to.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

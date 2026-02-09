@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +14,7 @@ use Illuminate\Support\Facades\Schema;
 
 class Report extends Model
 {
-    use HasFactory;
+    use HasFactory, HasCreator, HasInstitution, HasTypeScope, HasActiveScope;
 
     /**
      * The attributes that are mass assignable.
@@ -109,27 +113,11 @@ class Report extends Model
     }
 
     /**
-     * Get the user who created this report.
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
      * Get the user who last updated the report.
      */
     public function updater(): BelongsTo
     {
         return $this->belongsTo(User::class, 'updated_by');
-    }
-
-    /**
-     * Get the institution the report belongs to.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**
@@ -191,14 +179,6 @@ class Report extends Model
     }
 
     /**
-     * Scope to get reports by type.
-     */
-    public function scopeByType($query, string $type)
-    {
-        return $query->where('type', $type);
-    }
-
-    /**
      * Scope to get reports by access level.
      */
     public function scopeByAccessLevel($query, string $accessLevel)
@@ -210,14 +190,6 @@ class Report extends Model
      * Scope to get featured reports.
      */
     public function scopeFeatured($query)
-    {
-        return $query->where('is_active', true);
-    }
-
-    /**
-     * Scope to get active reports (not expired).
-     */
-    public function scopeActive($query)
     {
         return $query->where('is_active', true);
     }

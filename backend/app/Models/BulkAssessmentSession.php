@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Support\Str;
 
 class BulkAssessmentSession extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution;
 
     protected $fillable = [
         'session_id',
@@ -57,14 +58,6 @@ class BulkAssessmentSession extends Model
     public function assessmentType(): BelongsTo
     {
         return $this->belongsTo(AssessmentType::class);
-    }
-
-    /**
-     * Get the institution for this session.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

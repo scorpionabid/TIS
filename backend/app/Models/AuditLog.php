@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class AuditLog extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution, HasUser;
 
     /**
      * Indicates if the model should be timestamped.
@@ -51,22 +53,6 @@ class AuditLog extends Model
             'tags' => 'array',
             'created_at' => 'datetime',
         ];
-    }
-
-    /**
-     * Get the user who triggered the audit.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Get the institution related to this audit.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

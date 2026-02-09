@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ScheduleTemplateUsage extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasInstitution;
 
     protected $fillable = [
         'template_id',
@@ -48,19 +50,4 @@ class ScheduleTemplateUsage extends Model
         return $this->belongsTo(Schedule::class);
     }
 
-    /**
-     * Get the user who used the template
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Get the institution where template was used
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
 }

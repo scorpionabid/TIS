@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LinkAccessLog extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser;
 
     protected $fillable = [
         'link_share_id',
@@ -24,14 +25,6 @@ class LinkAccessLog extends Model
     public function linkShare(): BelongsTo
     {
         return $this->belongsTo(LinkShare::class);
-    }
-
-    /**
-     * User relationship
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     /**

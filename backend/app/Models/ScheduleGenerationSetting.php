@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasInstitution;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ScheduleGenerationSetting extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution, HasActiveScope;
 
     protected $fillable = [
         'institution_id',
@@ -37,22 +39,6 @@ class ScheduleGenerationSetting extends Model
         'lunch_duration' => 'integer',
         'first_period_start' => 'datetime:H:i',
     ];
-
-    /**
-     * Get the institution that owns this setting.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
-     * Scope to get active settings.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
 
     /**
      * Get the default working days (Monday to Friday).

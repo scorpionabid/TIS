@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 
 class Notification extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasTypeScope;
 
     protected $fillable = [
         'title',
@@ -111,14 +113,6 @@ class Notification extends Model
     ];
 
     /**
-     * User relationship
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
      * Polymorphic relationship to related entity
      */
     public function related(): MorphTo
@@ -216,14 +210,6 @@ class Notification extends Model
         $query->whereHas('user.institution', function ($instQ) use ($userInstitutionId) {
             $instQ->where('id', $userInstitutionId);
         });
-    }
-
-    /**
-     * Scope: Filter by type
-     */
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('type', $type);
     }
 
     /**

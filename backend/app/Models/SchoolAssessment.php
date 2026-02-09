@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,8 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class SchoolAssessment extends Model
 {
-    use HasFactory;
-    use SoftDeletes;
+    use HasFactory, SoftDeletes, HasInstitution, HasCreator;
 
     protected $fillable = [
         'assessment_type_id',
@@ -54,16 +55,6 @@ class SchoolAssessment extends Model
     public function stage(): BelongsTo
     {
         return $this->belongsTo(AssessmentStage::class, 'assessment_stage_id');
-    }
-
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
     }
 
     public function classResults(): HasMany

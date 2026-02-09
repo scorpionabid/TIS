@@ -2,16 +2,21 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Traits\HasAuthorization;
+use App\Http\Traits\ValidationRules;
 use Exception;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 abstract class BaseController extends Controller
 {
+    use HasAuthorization, ValidationRules;
     /**
      * Success response with data
      */
@@ -164,5 +169,104 @@ abstract class BaseController extends Controller
         return [
             'per_page' => $request->get('per_page', 15),
         ];
+    }
+
+    /**
+     * Return created response (201)
+     */
+    protected function createdResponse($data = null, string $message = 'Created successfully'): JsonResponse
+    {
+        return $this->successResponse($data, $message, 201);
+    }
+
+    /**
+     * Return updated response
+     */
+    protected function updatedResponse($data = null, string $message = 'Updated successfully'): JsonResponse
+    {
+        return $this->successResponse($data, $message);
+    }
+
+    /**
+     * Return deleted response
+     */
+    protected function deletedResponse(string $message = 'Deleted successfully'): JsonResponse
+    {
+        return $this->successResponse(null, $message);
+    }
+
+    /**
+     * Return not found error (404)
+     */
+    protected function notFoundResponse(string $message = 'Resource not found'): JsonResponse
+    {
+        return $this->errorResponse($message, 404);
+    }
+
+    /**
+     * Return validation error (422)
+     */
+    protected function validationErrorResponse(string $message = 'Validation failed', $errors = null): JsonResponse
+    {
+        return $this->errorResponse($message, 422, $errors);
+    }
+
+    /**
+     * Return unauthorized error (401)
+     */
+    protected function unauthorizedErrorResponse(string $message = 'Unauthorized'): JsonResponse
+    {
+        return $this->errorResponse($message, 401);
+    }
+
+    /**
+     * Return forbidden error (403)
+     */
+    protected function forbiddenResponse(string $message = 'Forbidden'): JsonResponse
+    {
+        return $this->errorResponse($message, 403);
+    }
+
+    /**
+     * Return internal server error (500)
+     */
+    protected function serverErrorResponse(string $message = 'Internal server error'): JsonResponse
+    {
+        return $this->errorResponse($message, 500);
+    }
+
+    /**
+     * Return collection response with count
+     */
+    protected function collectionResponse($data, string $message = 'Success'): JsonResponse
+    {
+        if ($data instanceof Collection) {
+            $data = $data->toArray();
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => $message,
+            'data' => $data,
+            'count' => is_array($data) ? count($data) : 0,
+        ]);
+    }
+
+    /**
+     * Return bulk operation response
+     */
+    protected function bulkOperationResponse(int $successCount, int $totalCount, string $operation = 'processed'): JsonResponse
+    {
+        $message = "{$successCount} of {$totalCount} items {$operation} successfully";
+
+        return response()->json([
+            'success' => $successCount > 0,
+            'message' => $message,
+            'data' => [
+                'success_count' => $successCount,
+                'total_count' => $totalCount,
+                'failed_count' => $totalCount - $successCount,
+            ],
+        ]);
     }
 }

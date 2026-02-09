@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTeacher;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ClassAttendance extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTeacher;
 
     protected $table = 'class_attendance';
 
@@ -49,11 +50,6 @@ class ClassAttendance extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
-    }
-
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'teacher_id');
     }
 
     public function approvedBy(): BelongsTo

@@ -2,6 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasApprovalScopes;
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class KSQResult extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution, HasAcademicYear, HasApprover, HasApprovalScopes;
 
     /**
      * KSQ - Keyfiyyət Standartları Qiymətləndirməsi Results
@@ -61,24 +65,9 @@ class KSQResult extends Model
     /**
      * Relations
      */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
-    }
-
     public function assessor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assessor_id');
-    }
-
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
     }
 
     public function subject(): BelongsTo
@@ -112,11 +101,6 @@ class KSQResult extends Model
     public function scopeByAssessmentType($query, $type)
     {
         return $query->where('assessment_type', $type);
-    }
-
-    public function scopeApproved($query)
-    {
-        return $query->where('status', 'approved');
     }
 
     public function scopeNeedsFollowUp($query)

@@ -2,6 +2,11 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasApprovalScopes;
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +15,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class SchoolEvent extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution, HasApprover, HasApprovalScopes, HasTypeScope, HasActiveScope;
+
+    protected string $activeColumn = 'status';
+    protected $activeValue = 'active';
+    protected string $typeColumn = 'event_type';
 
     /**
      * The attributes that are mass assignable.
@@ -84,27 +93,11 @@ class SchoolEvent extends Model
     }
 
     /**
-     * Get the institution that owns this event.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
      * Get the user who organized this event.
      */
     public function organizer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'organizer_id');
-    }
-
-    /**
-     * Get the user who approved this event.
-     */
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
@@ -152,11 +145,6 @@ class SchoolEvent extends Model
     /**
      * Scopes
      */
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'active');
-    }
-
     public function scopeUpcoming($query)
     {
         return $query->where('start_date', '>=', now()->toDateString());
@@ -176,11 +164,6 @@ class SchoolEvent extends Model
     public function scopeByInstitution($query, $institutionId)
     {
         return $query->where('institution_id', $institutionId);
-    }
-
-    public function scopeByType($query, $type)
-    {
-        return $query->where('event_type', $type);
     }
 
     public function scopeByCategory($query, $category)
@@ -206,11 +189,6 @@ class SchoolEvent extends Model
     public function scopeByPriority($query, $priority)
     {
         return $query->where('priority', $priority);
-    }
-
-    public function scopeApproved($query)
-    {
-        return $query->where('status', 'approved');
     }
 
     public function scopePending($query)

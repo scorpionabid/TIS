@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +13,9 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ScheduleTemplate extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasInstitution, HasCreator, HasTypeScope;
+
+    protected string $typeColumn = 'template_type';
 
     protected $fillable = [
         'name',
@@ -41,22 +46,6 @@ class ScheduleTemplate extends Model
         'success_rate' => 'decimal:2',
         'last_used_at' => 'datetime',
     ];
-
-    /**
-     * Get the institution that owns this template
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
-     * Get the user who created this template
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
 
     /**
      * Get schedules created from this template
@@ -91,14 +80,6 @@ class ScheduleTemplate extends Model
             $q->where('institution_id', $institutionId)
                 ->orWhere('is_public', true);
         });
-    }
-
-    /**
-     * Scope for templates by type
-     */
-    public function scopeByType($query, string $type)
-    {
-        return $query->where('template_type', $type);
     }
 
     /**

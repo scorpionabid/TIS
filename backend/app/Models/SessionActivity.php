@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SessionActivity extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasTypeScope;
+
+    protected string $typeColumn = 'activity_type';
 
     protected $fillable = [
         'user_session_id',
@@ -87,22 +91,6 @@ class SessionActivity extends Model
     public function userSession(): BelongsTo
     {
         return $this->belongsTo(UserSession::class);
-    }
-
-    /**
-     * User relationship
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Scope: By activity type
-     */
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('activity_type', $type);
     }
 
     /**

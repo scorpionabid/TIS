@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Grade extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution, HasAcademicYear, HasActiveScope;
 
     /**
      * The attributes that are mass assignable.
@@ -62,22 +65,6 @@ class Grade extends Model
             'teacher_removed_at' => 'datetime',
             'deactivated_at' => 'datetime',
         ];
-    }
-
-    /**
-     * Get the academic year that this grade belongs to.
-     */
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
-    }
-
-    /**
-     * Get the institution that this grade belongs to.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**
@@ -297,14 +284,6 @@ class Grade extends Model
         }
 
         return max(0, $this->room->capacity - $this->getCurrentStudentCount());
-    }
-
-    /**
-     * Scope to get active grades.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 
     /**

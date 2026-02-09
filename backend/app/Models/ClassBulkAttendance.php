@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ClassBulkAttendance extends Model
 {
-    use HasFactory;
+    use HasAcademicYear, HasFactory, HasInstitution;
 
     protected $table = 'class_bulk_attendance';
 
@@ -50,16 +52,6 @@ class ClassBulkAttendance extends Model
     public function grade(): BelongsTo
     {
         return $this->belongsTo(Grade::class);
-    }
-
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
     }
 
     public function recordedBy(): BelongsTo

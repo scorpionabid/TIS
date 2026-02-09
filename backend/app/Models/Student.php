@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Student extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasUser, HasInstitution, HasActiveScope;
 
     protected $fillable = [
         'student_number',
@@ -29,14 +32,6 @@ class Student extends Model
         'additional_info',
         'user_id',
     ];
-
-    /**
-     * Get the user that owns the student.
-     */
-    public function user()
-    {
-        return $this->belongsTo(User::class);
-    }
 
     protected $casts = [
         'birth_date' => 'date',
@@ -67,14 +62,6 @@ class Student extends Model
         }
 
         return $this->birth_date->diffInYears(now());
-    }
-
-    /**
-     * Relationship: Student belongs to Institution
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

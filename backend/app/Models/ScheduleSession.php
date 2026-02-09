@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTeacher;
+use App\Models\Traits\HasTypeScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +13,9 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ScheduleSession extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTeacher, HasTypeScope;
+
+    protected string $typeColumn = 'session_type';
 
     protected $fillable = [
         'schedule_id',
@@ -163,14 +167,6 @@ class ScheduleSession extends Model
     }
 
     /**
-     * Teacher relationship
-     */
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'teacher_id');
-    }
-
-    /**
      * Room relationship
      */
     public function room(): BelongsTo
@@ -267,14 +263,6 @@ class ScheduleSession extends Model
     public function scopeInRoom(Builder $query, int $roomId): Builder
     {
         return $query->where('room_id', $roomId);
-    }
-
-    /**
-     * Scope: Sessions by type
-     */
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('session_type', $type);
     }
 
     /**

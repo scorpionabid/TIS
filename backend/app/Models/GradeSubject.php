@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTeacher;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class GradeSubject extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTeacher;
 
     /**
      * The attributes that are mass assignable.
@@ -75,14 +76,6 @@ class GradeSubject extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
-    }
-
-    /**
-     * Get the assigned teacher.
-     */
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'teacher_id');
     }
 
     /**

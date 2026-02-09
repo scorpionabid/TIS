@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasCreator;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ReportSchedule extends Model
 {
+    use HasCreator;
     protected $fillable = [
         'name',
         'description',
@@ -35,14 +37,6 @@ class ReportSchedule extends Model
         'day_of_month' => 'integer',
         'run_count' => 'integer',
     ];
-
-    /**
-     * Get the user who created this schedule
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
 
     /**
      * Check if the report is due to run

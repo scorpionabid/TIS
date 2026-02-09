@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +12,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class AssessmentEntry extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasApprover, HasCreator, HasFactory, HasInstitution, SoftDeletes;
 
     protected $fillable = [
         'assessment_type_id',
@@ -121,30 +124,6 @@ class AssessmentEntry extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class);
-    }
-
-    /**
-     * Relationship: Assessment entry belongs to institution
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
-     * Relationship: Assessment entry created by user
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Relationship: Assessment entry approved by user
-     */
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**

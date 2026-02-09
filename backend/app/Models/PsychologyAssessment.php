@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PsychologyAssessment extends Model
 {
-    use HasFactory;
+    use HasFactory, HasTypeScope;
+
+    protected string $typeColumn = 'assessment_type';
 
     /**
      * The attributes that are mass assignable.
@@ -123,11 +126,6 @@ class PsychologyAssessment extends Model
     public function scopeByPsychologist($query, $psychologistId)
     {
         return $query->where('psychologist_id', $psychologistId);
-    }
-
-    public function scopeByType($query, $type)
-    {
-        return $query->where('assessment_type', $type);
     }
 
     public function scopeByStatus($query, $status)

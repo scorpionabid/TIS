@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -10,7 +11,7 @@ use Illuminate\Support\Str;
 
 class AssessmentExcelImport extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution;
 
     protected $fillable = [
         'import_id',
@@ -60,14 +61,6 @@ class AssessmentExcelImport extends Model
     public function assessmentType(): BelongsTo
     {
         return $this->belongsTo(AssessmentType::class);
-    }
-
-    /**
-     * Get the institution for this import.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

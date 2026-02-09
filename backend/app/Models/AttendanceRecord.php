@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasTeacher;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AttendanceRecord extends Model
 {
-    use HasFactory;
+    use HasAcademicYear, HasFactory, HasTeacher;
 
     protected $fillable = [
         'student_id',
@@ -71,16 +73,6 @@ class AttendanceRecord extends Model
     public function subject(): BelongsTo
     {
         return $this->belongsTo(Subject::class);
-    }
-
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'teacher_id');
-    }
-
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
     }
 
     public function academicTerm(): BelongsTo

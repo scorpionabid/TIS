@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ClassModel extends Model
 {
-    use HasFactory;
+    use HasAcademicYear, HasFactory, HasInstitution;
 
     protected $table = 'classes';
 
@@ -32,13 +34,4 @@ class ClassModel extends Model
         'metadata' => 'array',
     ];
 
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
-    }
 }

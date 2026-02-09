@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AcademicTerm extends Model
 {
-    use HasFactory;
+    use HasActiveScope, HasFactory;
 
     public $timestamps = false;
 
@@ -27,14 +28,6 @@ class AcademicTerm extends Model
         'end_date' => 'date',
         'is_active' => 'boolean',
     ];
-
-    /**
-     * Scope to get active academic terms.
-     */
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('is_active', true);
-    }
 
     /**
      * Scope to find terms containing provided date.

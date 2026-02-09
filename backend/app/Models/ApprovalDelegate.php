@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ApprovalDelegate extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution;
 
     protected $fillable = [
         'delegator_id',
@@ -44,14 +45,6 @@ class ApprovalDelegate extends Model
     public function delegate(): BelongsTo
     {
         return $this->belongsTo(User::class, 'delegate_id');
-    }
-
-    /**
-     * Get the institution this delegation applies to
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

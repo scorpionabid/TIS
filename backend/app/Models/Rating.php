@@ -2,13 +2,16 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Rating extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasInstitution, HasAcademicYear;
 
     /**
      * The attributes that are mass assignable.
@@ -60,30 +63,6 @@ class Rating extends Model
         'created_at' => 'datetime',
         'updated_at' => 'datetime',
     ];
-
-    /**
-     * Get the user that owns the rating.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Get the institution that owns the rating.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
-     * Get the academic year that owns the rating.
-     */
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
-    }
 
     /**
      * Scope a query to only include published ratings.

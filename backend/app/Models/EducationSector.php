@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasTypeScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class EducationSector extends Model
 {
-    use HasFactory;
+    use HasFactory, HasActiveScope, HasTypeScope;
 
     protected $fillable = [
         'name',
@@ -52,16 +54,6 @@ class EducationSector extends Model
     }
 
     // Scopes
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
-    }
-
-    public function scopeByType($query, $type)
-    {
-        return $query->where('type', $type);
-    }
-
     public function scopeByRegion($query, $regionId)
     {
         return $query->where('region_id', $regionId);

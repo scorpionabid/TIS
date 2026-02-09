@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AcademicYear extends Model
 {
-    use HasFactory;
+    use HasActiveScope, HasFactory;
 
     /**
      * The attributes that are mass assignable.
@@ -110,14 +111,6 @@ class AcademicYear extends Model
     public function getDurationInDays(): int
     {
         return $this->start_date->diffInDays($this->end_date);
-    }
-
-    /**
-     * Scope to get active academic year.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 
     /**

@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasTypeScope;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -9,7 +11,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SecurityAlert extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasTypeScope;
+
+    protected string $typeColumn = 'alert_type';
 
     protected $fillable = [
         'user_id',
@@ -90,14 +94,6 @@ class SecurityAlert extends Model
     ];
 
     /**
-     * User relationship
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
      * Session relationship
      */
     public function userSession(): BelongsTo
@@ -143,14 +139,6 @@ class SecurityAlert extends Model
     public function scopeRequiresAction(Builder $query): Builder
     {
         return $query->where('requires_immediate_action', true);
-    }
-
-    /**
-     * Scope: By alert type
-     */
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('alert_type', $type);
     }
 
     /**

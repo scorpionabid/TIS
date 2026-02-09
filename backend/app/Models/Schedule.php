@@ -2,6 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +17,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Schedule extends Model
 {
-    use HasFactory;
+    use HasFactory, HasAcademicYear, HasInstitution, HasCreator, HasApprover, HasActiveScope, HasTypeScope;
+
+    protected string $activeColumn = 'status';
+    protected $activeValue = 'active';
+    protected string $typeColumn = 'schedule_type';
 
     protected $fillable = [
         'academic_year_id',
@@ -184,27 +194,11 @@ class Schedule extends Model
     }
 
     /**
-     * Academic year relationship
-     */
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
-    }
-
-    /**
      * Academic term relationship
      */
     public function academicTerm(): BelongsTo
     {
         return $this->belongsTo(AcademicTerm::class);
-    }
-
-    /**
-     * Institution relationship
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**
@@ -240,27 +234,11 @@ class Schedule extends Model
     }
 
     /**
-     * Created by user relationship
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
      * Reviewed by user relationship
      */
     public function reviewer(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reviewed_by');
-    }
-
-    /**
-     * Approved by user relationship
-     */
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
@@ -288,14 +266,6 @@ class Schedule extends Model
     }
 
     /**
-     * Scope: Active schedules
-     */
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('status', 'active');
-    }
-
-    /**
      * Scope: Current schedules
      */
     public function scopeCurrent(Builder $query): Builder
@@ -307,14 +277,6 @@ class Schedule extends Model
                 $q->whereNull('end_date')
                     ->orWhere('end_date', '>=', $today);
             });
-    }
-
-    /**
-     * Scope: By schedule type
-     */
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('schedule_type', $type);
     }
 
     /**

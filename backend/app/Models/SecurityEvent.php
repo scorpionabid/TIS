@@ -2,13 +2,18 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class SecurityEvent extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasInstitution, HasTypeScope;
+
+    protected string $typeColumn = 'event_type';
 
     /**
      * Indicates if the model should be timestamped.
@@ -56,14 +61,6 @@ class SecurityEvent extends Model
     }
 
     /**
-     * Get the user who triggered the security event.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
      * Get the target user of the security event.
      */
     public function targetUser(): BelongsTo
@@ -77,14 +74,6 @@ class SecurityEvent extends Model
     public function resolvedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'resolved_by');
-    }
-
-    /**
-     * Get the institution related to this security event.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**
@@ -203,14 +192,6 @@ class SecurityEvent extends Model
         }
 
         return static::create($attributes);
-    }
-
-    /**
-     * Scope to get events by type.
-     */
-    public function scopeByType($query, string $eventType)
-    {
-        return $query->where('event_type', $eventType);
     }
 
     /**

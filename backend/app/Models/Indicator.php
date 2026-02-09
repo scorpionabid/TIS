@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasActiveScope;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Indicator extends Model
 {
-    use HasFactory;
+    use HasFactory, HasActiveScope;
 
     /**
      * The attributes that are mass assignable.
@@ -87,14 +88,6 @@ class Indicator extends Model
             default:
                 return (string) $value;
         }
-    }
-
-    /**
-     * Scope to get active indicators.
-     */
-    public function scopeActive($query)
-    {
-        return $query->where('is_active', true);
     }
 
     /**

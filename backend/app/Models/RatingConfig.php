@@ -2,13 +2,15 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class RatingConfig extends Model
 {
-    use HasFactory;
+    use HasFactory, HasInstitution, HasAcademicYear;
 
     /**
      * The attributes that are mass assignable.
@@ -63,22 +65,6 @@ class RatingConfig extends Model
         '2023-2024' => 0.30,
         '2024-2025' => 0.45,
     ];
-
-    /**
-     * Get the institution that owns the rating config.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
-     * Get the academic year that owns the rating config.
-     */
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
-    }
 
     /**
      * Scope a query to only include configs for automatic calculation.

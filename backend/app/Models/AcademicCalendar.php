@@ -2,6 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasAcademicYear;
+use App\Models\Traits\HasActiveScope;
+use App\Models\Traits\HasApprover;
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasInstitution;
+use App\Models\Traits\HasTypeScope;
 use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Database\Eloquent\Builder;
@@ -11,7 +17,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AcademicCalendar extends Model
 {
-    use HasFactory;
+    use HasAcademicYear, HasActiveScope, HasApprover, HasCreator, HasFactory, HasInstitution, HasTypeScope;
+
+    protected string $activeColumn = 'status';
+    protected $activeValue = 'active';
+    protected string $typeColumn = 'calendar_type';
 
     protected $fillable = [
         'academic_year_id',
@@ -76,59 +86,11 @@ class AcademicCalendar extends Model
     ];
 
     /**
-     * Academic year relationship
-     */
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
-    }
-
-    /**
-     * Institution relationship
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
-    }
-
-    /**
-     * Created by user relationship
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Approved by user relationship
-     */
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
-
-    /**
-     * Scope: Active calendars
-     */
-    public function scopeActive(Builder $query): Builder
-    {
-        return $query->where('status', 'active');
-    }
-
-    /**
      * Scope: Default calendars
      */
     public function scopeDefault(Builder $query): Builder
     {
         return $query->where('is_default', true);
-    }
-
-    /**
-     * Scope: By calendar type
-     */
-    public function scopeByType(Builder $query, string $type): Builder
-    {
-        return $query->where('calendar_type', $type);
     }
 
     /**
