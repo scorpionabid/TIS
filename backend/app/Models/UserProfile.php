@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class UserProfile extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasInstitution;
 
     /**
      * The attributes that are mass assignable.
@@ -112,22 +114,6 @@ class UserProfile extends Model
             'contract_start_date' => 'date',
             'contract_end_date' => 'date',
         ];
-    }
-
-    /**
-     * Get the user that owns the profile.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
-     * Get the primary institution.
-     */
-    public function primaryInstitution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class, 'primary_institution_id');
     }
 
     /**

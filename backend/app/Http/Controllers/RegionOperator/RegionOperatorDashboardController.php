@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\RegionOperator;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Services\RegionOperator\RegionOperatorDashboardService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
-class RegionOperatorDashboardController extends Controller
+class RegionOperatorDashboardController extends BaseController
 {
     public function __construct(
         private readonly RegionOperatorDashboardService $dashboardService

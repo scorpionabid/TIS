@@ -18,7 +18,7 @@ use Illuminate\Http\Request;
  *
  * This file acts as a proxy to maintain backward compatibility.
  */
-class DashboardController extends Controller
+class DashboardController extends BaseController
 {
     protected DashboardStatsController $statsController;
 

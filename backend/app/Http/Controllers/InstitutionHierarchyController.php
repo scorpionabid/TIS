@@ -7,7 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-class InstitutionHierarchyController extends Controller
+class InstitutionHierarchyController extends BaseController
 {
     /**
      * Get full institution hierarchy

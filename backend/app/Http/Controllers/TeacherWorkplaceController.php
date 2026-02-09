@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
-class TeacherWorkplaceController extends Controller
+class TeacherWorkplaceController extends BaseController
 {
     /**
      * Get all workplaces for a teacher

@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
-class SchoolAssessmentController extends Controller
+class SchoolAssessmentController extends BaseController
 {
     /**
      * List school assessments accessible to the user.

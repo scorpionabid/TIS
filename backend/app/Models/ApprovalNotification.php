@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ApprovalNotification extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser;
 
     protected $fillable = [
         'approval_request_id',
@@ -38,14 +39,6 @@ class ApprovalNotification extends Model
     public function approvalRequest(): BelongsTo
     {
         return $this->belongsTo(DataApprovalRequest::class, 'approval_request_id');
-    }
-
-    /**
-     * Get the recipient user
-     */
-    public function recipient(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'recipient_id');
     }
 
     /**

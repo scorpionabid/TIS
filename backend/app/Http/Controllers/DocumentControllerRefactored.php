@@ -17,7 +17,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
-class DocumentControllerRefactored extends Controller
+class DocumentControllerRefactored extends BaseController
 {
     protected DocumentService $documentService;
 

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Auth;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Services\Auth\DeviceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class DeviceController extends Controller
+class DeviceController extends BaseController
 {
     protected $deviceService;
 
