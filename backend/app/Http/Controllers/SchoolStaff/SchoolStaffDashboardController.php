@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\SchoolStaff;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SchoolStaffDashboardController extends Controller
+class SchoolStaffDashboardController extends BaseController
 {
     /**
      * Get School Staff dashboard data based on role

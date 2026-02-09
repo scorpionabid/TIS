@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\Events;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\SchoolEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-class EventQueryController extends Controller
+class EventQueryController extends BaseController
 {
     /**
      * Display a listing of events with filtering and pagination.

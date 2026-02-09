@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\SektorAdmin\Dashboard;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\Task;
 use App\Models\TaskProgressLog;
@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-class TaskApprovalController extends Controller
+class TaskApprovalController extends BaseController
 {
     /**
      * Get pending tasks for approval

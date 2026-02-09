@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Events;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\SchoolEvent;
 use Carbon\Carbon;
@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
-class EventManagementController extends Controller
+class EventManagementController extends BaseController
 {
     /**
      * Store a new event.

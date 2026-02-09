@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\SektorAdmin\Dashboard;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\SurveyResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-class SurveyApprovalController extends Controller
+class SurveyApprovalController extends BaseController
 {
     /**
      * Get pending survey responses for approval
