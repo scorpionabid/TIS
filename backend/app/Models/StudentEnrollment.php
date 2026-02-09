@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
+use App\Models\Traits\HasAcademicYear;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -10,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class StudentEnrollment extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasAcademicYear;
 
     protected $fillable = [
         'student_id',
@@ -62,19 +64,9 @@ class StudentEnrollment extends Model
     ];
 
     // Relationships
-    public function student(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'student_id');
-    }
-
     public function grade(): BelongsTo
     {
         return $this->belongsTo(Grade::class);
-    }
-
-    public function academicYear(): BelongsTo
-    {
-        return $this->belongsTo(AcademicYear::class);
     }
 
     public function primaryGuardian(): BelongsTo

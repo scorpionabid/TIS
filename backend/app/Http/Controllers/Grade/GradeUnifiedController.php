@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Grade;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Http\Requests\Grade\DuplicateGradeRequest;
 use App\Http\Requests\Grade\FilterGradesRequest;
 use App\Http\Requests\Grade\StoreGradeRequest;
@@ -27,7 +27,7 @@ use Illuminate\Validation\ValidationException;
  * It provides a clean, RESTful API with consistent response formats
  * and proper role-based access control.
  */
-class GradeUnifiedController extends Controller
+class GradeUnifiedController extends BaseController
 {
     protected GradeManagementService $gradeService;
 

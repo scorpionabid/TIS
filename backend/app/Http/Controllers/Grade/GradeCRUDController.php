@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Grade;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Http\Requests\Grade\DuplicateGradeRequest;
 use App\Http\Requests\Grade\FilterGradesRequest;
 use App\Http\Requests\Grade\StoreGradeRequest;
@@ -15,7 +15,7 @@ use App\Services\InstitutionAccessService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Gate;
 
-class GradeCRUDController extends Controller
+class GradeCRUDController extends BaseController
 {
     /**
      * Display a listing of grades with filtering and pagination.

@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Grade;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\GradeTag;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
  *
  * Manages grade tag CRUD operations and provides tag data for grade categorization
  */
-class GradeTagController extends Controller
+class GradeTagController extends BaseController
 {
     /**
      * Get all grade tags grouped by category

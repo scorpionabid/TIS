@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Grade;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\AcademicYear;
 use App\Models\Grade;
 use App\Models\Institution;
@@ -10,7 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class GradeStatsController extends Controller
+class GradeStatsController extends BaseController
 {
     /**
      * Get grade statistics.

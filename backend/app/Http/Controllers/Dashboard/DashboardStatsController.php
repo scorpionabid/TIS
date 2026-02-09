@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\Dashboard;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Services\DashboardCacheService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
-class DashboardStatsController extends Controller
+class DashboardStatsController extends BaseController
 {
     protected DashboardCacheService $cacheService;
 

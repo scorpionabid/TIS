@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Grade;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Grade;
 use App\Models\Institution;
 use App\Models\StudentEnrollment;
@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
-class GradeStudentController extends Controller
+class GradeStudentController extends BaseController
 {
     /**
      * Assign students to grade.

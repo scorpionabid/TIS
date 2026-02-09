@@ -10,7 +10,7 @@ use App\Services\TaskStatisticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-abstract class BaseTaskController extends Controller
+abstract class BaseTaskController extends BaseController
 {
     protected TaskPermissionService $permissionService;
     protected TaskAssignmentService $assignmentService;
