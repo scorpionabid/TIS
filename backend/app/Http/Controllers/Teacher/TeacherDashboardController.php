@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\Teacher;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class TeacherDashboardController extends Controller
+class TeacherDashboardController extends BaseController
 {
     /**
      * Get Teacher dashboard data

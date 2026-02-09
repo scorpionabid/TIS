@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\School;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Department;
 use App\Models\User;
 use App\Models\UserProfile;
@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
-class SchoolTeacherController extends Controller
+class SchoolTeacherController extends BaseController
 {
     /**
      * Get all teachers for the school (REST index method)

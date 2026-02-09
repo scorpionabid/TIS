@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\School;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SchoolInventoryController extends Controller
+class SchoolInventoryController extends BaseController
 {
     /**
      * Get school inventory items
