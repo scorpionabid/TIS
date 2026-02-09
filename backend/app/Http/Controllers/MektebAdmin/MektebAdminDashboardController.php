@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\MektebAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class MektebAdminDashboardController extends Controller
+class MektebAdminDashboardController extends BaseController
 {
     /**
      * Get SchoolAdmin dashboard data

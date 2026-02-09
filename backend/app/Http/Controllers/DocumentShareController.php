@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\DocumentDownload;
+use App\Http\Controllers\BaseController;
 use App\Models\DocumentShare;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,7 +10,7 @@ use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 
-class DocumentShareController extends Controller
+class DocumentShareController extends BaseController
 {
     /**
      * Access shared document

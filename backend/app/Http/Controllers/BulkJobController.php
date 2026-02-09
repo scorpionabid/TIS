@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Events\BulkApprovalCompleted;
+use App\Http\Controllers\BaseController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 
-class BulkJobController extends Controller
+class BulkJobController extends BaseController
 {
     /**
      * Get the status of a bulk job

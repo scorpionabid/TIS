@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Psychology\PsychologyAssessmentController;
+use App\Http\Controllers\BaseController;
 use App\Http\Controllers\Psychology\PsychologyNotesController;
 use App\Http\Controllers\Psychology\PsychologySessionController;
 use App\Models\PsychologyAssessment;
@@ -21,7 +21,7 @@ use Illuminate\Http\Request;
  *
  * This file acts as a proxy to maintain backward compatibility.
  */
-class PsychologyController extends Controller
+class PsychologyController extends BaseController
 {
     protected PsychologySessionController $sessionController;
 
