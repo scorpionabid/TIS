@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class DepartmentController extends Controller
+class DepartmentController extends BaseController
 {
     /**
      * Get departments list with filtering

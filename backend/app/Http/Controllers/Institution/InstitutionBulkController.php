@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Institution;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\InstitutionType;
 use Illuminate\Http\JsonResponse;
@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class InstitutionBulkController extends Controller
+class InstitutionBulkController extends BaseController
 {
     /**
      * Get institution types

@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers\SektorAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Grade;
 use App\Models\Institution;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SektorAssessmentController extends Controller
+class SektorAssessmentController extends BaseController
 {
     /**
      * Get sector assessment reports

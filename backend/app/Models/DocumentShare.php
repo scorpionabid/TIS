@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
+use App\Models\Traits\HasCreator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -12,7 +14,7 @@ use Illuminate\Support\Str;
 
 class DocumentShare extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasCreator;
 
     protected $fillable = [
         'document_id',
@@ -69,14 +71,6 @@ class DocumentShare extends Model
     public function document(): BelongsTo
     {
         return $this->belongsTo(Document::class);
-    }
-
-    /**
-     * Shared by user relationship
-     */
-    public function sharedBy(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'shared_by');
     }
 
     /**

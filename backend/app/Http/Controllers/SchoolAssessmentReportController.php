@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Maatwebsite\Excel\Facades\Excel;
 
-class SchoolAssessmentReportController extends Controller
+class SchoolAssessmentReportController extends BaseController
 {
     public function __construct(
         private readonly SchoolAssessmentReportService $reportService

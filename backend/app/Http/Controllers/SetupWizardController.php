@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Validator;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
-class SetupWizardController extends Controller
+class SetupWizardController extends BaseController
 {
     /**
      * Check if system needs initial setup

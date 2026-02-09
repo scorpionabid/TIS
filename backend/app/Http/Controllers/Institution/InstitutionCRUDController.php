@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Institution;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Http\Requests\InstitutionDeleteRequest;
 use App\Models\Institution;
 use App\Services\InstitutionDeleteProgressService;
@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
-class InstitutionCRUDController extends Controller
+class InstitutionCRUDController extends BaseController
 {
     /**
      * Display a listing of the institutions.

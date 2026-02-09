@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 
-class SystemConfigControllerRefactored extends Controller
+class SystemConfigControllerRefactored extends BaseController
 {
     protected SystemConfigService $configService;
 
