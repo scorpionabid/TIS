@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class AssessmentController extends Controller
+class AssessmentController extends BaseController
 {
     protected PerformanceAnalyticsService $analyticsService;
 

@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 
-class AssessmentResultFieldController extends Controller
+class AssessmentResultFieldController extends BaseController
 {
     public function index(AssessmentType $assessmentType): JsonResponse
     {

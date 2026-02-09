@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
+use App\Models\Traits\HasInstitution;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -9,7 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class TeacherWorkplace extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, HasUser, HasInstitution;
 
     /**
      * The attributes that are mass assignable.
@@ -54,27 +56,11 @@ class TeacherWorkplace extends Model
     }
 
     /**
-     * Get the teacher/user.
-     */
-    public function user(): BelongsTo
-    {
-        return $this->belongsTo(User::class);
-    }
-
-    /**
      * Get the teacher profile.
      */
     public function profile(): BelongsTo
     {
         return $this->belongsTo(UserProfile::class, 'user_id', 'user_id');
-    }
-
-    /**
-     * Get the institution.
-     */
-    public function institution(): BelongsTo
-    {
-        return $this->belongsTo(Institution::class);
     }
 
     /**

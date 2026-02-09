@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
-class AssessmentTypeController extends Controller
+class AssessmentTypeController extends BaseController
 {
     // Middleware will be handled by routes, no need for constructor
 

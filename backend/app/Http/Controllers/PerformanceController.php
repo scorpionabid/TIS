@@ -7,7 +7,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class PerformanceController extends Controller
+class PerformanceController extends BaseController
 {
     protected PerformanceMonitoringService $performanceService;
 

@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\HeadingRowImport;
 
-class ImportController extends Controller
+class ImportController extends BaseController
 {
     /**
      * Import students from Excel/CSV file

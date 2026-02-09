@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\RegionAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Imports\ClassesImport;
 use App\Models\AcademicYear;
 use App\Models\Grade;
@@ -19,7 +19,7 @@ use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
-class RegionAdminClassController extends Controller
+class RegionAdminClassController extends BaseController
 {
     /**
      * Get all classes in the region

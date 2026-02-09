@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\RegionAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Department;
 use App\Models\Institution;
 use App\Services\RegionAdmin\RegionAdminInstitutionService;
@@ -11,7 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
-class RegionAdminInstitutionController extends Controller
+class RegionAdminInstitutionController extends BaseController
 {
     public function __construct(
         private readonly RegionAdminInstitutionService $institutionService

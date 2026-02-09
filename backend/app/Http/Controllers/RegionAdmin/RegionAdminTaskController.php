@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\RegionAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\Task;
 use App\Models\TaskProgressLog;
@@ -12,7 +12,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
 
-class RegionAdminTaskController extends Controller
+class RegionAdminTaskController extends BaseController
 {
     /**
      * Get tasks list for RegionAdmin with filtering

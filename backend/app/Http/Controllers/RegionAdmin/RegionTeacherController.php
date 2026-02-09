@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\RegionAdmin;
 
 use App\Exports\TeacherImportErrorsExport;
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\User;
 use App\Services\RegionAdmin\RegionTeacherService;
@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
 
-class RegionTeacherController extends Controller
+class RegionTeacherController extends BaseController
 {
     protected RegionTeacherService $teacherService;
 

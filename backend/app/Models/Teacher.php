@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Teacher extends User
 {
+    use HasUser;
     protected $table = 'users';
 
     protected static function newFactory()

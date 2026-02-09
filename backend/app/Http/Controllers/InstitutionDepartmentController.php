@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
 
-class InstitutionDepartmentController extends Controller
+class InstitutionDepartmentController extends BaseController
 {
     /**
      * Get departments for specific institution

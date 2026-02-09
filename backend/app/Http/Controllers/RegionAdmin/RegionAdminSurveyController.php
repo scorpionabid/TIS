@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\RegionAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\SurveyResponse;
@@ -10,7 +10,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class RegionAdminSurveyController extends Controller
+class RegionAdminSurveyController extends BaseController
 {
     /**
      * Get survey analytics for RegionAdmin

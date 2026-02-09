@@ -2,6 +2,9 @@
 
 namespace App\Models;
 
+use App\Models\Traits\HasUser;
+use App\Models\Traits\HasCreator;
+use App\Models\Traits\HasApprover;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -10,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class TeacherAvailability extends Model
 {
-    use HasFactory;
+    use HasFactory, HasUser, HasCreator, HasApprover;
 
     protected $fillable = [
         'teacher_id',
@@ -86,30 +89,6 @@ class TeacherAvailability extends Model
         'saturday' => 'Saturday',
         'sunday' => 'Sunday',
     ];
-
-    /**
-     * Teacher relationship
-     */
-    public function teacher(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'teacher_id');
-    }
-
-    /**
-     * Created by user relationship
-     */
-    public function creator(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'created_by');
-    }
-
-    /**
-     * Approved by user relationship
-     */
-    public function approver(): BelongsTo
-    {
-        return $this->belongsTo(User::class, 'approved_by');
-    }
 
     /**
      * Scope: Active availability records

@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers\RegionAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Services\RegionAdmin\RegionAdminDashboardService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class RegionAdminDashboardController extends Controller
+class RegionAdminDashboardController extends BaseController
 {
     protected $dashboardService;
 

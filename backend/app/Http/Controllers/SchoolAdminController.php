@@ -15,7 +15,7 @@ use Illuminate\Http\JsonResponse;
  *
  * This file is kept for backward compatibility and will be removed in future versions.
  */
-class SchoolAdminController extends Controller
+class SchoolAdminController extends BaseController
 {
     /**
      * This controller has been deprecated and split into specialized controllers.

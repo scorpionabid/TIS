@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\RegionAdmin;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\BaseController;
 use App\Models\Department;
 use App\Models\Institution;
 use App\Models\User;
@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 use Spatie\Permission\Models\Role;
 
-class RegionAdminUserController extends Controller
+class RegionAdminUserController extends BaseController
 {
     public function __construct(
         private readonly RegionAdminUserService $regionAdminUserService,

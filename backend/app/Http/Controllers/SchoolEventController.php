@@ -10,7 +10,7 @@ use App\Models\SchoolEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class SchoolEventController extends Controller
+class SchoolEventController extends BaseController
 {
     protected $queryController;
 
