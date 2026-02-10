@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class TaskDelegationController extends BaseTaskController
+class TaskDelegationController extends BaseController
 {
     /**
      * Get eligible users for task delegation

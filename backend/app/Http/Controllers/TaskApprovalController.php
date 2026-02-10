@@ -13,7 +13,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
-class TaskApprovalController extends BaseTaskController
+class TaskApprovalController extends BaseController
 {
     protected TaskNotificationService $taskNotificationService;
 

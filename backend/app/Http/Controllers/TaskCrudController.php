@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
-class TaskCrudController extends BaseTaskController
+class TaskCrudController extends BaseController
 {
     /**
      * Get tasks list with filtering and pagination

@@ -6,7 +6,7 @@ use App\Models\Task;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
-class TaskAuditController extends BaseTaskController
+class TaskAuditController extends BaseController
 {
     /**
      * Get task audit history
@@ -16,19 +16,13 @@ class TaskAuditController extends BaseTaskController
         $user = Auth::user();
 
         if (! $this->permissionService->canUserAccessTask($task, $user)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bu tapşırığa giriş icazəniz yoxdur.',
-            ], 403);
+            return $this->errorResponse('Bu tapşırığa giriş icazəniz yoxdur.', 403);
         }
 
         try {
             $history = $this->auditService->getTaskHistory($task);
 
-            return response()->json([
-                'success' => true,
-                'history' => $history,
-            ]);
+            return $this->successResponse($history, 'Audit tarixçəsi uğurla alındı.');
         } catch (\Exception $e) {
             return $this->handleError($e, 'Audit tarixçəsi alınarkən xəta baş verdi.');
         }
@@ -42,19 +36,13 @@ class TaskAuditController extends BaseTaskController
         $user = Auth::user();
 
         if (! $this->permissionService->canUserAccessTask($task, $user)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Bu tapşırığa giriş icazəniz yoxdur.',
-            ], 403);
+            return $this->errorResponse('Bu tapşırığa giriş icazəniz yoxdur.', 403);
         }
 
         try {
             $history = $this->auditService->getApprovalHistory($task);
 
-            return response()->json([
-                'success' => true,
-                'history' => $history,
-            ]);
+            return $this->successResponse($history, 'Təsdiq tarixçəsi uğurla alındı.');
         } catch (\Exception $e) {
             return $this->handleError($e, 'Təsdiq tarixçəsi alınarkən xəta baş verdi.');
         }
