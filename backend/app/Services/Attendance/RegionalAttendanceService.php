@@ -10,8 +10,23 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\ValidationException;
 
-class RegionalAttendanceService
+class RegionalAttendanceService extends BaseService
 {
+    /**
+     * Model class for this service
+     */
+    protected $modelClass = ClassBulkAttendance::class;
+    
+    /**
+     * Searchable fields for filtering
+     */
+    protected $searchableFields = ['institution_id', 'grade_id', 'class_level', 'student_count'];
+    
+    /**
+     * Filterable fields for filtering
+     */
+    protected $filterableFields = ['institution_id', 'grade_id', 'class_level', 'attendance_date'];
+
     /**
      * Build aggregated attendance overview for the given user scope.
      */

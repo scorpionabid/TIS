@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
-class PerformanceMonitoringService
+class PerformanceMonitoringService extends BaseService
 {
     protected array $metrics = [];
 

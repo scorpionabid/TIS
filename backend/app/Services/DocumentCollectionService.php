@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use ZipArchive;
 
-class DocumentCollectionService
+class DocumentCollectionService extends BaseService
 {
     /**
      * Create regional folders from templates for a specific institution

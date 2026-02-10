@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
  * - Daily response tracking
  * - Response pattern analysis
  */
-class ResponseAnalyticsService
+class ResponseAnalyticsService extends BaseService
 {
     /**
      * Get response statistics for a survey

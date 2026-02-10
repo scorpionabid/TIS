@@ -5,7 +5,7 @@ namespace App\Services\Schedule;
 use App\Models\Subject;
 use App\Models\Teacher;
 
-class AdvancedScheduleOptimizer
+class AdvancedScheduleOptimizer extends BaseService
 {
     protected array $optimizationScores = [];
 

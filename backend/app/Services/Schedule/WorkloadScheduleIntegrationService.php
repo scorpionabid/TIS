@@ -11,7 +11,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 
-class WorkloadScheduleIntegrationService
+class WorkloadScheduleIntegrationService extends BaseService
 {
     private const MAX_WEEKLY_HOURS = 25;
 

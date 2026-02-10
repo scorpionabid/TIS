@@ -17,7 +17,7 @@ use Illuminate\Support\Collection;
  * - Response timing analysis
  * - Peak activity identification
  */
-class TemporalAnalyticsService
+class TemporalAnalyticsService extends BaseService
 {
     /**
      * Get temporal statistics for a survey

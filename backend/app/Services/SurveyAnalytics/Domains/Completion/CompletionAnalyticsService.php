@@ -17,7 +17,7 @@ use App\Services\SurveyAnalytics\Domains\Question\QuestionAnalyticsService;
  * - Dropout point identification
  * - Completion trend analysis
  */
-class CompletionAnalyticsService
+class CompletionAnalyticsService extends BaseService
 {
     protected QuestionAnalyticsService $questionService;
 

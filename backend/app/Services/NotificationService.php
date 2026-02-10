@@ -11,7 +11,7 @@ use App\Models\User;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
-class NotificationService
+class NotificationService extends BaseService
 {
     /**
      * Send a notification

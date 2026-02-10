@@ -6,7 +6,7 @@ use App\Models\Institution;
 use App\Models\Room;
 use Illuminate\Support\Collection;
 
-class ScheduleRoomAssignmentService
+class ScheduleRoomAssignmentService extends BaseService
 {
     /**
      * Find an available room matching class/slot requirements.

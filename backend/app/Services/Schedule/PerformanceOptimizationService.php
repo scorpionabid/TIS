@@ -6,7 +6,7 @@ use App\Models\Schedule;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 
-class PerformanceOptimizationService
+class PerformanceOptimizationService extends BaseService
 {
     protected array $optimizationMetrics = [];
 

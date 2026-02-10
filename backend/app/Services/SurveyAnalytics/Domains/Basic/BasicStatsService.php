@@ -17,7 +17,7 @@ use App\Models\User;
  * - Completion time analytics
  * - Target estimation for surveys
  */
-class BasicStatsService
+class BasicStatsService extends BaseService
 {
     /**
      * Get basic statistics for a survey

@@ -9,7 +9,7 @@ use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class UserBulkService
+class UserBulkService extends BaseService
 {
     /**
      * Bulk activate users

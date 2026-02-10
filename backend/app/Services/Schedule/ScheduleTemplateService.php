@@ -8,7 +8,7 @@ use App\Models\ScheduleTemplateUsage;
 use App\Models\User;
 use Illuminate\Support\Collection;
 
-class ScheduleTemplateService
+class ScheduleTemplateService extends BaseService
 {
     protected MachineLearningScheduleAnalyzer $mlAnalyzer;
 

@@ -9,7 +9,7 @@ use Exception;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
-class SurveyStatusService
+class SurveyStatusService extends BaseService
 {
     public function __construct(protected SurveyNotificationService $surveyNotificationService) {}
 
