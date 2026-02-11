@@ -21,7 +21,8 @@ import {
   TrendingUp,
   Medal,
   Gift,
-  FileText
+  FileText,
+  MapPin
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -287,7 +288,7 @@ export default function AchievementTimeline({
                         </Badge>
                       )}
                     </div>
-                    <CardDescription className="text-sm">
+                    <div className="text-sm">
                       <div className="flex items-center space-x-2 mb-1">
                         <Calendar className="h-4 w-4" />
                         <span>{formatDate(achievement.date)}</span>
@@ -295,11 +296,11 @@ export default function AchievementTimeline({
                       </div>
                       {achievement.institution && (
                         <div className="flex items-center space-x-2">
-                          <Award className="h-4 w-4" />
+                          <MapPin className="h-3 w-3" />
                           <span>{achievement.institution}</span>
                         </div>
                       )}
-                    </CardDescription>
+                    </div>
                   </div>
                 </div>
                 
