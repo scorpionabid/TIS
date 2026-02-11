@@ -22,7 +22,8 @@ import {
   Medal,
   Gift,
   FileText,
-  MapPin
+  MapPin,
+  AlertTriangle
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -79,9 +80,9 @@ export default function AchievementTimeline({
   ];
 
   const impactLevelOptions = [
-    { value: 'high', label: 'Yüksək', color: 'bg-red-100 text-red-800' },
-    { value: 'medium', label: 'Orta', color: 'bg-yellow-100 text-yellow-800' },
-    { value: 'low', label: 'Aşağı', color: 'bg-green-100 text-green-800' }
+    { value: 'high', label: 'Yüksək', color: 'bg-red-100 text-red-800', icon: TrendingUp },
+    { value: 'medium', label: 'Orta', color: 'bg-yellow-100 text-yellow-800', icon: AlertTriangle },
+    { value: 'low', label: 'Aşağı', color: 'bg-green-100 text-green-800', icon: CheckCircle }
   ];
 
   const categoryOptions = [
@@ -439,7 +440,7 @@ export default function AchievementTimeline({
                         {typeOptions.map(option => (
                           <SelectItem key={option.value} value={option.value}>
                             <div className="flex items-center space-x-2">
-                              <option.icon className="h-4 w-4" />
+                              {option.icon && <option.icon className="h-4 w-4" />}
                               <span>{option.label}</span>
                             </div>
                           </SelectItem>
@@ -460,7 +461,10 @@ export default function AchievementTimeline({
                       <SelectContent>
                         {impactLevelOptions.map(option => (
                           <SelectItem key={option.value} value={option.value}>
-                            {option.label}
+                            <div className="flex items-center space-x-2">
+                              {option.icon && <option.icon className="h-4 w-4" />}
+                              <span>{option.label}</span>
+                            </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
