@@ -1,80 +1,45 @@
 #!/bin/bash
 
-# ATİS Layihəsi üçün Pre-Tool-Use Hook
-# Bu hook hər alət istifadəsindən əvvəl işə düşür
+# ATİS Pre-Tool-Use Hook
+# Runs before Write/Edit/MultiEdit operations
+# Receives JSON via stdin with tool_name, tool_input fields
 
-echo "🔍 Pre-tool hook işə düşdü: $CLAUDE_TOOL"
+INPUT=$(cat)
+TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.path // empty' 2>/dev/null)
 
-# Production fayllarının qorunması
-if [[ $CLAUDE_FILE_PATH == *".env"* ]] || [[ $CLAUDE_FILE_PATH == *"production"* ]] || [[ $CLAUDE_FILE_PATH == *"docker-compose.yml"* ]]; then
-    echo "❌ XƏBƏRDARLIQ: Production və konfiqurasiya faylları təhlükəsiz saxlanılır!"
-    echo "   Fayl: $CLAUDE_FILE_PATH"
-    echo "   Bu faylı dəyişmək istəyirsinizmi? (y/N):"
-    read -r response
-    if [[ ! $response =~ ^[Yy]$ ]]; then
-        echo "❌ Əməliyyat ləğv edildi"
-        exit 1
+# Production file protection
+if [[ "$FILE_PATH" == *".env"* ]] || [[ "$FILE_PATH" == *"production"* ]] || [[ "$FILE_PATH" == *"docker-compose.yml"* ]]; then
+    echo "⚠️ WARNING: Modifying production/config file: $FILE_PATH" >&2
+fi
+
+# Docker-only enforcement
+if [[ "$TOOL" == "Bash" ]]; then
+    COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+    if [[ "$COMMAND" == *"php artisan serve"* ]]; then
+        echo "❌ BLOCKED: Local php artisan serve is prohibited. Use Docker: ./start.sh" >&2
+        echo '{"decision": "block", "reason": "Local server prohibited. Use Docker."}' 
+        exit 0
     fi
 fi
 
-# ATİS Docker-only mod yoxlaması
-if [[ $CLAUDE_TOOL == "Bash" ]] && [[ $CLAUDE_COMMAND == *"php artisan serve"* ]]; then
-    echo "❌ ATİS layihəsində local PHP artisan serve istifadə etmək QADAĞANDIR!"
-    echo "   Yalnız Docker istifadə edin: ./start.sh"
-    exit 1
-fi
-
-if [[ $CLAUDE_TOOL == "Bash" ]] && [[ $CLAUDE_COMMAND == *"npm run dev"* ]] && [[ $PWD != *"/frontend" ]]; then
-    echo "❌ Frontend development yalnız Docker container daxilində!"
-    echo "   Düzgün əmr: docker exec atis_frontend npm run dev"
-    exit 1
-fi
-
-# Code duplication check - Yeni komponent yaradılarkən
-if [[ $CLAUDE_TOOL == "Write" ]] && [[ $CLAUDE_FILE_PATH == *"components"* ]] || [[ $CLAUDE_FILE_PATH == *"pages"* ]]; then
-    echo "🔍 Təkrarçılıq yoxlanılır..."
-    filename=$(basename "$CLAUDE_FILE_PATH" .tsx .ts .php)
-
-    # Similar file check
-    similar_count=$(find . -name "*$filename*" 2>/dev/null | wc -l)
+# Code duplication check
+if [[ "$FILE_PATH" == *"components"* ]] || [[ "$FILE_PATH" == *"pages"* ]]; then
+    filename=$(basename "$FILE_PATH" .tsx)
+    filename=$(basename "$filename" .ts)
+    filename=$(basename "$filename" .php)
+    similar_count=$(find . -name "*$filename*" 2>/dev/null | wc -l | tr -d ' ')
     if [ "$similar_count" -gt 0 ]; then
-        echo "⚠️  Diqqət: '$filename' adlı oxşar fayllar tapıldı ($similar_count ədəd)"
-        echo "   Mövcud fayldan istifadə etməyi nəzərdən keçirin."
+        echo "⚠️ Similar files found for '$filename' ($similar_count matches). Check for duplication." >&2
     fi
 fi
 
-# Permission check reminder - Permission ilə bağlı fayllar dəyişəndə
-if [[ $CLAUDE_FILE_PATH == *"Permission"* ]] || [[ $CLAUDE_FILE_PATH == *"permission"* ]] || [[ $CLAUDE_FILE_PATH == *"Role"* ]]; then
-    echo "🔐 XATIRLATMA: Permission/Role dəyişikliyi!"
-    echo "   - Cache clear lazım ola bilər: php artisan permission:cache-reset"
-    echo "   - Seeder update: PermissionSeeder.php"
-    echo "   - Frontend permission hooks update lazım ola bilər"
+# Permission change reminder
+if [[ "$FILE_PATH" == *"Permission"* ]] || [[ "$FILE_PATH" == *"permission"* ]] || [[ "$FILE_PATH" == *"Role"* ]]; then
+    echo "🔐 REMINDER: Permission/Role change detected. Run: php artisan permission:cache-reset" >&2
 fi
 
-# Migration safety check
-if [[ $CLAUDE_TOOL == "Write" ]] && [[ $CLAUDE_FILE_PATH == *"migrations"* ]]; then
-    echo "🗄️  XƏBƏRDARLIQ: Migration faylı yaradılır!"
-    echo "   - Development-də test edin: php artisan migrate:fresh"
-    echo "   - Production-da rollback planı hazırlayın"
-    echo "   - Əgər data loss riski varsa, backup alın!"
+# Migration safety
+if [[ "$FILE_PATH" == *"migrations"* ]]; then
+    echo "🗄️ MIGRATION: Test with migrate:fresh in development. Create rollback plan for production." >&2
 fi
-
-# Code style yoxlaması (TypeScript/React fayllar üçün)
-if [[ $CLAUDE_TOOL == "Edit" || $CLAUDE_TOOL == "Write" || $CLAUDE_TOOL == "MultiEdit" ]] && [[ $CLAUDE_FILE_PATH == *.tsx || $CLAUDE_FILE_PATH == *.ts ]]; then
-    echo "📝 TypeScript code style yoxlanılır..."
-    # Əgər eslint mövcudsa, istifadə et
-    if command -v npx >/dev/null 2>&1 && [ -f "frontend/package.json" ]; then
-        cd frontend && npx eslint "$CLAUDE_FILE_PATH" --fix 2>/dev/null || echo "⚠️  ESLint xətası, davam edilir..."
-        cd - >/dev/null
-    fi
-fi
-
-# PHP fayllar üçün syntax yoxlaması
-if [[ $CLAUDE_TOOL == "Edit" || $CLAUDE_TOOL == "Write" ]] && [[ $CLAUDE_FILE_PATH == *.php ]]; then
-    echo "🐘 PHP syntax yoxlanılır..."
-    if command -v php >/dev/null 2>&1; then
-        php -l "$CLAUDE_FILE_PATH" 2>/dev/null || echo "⚠️  PHP syntax xətası ola bilər"
-    fi
-fi
-
-echo "✅ Pre-tool hook tamamlandı"

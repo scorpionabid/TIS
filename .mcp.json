@@ -4,7 +4,7 @@
       "type": "stdio",
       "command": "mcp-server-filesystem",
       "args": [
-        "/Users/home/Desktop/ATİS"
+        "/Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/Desktop/ATİS"
       ],
       "env": {}
     },
