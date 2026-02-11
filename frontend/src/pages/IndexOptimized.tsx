@@ -70,38 +70,65 @@ const DashboardError = ({ error, retry }: { error: Error; retry: () => void }) =
 
 const IndexOptimized = () => {
   // Performance monitoring removed for speed
-
+  
+  // Debug logging for context issues
+  console.log('🔍 IndexOptimized Debug: Component mounting');
+  
   const { currentUser, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // Debug context state
+  console.log('🔍 IndexOptimized Debug:', {
+    hasCurrentUser: !!currentUser,
+    loading,
+    currentUserRole: currentUser?.role,
+    pathname: location.pathname
+  });
 
   // Memoize dashboard component selection
   const DashboardComponent = useMemo(() => {
-    if (!currentUser?.role) return null;
+    console.log('🔍 DashboardComponent Debug: Selecting component', {
+      hasCurrentUser: !!currentUser,
+      currentUserRole: currentUser?.role
+    });
+    
+    if (!currentUser?.role) {
+      console.log('🔍 DashboardComponent Debug: No user role, returning null');
+      return null;
+    }
 
     const userRole = typeof currentUser.role === 'string'
       ? currentUser.role.toLowerCase()
       : currentUser.role;
 
+    console.log('🔍 DashboardComponent Debug: User role normalized to:', userRole);
+
     switch (userRole) {
       case USER_ROLES.SUPERADMIN:
+        console.log('🔍 DashboardComponent Debug: Selected SuperAdminDashboardOptimized');
         return SuperAdminDashboardOptimized;
 
       case USER_ROLES.REGIONADMIN:
+        console.log('🔍 DashboardComponent Debug: Selected RegionAdminDashboard');
         return RegionAdminDashboard;
 
       case USER_ROLES.REGIONOPERATOR:
+        console.log('🔍 DashboardComponent Debug: Selected RegionOperatorDashboard');
         return RegionOperatorDashboard;
 
       case USER_ROLES.SEKTORADMIN:
+        console.log('🔍 DashboardComponent Debug: Selected SektorAdminDashboard');
         return SektorAdminDashboard;
 
       // School-related roles
       case USER_ROLES.SCHOOLADMIN:
       case USER_ROLES.MUELLIM:
+        console.log('🔍 DashboardComponent Debug: Selected RoleBasedDashboard (School)');
         return RoleBasedDashboard;
 
       default:
+        console.log('🔍 DashboardComponent Debug: Selected RoleBasedDashboard (Default)');
         return RoleBasedDashboard;
     }
   }, [currentUser?.role]);
@@ -130,6 +157,13 @@ const IndexOptimized = () => {
 
   // Show error if no user or component
   if (!currentUser || !DashboardComponent) {
+    console.log('🔍 IndexOptimized Debug: Error condition', {
+      hasCurrentUser: !!currentUser,
+      hasDashboardComponent: !!DashboardComponent,
+      currentUser,
+      DashboardComponent
+    });
+    
     return (
       <div className="p-6 text-center">
         <h2 className="text-xl font-semibold text-destructive">Giriş problemi</h2>
@@ -142,6 +176,8 @@ const IndexOptimized = () => {
 
   // Don't show dashboard for regionadmin on root path, let the redirect happen
   if (currentUser?.role === USER_ROLES.REGIONADMIN && location.pathname === '/') {
+    console.log('🔍 IndexOptimized Debug: RegionAdmin on root path, showing loading');
+    
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="flex flex-col items-center space-y-4">
@@ -153,6 +189,10 @@ const IndexOptimized = () => {
   }
 
   // Navigation tracking removed for speed
+
+  console.log('🔍 IndexOptimized Debug: Rendering dashboard component', {
+    DashboardComponent: DashboardComponent.name || 'Anonymous'
+  });
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4">

@@ -26,7 +26,22 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.group('🔴 ErrorBoundary caught an error');
+    console.error('Error:', error);
+    console.error('Error Info:', errorInfo);
+    console.log('Component Stack:', errorInfo.componentStack);
+    console.log('Error Message:', error.message);
+    console.log('Error Stack:', error.stack);
+    console.groupEnd();
+    
+    // Check if this is a useContext error
+    if (error.message.includes('useContext') || error.message.includes('null')) {
+      console.warn('🔍 Potential Context Error Detected:', {
+        errorMessage: error.message,
+        errorStack: error.stack,
+        componentStack: errorInfo.componentStack
+      });
+    }
     
     this.setState({
       error,
