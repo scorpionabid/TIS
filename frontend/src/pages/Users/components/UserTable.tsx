@@ -5,6 +5,7 @@ import { Edit, Trash2, UserIcon, Mail, Phone, CalendarDays, BuildingIcon } from 
 import { memo, useMemo } from "react";
 import { User } from "@/services/users";
 import { useLayout } from "@/contexts/LayoutContext";
+import { UserRole } from "@/constants/roles";
 
 export interface UserTableProps {
   users: User[];
@@ -41,9 +42,28 @@ const getStatusBadgeVariant = (status: string) => {
   return status === 'active' ? 'default' : 'secondary';
 };
 
-const getRoleBadgeVariant = (role: string) => {
-  if (['superadmin', 'regionadmin'].includes(role)) return 'destructive';
-  if (['sektoradmin', 'schooladmin'].includes(role)) return 'secondary';
+// Helper function to extract role name safely
+const getRoleName = (role: string | UserRole | any): string => {
+  if (typeof role === 'string') {
+    return role;
+  }
+  if (role && typeof role === 'object') {
+    return role.name || role.display_name || 'unknown';
+  }
+  return 'unknown';
+};
+
+// Helper function to extract institution type safely
+const getInstitutionType = (institution: any): string => {
+  if (!institution?.type) return '';
+  if (typeof institution.type === 'string') return institution.type;
+  return institution.type?.name || institution.type?.display_name || 'Müəssisə növü';
+};
+
+const getRoleBadgeVariant = (role: string | UserRole | any) => {
+  const roleName = getRoleName(role);
+  if (['superadmin', 'regionadmin'].includes(roleName)) return 'destructive';
+  if (['sektoradmin', 'schooladmin'].includes(roleName)) return 'secondary';
   return 'outline';
 };
 
@@ -66,6 +86,13 @@ export const UserTable = memo(({
 }: UserTableProps) => {
   const { isMobile } = useLayout();
   
+  // Debug log to see the data structure
+  console.log('🔍 UserTable Debug - users data:', users);
+  if (users && users.length > 0) {
+    console.log('🔍 First user structure:', users[0]);
+    console.log('🔍 First user institution:', users[0].institution);
+  }
+  
   // Check if user can be edited/deleted based on role hierarchy
   const canModifyUser = useMemo(() => (targetUser: User) => {
     if (currentUserRole === 'superadmin') return true;
@@ -80,7 +107,8 @@ export const UserTable = memo(({
     };
     
     const currentLevel = roleHierarchy[currentUserRole as keyof typeof roleHierarchy] || 0;
-    const targetLevel = roleHierarchy[targetUser.role as keyof typeof roleHierarchy] || 0;
+    const targetRoleName = getRoleName(targetUser.role);
+    const targetLevel = roleHierarchy[targetRoleName as keyof typeof roleHierarchy] || 0;
     
     return currentLevel > targetLevel;
   }, [currentUserRole]);
@@ -143,7 +171,7 @@ export const UserTable = memo(({
 
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant={getRoleBadgeVariant(user.role)}>
-                {roleLabels[user.role] || user.role}
+                {roleLabels[getRoleName(user.role)] || getRoleName(user.role)}
               </Badge>
               <Badge variant={getStatusBadgeVariant(user.is_active ? 'active' : 'inactive')}>
                 {user.is_active ? 'Aktiv' : 'Passiv'}
@@ -275,7 +303,7 @@ export const UserTable = memo(({
               </TableCell>
               <TableCell>
                 <Badge variant={getRoleBadgeVariant(user.role)}>
-                  {roleLabels[user.role] || user.role}
+                  {roleLabels[getRoleName(user.role)] || getRoleName(user.role)}
                 </Badge>
               </TableCell>
               <TableCell>
@@ -284,7 +312,7 @@ export const UserTable = memo(({
                 </div>
                 {user.institution?.type && (
                   <div className="text-xs text-muted-foreground">
-                    {user.institution.type}
+                    {getInstitutionType(user.institution)}
                   </div>
                 )}
               </TableCell>
