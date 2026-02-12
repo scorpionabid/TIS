@@ -18,7 +18,7 @@ class TeacherProfileSeeder extends Seeder
     public function run(): void
     {
         // Mövcud müəllim user-larını tapaq
-        $teachers = User::whereHas('roles', function($query) {
+        $teachers = User::whereHas('roles', function ($query) {
             $query->where('name', 'müəllim');
         })->get();
 
@@ -26,6 +26,7 @@ class TeacherProfileSeeder extends Seeder
             // Əgər müəllim yoxdursa, test müəllim yaradaq
             $teacher = User::create([
                 'name' => 'Test Müəllim',
+                'username' => 'teacher',
                 'email' => 'teacher@atis.az',
                 'password' => Hash::make('teacher123'),
                 'email_verified_at' => now(),
