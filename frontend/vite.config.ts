@@ -11,7 +11,7 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 3000,
     open: false,
-    allowedHosts: ["atis.sim.edu.az", ".sim.edu.az", "localhost", "127.0.0.1", "5.9.43.157"],
+    allowedHosts: ["atis.sim.edu.az", ".sim.edu.az", "localhost", "127.0.0.1", "5.9.43.157", "192.168.61.43"],
     // Proxy disabled - using production API URL directly (Nginx handles routing)
     proxy: undefined,
     fs: {
@@ -44,14 +44,14 @@ export default defineConfig(({ mode }) => ({
     // Remove console statements in production only when explicitly enabled
     ...(mode === 'production' && process.env.VITE_DROP_CONSOLE === 'true'
       ? {
-          terserOptions: {
-            compress: {
-              drop_console: true,
-              drop_debugger: true,
-              pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
-            },
+        terserOptions: {
+          compress: {
+            drop_console: true,
+            drop_debugger: true,
+            pure_funcs: ['console.log', 'console.info', 'console.debug', 'console.warn'],
           },
-        }
+        },
+      }
       : {}),
     rollupOptions: {
       output: {

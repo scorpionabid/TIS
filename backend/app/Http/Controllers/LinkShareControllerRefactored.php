@@ -826,12 +826,42 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request, $sectorId) {
             $user = Auth::user();
 
-            // Verify sector exists (check by institution type, not level)
+            // Verify sector exists and is active
             $sector = \App\Models\Institution::where('id', $sectorId)
+                ->where('is_active', true)
+                ->where(function ($q) {
+                    $q->where('type', 'sektor')
+                        ->orWhere('type', 'sector')
+                        ->orWhere('level', 3);
+                })
                 ->first();
 
             if (! $sector) {
                 abort(404, 'Sektor tapılmadı');
+            }
+
+            // 🆕 Enhanced permission check
+            if ($user->hasRole('sektoradmin') && $sectorId !== $user->institution_id) {
+                \Log::warning('📚 LinkDatabase: Sektoradmin attempting to access unauthorized sector', [
+                    'user_id' => $user->id,
+                    'user_institution_id' => $user->institution_id,
+                    'requested_sector_id' => $sectorId,
+                    'sector_name' => $sector->name,
+                ]);
+                abort(403, 'Bu sektora baxmaq icazəniz yoxdur');
+            }
+
+            if (($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) 
+                && $sector->parent_id !== $user->institution_id) {
+                \Log::warning('📚 LinkDatabase: Region user attempting to access unauthorized sector', [
+                    'user_id' => $user->id,
+                    'user_role' => $user->role,
+                    'user_institution_id' => $user->institution_id,
+                    'requested_sector_id' => $sectorId,
+                    'sector_parent_id' => $sector->parent_id,
+                    'sector_name' => $sector->name,
+                ]);
+                abort(403, 'Bu regionun sektoruna baxmaq icazəniz yoxdur');
             }
 
             // Get links that target this sector
@@ -874,9 +904,13 @@ class LinkShareControllerRefactored extends BaseController
             $links = $query->paginate($perPage);
 
             \Log::info('📚 LinkDatabase: getLinksBySector', [
-                'sector_id' => $sectorId,
                 'user_id' => $user->id,
+                'user_role' => $user->role,
+                'sector_id' => $sectorId,
+                'sector_name' => $sector->name,
+                'sector_parent_id' => $sector->parent_id,
                 'links_count' => $links->total(),
+                'per_page' => $perPage,
             ]);
 
             return $this->successResponse($links, 'Sektor linkləri alındı');
@@ -901,19 +935,31 @@ class LinkShareControllerRefactored extends BaseController
                 })
                 ->select('id', 'name', 'short_name', 'parent_id', 'type', 'level');
 
-            // Apply regional filtering
+            // Apply regional filtering with enhanced logging
             if ($user->hasRole('superadmin')) {
                 // SuperAdmin sees all sectors
+                \Log::info('📚 LinkDatabase: SuperAdmin accessing all sectors');
             } elseif ($user->hasRole('regionadmin') || $user->hasRole('regionoperator')) {
                 // Region admin sees only their region's sectors
                 $regionId = $user->institution_id;
                 $query->where('parent_id', $regionId);
+                \Log::info('📚 LinkDatabase: Region user accessing sectors', [
+                    'user_role' => $user->role,
+                    'region_id' => $regionId,
+                ]);
             } elseif ($user->hasRole('sektoradmin')) {
-                // Sector admin sees only their own sector
+                // Sector admin sees ONLY their sector
                 $query->where('id', $user->institution_id);
+                \Log::info('📚 LinkDatabase: Sektoradmin accessing own sector', [
+                    'user_institution_id' => $user->institution_id,
+                ]);
             } else {
                 // Other roles see no sectors
                 $query->whereRaw('1 = 0');
+                \Log::warning('📚 LinkDatabase: User without sector access attempted access', [
+                    'user_id' => $user->id,
+                    'user_role' => $user->role,
+                ]);
             }
 
             $sectors = $query->orderBy('name')->get();

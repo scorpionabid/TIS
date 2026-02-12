@@ -15,7 +15,7 @@ import { LinkDeleteModal } from './components/LinkDeleteModal';
 import type { CreateLinkData, LinkShare } from './types/linkDatabase.types';
 
 export default function LinkDatabase() {
-  const { hasPermission } = useRoleCheck();
+  const { hasPermission, currentRole } = useRoleCheck();
 
   // Permissions
   const canCreate = hasPermission('links.create');
@@ -188,6 +188,7 @@ export default function LinkDatabase() {
         selectedSector={state.selectedSector}
         onTabChange={state.setActiveTab}
         onSectorChange={state.setSelectedSector}
+        userRole={currentRole}
       />
 
       {/* Featured Links */}

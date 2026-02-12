@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/select';
 import { Building2, MapPin } from 'lucide-react';
 import type { Department, SectorOption } from '../types/linkDatabase.types';
+import type { UserRole } from '@/constants/roles';
 
 interface LinkDatabaseTabsProps {
   departments: Department[];
@@ -16,6 +17,7 @@ interface LinkDatabaseTabsProps {
   selectedSector: number | null;
   onTabChange: (tab: string) => void;
   onSectorChange: (sectorId: number) => void;
+  userRole: UserRole;
 }
 
 export function LinkDatabaseTabs({
@@ -25,8 +27,16 @@ export function LinkDatabaseTabs({
   selectedSector,
   onTabChange,
   onSectorChange,
+  userRole,
 }: LinkDatabaseTabsProps) {
   const isOnSectorsTab = activeTab === 'sectors';
+  
+  // 🆕 Role-aware tab visibility logic
+  const shouldShowSectorTabs = sectors.length > 0 && 
+    (userRole === 'superadmin' || 
+     userRole === 'regionadmin' || 
+     userRole === 'regionoperator' ||
+     (userRole === 'sektoradmin' && sectors.length === 1));
 
   return (
     <div className="space-y-3">
@@ -42,7 +52,9 @@ export function LinkDatabaseTabs({
               {dept.name}
             </TabsTrigger>
           ))}
-          {sectors.length > 0 && (
+          
+          {/* 🆕 Conditional sector tabs based on user role */}
+          {shouldShowSectorTabs && (
             <TabsTrigger value="sectors" className="flex items-center gap-1.5 text-sm">
               <MapPin className="h-3.5 w-3.5" />
               Sektorlar
@@ -51,7 +63,7 @@ export function LinkDatabaseTabs({
         </TabsList>
       </Tabs>
 
-      {/* Sector selector (shown when sectors tab is active) */}
+      {/* Sector selector - only show when appropriate */}
       {isOnSectorsTab && sectors.length > 0 && (
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Sektor:</span>
