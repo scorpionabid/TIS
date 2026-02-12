@@ -208,11 +208,11 @@ class TaskSubDelegationController
         $stats = TaskSubDelegation::where('delegated_to_user_id', Auth::id())
             ->selectRaw('
                 COUNT(*) as total,
-                COUNT(CASE WHEN status = "pending" THEN 1 END) as pending,
-                COUNT(CASE WHEN status = "accepted" THEN 1 END) as accepted,
-                COUNT(CASE WHEN status = "in_progress" THEN 1 END) as in_progress,
-                COUNT(CASE WHEN status = "completed" THEN 1 END) as completed,
-                COUNT(CASE WHEN status = "cancelled" THEN 1 END) as cancelled,
+                COUNT(CASE WHEN status = \'pending\' THEN 1 END) as pending,
+                COUNT(CASE WHEN status = \'accepted\' THEN 1 END) as accepted,
+                COUNT(CASE WHEN status = \'in_progress\' THEN 1 END) as in_progress,
+                COUNT(CASE WHEN status = \'completed\' THEN 1 END) as completed,
+                COUNT(CASE WHEN status = \'cancelled\' THEN 1 END) as cancelled,
                 AVG(progress) as average_progress
             ')
             ->first();
