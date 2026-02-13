@@ -218,7 +218,7 @@ export default function Links() {
     data: linkSharingOverview,
     isLoading: sharingOverviewLoading,
     refetch: refetchLinkSharingOverview,
-  } = useLinkSharingOverview(selectedLink, isAuthenticated && canViewLinks, false); // TODO: Add isGroupedLink logic
+  } = useLinkSharingOverview(selectedLink, isAuthenticated && canViewLinks, true);
 
   /*
    * ═══════════════════════════════════════════════════════════════════════════
@@ -298,13 +298,13 @@ export default function Links() {
   const handleAfterResourceSaved = useCallback((resource: Resource, isEditing: boolean) => {
     // Toast is handled in useLinkActions
     refreshLinks();
-    
+
     if (resource.type === 'link') {
       handleSelectLink(resource);
     }
     setLinkBeingEdited(null);
     setIsLinkModalOpen(false);
-    
+
     // UX IMPROVEMENT: Keep user on current tab to see their creation
     if (!isEditing) {
       setLinkSearchInput('');
