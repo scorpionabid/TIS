@@ -116,11 +116,11 @@ class UserCrudService
     public function create(array $data): User
     {
         return DB::transaction(function () use ($data) {
-            // Create user
+            // Create user (password is auto-hashed by User model's 'hashed' cast)
             $user = User::create([
                 'username' => $data['username'],
                 'email' => $data['email'],
-                'password' => Hash::make($data['password']),
+                'password' => $data['password'],
                 'role_id' => $data['role_id'],
                 'institution_id' => $data['institution_id'],
                 'department_id' => $data['department_id'] ?? null,
@@ -187,9 +187,9 @@ class UserCrudService
                 'departments', 'is_active',
             ]));
 
-            // Handle password update
+            // Handle password update (password is auto-hashed by User model's 'hashed' cast)
             if (! empty($data['password'])) {
-                $updateData['password'] = Hash::make($data['password']);
+                $updateData['password'] = $data['password'];
                 $updateData['password_changed_at'] = now();
             }
 
@@ -645,7 +645,7 @@ class UserCrudService
             $user = $this->create([
                 'username' => $userData['username'],
                 'email' => $userData['email'],
-                'password' => Hash::make($userData['password']),
+                'password' => $userData['password'],
                 'role_id' => $userData['role_id'],
                 'institution_id' => $userData['institution_id'],
                 'department_id' => $userData['department_id'] ?? null,
@@ -668,7 +668,7 @@ class UserCrudService
         return DB::transaction(function () use ($userId, $newPassword) {
             $user = User::findOrFail($userId);
             $user->update([
-                'password' => Hash::make($newPassword),
+                'password' => $newPassword,
                 'password_changed_at' => now(),
                 'failed_login_attempts' => 0,
                 'locked_until' => null,

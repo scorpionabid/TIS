@@ -251,16 +251,24 @@ class SektorUserController extends Controller
      */
     public function createSchoolUser(Request $request): JsonResponse
     {
+        \Log::info('🔍 [Backend User Creation Debug] createSchoolUser called');
+        \Log::info('🔍 [Backend User Creation Debug] Request data:', $request->all());
+        \Log::info('🔍 [Backend User Creation Debug] Current user:', $request->user());
+        
         $currentUser = $request->user();
 
         if (! $currentUser->hasRole('sektoradmin')) {
+            \Log::error('❌ [Backend User Creation Debug] User not sektoradmin');
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $currentUser->institution;
         if (! $sector) {
+            \Log::error('❌ [Backend User Creation Debug] User not assigned to sector');
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
+        
+        \Log::info('🔍 [Backend User Creation Debug] Sector found:', ['id' => $sector->id, 'name' => $sector->name]);
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -275,11 +283,14 @@ class SektorUserController extends Controller
         ]);
 
         if ($validator->fails()) {
+            \Log::error('❌ [Backend User Creation Debug] Validation failed:', $validator->errors()->toArray());
             return response()->json([
                 'message' => 'Validation failed',
                 'errors' => $validator->errors(),
             ], 422);
         }
+        
+        \Log::info('✅ [Backend User Creation Debug] Validation passed');
 
         // Verify institution belongs to sector
         $institution = Institution::where('id', $request->institution_id)
@@ -287,12 +298,20 @@ class SektorUserController extends Controller
             ->first();
 
         if (! $institution) {
+            \Log::error('❌ [Backend User Creation Debug] Institution not in sector', [
+                'requested_institution_id' => $request->institution_id,
+                'sector_id' => $sector->id
+            ]);
             return response()->json([
                 'message' => 'Seçilən müəssisə sizin sektora aid deyil',
             ], 400);
         }
+        
+        \Log::info('✅ [Backend User Creation Debug] Institution verified:', ['id' => $institution->id, 'name' => $institution->name]);
 
         try {
+            \Log::info('🚀 [Backend User Creation Debug] Starting user creation');
+            
             $user = User::create([
                 'name' => $request->name,
                 'username' => $request->username,
@@ -302,11 +321,16 @@ class SektorUserController extends Controller
                 'is_active' => true,
                 'created_by' => $currentUser->id,
             ]);
+            
+            \Log::info('✅ [Backend User Creation Debug] User created in database:', ['id' => $user->id, 'name' => $user->name]);
 
             // Assign role
             $role = Role::where('name', $request->role)->first();
             if ($role) {
                 $user->assignRole($role);
+                \Log::info('✅ [Backend User Creation Debug] Role assigned:', ['role' => $role->name]);
+            } else {
+                \Log::warning('⚠️ [Backend User Creation Debug] Role not found:', ['requested_role' => $request->role]);
             }
 
             // Create profile if additional data provided
@@ -315,9 +339,10 @@ class SektorUserController extends Controller
                     'phone' => $request->phone,
                     'subjects' => $request->subjects ?? [],
                 ]);
+                \Log::info('✅ [Backend User Creation Debug] Profile created');
             }
 
-            return response()->json([
+            $responseData = [
                 'message' => 'İstifadəçi uğurla yaradıldı',
                 'user' => [
                     'id' => $user->id,
@@ -327,8 +352,19 @@ class SektorUserController extends Controller
                     'role' => $request->role,
                     'institution' => $institution->name,
                 ],
-            ], 201);
+            ];
+            
+            \Log::info('✅ [Backend User Creation Debug] Success response prepared:', $responseData);
+            
+            return response()->json($responseData, 201);
         } catch (\Exception $e) {
+            \Log::error('❌ [Backend User Creation Debug] Exception occurred:', [
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
             return response()->json([
                 'message' => 'İstifadəçi yaradıla bilmədi',
                 'error' => $e->getMessage(),

@@ -67,7 +67,7 @@ class StoreUserRequest extends FormRequest
             // ========================================
             // All roles now use unified Spatie permission system
             'assignable_permissions' => 'nullable|array',
-            'assignable_permissions.*' => 'nullable|string|exists:permissions,name',
+            'assignable_permissions.*' => 'nullable|string|max:100',
         ]);
     }
 

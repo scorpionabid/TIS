@@ -170,39 +170,17 @@ class UserService {
     throw new Error('User not found');
   }
 
-  async createUser(data: CreateUserData, currentUserRole?: string): Promise<User> {
-    // Use passed role or fallback to localStorage
-    let role = currentUserRole;
-    if (!role) {
-      const currentUser = getStoredUser();
-      role = currentUser?.role;
-    }
-    
-    console.log('🔍 Debug role for endpoint selection:', role);
-    
-    let endpoint = '/users';
-    
-    // Use role-specific endpoints for better permission handling
-    switch(role) {
-      case 'regionadmin':
-        endpoint = '/regionadmin/users';
-        break;
-      case 'sektoradmin':
-        endpoint = '/sektoradmin/users';
-        break;
-      default:
-        endpoint = '/users';
-        break;
-    }
-    
-    console.log(`🚀 Creating user with role ${role} using endpoint ${endpoint}`);
+  async createUser(data: CreateUserData, _currentUserRole?: string): Promise<User> {
+    // Always use unified /users endpoint - backend handles permission scoping
+    const endpoint = '/users';
+
     const response = await apiClient.post<User>(endpoint, data);
-    
+
     if (response.data) {
       return response.data;
     }
-    
-    throw new Error('Failed to create user');
+
+    throw new Error('İstifadəçi yaradılmadı - serverdən cavab gəlmədi');
   }
 
   async updateUser(id: number, data: UpdateUserData, currentUserRole?: string): Promise<User> {

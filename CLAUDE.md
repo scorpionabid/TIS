@@ -120,9 +120,9 @@ ATİS is LIVE with 22+ real educational institutions. Every change matters.
 
 ## Test Credentials (DEVELOPMENT ONLY)
 
-- **SuperAdmin**: superadmin@atis.az / admin123
-- **RegionAdmin**: admin@atis.az / admin123
-- **TestUser**: test@example.com / test123
+- **SuperAdmin**: superadmin / admin123
+- **RegionAdmin**: regionadmin1 / admin123
+
 
 ## URLs
 

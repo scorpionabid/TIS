@@ -11,7 +11,7 @@ services:
       - APP_DEBUG=true
       - APP_KEY=base64:IcNxbQiy6sWLjfrgaSlGkm4S2utYBz+DXj4u/Rt7g0k=
       - DB_CONNECTION=pgsql
-      - DB_HOST=postgres
+      - DB_HOST=atis_postgres
       - DB_PORT=5432
       - DB_DATABASE=atis_dev
       - DB_USERNAME=atis_dev_user
@@ -33,7 +33,7 @@ services:
       - ./backend/config:/var/www/html/config
       - ./backend/tests:/var/www/html/tests
     depends_on:
-      postgres:
+      postgres_v2:
         condition: service_healthy
       redis:
         condition: service_healthy
@@ -50,6 +50,8 @@ services:
     environment:
       - VITE_API_BASE_URL=http://192.168.61.43:8000/api
       - VITE_APP_URL=http://192.168.61.43:3000
+      - VITE_LOCAL_API_URL=http://localhost:8000/api
+      - VITE_LOCAL_APP_URL=http://localhost:3000
       - NODE_ENV=development
     command: sh -c "npm run dev -- --host 0.0.0.0 --port 3000"
     ports:
@@ -82,7 +84,7 @@ services:
       retries: 5
 
   # PostgreSQL Database Server
-  postgres:
+  postgres_v2:
     image: postgres:16-alpine
     container_name: atis_postgres
     restart: unless-stopped
@@ -94,7 +96,7 @@ services:
     ports:
       - "5433:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_v2:/var/lib/postgresql/data
       - ./postgres-init:/docker-entrypoint-initdb.d
     networks:
       - atis_network
@@ -113,5 +115,5 @@ volumes:
     driver: local
   frontend_node_modules:
     driver: local
-  postgres_data:
+  postgres_data_v2:
     driver: local

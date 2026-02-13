@@ -11,12 +11,37 @@ use Illuminate\Support\Facades\Log;
 class UserPermissionService extends BaseService
 {
     /**
+     * Reliably resolve user's current role.
+     * Uses Spatie roles first, falls back to direct role relationship via role_id.
+     */
+    private function resolveUserRole(User $user): ?object
+    {
+        // Try Spatie roles first
+        $role = $user->roles->first();
+
+        // Fallback to direct BelongsTo relationship via role_id
+        if (! $role && $user->role_id) {
+            $role = $user->role;
+        }
+
+        return $role;
+    }
+
+    /**
+     * Get the user's role name reliably.
+     */
+    private function resolveUserRoleName(User $user): ?string
+    {
+        return $this->resolveUserRole($user)?->name;
+    }
+
+    /**
      * Apply regional filtering based on current user's role and institution
      */
     public function applyRegionalFiltering(Builder $query, User $currentUser): void
     {
-        // Get user's role name from Spatie roles
-        $userRole = $currentUser->roles->first()?->name;
+        // Get user's role name (Spatie first, then direct relationship fallback)
+        $userRole = $this->resolveUserRoleName($currentUser);
 
         Log::info('🔍 UserPermissionService: Applying regional filtering', [
             'user' => $currentUser->username,
@@ -71,7 +96,7 @@ class UserPermissionService extends BaseService
      */
     public function canUserAccessRecord(User $currentUser, User $targetUser): bool
     {
-        $userRole = $currentUser->roles->first()?->name;
+        $userRole = $this->resolveUserRoleName($currentUser);
 
         if ($userRole === 'superadmin') {
             return true;
@@ -110,7 +135,7 @@ class UserPermissionService extends BaseService
      */
     public function canUserModifyRecord(User $currentUser, User $targetUser): bool
     {
-        $userRole = $currentUser->roles->first()?->name;
+        $userRole = $this->resolveUserRoleName($currentUser);
 
         if ($userRole === 'superadmin') {
             return true;
@@ -122,8 +147,8 @@ class UserPermissionService extends BaseService
         }
 
         // Check role hierarchy - users can only modify users with lower-level roles
-        $currentUserLevel = $currentUser->roles->first()?->level ?? 999;
-        $targetUserLevel = $targetUser->roles->first()?->level ?? 999;
+        $currentUserLevel = $this->resolveUserRole($currentUser)?->level ?? 999;
+        $targetUserLevel = $this->resolveUserRole($targetUser)?->level ?? 999;
 
         if ($currentUserLevel >= $targetUserLevel) {
             return false; // Cannot modify same or higher level users
@@ -151,7 +176,7 @@ class UserPermissionService extends BaseService
      */
     public function getAvailableInstitutions(User $currentUser): array
     {
-        $userRole = $currentUser->roles->first()?->name;
+        $userRole = $this->resolveUserRoleName($currentUser);
 
         $query = Institution::select(['id', 'name', 'type', 'level', 'parent_id'])
             ->where('is_active', true);
@@ -203,55 +228,86 @@ class UserPermissionService extends BaseService
     }
 
     /**
-     * Get available roles for user creation based on current user's permissions
+     * Role hierarchy map: role name => assignable role names.
+     * Used as a reliable fallback when DB level column is NULL.
+     */
+    private const ASSIGNABLE_ROLES = [
+        'regionadmin' => [
+            'regionoperator', 'sektoradmin',
+            'schooladmin', 'məktəbadmin',
+            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'müəllim', 'teacher',
+        ],
+        'sektoradmin' => [
+            'schooladmin', 'məktəbadmin',
+            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'müəllim', 'teacher',
+        ],
+        'schooladmin' => [
+            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'müəllim', 'teacher',
+        ],
+        'məktəbadmin' => [
+            'muavin', 'ubr', 'tesarrufat', 'psixoloq',
+            'müəllim', 'teacher',
+        ],
+    ];
+
+    /**
+     * Get available roles for user creation based on current user's permissions.
+     * Uses explicit role hierarchy map (reliable even when DB level column is NULL).
      */
     public function getAvailableRoles(User $currentUser): array
     {
-        $userRole = $currentUser->roles->first()?->name;
+        $currentRole = $this->resolveUserRole($currentUser);
+        $userRoleName = $currentRole?->name;
 
-        $query = Role::select(['id', 'name', 'display_name', 'level'])
-            ->where('is_active', true);
+        Log::info('🔍 UserPermissionService: getAvailableRoles', [
+            'user' => $currentUser->username,
+            'role_name' => $userRoleName,
+            'role_id' => $currentUser->role_id,
+            'spatie_role' => $currentUser->roles->first()?->name,
+            'direct_role' => $currentUser->role?->name,
+        ]);
 
-        switch ($userRole) {
-            case 'superadmin':
-                // SuperAdmin can assign any role
-                break;
+        // Use Spatie Role model to match IDs that frontend sends
+        $query = \Spatie\Permission\Models\Role::where('guard_name', 'sanctum');
 
-            case 'regionadmin':
-                // RegionAdmin can assign roles: regionoperator, sektoradmin, schooladmin, müəllim
-                $query->whereIn('name', ['regionoperator', 'sektoradmin', 'schooladmin', 'müəllim']);
-                break;
-
-            case 'sektoradmin':
-                // SektorAdmin can assign roles: schooladmin, müəllim
-                $query->whereIn('name', ['schooladmin', 'müəllim']);
-                break;
-
-            case 'məktəbadmin':
-            case 'schooladmin':
-                // MəktəbAdmin can assign role: müəllim
-                $query->whereIn('name', ['müəllim']);
-                break;
-
-            default:
-                // Other roles cannot create users
-                $query->where('id', -1); // Force empty result
-                break;
+        if ($userRoleName === 'superadmin') {
+            // SuperAdmin can assign any role — no filter
+        } elseif (isset(self::ASSIGNABLE_ROLES[$userRoleName])) {
+            // Use explicit hierarchy map
+            $query->whereIn('name', self::ASSIGNABLE_ROLES[$userRoleName]);
+        } else {
+            // Unknown role — cannot create users
+            $query->where('id', -1);
+            Log::warning('🚫 UserPermissionService: No role creation permission', [
+                'user' => $currentUser->username,
+                'role_name' => $userRoleName,
+                'role_id' => $currentUser->role_id,
+            ]);
         }
 
-        return $query->orderBy('level')
+        $roles = $query->orderBy('id')
             ->get()
-            ->unique('name') // Remove duplicates based on 'name' field
-            ->values() // Reset array keys after filtering
+            ->unique('name')
+            ->values()
             ->map(function ($role) {
                 return [
                     'id' => $role->id,
                     'name' => $role->name,
-                    'display_name' => $role->display_name,
-                    'level' => $role->level,
+                    'display_name' => $role->display_name ?? $role->name,
+                    'level' => $role->level ?? null,
                 ];
             })
             ->toArray();
+
+        Log::info('✅ UserPermissionService: Available roles result', [
+            'count' => count($roles),
+            'role_names' => array_column($roles, 'name'),
+        ]);
+
+        return $roles;
     }
 
     /**
@@ -259,7 +315,7 @@ class UserPermissionService extends BaseService
      */
     public function getPermissionContext(User $user): array
     {
-        $role = $user->roles->first();
+        $role = $this->resolveUserRole($user);
 
         return [
             'can_create_users' => $this->canUserCreateUsers($user),
@@ -302,7 +358,7 @@ class UserPermissionService extends BaseService
      */
     public function getUserInstitutionalScope(User $user): array
     {
-        $userRole = $user->roles->first()?->name;
+        $userRole = $this->resolveUserRoleName($user);
 
         switch ($userRole) {
             case 'superadmin':
@@ -409,7 +465,7 @@ class UserPermissionService extends BaseService
      */
     private function determineUserAccessLevel(User $user): string
     {
-        $userRole = $user->roles->first()?->name;
+        $userRole = $this->resolveUserRoleName($user);
 
         switch ($userRole) {
             case 'superadmin':

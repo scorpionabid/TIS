@@ -17,18 +17,37 @@ const log = (level: 'info' | 'warn' | 'error', message: string, data?: any) => {
 // Environment variable validation and setup
 function validateAndSetupApiUrls() {
   const envApiUrl = import.meta.env.VITE_API_BASE_URL;
+  const localApiUrl = import.meta.env.VITE_LOCAL_API_URL;
   const fallbackUrl = 'http://localhost:8000/api';
   
+  // Auto-detect best URL based on current context
+  let apiBaseUrl;
   if (isDevelopment) {
-    log('info', 'Environment variable validation', {
-      VITE_API_BASE_URL: envApiUrl,
-      isDevelopment: import.meta.env.DEV,
-      mode: import.meta.env.MODE,
-      hasEnvFile: !!envApiUrl
-    });
+    // Try to detect if we're running on the same machine as backend
+    const currentHost = window.location.hostname;
+    
+    if (currentHost === 'localhost' || currentHost === '127.0.0.1') {
+      // Running locally - use localhost
+      apiBaseUrl = localApiUrl || fallbackUrl;
+      log('info', 'Local development detected', {
+        currentHost,
+        usingLocalApi: true,
+        apiBaseUrl
+      });
+    } else {
+      // Running from IP - use IP-based URL
+      apiBaseUrl = envApiUrl || fallbackUrl;
+      log('info', 'Remote development detected', {
+        currentHost,
+        usingIpApi: true,
+        apiBaseUrl
+      });
+    }
+  } else {
+    // Production - use environment variable
+    apiBaseUrl = envApiUrl || fallbackUrl;
   }
   
-  const apiBaseUrl = envApiUrl || fallbackUrl;
   const sanctumBaseUrl = apiBaseUrl.replace('/api', '');
 
   // Validate URLs are properly formed (skip validation for relative URLs)
@@ -43,7 +62,7 @@ function validateAndSetupApiUrls() {
   }
 
   // Development-only API configuration debug
-  if (isDevelopment && false) { // Set to true to enable debug
+  if (isDevelopment && true) { // Set to true to enable debug
     console.warn('🔥 API CONFIGURATION DEBUG:', {
       apiBaseUrl,
       sanctumBaseUrl,
@@ -51,6 +70,8 @@ function validateAndSetupApiUrls() {
       envValue: envApiUrl,
       fallback: fallbackUrl,
       isRelative: apiBaseUrl.startsWith('/'),
+      currentHost: window.location.hostname,
+      currentUrl: window.location.href,
       timestamp: new Date().toISOString()
     });
   }

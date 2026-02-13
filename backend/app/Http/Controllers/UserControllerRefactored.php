@@ -7,12 +7,14 @@ use App\Http\Requests\UpdateUserRequest;
 use App\Http\Traits\ResponseHelpers;
 use App\Http\Traits\ValidationRules;
 use App\Models\User;
+use App\Services\RegionAdmin\RegionAdminPermissionService;
 use App\Services\UserCrudService;
 use App\Services\UserPermissionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Spatie\Permission\Models\Role;
 
 class UserControllerRefactored extends BaseController
@@ -23,12 +25,16 @@ class UserControllerRefactored extends BaseController
 
     protected UserPermissionService $permissionService;
 
+    protected RegionAdminPermissionService $regionAdminPermissionService;
+
     public function __construct(
         UserCrudService $userService,
-        UserPermissionService $permissionService
+        UserPermissionService $permissionService,
+        RegionAdminPermissionService $regionAdminPermissionService
     ) {
         $this->userService = $userService;
         $this->permissionService = $permissionService;
+        $this->regionAdminPermissionService = $regionAdminPermissionService;
     }
 
     /**
@@ -750,24 +756,24 @@ class UserControllerRefactored extends BaseController
     }
 
     /**
-     * Sync or delete RegionOperator permissions based on current payload/role.
+     * Sync assignable permissions for the created/updated user via Spatie.
      */
     private function handleRegionOperatorPermissions(Request $request, User $user): void
     {
-        $payload = $request->all();
-        $hasCrudPayload = $this->regionOperatorPermissionService->hasCrudPayload($payload);
-        $isRegionOperator = $this->regionOperatorPermissionService->shouldHandle($user);
+        $permissions = $this->regionAdminPermissionService->extractRequestedPermissions($request);
 
-        if (! $isRegionOperator) {
-            $this->regionOperatorPermissionService->deletePermissions($user);
-
+        if (empty($permissions)) {
             return;
         }
 
-        if ($hasCrudPayload) {
-            $permissions = $this->regionOperatorPermissionService->extractPermissions($payload);
-            $this->regionOperatorPermissionService->syncPermissions($user, $permissions);
-        }
+        $currentUser = Auth::user();
+        $roleName = strtolower($user->roles->first()?->name ?? '');
+
+        $validatedPermissions = $this->regionAdminPermissionService->validateForRole(
+            $permissions, $roleName, $currentUser
+        );
+
+        $this->regionAdminPermissionService->syncDirectPermissions($user, $validatedPermissions);
     }
 
     private function resolveTargetRoleName(array $validatedData, Request $request, ?User $existingUser = null): ?string
@@ -802,6 +808,14 @@ class UserControllerRefactored extends BaseController
             return;
         }
 
-        $this->regionOperatorPermissionService->assertValidPayload($request->all(), $requirePayload);
+        if ($requirePayload) {
+            $permissions = $this->regionAdminPermissionService->extractRequestedPermissions($request);
+
+            if (empty($permissions)) {
+                throw ValidationException::withMessages([
+                    'assignable_permissions' => ['RegionOperator roluna malik istifadəçi üçün ən azı 1 səlahiyyət seçilməlidir.'],
+                ]);
+            }
+        }
     }
 }

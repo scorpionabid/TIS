@@ -308,25 +308,31 @@ class RegionAdminUserController extends Controller
         try {
             $this->enforceRegionOperatorPermissionRules($request, $data['role_name'], true);
 
-            // Create user
+            // Find role first - needed for both role_id and assignRole
+            $role = Role::where('name', $data['role_name'])->where('guard_name', 'sanctum')->first();
+            if (! $role) {
+                return response()->json([
+                    'message' => 'Validation failed',
+                    'errors' => ['role_name' => ["'{$data['role_name']}' rolu tapılmadı."]],
+                ], 422);
+            }
+
+            // Create user (password is auto-hashed by User model's 'hashed' cast)
             $newUser = User::create([
                 'username' => $data['username'],
                 'email' => $data['email'],
                 'first_name' => $data['first_name'] ?? null,
                 'last_name' => $data['last_name'] ?? null,
-                'password' => Hash::make($data['password']),
+                'password' => $data['password'],
+                'role_id' => $role->id,
                 'institution_id' => $data['institution_id'],
                 'department_id' => $data['department_id'] ?? null,
                 'is_active' => true,
                 'password_changed_at' => now(),
-                'password_change_required' => false,
             ]);
 
-            // Assign role
-            $role = Role::where('name', $data['role_name'])->where('guard_name', 'sanctum')->first();
-            if ($role) {
-                $newUser->assignRole($role);
-            }
+            // Assign Spatie role
+            $newUser->assignRole($role);
 
             // Sync modern permissions for all roles (including RegionOperator)
             if ($data['role_name'] === 'regionoperator') {
@@ -581,9 +587,8 @@ class RegionAdminUserController extends Controller
                 ($oldRoleName ?? null) !== 'regionoperator' && $targetRoleName === 'regionoperator'
             );
 
-            // Update password if provided
+            // Update password if provided (password is auto-hashed by User model's 'hashed' cast)
             if (isset($data['password'])) {
-                $data['password'] = Hash::make($data['password']);
                 $data['password_changed_at'] = now();
             }
 

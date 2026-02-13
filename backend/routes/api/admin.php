@@ -50,11 +50,20 @@ Route::middleware('permission:users.read')->group(function () {
     Route::get('users/{user}', [UserController::class, 'show']);
 });
 
-// User bulk operations
-Route::middleware('permission:users.write')->group(function () {
+// User write operations (users.write OR users.create for role-based access)
+Route::middleware('permission:users.write|users.create')->group(function () {
     Route::post('users', [UserController::class, 'store']);
+});
+
+Route::middleware('permission:users.write|users.update')->group(function () {
     Route::put('users/{user}', [UserController::class, 'update']);
+});
+
+Route::middleware('permission:users.write|users.delete')->group(function () {
     Route::delete('users/{user}', [UserController::class, 'destroy']);
+});
+
+Route::middleware('permission:users.write')->group(function () {
     Route::post('users/bulk-create', [UserController::class, 'bulkCreate']);
     Route::post('users/bulk-update', [UserController::class, 'bulkUpdate']);
     Route::post('users/bulk-delete', [UserController::class, 'bulkDelete']);

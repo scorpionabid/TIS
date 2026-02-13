@@ -94,7 +94,7 @@ class RoleSeeder extends Seeder
                 $attributes['parent_role'] = $roleData['parent_role'];
             }
 
-            Role::firstOrCreate([
+            Role::updateOrCreate([
                 'name' => $roleData['name'],
                 'guard_name' => $guard,
             ], $attributes);

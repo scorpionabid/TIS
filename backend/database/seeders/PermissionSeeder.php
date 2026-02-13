@@ -333,6 +333,12 @@ class PermissionSeeder extends Seeder
             'teachers.bulk',
             'teachers.analytics',
             'teachers.performance',
+
+            // Reports Management
+            'reports.read',
+            'reports.create',
+            'reports.export',
+            'reports.custom',
         ];
 
         foreach ($permissions as $permissionName) {

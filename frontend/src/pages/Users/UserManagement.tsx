@@ -129,27 +129,18 @@ export const UserManagement = memo(() => {
     staleTime: 1000 * 60 * 10,
   });
 
-  // Available roles for UserModalTabs
+  // Available roles for UserModalTabs — fetched from backend with real IDs
   const rolesQuery = useQuery({
-    queryKey: ["modal-roles", currentUser?.role, filterOptions],
+    queryKey: ["modal-roles", currentUser?.role],
     queryFn: async () => {
-      const currentRoleName = getRoleName(currentUser?.role);
-
-      if (currentRoleName === "regionadmin") {
-        return [
-          { id: 4, name: "regionoperator", display_name: "RegionOperator" },
-          { id: 5, name: "sektoradmin", display_name: "SektorAdmin" },
-          { id: 6, name: "schooladmin", display_name: "SchoolAdmin" },
-        ];
-      }
-      const roles = filterOptions?.roles || [];
-      return roles.map((role: any, index: number) => ({
-        id: index + 1,
-        name: role.value,
-        display_name: role.label,
+      const roles = await userService.getAvailableRoles();
+      return roles.map((role) => ({
+        id: role.id,
+        name: role.name,
+        display_name: role.display_name || role.name,
       }));
     },
-    enabled: !!currentUser && !!filterOptions,
+    enabled: !!currentUser,
     staleTime: 1000 * 60 * 10,
   });
 
@@ -362,49 +353,31 @@ export const UserManagement = memo(() => {
   const handleUserSubmit = async (
     userData: CreateUserData | UpdateUserData
   ) => {
-    try {
-      console.log("[UserManagement] handleUserSubmit payload:", userData);
-      if (selectedUser) {
-        await userService.update(
-          selectedUser.id,
-          userData as UpdateUserData,
-          getRoleName(currentUser?.role)
-        );
-        toast({
-          title: "Uğur",
-          description: "İstifadəçi məlumatları yeniləndi",
-        });
+    if (selectedUser) {
+      await userService.update(
+        selectedUser.id,
+        userData as UpdateUserData,
+        getRoleName(currentUser?.role)
+      );
 
-        // Invalidate both users list and specific user details
-        await Promise.all([
-          queryClient.invalidateQueries({ queryKey: ["users"] }),
-          queryClient.invalidateQueries({
-            queryKey: ["user-details", selectedUser.id],
-          }),
-        ]);
-      } else {
-        await userService.create(
-          userData as CreateUserData,
-          getRoleName(currentUser?.role)
-        );
-        toast({
-          title: "Uğur",
-          description: "Yeni istifadəçi yaradıldı",
-        });
+      // Invalidate both users list and specific user details
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["users"] }),
+        queryClient.invalidateQueries({
+          queryKey: ["user-details", selectedUser.id],
+        }),
+      ]);
+    } else {
+      await userService.create(
+        userData as CreateUserData,
+        getRoleName(currentUser?.role)
+      );
 
-        // Only invalidate users list for new user
-        await queryClient.invalidateQueries({ queryKey: ["users"] });
-      }
-
-      handleCloseModal();
-      await refetch();
-    } catch (error: any) {
-      toast({
-        title: "Xəta",
-        description: error.message || "Əməliyyat zamanı xəta baş verdi",
-        variant: "destructive",
-      });
+      // Only invalidate users list for new user
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
     }
+
+    await refetch();
   };
 
   const handleDeleteUser = (user: User) => {
