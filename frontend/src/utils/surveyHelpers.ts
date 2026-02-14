@@ -81,8 +81,6 @@ const normalizeMatrixList = (value: any): string[] | undefined => {
  */
 export const mapQuestionFromBackend = (q: any): Question => {
   logger.log('Raw question data', { component: 'surveyHelpers', action: 'mapQuestionFromBackend', data: { id: q.id, options: q.options, optionsType: typeof q.options } });
-    isArray: Array.isArray(q.options)
-  });
 
   const validation = { ...(q.validation_rules || q.validation || {}) } as Record<string, any>;
   if (q.min_value !== undefined) validation.min_value = q.min_value;

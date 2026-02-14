@@ -402,18 +402,14 @@ class TaskService extends BaseService<Task> {
   }
 
   async create(data: CreateTaskData): Promise<Task> {
-    try {
-      const response = await apiClient.post<{ success?: boolean; message?: string; data: Task }>(this.baseEndpoint, data);
+    const response = await apiClient.post<{ success?: boolean; message?: string; data: Task }>(this.baseEndpoint, data);
 
-      // Backend returns: { success: true, message: '...', data: {...} }
-      if (!(response as any)?.data) {
-        throw new Error('Tapşırıq yaratma əməliyyatı uğursuz oldu');
-      }
-
-      return this.unwrapResponseData<Task>(response);
-    } catch (error) {
-      throw error;
+    // Backend returns: { success: true, message: '...', data: {...} }
+    if (!(response as any)?.data) {
+      throw new Error('Tapşırıq yaratma əməliyyatı uğursuz oldu');
     }
+
+    return this.unwrapResponseData<Task>(response);
   }
 
   async getCreationContext(): Promise<TaskCreationContext> {

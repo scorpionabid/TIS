@@ -57,7 +57,6 @@ export const enableBulkActions = () => featureFlags.enableBulkActions;
 // Debug information
 export const getFeatureFlagDebugInfo = () => {
   logger.log('Feature Flags Status', { component: 'featureFlags', action: 'debugInfo', data: { environment: import.meta.env.MODE, flags: featureFlags, envVars: { MODE: import.meta.env.MODE, VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL } } });
-  });
 };
 
 // Runtime flag toggling for development/testing (not for production)

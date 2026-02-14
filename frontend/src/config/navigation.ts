@@ -894,14 +894,6 @@ function filterMenuItems(items: MenuItem[], role: UserRole, permissions: string[
       // DEBUG: Log permission checks for attendance items (development only)
       if (process.env.NODE_ENV === 'development' && (item.id?.includes('attendance') || item.path?.includes('attendance'))) {
         logger.log('Navigation Filter Debug', { component: 'navigation', action: 'filterDebug', data: { itemId: item.id, itemLabel: item.label, itemPath: item.path } });
-          requiredRoles: item.roles,
-          userRole: role,
-          roleAllowed,
-          requiredPermissions: item.permissions,
-          userPermissions: permissions,
-          permissionsLength: permissions.length,
-          hasAttendanceRead: permissions.includes('attendance.read'),
-        });
       }
 
       if (!roleAllowed) {

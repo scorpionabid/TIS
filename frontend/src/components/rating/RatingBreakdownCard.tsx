@@ -155,7 +155,7 @@ export function RatingBreakdownCard({
                 <Progress
                   value={score}
                   className="h-2"
-                  // @ts-ignore - custom indicator color
+                  // @ts-expect-error - custom indicator color
                   indicatorClassName={getProgressColor(score)}
                 />
               </div>

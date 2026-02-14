@@ -28,7 +28,8 @@ import {
   DEFAULT_FORM_VALUES,
   SUCCESS_MESSAGES,
   ERROR_MESSAGES,
-} from "../utils/formConstants";
+  CRUD_PERMISSIONS,
+} from "../utils/constants";
 import { logger } from '@/utils/logger';
 import {
   transformFormDataToBackend,
@@ -72,28 +73,6 @@ export function UserModalTabs({
   loadingUser = false,
 }: UserModalTabsProps) {
   logger.log('UserModalTabs RENDERED!', { component: 'UserModalTabs', action: 'render', data: { open, currentUserRole, availableRolesCount: availableRoles?.length, currentUserPermissionsCount: currentUserPermissions?.length, availableInstitutionsCount: availableInstitutions?.length, availableDepartmentsCount: availableDepartments?.length } });
-  console.log("🔍 [UserModalTabs] Props at component top:", {
-    open,
-    user: !!user,
-    userId: user?.id,
-    loadingUser,
-  console.log(
-    "🚨🚨🚨 [UserModalTabs] FILE UPDATED - NEW VERSION LOADED! 🚨🚨🚨"
-  );
-  console.log("🎯 UserModalTabs RENDERED!", {
-    open,
-    currentUserRole,
-    availableRolesCount: availableRoles?.length,
-    availableRoles: availableRoles,
-    availableInstitutionsCount: availableInstitutions?.length,
-    availableDepartmentsCount: availableDepartments?.length,
-  });
-  console.log("🔍 [UserModalTabs] Props at component top:", {
-    open,
-    user: !!user,
-    userId: user?.id,
-    loadingUser,
-  });
 
   const { toast } = useToast();
   const [selectedTab, setSelectedTab] = useState<string>("regionoperator");

@@ -67,24 +67,6 @@ const defaultClassForm: ClassResultPayload = {
 export default function AssessmentEntry() {
   const { hasRole } = useAuth();
   const queryClient = useQueryClient();
-  
-  // Yalnız schooladmin roluna icazə ver
-  if (!hasRole(['schooladmin'])) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Card className="w-full max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <h2 className="text-lg font-semibold text-destructive mb-2">Giriş İcazəsi Yoxdur</h2>
-              <p className="text-muted-foreground">
-                Bu səhifəyə daxil olmaq üçün Məktəb Rəhbəri rolu lazımdır.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [selectedGradeId, setSelectedGradeId] = useState<number | null>(null);
   const [classForm, setClassForm] = useState<ClassResultPayload>(defaultClassForm);
@@ -444,6 +426,24 @@ export default function AssessmentEntry() {
 
   const hasValidationErrors = false; // Temporarily disabled
 
+  // Yalnız schooladmin roluna icazə ver
+  if (!hasRole(['schooladmin'])) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <h2 className="text-lg font-semibold text-destructive mb-2">Giriş İcazəsi Yoxdur</h2>
+              <p className="text-muted-foreground">
+                Bu səhifəyə daxil olmaq üçün Məktəb Rəhbəri rolu lazımdır.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
 
@@ -792,14 +792,6 @@ export default function AssessmentEntry() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Auto-save Indicator */}
-      {false && ( // Temporarily disabled
-        <div className="fixed bottom-4 right-4 bg-primary/10 text-primary text-xs px-3 py-2 rounded-md shadow-md flex items-center gap-2">
-          <CheckCircle className="h-3 w-3" />
-          Avtomatik saxlanıldı: {new Date().toLocaleTimeString('az-AZ', { hour: '2-digit', minute: '2-digit' })}
-        </div>
-      )}
 
     </div>
   );

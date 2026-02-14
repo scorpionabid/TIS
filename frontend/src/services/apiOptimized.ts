@@ -657,17 +657,6 @@ class ApiClientOptimized {
       this.baseURL = 'http://localhost:8000/api';
     }
 
-    // Development-only request debug
-    if (isDevelopment && false) { // Set to true to enable request debug
-      const fullUrl = `${this.baseURL}/${endpoint.replace(/^\//, '')}`;
-      console.warn(`🚀 REQUEST: ${method} ${fullUrl}`, {
-        baseURL: this.baseURL,
-        endpoint,
-        data: data ? 'present' : 'none',
-        timestamp: new Date().toISOString()
-      });
-    }
-
     // Ensure CSRF cookie is initialized for Laravel Sanctum SPA authentication
     // Skip for public endpoints like /login (handled in auth service)
     if (!endpoint.startsWith('/login') && !endpoint.startsWith('/register')) {
