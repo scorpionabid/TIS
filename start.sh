@@ -238,6 +238,8 @@ setup_database() {
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=PermissionSeeder --force
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=RoleSeeder --force
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force
+    "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=RegionOperatorPermissionSeeder --force
+    "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=RegionAdminPermissionBalanceSeeder --force
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=InstitutionTypeSeeder --force
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=InstitutionHierarchySeeder --force
 

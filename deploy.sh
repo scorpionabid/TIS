@@ -127,6 +127,8 @@ if [[ "$2" == "--seed" ]]; then
     php artisan db:seed --class=RoleSeeder --force
     php artisan db:seed --class=PermissionSeeder --force
     php artisan db:seed --class=SuperAdminSeeder --force
+    php artisan db:seed --class=RegionOperatorPermissionSeeder --force
+    php artisan db:seed --class=RegionAdminPermissionBalanceSeeder --force
     php artisan db:seed --class=InstitutionHierarchySeeder --force
     php artisan db:seed --class=InstitutionTypeSeeder --force
     echo_success "Essential seeders completed"
