@@ -11,6 +11,23 @@ ATİS (Alignment, Training & Inspection System) - Educational Institution Manage
 - **Infrastructure**: Docker (4 containers: atis_backend, atis_frontend, atis_postgres, atis_redis)
 - **Permissions**: spatie/laravel-permission with hierarchical RBAC
 
+## Natural Language → Technical Translation Rule
+
+When user gives instructions in simple Azerbaijani:
+
+1. First, translate to clear technical English
+2. Then restate as formal development task
+3. Then implement
+
+Always follow this format:
+
+### User Intent (AZ)
+### Technical Interpretation (EN)
+### Implementation Plan
+### Code Changes
+### Tests (if any)
+### Quality Gates (if any)
+
 ## ⚠️ Critical Rules
 
 1. **Docker-only development** — NEVER use `php artisan serve` or local `npm run dev`

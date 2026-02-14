@@ -89,6 +89,22 @@ export function LinkFormModal({
     }
   }, [isOpen, mode, selectedLink, isOnSectorsTab, currentDepartmentId, selectedSector, reset]);
 
+  // Auto-update target departments when current department changes (in create mode)
+  useEffect(() => {
+    if (isOpen && mode === 'create' && !selectedLink && !isOnSectorsTab && currentDepartmentId) {
+      const currentTargetDepts = form.getValues('target_departments') || [];
+      
+      // If current department is not already selected, add it
+      if (!currentTargetDepts.includes(currentDepartmentId)) {
+        // Replace with only current department for better UX
+        form.setValue('target_departments', [currentDepartmentId]);
+      } else if (currentTargetDepts.length > 1) {
+        // If multiple are selected, keep only current department
+        form.setValue('target_departments', [currentDepartmentId]);
+      }
+    }
+  }, [currentDepartmentId, isOpen, mode, selectedLink, isOnSectorsTab, form]);
+
   const watchedUrl = watch('url');
   const isUrlValid = (() => {
     try {

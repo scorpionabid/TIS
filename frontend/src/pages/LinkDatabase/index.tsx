@@ -23,6 +23,17 @@ export default function LinkDatabase() {
   const canDelete = hasPermission('links.delete');
   const canView = hasPermission('links.read');
 
+  // Debug: Log permissions
+  console.log('🔍 LinkDatabase Debug:', {
+    currentRole,
+    canCreate,
+    canEdit,
+    canDelete,
+    canView,
+    hasPermission: hasPermission('links.create'),
+    allPermissions: (window as any).authDebug?.getCurrentUser?.()?.permissions || 'N/A'
+  });
+
   // State
   const state = useLinkDatabaseState();
 
