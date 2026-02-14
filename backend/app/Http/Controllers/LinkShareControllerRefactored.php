@@ -864,11 +864,10 @@ class LinkShareControllerRefactored extends BaseController
                 abort(403, 'Bu regionun sektoruna baxmaq icazəniz yoxdur');
             }
 
-            // Get links that target this sector
+            // Get links that target this sector (institution)
             $query = LinkShare::with(['sharedBy', 'institution'])
                 ->where('status', 'active')
                 ->where(function ($q) use ($sectorId) {
-                    // Links that target this sector
                     $q->whereJsonContains('target_institutions', $sectorId)
                         ->orWhereJsonContains('target_institutions', (string) $sectorId);
                 });

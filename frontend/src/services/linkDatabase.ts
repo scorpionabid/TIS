@@ -160,6 +160,13 @@ export const linkDatabaseService = {
    * Parse paginated API response (handles both direct and wrapped formats)
    */
   parsePaginatedResponse(fullResponse: any): PaginatedResponse<LinkShare> {
+    console.log('🔍 parsePaginatedResponse Debug:', {
+      fullResponse,
+      hasCurrentPage: fullResponse && 'current_page' in fullResponse,
+      hasDataCurrentPage: fullResponse?.data && typeof fullResponse.data === 'object' && 'current_page' in fullResponse.data,
+      responseType: typeof fullResponse
+    });
+
     let paginatedData: any;
     let linksArray: LinkShare[] = [];
 
@@ -173,6 +180,18 @@ export const linkDatabaseService = {
       paginatedData = fullResponse?.data || fullResponse || {};
       linksArray = Array.isArray(paginatedData) ? paginatedData : (paginatedData?.data || []);
     }
+
+    console.log('🔍 parsePaginatedResponse Result:', {
+      paginatedData,
+      linksArray: linksArray.length,
+      finalResponse: {
+        data: linksArray,
+        current_page: paginatedData?.current_page || 1,
+        last_page: paginatedData?.last_page || 1,
+        per_page: paginatedData?.per_page || 15,
+        total: paginatedData?.total || 0,
+      }
+    });
 
     return {
       data: linksArray,

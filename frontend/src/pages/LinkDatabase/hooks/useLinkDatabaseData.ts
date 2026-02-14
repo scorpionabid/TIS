@@ -86,15 +86,45 @@ export function useLinkDatabaseData({
     queryFn: () =>
       linkDatabaseService.getLinksBySector(selectedSector!, apiFilters),
     enabled: isOnSectorsTab && !!selectedSector,
-    staleTime: 30 * 1000,
+    staleTime: 0, // Cache disabled for debugging
     placeholderData: (previousData: any) => previousData,
   });
 
   // Current links
   const currentLinks = useMemo<LinkShare[]>(() => {
-    const rawLinks = isOnSectorsTab
-      ? sectorLinks?.data || []
-      : departmentLinks?.data || [];
+    // 🔧 Fix React Query data structure issue
+    let rawLinks: LinkShare[] = [];
+    if (isOnSectorsTab) {
+      // React Query places the parsed response directly in data
+      if (Array.isArray(sectorLinks?.data)) {
+        rawLinks = sectorLinks.data;
+      } else if (Array.isArray(sectorLinks)) {
+        rawLinks = sectorLinks;
+      } else if (sectorLinks?.data) {
+        rawLinks = sectorLinks.data;
+      }
+    } else {
+      rawLinks = departmentLinks?.data || [];
+    }
+
+    // 🔍 Debug logging for sector links
+    if (isOnSectorsTab) {
+      console.log('🔍 Sector Links Debug:', {
+        selectedSector,
+        isOnSectorsTab,
+        sectorLinks,
+        rawLinks,
+        sectorLinksData: sectorLinks?.data,
+        sectorLinksTotal: sectorLinks?.total,
+        sectorLinksPages: sectorLinks?.current_page,
+        filters,
+        sectorLinksType: typeof sectorLinks,
+        sectorLinksKeys: sectorLinks ? Object.keys(sectorLinks) : 'undefined',
+        fixedRawLinks: rawLinks,
+        isArraySectorLinks: Array.isArray(sectorLinks),
+        isArraySectorLinksData: Array.isArray(sectorLinks?.data)
+      });
+    }
 
     // Client-side filter fallback (in case backend doesn't support these params)
     let filtered = rawLinks;
