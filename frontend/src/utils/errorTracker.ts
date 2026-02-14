@@ -7,6 +7,7 @@
 
 import { performanceMonitor } from '@/utils/performanceMonitor';
 import { cacheService } from '@/services/CacheService';
+import { logger } from './logger';
 
 interface ErrorReport {
   id: string;
@@ -69,7 +70,7 @@ class ErrorTracker {
    */
   setEnabled(enabled: boolean): void {
     this.isEnabled = enabled;
-    console.log(`🔍 Error tracking ${enabled ? 'enabled' : 'disabled'}`);
+    logger.log(`Error tracking ${enabled ? 'enabled' : 'disabled'}`, { component: 'errorTracker', action: 'setEnabled', data: { enabled } });
   }
 
   /**
@@ -331,7 +332,7 @@ class ErrorTracker {
    */
   clearErrors(): void {
     this.errorBuffer = [];
-    console.log('🗑️ Error buffer cleared');
+    logger.log('Error buffer cleared', { component: 'errorTracker', action: 'clearErrors' });
   }
 
   /**
@@ -494,7 +495,7 @@ if (process.env.NODE_ENV === 'development') {
     trackTest: () => errorTracker.trackError(new Error('Test error'), { component: 'test' })
   };
 
-  console.log('🔧 Error tracker controls available via window.__errorTracker');
+  logger.log('Error tracker controls available via window.__errorTracker', { component: 'errorTracker', action: 'exposeControls' });
 }
 
 export default errorTracker;

@@ -1,4 +1,5 @@
 import { BaseService } from './BaseService';
+import { logger } from '@/utils/logger';
 
 export interface Notification {
   id: number;

@@ -1,4 +1,5 @@
 import { BaseService } from './BaseService';
+import { logger } from '@/utils/logger';
 
 export interface Schedule {
   id: number;
@@ -217,7 +218,7 @@ class ScheduleService extends BaseService {
       summary: any;
     }
   }> {
-    console.log('🔍 ScheduleService.getSchedules called with filters:', filters);
+    logger.log('ScheduleService.getSchedules called', { component: 'ScheduleService', action: 'getSchedules', data: filters });
     try {
       const response = await this.get<{
         schedules: {

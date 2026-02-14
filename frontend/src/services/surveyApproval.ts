@@ -1,4 +1,5 @@
-import { apiClient } from './api';
+import { BaseService } from './BaseService';
+import { logger } from '@/utils/logger';
 import bulkJobService, { BulkJobResult, BulkJobProgress } from './bulkJobService';
 import { SurveyQuestion } from './surveys';
 

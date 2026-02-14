@@ -1,4 +1,5 @@
-import { BaseService, BaseEntity, PaginationParams } from './BaseService';
+import { BaseService } from './BaseService';
+import { logger } from '@/utils/logger';
 import { apiClient } from './api';
 
 export interface LinkShare extends BaseEntity {

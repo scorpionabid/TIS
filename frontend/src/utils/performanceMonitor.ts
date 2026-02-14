@@ -51,9 +51,9 @@ class PerformanceMonitor {
   setEnabled(enabled: boolean): void {
     this.isEnabled = enabled;
     if (enabled) {
-      console.log('🚀 Performance monitoring enabled');
+      logger.log('Performance monitoring enabled', { component: 'PerformanceMonitor', action: 'setEnabled', data: { enabled } });
     } else {
-      console.log('🛑 Performance monitoring disabled');
+      logger.log('Performance monitoring disabled', { component: 'PerformanceMonitor', action: 'setEnabled', data: { enabled } });
     }
   }
 
@@ -271,6 +271,13 @@ export function withPerformanceMonitoring<T extends Record<string, any>>(
     return React.createElement(WrappedComponent, props);
   });
 }
+
+/**
+ * Performance Monitor - Tracks component and operation performance
+ * Helps identify bottlenecks and optimize user experience
+ */
+
+import { logger } from './logger';
 
 /**
  * Hook for measuring operation performance

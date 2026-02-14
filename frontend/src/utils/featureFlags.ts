@@ -1,5 +1,7 @@
 // Feature Flag System for A/B Testing GenericManagerV2
 
+import { logger } from './logger';
+
 interface FeatureFlags {
   useNewTeacherManager: boolean;
   useNewStudentManager: boolean;
@@ -51,22 +53,10 @@ export const useNewTeacherManager = () => featureFlags.useNewTeacherManager;
 export const useNewStudentManager = () => featureFlags.useNewStudentManager;
 export const useNewClassManager = () => featureFlags.useNewClassManager;
 export const enableBulkActions = () => featureFlags.enableBulkActions;
-export const enableAdvancedFilters = () => featureFlags.enableAdvancedFilters;
-export const enableGenericManagerV2 = () => featureFlags.enableGenericManagerV2;
 
 // Debug information
 export const getFeatureFlagDebugInfo = () => {
-  console.log('🏁 Feature Flags Status:', {
-    environment: import.meta.env.MODE,
-    flags: featureFlags,
-    envVars: {
-      VITE_USE_NEW_TEACHER_MANAGER: import.meta.env.VITE_USE_NEW_TEACHER_MANAGER,
-      VITE_USE_NEW_STUDENT_MANAGER: import.meta.env.VITE_USE_NEW_STUDENT_MANAGER,
-      VITE_USE_NEW_CLASS_MANAGER: import.meta.env.VITE_USE_NEW_CLASS_MANAGER,
-      VITE_ENABLE_BULK_ACTIONS: import.meta.env.VITE_ENABLE_BULK_ACTIONS,
-      VITE_ENABLE_ADVANCED_FILTERS: import.meta.env.VITE_ENABLE_ADVANCED_FILTERS,
-      VITE_ENABLE_GENERIC_MANAGER_V2: import.meta.env.VITE_ENABLE_GENERIC_MANAGER_V2,
-    }
+  logger.log('Feature Flags Status', { component: 'featureFlags', action: 'debugInfo', data: { environment: import.meta.env.MODE, flags: featureFlags, envVars: { MODE: import.meta.env.MODE, VITE_API_BASE_URL: import.meta.env.VITE_API_BASE_URL } } });
   });
 };
 
@@ -74,7 +64,7 @@ export const getFeatureFlagDebugInfo = () => {
 export const toggleFeatureFlag = (flagName: keyof FeatureFlags) => {
   if (import.meta.env.MODE === 'development') {
     (featureFlags as any)[flagName] = !(featureFlags as any)[flagName];
-    console.log(`🏁 Toggled ${flagName}:`, (featureFlags as any)[flagName]);
+    logger.log(`Toggled ${flagName}`, { component: 'featureFlags', action: 'toggleFlag', data: { flagName, newValue: (featureFlags as any)[flagName] } });
     getFeatureFlagDebugInfo();
   } else {
     console.warn('⚠️ Feature flag toggling is disabled in production');

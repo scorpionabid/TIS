@@ -3,6 +3,8 @@
  * Checks for common accessibility violations in the application
  */
 
+import { logger } from './logger';
+
 export interface AccessibilityIssue {
   element: HTMLElement;
   type: 'aria-hidden-focus' | 'missing-labels' | 'duplicate-ids' | 'focus-trap';
@@ -271,7 +273,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
   (window as any).checkAccessibility = () => {
     const checker = new AccessibilityChecker();
     const issues = checker.runAllChecks();
-    console.log(checker.generateReport());
+    logger.log('Accessibility check report', { component: 'AccessibilityChecker', action: 'runAllChecks', data: checker.generateReport() });
     return issues;
   };
 }

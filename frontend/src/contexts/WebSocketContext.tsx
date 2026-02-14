@@ -197,7 +197,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
           break;
           
         default:
-          console.log('Unknown message type:', message.type);
+          logger.log('Unknown message type', { component: 'WebSocketContext', action: 'handleMessage', data: { messageType: message.type } });
       }
     } catch (error) {
       console.error('Error parsing WebSocket message:', error);
@@ -333,7 +333,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     reconnectAttempts.current++;
     const delay = Math.min(reconnectDelay.current, maxReconnectDelay);
 
-    console.log(`Scheduling reconnection attempt ${reconnectAttempts.current} in ${delay}ms`);
+    logger.log(`Scheduling reconnection attempt ${reconnectAttempts.current} in ${delay}ms`, { component: 'WebSocketContext', action: 'scheduleReconnection', data: { attempt: reconnectAttempts.current, delay } });
 
     reconnectTimer.current = setTimeout(() => {
       connect();

@@ -12,6 +12,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
+import { logger } from '@/utils/logger';
 
 interface DebugModule {
   id: string;
@@ -211,9 +212,9 @@ export function DebugProvider({ children }: DebugProviderProps) {
     const timestamp = new Date().toLocaleTimeString();
     const prefix = `[${timestamp}] 🔍 [${module.toUpperCase()}]`;
 
-    console.log(`${prefix} ${message}`);
+    logger.log(`${prefix} ${message}`, { component: 'DebugContext', action: 'debug', data: { module, message, data } });
     if (data !== undefined) {
-      console.log(data);
+      logger.log(`${prefix} data`, { component: 'DebugContext', action: 'debug', data });
     }
   };
 

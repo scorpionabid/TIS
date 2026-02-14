@@ -28,8 +28,8 @@ import {
   DEFAULT_FORM_VALUES,
   SUCCESS_MESSAGES,
   ERROR_MESSAGES,
-  CRUD_PERMISSIONS,
-} from "../utils/constants";
+} from "../utils/formConstants";
+import { logger } from '@/utils/logger';
 import {
   transformFormDataToBackend,
   transformBackendDataToForm,
@@ -71,6 +71,12 @@ export function UserModalTabs({
   currentUserPermissions,
   loadingUser = false,
 }: UserModalTabsProps) {
+  logger.log('UserModalTabs RENDERED!', { component: 'UserModalTabs', action: 'render', data: { open, currentUserRole, availableRolesCount: availableRoles?.length, currentUserPermissionsCount: currentUserPermissions?.length, availableInstitutionsCount: availableInstitutions?.length, availableDepartmentsCount: availableDepartments?.length } });
+  console.log("🔍 [UserModalTabs] Props at component top:", {
+    open,
+    user: !!user,
+    userId: user?.id,
+    loadingUser,
   console.log(
     "🚨🚨🚨 [UserModalTabs] FILE UPDATED - NEW VERSION LOADED! 🚨🚨🚨"
   );

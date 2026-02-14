@@ -4,6 +4,7 @@ import { Grade, GradeFilters, gradeService } from '@/services/grades';
 import { EntityConfig } from '@/components/generic/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { logger } from '@/utils/logger';
 import {
   Users,
   MapPin,
@@ -241,7 +242,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       isPrimary: true, // Mark as primary action - always visible
       onClick: (grade: Grade) => {
         // Handle view action - will be overridden in component
-        console.log('View grade:', grade.id);
+        logger.log('View grade', { component: 'gradeConfig', action: 'viewGrade', data: { gradeId: grade.id } });
       }
     },
     {
@@ -251,7 +252,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle edit action - will be overridden in component
-        console.log('Edit grade:', grade.id);
+        logger.log('Edit grade', { component: 'gradeConfig', action: 'editGrade', data: { gradeId: grade.id } });
       }
     },
     {

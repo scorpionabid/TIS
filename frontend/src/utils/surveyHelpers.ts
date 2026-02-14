@@ -5,6 +5,7 @@
 
 import type { Question } from '@/types/surveyModal';
 import type { CreateSurveyData, Survey } from '@/services/surveys';
+import { logger } from './logger';
 
 /**
  * Map a Question object for backend API submission
@@ -79,10 +80,7 @@ const normalizeMatrixList = (value: any): string[] | undefined => {
  * Handles field name transformations from API response
  */
 export const mapQuestionFromBackend = (q: any): Question => {
-  console.log('🐛 Raw question data:', {
-    id: q.id,
-    options: q.options,
-    optionsType: typeof q.options,
+  logger.log('Raw question data', { component: 'surveyHelpers', action: 'mapQuestionFromBackend', data: { id: q.id, options: q.options, optionsType: typeof q.options } });
     isArray: Array.isArray(q.options)
   });
 

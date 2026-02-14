@@ -7,6 +7,7 @@ import { BaseService } from './BaseService';
 import { apiClient } from './api';
 import type { PaginationParams, PaginationMeta } from '../types/api';
 import type { EnhancedTeacherProfile } from '../types/teacher';
+import { logger } from '@/utils/logger';
 
 // Filter interfaces
 export interface RegionTeacherFilters extends PaginationParams {
@@ -78,25 +79,13 @@ class RegionAdminTeacherService extends BaseService {
    */
   async getTeachers(filters: RegionTeacherFilters): Promise<RegionTeacherResult> {
     try {
-      console.log('🌐 RegionAdminTeacherService - API call starting', {
-        url: this.baseUrl,
-        filters: filters,
-      });
+      logger.log('RegionAdminTeacherService - API call starting', { component: 'RegionAdminTeacherService', action: 'getTeachers', data: { url: this.baseUrl, filters } });
 
       const response = await apiClient.get(this.baseUrl, {
         params: filters,
       });
 
-      console.log('📡 RegionAdminTeacherService - API response received:', {
-        success: response.success,
-        hasData: !!response.data,
-        dataType: typeof response.data,
-        dataIsArray: Array.isArray(response.data),
-        dataLength: response.data?.length,
-        hasPagination: !!response.pagination,
-        hasStatistics: !!response.statistics,
-        rawResponse: response,
-      });
+      logger.log('RegionAdminTeacherService - API response received', { component: 'RegionAdminTeacherService', action: 'getTeachers', data: { success: response.success, hasData: !!response.data, rawResponse: response } });
 
       if (!response.success) {
         console.error('❌ API returned success: false', response);

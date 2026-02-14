@@ -1,6 +1,7 @@
 import React from 'react';
 import { InstitutionType } from '@/services/institutions';
 import { Building, MapPin, Users, School } from 'lucide-react';
+import { logger } from './logger';
 
 /**
  * Get fallback institution types for specific user roles
@@ -9,10 +10,7 @@ import { Building, MapPin, Users, School } from 'lucide-react';
 export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] => {
   // Debug logging for development
   if (process.env.NODE_ENV === 'development') {
-    console.log('🎭 getFallbackTypesForRole called:', {
-      userRole,
-      effectiveRole: userRole || 'superadmin'
-    });
+    logger.log('getFallbackTypesForRole called', { component: 'institutionUtils', action: 'getFallbackTypesForRole', data: { userRole, effectiveRole: userRole || 'superadmin' } });
   }
 
   // Define all types once to avoid duplicates
@@ -180,13 +178,17 @@ export const getFallbackTypesForRole = (userRole?: string): InstitutionType[] =>
 
   // Debug logging for development
   if (process.env.NODE_ENV === 'development') {
-    console.log('🏢 getFallbackTypesForRole result:', {
-      effectiveRole,
-      accessibleTypeKeys: accessibleTypes,
-      mappedTypesCount: mappedTypes.length,
-      hasMinistry: mappedTypes.some(t => t.key === 'ministry'),
-      ministryData: mappedTypes.find(t => t.key === 'ministry'),
-      allMappedTypes: mappedTypes.map(t => ({ key: t.key, level: t.default_level, label: t.label_az }))
+    logger.log('getFallbackTypesForRole result', { 
+      component: 'institutionUtils', 
+      action: 'getFallbackTypesForRole', 
+      data: { 
+        effectiveRole, 
+        accessibleTypeKeys: accessibleTypes, 
+        mappedTypesCount: mappedTypes.length, 
+        hasMinistry: mappedTypes.some(t => t.key === 'ministry'),
+        ministryData: mappedTypes.find(t => t.key === 'ministry'),
+        allMappedTypes: mappedTypes.map(t => ({ key: t.key, level: t.default_level, label: t.label_az }))
+      } 
     });
   }
 
