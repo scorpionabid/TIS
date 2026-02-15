@@ -88,70 +88,74 @@ const DocumentTableComponent: React.FC<DocumentTableProps> = ({
     });
   };
 
-  const getCreatorLabel = (resource: Resource) => {
-    // 🔍 Debug creator information
-    console.log('🔍 Document Creator Debug:', {
-      resourceId: resource.id,
-      resourceTitle: resource.title,
-      creator: resource.creator,
-      uploader: resource.uploader,
-      createdBy: resource.created_by,
-      uploadedBy: resource.uploaded_by,
-      userDirectory,
-      userDirectoryKeys: Object.keys(userDirectory)
-    });
-
+  const getCreatorInfo = (resource: Resource) => {
     // Try creator field first (for unified Resource interface)
-    if (resource.creator) {
-      const firstName = resource.creator.first_name?.trim();
-      const lastName = resource.creator.last_name?.trim();
-      const fullName = [firstName, lastName].filter(Boolean).join(' ');
-
-      if (fullName) {
-        return fullName;
-      }
-      
-      if (resource.creator.username) {
-        return resource.creator.username;
-      }
-    }
-
+    let creator = resource.creator;
+    
     // Try uploader field (for Document model)
-    if (resource.uploader) {
-      const firstName = resource.uploader.first_name?.trim();
-      const lastName = resource.uploader.last_name?.trim();
-      const fullName = [firstName, lastName].filter(Boolean).join(' ');
-
-      if (fullName) {
-        return fullName;
-      }
-      
-      if (resource.uploader.username) {
-        return resource.uploader.username;
-      }
+    if (!creator && resource.uploader) {
+      creator = {
+        id: resource.uploader.id,
+        first_name: resource.uploader.first_name,
+        last_name: resource.uploader.last_name,
+        username: resource.uploader.first_name || resource.uploader.last_name ? 
+          `${resource.uploader.first_name} ${resource.uploader.last_name}`.trim() : 
+          `User ${resource.uploader.id}`
+      };
     }
 
     // Fallback to userDirectory using created_by
-    const creatorId = typeof resource.created_by === 'string'
-      ? Number(resource.created_by)
-      : resource.created_by;
-
-    if (creatorId && userDirectory[creatorId]) {
-      return userDirectory[creatorId];
+    if (!creator && resource.created_by) {
+      const creatorId = typeof resource.created_by === 'string'
+        ? Number(resource.created_by)
+        : resource.created_by;
+      
+      if (creatorId && userDirectory[creatorId]) {
+        const name = userDirectory[creatorId];
+        creator = {
+          id: creatorId,
+          first_name: name.split(' ')[0],
+          last_name: name.split(' ').slice(1).join(' '),
+          username: name
+        };
+      }
     }
 
     // Fallback to userDirectory using uploaded_by
-    const uploaderId = typeof resource.uploaded_by === 'string'
-      ? Number(resource.uploaded_by)
-      : resource.uploaded_by;
-
-    if (uploaderId && userDirectory[uploaderId]) {
-      return userDirectory[uploaderId];
+    if (!creator && resource.uploaded_by) {
+      const uploaderId = typeof resource.uploaded_by === 'string'
+        ? Number(resource.uploaded_by)
+        : resource.uploaded_by;
+      
+      if (uploaderId && userDirectory[uploaderId]) {
+        const name = userDirectory[uploaderId];
+        creator = {
+          id: uploaderId,
+          first_name: name.split(' ')[0],
+          last_name: name.split(' ').slice(1).join(' '),
+          username: name
+        };
+      }
     }
 
-    // Final fallback
-    const fallbackId = creatorId || uploaderId;
-    return fallbackId ? `İstifadəçi #${fallbackId}` : '—';
+    if (!creator) {
+      return { 
+        name: '—', 
+        avatar: '?', 
+        institution: null,
+        initials: '?'
+      };
+    }
+
+    const name = [creator.first_name?.trim(), creator.last_name?.trim()].filter(Boolean).join(' ') || 
+                 creator.username || 
+                 `İstifadəçi #${creator.id}`;
+    
+    const avatar = name.charAt(0).toUpperCase();
+    const institution = resource.uploader?.institution || resource.institution;
+    const initials = avatar;
+
+    return { name, avatar, institution, initials };
   };
 
   const handleDocumentAccess = useCallback(async (resource: Resource) => {
@@ -235,7 +239,7 @@ const DocumentTableComponent: React.FC<DocumentTableProps> = ({
               <th className="p-3 text-left">Fayl</th>
               <th className="p-3 text-left w-16">Status</th>
               <th className="p-3 text-left">Statistika</th>
-              <th className="p-3 text-left">Yaradıcı</th>
+              <th className="p-3 text-left w-32">Yaradıcı</th>
               <th className="p-3 text-left">Yenilənmə</th>
               <th className="p-3 text-right">Əməliyyat</th>
             </tr>
@@ -307,8 +311,36 @@ const DocumentTableComponent: React.FC<DocumentTableProps> = ({
                       )}
                     </div>
                   </td>
-                  <td className="p-3">
-                    {getCreatorLabel(doc)}
+                  <td className="p-3 w-32">
+                    {(() => {
+                      const creatorInfo = getCreatorInfo(doc);
+                      if (creatorInfo.name === '—') {
+                        return <span className="text-xs text-muted-foreground">—</span>;
+                      }
+                      
+                      return (
+                        <div className="flex items-start gap-2">
+                          <div 
+                            className={`w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0 ${
+                              creatorInfo.name === '—' ? 'bg-gray-400' : 'bg-blue-500'
+                            }`}
+                            title={`${creatorInfo.name}${creatorInfo.institution ? ` - ${creatorInfo.institution.name}` : ''}`}
+                          >
+                            {creatorInfo.initials}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-xs font-medium break-words" title={creatorInfo.name}>
+                              {creatorInfo.name}
+                            </div>
+                            {creatorInfo.institution && (
+                              <div className="text-xs text-muted-foreground break-words" title={creatorInfo.institution.name}>
+                                {creatorInfo.institution.name}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="p-3">
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
