@@ -31,6 +31,7 @@ export interface Resource extends BaseEntity {
       name: string;
       level: number;
       type: string;
+      parent_id?: number | null;
     };
   };
 
@@ -40,6 +41,7 @@ export interface Resource extends BaseEntity {
     type: string;
     utis_code?: string | null;
     level?: number;
+    parent_id?: number | null;
   };
 
   // Link specific fields

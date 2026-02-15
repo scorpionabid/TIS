@@ -429,6 +429,7 @@ export default function Documents() {
           {showLevelTabs ? (
             <DocumentLevelTabs
               groups={documentsByLevel}
+              schoolsBySector={documentsByLevel.schoolsBySector}
               tabCounts={documentsByLevel.tabCounts}
               visibleTabs={visibleTabs}
               onResourceAction={handleResourceAction}
