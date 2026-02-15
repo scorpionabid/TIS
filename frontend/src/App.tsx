@@ -60,6 +60,7 @@ const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 
 // Rating pages
 const EducationRating = lazy(() => import("./pages/EducationRating"));
+const SchoolAdminRating = lazy(() => import("./pages/SchoolAdminRating"));
 const TeacherVerification = lazy(() => import("./pages/TeacherVerification"));
 
 
@@ -847,7 +848,7 @@ const App = () => {
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="sector-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
-              <Route path="school-admin-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
+              <Route path="school-admin-rating" element={<LazyWrapper><SchoolAdminRating /></LazyWrapper>} />
               <Route path="teacher-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
               <Route path="*" element={<NotFound />} />
             </Route>

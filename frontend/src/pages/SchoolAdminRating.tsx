@@ -1,25 +1,22 @@
 import React from 'react';
 import { SchoolAdminRatingTab } from '@/components/rating/SchoolAdminRatingTab';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { GraduationCap } from 'lucide-react';
 
 export const SchoolAdminRating: React.FC = () => {
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <GraduationCap className="w-5 h-5" />
-            Direktor Reytingləri
-          </CardTitle>
-          <CardDescription>
-            Məktəb rəhbərlərinin performans qiymətləndirməsi və reytinq analizi
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <SchoolAdminRatingTab />
-        </CardContent>
-      </Card>
+    <div className="container mx-auto p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-2">
+          <GraduationCap className="w-7 h-7" />
+          Direktor Reytingləri
+        </h1>
+        <p className="text-gray-600 mt-2">
+          Məktəb rəhbərlərinin performans qiymətləndirməsi və reytinq analizi
+        </p>
+      </div>
+      <SchoolAdminRatingTab />
     </div>
   );
 };
+
+export default SchoolAdminRating;

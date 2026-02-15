@@ -27,7 +27,7 @@ class RatingController extends BaseController
     {
         try {
             $query = Rating::with(['user', 'institution', 'academicYear'])
-                ->when($request->user()->cannot('ratings.manage'), function ($query) {
+                ->when($request->user()->cannot('ratings.manage'), function ($query) use ($request) {
                     return $query->where('institution_id', $request->user()->institution_id);
                 })
                 ->when($request->get('user_id'), function ($query, $userId) {
@@ -44,12 +44,19 @@ class RatingController extends BaseController
                 })
                 ->when($request->get('status'), function ($query, $status) {
                     return $query->where('status', $status);
+                })
+                ->when($request->get('user_role'), function ($query, $role) {
+                    return $query->whereHas('user', function ($q) use ($role) {
+                        $q->whereHas('role', function ($rq) use ($role) {
+                            $rq->where('name', $role);
+                        });
+                    });
                 });
 
             $ratings = $query->orderBy('created_at', 'desc')
                 ->paginate($request->get('per_page', 15));
 
-            return $this->successResponse('Reytinqlər uğurla əldə edildi', $ratings);
+            return $this->successResponse($ratings, 'Reytinqlər uğurla əldə edildi');
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinqlər əldə edilə bilmədi: ' . $e->getMessage());
         }
@@ -72,7 +79,7 @@ class RatingController extends BaseController
 
             $rating = Rating::create($validated);
 
-            return $this->successResponse('Reytinq uğurla yaradıldı', $rating);
+            return $this->successResponse($rating, 'Reytinq uğurla yaradıldı');
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinq yaradıla bilmədi: ' . $e->getMessage());
         }
@@ -90,7 +97,7 @@ class RatingController extends BaseController
                 })
                 ->findOrFail($id);
 
-            return $this->successResponse('Reytinq uğurla əldə edildi', $rating);
+            return $this->successResponse($rating, 'Reytinq uğurla əldə edildi');
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinq əldə edilə bilmədi: ' . $e->getMessage());
         }
@@ -103,6 +110,8 @@ class RatingController extends BaseController
     {
         try {
             $validated = $request->validate([
+                'task_score' => 'nullable|numeric|min:0|max:100',
+                'survey_score' => 'nullable|numeric|min:0|max:100',
                 'manual_score' => 'nullable|numeric|min:0|max:100',
                 'status' => 'nullable|in:draft,published,archived',
                 'metadata' => 'nullable|array',
@@ -114,7 +123,7 @@ class RatingController extends BaseController
 
             $rating->update($validated);
 
-            return $this->successResponse('Reytinq uğurla yeniləndi', $rating);
+            return $this->successResponse($rating, 'Reytinq uğurla yeniləndi');
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinq yenilənə bilmədi: ' . $e->getMessage());
         }
@@ -132,7 +141,7 @@ class RatingController extends BaseController
 
             $rating->delete();
 
-            return $this->successResponse('Reytinq uğurla silindi');
+            return $this->successResponse(null, 'Reytinq uğurla silindi');
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinq silinə bilmədi: ' . $e->getMessage());
         }
@@ -151,7 +160,7 @@ class RatingController extends BaseController
 
             $rating = $this->ratingService->calculateRating($userId, $validated);
 
-            return $this->successResponse('Reytinq uğurla hesablandı', $rating);
+            return $this->successResponse($rating, 'Reytinq uğurla hesablandı');
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinq hesablanıla bilmədi: ' . $e->getMessage());
         }
@@ -170,7 +179,7 @@ class RatingController extends BaseController
 
             $results = $this->ratingService->calculateAllRatings($validated);
 
-            return $this->successResponse('Bütün reytinqlər uğurla hesablandı', $results);
+            return $this->successResponse($results, 'Bütün reytinqlər uğurla hesablandı');
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinqlər hesablanıla bilmədi: ' . $e->getMessage());
         }
