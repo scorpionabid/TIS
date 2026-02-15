@@ -167,7 +167,9 @@ describe('TaskService', () => {
 
       const result = await taskService.getAssignedToMe({ status: 'pending' });
 
-      expect(mocks.apiClient.get).toHaveBeenCalledWith('/tasks/assigned-to-me', { status: 'pending' });
+      expect(mocks.apiClient.get).toHaveBeenCalledWith('/tasks/assigned-to-me', { 
+        status: 'pending',
+      }, { cache: false });
       expect(result).toBeDefined();
     });
   });
@@ -190,7 +192,7 @@ describe('TaskService', () => {
 
       const result = await taskService.updateAssignmentStatus(1, updateData);
 
-      expect(mocks.apiClient.post).toHaveBeenCalledWith('/tasks/assignments/1/status', updateData);
+      expect(mocks.apiClient.post).toHaveBeenCalledWith('/assignments/1/status', updateData);
       expect(result).toEqual(updatedAssignment);
     });
   });

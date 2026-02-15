@@ -4,6 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import TaskDetailsDrawer from '../TaskDetailsDrawer';
 import { Task, taskService } from '@/services/tasks';
+import { AuthProvider } from '@/contexts/AuthContext';
 
 vi.mock('@/services/tasks', async () => {
   const actual = await vi.importActual<typeof import('@/services/tasks')>('@/services/tasks');
@@ -20,7 +21,13 @@ const mockedTaskService = taskService as unknown as { getById: ReturnType<typeof
 
 const wrapper = (children: React.ReactNode) => {
   const client = new QueryClient();
-  return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={client}>
+      <AuthProvider>
+        {children}
+      </AuthProvider>
+    </QueryClientProvider>
+  );
 };
 
 const baseTask: Task = {

@@ -268,7 +268,7 @@ export default function Documents() {
     };
 
     documentResources.forEach((resource) => {
-      registerInstitution(resource.institution?.id ?? (resource as { institution_id?: number }).institution_id);
+      registerInstitution(resource.institution?.id ?? resource.institution_id);
       (resource.target_institutions || []).forEach((target) => {
         const numericId = typeof target === 'string' ? Number(target) : target;
         if (!Number.isNaN(numericId)) {

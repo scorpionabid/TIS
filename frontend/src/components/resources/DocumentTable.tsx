@@ -293,7 +293,7 @@ const DocumentTableComponent: React.FC<DocumentTableProps> = ({
                       {statusDot ? (
                         <div 
                           className={`h-2.5 w-2.5 rounded-full ${statusDot} cursor-help transition-colors hover:scale-110`}
-                          title={`${doc.status?.charAt(0).toUpperCase() + doc.status?.slice(1)}`}
+                          title={doc.status ? `${doc.status.charAt(0).toUpperCase()}${doc.status.slice(1)}` : ''}
                         />
                       ) : (
                         <div 

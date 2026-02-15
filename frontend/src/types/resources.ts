@@ -61,6 +61,9 @@ export interface Resource extends BaseEntity {
   download_count?: number;
   is_downloadable?: boolean;
   is_viewable_online?: boolean;
+  uploaded_by?: number;
+  version?: number;
+  institution_id?: number;
 
   // Common status
   status?: 'active' | 'inactive' | 'draft' | 'archived';

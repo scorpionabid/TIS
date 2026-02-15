@@ -9,6 +9,11 @@ export default defineConfig({
     setupFiles: ['./src/tests/setup.ts'],
     globals: true,
     testTimeout: 10000,
+    exclude: [
+      'node_modules/',
+      'tests-e2e/**', // E2E testləri exclude et
+      'dist/',
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
@@ -19,6 +24,7 @@ export default defineConfig({
         '**/*.config.*',
         '**/mockData',
         'dist/',
+        'tests-e2e/**', // E2E testləri exclude et
       ],
     },
   },
