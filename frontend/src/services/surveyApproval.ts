@@ -1,4 +1,5 @@
 import { BaseService } from './BaseService';
+import { apiClient } from './api';
 import { logger } from '@/utils/logger';
 import bulkJobService, { BulkJobResult, BulkJobProgress } from './bulkJobService';
 import { SurveyQuestion } from './surveys';
@@ -180,11 +181,12 @@ class SurveyApprovalService {
         { cache: false } // User-specific data, no cache
       );
 
-      if (!response || !response.success) {
-        throw new Error(response?.message || 'Failed to fetch published surveys');
+      const typedResponse = response as any;
+      if (!typedResponse || !typedResponse.success) {
+        throw new Error(typedResponse?.message || 'Failed to fetch published surveys');
       }
 
-      return response.data || [];
+      return typedResponse.data || [];
     } catch (error: any) {
       console.error('Error fetching published surveys:', error);
       throw error;
@@ -217,25 +219,26 @@ class SurveyApprovalService {
         { cache: false } // Disable cache - security critical for role-based data
       );
       
+      const typedResponse = response as any;
       console.log('✅ [SurveyApproval] Responses response received:', {
         response,
         responseType: typeof response,
-        successField: response?.success,
-        dataField: response?.data,
-        messageField: response?.message
+        successField: typedResponse?.success,
+        dataField: typedResponse?.data,
+        messageField: typedResponse?.message
       });
       
-      if (!response) {
+      if (!typedResponse) {
         console.error('❌ [SurveyApproval] No response received for responses');
         throw new Error('No response received from server');
       }
       
-      if (!response.success) {
-        console.error('❌ [SurveyApproval] API returned failure for responses:', response);
-        throw new Error(response.message || 'Failed to fetch survey responses');
+      if (!typedResponse.success) {
+        console.error('❌ [SurveyApproval] API returned failure for responses:', typedResponse);
+        throw new Error(typedResponse.message || 'Failed to fetch survey responses');
       }
       
-      const responsesData = response.data || { responses: [], pagination: {}, stats: {} };
+      const responsesData = typedResponse.data || { responses: [], pagination: {}, stats: {} };
       console.log('📊 [SurveyApproval] Responses data:', responsesData);
       return responsesData;
       
@@ -259,19 +262,20 @@ class SurveyApprovalService {
     try {
       const response = await apiClient.get(`${this.baseURL}/surveys/${surveyId}/stats`);
       
+      const typedResponse = response as any;
       console.log('✅ [SurveyApproval] Stats response received:', {
         response,
         responseType: typeof response,
-        successField: response?.success,
-        dataField: response?.data
+        successField: typedResponse?.success,
+        dataField: typedResponse?.data
       });
       
-      if (!response || !response.success) {
-        console.error('❌ [SurveyApproval] API returned failure for stats:', response);
-        throw new Error(response?.message || 'Failed to fetch approval stats');
+      if (!typedResponse || !typedResponse.success) {
+        console.error('❌ [SurveyApproval] API returned failure for stats:', typedResponse);
+        throw new Error(typedResponse?.message || 'Failed to fetch approval stats');
       }
       
-      const stats = response.data || {};
+      const stats = typedResponse.data || {};
       console.log('📊 [SurveyApproval] Stats data:', stats);
       return stats;
       
@@ -299,19 +303,20 @@ class SurveyApprovalService {
     try {
       const response = await apiClient.get(`${this.responseURL}/${responseId}/detail`);
       
+      const typedResponse = response as any;
       console.log('✅ [SurveyApproval] Detail response received:', {
         response,
         responseType: typeof response,
-        successField: response?.success,
-        dataField: response?.data
+        successField: typedResponse?.success,
+        dataField: typedResponse?.data
       });
       
-      if (!response || !response.success) {
-        console.error('❌ [SurveyApproval] API returned failure for detail:', response);
-        throw new Error(response?.message || 'Failed to fetch response detail');
+      if (!typedResponse || !typedResponse.success) {
+        console.error('❌ [SurveyApproval] API returned failure for detail:', typedResponse);
+        throw new Error(typedResponse?.message || 'Failed to fetch response detail');
       }
       
-      const detailData = response.data || {};
+      const detailData = typedResponse.data || {};
       console.log('📊 [SurveyApproval] Detail data:', detailData);
       return detailData;
       
@@ -339,14 +344,15 @@ class SurveyApprovalService {
         responses: responseData
       });
       
-      console.log('✅ [SurveyApproval] Update response received:', response);
+      const typedResponse = response as any;
+      console.log('✅ [SurveyApproval] Update response received:', typedResponse);
       
-      if (!response || !response.success) {
-        console.error('❌ [SurveyApproval] API returned failure for update:', response);
-        throw new Error(response?.message || 'Failed to update response data');
+      if (!typedResponse || !typedResponse.success) {
+        console.error('❌ [SurveyApproval] API returned failure for update:', typedResponse);
+        throw new Error(typedResponse?.message || 'Failed to update response data');
       }
       
-      return response.data;
+      return typedResponse.data;
       
     } catch (error: any) {
       console.error('💥 [SurveyApproval] Error updating response:', {
@@ -366,7 +372,8 @@ class SurveyApprovalService {
     data: { notes?: string; deadline?: string }
   ): Promise<ApprovalRequestData> {
     const response = await apiClient.post(`${this.responseURL}/${responseId}/submit-approval`, data);
-    return response.data.data;
+    const typedResponse = response as any;
+    return typedResponse.data.data;
   }
 
   /**
@@ -382,7 +389,8 @@ class SurveyApprovalService {
       const response = await apiClient.post(`${this.responseURL}/${responseId}/approve`, data);
       console.log('✅ [IndividualApproval] Approve API response received:', response);
 
-      const result = response?.data?.data || response?.data || { status: 'success', message: 'Approved' };
+      const typedResponse = response as any;
+      const result = typedResponse?.data?.data || typedResponse?.data || { status: 'success', message: 'Approved' };
       console.log('📊 [IndividualApproval] Approve result:', result);
 
       return result;
@@ -405,7 +413,8 @@ class SurveyApprovalService {
       const response = await apiClient.post(`${this.responseURL}/${responseId}/reject`, data);
       console.log('✅ [IndividualApproval] Reject API response received:', response);
 
-      const result = response?.data?.data || response?.data || { status: 'success', message: 'Rejected' };
+      const typedResponse = response as any;
+      const result = typedResponse?.data?.data || typedResponse?.data || { status: 'success', message: 'Rejected' };
       console.log('📊 [IndividualApproval] Reject result:', result);
 
       return result;
@@ -428,7 +437,8 @@ class SurveyApprovalService {
       const response = await apiClient.post(`${this.responseURL}/${responseId}/return`, data);
       console.log('✅ [IndividualApproval] Return API response received:', response);
 
-      const result = response?.data?.data || response?.data || { status: 'success', message: 'Returned' };
+      const typedResponse = response as any;
+      const result = typedResponse?.data?.data || typedResponse?.data || { status: 'success', message: 'Returned' };
       console.log('📊 [IndividualApproval] Return result:', result);
 
       return result;
@@ -448,7 +458,8 @@ class SurveyApprovalService {
       const response = await apiClient.post(`${this.responseURL}/bulk-approval`, data);
       console.log('✅ [BulkApproval] API response received:', response);
 
-      const result = response?.data?.data || response?.data || {};
+      const typedResponse = response as any;
+      const result = typedResponse?.data?.data || typedResponse?.data || {};
       console.log('📊 [BulkApproval] Extracted result:', result);
 
       // Log errors in detail if any
@@ -681,12 +692,13 @@ class SurveyApprovalService {
     parent_id?: number;
   }>> {
     const response = await apiClient.get('/institutions');
+    const typedResponse = response as any;
 
     // Handle different response formats
-    if (Array.isArray(response.data)) {
-      return response.data;
-    } else if (response.data.data) {
-      return Array.isArray(response.data.data) ? response.data.data : response.data.data.data || [];
+    if (Array.isArray(typedResponse.data)) {
+      return typedResponse.data;
+    } else if (typedResponse.data.data) {
+      return Array.isArray(typedResponse.data.data) ? typedResponse.data.data : typedResponse.data.data.data || [];
     }
 
     return [];

@@ -104,7 +104,7 @@ class DocumentService
 
         return $this->getCached($cacheKey, function () use ($request) {
             $user = Auth::user();
-            $query = Document::with(['uploader', 'institution'])
+            $query = Document::with(['uploader.institution', 'institution'])
                 ->accessibleBy($user)
                 ->active()
                 ->latestVersions();

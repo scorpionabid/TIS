@@ -21,11 +21,25 @@ export interface Resource extends BaseEntity {
     last_name: string;
   };
 
+  // Uploader info (with institution for level-based grouping)
+  uploader?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    institution?: {
+      id: number;
+      name: string;
+      level: number;
+      type: string;
+    };
+  };
+
   institution?: {
     id: number;
     name: string;
     type: string;
     utis_code?: string | null;
+    level?: number;
   };
 
   // Link specific fields

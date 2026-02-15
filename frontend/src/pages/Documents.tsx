@@ -11,6 +11,8 @@ import { ResourceModal } from "@/components/modals/ResourceModal";
 import { ResourceHeader } from "@/components/resources/ResourceHeader";
 import { ResourceToolbar } from "@/components/resources/ResourceToolbar";
 import DocumentTabContent from "@/components/resources/DocumentTabContent";
+import DocumentLevelTabs from "@/components/resources/DocumentLevelTabs";
+import { useDocumentsByLevel, DocumentLevelTab } from "@/hooks/resources/useDocumentsByLevel";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRoleCheck } from '@/hooks/useRoleCheck';
@@ -47,7 +49,7 @@ const normalizeInstitution = (input: Institution | { data?: Institution } | null
 const DOCUMENT_FILTER_PANEL_STORAGE_KEY = 'resources_document_filter_panel_open';
 
 export default function Documents() {
-  const { currentUser, hasPermission, hasAnyRole } = useRoleCheck();
+  const { currentUser, hasPermission, hasAnyRole, isSuperAdmin, isRegionAdmin, isSektorAdmin, isSchoolAdmin } = useRoleCheck();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -232,6 +234,19 @@ export default function Documents() {
     () => resourcesData.filter((resource) => resource.type === 'document'),
     [resourcesData]
   );
+  // Level-based tab visibility by role
+  const visibleTabs = useMemo<DocumentLevelTab[]>(() => {
+    if (isSuperAdmin || isRegionAdmin) return ['region', 'sektor', 'school'];
+    if (isSektorAdmin) return ['sektor', 'school'];
+    if (isSchoolAdmin) return ['school'];
+    return [];
+  }, [isSuperAdmin, isRegionAdmin, isSektorAdmin, isSchoolAdmin]);
+
+  const showLevelTabs = visibleTabs.length > 0;
+
+  // Group documents by uploader institution level
+  const documentsByLevel = useDocumentsByLevel(documentResources, institutionMetadata);
+
   const isUpdatingResults = isFetching && !isLoading;
 
   const paginationMeta = resourceResponse?.meta;
@@ -411,31 +426,41 @@ export default function Documents() {
       />
 
         <div className="mt-6 space-y-4">
-          <DocumentTabContent
-            filters={documentFilters}
-            onFiltersChange={setDocumentFilters}
-            documentFilterPanelOpen={documentFilterPanelOpen}
-            onToggleFilterPanel={() => setDocumentFilterPanelOpen(prev => !prev)}
-            institutionOptions={documentInstitutionOptions}
-            creatorOptions={documentCreatorOptions}
-            documentResources={documentResources}
-            totalCount={resourceResponse?.meta?.total}
-            pagination={{
-              current: currentPage,
-              totalPages: documentPaginationTotalPages,
-              totalItems: documentPaginationTotalItems,
-              perPage: effectivePerPage,
-              startIndex: documentPaginationStartIndex,
-              endIndex: documentPaginationEndIndex,
-              onPageChange: (value) => setPage(value),
-              onPerPageChange: (value) => {
-                setPerPage(value);
-                setPage(1);
-              },
-            }}
-            onResourceAction={handleResourceAction}
-            userDirectory={userDirectory}
-          />
+          {showLevelTabs ? (
+            <DocumentLevelTabs
+              groups={documentsByLevel}
+              tabCounts={documentsByLevel.tabCounts}
+              visibleTabs={visibleTabs}
+              onResourceAction={handleResourceAction}
+              userDirectory={userDirectory}
+            />
+          ) : (
+            <DocumentTabContent
+              filters={documentFilters}
+              onFiltersChange={setDocumentFilters}
+              documentFilterPanelOpen={documentFilterPanelOpen}
+              onToggleFilterPanel={() => setDocumentFilterPanelOpen(prev => !prev)}
+              institutionOptions={documentInstitutionOptions}
+              creatorOptions={documentCreatorOptions}
+              documentResources={documentResources}
+              totalCount={resourceResponse?.meta?.total}
+              pagination={{
+                current: currentPage,
+                totalPages: documentPaginationTotalPages,
+                totalItems: documentPaginationTotalItems,
+                perPage: effectivePerPage,
+                startIndex: documentPaginationStartIndex,
+                endIndex: documentPaginationEndIndex,
+                onPageChange: (value) => setPage(value),
+                onPerPageChange: (value) => {
+                  setPerPage(value);
+                  setPage(1);
+                },
+              }}
+              onResourceAction={handleResourceAction}
+              userDirectory={userDirectory}
+            />
+          )}
         </div>
 
 

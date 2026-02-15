@@ -81,14 +81,49 @@ const DocumentTableComponent: React.FC<DocumentTableProps> = ({
   };
 
   const getCreatorLabel = (resource: Resource) => {
-    const firstName = resource.creator?.first_name?.trim();
-    const lastName = resource.creator?.last_name?.trim();
-    const fullName = [firstName, lastName].filter(Boolean).join(' ');
+    // 🔍 Debug creator information
+    console.log('🔍 Document Creator Debug:', {
+      resourceId: resource.id,
+      resourceTitle: resource.title,
+      creator: resource.creator,
+      uploader: resource.uploader,
+      createdBy: resource.created_by,
+      uploadedBy: resource.uploaded_by,
+      userDirectory,
+      userDirectoryKeys: Object.keys(userDirectory)
+    });
 
-    if (fullName) {
-      return fullName;
+    // Try creator field first (for unified Resource interface)
+    if (resource.creator) {
+      const firstName = resource.creator.first_name?.trim();
+      const lastName = resource.creator.last_name?.trim();
+      const fullName = [firstName, lastName].filter(Boolean).join(' ');
+
+      if (fullName) {
+        return fullName;
+      }
+      
+      if (resource.creator.username) {
+        return resource.creator.username;
+      }
     }
 
+    // Try uploader field (for Document model)
+    if (resource.uploader) {
+      const firstName = resource.uploader.first_name?.trim();
+      const lastName = resource.uploader.last_name?.trim();
+      const fullName = [firstName, lastName].filter(Boolean).join(' ');
+
+      if (fullName) {
+        return fullName;
+      }
+      
+      if (resource.uploader.username) {
+        return resource.uploader.username;
+      }
+    }
+
+    // Fallback to userDirectory using created_by
     const creatorId = typeof resource.created_by === 'string'
       ? Number(resource.created_by)
       : resource.created_by;
@@ -97,11 +132,18 @@ const DocumentTableComponent: React.FC<DocumentTableProps> = ({
       return userDirectory[creatorId];
     }
 
-    if (creatorId) {
-      return `İstifadəçi #${creatorId}`;
+    // Fallback to userDirectory using uploaded_by
+    const uploaderId = typeof resource.uploaded_by === 'string'
+      ? Number(resource.uploaded_by)
+      : resource.uploaded_by;
+
+    if (uploaderId && userDirectory[uploaderId]) {
+      return userDirectory[uploaderId];
     }
 
-    return '—';
+    // Final fallback
+    const fallbackId = creatorId || uploaderId;
+    return fallbackId ? `İstifadəçi #${fallbackId}` : '—';
   };
 
   const handleDocumentAccess = useCallback(async (resource: Resource) => {
