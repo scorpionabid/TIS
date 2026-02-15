@@ -16,12 +16,20 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
+import {
   FileText,
   Download,
   Edit,
   Trash2,
   ShieldCheck,
   Clock,
+  MoreHorizontal,
 } from 'lucide-react';
 
 interface DocumentTableProps {
@@ -309,34 +317,41 @@ const DocumentTableComponent: React.FC<DocumentTableProps> = ({
                     </div>
                   </td>
                   <td className="p-3">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDocumentAccess(doc)}
-                        disabled={downloadingIds.has(doc.id)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      {canEdit(doc) && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => onResourceAction(doc, 'edit')}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      )}
-                      {canDelete(doc) && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="text-red-600 hover:bg-red-50"
-                          onClick={() => setPendingDelete(doc)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
+                    <div className="flex justify-end">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48">
+                          <DropdownMenuItem 
+                            onClick={() => handleDocumentAccess(doc)}
+                            disabled={downloadingIds.has(doc.id)}
+                          >
+                            <Download className="h-4 w-4 mr-2" />
+                            Yüklə
+                          </DropdownMenuItem>
+                          {canEdit(doc) && (
+                            <DropdownMenuItem onClick={() => onResourceAction(doc, 'edit')}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Redaktə et
+                            </DropdownMenuItem>
+                          )}
+                          {canDelete(doc) && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem 
+                                className="text-red-600" 
+                                onClick={() => setPendingDelete(doc)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Sil
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </td>
                 </tr>
