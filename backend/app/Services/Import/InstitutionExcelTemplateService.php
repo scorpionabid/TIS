@@ -509,7 +509,7 @@ class InstitutionExcelTemplateService extends BaseService
             'A' . $sampleRow => 'Nümunə ' . $institutionType->name,
             'B' . $sampleRow => 'Qısa ad',
             'C' . $sampleRow => 'INST001',
-            'D' . $sampleRow => '12345678',
+            'D' . $sampleRow => '123456789', // 7-10 rəqəmli nümunə
             'E' . $sampleRow => 'BAK',
             'F' . $sampleRow => '{"phone":"+994123456789","email":"contact@example.com"}',
             'G' . $sampleRow => '{"address":"Bakı şəhəri, Nəsimi rayonu","coordinates":"40.4093,49.8671"}',
@@ -585,12 +585,12 @@ class InstitutionExcelTemplateService extends BaseService
             $instructions['A11'] = '5. contact_info: JSON format {"phone":"+994...","email":"..."}';
             $instructions['A12'] = '6. location: JSON format {"address":"...","coordinates":"..."}';
             $instructions['A13'] = '7. region_code: 3 hərfli kod (BAK, GNC, ŞKI və s.)';
-            $instructions['A14'] = '8. utis_code: 8 rəqəmli kod';
+            $instructions['A14'] = '8. utis_code: 7-10 rəqəmli kod';
         } else {
             $instructions['A6'] = '4. contact_info: JSON format {"phone":"+994...","email":"..."}';
             $instructions['A7'] = '5. location: JSON format {"address":"...","coordinates":"..."}';
             $instructions['A8'] = '6. region_code: 3 hərfli kod (BAK, GNC, ŞKI və s.)';
-            $instructions['A9'] = '7. utis_code: 8 rəqəmli kod';
+            $instructions['A9'] = '7. utis_code: 7-10 rəqəmli kod';
         }
 
         // Add SchoolAdmin instructions for level 4

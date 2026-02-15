@@ -61,10 +61,10 @@ class InstitutionsImport implements ToModel, WithBatchInserts, WithChunkReading,
             if (! empty($row['utis_code'])) {
                 $utisCode = trim($row['utis_code']);
 
-                // Validate UTIS code format (must be 8 digits)
-                if (! preg_match('/^\d{8}$/', $utisCode)) {
-                    Log::warning('Invalid UTIS code format (must be 8 digits):', ['utis_code' => $utisCode, 'row' => $row]);
-                    $this->errors[] = "Row {$row['name']}: UTIS kod 8 rəqəmli olmalıdır ({$utisCode})";
+                // Validate UTIS code format (must be 7-10 digits)
+                if (! preg_match('/^\d{7,10}$/', $utisCode)) {
+                    Log::warning('Invalid UTIS code format (must be 7-10 digits):', ['utis_code' => $utisCode, 'row' => $row]);
+                    $this->errors[] = "Row {$row['name']}: UTIS kod 7-10 rəqəmli olmalıdır ({$utisCode})";
 
                     return;
                 }
@@ -148,7 +148,7 @@ class InstitutionsImport implements ToModel, WithBatchInserts, WithChunkReading,
             'staff_count' => 'nullable|integer|min:1',
             'founded_year' => 'nullable|integer|min:1900|max:' . date('Y'),
             'established_date' => 'nullable|date',
-            'utis_code' => 'nullable|string|regex:/^\d{8}$/|unique:institutions,utis_code',
+            'utis_code' => 'nullable|string|regex:/^\d{7,10}$/|unique:institutions,utis_code',
         ];
     }
 

@@ -220,7 +220,7 @@ export const useInstitutionValidation = (institution?: Institution | null) => {
   }, [institution?.id, withRetry, retryCount.codeValidation, isNetworkError, updateValidationProgress, clearValidationProgress]);
 
   const handleUtisCodeValidation = React.useCallback(async (utisCode: string) => {
-    if (!utisCode || utisCode.length !== 8) {
+    if (!utisCode || (utisCode.length < 7 || utisCode.length > 10)) {
       setUtisCodeValidation({ status: 'idle' });
       clearValidationProgress('utisValidation');
       return;

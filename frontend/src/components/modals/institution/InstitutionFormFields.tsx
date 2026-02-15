@@ -429,7 +429,7 @@ export const useInstitutionFormFields = ({
     // UTIS Code field
     createField('utis_code', 'UTIS Kodu', 'custom', {
       validation: z.string()
-        .regex(/^\d{8}$/, 'UTIS kodu 8 rəqəmdən ibarət olmalıdır')
+        .regex(/^\d{7,10}$/, 'UTIS kodu 7-10 rəqəmdən ibarət olmalıdır')
         .optional()
         .or(z.literal('')),
       render: ({ field, formControl }: any) => (
@@ -438,9 +438,9 @@ export const useInstitutionFormFields = ({
             <input
               {...field}
               type="text"
-              placeholder="8 rəqəmli UTIS kodu"
-              maxLength={8}
-              aria-label="UTIS kodu - 8 rəqəmli"
+              placeholder="7-10 rəqəmli UTIS kodu"
+              maxLength={10}
+              aria-label="UTIS kodu - 7-10 rəqəmli"
               aria-describedby="utis-validation-message utis-help-text"
               aria-invalid={utisCodeValidation.status === 'invalid'}
               aria-busy={utisCodeValidation.status === 'checking'}
@@ -454,7 +454,7 @@ export const useInstitutionFormFields = ({
                 field.onChange(value);
                 const formValues = formControl.getValues();
                 updateFormCompleteness({ ...formValues, utis_code: value });
-                if (value.length === 8) {
+                if (value.length >= 7 && value.length <= 10) {
                   handleUtisCodeValidation(value);
                 }
               }}
@@ -488,7 +488,7 @@ export const useInstitutionFormFields = ({
             </div>
           )}
           <p id="utis-help-text" className="text-xs text-muted-foreground">
-            UTIS kodu 8 rəqəmdən ibarət olmalıdır (məsələn: 12345678). Könüllü sahədir.
+            UTIS kodu 7-10 rəqəmdən ibarət olmalıdır (məsələn: 1234567, 12345678, 1234567890). Könüllü sahədir.
           </p>
         </div>
       ),
