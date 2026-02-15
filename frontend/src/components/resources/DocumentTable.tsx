@@ -225,7 +225,7 @@ const DocumentTableComponent: React.FC<DocumentTableProps> = ({
               <th className="p-3 text-left">Sənəd</th>
               <th className="p-3 text-left">Giriş səviyyəsi</th>
               <th className="p-3 text-left">Fayl</th>
-              <th className="p-3 text-left">Status</th>
+              <th className="p-3 text-left w-16">Status</th>
               <th className="p-3 text-left">Statistika</th>
               <th className="p-3 text-left">Yaradıcı</th>
               <th className="p-3 text-left">Yenilənmə</th>
@@ -277,12 +277,19 @@ const DocumentTableComponent: React.FC<DocumentTableProps> = ({
                     </div>
                   </td>
                   <td className="p-3">
-                    {statusDot ? (
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span className={`h-2.5 w-2.5 rounded-full ${statusDot}`} />
-                        <span>{doc.status}</span>
-                      </div>
-                    ) : '—'}
+                    <div className="flex items-center justify-center">
+                      {statusDot ? (
+                        <div 
+                          className={`h-2.5 w-2.5 rounded-full ${statusDot} cursor-help transition-colors hover:scale-110`}
+                          title={`${doc.status?.charAt(0).toUpperCase() + doc.status?.slice(1)}`}
+                        />
+                      ) : (
+                        <div 
+                          className="h-2.5 w-2.5 rounded-full bg-gray-300 cursor-help" 
+                          title="Status məlum deyil"
+                        />
+                      )}
+                    </div>
                   </td>
                   <td className="p-3">
                     <div className="text-xs text-muted-foreground space-y-1">
