@@ -205,6 +205,89 @@ CMD ["sh", "-c", "crond && php artisan serve --host=0.0.0.0 --port=8000"]
 
 ---
 
+## 7. Grades UNIQUE Constraint Case-Sensitive-dir (YÜKSƏK)
+
+### Problem
+`grades` cədvəlindəki UNIQUE constraint case-sensitive-dir:
+```sql
+UNIQUE (name, class_level, academic_year_id, institution_id)
+```
+Nəticədə `"a"` və `"A"` fərqli sinif kimi yaranır. İstifadəçi sinfi silmədən yenidən böyük hərflə əlavə edə bilir.
+Məktəb 287596065-da XI-a/XI-A və XI-b/XI-B dublikatları aşkar edildi. Hər ikisi üçün davamiyyət yazılmışdı.
+
+### Status: Dublikatlar manual silinib ✅, amma kök səbəb düzəldilməyib
+
+### Həll Yolu
+
+**Addım 1 — Migration: UNIQUE constraint-i case-insensitive et**
+
+```bash
+docker exec atis_backend php artisan make:migration fix_grades_unique_constraint_case_insensitive
+```
+
+Migration məzmunu:
+```php
+public function up(): void
+{
+    // Köhnə constraint-i sil
+    Schema::table('grades', function (Blueprint $table) {
+        $table->dropUnique('grades_unique_per_level');
+    });
+
+    // Case-insensitive unique index yarat
+    DB::statement('
+        CREATE UNIQUE INDEX grades_unique_per_level
+        ON grades (LOWER(name), class_level, academic_year_id, institution_id)
+    ');
+}
+
+public function down(): void
+{
+    DB::statement('DROP INDEX IF EXISTS grades_unique_per_level');
+
+    Schema::table('grades', function (Blueprint $table) {
+        $table->unique(['name', 'class_level', 'academic_year_id', 'institution_id'], 'grades_unique_per_level');
+    });
+}
+```
+
+**Addım 2 — Backend: sinif adını normalize et**
+
+`app/Models/Grade.php` (və ya sinif yaradılan controller/service):
+```php
+// Mutator əlavə et
+protected function name(): Attribute
+{
+    return Attribute::make(
+        set: fn (string $value) => mb_strtoupper(trim($value)),
+    );
+}
+```
+
+Və ya sinif yaradılan yerdə (controller):
+```php
+$validated['name'] = mb_strtoupper(trim($validated['name']));
+```
+
+**Addım 3 — Mövcud datanı normalize et**
+
+Migration-da və ya tinker-də:
+```php
+DB::statement("UPDATE grades SET name = UPPER(TRIM(name)) WHERE name != UPPER(TRIM(name))");
+```
+
+### Test
+```bash
+# Dublikat yoxla (case-insensitive):
+docker exec atis_postgres psql -U atis_prod_user -d atis_production -c "
+SELECT institution_id, LOWER(name), class_level, academic_year_id, count(*)
+FROM grades
+GROUP BY institution_id, LOWER(name), class_level, academic_year_id
+HAVING count(*) > 1;"
+```
+
+---
+
 ## İcra Prioriteti
 
 | # | Tapşırıq | Prioritet | Təxmini vaxt |
@@ -215,6 +298,7 @@ CMD ["sh", "-c", "crond && php artisan serve --host=0.0.0.0 --port=8000"]
 | 4 | Scheduler aktivləşdir (supervisor ilə birlikdə) | YÜKSƏK | supervisor ilə birlikdə |
 | 5 | Avtomatik log təmizləmə command-ları yaz | ORTA | 1 saat |
 | 6 | SESSION_DRIVER=redis keçid | ORTA | 15 dəq |
+| 7 | Grades UNIQUE constraint case-insensitive et + name normalize | YÜKSƏK | 1 saat |
 
 ---
 
