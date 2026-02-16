@@ -192,7 +192,7 @@ class RatingService extends BaseService<RatingEntity> {
   }
 
   /**
-   * Calculate ratings for all users
+   * Calculate rating for all users
    */
   async calculateAll(data: CalculateRequest): Promise<CalculateResponse> {
     logger.debug('Calculating ratings for all users', {
@@ -205,6 +205,45 @@ class RatingService extends BaseService<RatingEntity> {
     const result = handleApiResponseWithError<CalculateResponse>(response, 'RatingService.calculateAll', 'RatingService');
     this.invalidateCache(['list']);
     return result;
+  }
+
+  /**
+   * Calculate specialized rating for a teacher
+   */
+  async calculateTeacher(teacherId: number, academicYearId: number): Promise<RatingItem> {
+    logger.debug('Calculating teacher rating', {
+      component: 'RatingService',
+      action: 'calculateTeacher',
+      data: { teacherId, academicYearId }
+    });
+
+    const response = await apiClient.post<any>(`/teacher-rating/calculate/${teacherId}`, {
+      academic_year_id: academicYearId
+    });
+
+    // The response has rating nested in data
+    const result = response.data?.rating || response.rating;
+    this.invalidateCache(['list']);
+    return result;
+  }
+
+  /**
+   * Calculate all teacher ratings
+   */
+  async calculateAllTeachers(academicYearId: number, institutionId?: number): Promise<any> {
+    logger.debug('Calculating all teacher ratings', {
+      component: 'RatingService',
+      action: 'calculateAllTeachers',
+      data: { academicYearId, institutionId }
+    });
+
+    const response = await apiClient.post<any>('/teacher-rating/calculate-all', {
+      academic_year_id: academicYearId,
+      institution_id: institutionId
+    });
+
+    this.invalidateCache(['list']);
+    return response.data || response;
   }
 
   /**

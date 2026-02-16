@@ -8,6 +8,14 @@ export interface RatingItem {
   task_score: number;
   survey_score: number;
   manual_score: number;
+  academic_score?: number;
+  observation_score?: number;
+  assessment_score?: number;
+  certificate_score?: number;
+  olympiad_score?: number;
+  award_score?: number;
+  growth_bonus?: number;
+  yearly_breakdown?: any;
   status: 'draft' | 'published' | 'archived';
   metadata?: {
     calculation_method?: string;

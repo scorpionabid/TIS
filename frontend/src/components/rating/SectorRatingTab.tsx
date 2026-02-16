@@ -1,14 +1,23 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
-import { Users, Building2, TrendingUp, Award } from 'lucide-react';
-import { ratingService, RatingItem } from '@/services/ratingService';
+import { ratingService } from '@/services/ratingService';
+import { RatingItem, PaginatedResponse } from '@/types/rating';
+import { logger } from '@/utils/logger';
+import { RatingStatsCards } from './RatingStatsCards';
+import { RatingActionToolbar } from './RatingActionToolbar';
+import { RatingDataTable } from './RatingDataTable';
 
 interface SectorRatingTabProps {
   institutionId?: number;
   academicYearId?: number;
+}
+
+interface EditingCell {
+  itemId: number;
+  field: 'task_score' | 'survey_score' | 'manual_score';
+}
+
+interface PendingChanges {
+  [itemId: number]: Partial<Pick<RatingItem, 'task_score' | 'survey_score' | 'manual_score'>>;
 }
 
 export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
@@ -16,25 +25,53 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
   academicYearId
 }) => {
   const [data, setData] = useState<RatingItem[]>([]);
+  const [pagination, setPagination] = useState<PaginatedResponse<RatingItem> | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [searchTerm, setSearchTerm] = useState('');
+  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
+  const [pendingChanges, setPendingChanges] = useState<PendingChanges>({});
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [selectedItems, setSelectedItems] = useState<number[]>([]);
 
   useEffect(() => {
     loadData();
-  }, [period, institutionId, academicYearId]);
+  }, [period, institutionId, academicYearId, currentPage]);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const response = await ratingService.getAll({
+      const response = await ratingService.getAllRatings({
         period,
         institution_id: institutionId,
         academic_year_id: academicYearId,
-        user_role: 'sektoradmin'
+        user_role: 'sektoradmin',
+        page: currentPage,
+        per_page: 15
       });
-      setData(response.data.data || []);
+
+      console.log('📥 [SectorRating] Response structure check:', response);
+
+      if (response && response.data) {
+        setData(response.data);
+        setPagination(response);
+      } else if (Array.isArray(response)) {
+        setData(response);
+        setPagination({
+          data: response,
+          current_page: 1,
+          per_page: response.length,
+          total: response.length,
+          last_page: 1,
+          path: '',
+          from: 1,
+          to: response.length
+        });
+      }
     } catch (error) {
-      console.error('Error loading sector ratings:', error);
+      console.error('❌ Error loading sector ratings:', error);
+      logger.error('Error loading sector ratings:', { error });
     } finally {
       setLoading(false);
     }
@@ -43,32 +80,205 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
   const calculateRating = async (userId: number) => {
     try {
       await ratingService.calculate(userId, {
-        academic_year_id: academicYearId,
+        academic_year_id: academicYearId || 1,
         period
       });
-      loadData(); // Refresh data
+      loadData();
     } catch (error) {
-      console.error('Error calculating rating:', error);
+      logger.error('Error calculating rating:', { error });
     }
   };
 
-  const getRatingColor = (score: number) => {
-    if (score >= 90) return 'bg-green-500';
-    if (score >= 80) return 'bg-blue-500';
-    if (score >= 70) return 'bg-yellow-500';
-    if (score >= 60) return 'bg-orange-500';
-    return 'bg-red-500';
+  const calculateAllRatings = async () => {
+    try {
+      setLoading(true);
+      await ratingService.calculateAll({
+        academic_year_id: academicYearId || 1,
+        period
+      });
+      await loadData();
+    } catch (error) {
+      logger.error('Error calculating all ratings:', { error });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const getRatingBadge = (score: number) => {
-    if (score >= 90) return { text: 'Əla', variant: 'default' as const };
-    if (score >= 80) return { text: 'Yaxşı', variant: 'secondary' as const };
-    if (score >= 70) return { text: 'Orta', variant: 'outline' as const };
-    if (score >= 60) return { text: 'Zəif', variant: 'destructive' as const };
-    return { text: 'Çox Zəif', variant: 'destructive' as const };
+  const bulkSaveChanges = async () => {
+    try {
+      setLoading(true);
+      const rowIds = Object.keys(pendingChanges);
+
+      for (const rowIdStr of rowIds) {
+        const rowId = parseInt(rowIdStr);
+        const item = data.find(d => (d.id || d.user_id) === rowId);
+        if (!item) continue;
+
+        const changes = pendingChanges[rowId];
+        if (item.id) {
+          await ratingService.updateRating(item.id, changes);
+        } else {
+          await ratingService.createRating({
+            ...changes,
+            user_id: item.user_id,
+            institution_id: item.institution_id,
+            academic_year_id: academicYearId || item.academic_year_id,
+            period: item.period || period
+          } as any);
+        }
+      }
+
+      setPendingChanges({});
+      await loadData();
+      logger.info('Bulk save completed', { count: rowIds.length });
+    } catch (error) {
+      logger.error('Error in bulk save:', { error });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  if (loading) {
+  const bulkDelete = async () => {
+    if (selectedItems.length === 0) return;
+    if (!confirm(`Seçilmiş ${selectedItems.length} qeydi silmək istədiyinizdən əminsiniz?`)) return;
+
+    try {
+      setLoading(true);
+      for (const rowId of selectedItems) {
+        const item = data.find(d => (d.id || d.user_id) === rowId);
+        if (item?.id) {
+          await ratingService.deleteRating(item.id);
+        }
+      }
+      setSelectedItems([]);
+      await loadData();
+      logger.info('Bulk delete completed', { count: selectedItems.length });
+    } catch (error) {
+      logger.error('Error in bulk delete:', { error });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const exportToExcel = async () => {
+    try {
+      const exportData = selectedItems.length > 0
+        ? data.filter(item => selectedItems.includes(item.id || item.user_id))
+        : filteredData;
+
+      const csv = [
+        ['Sektor Admin', 'Email', 'Müəssisə', 'Task', 'Survey', 'Manual', 'Ümumi', 'Status'],
+        ...exportData.map(item => [
+          item.user?.full_name || '',
+          item.user?.email || '',
+          item.institution?.name || '',
+          item.task_score || 0,
+          item.survey_score || 0,
+          item.manual_score || 0,
+          item.overall_score || 0,
+          item.status || ''
+        ])
+      ].map(row => row.join(',')).join('\n');
+
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sector-admin-ratings-${period}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      logger.error('Error exporting:', { error });
+    }
+  };
+
+  const handleCellClick = (itemId: number, field: EditingCell['field']) => {
+    setEditingCell({ itemId, field });
+  };
+
+  const handleCellChange = (rowId: number, field: EditingCell['field'], value: string) => {
+    const numValue = parseFloat(value) || 0;
+    const clampedValue = Math.min(100, Math.max(0, numValue));
+
+    setPendingChanges(prev => ({
+      ...prev,
+      [rowId]: {
+        ...prev[rowId],
+        [field]: clampedValue
+      }
+    }));
+
+    setData(prev => prev.map(item =>
+      (item.id || item.user_id) === rowId ? { ...item, [field]: clampedValue } : item
+    ));
+  };
+
+  const handleCellBlur = () => {
+    setEditingCell(null);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === 'Escape') {
+      setEditingCell(null);
+    }
+  };
+
+  const saveChanges = async (rowId: number) => {
+    const changes = pendingChanges[rowId];
+    if (!changes) return;
+
+    const item = data.find(d => (d.id || d.user_id) === rowId);
+    if (!item) return;
+
+    try {
+      setSavingId(rowId);
+      if (item.id) {
+        await ratingService.updateRating(item.id, changes);
+      } else {
+        await ratingService.createRating({
+          ...changes,
+          user_id: item.user_id,
+          institution_id: item.institution_id,
+          academic_year_id: academicYearId || item.academic_year_id,
+          period: item.period || period
+        } as any);
+      }
+
+      setPendingChanges(prev => {
+        const next = { ...prev };
+        delete next[rowId];
+        return next;
+      });
+      loadData();
+    } catch (error) {
+      logger.error('Error saving rating:', { error });
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedItems(filteredData.map(item => item.id || item.user_id));
+    } else {
+      setSelectedItems([]);
+    }
+  };
+
+  const handleSelectItem = (id: number) => {
+    setSelectedItems(prev =>
+      prev.includes(id) ? prev.filter(itemId => itemId !== id) : [...prev, id]
+    );
+  };
+
+  const filteredData = data.filter(item => {
+    const searchLower = searchTerm.toLowerCase();
+    return item.user?.full_name?.toLowerCase().includes(searchLower) ||
+      item.user?.email?.toLowerCase().includes(searchLower) ||
+      item.institution?.name?.toLowerCase().includes(searchLower);
+  });
+
+  if (loading && data.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -77,138 +287,41 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
   }
 
   return (
-    <div className="space-y-6">
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ümumi Sektor</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.length}</div>
-            <p className="text-xs text-muted-foreground">Sektor administratoru</p>
-          </CardContent>
-        </Card>
+    <div className="space-y-8 animate-in fade-in duration-500">
+      {/* 📊 Summary Cards */}
+      <RatingStatsCards data={filteredData} loading={loading} />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ortalama Reytinq</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data.length > 0 
-                ? (data.reduce((sum, item) => sum + (item.overall_score || 0), 0) / data.length).toFixed(1)
-                : '0'
-              }
-            </div>
-            <p className="text-xs text-muted-foreground">Ümumi bal</p>
-          </CardContent>
-        </Card>
+      {/* 🛠 Toolbar Actions */}
+      <RatingActionToolbar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        onCalculateAll={calculateAllRatings}
+        onBulkSave={bulkSaveChanges}
+        onBulkDelete={bulkDelete}
+        onExport={exportToExcel}
+        onLoadMore={() => { }}
+        selectedCount={selectedItems.length}
+        loading={loading}
+      />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Ən Yüksək</CardTitle>
-            <Award className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data.length > 0 
-                ? Math.max(...data.map(item => item.overall_score || 0)).toFixed(1)
-                : '0'
-              }
-            </div>
-            <p className="text-xs text-muted-foreground">Maksimum bal</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Hesablanmış</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data.filter(item => item.status === 'published').length}
-            </div>
-            <p className="text-xs text-muted-foreground">Aktiv reytinq</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Rating List */}
-      <div className="space-y-4">
-        {data.map((item) => {
-          const badge = getRatingBadge(item.overall_score || 0);
-          
-          return (
-            <Card key={item.id}>
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-                      <Users className="h-6 w-6 text-blue-600" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold">{item.user?.full_name || 'Bilinməyən'}</h3>
-                      <p className="text-sm text-muted-foreground">{item.user?.email}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center space-x-4">
-                    <div className="text-right">
-                      <div className="text-2xl font-bold">{item.overall_score?.toFixed(1) || '0'}</div>
-                      <Badge variant={badge.variant}>{badge.text}</Badge>
-                    </div>
-                    
-                    <div className="w-32">
-                      <Progress 
-                        value={item.overall_score || 0} 
-                        className="h-2"
-                      />
-                    </div>
-                    
-                    <Button
-                      onClick={() => calculateRating(item.user_id)}
-                      variant="outline"
-                      size="sm"
-                    >
-                      Hesabla
-                    </Button>
-                  </div>
-                </div>
-                
-                {/* Score Breakdown */}
-                <div className="mt-4 grid grid-cols-3 gap-4">
-                  <div className="text-center">
-                    <div className="text-sm text-muted-foreground">Task</div>
-                    <div className="font-semibold">{item.task_score?.toFixed(1) || '0'}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-muted-foreground">Survey</div>
-                    <div className="font-semibold">{item.survey_score?.toFixed(1) || '0'}</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-sm text-muted-foreground">Manual</div>
-                    <div className="font-semibold">{item.manual_score?.toFixed(1) || '0'}</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-        
-        {data.length === 0 && (
-          <Card>
-            <CardContent className="p-6 text-center">
-              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Sektor administratoru tapılmadı</h3>
-              <p className="text-muted-foreground">Bu dövr üçün heç bir sektor administratoru reytinqi mövcud deyil.</p>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+      {/* 📋 Rating Table */}
+      <RatingDataTable
+        data={filteredData}
+        pagination={pagination}
+        onPageChange={setCurrentPage}
+        selectedItems={selectedItems}
+        onSelectItem={handleSelectItem}
+        onSelectAll={handleSelectAll}
+        editingCell={editingCell}
+        onCellClick={handleCellClick}
+        onCellChange={handleCellChange}
+        onCellBlur={handleCellBlur}
+        onKeyDown={handleKeyDown}
+        onSaveItem={saveChanges}
+        onCalculateItem={calculateRating}
+        pendingChanges={pendingChanges}
+        savingId={savingId}
+      />
     </div>
   );
 };

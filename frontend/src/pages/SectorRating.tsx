@@ -3,7 +3,7 @@ import { SectorRatingTab } from '@/components/rating/SectorRatingTab';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Building2 } from 'lucide-react';
 
-export const SectorRating: React.FC = () => {
+const SectorRating: React.FC = () => {
   return (
     <div className="space-y-6">
       <Card>
@@ -23,3 +23,4 @@ export const SectorRating: React.FC = () => {
     </div>
   );
 };
+export default SectorRating;

@@ -316,33 +316,6 @@ export const improvedNavigationConfig: MenuGroup[] = [
         permissions: ['ratings.read']
       },
       {
-        id: 'sector-rating',
-        label: 'Sektor Reytingləri',
-        path: '/sector-rating',
-        icon: Award,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR],
-        description: 'Sektor administratorlarının reytinq analizi',
-        permissions: ['ratings.read']
-      },
-      {
-        id: 'school-admin-rating',
-        label: 'Direktor Reytingləri',
-        path: '/school-admin-rating',
-        icon: Award,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
-        description: 'Məktəb rəhbərlərinin reytinq analizi',
-        permissions: ['ratings.read']
-      },
-      {
-        id: 'teacher-rating',
-        label: 'Müəllim Reytingləri',
-        path: '/teacher-rating',
-        icon: Award,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
-        description: 'Müəllimlərin performans qiymətləndirməsi',
-        permissions: ['ratings.read']
-      },
-      {
         id: 'teacher-verification',
         label: 'Müəllim Təsdiqi',
         path: '/teacher-verification',

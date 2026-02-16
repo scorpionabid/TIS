@@ -60,7 +60,9 @@ const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 
 // Rating pages
 const EducationRating = lazy(() => import("./pages/EducationRating"));
+const SectorRating = lazy(() => import("./pages/SectorRating"));
 const SchoolAdminRating = lazy(() => import("./pages/SchoolAdminRating"));
+const TeacherRating = lazy(() => import("./pages/TeacherRating"));
 const TeacherVerification = lazy(() => import("./pages/TeacherVerification"));
 
 
@@ -132,7 +134,7 @@ const REGION_ADMIN_ALLOWED_ROLES = [
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
   const location = useLocation();
-  
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -140,12 +142,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
       </div>
     );
   }
-  
+
   if (!isAuthenticated) {
     // Pass the current location as state so LoginPage can redirect back
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-  
+
   return <>{children}</>;
 };
 
@@ -210,10 +212,10 @@ const LoginPage = () => {
 
     // Network/Connection errors (retriable)
     if (errorMessage.includes('fetch') ||
-        errorMessage.includes('NetworkError') ||
-        errorMessage.includes('Failed to fetch') ||
-        errorMessage.includes('timeout') ||
-        errorMessage.includes('Unable to initialize authentication')) {
+      errorMessage.includes('NetworkError') ||
+      errorMessage.includes('Failed to fetch') ||
+      errorMessage.includes('timeout') ||
+      errorMessage.includes('Unable to initialize authentication')) {
       return {
         message: 'Şəbəkə əlaqəsi problemi. Zəhmət olmasa bir az sonra cəhd edin.',
         canRetry: true,
@@ -223,8 +225,8 @@ const LoginPage = () => {
 
     // Authentication errors (not retriable)
     if (errorMessage.includes('credentials') ||
-        errorMessage.includes('yanlışdır') ||
-        errorMessage.includes('401')) {
+      errorMessage.includes('yanlışdır') ||
+      errorMessage.includes('401')) {
       return {
         message: 'İstifadəçi adı və ya şifrə yanlışdır.',
         canRetry: false,
@@ -305,7 +307,7 @@ const LoginPage = () => {
       }
     }
   };
-  
+
   // Enhanced loading message based on state
   const getLoadingMessage = () => {
     if (isRetrying && retryCount > 0) {
@@ -387,478 +389,478 @@ const App = () => {
               <Toaster />
               <EnhancedDebugPanel />
               <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
-          <Routes>
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/password-reset" element={<LazyWrapper><PasswordReset /></LazyWrapper>} />
-            <Route path="/debug" element={<LazyWrapper><DebugConsole /></LazyWrapper>} />
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Layout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<LazyWrapper><Index /></LazyWrapper>} />
-              <Route path="users" element={<LazyWrapper><Users /></LazyWrapper>} />
-              <Route path="students" element={<LazyWrapper><Students /></LazyWrapper>} />
-              <Route path="roles" element={<LazyWrapper><Roles /></LazyWrapper>} />
-              <Route path="permissions" element={<LazyWrapper><Permissions /></LazyWrapper>} />
-              <Route path="departments" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
-                    requiredPermissions={['departments.read']}
-                    permissionMatch="any"
+                <Routes>
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/password-reset" element={<LazyWrapper><PasswordReset /></LazyWrapper>} />
+                  <Route path="/debug" element={<LazyWrapper><DebugConsole /></LazyWrapper>} />
+                  <Route
+                    path="/"
+                    element={
+                      <ProtectedRoute>
+                        <Layout />
+                      </ProtectedRoute>
+                    }
                   >
-                    <Departments />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="institutions" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
-                    requiredPermissions={['institutions.read']}
-                    permissionMatch="any"
-                  >
-                    <Institutions />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="preschools" element={<LazyWrapper><Preschools /></LazyWrapper>} />
-              <Route path="regions" element={<LazyWrapper><Regions /></LazyWrapper>} />
-              <Route path="sectors" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]}
-                    requiredPermissions={['institutions.read']}
-                    permissionMatch="any"
-                  >
-                    <Sectors />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="hierarchy" element={<LazyWrapper><Hierarchy /></LazyWrapper>} />
-              <Route path="surveys" element={<LazyWrapper><Surveys /></LazyWrapper>} />
-              <Route path="survey-response/:surveyId" element={<LazyWrapper><SurveyResponse /></LazyWrapper>} />
-              <Route path="survey-response/:surveyId/:responseId" element={<LazyWrapper><SurveyResponse /></LazyWrapper>} />
-              <Route path="approvals" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]}
-                    requiredPermissions={['approvals.read']}
-                    permissionMatch="any"
-                  >
-                    <Approvals />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="survey-archive" element={<LazyWrapper><SurveyArchive /></LazyWrapper>} />
-              <Route path="survey-analytics" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <SurveyAnalytics />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="survey-export" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <SurveyExport />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="tasks" element={<LazyWrapper><Tasks /></LazyWrapper>} />
-              <Route
-                path="tasks/assigned"
-                element={
-                  <RoleProtectedRoute
-                    allowedRoles={[
-                      USER_ROLES.SUPERADMIN,
-                      USER_ROLES.REGIONADMIN,
-                      USER_ROLES.REGIONOPERATOR,
-                      USER_ROLES.SEKTORADMIN,
-                      USER_ROLES.SCHOOLADMIN,
-                    ]}
-                  >
-                    <LazyWrapper>
-                      <AssignedTasks />
-                    </LazyWrapper>
-                  </RoleProtectedRoute>
-                }
-              />
-              <Route
-                path="my-delegations"
-                element={
-                  <RoleProtectedRoute
-                    allowedRoles={[
-                      USER_ROLES.SUPERADMIN,
-                      USER_ROLES.REGIONADMIN,
-                      USER_ROLES.REGIONOPERATOR,
-                      USER_ROLES.SEKTORADMIN,
-                      USER_ROLES.SCHOOLADMIN,
-                      USER_ROLES.MUELLIM,
-                    ]}
-                  >
-                    <LazyWrapper>
-                      <MyDelegations />
-                    </LazyWrapper>
-                  </RoleProtectedRoute>
-                }
-              />
+                    <Route index element={<LazyWrapper><Index /></LazyWrapper>} />
+                    <Route path="users" element={<LazyWrapper><Users /></LazyWrapper>} />
+                    <Route path="students" element={<LazyWrapper><Students /></LazyWrapper>} />
+                    <Route path="roles" element={<LazyWrapper><Roles /></LazyWrapper>} />
+                    <Route path="permissions" element={<LazyWrapper><Permissions /></LazyWrapper>} />
+                    <Route path="departments" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                          requiredPermissions={['departments.read']}
+                          permissionMatch="any"
+                        >
+                          <Departments />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="institutions" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                          requiredPermissions={['institutions.read']}
+                          permissionMatch="any"
+                        >
+                          <Institutions />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="preschools" element={<LazyWrapper><Preschools /></LazyWrapper>} />
+                    <Route path="regions" element={<LazyWrapper><Regions /></LazyWrapper>} />
+                    <Route path="sectors" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]}
+                          requiredPermissions={['institutions.read']}
+                          permissionMatch="any"
+                        >
+                          <Sectors />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="hierarchy" element={<LazyWrapper><Hierarchy /></LazyWrapper>} />
+                    <Route path="surveys" element={<LazyWrapper><Surveys /></LazyWrapper>} />
+                    <Route path="survey-response/:surveyId" element={<LazyWrapper><SurveyResponse /></LazyWrapper>} />
+                    <Route path="survey-response/:surveyId/:responseId" element={<LazyWrapper><SurveyResponse /></LazyWrapper>} />
+                    <Route path="approvals" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]}
+                          requiredPermissions={['approvals.read']}
+                          permissionMatch="any"
+                        >
+                          <Approvals />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="survey-archive" element={<LazyWrapper><SurveyArchive /></LazyWrapper>} />
+                    <Route path="survey-analytics" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <SurveyAnalytics />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="survey-export" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <SurveyExport />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="tasks" element={<LazyWrapper><Tasks /></LazyWrapper>} />
+                    <Route
+                      path="tasks/assigned"
+                      element={
+                        <RoleProtectedRoute
+                          allowedRoles={[
+                            USER_ROLES.SUPERADMIN,
+                            USER_ROLES.REGIONADMIN,
+                            USER_ROLES.REGIONOPERATOR,
+                            USER_ROLES.SEKTORADMIN,
+                            USER_ROLES.SCHOOLADMIN,
+                          ]}
+                        >
+                          <LazyWrapper>
+                            <AssignedTasks />
+                          </LazyWrapper>
+                        </RoleProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="my-delegations"
+                      element={
+                        <RoleProtectedRoute
+                          allowedRoles={[
+                            USER_ROLES.SUPERADMIN,
+                            USER_ROLES.REGIONADMIN,
+                            USER_ROLES.REGIONOPERATOR,
+                            USER_ROLES.SEKTORADMIN,
+                            USER_ROLES.SCHOOLADMIN,
+                            USER_ROLES.MUELLIM,
+                          ]}
+                        >
+                          <LazyWrapper>
+                            <MyDelegations />
+                          </LazyWrapper>
+                        </RoleProtectedRoute>
+                      }
+                    />
 
-              <Route path="links" element={<LazyWrapper><Links /></LazyWrapper>} />
-              <Route path="link-database" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
-                    requiredPermissions={['links.read']}
-                    permissionMatch="any"
-                  >
-                    <LinkDatabase />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="documents" element={<LazyWrapper><Documents /></LazyWrapper>} />
-              <Route path="folders" element={<LazyWrapper><Folders /></LazyWrapper>} />
-              <Route path="my-resources" element={<LazyWrapper><MyResources /></LazyWrapper>} />
+                    <Route path="links" element={<LazyWrapper><Links /></LazyWrapper>} />
+                    <Route path="link-database" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                          requiredPermissions={['links.read']}
+                          permissionMatch="any"
+                        >
+                          <LinkDatabase />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="documents" element={<LazyWrapper><Documents /></LazyWrapper>} />
+                    <Route path="folders" element={<LazyWrapper><Folders /></LazyWrapper>} />
+                    <Route path="my-resources" element={<LazyWrapper><MyResources /></LazyWrapper>} />
 
-              {/* Redirect old paths to new unified page */}
-              <Route path="resources" element={<Navigate to="/links" replace />} />
+                    {/* Redirect old paths to new unified page */}
+                    <Route path="resources" element={<Navigate to="/links" replace />} />
 
-              <Route path="reports" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[
-                      USER_ROLES.SUPERADMIN,
-                      USER_ROLES.REGIONADMIN,
-                      USER_ROLES.SEKTORADMIN,
-                      USER_ROLES.SCHOOLADMIN,
-                      USER_ROLES.REGIONOPERATOR,
-                    ]}
-                    requiredPermissions={['reports.read']}
-                  >
-                    <Reports />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="subjects" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
-                    requiredPermissions={['subjects.read']}
-                    permissionMatch="any"
-                  >
-                    <SubjectManagement />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="institution-types-management" element={<LazyWrapper><InstitutionTypesManagement /></LazyWrapper>} />
-              <Route path="academic-year-management" element={<LazyWrapper><AcademicYearManagement /></LazyWrapper>} />
-              <Route path="notifications" element={<LazyWrapper><Notifications /></LazyWrapper>} />
-              <Route path="analytics" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[
-                      USER_ROLES.SUPERADMIN,
-                      USER_ROLES.REGIONADMIN,
-                      USER_ROLES.SEKTORADMIN,
-                      USER_ROLES.SCHOOLADMIN,
-                      USER_ROLES.REGIONOPERATOR,
-                    ]}
-                    requiredPermissions={['analytics.view']}
-                  >
-                    <Analytics />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="settings" element={<LazyWrapper><Settings /></LazyWrapper>} />
-              <Route path="audit-logs" element={<LazyWrapper><AuditLogs /></LazyWrapper>} />
-              <Route path="performance" element={<LazyWrapper><Performance /></LazyWrapper>} />
-              <Route path="school/workload" element={<LazyWrapper><SchoolWorkload /></LazyWrapper>} />
-              <Route path="school/schedules" element={<LazyWrapper><SchoolSchedules /></LazyWrapper>} />
-              
-              {/* Assessment Management Routes */}
-              <Route path="assessments/types" element={<LazyWrapper><AssessmentTypes /></LazyWrapper>} />
-              <Route path="assessments/results" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}
-                    requiredPermissions={['assessments.read']}
-                    permissionMatch="any"
-                  >
-                    <AssessmentResults />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="assessments/entry" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
-                    <AssessmentEntry />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              
-              
-              {/* RegionAdmin Routes */}
-              <Route
-                element={
-                  <RoleProtectedRoute allowedRoles={[...REGION_ADMIN_ALLOWED_ROLES]}>
-                    <Outlet />
-                  </RoleProtectedRoute>
-                }
-              >
-                <Route path="regionadmin" element={<LazyWrapper><RegionAdminIndex /></LazyWrapper>} />
-                <Route path="regionadmin/users/operators" element={
-                  <LazyWrapper>
-                    <RoleProtectedRoute
-                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
-                      requiredPermissions={['users.read']}
-                      permissionMatch="any"
-                    >
-                      <RegionAdminUsers />
-                    </RoleProtectedRoute>
-                  </LazyWrapper>
-                } />
-                <Route path="regionadmin/users/sektoradmins" element={
-                  <LazyWrapper>
-                    <RoleProtectedRoute
-                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
-                      requiredPermissions={['users.read']}
-                      permissionMatch="any"
-                    >
-                      <RegionAdminUsers />
-                    </RoleProtectedRoute>
-                  </LazyWrapper>
-                } />
-                <Route path="regionadmin/users/schooladmins" element={
-                  <LazyWrapper>
-                    <RoleProtectedRoute
-                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
-                      requiredPermissions={['users.read']}
-                      permissionMatch="any"
-                    >
-                      <RegionAdminUsers />
-                    </RoleProtectedRoute>
-                  </LazyWrapper>
-                } />
-                <Route path="regionadmin/users/teachers" element={
-                  <LazyWrapper>
-                    <RoleProtectedRoute
-                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
-                      requiredPermissions={['users.read']}
-                      permissionMatch="any"
-                    >
-                      <RegionAdminUsers />
-                    </RoleProtectedRoute>
-                  </LazyWrapper>
-                } />
-                <Route path="regionadmin/sectors" element={<LazyWrapper><RegionAdminSectors /></LazyWrapper>} />
-                <Route path="regionadmin/teachers" element={<LazyWrapper><RegionTeacherManagement /></LazyWrapper>} />
-                <Route path="regionadmin/classes" element={
-                  <LazyWrapper>
-                    <RoleProtectedRoute
-                      allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
-                      requiredPermissions={['classes.read']}
-                      permissionMatch="any"
-                    >
-                      <RegionClassManagement />
-                    </RoleProtectedRoute>
-                  </LazyWrapper>
-                } />
-                <Route path="regionadmin/schools" element={<div className="p-6"><h1>Regional Schools</h1><p>Hazırlanmaqdadır...</p></div>} />
-                <Route path="regionadmin/hierarchy" element={<div className="p-6"><h1>Regional Hierarchy</h1><p>Hazırlanmaqdadır...</p></div>} />
-                <Route path="regionadmin/tasks/*" element={<div className="p-6"><h1>Regional Tasks</h1><p>Hazırlanmaqdadır...</p></div>} />
-                <Route path="regionadmin/surveys/*" element={<div className="p-6"><h1>Regional Surveys</h1><p>Hazırlanmaqdadır...</p></div>} />
-                <Route path="regionadmin/documents/*" element={<div className="p-6"><h1>Regional Documents</h1><p>Hazırlanmaqdadır...</p></div>} />
-                <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
-                <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
-                <Route path="regionadmin/attendance/reports" element={
-                  <LazyWrapper>
-                    <RoleProtectedRoute
-                      allowedRoles={[
-                        USER_ROLES.SUPERADMIN,
-                        USER_ROLES.REGIONADMIN,
-                        USER_ROLES.SEKTORADMIN,
-                        USER_ROLES.REGIONOPERATOR,
-                      ]}
-                      requiredPermissions={['attendance.read']}
-                    >
-                      <RegionAttendanceReports />
-                    </RoleProtectedRoute>
-                  </LazyWrapper>
-                } />
-                <Route path="regionadmin/schedules" element={<LazyWrapper><RegionSchedules /></LazyWrapper>} />
-                <Route path="regionadmin/folders" element={<Navigate to="/resources?tab=folders" replace />} />
-                <Route path="regionadmin/schedule-dashboard" element={
-                  <LazyWrapper>
-                    <RegionalSchedulesDashboard />
-                  </LazyWrapper>
-                } />
-                <Route path="regionadmin/schedule-comparison" element={
-                  <LazyWrapper>
-                    <ScheduleComparisonTool />
-                  </LazyWrapper>
-                } />
-              </Route>
+                    <Route path="reports" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[
+                            USER_ROLES.SUPERADMIN,
+                            USER_ROLES.REGIONADMIN,
+                            USER_ROLES.SEKTORADMIN,
+                            USER_ROLES.SCHOOLADMIN,
+                            USER_ROLES.REGIONOPERATOR,
+                          ]}
+                          requiredPermissions={['reports.read']}
+                        >
+                          <Reports />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="subjects" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                          requiredPermissions={['subjects.read']}
+                          permissionMatch="any"
+                        >
+                          <SubjectManagement />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="institution-types-management" element={<LazyWrapper><InstitutionTypesManagement /></LazyWrapper>} />
+                    <Route path="academic-year-management" element={<LazyWrapper><AcademicYearManagement /></LazyWrapper>} />
+                    <Route path="notifications" element={<LazyWrapper><Notifications /></LazyWrapper>} />
+                    <Route path="analytics" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[
+                            USER_ROLES.SUPERADMIN,
+                            USER_ROLES.REGIONADMIN,
+                            USER_ROLES.SEKTORADMIN,
+                            USER_ROLES.SCHOOLADMIN,
+                            USER_ROLES.REGIONOPERATOR,
+                          ]}
+                          requiredPermissions={['analytics.view']}
+                        >
+                          <Analytics />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="settings" element={<LazyWrapper><Settings /></LazyWrapper>} />
+                    <Route path="audit-logs" element={<LazyWrapper><AuditLogs /></LazyWrapper>} />
+                    <Route path="performance" element={<LazyWrapper><Performance /></LazyWrapper>} />
+                    <Route path="school/workload" element={<LazyWrapper><SchoolWorkload /></LazyWrapper>} />
+                    <Route path="school/schedules" element={<LazyWrapper><SchoolSchedules /></LazyWrapper>} />
 
-              {/* REDIRECTS for old routes - backward compatibility */}
-              <Route path="my-documents" element={<Navigate to="/my-resources?tab=folders" replace />} />
-              
-              {/* SchoolAdmin Routes */}
-              <Route path="school/students" element={<Navigate to="/students" replace />} />
-              <Route path="school/teachers" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <SchoolTeachers />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/classes" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <SchoolClasses />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/attendance" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <SchoolAttendanceRecord />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/attendance/bulk" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <BulkAttendanceEntry />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/attendance/reports" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR]}
-                    requiredPermissions={['attendance.read']}
-                  >
-                    <AttendanceReports />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/assessments" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
-                    <SchoolAssessments />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/assessments/reports" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <AssessmentResults />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/gradebook" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
-                    <SchoolGradebook />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/schedule-management" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <SchoolScheduleManagement />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/schedule-builder" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <ScheduleBuilderPage />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="school/schedule-comparison" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                    <ScheduleComparisonTool />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              {/* Teacher Routes */}
-              <Route path="teacher/schedule" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
-                    <TeacherSchedule />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="teacher/dashboard" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
-                    <TeacherDashboard />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="teacher/profile" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
-                    <TeacherProfile />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="teacher/classes" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
-                    <TeacherClasses />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="teacher/performance" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
-                    <TeacherPerformance />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              <Route path="teacher/resources" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
-                    <TeacherResources />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
+                    {/* Assessment Management Routes */}
+                    <Route path="assessments/types" element={<LazyWrapper><AssessmentTypes /></LazyWrapper>} />
+                    <Route path="assessments/results" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}
+                          requiredPermissions={['assessments.read']}
+                          permissionMatch="any"
+                        >
+                          <AssessmentResults />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="assessments/entry" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
+                          <AssessmentEntry />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
 
-              {/* My Surveys Routes */}
-              <Route path="my-surveys/pending" element={<LazyWrapper><PendingSurveys /></LazyWrapper>} />
-              <Route path="my-surveys/responses" element={<LazyWrapper><MyResponses /></LazyWrapper>} />
 
-              <Route path="education-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
-              <Route path="teacher-verification" element={
-                <LazyWrapper>
-                  <RoleProtectedRoute
-                    allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]}
-                  >
-                    <TeacherVerification />
-                  </RoleProtectedRoute>
-                </LazyWrapper>
-              } />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="sector-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
-              <Route path="school-admin-rating" element={<LazyWrapper><SchoolAdminRating /></LazyWrapper>} />
-              <Route path="teacher-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
-              <Route path="*" element={<NotFound />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </WebSocketProvider>
-  </DebugProvider>
-</AuthProvider>
-</QueryClientProvider>
+                    {/* RegionAdmin Routes */}
+                    <Route
+                      element={
+                        <RoleProtectedRoute allowedRoles={[...REGION_ADMIN_ALLOWED_ROLES]}>
+                          <Outlet />
+                        </RoleProtectedRoute>
+                      }
+                    >
+                      <Route path="regionadmin" element={<LazyWrapper><RegionAdminIndex /></LazyWrapper>} />
+                      <Route path="regionadmin/users/operators" element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                            requiredPermissions={['users.read']}
+                            permissionMatch="any"
+                          >
+                            <RegionAdminUsers />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      } />
+                      <Route path="regionadmin/users/sektoradmins" element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                            requiredPermissions={['users.read']}
+                            permissionMatch="any"
+                          >
+                            <RegionAdminUsers />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      } />
+                      <Route path="regionadmin/users/schooladmins" element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                            requiredPermissions={['users.read']}
+                            permissionMatch="any"
+                          >
+                            <RegionAdminUsers />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      } />
+                      <Route path="regionadmin/users/teachers" element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                            requiredPermissions={['users.read']}
+                            permissionMatch="any"
+                          >
+                            <RegionAdminUsers />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      } />
+                      <Route path="regionadmin/sectors" element={<LazyWrapper><RegionAdminSectors /></LazyWrapper>} />
+                      <Route path="regionadmin/teachers" element={<LazyWrapper><RegionTeacherManagement /></LazyWrapper>} />
+                      <Route path="regionadmin/classes" element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}
+                            requiredPermissions={['classes.read']}
+                            permissionMatch="any"
+                          >
+                            <RegionClassManagement />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      } />
+                      <Route path="regionadmin/schools" element={<div className="p-6"><h1>Regional Schools</h1><p>Hazırlanmaqdadır...</p></div>} />
+                      <Route path="regionadmin/hierarchy" element={<div className="p-6"><h1>Regional Hierarchy</h1><p>Hazırlanmaqdadır...</p></div>} />
+                      <Route path="regionadmin/tasks/*" element={<div className="p-6"><h1>Regional Tasks</h1><p>Hazırlanmaqdadır...</p></div>} />
+                      <Route path="regionadmin/surveys/*" element={<div className="p-6"><h1>Regional Surveys</h1><p>Hazırlanmaqdadır...</p></div>} />
+                      <Route path="regionadmin/documents/*" element={<div className="p-6"><h1>Regional Documents</h1><p>Hazırlanmaqdadır...</p></div>} />
+                      <Route path="regionadmin/reports/*" element={<div className="p-6"><h1>Regional Reports</h1><p>Hazırlanmaqdadır...</p></div>} />
+                      <Route path="regionadmin/settings/*" element={<div className="p-6"><h1>Regional Settings</h1><p>Hazırlanmaqdadır...</p></div>} />
+                      <Route path="regionadmin/attendance/reports" element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.REGIONADMIN,
+                              USER_ROLES.SEKTORADMIN,
+                              USER_ROLES.REGIONOPERATOR,
+                            ]}
+                            requiredPermissions={['attendance.read']}
+                          >
+                            <RegionAttendanceReports />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      } />
+                      <Route path="regionadmin/schedules" element={<LazyWrapper><RegionSchedules /></LazyWrapper>} />
+                      <Route path="regionadmin/folders" element={<Navigate to="/resources?tab=folders" replace />} />
+                      <Route path="regionadmin/schedule-dashboard" element={
+                        <LazyWrapper>
+                          <RegionalSchedulesDashboard />
+                        </LazyWrapper>
+                      } />
+                      <Route path="regionadmin/schedule-comparison" element={
+                        <LazyWrapper>
+                          <ScheduleComparisonTool />
+                        </LazyWrapper>
+                      } />
+                    </Route>
+
+                    {/* REDIRECTS for old routes - backward compatibility */}
+                    <Route path="my-documents" element={<Navigate to="/my-resources?tab=folders" replace />} />
+
+                    {/* SchoolAdmin Routes */}
+                    <Route path="school/students" element={<Navigate to="/students" replace />} />
+                    <Route path="school/teachers" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <SchoolTeachers />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/classes" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <SchoolClasses />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/attendance" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <SchoolAttendanceRecord />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/attendance/bulk" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <BulkAttendanceEntry />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/attendance/reports" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR]}
+                          requiredPermissions={['attendance.read']}
+                        >
+                          <AttendanceReports />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/assessments" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
+                          <SchoolAssessments />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/assessments/reports" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <AssessmentResults />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/gradebook" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]}>
+                          <SchoolGradebook />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/schedule-management" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <SchoolScheduleManagement />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/schedule-builder" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <ScheduleBuilderPage />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school/schedule-comparison" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <ScheduleComparisonTool />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    {/* Teacher Routes */}
+                    <Route path="teacher/schedule" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                          <TeacherSchedule />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="teacher/dashboard" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                          <TeacherDashboard />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="teacher/profile" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                          <TeacherProfile />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="teacher/classes" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                          <TeacherClasses />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="teacher/performance" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                          <TeacherPerformance />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="teacher/resources" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM]}>
+                          <TeacherResources />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+
+                    {/* My Surveys Routes */}
+                    <Route path="my-surveys/pending" element={<LazyWrapper><PendingSurveys /></LazyWrapper>} />
+                    <Route path="my-surveys/responses" element={<LazyWrapper><MyResponses /></LazyWrapper>} />
+
+                    <Route path="education-rating" element={<LazyWrapper><EducationRating /></LazyWrapper>} />
+                    <Route path="teacher-verification" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute
+                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]}
+                        >
+                          <TeacherVerification />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                    <Route path="sector-rating" element={<LazyWrapper><SectorRating /></LazyWrapper>} />
+                    <Route path="school-admin-rating" element={<LazyWrapper><SchoolAdminRating /></LazyWrapper>} />
+                    <Route path="teacher-rating" element={<LazyWrapper><TeacherRating /></LazyWrapper>} />
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
+                </Routes>
+              </BrowserRouter>
+            </TooltipProvider>
+          </WebSocketProvider>
+        </DebugProvider>
+      </AuthProvider>
+    </QueryClientProvider>
   );
 };
 
