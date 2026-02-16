@@ -49,6 +49,19 @@ export interface RatingConfig {
   updated_at: string;
 }
 
+export interface PaginatedResponse<T> {
+  data: T[];
+  current_page: number;
+  per_page: number;
+  total: number;
+  last_page: number;
+  first_page_url?: string;
+  last_page_url?: string;
+  path: string;
+  from: number;
+  to: number;
+}
+
 export interface RatingListParams {
   page?: number;
   per_page?: number;

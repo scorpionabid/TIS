@@ -31,12 +31,73 @@ class RatingService extends BaseService<RatingEntity> {
       data: { params }
     });
 
-    const response = await apiClient.get<RatingItem[]>(this.baseEndpoint, params);
+    const response = await apiClient.get(this.baseEndpoint, params);
+
+    // Enhanced response handling for API consistency
+    console.log(' [RatingService] Raw API response:', response);
+    console.log(' [RatingService] Response type:', typeof response);
 
     // Handle paginated response structure from API
     if (response && typeof response === 'object' && 'current_page' in response) {
+      console.log(' [RatingService] Using paginated response structure');
       return response as unknown as PaginatedResponse<RatingItem>;
     }
+
+    // Handle direct array response
+    if (Array.isArray(response)) {
+      console.log(' [RatingService] Using direct array response');
+      const data = response;
+      return {
+        data,
+        current_page: 1,
+        per_page: data.length,
+        total: data.length,
+        last_page: 1,
+        first_page_url: '',
+        last_page_url: '',
+        path: this.baseEndpoint,
+        from: 1,
+        to: data.length
+      } as PaginatedResponse<RatingItem>;
+    }
+
+    // Handle nested data structure where response.data is the paginator
+    if (response && typeof response === 'object' && 'data' in response && response.data && typeof response.data === 'object' && 'current_page' in response.data) {
+      console.log(' [RatingService] Using nested paginator structure');
+      const paginator = response.data as any;
+      return {
+        data: paginator.data || [],
+        current_page: paginator.current_page || 1,
+        per_page: paginator.per_page || 15,
+        total: paginator.total || 0,
+        last_page: paginator.last_page || 1,
+        first_page_url: paginator.first_page_url || '',
+        last_page_url: paginator.last_page_url || '',
+        path: paginator.path || this.baseEndpoint,
+        from: paginator.from || 1,
+        to: paginator.to || 0
+      } as PaginatedResponse<RatingItem>;
+    }
+
+    // Handle nested data structure where response.data is the array
+    if (response && typeof response === 'object' && 'data' in response && Array.isArray(response.data)) {
+      console.log(' [RatingService] Using nested data array structure');
+      const data = response.data;
+      return {
+        data,
+        current_page: (response as any).current_page || 1,
+        per_page: (response as any).per_page || data.length,
+        total: (response as any).total || data.length,
+        last_page: (response as any).last_page || 1,
+        first_page_url: (response as any).first_page_url || '',
+        last_page_url: (response as any).last_page_url || '',
+        path: (response as any).path || this.baseEndpoint,
+        from: (response as any).from || 1,
+        to: (response as any).to || data.length
+      } as PaginatedResponse<RatingItem>;
+    }
+
+    console.warn(' [RatingService] Unexpected response structure:', response);
 
     // Fallback for non-paginated response
     const data = handleArrayResponse<RatingItem>(response, 'RatingService.getAllRatings');
@@ -48,8 +109,6 @@ class RatingService extends BaseService<RatingEntity> {
       last_page: 1,
       first_page_url: '',
       last_page_url: '',
-      next_page_url: null,
-      prev_page_url: null,
       path: this.baseEndpoint,
       from: 1,
       to: data.length
