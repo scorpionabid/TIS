@@ -381,7 +381,7 @@ class User extends Authenticatable
         $firstName = trim($this->first_name ?? '');
         $lastName = trim($this->last_name ?? '');
 
-        if (! $firstName && ! $lastName) {
+        if (!$firstName && !$lastName) {
             $profileFirst = trim($this->profile?->first_name ?? '');
             $profileLast = trim($this->profile?->last_name ?? '');
 
@@ -459,7 +459,7 @@ class User extends Authenticatable
      */
     public function isSuspended(): bool
     {
-        return ! $this->is_active && ! $this->trashed();
+        return !$this->is_active && !$this->trashed();
     }
 
     /**
@@ -467,7 +467,7 @@ class User extends Authenticatable
      */
     public function isFullyActive(): bool
     {
-        return $this->is_active && ! $this->trashed();
+        return $this->is_active && !$this->trashed();
     }
 
     // ========================================
@@ -489,12 +489,12 @@ class User extends Authenticatable
     public function addDepartment(int $departmentId): void
     {
         $departments = $this->departments ?? [];
-        if (! in_array($departmentId, $departments)) {
+        if (!in_array($departmentId, $departments)) {
             $departments[] = $departmentId;
             $this->departments = $departments;
 
             // Set as primary if no primary department
-            if (! $this->department_id) {
+            if (!$this->department_id) {
                 $this->department_id = $departmentId;
             }
         }
@@ -505,7 +505,7 @@ class User extends Authenticatable
      */
     public function removeDepartment(int $departmentId): void
     {
-        $departments = array_filter($this->departments ?? [], fn ($id) => $id !== $departmentId);
+        $departments = array_filter($this->departments ?? [], fn($id) => $id !== $departmentId);
         $this->departments = array_values($departments);
 
         // Update primary if it was removed
@@ -522,7 +522,7 @@ class User extends Authenticatable
         $this->department_id = $departmentId;
 
         // Ensure it's in departments array
-        if (! $this->inDepartment((string) $departmentId)) {
+        if (!$this->inDepartment((string) $departmentId)) {
             $this->addDepartment($departmentId);
         }
     }
@@ -555,5 +555,13 @@ class User extends Authenticatable
     public function performedVerifications(): HasMany
     {
         return $this->hasMany(TeacherVerification::class, 'verified_by');
+    }
+
+    /**
+     * Get the ratings for this user.
+     */
+    public function ratings(): HasMany
+    {
+        return $this->hasMany(Rating::class);
     }
 }

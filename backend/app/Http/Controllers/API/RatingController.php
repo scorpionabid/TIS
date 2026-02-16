@@ -26,37 +26,83 @@ class RatingController extends BaseController
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Rating::with(['user', 'institution', 'academicYear'])
-                ->when($request->user()->cannot('ratings.manage'), function ($query) use ($request) {
-                    return $query->where('institution_id', $request->user()->institution_id);
-                })
-                ->when($request->get('user_id'), function ($query, $userId) {
-                    return $query->where('user_id', $userId);
-                })
-                ->when($request->get('institution_id'), function ($query, $institutionId) {
-                    return $query->where('institution_id', $institutionId);
-                })
-                ->when($request->get('academic_year_id'), function ($query, $academicYearId) {
-                    return $query->where('academic_year_id', $academicYearId);
-                })
-                ->when($request->get('period'), function ($query, $period) {
-                    return $query->where('period', $period);
-                })
-                ->when($request->get('status'), function ($query, $status) {
-                    return $query->where('status', $status);
-                })
-                ->when($request->get('user_role'), function ($query, $role) {
-                    return $query->whereHas('user', function ($q) use ($role) {
-                        $q->whereHas('role', function ($rq) use ($role) {
-                            $rq->where('name', $role);
-                        });
+            $period = $request->get('period');
+            $academicYearId = $request->get('academic_year_id');
+            $userRole = $request->get('user_role');
+
+            if ($userRole) {
+                // If filtering by role, we want all users of that role, potentially with ratings
+                $query = \App\Models\User::with([
+                    'institution',
+                    'ratings' => function ($q) use ($period, $academicYearId) {
+                        $q->when($period, fn($q) => $q->where('period', $period))
+                            ->when($academicYearId, fn($q) => $q->where('academic_year_id', $academicYearId));
+                    }
+                ])
+                    ->byRole($userRole)
+                    ->when($request->get('institution_id'), function ($query, $institutionId) {
+                        return $query->where('institution_id', $institutionId);
+                    })
+                    ->when($request->user()->cannot('ratings.manage'), function ($query) use ($request) {
+                        return $query->where('institution_id', $request->user()->institution_id);
                     });
+
+                $paginator = $query->orderBy('first_name', 'asc')->paginate($request->get('per_page', 15));
+
+                // Transform to look like Rating model for frontend compatibility
+                $transformedData = collect($paginator->items())->map(function ($user) use ($period, $academicYearId) {
+                    $rating = $user->ratings->first();
+                    return [
+                        'id' => $rating?->id ?? null,
+                        'user_id' => $user->id,
+                        'institution_id' => $user->institution_id,
+                        'academic_year_id' => $rating?->academic_year_id ?? $academicYearId,
+                        'period' => $rating?->period ?? $period,
+                        'overall_score' => $rating?->overall_score ?? 0,
+                        'task_score' => $rating?->task_score ?? 0,
+                        'survey_score' => $rating?->survey_score ?? 0,
+                        'manual_score' => $rating?->manual_score ?? 0,
+                        'status' => $rating?->status ?? 'draft',
+                        'user' => [
+                            'id' => $user->id,
+                            'full_name' => $user->name,
+                            'email' => $user->email,
+                        ],
+                        'institution' => $user->institution ? [
+                            'id' => $user->institution->id,
+                            'name' => $user->institution->name,
+                        ] : null,
+                    ];
                 });
 
-            $ratings = $query->orderBy('created_at', 'desc')
-                ->paginate($request->get('per_page', 15));
+                $results = $paginator->setCollection($transformedData);
+            } else {
+                // Standard Rating-based query
+                $query = Rating::with(['user', 'institution', 'academicYear'])
+                    ->when($request->user()->cannot('ratings.manage'), function ($query) use ($request) {
+                        return $query->where('institution_id', $request->user()->institution_id);
+                    })
+                    ->when($request->get('user_id'), function ($query, $userId) {
+                        return $query->where('user_id', $userId);
+                    })
+                    ->when($request->get('institution_id'), function ($query, $institutionId) {
+                        return $query->where('institution_id', $institutionId);
+                    })
+                    ->when($academicYearId, function ($query, $academicYearId) {
+                        return $query->where('academic_year_id', $academicYearId);
+                    })
+                    ->when($period, function ($query, $period) {
+                        return $query->where('period', $period);
+                    })
+                    ->when($request->get('status'), function ($query, $status) {
+                        return $query->where('status', $status);
+                    });
 
-            return $this->successResponse($ratings, 'Reytinqlər uğurla əldə edildi');
+                $results = $query->orderBy('created_at', 'desc')
+                    ->paginate($request->get('per_page', 15));
+            }
+
+            return $this->successResponse($results, 'Reytinqlər uğurla əldə edildi');
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinqlər əldə edilə bilmədi: ' . $e->getMessage());
         }
