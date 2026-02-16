@@ -4,12 +4,27 @@ import { GraduationCap, TrendingUp, Award, Users } from 'lucide-react';
 import { RatingItem } from '@/types/rating';
 
 interface TeacherStatsCardsProps {
-    data: RatingItem[];
+    data?: RatingItem[];
+    stats?: {
+        total_teachers: number;
+        average_score: number;
+        highest_score: number;
+        active_count?: number;
+    };
     loading?: boolean;
 }
 
-export const TeacherStatsCards: React.FC<TeacherStatsCardsProps> = ({ data, loading }) => {
+export const TeacherStatsCards: React.FC<TeacherStatsCardsProps> = ({ data = [], stats: externalStats, loading }) => {
     const calculateStats = () => {
+        if (externalStats) {
+            return {
+                total: externalStats.total_teachers,
+                average: externalStats.average_score.toFixed(1),
+                highest: externalStats.highest_score.toFixed(1),
+                active: externalStats.active_count || externalStats.total_teachers
+            };
+        }
+
         if (data.length === 0) {
             return {
                 total: 0,

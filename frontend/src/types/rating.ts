@@ -79,6 +79,9 @@ export interface RatingListParams {
   period?: string;
   status?: string;
   user_role?: string;
+  sort_by?: string;
+  sort_order?: 'asc' | 'desc';
+  search?: string;
 }
 
 export interface CalculateRequest {

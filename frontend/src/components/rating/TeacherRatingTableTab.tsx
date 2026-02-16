@@ -18,16 +18,48 @@ export const TeacherRatingTableTab: React.FC<TeacherRatingTableTabProps> = ({
 }) => {
   const { toast } = useToast();
   const [data, setData] = useState<RatingItem[]>([]);
+  const [stats, setStats] = useState<any>(null);
   const [pagination, setPagination] = useState<PaginatedResponse<RatingItem> | null>(null);
   const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [calculatingId, setCalculatingId] = useState<number | null>(null);
   const [isCalculatingAll, setIsCalculatingAll] = useState(false);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [perPage, setPerPage] = useState(15);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
+  const [status, setStatus] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<{ field: string; order: 'asc' | 'desc' | null }>({
+    field: 'overall_score',
+    order: 'desc'
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchTerm(searchTerm);
+      setCurrentPage(1); // Reset to first page when search changes
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  const loadStats = useCallback(async () => {
+    if (!academicYearId) return;
+    try {
+      setStatsLoading(true);
+      const res = await ratingService.getTeacherStats({
+        academic_year_id: academicYearId,
+        institution_id: institutionId
+      });
+      setStats(res);
+    } catch (error) {
+      logger.error('Failed to load teacher stats', { error });
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [academicYearId, institutionId]);
 
   const loadData = useCallback(async () => {
     try {
@@ -38,7 +70,11 @@ export const TeacherRatingTableTab: React.FC<TeacherRatingTableTabProps> = ({
         period,
         institution_id: institutionId,
         academic_year_id: academicYearId,
-        user_role: 'müəllim'
+        user_role: 'müəllim',
+        status: status === 'all' ? undefined : status,
+        sort_by: sortConfig.field,
+        sort_order: sortConfig.order || undefined,
+        search: debouncedSearchTerm || undefined
       });
 
       setData(response.data || []);
@@ -53,11 +89,15 @@ export const TeacherRatingTableTab: React.FC<TeacherRatingTableTabProps> = ({
     } finally {
       setLoading(false);
     }
-  }, [currentPage, perPage, period, institutionId, academicYearId, toast]);
+  }, [currentPage, perPage, period, institutionId, academicYearId, status, sortConfig, debouncedSearchTerm, toast]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
 
   const handleCalculateItem = async (userId: number) => {
     if (!academicYearId) {
@@ -119,6 +159,14 @@ export const TeacherRatingTableTab: React.FC<TeacherRatingTableTabProps> = ({
     }
   };
 
+  const handleSort = (field: string) => {
+    setSortConfig(prev => ({
+      field,
+      order: prev.field === field ? (prev.order === 'asc' ? 'desc' : 'asc') : 'desc'
+    }));
+    setCurrentPage(1); // Reset to first page on sort
+  };
+
   const handleSelectItem = (id: number) => {
     setSelectedItems(prev =>
       prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
@@ -170,28 +218,78 @@ export const TeacherRatingTableTab: React.FC<TeacherRatingTableTabProps> = ({
     }
   };
 
-  const filteredData = data.filter(item =>
-    item.user?.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.user?.email?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleBulkSave = async () => {
+    if (selectedItems.length === 0) return;
+    try {
+      setLoading(true);
+      await Promise.all(selectedItems.map(id =>
+        ratingService.updateRating(id, { status: 'published' })
+      ));
+      toast({
+        title: "Uğurlu",
+        description: `${selectedItems.length} qeyd dərc edildi.`,
+        className: "bg-green-600 text-white"
+      });
+      setSelectedItems([]);
+      loadData();
+    } catch (error) {
+      toast({
+        title: "Xəta",
+        description: "Toplu saxlama zamanı xəta baş verdi.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.length === 0) return;
+    if (!confirm(`${selectedItems.length} qeydi silmək istədiyinizə əminsiniz?`)) return;
+
+    try {
+      setLoading(true);
+      await Promise.all(selectedItems.map(id => ratingService.deleteRating(id)));
+      toast({
+        title: "Uğurlu",
+        description: `${selectedItems.length} qeyd silindi.`,
+        className: "bg-green-600 text-white"
+      });
+      setSelectedItems([]);
+      loadData();
+    } catch (error) {
+      toast({
+        title: "Xəta",
+        description: "Toplu silmə zamanı xəta baş verdi.",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <TeacherStatsCards data={data} loading={loading} />
+      <TeacherStatsCards stats={stats} loading={statsLoading} />
 
       <RatingActionToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onCalculateAll={handleCalculateAll}
-        onBulkSave={() => { }}
-        onBulkDelete={() => { }}
+        onBulkSave={handleBulkSave}
+        onBulkDelete={handleBulkDelete}
         onExport={handleExport}
         selectedCount={selectedItems.length}
         loading={loading || isCalculatingAll}
+        status={status}
+        onStatusChange={(val) => {
+          setStatus(val);
+          setCurrentPage(1);
+        }}
       />
 
       <TeacherRatingDataTable
-        data={filteredData}
+        data={data}
         pagination={pagination}
         onPageChange={setCurrentPage}
         selectedItems={selectedItems}
@@ -199,6 +297,8 @@ export const TeacherRatingTableTab: React.FC<TeacherRatingTableTabProps> = ({
         onSelectAll={handleSelectAll}
         onCalculateItem={handleCalculateItem}
         calculatingId={calculatingId}
+        onSort={handleSort}
+        sortConfig={sortConfig as { field: string; order: 'asc' | 'desc' }}
       />
     </div>
   );

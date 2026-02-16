@@ -32,6 +32,9 @@ class RatingController extends BaseController
 
             if ($userRole) {
                 // If filtering by role, we want all users of that role, potentially with ratings
+                $sortBy = $request->get('sort_by', 'first_name');
+                $sortOrder = $request->get('sort_order', 'asc');
+
                 $query = \App\Models\User::with([
                     'institution',
                     'ratings' => function ($q) use ($period, $academicYearId) {
@@ -43,11 +46,35 @@ class RatingController extends BaseController
                     ->when($request->get('institution_id'), function ($query, $institutionId) {
                         return $query->where('institution_id', $institutionId);
                     })
+                    ->when($request->get('search'), function ($query, $search) {
+                        return $query->where(function ($q) use ($search) {
+                            $q->where('first_name', 'like', "%{$search}%")
+                                ->orWhere('last_name', 'like', "%{$search}%")
+                                ->orWhere('email', 'like', "%{$search}%")
+                                ->orWhere('username', 'like', "%{$search}%");
+                        });
+                    })
                     ->when($request->user()->cannot('ratings.manage'), function ($query) use ($request) {
                         return $query->where('institution_id', $request->user()->institution_id);
                     });
 
-                $paginator = $query->orderBy('first_name', 'asc')->paginate($request->get('per_page', 15));
+                // Handle sorting
+                if (in_array($sortBy, ['first_name', 'last_name', 'name', 'email'])) {
+                    $query->orderBy($sortBy === 'name' ? 'first_name' : $sortBy, $sortOrder);
+                } elseif (in_array($sortBy, ['overall_score', 'task_score', 'survey_score', 'manual_score'])) {
+                    // Sort by rating fields - requires join to work with pagination
+                    $query->leftJoin('ratings', function ($join) use ($period, $academicYearId) {
+                        $join->on('users.id', '=', 'ratings.user_id')
+                            ->when($period, fn($j) => $j->where('ratings.period', $period))
+                            ->when($academicYearId, fn($j) => $j->where('ratings.academic_year_id', $academicYearId));
+                    })
+                        ->select('users.*') // Ensure we only get user columns to avoid collisions
+                        ->orderBy("ratings.{$sortBy}", $sortOrder);
+                } else {
+                    $query->orderBy('first_name', 'asc');
+                }
+
+                $paginator = $query->paginate($request->get('per_page', 15));
 
                 // Transform to look like Rating model for frontend compatibility
                 $transformedData = collect($paginator->items())->map(function ($user) use ($period, $academicYearId) {

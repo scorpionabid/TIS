@@ -10,7 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Calculator, Plus, ExternalLink } from 'lucide-react';
+import { Users, Calculator, Plus, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import {
     Pagination,
     PaginationContent,
@@ -31,6 +31,11 @@ interface TeacherRatingDataTableProps {
     onSelectAll: (checked: boolean) => void;
     onCalculateItem: (userId: number) => void;
     calculatingId: number | null;
+    onSort?: (field: string) => void;
+    sortConfig?: {
+        field: string;
+        order: 'asc' | 'desc';
+    };
 }
 
 export const TeacherRatingDataTable: React.FC<TeacherRatingDataTableProps> = ({
@@ -41,7 +46,9 @@ export const TeacherRatingDataTable: React.FC<TeacherRatingDataTableProps> = ({
     onSelectItem,
     onSelectAll,
     onCalculateItem,
-    calculatingId
+    calculatingId,
+    onSort,
+    sortConfig
 }) => {
     const getRatingBadge = (score: number) => {
         if (score >= 90) return { text: 'Əla', variant: 'default' as const, className: 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' };
@@ -62,6 +69,24 @@ export const TeacherRatingDataTable: React.FC<TeacherRatingDataTableProps> = ({
         }
     };
 
+    const getSortIcon = (field: string) => {
+        if (!onSort) return null;
+        if (sortConfig?.field !== field) return <ArrowUpDown className="ml-2 h-4 w-4 opacity-50" />;
+        return sortConfig.order === 'asc' ? <ArrowUp className="ml-2 h-4 w-4" /> : <ArrowDown className="ml-2 h-4 w-4" />;
+    };
+
+    const SortableHeader = ({ field, label, className = "" }: { field: string, label: string, className?: string }) => (
+        <TableHead
+            className={`cursor-pointer hover:bg-gray-100 transition-colors select-none ${className}`}
+            onClick={() => onSort?.(field)}
+        >
+            <div className="flex items-center justify-center font-semibold text-gray-700">
+                {label}
+                {getSortIcon(field)}
+            </div>
+        </TableHead>
+    );
+
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="overflow-x-auto">
@@ -74,15 +99,23 @@ export const TeacherRatingDataTable: React.FC<TeacherRatingDataTableProps> = ({
                                     onCheckedChange={(checked) => onSelectAll(!!checked)}
                                 />
                             </TableHead>
-                            <TableHead className="font-semibold text-gray-700 min-w-[200px]">Müəllim</TableHead>
-                            <TableHead className="text-center font-semibold text-gray-700">Akademik</TableHead>
-                            <TableHead className="text-center font-semibold text-gray-700">Müşahidə</TableHead>
-                            <TableHead className="text-center font-semibold text-gray-700">Qiym.</TableHead>
-                            <TableHead className="text-center font-semibold text-gray-700">Sert.</TableHead>
-                            <TableHead className="text-center font-semibold text-gray-700">Olimp.</TableHead>
-                            <TableHead className="text-center font-semibold text-gray-700">Mükafat</TableHead>
-                            <TableHead className="text-center font-semibold text-gray-700">Bonus</TableHead>
-                            <TableHead className="text-center font-semibold text-gray-700">Ümumi</TableHead>
+                            <TableHead
+                                className="font-semibold text-gray-700 min-w-[200px] cursor-pointer hover:bg-gray-100 transition-colors"
+                                onClick={() => onSort?.('name')}
+                            >
+                                <div className="flex items-center">
+                                    Müəllim
+                                    {getSortIcon('name')}
+                                </div>
+                            </TableHead>
+                            <SortableHeader field="academic_score" label="Akademik" />
+                            <SortableHeader field="observation_score" label="Müşahidə" />
+                            <SortableHeader field="assessment_score" label="Qiym." />
+                            <SortableHeader field="certificate_score" label="Sert." />
+                            <SortableHeader field="olympiad_score" label="Olimp." />
+                            <SortableHeader field="award_score" label="Mükafat" />
+                            <SortableHeader field="growth_bonus" label="Bonus" />
+                            <SortableHeader field="overall_score" label="Ümumi" />
                             <TableHead className="text-center font-semibold text-gray-700">Status</TableHead>
                             <TableHead className="text-right font-semibold text-gray-700 pr-6">Əməliyyat</TableHead>
                         </TableRow>

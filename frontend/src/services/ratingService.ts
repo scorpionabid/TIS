@@ -247,6 +247,20 @@ class RatingService extends BaseService<RatingEntity> {
   }
 
   /**
+   * Get teacher-specific statistics
+   */
+  async getTeacherStats(params: { academic_year_id: number; institution_id?: number }): Promise<any> {
+    logger.debug('Fetching teacher statistics', {
+      component: 'RatingService',
+      action: 'getTeacherStats',
+      data: { params }
+    });
+
+    const response = await apiClient.get<any>('/teacher-rating/statistics', params);
+    return response.data || response;
+  }
+
+  /**
    * Get rating configurations
    */
   async getConfigs(params?: { institution_id?: number; academic_year_id?: number }): Promise<RatingConfig[]> {
