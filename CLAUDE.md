@@ -127,6 +127,23 @@ Before committing AI-generated code:
 - [ ] TypeScript types complete?
 - [ ] Tests written or updated?
 
+## Production Deployment (Server Pull)
+
+Production serverdə yeniləmə üçün:
+```bash
+cd /srv/atis/TIS && ./pull.sh
+```
+Bu skript avtomatik: DB backup + yoxlama → git pull → docker build → migrate → health check edir.
+
+**Əsas qeydlər:**
+- `docker-compose.yml` production dəyərləri ilə lokalda saxlanılır (`git skip-worktree`)
+- Postgres servisi: `postgres_v2` (container: `atis_postgres`), volume: `postgres_data`, port: `5434`
+- `backend/.env`-də `DB_HOST=atis_postgres` olmalıdır (container adı ilə)
+- n8n postgres port `5433` istifadə edir — konflikt riski var
+- Backuplar: `database-backups/` (son 5 saxlanılır)
+- Pull zamanı `docker-compose.yml` remote-da dəyişibsə, skript avtomatik stash/pop edir
+- Pull sonrası `backend/.env`-dəki `DB_HOST` dəyərini yoxla (remote dəyişiklik ola bilər)
+
 ## Production Safety
 
 ATİS is LIVE with 22+ real educational institutions. Every change matters.
@@ -134,6 +151,15 @@ ATİS is LIVE with 22+ real educational institutions. Every change matters.
 - All migrations must be reversible
 - Create rollback plans for schema changes
 - Test with production-like data volumes
+- **HEÇVAXT `php artisan db:seed` (ümumi) çalışdırma!** Fake data yaradır (classes, grades, attendance). Yalnız ayrı-ayrı core seeders istifadə et:
+  ```bash
+  docker exec atis_backend php artisan db:seed --class=RoleSeeder --force
+  docker exec atis_backend php artisan db:seed --class=PermissionSeeder --force
+  docker exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force
+  docker exec atis_backend php artisan db:seed --class=RegionOperatorPermissionSeeder --force
+  docker exec atis_backend php artisan db:seed --class=RegionAdminPermissionBalanceSeeder --force
+  ```
+- `pull.sh` yalnız bu core seeders-i avtomatik çalışdırır
 
 ## Test Credentials (DEVELOPMENT ONLY)
 

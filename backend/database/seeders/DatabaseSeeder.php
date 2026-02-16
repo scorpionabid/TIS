@@ -32,7 +32,8 @@ class DatabaseSeeder extends Seeder
 
         $this->call($coreSeeders);
 
-        if (app()->environment('production')) {
+        // Fake/test data — yalnız development mühitində işləsin, production-da YALNIZ core seeders!
+        if (app()->environment('local', 'testing')) {
             $this->call([
                 BasicDataSeeder::class,        // Users, institutions, academic years
                 SurveyDataSeeder::class,       // Surveys and responses
