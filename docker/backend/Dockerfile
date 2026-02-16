@@ -11,6 +11,7 @@ RUN apk add --no-cache \
     libjpeg-turbo-dev \
     freetype-dev \
     libzip-dev \
+    supervisor \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
     && docker-php-ext-install \
         pdo \
@@ -53,8 +54,11 @@ RUN mkdir -p storage/logs storage/framework/cache storage/framework/sessions sto
 # Run post-install scripts
 RUN composer run-script post-install-cmd --no-interaction 2>/dev/null || echo "Post-install scripts completed"
 
+# Copy supervisor configuration
+COPY docker/backend/supervisord.conf /etc/supervisord.conf
+
 # Expose port
 EXPOSE 8000
 
-# Start command
-CMD ["sh", "-c", "php artisan key:generate --force 2>/dev/null || echo 'Key exists'; php artisan migrate --force 2>/dev/null || echo 'Migration skipped'; php artisan serve --host=0.0.0.0 --port=8000"]
+# Start with supervisor (manages serve + queue worker + scheduler)
+CMD ["sh", "-c", "php artisan key:generate --force 2>/dev/null || echo 'Key exists'; php artisan migrate --force 2>/dev/null || echo 'Migration skipped'; supervisord -c /etc/supervisord.conf"]

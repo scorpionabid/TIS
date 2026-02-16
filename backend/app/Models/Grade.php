@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -43,6 +44,17 @@ class Grade extends Model
         'deactivated_at',
         'deactivated_by',
     ];
+
+    /**
+     * Sinif adını avtomatik normalize et (böyük hərf + trim).
+     * "a" -> "A", " b " -> "B"
+     */
+    protected function name(): Attribute
+    {
+        return Attribute::make(
+            set: fn (string $value) => mb_strtoupper(trim($value)),
+        );
+    }
 
     /**
      * The attributes that should be cast.

@@ -82,6 +82,8 @@ class ClassCrudService extends BaseService
      */
     public function createClass(array $data): Grade
     {
+        $data['name'] = mb_strtoupper(trim($data['name']));
+
         // Check for duplicates
         $existingClass = Grade::where('name', $data['name'])
             ->where('class_level', $data['class_level'])
@@ -124,7 +126,7 @@ class ClassCrudService extends BaseService
     {
         // Check uniqueness if name or level is being changed
         if (isset($data['name']) || isset($data['class_level'])) {
-            $name = $data['name'] ?? $class->name;
+            $name = isset($data['name']) ? mb_strtoupper(trim($data['name'])) : $class->name;
             $level = $data['class_level'] ?? $class->class_level;
 
             $existingClass = Grade::where('name', $name)

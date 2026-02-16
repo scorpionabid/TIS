@@ -130,6 +130,19 @@ class LoginService
      */
     protected function createAuthToken(User $user, bool $remember, ?string $deviceName = null): array
     {
+        // Expired tokenları təmizlə
+        $user->tokens()->where('expires_at', '<', now())->delete();
+
+        // Son 2 aktiv tokendən əlavəsini sil (multi-device dəstək üçün 2 saxla)
+        $oldTokenIds = $user->tokens()
+            ->orderByDesc('last_used_at')
+            ->skip(2)
+            ->pluck('id');
+
+        if ($oldTokenIds->isNotEmpty()) {
+            $user->tokens()->whereIn('id', $oldTokenIds)->delete();
+        }
+
         $tokenName = $deviceName ?? 'auth_token';
         $defaultExpiration = (int) config('sanctum.expiration', 1440);
         $rememberExpiration = (int) config('sanctum.remember_expiration', 43200);

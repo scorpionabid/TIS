@@ -64,7 +64,7 @@ class GradeCRUDController extends Controller
         Gate::authorize('create', Grade::class);
 
         $validated = $request->validated();
-        $className = trim($validated['name']);
+        $className = mb_strtoupper(trim($validated['name']));
         $classLevel = (int) $validated['class_level'];
 
         // Check for unique grade name within institution, academic year, and class level

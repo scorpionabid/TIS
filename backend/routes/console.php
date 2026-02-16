@@ -64,3 +64,35 @@ Schedule::call(function () {
         'database_table_size' => 'notifications',
     ]);
 })->monthly()->description('Generate monthly notification system report');
+
+// ─── DB Maintenance Schedules ───────────────────────────────────────────
+
+// Token təmizləmə: 7 gündən köhnə expired tokenları sil
+Schedule::command('sanctum:prune-expired --hours=168')
+    ->daily()
+    ->at('01:00')
+    ->description('Prune expired Sanctum tokens older than 7 days')
+    ->onSuccess(function () {
+        \Log::info('Sanctum token pruning completed');
+    });
+
+// Session GC: expired session-ları təmizlə
+Schedule::command('session:gc')
+    ->hourly()
+    ->description('Garbage collect expired sessions')
+    ->onSuccess(function () {
+        \Log::info('Session garbage collection completed');
+    });
+
+// Activity/Security logs təmizləmə: həftəlik
+Schedule::command('logs:cleanup')
+    ->weekly()
+    ->sundays()
+    ->at('04:00')
+    ->description('Weekly cleanup: activity logs, security events, audit logs')
+    ->onSuccess(function () {
+        \Log::info('Weekly log cleanup completed');
+    })
+    ->onFailure(function () {
+        \Log::error('Weekly log cleanup failed');
+    });

@@ -741,7 +741,7 @@ class ClassesImport implements ToModel, WithChunkReading, WithHeadingRow, WithVa
 
     protected function sanitizeClassIndex(string $value): string
     {
-        return mb_substr(trim($value), 0, 3);
+        return mb_strtoupper(mb_substr(trim($value), 0, 3));
     }
 
     /**
