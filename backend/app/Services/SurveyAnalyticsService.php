@@ -13,7 +13,7 @@ use App\Services\Analytics\HierarchicalAnalyticsService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 
-class SurveyAnalyticsServiceRefactored
+class SurveyAnalyticsService
 {
     protected SurveyStatisticsCalculatorService $statisticsService;
     protected SurveyDataExportService $exportService;
@@ -64,9 +64,11 @@ class SurveyAnalyticsServiceRefactored
      */
     public function getSurveyAnalytics(Survey $survey): array
     {
-        $survey->load(['responses' => function ($query) {
-            $query->with(['respondent.role', 'respondent.institution'])->latest();
-        }]);
+        $survey->load([
+            'responses' => function ($query) {
+                $query->with(['respondent.role', 'respondent.institution'])->latest();
+            }
+        ]);
 
         return [
             'overview' => $this->getAnalyticsOverview($survey),
@@ -271,7 +273,7 @@ class SurveyAnalyticsServiceRefactored
                 'statistics' => [
                     'total_responses' => $instResponses->count(),
                     'complete_responses' => $instResponses->where('is_complete', true)->count(),
-                    'completion_rate' => $instResponses->count() > 0 ? 
+                    'completion_rate' => $instResponses->count() > 0 ?
                         round(($instResponses->where('is_complete', true)->count() / $instResponses->count()) * 100, 2) : 0,
                     'avg_completion_time' => $this->calculateAverageCompletionTime($instResponses),
                 ],
@@ -344,7 +346,7 @@ class SurveyAnalyticsServiceRefactored
                     'id' => $school->id,
                     'name' => $school->name,
                     'responses' => $schoolResponses->count(),
-                    'completion_rate' => $schoolResponses->count() > 0 ? 
+                    'completion_rate' => $schoolResponses->count() > 0 ?
                         round(($schoolResponses->where('is_complete', true)->count() / $schoolResponses->count()) * 100, 2) : 0,
                 ];
             });
@@ -353,7 +355,7 @@ class SurveyAnalyticsServiceRefactored
                 'id' => $sector->id,
                 'name' => $sector->name,
                 'responses' => $sectorResponses->count(),
-                'completion_rate' => $sectorResponses->count() > 0 ? 
+                'completion_rate' => $sectorResponses->count() > 0 ?
                     round(($sectorResponses->where('is_complete', true)->count() / $sectorResponses->count()) * 100, 2) : 0,
                 'schools_count' => $schools->count(),
                 'schools' => $schools->values(),

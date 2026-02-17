@@ -21,12 +21,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (! $sector) {
+        if (!$sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -136,12 +136,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (! $sector) {
+        if (!$sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -251,24 +251,21 @@ class SektorUserController extends Controller
      */
     public function createSchoolUser(Request $request): JsonResponse
     {
-        \Log::info('🔍 [Backend User Creation Debug] createSchoolUser called');
-        \Log::info('🔍 [Backend User Creation Debug] Request data:', $request->all());
-        \Log::info('🔍 [Backend User Creation Debug] Current user:', $request->user());
-        
+
+
         $currentUser = $request->user();
 
-        if (! $currentUser->hasRole('sektoradmin')) {
-            \Log::error('❌ [Backend User Creation Debug] User not sektoradmin');
+        if (!$currentUser->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $currentUser->institution;
-        if (! $sector) {
-            \Log::error('❌ [Backend User Creation Debug] User not assigned to sector');
+        if (!$sector) {
+
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
-        
-        \Log::info('🔍 [Backend User Creation Debug] Sector found:', ['id' => $sector->id, 'name' => $sector->name]);
+
+
 
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
@@ -289,7 +286,7 @@ class SektorUserController extends Controller
                 'errors' => $validator->errors(),
             ], 422);
         }
-        
+
         \Log::info('✅ [Backend User Creation Debug] Validation passed');
 
         // Verify institution belongs to sector
@@ -297,7 +294,7 @@ class SektorUserController extends Controller
             ->where('parent_id', $sector->id)
             ->first();
 
-        if (! $institution) {
+        if (!$institution) {
             \Log::error('❌ [Backend User Creation Debug] Institution not in sector', [
                 'requested_institution_id' => $request->institution_id,
                 'sector_id' => $sector->id
@@ -306,12 +303,12 @@ class SektorUserController extends Controller
                 'message' => 'Seçilən müəssisə sizin sektora aid deyil',
             ], 400);
         }
-        
+
         \Log::info('✅ [Backend User Creation Debug] Institution verified:', ['id' => $institution->id, 'name' => $institution->name]);
 
         try {
             \Log::info('🚀 [Backend User Creation Debug] Starting user creation');
-            
+
             $user = User::create([
                 'name' => $request->name,
                 'username' => $request->username,
@@ -321,7 +318,7 @@ class SektorUserController extends Controller
                 'is_active' => true,
                 'created_by' => $currentUser->id,
             ]);
-            
+
             \Log::info('✅ [Backend User Creation Debug] User created in database:', ['id' => $user->id, 'name' => $user->name]);
 
             // Assign role
@@ -353,9 +350,9 @@ class SektorUserController extends Controller
                     'institution' => $institution->name,
                 ],
             ];
-            
+
             \Log::info('✅ [Backend User Creation Debug] Success response prepared:', $responseData);
-            
+
             return response()->json($responseData, 201);
         } catch (\Exception $e) {
             \Log::error('❌ [Backend User Creation Debug] Exception occurred:', [
@@ -364,7 +361,7 @@ class SektorUserController extends Controller
                 'line' => $e->getLine(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             return response()->json([
                 'message' => 'İstifadəçi yaradıla bilmədi',
                 'error' => $e->getMessage(),
@@ -379,12 +376,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (! $sector) {
+        if (!$sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -411,12 +408,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (! $sector) {
+        if (!$sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -432,9 +429,12 @@ class SektorUserController extends Controller
                 ->whereHas('roles', function ($q) {
                     $q->where('name', 'müəllim');
                 })
-                ->with(['institution', 'teacherVerifications' => function ($q) {
-                    $q->latest('verification_date');
-                }]);
+                ->with([
+                    'institution',
+                    'teacherVerifications' => function ($q) {
+                        $q->latest('verification_date');
+                    }
+                ]);
 
             // Apply filters
             $status = $request->input('status');
@@ -475,8 +475,8 @@ class SektorUserController extends Controller
             if ($search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%")
-                      ->orWhere('username', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('username', 'like', "%{$search}%");
                 });
             }
 
@@ -572,12 +572,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (! $sector) {
+        if (!$sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -596,9 +596,12 @@ class SektorUserController extends Controller
                 ->whereDoesntHave('teacherVerifications', function ($q) {
                     $q->where('verification_status', 'approved');
                 })
-                ->with(['institution', 'teacherVerifications' => function ($q) {
-                    $q->latest()->limit(1);
-                }])
+                ->with([
+                    'institution',
+                    'teacherVerifications' => function ($q) {
+                        $q->latest()->limit(1);
+                    }
+                ])
                 ->where('is_active', true)
                 ->get();
 
@@ -646,12 +649,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (! $sector) {
+        if (!$sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -676,7 +679,7 @@ class SektorUserController extends Controller
                     })
                     ->first();
 
-                if (! $teacher) {
+                if (!$teacher) {
                     $errors[] = "Müəllim ID {$teacherId} sektorunuza aid deyil";
                     continue;
                 }
@@ -728,12 +731,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (! $sector) {
+        if (!$sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -758,7 +761,7 @@ class SektorUserController extends Controller
                     })
                     ->first();
 
-                if (! $teacher) {
+                if (!$teacher) {
                     $errors[] = "Müəllim ID {$teacherId} sektorunuza aid deyil";
                     continue;
                 }
@@ -810,12 +813,12 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
         $sector = $user->institution;
-        if (! $sector) {
+        if (!$sector) {
             return response()->json(['message' => 'İstifadəçi sektora təyin edilməyib'], 400);
         }
 
@@ -849,16 +852,21 @@ class SektorUserController extends Controller
 
             // Institution breakdown
             $institutionBreakdown = Institution::whereIn('id', $schoolIds)
-                ->withCount(['users' => function ($q) {
-                    $q->whereHas('roles', function ($role) {
-                        $role->where('name', 'müəllim');
-                    });
-                }])
-                ->withCount(['teacherVerifications' => function ($q) {
-                    $q->where('verification_status', 'approved');
-                }, 'teacherVerifications as rejected_count' => function ($q) {
-                    $q->where('verification_status', 'rejected');
-                }])
+                ->withCount([
+                    'users' => function ($q) {
+                        $q->whereHas('roles', function ($role) {
+                            $role->where('name', 'müəllim');
+                        });
+                    }
+                ])
+                ->withCount([
+                    'teacherVerifications' => function ($q) {
+                        $q->where('verification_status', 'approved');
+                    },
+                    'teacherVerifications as rejected_count' => function ($q) {
+                        $q->where('verification_status', 'rejected');
+                    }
+                ])
                 ->get()
                 ->map(function ($institution) {
                     $totalTeachers = $institution->users_count;
@@ -908,7 +916,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -922,7 +930,7 @@ class SektorUserController extends Controller
 
         try {
             $teacher = User::findOrFail($teacherId);
-            
+
             // Check if teacher is in sector
             $sector = $user->institution;
             $schoolIds = Institution::where('parent_id', $sector->id)
@@ -930,7 +938,7 @@ class SektorUserController extends Controller
                 ->pluck('id')
                 ->toArray();
 
-            if (! in_array($teacher->institution_id, $schoolIds)) {
+            if (!in_array($teacher->institution_id, $schoolIds)) {
                 return response()->json(['message' => 'Bu müəllim sizin sektorunuzda deyil'], 403);
             }
 
@@ -967,7 +975,7 @@ class SektorUserController extends Controller
     {
         $user = $request->user();
 
-        if (! $user->hasRole('sektoradmin')) {
+        if (!$user->hasRole('sektoradmin')) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
@@ -981,7 +989,7 @@ class SektorUserController extends Controller
 
         try {
             $teacher = User::findOrFail($teacherId);
-            
+
             // Check if teacher is in sector
             $sector = $user->institution;
             $schoolIds = Institution::where('parent_id', $sector->id)
@@ -989,7 +997,7 @@ class SektorUserController extends Controller
                 ->pluck('id')
                 ->toArray();
 
-            if (! in_array($teacher->institution_id, $schoolIds)) {
+            if (!in_array($teacher->institution_id, $schoolIds)) {
                 return response()->json(['message' => 'Bu müəllim sizin sektorunuzda deyil'], 403);
             }
 
