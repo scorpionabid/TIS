@@ -65,6 +65,9 @@ class CopySqliteToPostgres extends Command
                 // Disable foreign key checks temporarily
                 DB::connection('pgsql')->statement('SET session_replication_role = replica');
 
+                // NEW: Clear table before inserting to prevent PK collisions
+                DB::connection('pgsql')->table($table)->delete();
+
                 // Get count from SQLite
                 $count = DB::connection('temp_sqlite')->table($table)->count();
 
@@ -120,6 +123,15 @@ class CopySqliteToPostgres extends Command
         $this->info("Total Records: $totalRecords");
 
         $this->info("\n🎉 Data copy completed!");
+
+        // NEW: Clear permission cache
+        $this->info("🧹 Clearing permission cache...");
+        try {
+            app()[\Spatie\Permission\PermissionRegistrar::class]->forgetCachedPermissions();
+            $this->info("✅ Cache cleared");
+        } catch (\Exception $e) {
+            $this->warn("⚠️  Could not clear permission cache: " . $e->getMessage());
+        }
 
         return 0;
     }
