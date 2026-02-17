@@ -22,6 +22,8 @@ import {
   RefreshCw,
   TrendingUp,
   Users,
+  Building2,
+  GraduationCap
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { az } from "date-fns/locale";
@@ -29,6 +31,18 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { regionAdminService } from "@/services/regionAdmin";
 import { useAuth } from "@/contexts/AuthContext";
+import { motion, Variants } from "framer-motion";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell
+} from "recharts";
+import { StatsCard } from "@/components/dashboard/StatsCard";
 
 interface RegionOverview {
   region_name?: string;
@@ -118,31 +132,30 @@ export const RegionAdminDashboard = () => {
   const summaryCards = useMemo(
     () => [
       {
-        label: "Sektorlar",
+        title: "Sektorlar",
         value: dashboard?.region_overview?.total_sectors ?? 0,
+        icon: Building2,
+        variant: "primary" as const
       },
       {
-        label: "Məktəblər",
+        title: "Məktəblər",
         value: dashboard?.region_overview?.total_schools ?? 0,
+        icon: GraduationCap,
+        variant: "info" as const
       },
       {
-        label: "İstifadəçilər",
+        title: "İstifadəçilər",
         value: dashboard?.region_overview?.total_users ?? 0,
+        icon: Users,
+        variant: "warning" as const
       },
       {
-        label: "Aktiv istifadəçilər",
-        value: dashboard?.region_overview?.active_users ?? 0,
-      },
-      {
-        label: "Sorğu cavabları",
-        value: dashboard?.survey_metrics?.total_responses ?? 0,
-      },
-      {
-        label: "Tamamlanma nisbəti",
-        value:
-          dashboard?.task_metrics?.completion_rate !== undefined
-            ? `${dashboard.task_metrics.completion_rate}%`
-            : "—",
+        title: "Tamamlanma",
+        value: dashboard?.task_metrics?.completion_rate !== undefined
+          ? `${dashboard.task_metrics.completion_rate}%`
+          : "0%",
+        icon: CheckSquare,
+        variant: "success" as const
       },
     ],
     [dashboard]
@@ -160,6 +173,8 @@ export const RegionAdminDashboard = () => {
         href: "/tasks/assigned",
         icon: ClipboardList,
         badge: taskMetrics?.pending_tasks ?? 0,
+        color: "text-blue-600",
+        bg: "bg-blue-100"
       },
       {
         key: "surveys",
@@ -168,6 +183,8 @@ export const RegionAdminDashboard = () => {
         href: "/my-surveys/pending",
         icon: ListChecks,
         badge: surveyMetrics?.active_surveys ?? 0,
+        color: "text-emerald-600",
+        bg: "bg-emerald-100"
       },
       {
         key: "assessments",
@@ -176,6 +193,8 @@ export const RegionAdminDashboard = () => {
         href: "/assessments/entry",
         icon: CheckSquare,
         badge: dashboard?.task_metrics?.total_tasks ?? 0,
+        color: "text-amber-600",
+        bg: "bg-amber-100"
       },
       {
         key: "attendance",
@@ -184,22 +203,8 @@ export const RegionAdminDashboard = () => {
         href: "/attendance/bulk",
         icon: Users,
         badge: dashboard?.region_overview?.active_users ?? 0,
-      },
-      {
-        key: "resources",
-        title: "Resurslar",
-        description: "Regional sənəd və qovluqlar.",
-        href: "/regionadmin/documents",
-        icon: BookOpen,
-        badge: dashboard?.notifications?.length ?? 0,
-      },
-      {
-        key: "approvals",
-        title: "Təsdiqlər",
-        description: "Müraciət və sorğuların təsdiqi.",
-        href: "/approvals",
-        icon: FileText,
-        badge: dashboard?.notifications?.length ?? 0,
+        color: "text-purple-600",
+        bg: "bg-purple-100"
       },
     ];
   }, [dashboard]);
@@ -213,6 +218,25 @@ export const RegionAdminDashboard = () => {
       toast.error("Yeniləmə alınmadı");
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const containerVariants: Variants = {
+    hidden: { opacity: 0 },
+    visible: { 
+      opacity: 1,
+      transition: { 
+        staggerChildren: 0.1 
+      }
+    }
+  };
+
+  const itemVariants: Variants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { 
+      y: 0, 
+      opacity: 1,
+      transition: { type: 'spring', stiffness: 100 }
     }
   };
 
@@ -259,252 +283,270 @@ export const RegionAdminDashboard = () => {
     );
   }
 
+  if (isLoading) {
+    return (
+      <div className="space-y-6 px-2 pt-0 pb-4 sm:px-3 lg:px-4">
+         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1,2,3,4].map((i) => (
+            <div key={i} className="h-32 bg-muted/40 rounded-xl animate-pulse" />
+          ))}
+        </div>
+        <div className="grid gap-6 md:grid-cols-2">
+          <div className="h-80 bg-muted/40 rounded-xl animate-pulse" />
+          <div className="h-80 bg-muted/40 rounded-xl animate-pulse" />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-6 px-2 pt-0 pb-4 sm:px-3 lg:px-4">
+    <motion.div 
+      className="space-y-6 px-2 pt-0 pb-4 sm:px-3 lg:px-4"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-foreground">
+          <h1 className="text-2xl font-bold tracking-tight bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
             {regionName}
           </h1>
           <p className="text-sm text-muted-foreground">
             Regional idarəetmənin əsas göstəriciləri və qısayolları.
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full gap-2 sm:w-auto"
-          onClick={handleRefresh}
-          disabled={refreshing || isLoading}
-        >
-          <RefreshCw
-            className={cn(
-              "h-4 w-4",
-              (refreshing || isLoading) && "animate-spin"
-            )}
-          />
-          Yenilə
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full gap-2 sm:w-auto"
+            onClick={handleRefresh}
+            disabled={refreshing || isLoading}
+          >
+            <RefreshCw
+              className={cn(
+                "h-4 w-4",
+                (refreshing || isLoading) && "animate-spin"
+              )}
+            />
+            Yenilə
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-        {summaryCards.map((item) => (
-          <div
-            key={item.label}
-            className="flex items-center justify-between rounded-lg border border-border/60 bg-card/85 px-3 py-3"
-          >
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {item.label}
-            </span>
-            <span className="text-base font-semibold text-foreground">
-              {item.value}
-            </span>
-          </div>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {summaryCards.map((item, index) => (
+          <motion.div key={item.title} variants={itemVariants}>
+            <StatsCard {...item} />
+          </motion.div>
         ))}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {quickLinks.map((link) => {
-          const Icon = link.icon;
-          return (
-            <Card
-              key={link.key}
-              align="start"
-              className="flex h-full flex-col border border-border/60 bg-card/90 transition-colors hover:border-primary/40 hover:shadow-sm"
-            >
-              <CardContent className="flex flex-1 flex-col gap-3 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex flex-1 items-center gap-3">
-                    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <div className="space-y-1">
-                      <p className="text-sm font-semibold text-foreground">
-                        {link.title}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {link.description}
-                      </p>
-                    </div>
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Sector Performance Chart */}
+        <motion.div variants={itemVariants} className="md:col-span-2">
+          <Card className="h-full shadow-sm border-muted/60">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <div>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Sektor Performansı
+                </CardTitle>
+                <CardDescription>
+                  Tapşırıq tamamlanma faizləri (Top 5)
+                </CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full pt-4">
+                {dashboard?.sector_performance && dashboard.sector_performance.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={dashboard.sector_performance.slice(0, 5)}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                      <XAxis 
+                        dataKey="sector_name" 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748B' }}
+                        interval={0}
+                        angle={-10}
+                        textAnchor="end"
+                        height={60}
+                      />
+                      <YAxis 
+                        axisLine={false}
+                        tickLine={false}
+                        tick={{ fontSize: 12, fill: '#64748B' }}
+                        domain={[0, 100]}
+                      />
+                      <Tooltip 
+                        contentStyle={{ 
+                          backgroundColor: '#fff', 
+                          borderRadius: '8px', 
+                          border: '1px solid #e2e8f0',
+                          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
+                        }}
+                      />
+                      <Bar dataKey="completion_rate" radius={[4, 4, 0, 0]}>
+                        {dashboard.sector_performance.slice(0, 5).map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.completion_rate > 80 ? '#10b981' : entry.completion_rate > 50 ? '#3b82f6' : '#f59e0b'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
+                    <AlertCircle className="h-8 w-8 mb-2 opacity-50" />
+                    <span>Məlumat yoxdur</span>
                   </div>
-                  <Badge
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Quick Actions Grid */}
+        <motion.div variants={itemVariants} className="md:col-span-2 lg:col-span-1">
+          <Card className="h-full shadow-sm border-muted/60">
+            <CardHeader>
+              <CardTitle className="text-base font-semibold">Sürətli Keçidlər</CardTitle>
+              <CardDescription>Ən çox istifadə olunan modullar</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-3">
+              {quickLinks.map((link) => {
+                const Icon = link.icon;
+                return (
+                  <Button
+                    key={link.key}
                     variant="outline"
-                    className="rounded-full border px-2 py-0.5 text-xs font-medium"
+                    className="h-auto py-4 justify-start gap-4 border-dashed hover:border-solid group transition-all"
+                    onClick={() => navigate(link.href)}
                   >
-                    {link.badge}
-                  </Badge>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-fit gap-1 px-0 text-primary"
-                  onClick={() => navigate(link.href)}
-                >
-                  Aç
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
-          );
-        })}
+                    <div className={cn("p-2 rounded-lg bg-opacity-10 transition-colors", link.bg)}>
+                      <Icon className={cn("h-5 w-5", link.color)} />
+                    </div>
+                    <div className="flex flex-col items-start gap-0.5 flex-1 text-left">
+                      <span className="font-semibold text-foreground">{link.title}</span>
+                      <span className="text-xs text-muted-foreground font-normal line-clamp-1">{link.description}</span>
+                    </div>
+                    {link.badge > 0 && (
+                      <Badge variant="secondary" className="ml-auto">
+                        {link.badge}
+                      </Badge>
+                    )}
+                  </Button>
+                );
+              })}
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="text-base font-semibold">
-                Sektor performansı
-              </CardTitle>
-              <CardDescription>
-                Region daxilində sektorların əsas göstəriciləri
-              </CardDescription>
-            </div>
-            <TrendingUp className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {dashboard?.sector_performance?.length ? (
-              dashboard.sector_performance.slice(0, 6).map((sector) => (
-                <div
-                  key={sector.sector_name}
-                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-sm font-semibold text-foreground">
-                      {sector.sector_name}
+        <motion.div variants={itemVariants}>
+          <Card className="h-full shadow-sm border-muted/60">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="text-base font-semibold">
+                  Mühüm Tapşırıqlar
+                </CardTitle>
+                <CardDescription>Diqqət tələb edən işlər</CardDescription>
+              </div>
+              <CalendarDays className="h-5 w-5 text-muted-foreground" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {dashboard?.task_metrics?.pending_tasks ? (
+                <div className="flex items-center gap-4 p-4 rounded-xl border bg-amber-50/50 border-amber-100 dark:bg-amber-900/10 dark:border-amber-900/20">
+                  <div className="p-2 bg-amber-100 rounded-full text-amber-600">
+                    <ClipboardList className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-amber-900 dark:text-amber-100">Gözləyən tapşırıqlar</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      Cəmi {dashboard.task_metrics.pending_tasks} tapşırıq icra olunmalıdır
                     </p>
-                    <span className="text-xs text-muted-foreground">
-                      {sector.completion_rate}% tamamlanma
-                    </span>
                   </div>
-                  <div className="mt-1 grid grid-cols-3 gap-2 text-xs text-muted-foreground">
-                    <span>Məktəb: {sector.schools_count}</span>
-                    <span>İşçi: {sector.users_count}</span>
-                    <span>Tapş.: {sector.tasks_count}</span>
-                  </div>
+                  <Button size="sm" variant="ghost" className="text-amber-700 hover:text-amber-800 hover:bg-amber-100" onClick={() => navigate('/tasks/assigned')}>
+                    Bax
+                  </Button>
                 </div>
-              ))
-            ) : (
-              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                <AlertCircle className="h-5 w-5" />
-                Sektor performans məlumatı tapılmadı.
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              ) : null}
+              
+              {dashboard?.survey_metrics?.active_surveys ? (
+                <div className="flex items-center gap-4 p-4 rounded-xl border bg-blue-50/50 border-blue-100 dark:bg-blue-900/10 dark:border-blue-900/20">
+                  <div className="p-2 bg-blue-100 rounded-full text-blue-600">
+                    <ListChecks className="h-5 w-5" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-blue-900 dark:text-blue-100">Aktiv sorğular</p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                      {dashboard.survey_metrics.active_surveys} sorğu cavab gözləyir
+                    </p>
+                  </div>
+                  <Button size="sm" variant="ghost" className="text-blue-700 hover:text-blue-800 hover:bg-blue-100" onClick={() => navigate('/my-surveys/pending')}>
+                    Bax
+                  </Button>
+                </div>
+              ) : null}
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
+              {!dashboard?.task_metrics?.pending_tasks && !dashboard?.survey_metrics?.active_surveys && (
+                 <div className="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
+                  <div className="p-3 rounded-full bg-muted/50">
+                    <CheckSquare className="h-6 w-6" />
+                  </div>
+                  <p>Hazırda təcili son tarixli iş yoxdur.</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div variants={itemVariants}>
+          <Card className="h-full shadow-sm border-muted/60">
+            <CardHeader>
               <CardTitle className="text-base font-semibold">
-                Yaxın son tarixlər
+                Son fəaliyyətlər
               </CardTitle>
-              <CardDescription>Tapşırıq və sorğu prioritetləri</CardDescription>
-            </div>
-            <CalendarDays className="h-5 w-5 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {dashboard?.task_metrics?.pending_tasks ? (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3">
-                <p className="text-sm font-medium text-foreground">
-                  Gözləyən tapşırıqlar
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Aktiv tapşırıqlar: {dashboard.task_metrics.pending_tasks}
-                </p>
+              <CardDescription>Region səviyyəsində sistem hadisələri</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {dashboard?.recent_activities?.length ? (
+                  dashboard.recent_activities.slice(0, 5).map((activity, i) => (
+                    <div
+                      key={`${activity.type}-${activity.id}-${i}`}
+                      className="flex gap-4 pb-4 border-b last:border-0 last:pb-0"
+                    >
+                      <div className="mt-1">
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium leading-none">
+                          {activity.action}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {activity.user}
+                        </p>
+                      </div>
+                      <div className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formatDistanceToNow(new Date(activity.timestamp), {
+                          addSuffix: true,
+                          locale: az,
+                        })}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center gap-3 py-8 text-center text-muted-foreground">
+                    <FileText className="h-6 w-6 opacity-50" />
+                    <p>Fəaliyyət qeydi tapılmadı.</p>
+                  </div>
+                )}
               </div>
-            ) : null}
-            {dashboard?.survey_metrics?.active_surveys ? (
-              <div className="rounded-lg border border-border/60 bg-muted/20 px-3 py-3">
-                <p className="text-sm font-medium text-foreground">
-                  Aktiv sorğular
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Cavab gözləyir: {dashboard.survey_metrics.active_surveys}
-                </p>
-              </div>
-            ) : null}
-            {!dashboard?.task_metrics?.pending_tasks &&
-            !dashboard?.survey_metrics?.active_surveys ? (
-              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                <AlertCircle className="h-5 w-5" />
-                Hazırda təcili son tarix yoxdur.
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">
-              Son fəaliyyətlər
-            </CardTitle>
-            <CardDescription>Region səviyyəsində edilən addımlar</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {dashboard?.recent_activities?.length ? (
-              dashboard.recent_activities.slice(0, 6).map((activity) => (
-                <div
-                  key={`${activity.type}-${activity.id}-${activity.timestamp}`}
-                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-sm"
-                >
-                  <p className="font-medium text-foreground">
-                    {activity.action}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {activity.user} •{" "}
-                    {formatDistanceToNow(new Date(activity.timestamp), {
-                      addSuffix: true,
-                      locale: az,
-                    })}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                <FileText className="h-5 w-5" />
-                Fəaliyyət qeydi tapılmadı.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base font-semibold">
-              Bildirişlər
-            </CardTitle>
-            <CardDescription>Regional xəbərdarlıqlar və elanlar</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {dashboard?.notifications?.length ? (
-              dashboard.notifications.slice(0, 6).map((notification) => (
-                <div
-                  key={notification.id}
-                  className="rounded-lg border border-border/60 bg-muted/20 px-3 py-2"
-                >
-                  <p className="text-sm font-medium text-foreground">
-                    {notification.title}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {notification.message}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground/80">
-                    {notification.time_ago}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed border-border/60 px-3 py-6 text-center text-sm text-muted-foreground">
-                <AlertCircle className="h-5 w-5" />
-                Yeni bildiriş yoxdur.
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+    </motion.div>
   );
 };
