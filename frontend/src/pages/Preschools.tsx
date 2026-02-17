@@ -49,7 +49,7 @@ import {
 import { preschoolsService, type Preschool, type PreschoolFilters, type PreschoolCreateData } from '../services/preschools';
 import { sectorsService } from '../services/sectors';
 import { userService } from '../services/users';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { PreschoolCreateModal } from '../components/modals/PreschoolCreateModal';
 import { PreschoolEditModal } from '../components/modals/PreschoolEditModal';

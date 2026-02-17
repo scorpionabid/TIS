@@ -21,7 +21,7 @@ import {
   Table
 } from 'lucide-react';
 import approvalService from '../../services/approvalService';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { toast } from 'sonner';

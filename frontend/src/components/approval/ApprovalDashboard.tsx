@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import approvalService, { ApprovalRequest, ApprovalStats } from '../../services/approvalService';
 // Note: For survey-specific approvals, use SurveyApprovalDashboard component instead
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import ApprovalDetailsModal from './ApprovalDetailsModal';

@@ -21,7 +21,7 @@ import {
   FileText
 } from 'lucide-react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '../../hooks/use-toast';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import surveyApprovalService, {

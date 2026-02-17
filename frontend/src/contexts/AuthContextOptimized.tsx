@@ -7,7 +7,7 @@ import { User } from '@/types/user';
 import { useToast } from '@/hooks/use-toast';
 import { USER_ROLES, UserRole, isValidRole } from '@/constants/roles';
 import { usePerformanceMonitor } from '@/utils/performance/hooks';
-import { resetNavigationCache } from '@/hooks/useNavigationCache';
+import { resetNavigationCache } from '@/utils/navigationCache';
 
 // Single storage location for token and user data
 const AUTH_STORAGE_KEY = 'atis_auth_token';
@@ -69,19 +69,19 @@ const debounce = <T extends (...args: any[]) => any>(
   delay: number
 ): ((...args: Parameters<T>) => void) & { cancel?: () => void } => {
   let timeoutId: NodeJS.Timeout | null = null;
-  
+
   const debounced = (...args: Parameters<T>) => {
     if (timeoutId) clearTimeout(timeoutId);
     timeoutId = setTimeout(() => func(...args), delay);
   };
-  
+
   debounced.cancel = () => {
     if (timeoutId) {
       clearTimeout(timeoutId);
       timeoutId = null;
     }
   };
-  
+
   return debounced;
 };
 
@@ -128,7 +128,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   // Refs for cleanup and preventing memory leaks
   const authCheckTimeoutRef = useRef<NodeJS.Timeout>();
   const retryTimeoutRef = useRef<NodeJS.Timeout>();
@@ -291,7 +291,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Store auth functions in refs to avoid recreating debouncedAuthCheck
   const getTokenRef = useRef(getToken);
   const clearAuthRef = useRef(clearAuth);
-  
+
   // Update refs when functions change
   useEffect(() => {
     getTokenRef.current = getToken;
@@ -302,7 +302,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const debouncedAuthCheck = useRef(
     debounce(async (retryCount = 0) => {
       if (!isMountedRef.current) return;
-      
+
       const startTime = performance.now();
       const token = getTokenRef.current();
       const requiresBearerAuth = typeof apiClient.isBearerAuthEnabled === 'function'
@@ -332,7 +332,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           applyCurrentUser(cachedUser);
           setIsAuthenticated(true);
           log('info', 'User temporarily restored from cache');
-          
+
           // Return early if cache is fresh (less than 5 minutes)
           const cacheTime = cachedUser.cacheTimestamp || 0;
           const now = Date.now();
@@ -347,11 +347,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         // Get fresh user data from API with timeout
         const user = await Promise.race([
           authService.getCurrentUser(),
-          new Promise((_, reject) => 
+          new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Auth check timeout')), 8000)
           )
         ]) as any;
-        
+
         if (!isMountedRef.current) return;
 
         const mappedUser = {
@@ -362,7 +362,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
         applyCurrentUser(mappedUser);
         setIsAuthenticated(true);
-        
+
         // Update localStorage cache with timestamp
         storageHelpers.set(USER_STORAGE_KEY, mappedUser);
         const storedMeta = sessionMetadataRef.current;
@@ -373,56 +373,56 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             () => refreshAuthToken(storedMeta.remember)
           );
         }
-        
+
         const duration = performance.now() - startTime;
-        log('info', 'Authentication successful', { 
-          username: mappedUser.username, 
+        log('info', 'Authentication successful', {
+          username: mappedUser.username,
           role: mappedUser.role,
           duration: `${duration.toFixed(2)}ms`
         });
 
-    } catch (error: any) {
-      const duration = performance.now() - startTime;
-      log('error', `Auth check failed (attempt ${retryCount + 1}) after ${duration.toFixed(2)}ms`, error.message);
+      } catch (error: any) {
+        const duration = performance.now() - startTime;
+        log('error', `Auth check failed (attempt ${retryCount + 1}) after ${duration.toFixed(2)}ms`, error.message);
 
-      const isTimeoutError = error.message?.includes('timeout');
-      const isNetworkError = error.message?.includes('fetch') || 
-                            error.message?.includes('NetworkError') ||
-                            error.message?.includes('Failed to fetch');
-      
-      const is401Error = error.message?.includes('401') || 
-                        error.message?.includes('Unauthenticated');
-      const requiresBearerAuth = typeof apiClient.isBearerAuthEnabled === 'function'
-        ? apiClient.isBearerAuthEnabled()
-        : true;
+        const isTimeoutError = error.message?.includes('timeout');
+        const isNetworkError = error.message?.includes('fetch') ||
+          error.message?.includes('NetworkError') ||
+          error.message?.includes('Failed to fetch');
 
-      if (is401Error) {
-        log('warn', 'Token is invalid/expired, clearing auth');
-        clearAuthRef.current();
-      } else if ((isNetworkError || isTimeoutError) && retryCount < 1) {
-        log('info', `Network/timeout error - retrying in ${(retryCount + 1) * 2000}ms`);
-        retryTimeoutRef.current = setTimeout(() => {
+        const is401Error = error.message?.includes('401') ||
+          error.message?.includes('Unauthenticated');
+        const requiresBearerAuth = typeof apiClient.isBearerAuthEnabled === 'function'
+          ? apiClient.isBearerAuthEnabled()
+          : true;
+
+        if (is401Error) {
+          log('warn', 'Token is invalid/expired, clearing auth');
+          clearAuthRef.current();
+        } else if ((isNetworkError || isTimeoutError) && retryCount < 1) {
+          log('info', `Network/timeout error - retrying in ${(retryCount + 1) * 2000}ms`);
+          retryTimeoutRef.current = setTimeout(() => {
+            if (isMountedRef.current) {
+              debouncedAuthCheck.current?.(retryCount + 1);
+            }
+          }, (retryCount + 1) * 2000);
+          return;
+        } else if (requiresBearerAuth && !getTokenRef.current()) {
+          // No token exists, safe to set unauthenticated
           if (isMountedRef.current) {
-            debouncedAuthCheck.current?.(retryCount + 1);
+            setIsAuthenticated(false);
+            applyCurrentUser(null);
           }
-        }, (retryCount + 1) * 2000);
-        return;
-      } else if (requiresBearerAuth && !getTokenRef.current()) {
-        // No token exists, safe to set unauthenticated
-        if (isMountedRef.current) {
-          setIsAuthenticated(false);
-          applyCurrentUser(null);
         }
+        // For other errors with valid token, keep current state
       }
-      // For other errors with valid token, keep current state
-    }
     }, 100) // Reduced from 300ms to 100ms for faster response
   );
 
   // Initial auth check on mount
   useEffect(() => {
     isMountedRef.current = true;
-    
+
     const checkAuth = async () => {
       await debouncedAuthCheck.current?.();
       if (isMountedRef.current) {
@@ -537,7 +537,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     } finally {
       clearAuth();
       setLoading(false);
-      
+
       toast({
         title: 'Çıxış',
         description: 'Uğurla çıxış etdiniz',
@@ -547,14 +547,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const refreshUser = useCallback(async (): Promise<void> => {
     if (!getToken()) return;
-    
+
     try {
       const user = await authService.getCurrentUser();
       const mappedUser = {
         ...user,
         role: mapBackendRoleToFrontend(user.role)
       };
-      
+
       applyCurrentUser(mappedUser);
       storageHelpers.set(USER_STORAGE_KEY, mappedUser);
       log('info', 'User data refreshed');

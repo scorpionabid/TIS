@@ -12,18 +12,16 @@ import { UserRole } from '@/constants/roles';
 import { performanceMonitor } from '@/utils/performanceMonitor';
 import { SidebarPanel } from '@/types/sidebar';
 
-interface NavigationCache {
-  [key: string]: {
-    data: MenuGroup[];
-    timestamp: number;
-    userRole: UserRole;
-    permissions: string[];
-    panel: string;
-  };
+import { navigationCache, resetNavigationCache } from '@/utils/navigationCache';
+
+interface NavigationCacheEntry {
+  data: MenuGroup[];
+  timestamp: number;
+  userRole: UserRole;
+  permissions: string[];
+  panel: string;
 }
 
-// Global cache storage
-const navigationCache: NavigationCache = {};
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 interface UseNavigationOptions {
@@ -32,12 +30,8 @@ interface UseNavigationOptions {
 
 const PANEL_DEFAULT = 'all';
 
-export const resetNavigationCache = () => {
-  Object.keys(navigationCache).forEach(key => {
-    delete navigationCache[key];
-  });
-  console.log('🗑️ Navigation: Global cache reset');
-};
+export { resetNavigationCache };
+
 
 export const useNavigationCache = (options: UseNavigationOptions = {}) => {
   const { currentUser } = useAuth();
@@ -54,7 +48,7 @@ export const useNavigationCache = (options: UseNavigationOptions = {}) => {
   /**
    * Check if cache entry is valid
    */
-  const isCacheValid = useCallback((cacheEntry: NavigationCache[string]) => {
+  const isCacheValid = useCallback((cacheEntry: NavigationCacheEntry) => {
     const now = Date.now();
     const isExpired = now - cacheEntry.timestamp > CACHE_DURATION;
     return !isExpired;
@@ -233,7 +227,7 @@ export const useNavigationPerformance = () => {
   const measureMenuGeneration = useCallback((menuData: MenuGroup[]) => {
     const endTime = performance.now();
     const duration = endTime - startTime;
-    
+
     const stats = {
       duration: Math.round(duration * 100) / 100,
       menuGroups: menuData.length,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Folder, FileText, Upload, AlertCircle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import documentCollectionService from '../services/documentCollectionService';
 import type { DocumentCollection } from '../types/documentCollection';
 import FolderDocumentsView from '../components/documents/FolderDocumentsView';

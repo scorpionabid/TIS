@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import documentCollectionService from '../../services/documentCollectionService';
 import { institutionService } from '../../services/institutions';
 import { X, Folder, Building2, Users, Target, Search } from 'lucide-react';

@@ -6,7 +6,7 @@ import {
   SurveyResponseForApproval,
   ResponseFilters
 } from "../../../../services/surveyApproval";
-import { useAuth } from '../../../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Import hooks
 import { useTableState } from './hooks/useTableState';
