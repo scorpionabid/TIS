@@ -83,6 +83,16 @@ fi
 # ═══════════════════════════════════════════
 # 4. DOCKER BUILD & RESTART
 # ═══════════════════════════════════════════
+
+# package.json dəyişibsə, frontend node_modules volume-unu sıfırla
+# (Docker anonymous volume köhnə dependency-ləri saxlayır)
+if git diff "$BEFORE".."$AFTER" --name-only | grep -q "frontend/package.json"; then
+  info "frontend/package.json dəyişib — node_modules volume sıfırlanır..."
+  docker compose down frontend 2>/dev/null || true
+  docker volume rm tis_frontend_node_modules 2>/dev/null || true
+  ok "Frontend node_modules volume sıfırlandı"
+fi
+
 info "Docker build edilir..."
 docker compose build --quiet || fail "Docker build uğursuz oldu"
 ok "Build tamamdır"
@@ -113,15 +123,25 @@ ok "Core seeders tamamdır"
 info "Health check..."
 sleep 5
 
+# .env yoxlaması — DB_HOST düzgün olmalıdır
+ENV_DB_HOST=$(grep "^DB_HOST=" backend/.env 2>/dev/null | cut -d= -f2)
+if [ "$ENV_DB_HOST" != "atis_postgres" ]; then
+  echo -e "${RED}[!]${NC} DB_HOST=$ENV_DB_HOST (gözlənilən: atis_postgres) — düzəldilir..."
+  sed -i 's/^DB_HOST=.*/DB_HOST=atis_postgres/' backend/.env
+  docker compose restart backend 2>/dev/null
+  sleep 5
+  ok "DB_HOST düzəldildi və backend restart olundu"
+fi
+
 # Backend
 BACKEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000 --max-time 10 2>/dev/null)
 [ "$BACKEND_STATUS" = "200" ] && ok "Backend: 200 OK" || echo -e "${RED}[!]${NC} Backend: $BACKEND_STATUS"
 
-# Frontend (build vaxt tələb edə bilər)
-for i in 1 2 3; do
+# Frontend (build vaxt tələb edə bilər — 2 dəqiqəyə qədər gözlə)
+for i in 1 2 3 4 5 6; do
   FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 --max-time 10 2>/dev/null)
   [ "$FRONTEND_STATUS" = "200" ] && break
-  sleep 10
+  sleep 20
 done
 [ "$FRONTEND_STATUS" = "200" ] && ok "Frontend: 200 OK" || echo -e "${RED}[!]${NC} Frontend: $FRONTEND_STATUS (build davam edə bilər)"
 
