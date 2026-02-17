@@ -12,6 +12,13 @@ class Survey extends Model
     use HasFactory;
 
     /**
+     * The attributes that are appended to the model's array form.
+     *
+     * @var array
+     */
+    protected $appends = ['questions_count'];
+
+    /**
      * The attributes that are mass assignable.
      *
      * @var array<string>

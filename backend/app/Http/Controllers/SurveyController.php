@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Traits\ResponseHelpers;
 use App\Http\Traits\ValidationRules;
+use App\Models\Institution;
 use App\Models\Survey;
 use App\Models\SurveyDeadlineLog;
 use App\Models\SurveyResponse;
@@ -928,7 +929,7 @@ class SurveyController extends BaseController
 
             $responses = \App\Models\SurveyResponse::where('respondent_id', $user->id)
                 ->with(['survey' => function ($q) {
-                    $q->select('id', 'title', 'description', 'end_date', 'questions_count');
+                    $q->select('id', 'title', 'description', 'end_date', 'current_questions_count');
                 }])
                 ->orderBy('updated_at', 'desc')
                 ->paginate($perPage);
@@ -951,7 +952,7 @@ class SurveyController extends BaseController
             $surveys = $this->getAssignedSurveysQuery($user)
                 ->where('created_at', '>=', now()->subDays(7))
                 ->limit($limit)
-                ->get(['id', 'title', 'description', 'end_date', 'questions_count']);
+                ->get(['id', 'title', 'description', 'end_date', 'current_questions_count']);
 
             $surveys->transform(function ($survey) {
                 $deadlineInfo = $this->resolveDeadlineStatus($survey->end_date);
