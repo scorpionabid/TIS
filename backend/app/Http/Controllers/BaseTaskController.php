@@ -193,9 +193,8 @@ abstract class BaseTaskController extends Controller
      */
     protected function prepareUserAssignmentPayload($task, $user, ?int $institutionId): ?array
     {
-        $assignment = $task->assignments->first(function ($assignment) use ($user, $institutionId) {
-            return $assignment->assigned_user_id === $user->id ||
-                ($institutionId && $assignment->institution_id === $institutionId);
+        $assignment = $task->assignments->first(function ($assignment) use ($user) {
+            return $assignment->assigned_user_id === $user->id;
         });
 
         if (! $assignment) {

@@ -121,19 +121,12 @@ class TaskCrudController extends BaseTaskController
                 'assignments.assignedUser',
                 'assignments.institution',
             ])
-                ->where(function ($assignedQuery) use ($user, $institutionId) {
+                ->where(function ($assignedQuery) use ($user) {
                     // Tasks directly assigned to this user
                     $assignedQuery->where('assigned_to', $user->id)
                         // OR tasks with assignment record for this user
                         ->orWhereHas('assignments', function ($assignmentQuery) use ($user) {
                             $assignmentQuery->where('assigned_user_id', $user->id);
-                        })
-                        // OR tasks assigned to user's institution (only if user has institution)
-                        ->orWhere(function ($instQuery) use ($institutionId, $user) {
-                            if ($institutionId) {
-                                $instQuery->where('assigned_to_institution_id', $institutionId)
-                                    ->orWhereJsonContains('target_institutions', $institutionId);
-                            }
                         });
                 });
 
