@@ -121,6 +121,7 @@ Route::prefix('school-attendance')->group(function () {
 
 Route::prefix('regional-attendance')->middleware(['auth:sanctum', 'role:superadmin|regionadmin|regionoperator|sektoradmin'])->group(function () {
     Route::get('/overview', [RegionalAttendanceController::class, 'overview']);
+    Route::get('/export', [RegionalAttendanceController::class, 'export']);
     Route::get('/schools/{school}/classes', [RegionalAttendanceController::class, 'schoolClasses']);
 });
 

@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, AlertTriangle, Building2, Users, Target, School as SchoolIcon } from 'lucide-react';
+import { Loader2, RefreshCw, AlertTriangle, Building2, Users, Target, FileDown, Search, ArrowUpDown, School as SchoolIcon } from 'lucide-react';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { USER_ROLES } from '@/constants/roles';
@@ -18,11 +18,31 @@ import { format, subDays } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts';
+
 const numberFormatter = new Intl.NumberFormat('az');
 
 const formatPercent = (value?: number | null) => {
   if (value === undefined || value === null) return '0%';
   return `${Number(value).toFixed(1)}%`;
+};
+
+const getChartColor = (rate: number) => {
+  if (rate >= 95) return '#22c55e'; // Green-500
+  if (rate >= 85) return '#eab308'; // Yellow-500
+  return '#ef4444'; // Red-500
 };
 
 const getDefaultDates = () => {
@@ -53,6 +73,12 @@ export default function RegionAttendanceReports() {
   const [datePreset, setDatePreset] = useState<DatePreset>('thisMonth');
   const [selectedSectorId, setSelectedSectorId] = useState<string>('all');
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
+    key: 'name',
+    direction: 'asc',
+  });
   const [activeTab, setActiveTab] = useState<'overview' | 'classes'>('overview');
 
   const overviewFilters = useMemo(() => {
@@ -81,6 +107,50 @@ export default function RegionAttendanceReports() {
 
   const schools = overview?.schools ?? [];
   const sectors = overview?.sectors ?? [];
+
+  const processedSchools = useMemo(() => {
+    let result = [...schools];
+
+    // Search filter
+    if (searchTerm) {
+      const lowerSearch = searchTerm.toLowerCase();
+      result = result.filter((s) => s.name.toLowerCase().includes(lowerSearch));
+    }
+
+    // Status filter
+    if (statusFilter !== 'all') {
+      result = result.filter((s) => {
+        const warnings = s.warnings || [];
+        if (statusFilter === 'missing') return warnings.includes('reports_missing');
+        if (statusFilter === 'low') return warnings.includes('low_attendance');
+        if (statusFilter === 'normal') return warnings.length === 0;
+        return true;
+      });
+    }
+
+    // Sorting
+    result.sort((a, b) => {
+      let aVal: any = a[sortConfig.key as keyof typeof a];
+      let bVal: any = b[sortConfig.key as keyof typeof b];
+
+      if (typeof aVal === 'string') {
+        return sortConfig.direction === 'asc' 
+          ? aVal.localeCompare(bVal, 'az') 
+          : bVal.localeCompare(aVal, 'az');
+      }
+
+      return sortConfig.direction === 'asc' ? aVal - bVal : bVal - aVal;
+    });
+
+    return result;
+  }, [schools, searchTerm, statusFilter, sortConfig]);
+
+  const handleSort = (key: string) => {
+    setSortConfig((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
+    }));
+  };
 
   useEffect(() => {
     if (!schools.length) {
@@ -127,6 +197,22 @@ export default function RegionAttendanceReports() {
       const start = subDays(end, 29);
       setStartDate(format(start, 'yyyy-MM-dd'));
       setEndDate(format(end, 'yyyy-MM-dd'));
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const blob = await regionalAttendanceService.exportExcel(overviewFilters);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `regional_davamiyyet_${startDate}_${endDate}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Export error:', error);
     }
   };
 
@@ -209,6 +295,88 @@ export default function RegionAttendanceReports() {
     );
   };
 
+  const renderSectorChart = () => {
+    if (!sectors.length) return null;
+
+    const data = sectors.map((s) => ({
+      name: s.name.length > 20 ? s.name.substring(0, 20) + '...' : s.name,
+      fullName: s.name,
+      rate: s.average_attendance_rate,
+    }));
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Sektor müqayisəsi (Davamiyyət %)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  angle={-15} 
+                  textAnchor="end" 
+                  interval={0}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} fontSize={12} />
+                <Tooltip 
+                  formatter={(value: number) => [`${value}%`, 'Davamiyyət']}
+                  labelFormatter={(_, payload) => payload[0]?.payload?.fullName || ''}
+                />
+                <Bar dataKey="rate" radius={[4, 4, 0, 0]} barSize={40}>
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getChartColor(entry.rate)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderTrendChart = () => {
+    if (!overview?.trends?.length) return null;
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Dinamika (Gündəlik davamiyyət %)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={overview.trends} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis 
+                  dataKey="short_date" 
+                  fontSize={11}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} fontSize={12} />
+                <Tooltip 
+                  formatter={(value: number) => [`${value}%`, 'Davamiyyət']}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="rate" 
+                  stroke="#2563eb" 
+                  strokeWidth={3}
+                  dot={{ r: 4, fill: "#2563eb", strokeWidth: 2 }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="px-2 py-4 sm:px-4 space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -219,6 +387,14 @@ export default function RegionAttendanceReports() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={handleExport}
+            disabled={overviewLoading || !overview}
+          >
+            <FileDown className="mr-2 h-4 w-4" />
+            Eksport (Excel)
+          </Button>
           <Button
             variant="outline"
             onClick={() => refetchOverview()}
@@ -250,6 +426,7 @@ export default function RegionAttendanceReports() {
               <Input
                 type="date"
                 value={startDate}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={(event) => {
                   setDatePreset('custom');
                   setStartDate(event.target.value);
@@ -262,6 +439,7 @@ export default function RegionAttendanceReports() {
                 type="date"
                 value={endDate}
                 min={startDate}
+                max={new Date().toISOString().split('T')[0]}
                 onChange={(event) => {
                   setDatePreset('custom');
                   setEndDate(event.target.value);
@@ -327,6 +505,11 @@ export default function RegionAttendanceReports() {
             renderSummaryCards()
           )}
 
+          <div className="grid gap-4 md:grid-cols-2">
+            {renderSectorChart()}
+            {renderTrendChart()}
+          </div>
+
           <div className="grid gap-4 lg:grid-cols-3">
             <Card className="lg:col-span-2">
               <CardHeader>
@@ -379,27 +562,41 @@ export default function RegionAttendanceReports() {
                 <div>
                   <h4 className="font-semibold text-sm">Məlumat göndərməyən məktəblər</h4>
                   <div className="mt-2 space-y-1">
-                    {(overview?.alerts.missing_reports ?? []).slice(0, 5).map((alert) => (
-                      <div key={alert.school_id} className="flex items-center gap-2 text-sm">
-                        <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                        {alert.name}
+                    {overview?.alerts.missing_reports && overview.alerts.missing_reports.length > 0 ? (
+                      <>
+                        {overview.alerts.missing_reports.slice(0, 5).map((alert) => (
+                          <div key={alert.school_id} className="flex items-center gap-2 text-sm">
+                            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                            {alert.name}
+                          </div>
+                        ))}
+                        {overview.alerts.missing_reports.length > 5 && (
+                          <p className="text-[10px] text-muted-foreground italic">
+                            və daha {overview.alerts.missing_reports.length - 5} məktəb...
+                          </p>
+                        )}
+                      </>
+                    ) : overview?.summary.schools_missing_reports ? (
+                      <div className="flex items-center gap-2 text-sm text-yellow-600 font-medium">
+                        <AlertTriangle className="h-4 w-4" />
+                        {overview.summary.schools_missing_reports} məktəbdən hesabat gözlənilir.
                       </div>
-                    ))}
-                    {!overview?.alerts.missing_reports?.length && (
-                      <p className="text-xs text-muted-foreground">Bütün məktəblər hesabat göndərib.</p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground text-green-600">Bütün məktəblər hesabat göndərib.</p>
                     )}
                   </div>
                 </div>
                 <div>
                   <h4 className="font-semibold text-sm">Aşağı davamiyyət</h4>
                   <div className="mt-2 space-y-1">
-                    {(overview?.alerts.low_attendance ?? []).slice(0, 5).map((alert) => (
-                      <div key={alert.school_id} className="flex items-center justify-between text-sm">
-                        <span>{alert.name}</span>
-                        <span className="font-semibold text-red-600">{formatPercent(alert.rate)}</span>
-                      </div>
-                    ))}
-                    {!overview?.alerts.low_attendance?.length && (
+                    {overview?.alerts.low_attendance && overview.alerts.low_attendance.length > 0 ? (
+                      overview.alerts.low_attendance.slice(0, 5).map((alert) => (
+                        <div key={alert.school_id} className="flex items-center justify-between text-sm">
+                          <span>{alert.name}</span>
+                          <span className="font-semibold text-red-600">{formatPercent(alert.rate)}</span>
+                        </div>
+                      ))
+                    ) : (
                       <p className="text-xs text-muted-foreground">Aşağı davamiyyət müşahidə edilmir.</p>
                     )}
                   </div>
@@ -409,66 +606,140 @@ export default function RegionAttendanceReports() {
           </div>
 
           <Card>
-            <CardHeader>
-              <CardTitle>Məktəblər</CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {schools.length} məktəb tapıldı
-              </p>
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between space-y-0">
+              <div>
+                <CardTitle>Məktəblər</CardTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {schools.length} məktəbdən {processedSchools.length}-i göstərilir
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Status üzrə filtr" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Bütün statuslar</SelectItem>
+                    <SelectItem value="normal">Normal</SelectItem>
+                    <SelectItem value="missing">Hesabat yoxdur</SelectItem>
+                    <SelectItem value="low">Aşağı davamiyyət</SelectItem>
+                  </SelectContent>
+                </Select>
+                <div className="relative w-64">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Məktəb axtar..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+              </div>
             </CardHeader>
             <CardContent>
               {overviewLoading ? (
                 <Skeleton className="h-40 w-full" />
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Məktəb</TableHead>
-                      <TableHead className="text-center">Şagird</TableHead>
-                      <TableHead className="text-center">Hesabat günləri</TableHead>
-                      <TableHead className="text-center">Orta davamiyyət</TableHead>
-                      <TableHead className="text-center">Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {schools.map((school) => {
-                      const warnings = school.warnings || [];
-                      return (
-                        <TableRow key={school.school_id}>
-                          <TableCell>
-                            <div className="font-medium">{school.name}</div>
-                            <p className="text-xs text-muted-foreground">
-                              {school.reported_classes} sinif
-                            </p>
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {numberFormatter.format(school.total_students)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {school.reported_days}/{school.expected_school_days}
-                          </TableCell>
-                          <TableCell className="text-center font-semibold">
-                            {formatPercent(school.average_attendance_rate)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {warnings.length === 0 ? (
-                              <Badge variant="secondary" className="bg-green-50 text-green-700">
-                                Normal
-                              </Badge>
-                            ) : (
-                              <div className="flex flex-wrap justify-center gap-1">
-                                {warnings.map((warning) => (
-                                  <Badge key={warning} variant="destructive">
-                                    {warning === 'reports_missing' ? 'Hesabat yoxdur' : 'Aşağı davamiyyət'}
-                                  </Badge>
-                                ))}
-                              </div>
-                            )}
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead 
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleSort('name')}
+                        >
+                          <div className="flex items-center gap-1">
+                            Məktəb
+                            <ArrowUpDown className="h-3 w-3" />
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="text-center cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleSort('total_students')}
+                        >
+                          <div className="flex items-center justify-center gap-1">
+                            Şagird
+                            <ArrowUpDown className="h-3 w-3" />
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="text-center cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleSort('reported_days')}
+                        >
+                          <div className="flex items-center justify-center gap-1">
+                            Hesabat günləri
+                            <ArrowUpDown className="h-3 w-3" />
+                          </div>
+                        </TableHead>
+                        <TableHead 
+                          className="text-center cursor-pointer hover:bg-muted/50"
+                          onClick={() => handleSort('average_attendance_rate')}
+                        >
+                          <div className="flex items-center justify-center gap-1">
+                            Orta davamiyyət
+                            <ArrowUpDown className="h-3 w-3" />
+                          </div>
+                        </TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {processedSchools.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                            Filtrə uyğun məktəb tapılmadı.
                           </TableCell>
                         </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                      ) : (
+                        processedSchools.map((school) => {
+                          const warnings = school.warnings || [];
+                          return (
+                            <TableRow 
+                              key={school.school_id}
+                              className="cursor-pointer hover:bg-muted/50 transition-colors"
+                              onClick={() => {
+                                setSelectedSchoolId(String(school.school_id));
+                                setActiveTab('classes');
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                            >
+                              <TableCell>
+                                <div className="font-medium">{school.name}</div>
+                                <p className="text-xs text-muted-foreground">
+                                  {school.reported_classes} sinif
+                                </p>
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {numberFormatter.format(school.total_students)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {school.reported_days}/{school.expected_school_days}
+                              </TableCell>
+                              <TableCell className="text-center font-semibold">
+                                {formatPercent(school.average_attendance_rate)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                {warnings.length === 0 ? (
+                                  <Badge variant="secondary" className="bg-green-50 text-green-700">
+                                    Normal
+                                  </Badge>
+                                ) : (
+                                  <div className="flex flex-wrap justify-center gap-1">
+                                    {warnings.map((warning) => (
+                                      <Badge key={warning} variant="destructive">
+                                        {warning === 'reports_missing' ? 'Hesabat yoxdur' : 'Aşağı davamiyyət'}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </div>
               )}
             </CardContent>
           </Card>

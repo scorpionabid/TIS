@@ -53,6 +53,12 @@ export interface RegionalAttendanceOverview {
   summary: AttendanceSummary;
   sectors: SectorAttendanceStat[];
   schools: SchoolAttendanceStat[];
+  trends: Array<{
+    date: string;
+    short_date: string;
+    rate: number;
+    reported: boolean;
+  }>;
   alerts: {
     missing_reports: Array<{ school_id: number; name: string }>;
     low_attendance: Array<{ school_id: number; name: string; rate: number }>;
@@ -140,6 +146,15 @@ export class RegionalAttendanceService {
       filters
     );
     return unwrap<SchoolClassBreakdown>(response);
+  }
+
+  async exportExcel(filters: RegionalAttendanceFilters): Promise<Blob> {
+    const response = await apiClient.get<Blob>(
+      "/regional-attendance/export",
+      filters,
+      { responseType: "blob" }
+    );
+    return unwrap<Blob>(response);
   }
 }
 

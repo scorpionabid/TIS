@@ -57,9 +57,11 @@ class RegionalAttendanceService
         );
 
         $summary = $this->buildSummary($schoolStats, $sectorStats, $startDate, $endDate, $scope['school_days']);
+        $trends = $this->buildTrends($attendanceRecords, $startDate, $endDate);
 
         return [
             'summary' => $summary,
+            'trends' => $trends,
             'sectors' => array_values($sectorStats),
             'schools' => array_values($schoolStats),
             'alerts' => $this->buildAlerts($schoolStats),
@@ -328,6 +330,7 @@ class RegionalAttendanceService
                 'school_id' => $school->id,
                 'name' => $school->name,
                 'sector_id' => $school->parent_id,
+                'sector_name' => $school->parent?->name ?? 'Naməlum',
                 'total_students' => (int) ($totals['student_total'] ?? 0),
                 'expected_school_days' => $schoolDays,
                 'records' => 0,
@@ -494,10 +497,11 @@ class RegionalAttendanceService
             ->where('reported_days', 0)
             ->values()
             ->map(fn ($school) => [
-                'school_id' => $school['school_id'],
+                'school_id' => $school['school_id'] ?? $school['id'],
                 'name' => $school['name'],
                 'reason' => 'report_missing',
             ])
+            ->take(50) // Performans üçün cəmi 50 dənəsini göstərək
             ->all();
 
         $lowAttendance = $schools
@@ -515,6 +519,52 @@ class RegionalAttendanceService
             'missing_reports' => $missingReports,
             'low_attendance' => $lowAttendance,
         ];
+    }
+
+    private function buildTrends(Collection $records, string $startDate, string $endDate): array
+    {
+        $trends = [];
+        $current = CarbonImmutable::parse($startDate);
+        $end = CarbonImmutable::parse($endDate);
+
+        $grouped = $records->groupBy(function ($record) {
+            return $record->attendance_date instanceof \DateTimeInterface
+                ? $record->attendance_date->format('Y-m-d')
+                : (string) $record->attendance_date;
+        });
+
+        while ($current->lte($end)) {
+            if ($current->isWeekday()) {
+                $dateStr = $current->toDateString();
+                $dayRecords = $grouped->get($dateStr, collect());
+
+                $weightedRates = 0;
+                $weightedDenominator = 0;
+
+                foreach ($dayRecords as $record) {
+                    $possible = max((int) ($record->grade?->student_count ?? $record->total_students ?? 0), 1);
+                    $morningPresent = (int) $record->morning_present;
+                    $eveningPresent = (int) $record->evening_present;
+                    $dailyPresent = $possible > 0
+                        ? ($morningPresent + $eveningPresent) / 2
+                        : max($morningPresent, $eveningPresent);
+
+                    $rate = ($possible > 0 ? ($dailyPresent / $possible) * 100 : 0);
+                    $weightedRates += $rate * $possible;
+                    $weightedDenominator += $possible;
+                }
+
+                $trends[] = [
+                    'date' => $dateStr,
+                    'short_date' => $current->format('d.m'),
+                    'rate' => $weightedDenominator > 0 ? round($weightedRates / $weightedDenominator, 2) : 0,
+                    'reported' => $dayRecords->count() > 0
+                ];
+            }
+            $current = $current->addDay();
+        }
+
+        return $trends;
     }
 
     /**
