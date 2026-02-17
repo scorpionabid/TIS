@@ -7,16 +7,26 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { 
-  FileText, 
-  Download, 
-  Filter, 
-  TrendingUp, 
-  TrendingDown, 
+  FileText,
+  Download,
+  Filter,
+  TrendingUp,
+  TrendingDown,
   CalendarIcon,
   BarChart3,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  BookOpen,
+  PieChart,
+  School as SchoolIcon,
+  Users
 } from 'lucide-react';
+import { Progress } from '@/components/ui/progress';
+import { Badge } from '@/components/ui/badge';
+import { keepPreviousData } from '@tanstack/react-query';
 import { attendanceService } from '@/services/attendance';
 import bulkAttendanceService from '@/services/bulkAttendance';
 import { institutionService } from '@/services/institutions';
@@ -46,7 +56,7 @@ const formatClassLabel = (value?: string | null, level?: number | string | null)
 interface AttendanceRecord {
   id: number;
   date: string;
-  school_name: string;
+  school_name?: string;
   class_name: string;
   start_count: number;
   end_count: number;
@@ -138,8 +148,8 @@ export default function AttendanceReports() {
   });
 
   const schools = useMemo(() => {
-    if (!schoolsResponse?.success || !schoolsResponse.data) return [];
-    const data = Array.isArray(schoolsResponse.data) ? schoolsResponse.data : schoolsResponse.data.data || [];
+    if (!schoolsResponse?.data) return [];
+    const data = Array.isArray(schoolsResponse.data) ? schoolsResponse.data : [];
     return data.filter((institution: any) =>
       ['secondary_school', 'lyceum', 'gymnasium', 'vocational_school'].includes(institution.type)
     );
@@ -209,7 +219,7 @@ export default function AttendanceReports() {
     isFetching: attendanceFetching,
     error: attendanceError,
     refetch
-  } = useQuery({
+  } = useQuery<any, Error>({
     queryKey: [
       'attendance-reports',
       selectedSchool,
@@ -271,7 +281,7 @@ export default function AttendanceReports() {
       return attendanceService.getAttendanceReports(filters);
     },
     enabled: hasAccess,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
     staleTime: 60 * 1000,
     retry: 1,
   });
@@ -281,7 +291,7 @@ export default function AttendanceReports() {
     data: statsResponse,
     isLoading: statsLoading,
     error: statsError
-  } = useQuery({
+  } = useQuery<any, Error>({
     queryKey: ['attendance-stats-reports', selectedSchool, startDate, endDate, currentUser?.role, currentUser?.institution?.id],
     queryFn: () => {
       const filters: any = {
@@ -301,12 +311,12 @@ export default function AttendanceReports() {
       return attendanceService.getAttendanceStats(filters);
     },
     enabled: hasAccess,
-    keepPreviousData: true,
+    placeholderData: keepPreviousData,
     staleTime: 5 * 60 * 1000,
     retry: 1,
   });
 
-  const attendanceData = attendanceResponse?.data || [];
+  const attendanceData: AttendanceRecord[] = attendanceResponse?.data || [];
   const attendanceMeta = attendanceResponse?.meta;
   const totalRecords = attendanceMeta?.total ?? attendanceData.length;
   const paginationPerPage = attendanceMeta?.per_page ?? perPage;
@@ -320,10 +330,10 @@ export default function AttendanceReports() {
   const shouldShowPagination = isDailyView && totalRecords > paginationPerPage;
   const isRefetchingAttendance = attendanceFetching && !attendanceLoading;
 
-  const attendanceStats = statsResponse?.data || {
+  const attendanceStats: AttendanceStats = statsResponse?.data || {
     total_students: 0,
     average_attendance: 0,
-    trend_direction: 'stable' as const,
+    trend_direction: 'stable',
     total_days: 0,
     total_records: 0
   };
@@ -349,7 +359,7 @@ export default function AttendanceReports() {
     data: fetchedClassOptions,
     isLoading: classOptionsLoading,
     error: classOptionsError
-  } = useQuery({
+  } = useQuery<string[] | null, Error>({
     queryKey: ['attendance-class-options', targetSchoolIdForClasses ?? 'all'],
     queryFn: () => attendanceService.getSchoolClasses(targetSchoolIdForClasses),
     enabled: hasAccess && (!!targetSchoolIdForClasses || !isSchoolAdmin),
@@ -528,68 +538,82 @@ export default function AttendanceReports() {
           <AlertDescription>{getErrorMessage(statsError)}</AlertDescription>
         </Alert>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Ümumi Qeyd</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-blue-600 transition-colors">Ümumi Qeyd</CardTitle>
+              <FileText className="h-5 w-5 text-blue-500 group-hover:scale-110 transition-transform" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{attendanceStats.total_records}</div>
-              <p className="text-xs text-muted-foreground">
-                {attendanceStats.total_days} gün
+              <div className="text-3xl font-extrabold">{attendanceStats.total_records}</div>
+              <p className="text-sm text-muted-foreground mt-1 flex items-center">
+                <CalendarIcon className="h-3 w-3 mr-1" />
+                {attendanceStats.total_days} tədris günü
               </p>
             </CardContent>
+            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/10 to-transparent" />
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-l-4 border-l-emerald-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Orta Davamiyyət</CardTitle>
-              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-emerald-600 transition-colors">Orta Davamiyyət</CardTitle>
+              <BarChart3 className="h-5 w-5 text-emerald-500 group-hover:scale-110 transition-transform" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {statsLoading && !statsResponse ? <Loader2 className="h-5 w-5 animate-spin" /> : `${attendanceStats.average_attendance}%`}
+              <div className="text-3xl font-extrabold text-emerald-600">
+                {statsLoading && !statsResponse ? <Loader2 className="h-6 w-6 animate-spin" /> : `${attendanceStats.average_attendance}%`}
               </div>
-              <p className="text-xs text-muted-foreground">
-                {attendanceStats.total_students} şagird
+              <div className="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                <div 
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
+                  style={{ width: `${attendanceStats.average_attendance}%` }}
+                />
+              </div>
+              <p className="text-sm text-muted-foreground mt-2 flex items-center">
+                <Users className="h-3 w-3 mr-1" />
+                {attendanceStats.total_students} şagird üzrə
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-l-4 border-l-indigo-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Trend</CardTitle>
+              <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-indigo-600 transition-colors">Dinamika</CardTitle>
               {attendanceStats.trend_direction === 'up' ? (
-                <TrendingUp className="h-4 w-4 text-green-600" />
+                <TrendingUp className="h-5 w-5 text-emerald-500 group-hover:translate-y--1 transition-transform" />
               ) : attendanceStats.trend_direction === 'down' ? (
-                <TrendingDown className="h-4 w-4 text-red-600" />
+                <TrendingDown className="h-5 w-5 text-rose-500 group-hover:translate-y-1 transition-transform" />
               ) : (
-                <BarChart3 className="h-4 w-4 text-blue-600" />
+                <PieChart className="h-5 w-5 text-indigo-500" />
               )}
             </CardHeader>
             <CardContent>
-              <div className={`text-xl font-semibold ${
-                attendanceStats.trend_direction === 'up' ? 'text-green-600' : 
-                attendanceStats.trend_direction === 'down' ? 'text-red-600' : 'text-blue-600'
+              <div className={`text-xl font-bold ${
+                attendanceStats.trend_direction === 'up' ? 'text-emerald-600' : 
+                attendanceStats.trend_direction === 'down' ? 'text-rose-600' : 'text-indigo-600'
               }`}>
                 {activeTrendCopy.label}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
                 {activeTrendCopy.description}
               </p>
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-l-4 border-l-amber-500">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Dövr</CardTitle>
-              <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-amber-600 transition-colors">Hesabat Dövrü</CardTitle>
+              <CalendarIcon className="h-5 w-5 text-amber-500" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">
-                {format(new Date(startDate), 'dd.MM', { locale: az })} - {format(new Date(endDate), 'dd.MM', { locale: az })}
+              <div className="text-xl font-bold flex flex-wrap gap-1">
+                <span>{format(new Date(startDate), 'dd MMM', { locale: az })}</span>
+                <span className="text-muted-foreground font-normal">→</span>
+                <span>{format(new Date(endDate), 'dd MMM', { locale: az })}</span>
               </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {activeDatePreset === 'custom' ? 'Fərdi seçim' : datePresets.find(p => p.id === activeDatePreset)?.label}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -728,30 +752,40 @@ export default function AttendanceReports() {
           <div className="rounded-md border">
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Tarix</TableHead>
+                <TableRow className="bg-muted/50">
+                  <TableHead className="w-[120px]">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => handleSortChange('date')} 
+                      className="px-0 hover:bg-transparent font-bold flex items-center gap-1"
+                    >
+                      Tarix
+                      <ArrowUpDown className={`h-4 w-4 ${sortField === 'date' ? 'text-primary' : 'text-muted-foreground/50'}`} />
+                    </Button>
+                  </TableHead>
                   {!isSchoolAdmin && <TableHead>Məktəb</TableHead>}
                   <TableHead>
-                    <div className="flex items-center gap-1">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => handleSortChange('class_name')} 
+                      className="px-0 hover:bg-transparent font-bold flex items-center gap-1"
+                    >
                       Sinif
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 px-2"
-                        onClick={() => handleSortChange('class_name')}
-                      >
-                        {sortField === 'class_name'
-                          ? sortDirection === 'asc'
-                            ? 'A→Z'
-                            : 'Z→A'
-                          : 'A-Z'}
-                      </Button>
-                    </div>
+                      <ArrowUpDown className={`h-4 w-4 ${sortField === 'class_name' ? 'text-primary' : 'text-muted-foreground/50'}`} />
+                    </Button>
                   </TableHead>
-                  <TableHead className="text-center">İlk dərs</TableHead>
-                  <TableHead className="text-center">Son dərs</TableHead>
-                  <TableHead className="text-center">Davamiyyət %</TableHead>
+                  <TableHead className="text-center">Səhər (İştirak)</TableHead>
+                  <TableHead className="text-center">Günorta (İştirak)</TableHead>
+                  <TableHead className="text-center w-[180px]">
+                    <Button 
+                      variant="ghost" 
+                      onClick={() => handleSortChange('attendance_rate')} 
+                      className="px-0 hover:bg-transparent font-bold flex items-center gap-1 mx-auto"
+                    >
+                      Davamiyyət %
+                      <ArrowUpDown className={`h-4 w-4 ${sortField === 'attendance_rate' ? 'text-primary' : 'text-muted-foreground/50'}`} />
+                    </Button>
+                  </TableHead>
                   <TableHead>Qeydlər</TableHead>
                 </TableRow>
               </TableHeader>
@@ -798,48 +832,81 @@ export default function AttendanceReports() {
                     const formattedClassName = formatClassLabel(record.class_name, record.grade_level);
 
                     return (
-                    <TableRow key={`${reportType}-${record.id ?? index}`}>
-                      <TableCell>
-                        {formattedDate}
+                    <TableRow key={`${reportType}-${record.id ?? index}`} className="hover:bg-muted/30 transition-colors">
+                      <TableCell className="font-medium">
+                        <div className="flex flex-col">
+                          <span>{formattedDate}</span>
+                          {reportType !== 'daily' && record.record_count && (
+                            <span className="text-[10px] text-muted-foreground italic">
+                              {record.record_count} qeyd
+                            </span>
+                          )}
+                        </div>
                       </TableCell>
                       {!isSchoolAdmin && (
-                        <TableCell className="font-medium">
-                          {record.school?.name || record.school_name}
+                        <TableCell className="font-medium text-blue-600">
+                          <div className="flex items-center gap-2">
+                            <SchoolIcon className="h-4 w-4 opacity-50" />
+                            {record.school?.name || record.school_name}
+                          </div>
                         </TableCell>
                       )}
-                      <TableCell>{formattedClassName}</TableCell>
-                      <TableCell className="text-center">
-                        <div className="font-semibold">{startCount}</div>
-                        {typeof totalStudents === 'number' && totalStudents > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            {startCount}/{totalStudents}
-                          </div>
-                        )}
-                        {typeof record.first_session_absent === 'number' && (
-                          <div className="text-xs text-red-500">
-                            -{record.first_session_absent}
-                          </div>
-                        )}
+                      <TableCell>
+                        <Badge variant="outline" className="font-bold border-blue-200 bg-blue-50/30 text-blue-700">
+                          {formattedClassName}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-center">
-                        <div className="font-semibold">{endCount}</div>
-                        {typeof totalStudents === 'number' && totalStudents > 0 && (
-                          <div className="text-xs text-muted-foreground">
-                            {endCount}/{totalStudents}
-                          </div>
-                        )}
-                        {typeof record.last_session_absent === 'number' && (
-                          <div className="text-xs text-red-500">
-                            -{record.last_session_absent}
-                          </div>
-                        )}
+                        <div className="flex flex-col items-center">
+                          <div className="font-bold text-base">{startCount}</div>
+                          {typeof totalStudents === 'number' && totalStudents > 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              cəmi {totalStudents}
+                            </span>
+                          )}
+                          {typeof record.first_session_absent === 'number' && record.first_session_absent > 0 && (
+                            <Badge variant="secondary" className="mt-1 h-4 px-1 text-[10px] bg-rose-50 text-rose-600 border-rose-100">
+                              -{record.first_session_absent} qayıb
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className={`font-medium ${attendanceTone}`}>
-                          {attendanceRate}%
-                        </span>
+                        <div className="flex flex-col items-center">
+                          <div className="font-bold text-base">{endCount}</div>
+                          {typeof totalStudents === 'number' && totalStudents > 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              cəmi {totalStudents}
+                            </span>
+                          )}
+                          {typeof record.last_session_absent === 'number' && record.last_session_absent > 0 && (
+                            <Badge variant="secondary" className="mt-1 h-4 px-1 text-[10px] bg-rose-50 text-rose-600 border-rose-100">
+                              -{record.last_session_absent} qayıb
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
-                      <TableCell>{combinedNotes || '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex flex-col gap-1 w-full max-w-[140px] mx-auto">
+                          <div className="flex justify-between items-center px-1">
+                            <span className={`text-xs font-bold ${attendanceTone}`}>
+                              {attendanceRate}%
+                            </span>
+                          </div>
+                          <Progress 
+                            value={attendanceRate} 
+                            className={`h-1.5 ${
+                              attendanceRate >= 95 ? '[&>div]:bg-emerald-500' : 
+                              attendanceRate >= 85 ? '[&>div]:bg-amber-500' : '[&>div]:bg-rose-500'
+                            }`}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-[200px]">
+                        <div className="text-xs text-muted-foreground line-clamp-2 italic" title={combinedNotes || ''}>
+                          {combinedNotes || '-'}
+                        </div>
+                      </TableCell>
                     </TableRow>
                   );
                   })
