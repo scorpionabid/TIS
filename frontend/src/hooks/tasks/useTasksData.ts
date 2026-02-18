@@ -28,7 +28,7 @@ export function useTasksData({
   canSeeSectorTab,
   filters,
 }: UseTasksDataParams) {
-  const [sortField, setSortField] = useState<SortField>("title");
+  const [sortField, setSortField] = useState<SortField>("status");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [page, setPage] = useState(1);
   const [perPage, setPerPageState] = useState(DEFAULT_PAGE_SIZE);

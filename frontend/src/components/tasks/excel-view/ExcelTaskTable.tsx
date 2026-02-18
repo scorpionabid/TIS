@@ -216,6 +216,12 @@ export function ExcelTaskTable({
           </tr>
         </thead>
         <tbody>
+          <ExcelCreateRow
+            availableUsers={availableUsers}
+            onTaskCreated={onTaskCreated}
+            originScope={originScope}
+            showCreateButton={showCreateButton}
+          />
           {tasks.length === 0 ? (
             <tr>
               <td colSpan={excelColumns.length + 1} className="px-4 py-12 text-center text-muted-foreground">
@@ -241,12 +247,6 @@ export function ExcelTaskTable({
               />
             ))
           )}
-          <ExcelCreateRow
-            availableUsers={availableUsers}
-            onTaskCreated={onTaskCreated}
-            originScope={originScope}
-            showCreateButton={showCreateButton}
-          />
         </tbody>
       </table>
       </div>

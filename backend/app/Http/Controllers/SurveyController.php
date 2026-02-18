@@ -704,7 +704,10 @@ class SurveyController extends BaseController
             $stats = [
                 'total' => $assignedSurveys->count(),
                 'pending' => $assignedSurveys->whereIn('status', ['published', 'active'])
-                    ->filter(fn ($survey) => ! $this->hasAnyResponse($responsesBySurvey, $survey->id))
+                    ->filter(function ($survey) use ($responsesBySurvey) {
+                        return ! $this->hasAnyResponse($responsesBySurvey, $survey->id) &&
+                               (! $survey->end_date || $survey->end_date->isFuture() || $survey->end_date->isToday());
+                    })
                     ->count(),
                 'in_progress' => $inProgressCount,
                 'completed' => $submittedCount,
@@ -866,6 +869,12 @@ class SurveyController extends BaseController
 
             if ($deadlineFilter && $deadlineFilter !== 'all') {
                 $this->applyDeadlineFilter($surveysQuery, $deadlineFilter);
+            } elseif ($deadlineFilter !== 'all') {
+                // Default: Hide overdue surveys to keep the pending list clean
+                $surveysQuery->where(function ($q) {
+                    $q->whereNull('end_date')
+                      ->orWhere('end_date', '>=', now());
+                });
             }
 
             $surveys = $surveysQuery
@@ -951,6 +960,10 @@ class SurveyController extends BaseController
 
             $surveys = $this->getAssignedSurveysQuery($user)
                 ->where('created_at', '>=', now()->subDays(7))
+                ->where(function ($q) {
+                    $q->whereNull('end_date')
+                      ->orWhere('end_date', '>=', now());
+                })
                 ->limit($limit)
                 ->get(['id', 'title', 'description', 'end_date', 'current_questions_count']);
 

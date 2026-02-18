@@ -68,9 +68,25 @@ class TaskCrudController extends BaseTaskController
             ];
 
             // Apply sorting
-            $sortBy = $request->sort_by ?? 'created_at';
-            $sortDirection = $request->sort_direction ?? 'desc';
-            $query->orderBy($sortBy, $sortDirection);
+            $sortBy = $request->sort_by ?? 'status';
+            $sortDirection = $request->sort_direction ?? 'asc';
+
+            if ($sortBy === 'status') {
+                $query->orderByRaw("
+                    CASE 
+                        WHEN status = 'pending' THEN 1
+                        WHEN status = 'in_progress' THEN 2
+                        WHEN status = 'review' THEN 3
+                        WHEN status = 'completed' THEN 4
+                        WHEN status = 'cancelled' THEN 5
+                        ELSE 6
+                    END " . ($sortDirection === 'asc' ? 'ASC' : 'DESC')
+                );
+                // Secondary sort by created_at to show newest first within same status
+                $query->orderBy('created_at', 'desc');
+            } else {
+                $query->orderBy($sortBy, $sortDirection);
+            }
 
             $perPage = $request->per_page ?? 15;
             $tasks = $query->paginate($perPage);
@@ -145,9 +161,24 @@ class TaskCrudController extends BaseTaskController
             ];
 
             // Apply sorting
-            $sortBy = $request->sort_by ?? 'deadline';
+            $sortBy = $request->sort_by ?? 'status';
             $sortDirection = $request->sort_direction ?? 'asc';
-            $query->orderBy($sortBy, $sortDirection);
+
+            if ($sortBy === 'status') {
+                $query->orderByRaw("
+                    CASE 
+                        WHEN status = 'pending' THEN 1
+                        WHEN status = 'in_progress' THEN 2
+                        WHEN status = 'review' THEN 3
+                        WHEN status = 'completed' THEN 4
+                        WHEN status = 'cancelled' THEN 5
+                        ELSE 6
+                    END " . ($sortDirection === 'asc' ? 'ASC' : 'DESC')
+                );
+                $query->orderBy('created_at', 'desc');
+            } else {
+                $query->orderBy($sortBy, $sortDirection);
+            }
 
             $perPage = $request->per_page ?? 15;
             $tasks = $query->paginate($perPage);

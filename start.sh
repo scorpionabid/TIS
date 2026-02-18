@@ -190,53 +190,56 @@ setup_frontend_deps() {
 
 # Database setup
 setup_database() {
-    print_status "Database-i hazırla..."
+    print_status "Database-i hazırlayar..."
 
-    # Check for full dump first (atis_full_20260218.dump)
-    if [ -f backend/database/snapshots/atis_full_20260218.dump ]; then
-        print_status "🔄 Full dump tapıldı, avtomatik restore edilir..."
-        AUTO_RESTORE=true ./restore_full_dump.sh
-        if [ $? -eq 0 ]; then
-            print_success "✅ Full dump restore edildi"
-            return 0
-        else
-            print_warning "⚠️  Full dump restore uğursuz!"
-        fi
+    # Check if database has data FIRST to avoid accidental resets
+    # We need to make sure the command actually succeeds before relying on the count
+    local user_count_raw
+    user_count_raw=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "ERROR")
+    
+    if [ "$user_count_raw" = "ERROR" ] || [ -z "$user_count_raw" ]; then
+        print_warning "Database-ə qoşulmaq alınmadı (tinker error). Bir az gözləyirik..."
+        sleep 5
+        user_count_raw=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
     fi
 
-    # Check for dev snapshot if no full dump (if USE_DEV_SNAPSHOT=true)
+    local user_count=$user_count_raw
+    local institution_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\Institution::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
 
-    # Check if database has data
-    user_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
-    institution_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\Institution::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
-
-    print_status "Database status: $user_count users, $institution_count institutions"
-
-    # CRITICAL: If we have data (ANY data), NEVER run migrations or seeders
-    # This preserves both production data (>100 users) and development data
+    # If we have data, we SKIP restoration and migrations
     if [ "$user_count" -gt 0 ]; then
-        if [ "$user_count" -gt 100 ]; then
-            print_success "🔒 PRODUCTION DATA DETECTED! Skipping migrations and seeders."
-        else
-            print_success "🔒 DEVELOPMENT DATA DETECTED! Skipping migrations and seeders."
-        fi
-        print_warning "Data count: $user_count users, $institution_count institutions"
-        print_success "Database hazır (data preservation mode)"
-        print_status "💡 Əgər fresh database lazımdırsa: docker compose down -v && ./start.sh"
+        print_success "🔒 Database-də data tapıldı ($user_count istifadəçi, $institution_count müəssisə)."
+        print_success "Mövcud data qorunur."
+        
+        # Ensure superadmin exists and has the correct password regardless
+        print_status "Superadmin girişi təmin edilir..."
+        "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force >/dev/null 2>&1
         return 0
     fi
 
-    # Only run migrations if database is EMPTY
-    print_status "Migrations çalışdır..."
+    print_warning "Database boşdur və ya tapılmadı, bərpa edilir..."
+
+    # If DB is empty, check for full dump (atis_full_20260218.dump)
+    if [ -f backend/database/snapshots/atis_full_20260218.dump ]; then
+        print_status "🔄 Full dump tapıldı, bərpa edilir..."
+        AUTO_RESTORE=true ./restore_full_dump.sh
+        if [ $? -eq 0 ]; then
+            print_success "✅ Full dump uğurla bərpa edildi"
+            return 0
+        else
+            print_warning "⚠️  Full dump bərpası uğursuz oldu, təmiz bazaya keçilir..."
+        fi
+    fi
+
+    # Only run migrations if database is STILL EMPTY
+    print_status "Boş bazada miqrasiyalar başladılır..."
     "$DOCKER_BIN" exec atis_backend php artisan migrate --force || {
         print_error "Migration uğursuz!"
         exit 1
     }
 
     # Run essential seeders for fresh database
-    print_status "Database seeders çalışdır..."
-
-    # Run essential seeders in order
+    print_status "Əsas məlumatlar (seeders) əlavə edilir..."
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=PermissionSeeder --force
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=RoleSeeder --force
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force
@@ -245,8 +248,7 @@ setup_database() {
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=InstitutionTypeSeeder --force
     "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=InstitutionHierarchySeeder --force
 
-    print_success "Database seeders tamamlandı"
-    print_success "Database hazır"
+    print_success "Database sıfırdan hazırlandı"
 }
 
 # Show final information
