@@ -192,17 +192,19 @@ setup_frontend_deps() {
 setup_database() {
     print_status "Database-i hazırla..."
 
-    # Check for dev snapshot first (if USE_DEV_SNAPSHOT=true)
-    if [ "$USE_DEV_SNAPSHOT" = "true" ] && [ -f backend/database/snapshots/dev_snapshot.sql ]; then
-        print_status "🔄 Dev snapshot tapıldı, restore edilir..."
-        AUTO_RESTORE=true ./restore_dev_snapshot.sh
+    # Check for full dump first (atis_full_20260218.dump)
+    if [ -f backend/database/snapshots/atis_full_20260218.dump ]; then
+        print_status "🔄 Full dump tapıldı, avtomatik restore edilir..."
+        AUTO_RESTORE=true ./restore_full_dump.sh
         if [ $? -eq 0 ]; then
-            print_success "✅ Dev snapshot restore edildi"
+            print_success "✅ Full dump restore edildi"
             return 0
         else
-            print_warning "⚠️  Snapshot restore uğursuz, normal setup davam edir..."
+            print_warning "⚠️  Full dump restore uğursuz!"
         fi
     fi
+
+    # Check for dev snapshot if no full dump (if USE_DEV_SNAPSHOT=true)
 
     # Check if database has data
     user_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
