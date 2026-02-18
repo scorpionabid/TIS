@@ -138,8 +138,9 @@ BACKEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000 --
 [ "$BACKEND_STATUS" = "200" ] && ok "Backend: 200 OK" || echo -e "${RED}[!]${NC} Backend: $BACKEND_STATUS"
 
 # Frontend (build vaxt tələb edə bilər — 2 dəqiqəyə qədər gözlə)
+FRONTEND_STATUS="000"
 for i in 1 2 3 4 5 6; do
-  FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 --max-time 10 2>/dev/null)
+  FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 --max-time 10 2>/dev/null || echo "000")
   [ "$FRONTEND_STATUS" = "200" ] && break
   sleep 20
 done
