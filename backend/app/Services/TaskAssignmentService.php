@@ -640,20 +640,22 @@ class TaskAssignmentService extends BaseService
 
         // Notify the delegator
         try {
-            $task = $assignment->task;
-            $this->notificationService->send([
-                'title' => 'Yönləndirilmiş tapşırıq imtina edildi',
-                'message' => "{$user->name} yönləndirilmiş tapşırığı imtina etdi: {$task->title}",
-                'type' => 'task_delegation_rejected',
-                'channel' => 'in_app',
-                'user_id' => $metadata['delegated_from_user_id'],
-                'related_type' => Task::class,
-                'related_id' => $task->id,
-                'metadata' => [
-                    'assignment_id' => $assignment->id,
-                    'rejected_by' => $user->id,
-                ],
-            ]);
+            DB::transaction(function () use ($assignment, $user, $metadata) {
+                $task = $assignment->task;
+                $this->notificationService->send([
+                    'title' => 'Yönləndirilmiş tapşırıq imtina edildi',
+                    'message' => "{$user->name} yönləndirilmiş tapşırığı imtina etdi: {$task->title}",
+                    'type' => 'task_delegation_rejected',
+                    'channel' => 'in_app',
+                    'user_id' => $metadata['delegated_from_user_id'],
+                    'related_type' => Task::class,
+                    'related_id' => $task->id,
+                    'metadata' => [
+                        'assignment_id' => $assignment->id,
+                        'rejected_by' => $user->id,
+                    ],
+                ]);
+            });
         } catch (\Exception $e) {
             Log::warning('Delegation rejection bildirişi göndərilə bilmədi', [
                 'assignment_id' => $assignment->id,
@@ -690,20 +692,22 @@ class TaskAssignmentService extends BaseService
 
         // Notify the delegator
         try {
-            $task = $assignment->task;
-            $this->notificationService->send([
-                'title' => 'Yönləndirilmiş tapşırıq tamamlandı',
-                'message' => "{$user->name} yönləndirilmiş tapşırığı tamamladı: {$task->title}",
-                'type' => 'task_delegation_completed',
-                'channel' => 'in_app',
-                'user_id' => $metadata['delegated_from_user_id'],
-                'related_type' => Task::class,
-                'related_id' => $task->id,
-                'metadata' => [
-                    'assignment_id' => $assignment->id,
-                    'completed_by' => $user->id,
-                ],
-            ]);
+            DB::transaction(function () use ($assignment, $user, $metadata) {
+                $task = $assignment->task;
+                $this->notificationService->send([
+                    'title' => 'Yönləndirilmiş tapşırıq tamamlandı',
+                    'message' => "{$user->name} yönləndirilmiş tapşırığı tamamladı: {$task->title}",
+                    'type' => 'task_delegation_completed',
+                    'channel' => 'in_app',
+                    'user_id' => $metadata['delegated_from_user_id'],
+                    'related_type' => Task::class,
+                    'related_id' => $task->id,
+                    'metadata' => [
+                        'assignment_id' => $assignment->id,
+                        'completed_by' => $user->id,
+                    ],
+                ]);
+            });
         } catch (\Exception $e) {
             Log::warning('Delegation completion bildirişi göndərilə bilmədi', [
                 'assignment_id' => $assignment->id,
@@ -741,14 +745,16 @@ class TaskAssignmentService extends BaseService
     private function logProgressChange($assignment, $oldStatus, $newStatus, $user, ?string $notes = null): void
     {
         try {
-            TaskProgressLog::create([
-                'task_id' => $assignment->task_id,
-                'updated_by' => $user->id,
-                'old_status' => $oldStatus,
-                'new_status' => $newStatus,
-                'progress_percentage' => $assignment->progress ?? 0,
-                'notes' => $notes,
-            ]);
+            DB::transaction(function () use ($assignment, $oldStatus, $newStatus, $user, $notes) {
+                TaskProgressLog::create([
+                    'task_id' => $assignment->task_id,
+                    'updated_by' => $user->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus,
+                    'progress_percentage' => $assignment->progress ?? 0,
+                    'notes' => $notes,
+                ]);
+            });
         } catch (\Exception $e) {
             Log::warning('Task progress log yazıla bilmədi', [
                 'assignment_id' => $assignment->id,
@@ -760,24 +766,26 @@ class TaskAssignmentService extends BaseService
     private function notifyTaskCompletion($assignment, $user): void
     {
         try {
-            $task = $assignment->task?->fresh('creator');
-            if (! $task || ! $task->creator) {
-                return;
-            }
+            DB::transaction(function () use ($assignment, $user) {
+                $task = $assignment->task?->fresh('creator');
+                if (! $task || ! $task->creator) {
+                    return;
+                }
 
-            $this->notificationService->send([
-                'title' => 'Tapşırıq tamamlandı',
-                'message' => "{$user->name} \"{$task->title}\" tapşırığını tamamladı.",
-                'type' => 'task_assignment_completed',
-                'channel' => 'in_app',
-                'user_id' => $task->created_by,
-                'related_type' => Task::class,
-                'related_id' => $task->id,
-                'metadata' => [
-                    'assignment_id' => $assignment->id,
-                    'institution_id' => $assignment->institution_id,
-                ],
-            ]);
+                $this->notificationService->send([
+                    'title' => 'Tapşırıq tamamlandı',
+                    'message' => "{$user->name} \"{$task->title}\" tapşırığını tamamladı.",
+                    'type' => 'task_assignment_completed',
+                    'channel' => 'in_app',
+                    'user_id' => $task->created_by,
+                    'related_type' => Task::class,
+                    'related_id' => $task->id,
+                    'metadata' => [
+                        'assignment_id' => $assignment->id,
+                        'institution_id' => $assignment->institution_id,
+                    ],
+                ]);
+            });
         } catch (\Exception $e) {
             Log::warning('Tapşırıq tamamlanma bildirişi göndərilə bilmədi', [
                 'assignment_id' => $assignment->id,

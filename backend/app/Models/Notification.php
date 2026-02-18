@@ -70,6 +70,9 @@ class Notification extends Model
         'system_alert' => 'Sistem bildirişi',
         'maintenance' => 'Sistem təmiri',
         'security_alert' => 'Təhlükəsizlik xəbərdarlığı',
+        'task_assignment_completed' => 'Tapşırıq icrası tamamlandı',
+        'task_delegation_completed' => 'Yönləndirilmiş tapşırıq tamamlandı',
+        'task_delegation_rejected' => 'Yönləndirmə rədd edildi',
     ];
 
     const PRIORITIES = [
@@ -108,6 +111,9 @@ class Notification extends Model
         'security_alert' => ['ui_type' => 'system', 'display_type' => 'error'],
         'document_shared' => ['ui_type' => 'document', 'display_type' => 'info'],
         'document_updated' => ['ui_type' => 'document', 'display_type' => 'info'],
+        'task_assignment_completed' => ['ui_type' => 'task', 'display_type' => 'success'],
+        'task_delegation_completed' => ['ui_type' => 'task', 'display_type' => 'success'],
+        'task_delegation_rejected' => ['ui_type' => 'task', 'display_type' => 'warning'],
     ];
 
     /**
