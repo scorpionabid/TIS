@@ -568,18 +568,37 @@ class LinkQueryBuilder
 
             $links = $linksQuery->orderBy('created_at', 'desc')->get();
 
-            \Log::info('🔍 LinkSharingService: Links fetched', [
+            // Deduplicate: for each unique title, keep only the most specific link.
+            // A link targeting fewer institutions is more specific (e.g. [205] beats [2,3,...,361]).
+            // This prevents "bulk/all-schools" links from appearing alongside school-specific
+            // links with the same title on the my-resources page.
+            $userInstitutionId = $user->institution_id;
+            $links = $links
+                ->groupBy('title')
+                ->map(function ($group) use ($userInstitutionId) {
+                    if ($group->count() === 1) {
+                        return $group->first();
+                    }
+
+                    // Prefer the link whose target_institutions is exactly [userInstitutionId]
+                    $exact = $group->first(function ($link) use ($userInstitutionId) {
+                        $targets = $link->target_institutions ?? [];
+                        return is_array($targets) && count($targets) === 1 && (int) $targets[0] === (int) $userInstitutionId;
+                    });
+
+                    if ($exact) {
+                        return $exact;
+                    }
+
+                    // Otherwise return the link with the fewest target institutions (most specific)
+                    return $group->sortBy(function ($link) {
+                        return count($link->target_institutions ?? []);
+                    })->first();
+                })
+                ->values();
+
+            \Log::info('🔍 LinkSharingService: Links fetched (after dedup)', [
                 'links_count' => $links->count(),
-                'links_data' => $links->map(function ($link) {
-                    return [
-                        'id' => $link->id,
-                        'title' => $link->title,
-                        'institution_id' => $link->institution_id,
-                        'share_scope' => $link->share_scope,
-                        'target_institutions' => $link->target_institutions,
-                        'status' => $link->status,
-                    ];
-                })->toArray(),
             ]);
 
             foreach ($links as $link) {
