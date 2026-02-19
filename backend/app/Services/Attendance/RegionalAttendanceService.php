@@ -26,14 +26,39 @@ class RegionalAttendanceService
             return $this->formatEmptyOverview($scope, $startDate, $endDate);
         }
 
-        $attendanceRecords = ClassBulkAttendance::with([
-            'grade:id,institution_id,name,class_level,student_count',
-            'institution:id,name,parent_id',
-        ])
+        // Aggregate per school directly in SQL — avoids loading 100K+ rows into PHP memory
+        $schoolAggregates = ClassBulkAttendance::selectRaw(
+            'institution_id,
+             COUNT(DISTINCT attendance_date) AS reported_days,
+             COUNT(DISTINCT grade_id)        AS reported_classes,
+             COUNT(*)                        AS records,
+             SUM(morning_present)            AS total_morning_present,
+             SUM(evening_present)            AS total_evening_present,
+             SUM(morning_excused + morning_unexcused)   AS morning_absent,
+             SUM(evening_excused + evening_unexcused)   AS evening_absent,
+             SUM(total_students)             AS total_possible,
+             AVG(daily_attendance_rate)      AS avg_rate'
+        )
             ->whereIn('institution_id', $schoolIds)
             ->whereDate('attendance_date', '>=', $startDate)
             ->whereDate('attendance_date', '<=', $endDate)
-            ->get();
+            ->groupBy('institution_id')
+            ->get()
+            ->keyBy('institution_id');
+
+        // Aggregate per date for trend chart
+        $trendAggregates = ClassBulkAttendance::selectRaw(
+            'attendance_date,
+             AVG(daily_attendance_rate) AS avg_rate,
+             COUNT(*)                   AS records'
+        )
+            ->whereIn('institution_id', $schoolIds)
+            ->whereDate('attendance_date', '>=', $startDate)
+            ->whereDate('attendance_date', '<=', $endDate)
+            ->groupBy('attendance_date')
+            ->orderBy('attendance_date')
+            ->get()
+            ->keyBy(fn ($r) => (string) $r->attendance_date);
 
         $gradeStudentCounts = Grade::query()
             ->whereIn('institution_id', $schoolIds)
@@ -44,11 +69,15 @@ class RegionalAttendanceService
                 'grades' => $grades,
             ]);
 
+        // Build sector name map for lookup without N+1
+        $sectorNamesById = collect($scope['sectors'])->pluck('name', 'id');
+
         $schoolStats = $this->buildSchoolStats(
             $scope['schools'],
-            $attendanceRecords,
+            $schoolAggregates,
             $gradeStudentCounts,
-            $scope['school_days']
+            $scope['school_days'],
+            $sectorNamesById
         );
 
         $sectorStats = $this->buildSectorStats(
@@ -57,7 +86,7 @@ class RegionalAttendanceService
         );
 
         $summary = $this->buildSummary($schoolStats, $sectorStats, $startDate, $endDate, $scope['school_days']);
-        $trends = $this->buildTrends($attendanceRecords, $startDate, $endDate);
+        $trends = $this->buildTrends($trendAggregates, $startDate, $endDate);
 
         return [
             'summary' => $summary,
@@ -315,94 +344,53 @@ class RegionalAttendanceService
     }
 
     /**
-     * Aggregate stats per school.
+     * Aggregate stats per school from pre-aggregated SQL results.
      *
+     * @param  Collection  $schoolAggregates  Keyed by institution_id — result of GROUP BY SQL query
+     * @param  Collection  $sectorNamesById   sector_id → name map for label lookup
      * @return array<int, array<string, mixed>>
      */
-    private function buildSchoolStats(array $schools, Collection $records, Collection $gradeStudentCounts, int $schoolDays): array
-    {
+    private function buildSchoolStats(
+        array $schools,
+        Collection $schoolAggregates,
+        Collection $gradeStudentCounts,
+        int $schoolDays,
+        Collection $sectorNamesById
+    ): array {
         $stats = [];
 
         foreach ($schools as $school) {
-            $totals = $gradeStudentCounts->get($school->id, ['student_total' => 0, 'grades' => collect()]);
+            $totals      = $gradeStudentCounts->get($school->id, ['student_total' => 0]);
+            $agg         = $schoolAggregates->get($school->id);
+            $reportedDays = (int) ($agg?->reported_days ?? 0);
+            $avgRate      = round((float) ($agg?->avg_rate ?? 0), 2);
 
-            $stats[$school->id] = [
-                'school_id' => $school->id,
-                'name' => $school->name,
-                'sector_id' => $school->parent_id,
-                'sector_name' => $school->parent?->name ?? 'Naməlum',
-                'total_students' => (int) ($totals['student_total'] ?? 0),
-                'expected_school_days' => $schoolDays,
-                'records' => 0,
-                'reported_days' => 0,
-                'reported_classes' => 0,
-                'actual_attendance' => 0,
-                'possible_attendance' => 0,
-                'morning_absent' => 0,
-                'evening_absent' => 0,
-                'weighted_rates' => 0,
-                'weighted_denominator' => 0,
-                'unique_dates' => [],
-                'unique_classes' => [],
-                'average_attendance_rate' => 0,
-                'warnings' => [],
+            $stat = [
+                'school_id'             => $school->id,
+                'name'                  => $school->name,
+                'sector_id'             => $school->parent_id,
+                'sector_name'           => $sectorNamesById->get($school->parent_id, 'Naməlum'),
+                'total_students'        => (int) ($totals['student_total'] ?? 0),
+                'expected_school_days'  => $schoolDays,
+                'records'               => (int) ($agg?->records ?? 0),
+                'reported_days'         => $reportedDays,
+                'reported_classes'      => (int) ($agg?->reported_classes ?? 0),
+                'actual_attendance'     => round(((float) ($agg?->total_morning_present ?? 0) + (float) ($agg?->total_evening_present ?? 0)) / 2, 2),
+                'possible_attendance'   => (int) ($agg?->total_possible ?? 0),
+                'morning_absent'        => (int) ($agg?->morning_absent ?? 0),
+                'evening_absent'        => (int) ($agg?->evening_absent ?? 0),
+                'average_attendance_rate' => $avgRate,
+                'reporting_gap'         => max(0, $schoolDays - $reportedDays),
+                'warnings'              => [],
             ];
-        }
 
-        foreach ($records as $record) {
-            $schoolId = (int) $record->institution_id;
-
-            if (! isset($stats[$schoolId])) {
-                continue;
-            }
-
-            $classStudentCount = $record->grade?->student_count ?? $record->total_students ?? 0;
-            $classStudentCount = max((int) $classStudentCount, 0);
-            $morningPresent = (int) $record->morning_present;
-            $eveningPresent = (int) $record->evening_present;
-            $dailyPresent = $classStudentCount > 0
-                ? ($morningPresent + $eveningPresent) / 2
-                : max($morningPresent, $eveningPresent);
-            $possible = max($classStudentCount, 1);
-
-            $dailyRate = $record->daily_attendance_rate ?? ($possible > 0
-                ? round(($dailyPresent / $possible) * 100, 2)
-                : 0);
-
-            $stats[$schoolId]['records']++;
-            $stats[$schoolId]['actual_attendance'] += $dailyPresent;
-            $stats[$schoolId]['possible_attendance'] += $possible;
-            $stats[$schoolId]['morning_absent'] += (int) $record->morning_excused + (int) $record->morning_unexcused;
-            $stats[$schoolId]['evening_absent'] += (int) $record->evening_excused + (int) $record->evening_unexcused;
-            $stats[$schoolId]['weighted_rates'] += $dailyRate * $possible;
-            $stats[$schoolId]['weighted_denominator'] += $possible;
-
-            $dateKey = $record->attendance_date instanceof \DateTimeInterface
-                ? $record->attendance_date->format('Y-m-d')
-                : (string) $record->attendance_date;
-            $stats[$schoolId]['unique_dates'][$dateKey] = true;
-
-            if ($record->grade_id) {
-                $stats[$schoolId]['unique_classes'][$record->grade_id] = true;
-            }
-        }
-
-        foreach ($stats as $schoolId => &$stat) {
-            $stat['reported_days'] = count($stat['unique_dates']);
-            $stat['reported_classes'] = count($stat['unique_classes']);
-            $stat['average_attendance_rate'] = $stat['weighted_denominator'] > 0
-                ? round($stat['weighted_rates'] / $stat['weighted_denominator'], 2)
-                : 0;
-
-            $stat['reporting_gap'] = max(0, $stat['expected_school_days'] - $stat['reported_days']);
-
-            if ($stat['reported_days'] === 0) {
+            if ($reportedDays === 0) {
                 $stat['warnings'][] = 'reports_missing';
-            } elseif ($stat['average_attendance_rate'] < 85) {
+            } elseif ($avgRate < 85) {
                 $stat['warnings'][] = 'low_attendance';
             }
 
-            unset($stat['unique_dates'], $stat['unique_classes'], $stat['weighted_rates'], $stat['weighted_denominator']);
+            $stats[$school->id] = $stat;
         }
 
         return $stats;
@@ -521,44 +509,27 @@ class RegionalAttendanceService
         ];
     }
 
-    private function buildTrends(Collection $records, string $startDate, string $endDate): array
+    /**
+     * Build daily trend data from pre-aggregated SQL results.
+     *
+     * @param  Collection  $trendAggregates  Keyed by 'Y-m-d' date string
+     */
+    private function buildTrends(Collection $trendAggregates, string $startDate, string $endDate): array
     {
         $trends = [];
         $current = CarbonImmutable::parse($startDate);
         $end = CarbonImmutable::parse($endDate);
 
-        $grouped = $records->groupBy(function ($record) {
-            return $record->attendance_date instanceof \DateTimeInterface
-                ? $record->attendance_date->format('Y-m-d')
-                : (string) $record->attendance_date;
-        });
-
         while ($current->lte($end)) {
             if ($current->isWeekday()) {
                 $dateStr = $current->toDateString();
-                $dayRecords = $grouped->get($dateStr, collect());
-
-                $weightedRates = 0;
-                $weightedDenominator = 0;
-
-                foreach ($dayRecords as $record) {
-                    $possible = max((int) ($record->grade?->student_count ?? $record->total_students ?? 0), 1);
-                    $morningPresent = (int) $record->morning_present;
-                    $eveningPresent = (int) $record->evening_present;
-                    $dailyPresent = $possible > 0
-                        ? ($morningPresent + $eveningPresent) / 2
-                        : max($morningPresent, $eveningPresent);
-
-                    $rate = ($possible > 0 ? ($dailyPresent / $possible) * 100 : 0);
-                    $weightedRates += $rate * $possible;
-                    $weightedDenominator += $possible;
-                }
+                $agg = $trendAggregates->get($dateStr);
 
                 $trends[] = [
-                    'date' => $dateStr,
+                    'date'       => $dateStr,
                     'short_date' => $current->format('d.m'),
-                    'rate' => $weightedDenominator > 0 ? round($weightedRates / $weightedDenominator, 2) : 0,
-                    'reported' => $dayRecords->count() > 0
+                    'rate'       => $agg ? round((float) $agg->avg_rate, 2) : 0,
+                    'reported'   => $agg !== null,
                 ];
             }
             $current = $current->addDay();
