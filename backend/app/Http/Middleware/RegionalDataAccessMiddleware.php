@@ -306,7 +306,7 @@ class RegionalDataAccessMiddleware
     {
         $userSchool = $user->institution;
 
-        if (! $userSchool || ! in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational'])) {
+        if (! $userSchool || ! in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational', 'lyceum'])) {
             return [
                 'allowed' => false,
                 'message' => 'MəktəbAdmin məktəbə təyin edilməlidir',
