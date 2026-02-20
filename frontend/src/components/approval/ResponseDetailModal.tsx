@@ -33,6 +33,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { useToast } from '../../hooks/use-toast';
+import { getStatusBadge, getApprovalStatusBadge } from './table/utils/statusHelpers';
 import surveyApprovalService, {
   SurveyResponseForApproval,
   ApprovalAction
@@ -221,48 +222,6 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
     }
   };
 
-  // Get status badge
-  const getStatusBadge = (status: string) => {
-    const statusConfig = {
-      draft: { variant: 'secondary', icon: Edit, text: 'Qaralama' },
-      submitted: { variant: 'default', icon: Clock, text: 'Təqdim edilib' },
-      approved: { variant: 'success', icon: CheckCircle, text: 'Təsdiqləndi' },
-      rejected: { variant: 'destructive', icon: XCircle, text: 'Rədd edildi' },
-    } as const;
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
-    const Icon = config.icon;
-
-    return (
-      <Badge variant={config.variant as any} className="flex items-center gap-1">
-        <Icon className="h-3 w-3" />
-        {config.text}
-      </Badge>
-    );
-  };
-
-  // Get approval status badge
-  const getApprovalStatusBadge = (status?: string) => {
-    if (!status) return null;
-
-    const statusConfig = {
-      pending: { variant: 'default', icon: Clock, text: 'Gözləyir' },
-      in_progress: { variant: 'default', icon: RefreshCw, text: 'İcrada' },
-      approved: { variant: 'success', icon: CheckCircle, text: 'Təsdiqləndi' },
-      rejected: { variant: 'destructive', icon: XCircle, text: 'Rədd edildi' },
-      returned: { variant: 'secondary', icon: RefreshCw, text: 'Geri qaytarıldı' },
-    } as const;
-
-    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending;
-    const Icon = config.icon;
-
-    return (
-      <Badge variant={config.variant as any} className="flex items-center gap-1">
-        <Icon className="h-3 w-3" />
-        {config.text}
-      </Badge>
-    );
-  };
 
   // Get question title by ID
   const getQuestionTitle = (questionId: string, index: number) => {

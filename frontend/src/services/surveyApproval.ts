@@ -547,86 +547,34 @@ class SurveyApprovalService {
   ): Promise<Blob> {
     console.log('🔍 [SurveyApproval] Exporting survey responses:', { surveyId, filters });
 
-    // Extract format from filters (default to xlsx)
     const format = filters.format || 'xlsx';
 
-    const params = new URLSearchParams();
-
-    // Add surveyId as a required parameter
-    params.append('surveyId', String(surveyId));
-
-    // Add all filters as URL parameters
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '') {
-        // Handle array values (like response_ids) properly
-        if (Array.isArray(value)) {
-          value.forEach(item => {
-            params.append(`${key}[]`, String(item));
-          });
-        } else {
-          params.append(key, String(value));
-        }
-      }
-    });
-
     try {
-      console.log('🚀 [SurveyApproval] Making export API call...');
+      console.log('🚀 [SurveyApproval] Making export API call using apiClient...');
 
-      // Add cache-busting timestamp to prevent caching of export requests
-      params.append('_t', Date.now().toString());
+      const response = await apiClient.get<Blob>(
+        `survey-approval/surveys/${surveyId}/export`,
+        filters,
+        {
+          responseType: 'blob',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Accept': format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          }
+        }
+      );
 
-      // Use direct fetch for file downloads instead of apiClient to avoid response wrapping issues
-      // Get CSRF token from cookie (Sanctum uses cookies for authentication)
-      const csrfToken = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('XSRF-TOKEN='))
-        ?.split('=')[1];
-
-      const headers: Record<string, string> = {
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-        'Accept': format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'X-Requested-With': 'XMLHttpRequest', // Required for Laravel Sanctum
-        ...apiClient.getAuthHeaders(),
-      };
-
-      if (csrfToken) {
-        headers['X-XSRF-TOKEN'] = decodeURIComponent(csrfToken);
-      }
-
-      // Use absolute URL to ensure request goes to backend server (localhost:8000)
-      // NOTE: Export route is on survey-approval endpoint, not survey-response-approval
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-      const exportURL = `${apiBaseUrl}/survey-approval/surveys/${surveyId}/export?${params.toString()}`;
-      console.log('🌐 [SurveyApproval] Export URL:', exportURL);
-      console.log('📋 [SurveyApproval] Headers:', headers);
-
-      const fetchResponse = await fetch(exportURL, {
-        method: 'GET',
-        headers,
-        credentials: 'include'
-      });
-
-      if (!fetchResponse.ok) {
-        throw new Error(`HTTP ${fetchResponse.status}: ${fetchResponse.statusText}`);
-      }
-
-      // Backend now returns file blob directly, not JSON
-      const blob = await fetchResponse.blob();
-
-      console.log('✅ [SurveyApproval] Export response received:', {
-        size: blob.size,
-        type: blob.type,
-        status: fetchResponse.status,
-        statusText: fetchResponse.statusText
-      });
-
-      // Validate blob
-      if (!blob || blob.size === 0) {
+      if (!response.data) {
         throw new Error('Received empty file response');
       }
 
-      return blob;
+      console.log('✅ [SurveyApproval] Export response received:', {
+        size: response.data.size,
+        type: response.data.type
+      });
+
+      return response.data;
 
     } catch (error: any) {
       console.error('💥 [SurveyApproval] Error exporting survey responses:', {

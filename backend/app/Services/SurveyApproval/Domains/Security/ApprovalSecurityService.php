@@ -99,7 +99,7 @@ class ApprovalSecurityService
     {
         // Support both single role (role_id) and Spatie Permission roles
         $roleName = $user->role->name ?? $user->roles->pluck('name')->first() ?? null;
-        $workflowSteps = $workflow->workflow_steps ?? [];
+        $workflowSteps = $workflow->approval_chain ?? $workflow->workflow_steps ?? [];
 
         // Find the step definition for this level
         $stepDef = collect($workflowSteps)->firstWhere('level', $level);
@@ -108,7 +108,7 @@ class ApprovalSecurityService
         }
 
         // Check if user's role is in the allowed roles for this level
-        $allowedRoles = $stepDef['allowed_roles'] ?? [];
+        $allowedRoles = (array) ($stepDef['allowed_roles'] ?? $stepDef['role'] ?? []);
         if (! in_array($roleName, $allowedRoles)) {
             return false;
         }
@@ -126,7 +126,7 @@ class ApprovalSecurityService
     {
         // Support both single role (role_id) and Spatie Permission roles
         $roleName = $approver->role->name ?? $approver->roles->pluck('name')->first() ?? null;
-        $workflowSteps = $workflow->workflow_steps ?? [];
+        $workflowSteps = $workflow->approval_chain ?? $workflow->workflow_steps ?? [];
 
         // SuperAdmin can approve at current level or any level (case-insensitive check)
         if ($roleName && strtolower($roleName) === 'superadmin') {
@@ -138,7 +138,7 @@ class ApprovalSecurityService
 
         // Find the first level that this user can approve
         foreach ($workflowSteps as $step) {
-            $allowedRoles = $step['allowed_roles'] ?? [];
+            $allowedRoles = (array) ($step['allowed_roles'] ?? $step['role'] ?? []);
             $level = $step['level'] ?? 0;
 
             if (in_array($roleName, $allowedRoles)) {

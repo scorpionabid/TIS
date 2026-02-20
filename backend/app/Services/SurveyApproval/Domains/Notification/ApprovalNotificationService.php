@@ -66,14 +66,14 @@ class ApprovalNotificationService
     ): void {
         // Find users who can approve at next level
         $workflow = $approvalRequest->workflow;
-        $workflowSteps = $workflow->workflow_steps ?? [];
+        $workflowSteps = $workflow->approval_chain ?? $workflow->workflow_steps ?? [];
 
         $stepDef = collect($workflowSteps)->firstWhere('level', $nextLevel);
         if (! $stepDef) {
             return;
         }
 
-        $allowedRoles = $stepDef['allowed_roles'] ?? [];
+        $allowedRoles = (array) ($stepDef['allowed_roles'] ?? $stepDef['role'] ?? []);
 
         // Get users with these roles in the institution
         $institution = $approvalRequest->institution;

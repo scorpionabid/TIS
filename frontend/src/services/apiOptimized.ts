@@ -542,6 +542,7 @@ class ApiClientOptimized {
       responseType?: 'json' | 'blob';
       cache?: boolean;
       cacheTtl?: number;
+      headers?: Record<string, string>;
     }
   ): Promise<ApiResponse<T>> {
     // Handle blob responses (no caching, no deduplication)
@@ -624,24 +625,24 @@ class ApiClientOptimized {
   }
 
   // POST/PUT/DELETE methods (no caching, but with deduplication for safety)
-  async post<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: any, options?: { headers?: Record<string, string> }): Promise<ApiResponse<T>> {
     this.invalidateCachesForMutation(endpoint);
-    return this.performRequest<T>('POST', endpoint, data);
+    return this.performRequest<T>('POST', endpoint, data, undefined, options);
   }
 
-  async put<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data?: any, options?: { headers?: Record<string, string> }): Promise<ApiResponse<T>> {
     this.invalidateCachesForMutation(endpoint);
-    return this.performRequest<T>('PUT', endpoint, data);
+    return this.performRequest<T>('PUT', endpoint, data, undefined, options);
   }
 
-  async patch<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async patch<T>(endpoint: string, data?: any, options?: { headers?: Record<string, string> }): Promise<ApiResponse<T>> {
     this.invalidateCachesForMutation(endpoint);
-    return this.performRequest<T>('PATCH', endpoint, data);
+    return this.performRequest<T>('PATCH', endpoint, data, undefined, options);
   }
 
-  async delete<T>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
+  async delete<T>(endpoint: string, data?: any, options?: { headers?: Record<string, string> }): Promise<ApiResponse<T>> {
     this.invalidateCachesForMutation(endpoint);
-    return this.performRequest<T>('DELETE', endpoint, data);
+    return this.performRequest<T>('DELETE', endpoint, data, undefined, options);
   }
 
   // Core request method
@@ -650,7 +651,7 @@ class ApiClientOptimized {
     endpoint: string,
     data?: any,
     params?: Record<string, any>,
-    options?: { responseType?: 'json' | 'blob' }
+    options?: { responseType?: 'json' | 'blob'; headers?: Record<string, string> }
   ): Promise<ApiResponse<T>> {
     // Safety check for baseURL
     if (!this.baseURL || this.baseURL === 'undefined') {
@@ -700,7 +701,10 @@ class ApiClientOptimized {
 
     const requestInit: RequestInit = {
       method,
-      headers: this.getHeaders(),
+      headers: {
+        ...this.getHeaders(),
+        ...(options?.headers || {}),
+      },
       credentials: 'include',
     };
 

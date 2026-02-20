@@ -8,27 +8,27 @@ import { CheckCircle, XCircle, Clock, Edit, RefreshCw } from 'lucide-react';
 export const getStatusDot = (status: string) => {
   const statusConfig = {
     draft: {
-      dotColor: 'bg-gray-500',
+      dotColor: 'bg-black',
       label: 'Qaralama',
       tooltip: 'Hələ tamamlanmayıb'
     },
     submitted: {
-      dotColor: 'bg-blue-500',
+      dotColor: 'bg-blue-600',
       label: 'Təqdim edildi',
       tooltip: 'Təsdiq gözlənilir'
     },
     approved: {
-      dotColor: 'bg-emerald-500',
+      dotColor: 'bg-green-600',
       label: 'Təsdiqləndi',
       tooltip: 'Rəsmi olaraq təsdiqlənib'
     },
     rejected: {
-      dotColor: 'bg-rose-500',
+      dotColor: 'bg-red-600',
       label: 'Rədd edildi',
       tooltip: 'Təkrar işləmə tələb olunur'
     },
     returned: {
-      dotColor: 'bg-purple-500',
+      dotColor: 'bg-amber-600',
       label: 'Geri qaytarıldı',
       tooltip: 'Yenidən işləmə üçün qaytarılıb'
     },
@@ -49,18 +49,38 @@ export const getStatusDot = (status: string) => {
  */
 export const getStatusBadge = (status: string) => {
   const statusConfig = {
-    draft: { variant: 'secondary', icon: Edit, text: 'Qaralama' },
-    submitted: { variant: 'default', icon: Clock, text: 'Təqdim edilib' },
-    approved: { variant: 'success', icon: CheckCircle, text: 'Təsdiqləndi' },
-    rejected: { variant: 'destructive', icon: XCircle, text: 'Rədd edildi' },
-    returned: { variant: 'secondary', icon: RefreshCw, text: 'Geri qaytarıldı' },
+    draft: { 
+      className: 'bg-black text-white hover:bg-black/80', 
+      icon: Edit, 
+      text: 'Qaralama' 
+    },
+    submitted: { 
+      className: 'bg-blue-600 text-white hover:bg-blue-700', 
+      icon: Clock, 
+      text: 'Təqdim edilib' 
+    },
+    approved: { 
+      className: 'bg-green-600 text-white hover:bg-green-700', 
+      icon: CheckCircle, 
+      text: 'Təsdiqləndi' 
+    },
+    rejected: { 
+      className: 'bg-red-600 text-white hover:bg-red-700', 
+      icon: XCircle, 
+      text: 'Rədd edildi' 
+    },
+    returned: { 
+      className: 'bg-amber-600 text-white hover:bg-amber-700', 
+      icon: RefreshCw, 
+      text: 'Geri qaytarıldı' 
+    },
   } as const;
 
   const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
   const Icon = config.icon;
 
   return (
-    <Badge variant={config.variant as any} className="flex items-center gap-1">
+    <Badge className={`flex items-center gap-1 border-none ${config.className}`}>
       <Icon className="h-3 w-3" />
       {config.text}
     </Badge>

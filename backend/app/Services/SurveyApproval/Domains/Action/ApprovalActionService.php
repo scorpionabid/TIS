@@ -306,7 +306,7 @@ class ApprovalActionService
      */
     protected function getNextRequiredApprovalLevel(ApprovalWorkflow $workflow, int $currentLevel): ?int
     {
-        $workflowSteps = $workflow->workflow_steps ?? [];
+        $workflowSteps = $workflow->approval_chain ?? $workflow->workflow_steps ?? [];
 
         // Find the next required level after current
         foreach ($workflowSteps as $step) {

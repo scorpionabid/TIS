@@ -84,18 +84,21 @@ class SurveyApprovalWorkflowResolver
             [
                 'level' => 1,
                 'role' => 'schooladmin',
+                'allowed_roles' => ['schooladmin', 'preschooladmin'],
                 'required' => false,
                 'title' => 'School Admin Review',
             ],
             [
                 'level' => 2,
                 'role' => 'sektoradmin',
+                'allowed_roles' => ['sektoradmin'],
                 'required' => true,
                 'title' => 'Sector Admin Approval',
             ],
             [
                 'level' => 3,
                 'role' => 'regionadmin',
+                'allowed_roles' => ['regionadmin', 'regionoperator'],
                 'required' => true,
                 'title' => 'Regional Admin Approval',
             ],

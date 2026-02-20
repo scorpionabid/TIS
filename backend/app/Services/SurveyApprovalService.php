@@ -105,9 +105,32 @@ class SurveyApprovalService extends BaseService
             });
         }
 
+        // Sorting
+        $sortBy = $request->get('sort_by', 'submitted_at');
+        $sortDirection = $request->get('sort_direction', 'desc');
+
+        // Map frontend sort fields to database columns
+        $sortFieldMap = [
+            'institution_name' => 'institutions.name',
+            'respondent_name' => 'users.username', // Simple fallback or use join
+            'progress_percentage' => 'progress_percentage',
+            'status' => 'status',
+            'submitted_at' => 'submitted_at',
+        ];
+
+        $orderField = $sortFieldMap[$sortBy] ?? 'submitted_at';
+
+        if ($sortBy === 'institution_name') {
+            $query->join('institutions', 'survey_responses.institution_id', '=', 'institutions.id')
+                ->orderBy('institutions.name', $sortDirection)
+                ->select('survey_responses.*');
+        } else {
+            $query->orderBy($orderField, $sortDirection);
+        }
+
         // Pagination
         $perPage = $request->get('per_page', 25);
-        $responses = $query->orderBy('submitted_at', 'desc')->paginate($perPage);
+        $responses = $query->paginate($perPage);
 
         \Log::info('✅ [APPROVAL] Query executed', [
             'total_found' => $responses->total(),

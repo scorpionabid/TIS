@@ -14,7 +14,7 @@ import {
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { SurveyResponseForApproval } from "../../../../services/surveyApproval";
-import { getStatusDot, getProgressColor } from '../utils/statusHelpers';
+import { getStatusBadge, getProgressColor } from '../utils/statusHelpers';
 import ApprovalActions from './ApprovalActions';
 
 
@@ -128,7 +128,7 @@ const ResponseTableRow: React.FC<ResponseTableRowProps> = ({
       {/* Status */}
       <TableCell className="py-3">
         <div className="flex justify-center">
-          {getStatusDot(response?.status || 'draft')}
+          {getStatusBadge(response?.status || 'draft')}
         </div>
       </TableCell>
 
