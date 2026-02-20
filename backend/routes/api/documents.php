@@ -171,27 +171,34 @@ Route::middleware('permission:tasks.read')->group(function () {
     Route::post('tasks/{task}/checklists/reorder', [TaskChecklistController::class, 'reorder']);
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
 // Notification Management Routes
-Route::middleware('permission:notifications.read')->group(function () {
-    Route::get('notifications', [NotificationController::class, 'index']);
+// ─────────────────────────────────────────────────────────────────────────────
+// IMPORTANT: All static routes (statistics, unread-count, mark-all-read) MUST
+// be defined BEFORE wildcard {notification} routes to avoid route conflicts.
+
+// All authenticated users can READ their own notifications (no special permission needed)
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('notifications',               [NotificationController::class, 'index']);
+    Route::get('notifications/statistics',    [NotificationController::class, 'statistics']);
+    Route::get('notifications/unread-count',  [NotificationController::class, 'unreadCount']);
+
+    // Wildcard routes come AFTER static routes
     Route::get('notifications/{notification}', [NotificationController::class, 'show']);
-    Route::get('notifications/unread/count', [NotificationController::class, 'getUnreadCount']);
 });
 
-Route::middleware('permission:notifications.write')->group(function () {
+Route::middleware('auth:sanctum')->group(function () {
+    // Both URL variants supported for backward compatibility
+    Route::post('notifications/{notification}/read',      [NotificationController::class, 'markAsRead']);
     Route::post('notifications/{notification}/mark-read', [NotificationController::class, 'markAsRead']);
+
     Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
+
     Route::delete('notifications/{notification}', [NotificationController::class, 'destroy']);
-    Route::post('notifications/bulk-delete', [NotificationController::class, 'bulkDelete']);
 });
 
-Route::middleware('permission:notifications.send')->group(function () {
-    Route::post('notifications', [NotificationController::class, 'store']);
-    Route::post('notifications/broadcast', [NotificationController::class, 'broadcast']);
-    Route::post('notifications/schedule', [NotificationController::class, 'schedule']);
-});
-
-Route::middleware('permission:notifications.analytics')->group(function () {
-    Route::get('notifications/analytics/delivery', [NotificationController::class, 'getDeliveryAnalytics']);
-    Route::get('notifications/analytics/engagement', [NotificationController::class, 'getEngagementAnalytics']);
+// Admin-only: send test notifications
+Route::middleware(['auth:sanctum', 'role:superadmin'])->group(function () {
+    Route::post('notifications/test',   [NotificationController::class, 'sendTest']);
+    Route::post('notifications/{notification}/resend', [NotificationController::class, 'resend']);
 });

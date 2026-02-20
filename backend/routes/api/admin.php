@@ -458,3 +458,12 @@ Route::prefix('settings')->middleware(['auth:sanctum', 'role:superadmin|regionad
     // System health
     Route::get('/health', [SettingsController::class, 'getHealth']);
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// User Notification Preferences — available to ALL authenticated users
+// Frontend: GET|PUT /api/settings/notifications (via userNotificationPreferences.ts)
+// ─────────────────────────────────────────────────────────────────────────────
+Route::middleware('auth:sanctum')->prefix('user')->group(function () {
+    Route::get('notification-preferences',  [\App\Http\Controllers\UserNotificationPreferenceController::class, 'show']);
+    Route::put('notification-preferences',  [\App\Http\Controllers\UserNotificationPreferenceController::class, 'update']);
+});

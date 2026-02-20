@@ -192,42 +192,41 @@ setup_frontend_deps() {
 setup_database() {
     print_status "Database-i hazırlayar..."
 
-    # Check if database has data FIRST to avoid accidental resets
-    # We need to make sure the command actually succeeds before relying on the count
-    local user_count_raw
-    user_count_raw=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "ERROR")
-    
-    if [ "$user_count_raw" = "ERROR" ] || [ -z "$user_count_raw" ]; then
-        print_warning "Database-ə qoşulmaq alınmadı (tinker error). Bir az gözləyirik..."
-        sleep 5
-        user_count_raw=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
-    fi
-
-    local user_count=$user_count_raw
-    local institution_count=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\Institution::count();" 2>/dev/null | tail -1 | tr -d '\r\n' || echo "0")
-
-    # If we have data, we SKIP restoration and migrations
-    if [ "$user_count" -gt 0 ]; then
-        print_success "🔒 Database-də data tapıldı ($user_count istifadəçi, $institution_count müəssisə)."
-        print_success "Mövcud data qorunur."
-        
-        # Ensure superadmin exists and has the correct password regardless
-        print_status "Superadmin girişi təmin edilir..."
+    # Check for marker file first
+    if [ -f backend/storage/app/db_imported.lock ]; then
+        print_success "🔒 Database artıq bərpa edilib (lock file tapıldı). Mövcud data qorunur."
+        # Ensure essential seeders just in case (e.g. new permissions)
         "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force >/dev/null 2>&1
         return 0
     fi
 
-    print_warning "Database boşdur və ya tapılmadı, bərpa edilir..."
+    # Check if database has data to avoid accidental resets
+    local user_count=0
+    local check_output
+    check_output=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n')
+    
+    if [[ "$check_output" =~ ^[0-9]+$ ]]; then
+        user_count=$check_output
+    else
+        # If tinker check fails, try a direct psql check as fallback
+        user_count=$("$DOCKER_BIN" exec atis_postgres psql -U atis_dev_user -d atis_dev -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' ' || echo "0")
+    fi
+
+    if [ "$user_count" -gt 0 ]; then
+        print_success "🔒 Database-də mövcud data tapıldı ($user_count istifadəçi). Bərpa prosesi ötürülür."
+        touch backend/storage/app/db_imported.lock 2>/dev/null || true
+        return 0
+    fi
+
+    print_warning "Database boşdur və ya bərpa edilməyib, tənzimlənir..."
 
     # If DB is empty, check for full dump (atis_full_20260218.dump)
     if [ -f backend/database/snapshots/atis_full_20260218.dump ]; then
-        print_status "🔄 Full dump tapıldı, bərpa edilir..."
+        print_status "🔄 Full dump bərpa edilir..."
         AUTO_RESTORE=true ./restore_full_dump.sh
         if [ $? -eq 0 ]; then
-            print_success "✅ Full dump uğurla bərpa edildi"
+            print_success "✅ Full dump vasitəsilə bərpa olundu"
             return 0
-        else
-            print_warning "⚠️  Full dump bərpası uğursuz oldu, təmiz bazaya keçilir..."
         fi
     fi
 

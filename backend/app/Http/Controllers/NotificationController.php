@@ -197,31 +197,54 @@ class NotificationController extends Controller
     {
         $user = Auth::user();
 
-        $stats = [
-            'total' => Notification::forUser($user->id)->count(),
-            'unread' => Notification::forUser($user->id)->unread()->count(),
-            'by_type' => [
-                'task_assigned' => Notification::forUser($user->id)->byType('task_assigned')->count(),
-                'task_deadline' => Notification::forUser($user->id)->byType('task_deadline')->count(),
-                'survey_published' => Notification::forUser($user->id)->byType('survey_published')->count(),
-                'system_alert' => Notification::forUser($user->id)->byType('system_alert')->count(),
-            ],
-            'by_priority' => [
-                'critical' => Notification::forUser($user->id)->byPriority('critical')->unread()->count(),
-                'high' => Notification::forUser($user->id)->byPriority('high')->unread()->count(),
-                'normal' => Notification::forUser($user->id)->byPriority('normal')->unread()->count(),
-                'low' => Notification::forUser($user->id)->byPriority('low')->unread()->count(),
-            ],
-            'by_channel' => [
-                'in_app' => Notification::forUser($user->id)->byChannel('in_app')->count(),
-                'email' => Notification::forUser($user->id)->byChannel('email')->count(),
-                'sms' => Notification::forUser($user->id)->byChannel('sms')->count(),
-            ],
-        ];
+        // Base query for this user's notifications (reuse to avoid repeated scope calls)
+        $baseQuery = fn () => Notification::forUser($user->id);
+
+        $total   = $baseQuery()->count();
+        $unread  = $baseQuery()->unread()->count();
+        $newToday  = $baseQuery()->whereDate('created_at', today())->count();
+        $thisWeek  = $baseQuery()->where('created_at', '>=', now()->startOfWeek())->count();
+
+        // Group by type and priority using DB aggregation (single query each)
+        $byType = $baseQuery()
+            ->selectRaw('type, count(*) as count')
+            ->groupBy('type')
+            ->pluck('count', 'type')
+            ->map(fn ($count, $type) => ['type' => $type, 'count' => $count])
+            ->values();
+
+        $byPriority = $baseQuery()
+            ->selectRaw('priority, count(*) as count')
+            ->whereNotNull('priority')
+            ->groupBy('priority')
+            ->pluck('count', 'priority')
+            ->map(fn ($count, $priority) => ['priority' => $priority, 'count' => $count])
+            ->values();
+
+        // Recent activity: last 7 days per day
+        $recentActivity = $baseQuery()
+            ->selectRaw("DATE(created_at) as date, count(*) as count")
+            ->where('created_at', '>=', now()->subDays(7))
+            ->groupByRaw("DATE(created_at)")
+            ->orderByRaw("DATE(created_at)")
+            ->get()
+            ->map(fn ($row) => ['date' => $row->date, 'count' => $row->count]);
 
         return response()->json([
             'success' => true,
-            'data' => $stats,
+            'data'    => [
+                // Frontend-compatible field names
+                'total_notifications' => $total,
+                'unread_notifications' => $unread,
+                'new_today'           => $newToday,
+                'this_week'           => $thisWeek,
+                'by_type'             => $byType,
+                'by_priority'         => $byPriority,
+                'recent_activity'     => $recentActivity,
+                // Legacy fields (backward compat)
+                'total'  => $total,
+                'unread' => $unread,
+            ],
         ]);
     }
 

@@ -80,6 +80,8 @@ echo ""
 
 if [ "$user_count" -gt 0 ]; then
     print_success "🎉 Full dump uğurla restore edildi!"
+    # Create marker file to avoid accidental re-restore in start.sh
+    touch "backend/storage/app/db_imported.lock" 2>/dev/null || touch "storage/app/db_imported.lock" 2>/dev/null || true
 else
     print_error "⚠️  Bərpa olundu, amma data tapılmadı!"
 fi

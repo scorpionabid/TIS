@@ -750,6 +750,63 @@ class NotificationService
     }
 
     /**
+     * Send task deadline warning notification
+     * Convenience method used by SendDeadlineNotifications command
+     */
+    public function sendTaskDeadlineWarning($task): array
+    {
+        try {
+            $task->loadMissing(['creator', 'assignedInstitution']);
+
+            // Get users in target institutions
+            $taskRoles = config('notification_roles.task_notification_roles', [
+                'schooladmin', 'məktəbadmin', 'müəllim',
+            ]);
+
+            $targetUserIds = InstitutionNotificationHelper::expandInstitutionsToUsers(
+                $task->target_institutions ?? [],
+                $taskRoles,
+                false
+            );
+
+            // Also include task creator
+            if ($task->created_by && !in_array($task->created_by, $targetUserIds)) {
+                $targetUserIds[] = $task->created_by;
+            }
+
+            if (empty($targetUserIds)) {
+                Log::info('sendTaskDeadlineWarning: No target users found', ['task_id' => $task->id]);
+                return [];
+            }
+
+            $daysLeft = max(0, (int) now()->diffInDays($task->deadline, false));
+
+            return $this->sendTaskNotification(
+                $task,
+                'deadline', // Matches 'task_deadline' template
+                $targetUserIds,
+                [
+                    'days_left'       => $daysLeft,
+                    'hours_remaining' => $daysLeft * 24,
+                    'due_date'        => $task->deadline?->format('d.m.Y H:i'),
+                    'deadline'        => $task->deadline?->format('d.m.Y H:i'),
+                    'action_url'      => "/tasks/{$task->id}",
+                ],
+                [
+                    'priority' => $daysLeft <= 1 ? 'high' : ($daysLeft <= 3 ? 'normal' : 'low'),
+                ]
+            );
+        } catch (\Exception $e) {
+            Log::error('sendTaskDeadlineWarning failed', [
+                'task_id' => $task->id ?? null,
+                'error'   => $e->getMessage(),
+            ]);
+
+            return [];
+        }
+    }
+
+    /**
      * Broadcast notification to multiple users
      */
     protected function broadcastToMultipleUsers(Notification $notification, array $userIds): void

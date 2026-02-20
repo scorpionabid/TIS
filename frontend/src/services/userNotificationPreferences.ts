@@ -4,7 +4,7 @@
  * Handles API calls for user-specific notification preferences
  */
 
-import api from "./api";
+import { apiClient as api } from "./api";
 
 export interface UserNotificationPreferences {
   // Task notifications
@@ -41,8 +41,8 @@ export const userNotificationPreferencesService = {
    * Get current user's notification preferences
    */
   async getPreferences(): Promise<UserNotificationPreferencesResponse> {
-    const response = await api.get("/settings/notifications");
-    return response.data;
+    const response = await api.get<UserNotificationPreferences>("/user/notification-preferences");
+    return response as unknown as UserNotificationPreferencesResponse;
   },
 
   /**
@@ -51,8 +51,8 @@ export const userNotificationPreferencesService = {
   async updatePreferences(
     data: Partial<UserNotificationPreferences>
   ): Promise<UserNotificationPreferencesResponse> {
-    const response = await api.put("/settings/notifications", data);
-    return response.data;
+    const response = await api.put<UserNotificationPreferences>("/user/notification-preferences", data);
+    return response as unknown as UserNotificationPreferencesResponse;
   },
 
   /**

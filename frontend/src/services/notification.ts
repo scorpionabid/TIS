@@ -88,7 +88,7 @@ export interface NotificationSettings {
   };
 }
 
-class NotificationService extends BaseService {
+class NotificationService extends BaseService<Notification> {
   constructor() {
     super('/notifications');
   }
@@ -133,52 +133,15 @@ class NotificationService extends BaseService {
     return 'info';
   }
 
-  async getNotifications(filters?: NotificationFilters, options?: {
-    useSchoolAdmin?: boolean;
-    userInstitutionId?: number;
-    userRoles?: string[];
-  }): Promise<{ success: boolean; data: Notification[] }> {
-    console.log('🔍 NotificationService.getNotifications called with filters:', filters, 'options:', options);
+  async getNotifications(filters?: NotificationFilters): Promise<{ success: boolean; data: Notification[] }> {
+    logger.debug('NotificationService.getNotifications called');
 
     try {
-      // Strategy 1: Use SchoolAdmin service for school administrators
-      if (options?.useSchoolAdmin && options.userInstitutionId) {
-        try {
-          console.log('📚 Trying school admin notifications...');
-          const { schoolAdminService } = await import('./schoolAdmin');
-          const schoolNotifications = await schoolAdminService.getNotifications({
-            per_page: filters?.per_page || 50,
-            ...filters
-          });
-
-          // Convert school notifications to standard format
-          const standardNotifications = schoolNotifications.map(this.normalizeSchoolNotification);
-
-          console.log('✅ NotificationService.getNotifications via school-admin successful:', standardNotifications);
-          return { success: true, data: standardNotifications };
-        } catch (schoolError) {
-          console.log('⚠️ school-admin notifications failed, falling back:', schoolError);
-        }
-      }
-
-      // Strategy 2: Try survey-notifications endpoint (no permission required)
-      try {
-        console.log('📋 Trying survey notifications...');
-        const surveyResponse = await this.get<Notification[]>('/survey-notifications', filters);
-        console.log('✅ NotificationService.getNotifications via survey-notifications successful:', surveyResponse);
-        return surveyResponse as { success: boolean; data: Notification[] };
-      } catch (surveyError) {
-        console.log('⚠️ survey-notifications failed, trying general notifications:', surveyError);
-      }
-
-      // Strategy 3: Fallback to general notifications (requires permissions)
-      console.log('🌐 Trying general notifications...');
-      const response = await this.get<Notification[]>(this.baseUrl, filters);
-      console.log('✅ NotificationService.getNotifications via general notifications successful:', response);
+      const response = await this.get<Notification[]>(this.baseUrl, filters as Record<string, unknown>);
+      logger.debug('NotificationService.getNotifications successful');
       return response as { success: boolean; data: Notification[] };
-
     } catch (error) {
-      console.error('❌ All notification strategies failed:', error);
+      logger.error('NotificationService.getNotifications failed', error);
       throw error;
     }
   }
@@ -196,82 +159,74 @@ class NotificationService extends BaseService {
   }
 
   async createNotification(data: CreateNotificationData): Promise<{ success: boolean; message: string; data: Notification }> {
-    console.log('🔍 NotificationService.createNotification called with:', data);
+    logger.debug('NotificationService.createNotification called');
     try {
-      const response = await this.post<Notification>(this.baseUrl, data);
-      console.log('✅ NotificationService.createNotification successful:', response);
+      const response = await this.post<Notification>(this.baseUrl, data as unknown as Record<string, unknown>);
+      logger.debug('NotificationService.createNotification successful');
       return response as { success: boolean; message: string; data: Notification };
     } catch (error) {
-      console.error('❌ NotificationService.createNotification failed:', error);
+      logger.error('NotificationService.createNotification failed', error);
       throw error;
     }
   }
 
   async markAsRead(id: number): Promise<{ success: boolean; message: string }> {
-    console.log('🔍 NotificationService.markAsRead called for ID:', id);
+    logger.debug('NotificationService.markAsRead called');
     try {
+      // Backend supports both /read and /mark-read
       const response = await this.post<void>(`${this.baseUrl}/${id}/read`, {});
-      console.log('✅ NotificationService.markAsRead successful:', response);
-      return response as { success: boolean; message: string };
+      logger.debug('NotificationService.markAsRead successful');
+      return response as unknown as { success: boolean; message: string };
     } catch (error) {
-      console.error('❌ NotificationService.markAsRead failed:', error);
+      logger.error('NotificationService.markAsRead failed', error);
       throw error;
     }
   }
 
   async markAllAsRead(): Promise<{ success: boolean; message: string }> {
-    console.log('🔍 NotificationService.markAllAsRead called');
+    logger.debug('NotificationService.markAllAsRead called');
     try {
       const response = await this.post<void>(`${this.baseUrl}/mark-all-read`, {});
-      console.log('✅ NotificationService.markAllAsRead successful:', response);
+      logger.debug('NotificationService.markAllAsRead successful');
       return response as { success: boolean; message: string };
     } catch (error) {
-      console.error('❌ NotificationService.markAllAsRead failed:', error);
+      logger.error('NotificationService.markAllAsRead failed', error);
       throw error;
     }
   }
 
   async archiveNotification(id: number): Promise<{ success: boolean; message: string }> {
-    console.log('🔍 NotificationService.archiveNotification called for ID:', id);
-    try {
-      const response = await this.post<void>(`${this.baseUrl}/${id}/archive`, {});
-      console.log('✅ NotificationService.archiveNotification successful:', response);
-      return response as { success: boolean; message: string };
-    } catch (error) {
-      console.error('❌ NotificationService.archiveNotification failed:', error);
-      throw error;
-    }
+    // Archive is not a separate backend feature — treat it as delete for now
+    logger.debug('NotificationService.archiveNotification -> delete');
+    return this.deleteNotification(id);
   }
 
   async deleteNotification(id: number): Promise<{ success: boolean; message: string }> {
-    console.log('🔍 NotificationService.deleteNotification called for ID:', id);
+    logger.debug('NotificationService.deleteNotification called');
     try {
-      const response = await this.delete<void>(`${this.baseUrl}/${id}`);
-      console.log('✅ NotificationService.deleteNotification successful:', response);
-      return response as { success: boolean; message: string };
+      // BaseService.delete(id) expects a number, so call super.delete(id)
+      await super.delete(id);
+      logger.debug('NotificationService.deleteNotification successful');
+      return { success: true, message: 'Bildiriş silindi' };
     } catch (error) {
-      console.error('❌ NotificationService.deleteNotification failed:', error);
+      logger.error('NotificationService.deleteNotification failed', error);
       throw error;
     }
   }
 
-  async getNotificationStatistics(): Promise<{ 
-    success: boolean; 
-    data: NotificationStatistics 
+  async getNotificationStatistics(): Promise<{
+    success: boolean;
+    data: NotificationStatistics;
   }> {
-    console.log('🔍 NotificationService.getNotificationStatistics called');
+    logger.debug('NotificationService.getNotificationStatistics called');
     try {
       const response = await this.get<NotificationStatistics>(`${this.baseUrl}/statistics`);
-      console.log('✅ NotificationService.getNotificationStatistics successful:', response);
-      return response as { 
-        success: boolean; 
-        data: NotificationStatistics 
-      };
+      logger.debug('NotificationService.getNotificationStatistics successful');
+      return response as { success: boolean; data: NotificationStatistics };
     } catch (error) {
-      console.error('❌ NotificationService.getNotificationStatistics failed:', error);
-      // Return mock data if API not available
+      logger.warn('NotificationService.getNotificationStatistics failed, returning empty stats', error);
       return {
-        success: true,
+        success: false,
         data: {
           total_notifications: 0,
           unread_notifications: 0,
@@ -286,13 +241,13 @@ class NotificationService extends BaseService {
   }
 
   async getUnreadCount(): Promise<{ success: boolean; data: { count: number } }> {
-    console.log('🔍 NotificationService.getUnreadCount called');
+    logger.debug('NotificationService.getUnreadCount called');
     try {
       const response = await this.get<{ count: number }>(`${this.baseUrl}/unread-count`);
-      console.log('✅ NotificationService.getUnreadCount successful:', response);
+      logger.debug('NotificationService.getUnreadCount successful');
       return response as { success: boolean; data: { count: number } };
     } catch (error) {
-      console.error('❌ NotificationService.getUnreadCount failed:', error);
+      logger.error('NotificationService.getUnreadCount failed', error);
       throw error;
     }
   }
