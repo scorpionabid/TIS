@@ -233,7 +233,8 @@ class DataIsolationHelper
     {
         $userSchool = $user->institution;
 
-        if (! $userSchool || ! in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational'])) {
+        // Level-based validation (more robust than type checking - type names can change)
+        if (! $userSchool || $userSchool->level !== 4) {
             return $query->whereRaw('1 = 0');
         }
 

@@ -266,7 +266,8 @@ class RegionalDataAccessMiddleware
     {
         $userSector = $user->institution;
 
-        if (! $userSector || $userSector->type !== 'sector_education_office') {
+        // Level-based validation (more robust than type checking)
+        if (! $userSector || $userSector->level !== 3) {
             return [
                 'allowed' => false,
                 'message' => 'SektorAdmin sektora təyin edilməlidir',
@@ -306,7 +307,8 @@ class RegionalDataAccessMiddleware
     {
         $userSchool = $user->institution;
 
-        if (! $userSchool || ! in_array($userSchool->type, ['school', 'secondary_school', 'gymnasium', 'vocational', 'lyceum'])) {
+        // Level-based validation (more robust than type checking - covers all school types)
+        if (! $userSchool || $userSchool->level !== 4) {
             return [
                 'allowed' => false,
                 'message' => 'MəktəbAdmin məktəbə təyin edilməlidir',

@@ -95,12 +95,12 @@ trait HasAuthorization
 
         if ($user->hasRole(['regionadmin', 'regionoperator'])) {
             // Get all institutions in the region (including sectors and schools)
-            return $institution->getAllDescendantIds();
+            return $institution->getAllChildrenIds();
         }
 
         if ($user->hasRole(['sektoradmin', 'sektoroperator'])) {
             // Get all schools in the sector
-            return $institution->getAllDescendantIds();
+            return $institution->getAllChildrenIds();
         }
 
         // Default: only user's own institution

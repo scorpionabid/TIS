@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Traits\BelongsToInstitution;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Schedule extends Model
 {
-    use HasFactory;
+    use BelongsToInstitution, HasFactory;
 
     protected $fillable = [
         'academic_year_id',
