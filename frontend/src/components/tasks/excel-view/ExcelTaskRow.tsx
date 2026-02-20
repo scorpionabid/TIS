@@ -12,7 +12,6 @@ import { DropdownCell } from './cells/DropdownCell';
 import { DateCell } from './cells/DateCell';
 import { TimeCell } from './cells/TimeCell';
 import { ProgressCell } from './cells/ProgressCell';
-import { TextareaCell } from './cells/TextareaCell';
 import { MultiSelectCell } from './cells/MultiSelectCell';
 import {
   sourceOptions,
@@ -24,7 +23,7 @@ import {
 } from '../config/taskFormFields';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Eye, Edit, Trash2 } from 'lucide-react';
+import { Eye, Edit, Trash2, Clock, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // Helper function to format user names
@@ -127,6 +126,59 @@ export function ExcelTaskRow({
     return Array.from(usersMap.values());
   }, [availableUsers, originalAssignments]);
 
+  // ── Deadline progress hesablaması ──────────────────────────
+  const deadlineInfo = useMemo(() => {
+    if (!task.deadline) return null;
+
+    const now = new Date();
+    const deadline = new Date(task.deadline);
+
+    // Append deadline_time if available
+    if (task.deadline_time) {
+      const [h, m] = task.deadline_time.split(':');
+      deadline.setHours(Number(h), Number(m), 0);
+    } else {
+      deadline.setHours(23, 59, 59);
+    }
+
+    const createdAt = task.created_at ? new Date(task.created_at) : new Date();
+    const startedAt = task.started_at ? new Date(task.started_at) : createdAt;
+
+    const totalMs = deadline.getTime() - startedAt.getTime();
+    const elapsedMs = now.getTime() - startedAt.getTime();
+    const remainingMs = deadline.getTime() - now.getTime();
+
+    // Already completed/cancelled - no need to show
+    if (['completed', 'cancelled'].includes(task.status)) return null;
+
+    const isPast = remainingMs < 0;
+    const remainingDays = Math.ceil(remainingMs / (1000 * 60 * 60 * 24));
+
+    // Progress percentage (how much time has elapsed)
+    const usedPercent = totalMs > 0
+      ? Math.min(100, Math.max(0, Math.round((elapsedMs / totalMs) * 100)))
+      : (isPast ? 100 : 0);
+
+    let color: 'green' | 'yellow' | 'red';
+    let label: string;
+
+    if (isPast) {
+      color = 'red';
+      label = `${Math.abs(remainingDays)}g gecikdi`;
+    } else if (remainingDays <= 2) {
+      color = 'red';
+      label = remainingDays === 0 ? 'Bu gün' : `${remainingDays}g qaldı`;
+    } else if (remainingDays <= 7) {
+      color = 'yellow';
+      label = `${remainingDays}g qaldı`;
+    } else {
+      color = 'green';
+      label = `${remainingDays}g qaldı`;
+    }
+
+    return { usedPercent, color, label, isPast, remainingDays };
+  }, [task.deadline, task.deadline_time, task.started_at, task.created_at, task.status]);
+
   return (
     <tr
       className={cn(
@@ -204,7 +256,7 @@ export function ExcelTaskRow({
         />
       </td>
 
-      {/* Assignees - Now editable with MultiSelectCell */}
+      {/* Assignees */}
       <td className="px-2 py-1">
         <MultiSelectCell
           selectedIds={originalAssignments.map(a => a.assigned_user_id).filter(Boolean) as number[] || []}
@@ -214,31 +266,6 @@ export function ExcelTaskRow({
           onSave={(ids) => saveEdit(task.id, { assigned_user_ids: ids } as any)}
           onCancel={cancelEdit}
           placeholder="Məsul şəxs seçin"
-        />
-      </td>
-
-      {/* Description - Now editable with TextareaCell */}
-      <td className="px-2 py-1 max-w-[300px]">
-        <TextareaCell
-          value={task.description}
-          isEditing={isEditing(task.id, 'description')}
-          onEdit={() => canEdit && startEdit(task.id, 'description', task.description)}
-          onSave={(value) => saveEdit(task.id, { description: value })}
-          onCancel={cancelEdit}
-          placeholder="Tapşırıq təsvirini daxil edin..."
-          maxLength={2000}
-          rows={3}
-        />
-      </td>
-
-      {/* Started At */}
-      <td className="px-2 py-1">
-        <DateCell
-          value={task.started_at}
-          isEditing={isEditing(task.id, 'started_at')}
-          onEdit={() => canEdit && startEdit(task.id, 'started_at', task.started_at)}
-          onSave={(value) => saveEdit(task.id, { started_at: value } as any)}
-          onCancel={cancelEdit}
         />
       </td>
 
@@ -262,6 +289,42 @@ export function ExcelTaskRow({
           onSave={(value) => saveEdit(task.id, { deadline_time: value })}
           onCancel={cancelEdit}
         />
+      </td>
+
+      {/* Deadline Progress Bar */}
+      <td className="px-2 py-1">
+        {deadlineInfo ? (
+          <div className="flex flex-col gap-1 min-w-[100px]">
+            {/* Progress bar */}
+            <div className="relative h-2 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className={cn(
+                  'absolute left-0 top-0 h-full rounded-full transition-all',
+                  deadlineInfo.color === 'green' && 'bg-emerald-500',
+                  deadlineInfo.color === 'yellow' && 'bg-amber-400',
+                  deadlineInfo.color === 'red' && 'bg-rose-500',
+                )}
+                style={{ width: `${deadlineInfo.usedPercent}%` }}
+              />
+            </div>
+            {/* Label */}
+            <div className={cn(
+              'flex items-center gap-1 text-[11px] font-medium',
+              deadlineInfo.color === 'green' && 'text-emerald-600',
+              deadlineInfo.color === 'yellow' && 'text-amber-600',
+              deadlineInfo.color === 'red' && 'text-rose-600',
+            )}>
+              {deadlineInfo.isPast
+                ? <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                : deadlineInfo.remainingDays <= 2
+                  ? <Clock className="h-3 w-3 flex-shrink-0" />
+                  : <CheckCircle2 className="h-3 w-3 flex-shrink-0" />}
+              <span>{deadlineInfo.label}</span>
+            </div>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">—</span>
+        )}
       </td>
 
       {/* Progress */}

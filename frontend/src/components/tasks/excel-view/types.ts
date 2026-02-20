@@ -17,10 +17,10 @@ export type ColumnId =
   | 'priority'
   | 'status'
   | 'assignees'
-  | 'description'
   | 'started_at'
   | 'deadline'
   | 'deadline_time'
+  | 'deadline_progress'
   | 'progress'
   | 'actions';
 

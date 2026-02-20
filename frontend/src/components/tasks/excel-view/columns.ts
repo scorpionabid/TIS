@@ -55,22 +55,8 @@ export const excelColumns: ExcelColumn[] = [
     editable: true,
     type: 'multiselect',
   },
-  {
-    id: 'description',
-    label: 'Təsvir',
-    width: 'w-[300px]',
-    sortable: false,
-    editable: true,
-    type: 'textarea',
-  },
-  {
-    id: 'started_at',
-    label: 'Başlama Tarixi',
-    width: 'w-[140px]',
-    sortable: true,
-    editable: true,
-    type: 'date',
-  },
+  // description column removed by user request
+  // started_at is hidden from UI (set by backend)
   {
     id: 'deadline',
     label: 'Son Tarix',
@@ -86,6 +72,14 @@ export const excelColumns: ExcelColumn[] = [
     sortable: false,
     editable: true,
     type: 'time',
+  },
+  {
+    id: 'deadline_progress',
+    label: 'Vaxt',
+    width: 'w-[120px]',
+    sortable: false,
+    editable: false,
+    type: 'readonly',
   },
   {
     id: 'progress',

@@ -8,7 +8,7 @@ import { useState, useCallback } from 'react';
 import { Save, X, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useTaskMutations } from '@/hooks/tasks/useTaskMutations';
@@ -30,7 +30,6 @@ interface ExcelCreateRowProps {
 
 interface FormState {
   title: string;
-  description: string;
   source: string;
   priority: string;
   assigned_user_ids: number[];
@@ -40,7 +39,6 @@ interface FormState {
 
 const initialFormState: FormState = {
   title: '',
-  description: '',
   source: 'other',
   priority: 'medium',
   assigned_user_ids: [],
@@ -78,20 +76,11 @@ export function ExcelCreateRow({
       return;
     }
 
-    // Validation
+    // Validation - only title is required now
     if (!formData.title.trim()) {
       toast({
         title: 'Xəta',
         description: 'Tapşırıq adı mütləqdir',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    if (!formData.description.trim()) {
-      toast({
-        title: 'Xəta',
-        description: 'Təsvir mütləqdir',
         variant: 'destructive',
       });
       return;
@@ -102,7 +91,7 @@ export function ExcelCreateRow({
     try {
       const payload: CreateTaskData = {
         title: formData.title.trim(),
-        description: formData.description.trim(),
+        description: '', // description removed from UI
         source: formData.source as CreateTaskData['source'],
         priority: formData.priority as CreateTaskData['priority'],
         deadline: formData.deadline || undefined,
@@ -110,7 +99,7 @@ export function ExcelCreateRow({
         assigned_user_ids: formData.assigned_user_ids.length > 0 ? formData.assigned_user_ids : undefined,
         origin_scope: originScope || undefined,
         target_scope: originScope === 'region' ? 'regional' : 'sector',
-        category: 'other', // Default category
+        category: 'other',
       };
 
       await createTask.mutateAsync(payload);
@@ -273,21 +262,8 @@ export function ExcelCreateRow({
             </Select>
           </td>
 
-          {/* 7. Təsvir */}
-          <td className="px-2 py-3 w-[300px]">
-            <Textarea
-              value={formData.description}
-              onChange={(e) => handleFieldChange('description', e.target.value)}
-              placeholder="Təsvir *"
-              className="min-h-[80px] text-sm resize-none"
-              disabled={isSubmitting}
-            />
-          </td>
 
-          {/* 8. Başlama Tarixi (Backend set edir, boş göstər) */}
-          <td className="px-2 py-3 text-center text-muted-foreground text-sm w-[140px]">
-            —
-          </td>
+          {/* description/started_at columns removed from table */}
 
           {/* 9. Son Tarix */}
           <td className="px-2 py-3 w-[140px]">
@@ -311,7 +287,12 @@ export function ExcelCreateRow({
             />
           </td>
 
-          {/* 11. İrəliləyiş (Yeni tapşırıqda 0%) */}
+          {/* 11. Vaxt progress (yeni tapşırıqda deadline yoxdur) */}
+          <td className="px-2 py-3 w-[120px] text-center text-muted-foreground text-xs">
+            —
+          </td>
+
+          {/* 12. İrəliləyiş (Yeni tapşırıqda 0%) */}
           <td className="px-2 py-3 text-center text-muted-foreground text-sm w-[140px]">
             0%
           </td>
