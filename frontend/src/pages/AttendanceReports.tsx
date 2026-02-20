@@ -28,7 +28,6 @@ import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { keepPreviousData } from '@tanstack/react-query';
 import { attendanceService } from '@/services/attendance';
-import bulkAttendanceService from '@/services/bulkAttendance';
 import { institutionService } from '@/services/institutions';
 import { format, startOfWeek, endOfWeek, subDays } from 'date-fns';
 import { az } from 'date-fns/locale';
@@ -263,21 +262,6 @@ export default function AttendanceReports() {
       filters.sort_field = sortField;
       filters.sort_direction = sortDirection;
 
-      if (isSchoolAdmin) {
-        const schoolAdminFilters: any = {
-          start_date: startDate,
-          end_date: endDate,
-          page: filters.page,
-          per_page: filters.per_page,
-        };
-
-        if (selectedClass !== 'all') {
-          schoolAdminFilters.class_name = selectedClass;
-        }
-
-        return bulkAttendanceService.getAttendanceReports(schoolAdminFilters);
-      }
-
       return attendanceService.getAttendanceReports(filters);
     },
     enabled: hasAccess,
@@ -305,9 +289,6 @@ export default function AttendanceReports() {
         filters.school_id = parseInt(selectedSchool);
       }
 
-      if (isSchoolAdmin) {
-        return bulkAttendanceService.getAttendanceStats(filters);
-      }
       return attendanceService.getAttendanceStats(filters);
     },
     enabled: hasAccess,
