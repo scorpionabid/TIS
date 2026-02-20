@@ -49,8 +49,9 @@ class TaskAssignmentService extends BaseService
 
             $task = Task::create([
                 'title' => $data['title'],
-                'description' => $data['description'],
+                'description' => $data['description'] ?: $data['title'],
                 'category' => $data['category'],
+                'source' => $data['source'] ?? 'other',
                 'priority' => $data['priority'] ?? 'medium',
                 'deadline' => $data['deadline'] ?? null,
                 'created_by' => $user->id,

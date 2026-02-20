@@ -57,26 +57,11 @@ export const excelColumns: ExcelColumn[] = [
   },
   // description column removed by user request
   // started_at is hidden from UI (set by backend)
-  {
-    id: 'deadline',
-    label: 'Son Tarix',
-    width: 'w-[140px]',
-    sortable: true,
-    editable: true,
-    type: 'date',
-  },
-  {
-    id: 'deadline_time',
-    label: 'Son Saat',
-    width: 'w-[110px]',
-    sortable: false,
-    editable: true,
-    type: 'time',
-  },
+  // deadline & deadline_time hidden - shown in progress bar tooltip
   {
     id: 'deadline_progress',
-    label: 'Vaxt',
-    width: 'w-[120px]',
+    label: 'Son Tarix / Vaxt',
+    width: 'w-[150px]',
     sortable: false,
     editable: false,
     type: 'readonly',

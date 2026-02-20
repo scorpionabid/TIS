@@ -221,7 +221,7 @@ class TaskCrudController extends BaseTaskController
 
         $request->validate([
             'title' => 'required|string|max:255',
-            'description' => 'required|string',
+            'description' => 'nullable|string',
             'category' => [
                 'nullable',
                 Rule::in(array_keys(Task::CATEGORIES)),
@@ -351,7 +351,7 @@ class TaskCrudController extends BaseTaskController
 
         $request->validate([
             'title' => 'sometimes|string|max:255',
-            'description' => 'sometimes|string',
+            'description' => 'nullable|string',
             'category' => [
                 'sometimes',
                 Rule::in(array_keys(Task::CATEGORIES)),

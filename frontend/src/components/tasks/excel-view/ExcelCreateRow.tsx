@@ -5,11 +5,30 @@
  */
 
 import { useState, useCallback } from 'react';
-import { Save, X, Plus } from 'lucide-react';
+import { Save, X, Plus, Search, Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { useTaskMutations } from '@/hooks/tasks/useTaskMutations';
 import { CreateTaskData } from '@/services/tasks';
@@ -202,7 +221,7 @@ export function ExcelCreateRow({
               disabled={isSubmitting}
             >
               <SelectTrigger className="h-9 text-sm">
-                <SelectValue />
+                <SelectValue placeholder="Mənbə seç" />
               </SelectTrigger>
               <SelectContent>
                 {sourceOptions.map((option) => (
@@ -239,60 +258,100 @@ export function ExcelCreateRow({
             Gözləyir
           </td>
 
-          {/* 6. Məsul Şəxs */}
+          {/* 6. Məsul Şəxs (Axtarışlı Multi-select) */}
           <td className="px-2 py-3 w-[200px]">
-            <Select
-              value={formData.assigned_user_ids[0]?.toString() || 'none'}
-              onValueChange={(value) =>
-                handleFieldChange('assigned_user_ids', value === 'none' ? [] : [Number(value)])
-              }
-              disabled={isSubmitting}
-            >
-              <SelectTrigger className="h-9 text-sm">
-                <SelectValue placeholder="Məsul seç" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Heç biri</SelectItem>
-                {availableUsers.map((user) => (
-                  <SelectItem key={user.id} value={user.id.toString()}>
-                    {user.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  disabled={isSubmitting}
+                  className={cn(
+                    "w-full justify-between h-9 text-xs font-normal",
+                    formData.assigned_user_ids.length === 0 && "text-muted-foreground"
+                  )}
+                >
+                  <div className="flex gap-1 overflow-hidden truncate">
+                    {formData.assigned_user_ids.length > 0 ? (
+                      formData.assigned_user_ids.map((id) => {
+                        const user = availableUsers.find((u) => u.id === id);
+                        return (
+                          <Badge
+                            key={id}
+                            variant="secondary"
+                            className="h-5 px-1 text-[10px] font-normal shrink-0"
+                          >
+                            {user?.name.split(' ')[0]}
+                          </Badge>
+                        );
+                      })
+                    ) : (
+                      "Məsul şəxs seç..."
+                    )}
+                  </div>
+                  <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[250px] p-0" align="start">
+                <Command>
+                  <CommandInput placeholder="İstifadəçi axtar..." className="h-8 text-xs" />
+                  <CommandList className="max-h-[200px]">
+                    <CommandEmpty>Nəticə tapılmadı.</CommandEmpty>
+                    <CommandGroup>
+                      {availableUsers.map((user) => {
+                        const isSelected = formData.assigned_user_ids.includes(user.id);
+                        return (
+                          <CommandItem
+                            key={user.id}
+                            value={user.name}
+                            onSelect={() => {
+                              const newSelection = isSelected
+                                ? formData.assigned_user_ids.filter((id) => id !== user.id)
+                                : [...formData.assigned_user_ids, user.id];
+                              handleFieldChange('assigned_user_ids', newSelection);
+                            }}
+                            className="text-xs"
+                          >
+                            <div className={cn(
+                              "mr-2 flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-primary",
+                              isSelected ? "bg-primary text-primary-foreground" : "opacity-50"
+                            )}>
+                              {isSelected && <Check className="h-3 w-3" />}
+                            </div>
+                            <span>{user.name}</span>
+                          </CommandItem>
+                        );
+                      })}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </td>
 
 
-          {/* description/started_at columns removed from table */}
-
-          {/* 9. Son Tarix */}
-          <td className="px-2 py-3 w-[140px]">
-            <Input
-              type="date"
-              value={formData.deadline}
-              onChange={(e) => handleFieldChange('deadline', e.target.value)}
-              className="h-9 text-sm"
-              disabled={isSubmitting}
-            />
+          {/* deadline_progress sütunu: tarix + saat inputları birlikdə */}
+          <td className="px-2 py-3 w-[150px]">
+            <div className="flex flex-col gap-1">
+              <Input
+                type="date"
+                value={formData.deadline}
+                onChange={(e) => handleFieldChange('deadline', e.target.value)}
+                className="h-8 text-xs"
+                disabled={isSubmitting}
+                placeholder="Son tarix"
+              />
+              <Input
+                type="time"
+                value={formData.deadline_time}
+                onChange={(e) => handleFieldChange('deadline_time', e.target.value)}
+                className="h-8 text-xs"
+                disabled={isSubmitting}
+              />
+            </div>
           </td>
 
-          {/* 10. Son Saat */}
-          <td className="px-2 py-3 w-[110px]">
-            <Input
-              type="time"
-              value={formData.deadline_time}
-              onChange={(e) => handleFieldChange('deadline_time', e.target.value)}
-              className="h-9 text-sm"
-              disabled={isSubmitting}
-            />
-          </td>
-
-          {/* 11. Vaxt progress (yeni tapşırıqda deadline yoxdur) */}
-          <td className="px-2 py-3 w-[120px] text-center text-muted-foreground text-xs">
-            —
-          </td>
-
-          {/* 12. İrəliləyiş (Yeni tapşırıqda 0%) */}
+          {/* İrəliləyiş (Yeni tapşırıqda 0%) */}
           <td className="px-2 py-3 text-center text-muted-foreground text-sm w-[140px]">
             0%
           </td>

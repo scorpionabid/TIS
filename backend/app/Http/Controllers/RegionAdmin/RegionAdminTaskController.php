@@ -86,6 +86,8 @@ class RegionAdminTaskController extends Controller
                 'description' => $task->description,
                 'category' => $task->category,
                 'category_label' => $task->category_label,
+                'source' => $task->source,
+                'source_label' => $task->source_label,
                 'priority' => $task->priority,
                 'priority_label' => $task->priority_label,
                 'status' => $task->status,
@@ -133,10 +135,14 @@ class RegionAdminTaskController extends Controller
 
         $request->validate([
             'title' => 'required|string|max:255',
-            'description' => 'required|string',
+            'description' => 'nullable|string',
             'category' => [
                 'required',
                 Rule::in(['report', 'maintenance', 'event', 'audit', 'instruction', 'other']),
+            ],
+            'source' => [
+                'nullable',
+                Rule::in(['dms', 'email', 'whatsapp', 'other']),
             ],
             'priority' => [
                 'required',
@@ -171,8 +177,9 @@ class RegionAdminTaskController extends Controller
 
         $task = Task::create([
             'title' => $request->title,
-            'description' => $request->description,
+            'description' => $request->description ?: $request->title,
             'category' => $request->category,
+            'source' => $request->source ?? 'other',
             'priority' => $request->priority,
             'deadline' => $request->deadline,
             'created_by' => $user->id,
@@ -304,10 +311,14 @@ class RegionAdminTaskController extends Controller
 
         $request->validate([
             'title' => 'sometimes|string|max:255',
-            'description' => 'sometimes|string',
+            'description' => 'nullable|string',
             'category' => [
                 'sometimes',
                 Rule::in(['report', 'maintenance', 'event', 'audit', 'instruction', 'other']),
+            ],
+            'source' => [
+                'sometimes',
+                Rule::in(['dms', 'email', 'whatsapp', 'other']),
             ],
             'priority' => [
                 'sometimes',
@@ -321,7 +332,7 @@ class RegionAdminTaskController extends Controller
         $oldData = $task->only(['title', 'priority', 'deadline']);
 
         $task->update($request->only([
-            'title', 'description', 'category', 'priority',
+            'title', 'description', 'category', 'source', 'priority',
             'deadline', 'notes', 'requires_approval',
         ]));
 
