@@ -404,6 +404,8 @@ export default function AttendanceReports() {
         filters.class_name = selectedClass;
       }
 
+      filters.group_by = reportType;
+
       const blob = await attendanceService.exportAttendance(filters);
       
       const url = window.URL.createObjectURL(blob);
@@ -609,13 +611,13 @@ export default function AttendanceReports() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
             {/* School filter - only for non-school admins */}
             {!isSchoolAdmin && (
               <div className="space-y-2">
-                <Label>Məktəb</Label>
+                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Məktəb</Label>
                 <Select value={selectedSchool} onValueChange={setSelectedSchool}>
-                  <SelectTrigger>
+                  <SelectTrigger className="h-9">
                     <SelectValue placeholder="Məktəb seçin" />
                   </SelectTrigger>
                   <SelectContent>
@@ -631,9 +633,9 @@ export default function AttendanceReports() {
             )}
 
             <div className="space-y-2">
-              <Label>Sinif</Label>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sinif</Label>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue placeholder={classOptionsLoading ? 'Yüklənir...' : 'Sinif seçin'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -648,9 +650,9 @@ export default function AttendanceReports() {
             </div>
 
             <div className="space-y-2">
-              <Label>Hesabat növü</Label>
+              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hesabat növü</Label>
               <Select value={reportType} onValueChange={(value) => setReportType(value as 'daily' | 'weekly' | 'monthly')}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -662,59 +664,53 @@ export default function AttendanceReports() {
             </div>
 
             <div className="space-y-2">
-              <Label>Başlanğıc tarixi</Label>
-              <Input
-                type="date"
-                value={startDate}
-                onChange={(e) => {
-                  setActiveDatePreset('custom');
-                  setStartDate(e.target.value);
-                }}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label>Son tarix</Label>
-              <Input
-                type="date"
-                value={endDate}
-                onChange={(e) => {
-                  setActiveDatePreset('custom');
-                  setEndDate(e.target.value);
-                }}
-                min={startDate}
-              />
-            </div>
-
-            <div className="space-y-2 md:col-span-6">
-              <Label>Hazır intervallar</Label>
-              <div className="flex flex-wrap gap-2">
-                {datePresets.map((preset) => (
-                  <Button
-                    key={preset.id}
-                    type="button"
-                    variant={activeDatePreset === preset.id ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => handlePresetSelect(preset.id)}
-                  >
-                    {preset.label}
-                  </Button>
-                ))}
-                <Button
-                  type="button"
-                  variant={activeDatePreset === 'custom' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setActiveDatePreset('custom')}
-                  disabled={activeDatePreset === 'custom'}
-                >
-                  Fərdi
-                </Button>
+              <div className="flex items-center justify-between">
+                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tarix Aralığı</Label>
+                 <div className="flex gap-1">
+                    {datePresets.map((preset) => (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => handlePresetSelect(preset.id)}
+                        className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                          activeDatePreset === preset.id 
+                            ? 'bg-primary/10 text-primary font-medium' 
+                            : 'text-muted-foreground hover:bg-muted'
+                        }`}
+                        title={preset.label}
+                      >
+                        {preset.label.split(' ')[0]} {/* Shorten label for compact view */}
+                      </button>
+                    ))}
+                 </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  type="date"
+                  className="h-9 text-xs"
+                  value={startDate}
+                  onChange={(e) => {
+                    setActiveDatePreset('custom');
+                    setStartDate(e.target.value);
+                  }}
+                />
+                <span className="text-muted-foreground text-xs">-</span>
+                <Input
+                  type="date"
+                  className="h-9 text-xs"
+                  value={endDate}
+                  onChange={(e) => {
+                    setActiveDatePreset('custom');
+                    setEndDate(e.target.value);
+                  }}
+                  min={startDate}
+                />
               </div>
             </div>
 
-            <div className="flex items-end">
-              <Button variant="outline" onClick={handleResetFilters} className="w-full">
-                Sıfırla
+            <div className={isSchoolAdmin ? "col-span-1 lg:col-span-2 flex justify-end" : "col-span-1 flex justify-end"}>
+              <Button variant="ghost" onClick={handleResetFilters} className="h-9 text-xs text-muted-foreground hover:text-foreground">
+                Təmizlə
               </Button>
             </div>
           </div>
