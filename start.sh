@@ -192,14 +192,6 @@ setup_frontend_deps() {
 setup_database() {
     print_status "Database-i hazırlayar..."
 
-    # Check for marker file first
-    if [ -f backend/storage/app/db_imported.lock ]; then
-        print_success "🔒 Database artıq bərpa edilib (lock file tapıldı). Mövcud data qorunur."
-        # Ensure essential seeders just in case (e.g. new permissions)
-        "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force >/dev/null 2>&1
-        return 0
-    fi
-
     # Check if database has data to avoid accidental resets
     local user_count=0
     local check_output
@@ -212,10 +204,20 @@ setup_database() {
         user_count=$("$DOCKER_BIN" exec atis_postgres psql -U atis_dev_user -d atis_dev -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' ' || echo "0")
     fi
 
+    # If we have data, we SKIP restoration
     if [ "$user_count" -gt 0 ]; then
         print_success "🔒 Database-də mövcud data tapıldı ($user_count istifadəçi). Bərpa prosesi ötürülür."
+        # Ensure lock file exists if data is there
         touch backend/storage/app/db_imported.lock 2>/dev/null || true
+        # Ensure essential seeders (e.g. for superadmin access)
+        "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force >/dev/null 2>&1
         return 0
+    fi
+
+    # If we reach here, user_count is 0. Check if it was because of an intentional lock
+    if [ -f backend/storage/app/db_imported.lock ]; then
+        print_warning "⚠️  Lock file tapıldı, amma baza boşdur! Datanı bərpa etməyə çalışıram..."
+        rm backend/storage/app/db_imported.lock
     fi
 
     print_warning "Database boşdur və ya bərpa edilməyib, tənzimlənir..."
