@@ -426,31 +426,34 @@ class SurveyApprovalController extends Controller
     }
 
     /**
-     * Get published surveys for approval dashboard
-     * GET /api/surveys/published
+     * Get available surveys for approval dashboard
+     * Renamed logic from getPublishedSurveys to include all relevant surveys
+     * GET /api/survey-approval/surveys/published
      */
     public function getPublishedSurveys(): JsonResponse
     {
         try {
-            $surveys = Survey::with('questions')
-                ->where('status', 'published')
-                ->where(function ($query) {
-                    $query->whereNull('end_date')
-                        ->orWhere('end_date', '>=', now());
-                })
-                ->select(['id', 'title', 'description', 'start_date', 'end_date', 'target_institutions', 'current_questions_count'])
-                ->orderBy('created_at', 'desc')
-                ->get();
+            $user = Auth::user();
+            $query = Survey::query()->withCount(['questions', 'responses'])
+                ->select(['id', 'title', 'description', 'start_date', 'end_date', 'target_institutions', 'current_questions_count', 'status'])
+                ->orderBy('created_at', 'desc');
+
+            // Apply hierarchical visibility filtering via domain query service
+            // This ensures users see surveys they created OR surveys targeted to them/their hierarchy
+            app(\App\Services\Survey\Domains\Query\SurveyQueryBuilder::class)
+                ->applySurveyVisibilityFiltering($query, $user);
+
+            $surveys = $query->get();
 
             return response()->json([
                 'success' => true,
                 'data' => $surveys,
-                'message' => 'Published surveys retrieved successfully',
+                'message' => 'Surveys retrieved successfully',
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
-                'message' => 'Error retrieving published surveys',
+                'message' => 'Error retrieving surveys',
                 'error' => $e->getMessage(),
             ], 500);
         }

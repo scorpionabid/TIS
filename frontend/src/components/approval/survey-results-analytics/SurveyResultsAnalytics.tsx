@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '../../ui/alert';
 import { AlertTriangle, BarChart3 } from 'lucide-react';
 import { surveyService, Survey } from '../../../services/surveys';
-import SurveySelectionCard from './SurveySelectionCard';
+import surveyApprovalService from '../../../services/surveyApproval';
+import UnifiedSurveySelector from '../UnifiedSurveySelector';
 import SurveyKPIMetrics from './SurveyKPIMetrics';
 import HierarchicalInstitutionAnalysis from './HierarchicalInstitutionAnalysis';
 import NonRespondingInstitutions from './NonRespondingInstitutions';
@@ -37,24 +38,12 @@ const SurveyResultsAnalytics: React.FC = () => {
     }
   };
 
-  // Fetch all surveys
-  const { data: surveysData, isLoading: surveysLoading, error: surveysError } = useQuery({
-    queryKey: ['surveys-for-analytics'],
-    queryFn: () => surveyService.getAll({ per_page: 100 }),
+  // Fetch all surveys using the unified approval service
+  const { data: surveys, isLoading: surveysLoading, error: surveysError } = useQuery({
+    queryKey: ['surveys-for-approval'], // Use common key for consistency
+    queryFn: () => surveyApprovalService.getPublishedSurveys(),
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
-
-  const surveys = useMemo(() => {
-    if (Array.isArray(surveysData?.data?.data)) {
-      return surveysData.data.data;
-    }
-
-    if (Array.isArray(surveysData?.data)) {
-      return surveysData.data;
-    }
-
-    return [];
-  }, [surveysData]);
 
   // Restore selected survey from localStorage or auto-select first
   useEffect(() => {
@@ -62,9 +51,9 @@ const SurveyResultsAnalytics: React.FC = () => {
       const storedSurveyId = getStoredSurveyId();
 
       if (storedSurveyId) {
-        const storedSurvey = surveys.find((s: Survey) => s.id.toString() === storedSurveyId);
+        const storedSurvey = (surveys as any[]).find((s: any) => s.id.toString() === storedSurveyId);
         if (storedSurvey) {
-          setSelectedSurvey(storedSurvey);
+          setSelectedSurvey(storedSurvey as any);
           return;
         }
         storeSurveyId(null);
@@ -72,7 +61,7 @@ const SurveyResultsAnalytics: React.FC = () => {
 
       // Default to first survey
       const firstSurvey = surveys[0];
-      setSelectedSurvey(firstSurvey);
+      setSelectedSurvey(firstSurvey as any);
       storeSurveyId(firstSurvey.id.toString());
     }
   }, [surveys, selectedSurvey]);
@@ -122,10 +111,10 @@ const SurveyResultsAnalytics: React.FC = () => {
       )}
 
       {/* Survey Selection */}
-      <SurveySelectionCard
+      <UnifiedSurveySelector
         surveys={surveys}
         selectedSurvey={selectedSurvey}
-        onSurveyChange={handleSurveyChange}
+        onSurveySelect={(survey) => handleSurveyChange(survey as Survey)}
         isLoading={surveysLoading}
       />
 
@@ -134,19 +123,19 @@ const SurveyResultsAnalytics: React.FC = () => {
         <>
           {/* KPI Metrics */}
           <SurveyKPIMetrics
-            data={analyticsData?.kpi_metrics}
+            data={(analyticsData as any)?.kpi_metrics}
             isLoading={analyticsLoading}
           />
 
           {/* Hierarchical Institution Analysis */}
           <HierarchicalInstitutionAnalysis
-            data={hierarchyData}
+            data={hierarchyData as any}
             isLoading={hierarchyLoading}
           />
 
           {/* Non-Responding Institutions */}
           <NonRespondingInstitutions
-            hierarchyData={hierarchyData}
+            hierarchyData={hierarchyData as any}
             isLoading={hierarchyLoading}
           />
 

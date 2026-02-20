@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import surveyApprovalService, { PublishedSurvey } from '../../../services/surveyApproval';
 import SurveyResponsesDataTable from './SurveyResponsesDataTable';
+import UnifiedSurveySelector from '../UnifiedSurveySelector';
 import { storageHelpers } from '@/utils/helpers';
 
 const STORAGE_KEY = 'surveyViewDashboard_selectedSurveyId';
@@ -99,72 +100,16 @@ const SurveyViewDashboard: React.FC = () => {
         </p>
       </div>
 
-      {/* Survey Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="h-5 w-5" />
-            Sorğu Seçimi
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {surveysLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary" />
-              Sorğular yüklənir...
-            </div>
-          ) : !Array.isArray(publishedSurveys) || publishedSurveys.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Target className="h-12 w-12 mx-auto mb-4" />
-              <p>Hazırda yayımlanmış sorğu yoxdur</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <Select
-                value={selectedSurvey?.id?.toString() || ""}
-                onValueChange={(value) => {
-                  const survey = publishedSurveys.find((s: any) => s.id.toString() === value);
-                  if (survey) {
-                    setSelectedSurvey(survey);
-                    storeSurveyId(value); // Save selection to localStorage
-                  }
-                }}
-              >
-                <SelectTrigger className="w-full max-w-md">
-                  <SelectValue placeholder="Sorğu seçin..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {Array.isArray(publishedSurveys) && publishedSurveys.map((survey: any) => (
-                    <SelectItem key={survey.id} value={survey.id.toString()}>
-                      {survey.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {selectedSurvey && (
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <div className="flex items-center gap-4 text-sm text-muted-foreground mb-2">
-                    <div className="flex items-center gap-1">
-                      <Target className="h-4 w-4" />
-                      {selectedSurvey.current_questions_count || selectedSurvey.questions?.length || 0} sual
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-4 w-4" />
-                      {selectedSurvey.target_institutions?.length || 0} müəssisə
-                    </div>
-                  </div>
-                  {selectedSurvey.description && (
-                    <p className="text-sm text-muted-foreground">
-                      {selectedSurvey.description}
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Unified Survey Selection */}
+      <UnifiedSurveySelector
+        surveys={publishedSurveys}
+        selectedSurvey={selectedSurvey}
+        onSurveySelect={(survey) => {
+          setSelectedSurvey(survey as PublishedSurvey);
+          storeSurveyId(survey.id.toString());
+        }}
+        isLoading={surveysLoading}
+      />
 
       {/* Survey Responses Data Table */}
       {selectedSurvey && (

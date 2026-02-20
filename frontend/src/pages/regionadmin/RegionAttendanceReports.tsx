@@ -130,8 +130,8 @@ export default function RegionAttendanceReports() {
 
     // Sorting
     result.sort((a, b) => {
-      let aVal: any = a[sortConfig.key as keyof typeof a];
-      let bVal: any = b[sortConfig.key as keyof typeof b];
+      const aVal: any = a[sortConfig.key as keyof typeof a];
+      const bVal: any = b[sortConfig.key as keyof typeof b];
 
       if (typeof aVal === 'string') {
         return sortConfig.direction === 'asc' 

@@ -36,6 +36,7 @@ import { storageHelpers } from '../../utils/helpers';
 import ResponseManagementTable from './table/ResponseManagementTable';
 import ResponseDetailModal from './ResponseDetailModal';
 import BulkApprovalInterface from './BulkApprovalInterface';
+import UnifiedSurveySelector from './UnifiedSurveySelector';
 
 const SurveyApprovalDashboard: React.FC = () => {
   const { currentUser } = useAuth();
@@ -461,78 +462,13 @@ const SurveyApprovalDashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Survey Selection */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Sorğu Seçimi
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {surveysLoading ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              Sorğular yüklənir...
-            </div>
-          ) : surveysError ? (
-            <div className="text-red-500">Sorğular yüklənə bilmədi</div>
-          ) : !Array.isArray(publishedSurveys) || publishedSurveys.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Target className="h-12 w-12 mx-auto mb-4" />
-              <p>Hazırda yayımlanmış sorğu yoxdur</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:gap-4">
-                <Select
-                  value={selectedSurvey?.id?.toString() || ""}
-                  onValueChange={(value) => {
-                    const survey = publishedSurveys.find((s: any) => s.id.toString() === value);
-                    if (survey) handleSurveySelect(survey);
-                  }}
-                >
-                <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Sorğu seçin..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Array.isArray(publishedSurveys) && publishedSurveys.map((survey: any) => (
-                      <SelectItem key={survey.id} value={survey.id.toString()}>
-                        {survey.title}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-
-                {selectedSurvey && (
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground sm:text-sm">
-                    <div className="flex items-center gap-1">
-                      <Calendar className="h-4 w-4" />
-                      {selectedSurvey.start_date && new Date(selectedSurvey.start_date).toLocaleDateString('az-AZ')}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Users className="h-4 w-4" />
-                      {selectedSurvey.target_institutions?.length || 0} müəssisə
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Target className="h-4 w-4" />
-                      {selectedSurvey.current_questions_count || 0} sual
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {selectedSurvey?.description && (
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm text-muted-foreground">
-                    {selectedSurvey.description}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Unified Survey Selection */}
+      <UnifiedSurveySelector
+        surveys={publishedSurveys}
+        selectedSurvey={selectedSurvey}
+        onSurveySelect={(survey) => handleSurveySelect(survey as PublishedSurvey)}
+        isLoading={surveysLoading}
+      />
 
       {selectedSurvey && (
         <>
