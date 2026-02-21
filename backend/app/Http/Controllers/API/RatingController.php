@@ -93,7 +93,7 @@ class RatingController extends BaseController
                 // Handle sorting
                 if (in_array($sortBy, ['first_name', 'last_name', 'name', 'email'])) {
                     $query->orderBy($sortBy === 'name' ? 'first_name' : $sortBy, $sortOrder);
-                } elseif (in_array($sortBy, ['overall_score', 'task_score', 'survey_score', 'manual_score'])) {
+                } elseif (in_array($sortBy, ['overall_score', 'task_score', 'survey_score', 'approval_score', 'manual_score'])) {
                     $query->leftJoin('ratings', function ($join) use ($period, $academicYearId) {
                         $join->on('users.id', '=', 'ratings.user_id')
                             ->when($period, fn ($j) => $j->where('ratings.period', $period))
@@ -131,6 +131,7 @@ class RatingController extends BaseController
                         'task_score' => $rating?->task_score ?? 0,
                         'survey_score' => $rating?->survey_score ?? 0,
                         'attendance_score' => $rating?->attendance_score ?? 0,
+                        'approval_score' => $rating?->approval_score ?? 0,
                         'link_score' => $rating?->link_score ?? 0,
                         'manual_score' => $rating?->manual_score ?? 0,
                         'score_details' => $rating?->score_details,
@@ -194,6 +195,7 @@ class RatingController extends BaseController
                 'task_score' => 'nullable|numeric',
                 'survey_score' => 'nullable|numeric',
                 'attendance_score' => 'nullable|numeric',
+                'approval_score' => 'nullable|numeric',
                 'link_score' => 'nullable|numeric',
                 'manual_score' => 'nullable|numeric|min:-100|max:100',
                 'metadata' => 'nullable|array',
@@ -235,6 +237,7 @@ class RatingController extends BaseController
                 'task_score' => 'nullable|numeric',
                 'survey_score' => 'nullable|numeric',
                 'attendance_score' => 'nullable|numeric',
+                'approval_score' => 'nullable|numeric',
                 'link_score' => 'nullable|numeric',
                 'manual_score' => 'nullable|numeric|min:-100|max:100',
                 'status' => 'nullable|in:draft,published,archived',
@@ -245,13 +248,20 @@ class RatingController extends BaseController
 
             $rating = Rating::whereIn('institution_id', $allowedIds)->findOrFail($id);
 
-            // Recalculate overall_score if any score changed
+            // Recalculate overall_score based on user's role
             $taskScore = $validated['task_score'] ?? $rating->task_score;
             $surveyScore = $validated['survey_score'] ?? $rating->survey_score;
             $attendanceScore = $validated['attendance_score'] ?? $rating->attendance_score;
+            $approvalScore = $validated['approval_score'] ?? $rating->approval_score;
             $linkScore = $validated['link_score'] ?? $rating->link_score;
             $manualScore = $validated['manual_score'] ?? $rating->manual_score;
-            $validated['overall_score'] = $taskScore + $surveyScore + $attendanceScore + $linkScore + $manualScore;
+
+            $ratingUser = \App\Models\User::with('roles')->find($rating->user_id);
+            $isSektorAdmin = $ratingUser?->hasRole('sektoradmin');
+
+            $validated['overall_score'] = $taskScore + $surveyScore
+                + ($isSektorAdmin ? $approvalScore : $attendanceScore)
+                + $linkScore + $manualScore;
 
             $rating->update($validated);
 

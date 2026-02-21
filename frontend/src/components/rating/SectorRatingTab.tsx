@@ -163,14 +163,14 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         : filteredData;
 
       const csv = [
-        ['Sektor Admin', 'Email', 'Müəssisə', 'Task', 'Survey', 'Davamiyyət', 'Link', 'Manual', 'Ümumi', 'Status'],
+        ['Sektor Admin', 'Email', 'Müəssisə', 'Task', 'Survey', 'Təsdiq', 'Link', 'Manual', 'Ümumi', 'Status'],
         ...exportData.map(item => [
           item.user?.full_name || '',
           item.user?.email || '',
           item.institution?.name || '',
           item.task_score || 0,
           item.survey_score || 0,
-          item.attendance_score || 0,
+          item.approval_score || 0,
           item.link_score || 0,
           item.manual_score || 0,
           item.overall_score || 0,
@@ -317,6 +317,7 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         onSaveItem={saveChanges}
         pendingChanges={pendingChanges}
         savingId={savingId}
+        variant="sector"
       />
     </div>
   );

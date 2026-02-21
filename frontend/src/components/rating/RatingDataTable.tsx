@@ -42,6 +42,7 @@ interface RatingDataTableProps {
     onSaveItem: (id: number) => void;
     pendingChanges: Record<number, Partial<Pick<RatingItem, 'task_score' | 'survey_score' | 'manual_score'>>>;
     savingId: number | null;
+    variant?: 'school' | 'sector';
 }
 
 export const RatingDataTable: React.FC<RatingDataTableProps> = ({
@@ -58,8 +59,10 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
     onKeyDown,
     onSaveItem,
     pendingChanges,
-    savingId
+    savingId,
+    variant = 'school'
 }) => {
+    const isSector = variant === 'sector';
     const getRatingBadge = (score: number) => {
         if (score >= 5) return { text: 'Əla', variant: 'default' as const, className: 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' };
         if (score >= 3) return { text: 'Yaxşı', variant: 'secondary' as const, className: 'bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200' };
@@ -90,11 +93,11 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                                 onCheckedChange={(checked) => onSelectAll(!!checked)}
                             />
                         </TableHead>
-                        <TableHead className="font-semibold text-gray-700">Direktor</TableHead>
+                        <TableHead className="font-semibold text-gray-700">{isSector ? 'Sektor Admin' : 'Direktor'}</TableHead>
                         <TableHead className="font-semibold text-gray-700">Müəssisə</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Task</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Survey</TableHead>
-                        <TableHead className="text-center font-semibold text-gray-700">Davamiyyət</TableHead>
+                        <TableHead className="text-center font-semibold text-gray-700">{isSector ? 'Təsdiq' : 'Davamiyyət'}</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Link</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Manual</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Ümumi</TableHead>
@@ -159,16 +162,27 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                                     </TableCell>
                                 ))}
 
-                                {/* Attendance score (read-only, auto-calculated) */}
+                                {/* Attendance/Approval score (read-only, auto-calculated) */}
                                 <TableCell className="text-center">
-                                    <div
-                                        className="inline-block min-w-[3rem] px-2 py-1 rounded font-medium text-gray-700"
-                                        title={item.score_details ? `Vaxtında: ${item.score_details.attendance_on_time ?? 0} | Buraxılmış: ${item.score_details.attendance_missed ?? 0} | Cəmi gün: ${item.score_details.attendance_total_days ?? 0}` : 'Hesablanmayıb'}
-                                    >
-                                        <span className={Number(item.attendance_score) < 0 ? 'text-red-600' : ''}>
-                                            {Number(item.attendance_score) || 0}
-                                        </span>
-                                    </div>
+                                    {isSector ? (
+                                        <div
+                                            className="inline-block min-w-[3rem] px-2 py-1 rounded font-medium text-gray-700"
+                                            title={item.score_details ? `Vaxtında: ${item.score_details.approved_on_time ?? 0} | Gecikmiş: ${item.score_details.approved_late ?? 0} | Gözləyən: ${item.score_details.approval_pending_overdue ?? 0} | Cəmi: ${item.score_details.approval_total ?? 0}` : 'Hesablanmayıb'}
+                                        >
+                                            <span className={Number(item.approval_score) < 0 ? 'text-red-600' : ''}>
+                                                {Number(item.approval_score) || 0}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        <div
+                                            className="inline-block min-w-[3rem] px-2 py-1 rounded font-medium text-gray-700"
+                                            title={item.score_details ? `Vaxtında: ${item.score_details.attendance_on_time ?? 0} | Buraxılmış: ${item.score_details.attendance_missed ?? 0} | Cəmi gün: ${item.score_details.attendance_total_days ?? 0}` : 'Hesablanmayıb'}
+                                        >
+                                            <span className={Number(item.attendance_score) < 0 ? 'text-red-600' : ''}>
+                                                {Number(item.attendance_score) || 0}
+                                            </span>
+                                        </div>
+                                    )}
                                 </TableCell>
 
                                 {/* Link score (read-only, auto-calculated) */}
@@ -250,7 +264,7 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                         <Users className="h-10 w-10 text-gray-300" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-900">Məlumat tapılmadı</h3>
-                    <p className="text-sm">Seçilmiş kriteriyalara uyğun heç bir direktor reytinqi mövcud deyil.</p>
+                    <p className="text-sm">Seçilmiş kriteriyalara uyğun heç bir {isSector ? 'sektor admin' : 'direktor'} reytinqi mövcud deyil.</p>
                 </div>
             )}
 

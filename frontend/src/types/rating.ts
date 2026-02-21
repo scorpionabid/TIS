@@ -11,6 +11,11 @@ export interface ScoreDetails {
   attendance_missed: number;
   attendance_total_days: number;
   attendance_score: number;
+  approved_on_time?: number;
+  approved_late?: number;
+  approval_pending_overdue?: number;
+  approval_total?: number;
+  approval_score?: number;
   links_opened: number;
   links_missed: number;
   links_total: number;
@@ -27,6 +32,7 @@ export interface RatingItem {
   task_score: number;
   survey_score: number;
   attendance_score: number;
+  approval_score: number;
   link_score: number;
   manual_score: number;
   academic_score?: number;

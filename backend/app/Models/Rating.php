@@ -24,6 +24,7 @@ class Rating extends Model
         'task_score',
         'survey_score',
         'attendance_score',
+        'approval_score',
         'link_score',
         'manual_score',
         'score_details',
@@ -50,6 +51,7 @@ class Rating extends Model
         'task_score' => 'decimal:2',
         'survey_score' => 'decimal:2',
         'attendance_score' => 'decimal:2',
+        'approval_score' => 'decimal:2',
         'link_score' => 'decimal:2',
         'manual_score' => 'decimal:2',
         // PRD-yə uyğun yeni komponent skorları

@@ -2,8 +2,10 @@
 
 namespace App\Services;
 
+use App\Models\ApprovalAction;
 use App\Models\ClassBulkAttendance;
 use App\Models\Grade;
+use App\Models\Institution;
 use App\Models\LinkAccessLog;
 use App\Models\LinkShare;
 use App\Models\Rating;
@@ -42,11 +44,21 @@ class RatingCalculationService
                 }
             }
 
-            // Calculate scores with +1/-1 system
+            // Calculate common scores with +1/-1 system
             $taskResult = $this->calculateTaskScore($userId, $period);
             $surveyResult = $this->calculateSurveyScore($userId, $period);
-            $attendanceResult = $this->calculateAttendanceScore($userId, $period);
             $linkResult = $this->calculateLinkScore($userId, $period);
+
+            // Role-aware: SektorAdmin gets approval score, SchoolAdmin gets attendance score
+            $userRole = $params['user_role'] ?? $user->roles->first()?->name ?? 'schooladmin';
+
+            if ($userRole === 'sektoradmin') {
+                $attendanceResult = ['score' => 0, 'on_time' => 0, 'missed' => 0, 'total_days' => 0];
+                $approvalResult = $this->calculateApprovalScore($userId, $period);
+            } else {
+                $attendanceResult = $this->calculateAttendanceScore($userId, $period);
+                $approvalResult = ['score' => 0, 'on_time' => 0, 'late' => 0, 'pending_overdue' => 0, 'total' => 0];
+            }
 
             // Preserve existing manual_score if rating already exists
             $existingRating = Rating::where('user_id', $userId)
@@ -57,9 +69,14 @@ class RatingCalculationService
 
             $manualScore = $existingRating?->manual_score ?? 0;
 
-            // Overall = task + survey + attendance + link + manual
-            $overallScore = $taskResult['score'] + $surveyResult['score']
-                + $attendanceResult['score'] + $linkResult['score'] + $manualScore;
+            // Overall formula depends on role
+            if ($userRole === 'sektoradmin') {
+                $overallScore = $taskResult['score'] + $surveyResult['score']
+                    + $approvalResult['score'] + $linkResult['score'] + $manualScore;
+            } else {
+                $overallScore = $taskResult['score'] + $surveyResult['score']
+                    + $attendanceResult['score'] + $linkResult['score'] + $manualScore;
+            }
 
             $scoreDetails = [
                 'tasks_on_time' => $taskResult['on_time'],
@@ -78,6 +95,11 @@ class RatingCalculationService
                 'links_missed' => $linkResult['missed'],
                 'links_total' => $linkResult['total'],
                 'link_score' => $linkResult['score'],
+                'approved_on_time' => $approvalResult['on_time'],
+                'approved_late' => $approvalResult['late'],
+                'approval_pending_overdue' => $approvalResult['pending_overdue'],
+                'approval_total' => $approvalResult['total'],
+                'approval_score' => $approvalResult['score'],
             ];
 
             // Create or update rating
@@ -93,6 +115,7 @@ class RatingCalculationService
                     'task_score' => $taskResult['score'],
                     'survey_score' => $surveyResult['score'],
                     'attendance_score' => $attendanceResult['score'],
+                    'approval_score' => $approvalResult['score'],
                     'link_score' => $linkResult['score'],
                     'manual_score' => $manualScore,
                     'score_details' => $scoreDetails,
@@ -110,6 +133,7 @@ class RatingCalculationService
                 'task_score' => $taskResult['score'],
                 'survey_score' => $surveyResult['score'],
                 'attendance_score' => $attendanceResult['score'],
+                'approval_score' => $approvalResult['score'],
                 'link_score' => $linkResult['score'],
                 'manual_score' => $manualScore,
                 'period' => $period,
@@ -416,6 +440,80 @@ class RatingCalculationService
             'opened' => $opened,
             'missed' => $notOpened,
             'total' => $links->count(),
+        ];
+    }
+
+    /**
+     * Calculate approval score for SektorAdmin using +1/-1 point system.
+     *
+     * Measures how quickly SektorAdmin approves/rejects/returns school survey responses.
+     * +1: Action taken before survey end_date
+     * -1: Action taken after survey end_date OR no action and deadline passed
+     */
+    private function calculateApprovalScore(int $userId, string $period): array
+    {
+        $user = User::find($userId);
+        $institutionId = $user->institution_id;
+
+        // Get all child school IDs under this sector
+        $childSchoolIds = Institution::where('parent_id', $institutionId)
+            ->where('level', 4)
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($childSchoolIds)) {
+            return ['score' => 0, 'on_time' => 0, 'late' => 0, 'pending_overdue' => 0, 'total' => 0];
+        }
+
+        // Get survey responses from child schools that have been submitted or acted upon
+        $surveyResponses = SurveyResponse::withoutGlobalScopes()
+            ->whereIn('institution_id', $childSchoolIds)
+            ->whereIn('status', ['submitted', 'approved', 'rejected', 'returned'])
+            ->with(['survey', 'approvalRequest.approvalActions' => function ($q) use ($userId) {
+                $q->where('approver_id', $userId);
+            }])
+            ->get();
+
+        $onTime = 0;
+        $late = 0;
+        $pendingOverdue = 0;
+
+        foreach ($surveyResponses as $response) {
+            $deadline = $response->survey?->end_date;
+            if (! $deadline) {
+                continue;
+            }
+
+            // Check ApprovalAction first (structured approval workflow)
+            $approvalAction = $response->approvalRequest
+                ?->approvalActions
+                ?->first();
+
+            if ($approvalAction && $approvalAction->action_taken_at) {
+                if ($approvalAction->action_taken_at->lte($deadline)) {
+                    $onTime++;
+                } else {
+                    $late++;
+                }
+            } elseif ($response->approved_by == $userId && $response->approved_at) {
+                // Fallback: direct approval without workflow
+                if ($response->approved_at->lte($deadline)) {
+                    $onTime++;
+                } else {
+                    $late++;
+                }
+            } elseif ($response->status === 'submitted' && $deadline->isPast()) {
+                // No action taken and deadline has passed
+                $pendingOverdue++;
+            }
+        }
+
+        return [
+            'score' => $onTime - $late - $pendingOverdue,
+            'on_time' => $onTime,
+            'late' => $late,
+            'pending_overdue' => $pendingOverdue,
+            'total' => $onTime + $late + $pendingOverdue,
         ];
     }
 
