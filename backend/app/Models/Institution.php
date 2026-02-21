@@ -447,7 +447,7 @@ class Institution extends Model
                 $deletedData['users_affected'] = $userCount;
 
                 // First, clear references in other tables
-                \DB::table('user_profiles')->where('institution_id', $this->id)->delete();
+                \DB::table('user_profiles')->where('primary_institution_id', $this->id)->delete();
 
                 // Then force delete all users to avoid foreign key issues
                 $this->users()->each(function ($user) {
@@ -465,15 +465,40 @@ class Institution extends Model
                     // Clear password resets
                     \DB::table('password_reset_tokens')->where('email', $user->email)->delete();
 
-                    // Clear any audit logs, activity logs that might reference this user
-                    \DB::table('activity_logs')->where('user_id', $user->id)->delete();
-                    \DB::table('audit_logs')->where('user_id', $user->id)->delete();
+                    $tablesToClear = [
+                        'activity_logs' => ['user_id'],
+                        'audit_logs' => ['user_id'],
+                        'security_events' => ['target_user_id', 'resolved_by'],
+                        'session_logs' => ['user_id'],
+                        'school_staff' => ['user_id'],
+                        'reports' => ['creator_id'],
+                        'uploads' => ['user_id'],
+                        'grades' => ['homeroom_teacher_id'],
+                        'indicator_values' => ['approved_by'],
+                        'statistics' => ['verified_by'],
+                        'institution_import_history' => ['user_id'],
+                        'survey_responses' => ['respondent_id', 'approved_by'],
+                        'surveys' => ['creator_id'],
+                        'survey_versions' => ['created_by'],
+                        'task_sub_delegations' => ['delegated_by_user_id', 'delegated_to_user_id'],
+                        'approval_audit_logs' => ['user_id'],
+                        'approval_delegations' => ['delegator_id', 'delegate_id'],
+                        'approval_workflow_templates' => ['created_by', 'updated_by'],
+                        'bsq_results' => ['assessor_id'],
+                        'ksq_results' => ['assessor_id'],
+                        'assessment_comparisons' => ['calculated_by'],
+                        'assessment_targets' => ['created_by'],
+                        'teacher_profiles' => ['user_id', 'approved_by'],
+                    ];
 
-                    // Clear session logs if exists
-                    try {
-                        \DB::table('session_logs')->where('user_id', $user->id)->delete();
-                    } catch (\Exception $e) {
-                        // Table might not exist
+                    foreach ($tablesToClear as $table => $columns) {
+                        foreach ($columns as $column) {
+                            try {
+                                \DB::table($table)->where($column, $user->id)->delete();
+                            } catch (\Exception $e) {
+                                // Table might not exist or other column issue
+                            }
+                        }
                     }
 
                     // Force delete user using raw SQL (bypasses Eloquent FK checks)
@@ -723,7 +748,7 @@ class Institution extends Model
         try {
             // Delete from tables that might not have CASCADE DELETE properly set up
             $affectedTables = [
-                'user_profiles' => 'institution_id',
+                'user_profiles' => 'primary_institution_id',
                 'activity_logs' => 'institution_id',
                 'audit_logs' => 'institution_id',
                 'security_events' => 'institution_id',
