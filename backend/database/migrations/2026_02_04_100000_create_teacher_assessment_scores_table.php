@@ -40,8 +40,10 @@ return new class extends Migration
             );
         });
 
-        // Add comments
-        DB::statement("COMMENT ON TABLE teacher_assessment_scores IS 'PRD: MİQ/Sertifikasiya/Diaqnostik qiymətləndirmə nəticələri'");
+        // Add comments (SQLite compatible)
+        if (config('database.default') !== 'sqlite') {
+            DB::statement("COMMENT ON TABLE teacher_assessment_scores IS 'PRD: MİQ/Sertifikasiya/Diaqnostik qiymətləndirmə nəticələri'");
+        }
     }
 
     /**

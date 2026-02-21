@@ -41,8 +41,10 @@ return new class extends Migration
                 ->comment('İllər üzrə çəki: 2022-23 (25%), 2023-24 (30%), 2024-25 (45%)');
         });
 
-        // Add comment
-        DB::statement("COMMENT ON TABLE rating_configs IS 'PRD: Region Admin tərəfindən idarə olunan reytinq konfiqurasiyası'");
+        // Add comment (SQLite compatible)
+        if (config('database.default') !== 'sqlite') {
+            DB::statement("COMMENT ON TABLE rating_configs IS 'PRD: Region Admin tərəfindən idarə olunan reytinq konfiqurasiyası'");
+        }
     }
 
     /**

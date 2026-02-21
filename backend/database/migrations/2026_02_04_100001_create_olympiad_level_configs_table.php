@@ -30,8 +30,10 @@ return new class extends Migration
             $table->index(['is_active', 'level'], 'olc_active_level_idx');
         });
 
-        // Add comments
-        DB::statement("COMMENT ON TABLE olympiad_level_configs IS 'PRD: Region Admin tərəfindən konfiqurasiya olunan olimpiada bal cədvəlləri'");
+        // Add comments (SQLite compatible)
+        if (config('database.default') !== 'sqlite') {
+            DB::statement("COMMENT ON TABLE olympiad_level_configs IS 'PRD: Region Admin tərəfindən konfiqurasiya olunan olimpiada bal cədvəlləri'");
+        }
     }
 
     /**

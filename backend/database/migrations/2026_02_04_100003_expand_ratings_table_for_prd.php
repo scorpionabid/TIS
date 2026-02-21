@@ -45,8 +45,10 @@ return new class extends Migration
             $table->index(['institution_id', 'academic_year_id', 'overall_score'], 'ratings_leaderboard_idx');
         });
 
-        // Add table comment
-        DB::statement("COMMENT ON COLUMN ratings.yearly_breakdown IS 'PRD: Reytinq breakdown-ın hər müəllim profilində görünməsi'");
+        // Add table comment (SQLite compatible)
+        if (config('database.default') !== 'sqlite') {
+            DB::statement("COMMENT ON COLUMN ratings.yearly_breakdown IS 'PRD: Reytinq breakdown-ın hər müəllim profilində görünməsi'");
+        }
     }
 
     /**

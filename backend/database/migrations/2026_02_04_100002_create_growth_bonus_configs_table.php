@@ -29,8 +29,10 @@ return new class extends Migration
             $table->index(['is_active', 'threshold_min'], 'gbc_active_threshold_idx');
         });
 
-        // Add comments
-        DB::statement("COMMENT ON TABLE growth_bonus_configs IS 'PRD: İnkişaf (growth) bonus qaydaları - son illərdə yaxşılaşmanı təşviq etmək üçün'");
+        // Add comments (SQLite compatible)
+        if (config('database.default') !== 'sqlite') {
+            DB::statement("COMMENT ON TABLE growth_bonus_configs IS 'PRD: İnkişaf (growth) bonus qaydaları - son illərdə yaxşılaşmanı təşviq etmək üçün'");
+        }
     }
 
     /**
