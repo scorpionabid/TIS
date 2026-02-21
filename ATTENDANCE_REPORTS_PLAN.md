@@ -1,46 +1,265 @@
-# Məktəb Davamiyyət Hesabatlarının Təkmilləşdirilməsi Planı (Attendance Reports Improvement Plan)
+# Davamiyyət Hesabatları — Dəqiq Texniki Plan
+**Son yenilənmə:** 2026-02-20 | **Status:** Faza 1 tamamlandı, Faza 2 planlaşdırılır
 
-## 📌 Problemin Təsviri (Problem Description)
-Məktəb administratorları üçün nəzərdə tutulmuş `school/attendance/reports` (Davamiyyət Hesabatları) səhifəsində məlumatların qeyri-dəqiq, tam qruplaşdırılmamış (məsələn, həftəlik/aylıq rejimdə) və bəzi hallarda filtrinq-pagination sisteminin işləməməsi kimi problemlər mövcud idi. Səhifə eyni cədvəli göstərməsinə baxmayaraq, istifadəçi rollarına görə (Region/Sektor adminləri vs. Məktəb adminləri) tamamilə fərqli xidmətlərdən (services) və backend endpoint-lərdən istifadə edirdi.
+---
 
-## 🔍 Problemin Təhlili və Kök Səbəblər (Root Cause Analysis)
+## 1. Mövcud Sistem Arxitekturası (Aktual Vəziyyət)
 
-1. **Fərqli Servis Bağlantıları (Divergent Services):**
-   - **Sektor və Region adminləri:** `attendanceService` vasitəsilə `/api/school-attendance/reports` endpoint-inə qoşulur və backend-dən birbaşa süzülmüş, rollara uyğun və ehtiyac olduqda qruplaşdırılmış (weekly, monthly) məlumatlar alır.
-   - **Məktəb Adminləri (School Admins):** Frontend kodunda bu istifadəçilər xüsusi olaraq ayrılmışdı və onlar üçün `bulkAttendanceService` çağırılırdı. Bu isə arxa planda `/schooladmin/bulk-attendance/weekly-summary` endpoint-inə yönlənirdi.
+### 1.1 Endpoint Xəritəsi
 
-2. **Qruplaşdırma və Pagination (Grouping and Pagination Issues):**
-   - `bulkAttendanceService` vasitəsilə çağırılan hesabatlar həmişə **gündəlik (daily)** formatda çəkilir və sadəcə frontend-də pre-processing (manipulyasiya) olunurdu. 
-   - İdarəetmə panelində "Həftəlik" (Weekly) və ya "Aylıq" (Monthly) seçimləri olduqda Məktəb Admini üçün bu qruplaşdırmalar işləmir və ya cədvəldə düzgün əks olunmurdu. 
-   - Həmçinin, `bulkAttendanceService` tərəfindən gələn statik nəticələrin server-side pagination xüsusiyyəti mövcud deyildi.
+| HTTP | Endpoint | Controller Metod | İstifadəçi |
+|------|----------|-----------------|-----------|
+| GET | `/api/school-attendance/reports` | `reports()` (sətir 353) | Bütün rollar |
+| GET | `/api/school-attendance/stats` | `stats()` (sətir 283) | Bütün rollar |
+| GET | `/api/school-attendance/schools/{id}/classes` | `getSchoolClasses()` (sətir 594) | Bütün rollar |
+| GET | `/api/school-attendance/export` | `export()` (sətir 719) | Bütün rollar |
 
-3. **Backend-in Hazır Dəstəyi (Native Backend Authorization):**
-   - Backend `SchoolAttendanceController@reports` və digər əlaqədar classlarda `applyUserFiltering` adlı güclü təhlükəsizlik və süzgəc metodu istifadə olunur. 
-   - Məktəb Admini bu endpoint-ə sorğu göndərdikdə onsuz da avtomatik olaraq **yalnız öz məktəbinə aid** məlumatları görürdü. Yəni frontend tərəfində Məktəb Adminini əsas hesabat xidmətindən ayırmağa əslində heç bir ehtiyac yox idi.
+**Fayl:** `backend/app/Http/Controllers/SchoolAttendanceController.php`
 
-## ✅ Həll və Tətbiq Planı (Execution & Solution Plan)
+### 1.2 Frontend Servis Arxitekturası
 
-Artıq müvəffəqiyyətlə icra edilən və sistemə inteqrasiya olunan əsas addımlar aşağıdakılardır:
+```
+frontend/src/pages/AttendanceReports.tsx
+    └── attendanceService  (frontend/src/services/attendance.ts)
+            ├── getAttendanceReports()  → GET /api/school-attendance/reports
+            ├── getAttendanceStats()   → GET /api/school-attendance/stats
+            ├── getSchoolClasses()     → GET /api/school-attendance/schools/{id}/classes
+            └── exportAttendance()    → GET /api/school-attendance/export
 
-### Addım 1: Servis Vahidliyinin Təmin Edilməsi (Unifying the Services)
-- `frontend/src/pages/AttendanceReports.tsx` faylında Məktəb Adminləri üçün xüsusi olaraq yazılmış `bulkAttendanceService.getAttendanceReports` və `bulkAttendanceService.getAttendanceStats` kod blokları ləğv edildi.
-- Əvəzində bütün istifadəçi rolları üçün eyni platforma təməlli yanaşma tətbiq edildi: `attendanceService.getAttendanceReports` və `attendanceService.getAttendanceStats`.
-- **Nəticə:** Məktəb adminləri artıq ən stabil və qruplaşdırma dəstəyi olan birbaşa Mərkəzi Hesabat API-dan istifadə edirlər.
+frontend/src/services/bulkAttendance.ts  ← Hesabat üçün ARTIQ İSTİFADƏ OLUNMUR
+```
 
-### Addım 2: Həftəlik və Aylıq Hesabatların Doğru Göstərilməsi (Correct Grouping Integration)
-- Məktəb Adminləri "Aylıq" (Monthly) və ya "Həftəlik" (Weekly) filterini seçdikdə, hesabat növünə uyğun olaraq qruplaşdırma backend tərəfindəki SQL/Collection bazasında yerinə yetirilir.
-- O cümlədən, `start_count` (ümumi ilk dərsdə iştirak edənlərin sayı) və `end_count` (son dərslər) server tərəfində toplanır və ümumi faiz cəmlənərək hesablanaq verilir.
-- Cədvəldə eyni aya və ya həftəyə aid minlərlə dublikat və ya oxşar ardıcıl daily qeydlər görünməyəcək; istifadəçi interfeysi sadələşəcək.
+### 1.3 Backend İcazə Filtri (`applyUserFiltering`, sətir 937-987)
 
-### Addım 3: Server-side Pagination və Performansın Arttırılması
-- Daily hesabat rejimində, xüsusən də böyük məktəblərdə məlumat bazası böyük miqyasda ola bilir. Frontend yaddaşını tükətməmək (memory leaks) və performansı (load time) yaxşılaşdırmaq üçün pagination avtomatik olaraq backend-in Laravel `paginate()` metoduna həvalə edildi. 
-- Məlumatlar yalnız ehtiyac olan səhifələr üzrə 20-20 yüklənir. Gözləmə müddəti və yüklənmə vaxtı azaldıldı.
+| Rol | Görünən Məlumat |
+|-----|----------------|
+| SuperAdmin | Bütün məktəblər |
+| RegionAdmin | Öz regionuna bağlı bütün məktəblər |
+| SektorAdmin | Öz sektoruna bağlı məktəblər |
+| SchoolAdmin / Müəllim | Yalnız öz məktəbi |
 
-### Addım 4: Test və Keyfiyyət Yoxlaması (Testing & QA)
-- Frontend tərəfində re-faktorinq (Refactoring) uğurla bitdi, lazımsız importlar silindi və TS səhvləri aradan qaldırıldı (`npm run lint` testləri uğurla keçdi).
-- Backend API-ları üçün testlər yenidən işə salındı (`php artisan test`) və 148 test daxilində bütün mərkəzi arxitektur tələblərinin (security and authorization) qorunduğu sübut edildi.
-- Əməliyyatlar Repozitoriyaya göndərildi.
+---
 
-## 🚀 Gələcək Yönləndirmələr və Tövsiyələr (Future Recommendations)
-- Gələcəkdə **Data Entry** yəni "qeydiyyat daxil edilməsi" və bulk yüklənmələr mərhələsində `bulkAttendance` servisi prioritet təşkil etməlidir. Lakin, "Analitika və Hesabat" məqsədləri üçün hər zaman unifikasiya olunmuş `reports` endpointləri izlənilməlidir.
-- Eyni məntiqlə "Davamiyyət Statistikaları" (Dashboard Widgets) üçündə mövcud mərkəzdən idarəolunan API-lərin istifadəsi tövsiyə olunur, xaricdən əlavə metodların yazılması məlumat bazasına lüzumsuz sorğulara (N+1 queries) yol aça bilər.
+## 2. Tamamlanan İşlər (Faza 1) ✅
+
+### 2.1 Servis Vahidliyinin Təmin Edilməsi
+**Dəyişiklik:** `frontend/src/pages/AttendanceReports.tsx`
+
+**Əvvəl (köhnə kod):**
+```typescript
+// SchoolAdmin üçün ayrı blok var idi:
+if (isSchoolAdmin) {
+    bulkAttendanceService.getAttendanceReports(...)
+    bulkAttendanceService.getAttendanceStats(...)
+}
+```
+
+**İndi (aktual vəziyyət, sətir 221-311):**
+```typescript
+// Bütün rollar üçün vahid sorğu:
+useQuery({
+    queryKey: ['attendance-reports', ...],
+    queryFn: () => attendanceService.getAttendanceReports(filters),
+})
+```
+
+**Nəticə:** SchoolAdmin-lər artıq `/schooladmin/bulk-attendance/weekly-summary` əvəzinə `/api/school-attendance/reports` endpoint-inə müraciət edir.
+
+---
+
+### 2.2 Həftəlik / Aylıq Qruplaşdırma
+**Fayl:** `backend/app/Http/Controllers/SchoolAttendanceController.php`
+
+| `group_by` Parametri | Backend Davranışı | Qaytarılan Format |
+|---------------------|------------------|------------------|
+| `daily` | `paginate($perPage)` (sətir 490-494) | `{ date, class_name, start_count, end_count, ... }` |
+| `weekly` | Həftə başı Bazar ertəsi (sətir 524) | `{ date_label: "01.01 - 07.01.2026", range_start, range_end, ... }` |
+| `monthly` | `translatedFormat('F Y')` (sətir 527-537) | `{ date_label: "Yanvar 2026", ... }` |
+
+**Frontend Ayrımı** (`frontend/src/pages/AttendanceReports.tsx`, sətir 301-315):
+```typescript
+const isDailyView = reportType === 'daily';
+// Günlük üçün: server-side pagination göstərilir
+// Həftəlik/Aylıq üçün: per_page=500 göndərilir (tam yüklənir)
+```
+
+---
+
+### 2.3 Server-side Pagination (Günlük Görünüş)
+**Backend** (`SchoolAttendanceController.php`, sətir 60-73):
+```php
+$perPage = $request->get('per_page', 15);
+$records = $query->paginate($perPage);
+// Meta: { current_page, last_page, per_page, total, from, to }
+```
+
+**Frontend** (`AttendanceReports.tsx`, sətir 301-311):
+```typescript
+const totalRecords    = attendanceMeta?.total        ?? attendanceData.length;
+const paginationPages = attendanceMeta?.last_page    ?? Math.ceil(totalRecords / perPage);
+```
+
+---
+
+### 2.4 Sorting Dəstəyi
+**Backend sort xəritəsi** (`SchoolAttendanceController.php`, sətir 405-419):
+
+| Frontend Dəyəri | Backend Sütunu |
+|-----------------|---------------|
+| `date` | `attendance_date` |
+| `class_name` | `grades.name` (LEFT JOIN) |
+| `attendance_rate` | `daily_attendance_rate` |
+| `first_lesson` | `morning_present` |
+| `last_lesson` | `evening_present` |
+
+---
+
+## 3. Faza 2 İcra Nəticəsi ✅ (2026-02-20)
+
+### Tamamlanan işlər:
+| # | Dəyişiklik | Status |
+|---|-----------|--------|
+| 3.3 | Export-da `group_by` dəstəyi | ✅ |
+| 3.2 | Real trend hesablaması (period müqayisəsi) | ✅ |
+| 4.1 | `bulkAttendance.ts` — köhnə metodlar silindi | ✅ |
+| QA | `npm run lint`, `npm run typecheck` — sıfır xəta | ✅ |
+| QA | `php artisan test --filter=Attendance` — 7/7 keçdi | ✅ |
+
+### Edilməyən (analiz nəticəsi — gərəksiz):
+- 3.1 Həftəlik/aylıq pagination: Agregat nəticə max 52 sətir, `per_page=500` kifayətdir.
+- 3.4 Sinif siyahısı staleTime: Artıq `5 * 60 * 1000` olaraq tənzimlənmişdi.
+
+---
+
+## 4. Açıq Problemlər (Gələcək Faza) 🔴
+
+### 4.1 Həftəlik/Aylıq Performans (SQL Refaktoru)
+**Problem:** `per_page=500` ilə bütün məlumat bir anda yüklənir.
+- Böyük məktəblərdə (500+ şagird × 30 gün = 15.000+ qeyd) memory problemi yarana bilər.
+- Həftəlik/aylıq görünüşdə pagination UI gizlədilir amma həqiqi server-side pagination yoxdur.
+
+**Həll Planı:**
+```typescript
+// AttendanceReports.tsx dəyişikliyi:
+// weekly/monthly üçün paginate parametri əlavə et:
+if (!isDailyView) {
+    params.per_page = 50;  // 500 əvəzinə
+    params.page = page;
+}
+// Cədvəl altında pagination göstər
+```
+
+---
+
+### 4.2 Statistika Trend Hesablamasının Dəqiqliyi ✅ (Faza 2-də həll edildi)
+**Mövcud məntiq** (`stats()`, sətir 330-331):
+```php
+≥ 90%  → 'up'
+80-90% → 'stable'
+< 80%  → 'down'
+```
+
+**Problem:** Bu statik hədd dəyərləridir, real trend deyil.
+Real trend = bugünkü orta% vs ötən həftənin ortası%.
+
+**Həll Planı:**
+```php
+// stats() metodunda əlavə hesablama:
+$currentPeriodRate  = ... // sorğu dövrü ortası
+$previousPeriodRate = ... // əvvəlki eyni uzunluqlu dövr
+$trend = $currentPeriodRate > $previousPeriodRate + 2 ? 'up'
+       : ($currentPeriodRate < $previousPeriodRate - 2 ? 'down' : 'stable');
+```
+
+---
+
+### 4.3 Export Funksiyasında Həftəlik/Aylıq Format ✅ (Faza 2-də həll edildi)
+**Problem:** `exportAttendance()` (`attendance.ts`, sətir 331) yalnız günlük formatda export edir.
+Həftəlik/aylıq görünüşdə export edilən fayl günlük qeydlər göstərir.
+
+**Həll Planı:**
+- Backend `export()` metoduna `group_by` parametri əlavə et
+- Həftəlik export-da qruplaşdırılmış sütunlar (həftə başlanğıcı, bitiş, orta %)
+
+---
+
+### 4.4 Sinif Siyahısı Cache ✅ (Artıq 5 dəq idi)
+**Mövcud vəziyyət** (`AttendanceReports.tsx`, sətir 345):
+```typescript
+queryFn: () => attendanceService.getSchoolClasses(selectedSchool),
+staleTime: 0  // hər dəfə yenidən yüklənir
+```
+
+**Həll Planı:**
+```typescript
+staleTime: 5 * 60 * 1000  // 5 dəqiqə cache
+```
+
+---
+
+## 5. Texniki Borc (Technical Debt)
+
+| # | Problem | Fayl | Prioritet | Status |
+|---|---------|------|-----------|--------|
+| 1 | `bulkAttendance.ts`-dəki `getAttendanceReports()` hələ durur, konfuziya yaradır | `frontend/src/services/bulkAttendance.ts` sətir 407 | Orta | ✅ Silindi |
+| 2 | `attendance.ts`-dəki `getClassesByInstitution()` ilə `getSchoolClasses()` duplikat | `frontend/src/services/attendance.ts` sətir 366, 385 | Aşağı | Açıq |
+| 3 | Weekly/Monthly görünüşdə `per_page=500` hardcoded | `frontend/src/pages/AttendanceReports.tsx` sətir 256-258 | Analiz: gərəksiz | ✅ Bağlandı |
+
+---
+
+## 6. Keyfiyyət Yoxlaması Nəticələri
+
+| Test | Faza | Status |
+|------|------|--------|
+| `npm run lint` | 1 + 2 | ✅ Sıfır xəta |
+| `npm run typecheck` | 1 + 2 | ✅ Sıfır xəta |
+| `php artisan test --filter=Attendance` | 2 | ✅ 7/7 keçdi (28 assertion) |
+| SchoolAdmin → reports endpoint sorğusu | 1 | ✅ Yalnız öz məktəbi görünür |
+| RegionAdmin → reports endpoint sorğusu | 1 | ✅ Region məktəbləri görünür |
+| Həftəlik qruplaşdırma | 1 | ✅ Düzgün format qaytarılır |
+| Aylıq qruplaşdırma | 1 | ✅ Azərbaycanca ay adı qaytarılır |
+| Günlük pagination | 1 | ✅ `paginate(15)` işləyir |
+| Export həftəlik → qruplaşdırılmış CSV | 2 | ✅ Tətbiq edildi |
+| Export aylıq → qruplaşdırılmış CSV | 2 | ✅ Tətbiq edildi |
+| Trend: real dövr müqayisəsi | 2 | ✅ Tətbiq edildi |
+
+---
+
+## 7. Faza 2 İcra Sırası (Tamamlandı)
+
+```
+Prioritet 1 (Bu həftə):
+  └── 3.3 Export-da group_by dəstəyi
+  └── 3.4 Sinif siyahısı staleTime düzəltməsi
+
+Prioritet 2 (Növbəti sprint):
+  └── 3.1 Həftəlik/aylıq pagination
+  └── 3.2 Real trend hesablaması
+
+Texniki borc (zaman tapıldıqda):
+  └── 4.1 bulkAttendance.ts-dən köhnə metodları sil
+  └── 4.2 Duplikat getSchoolClasses metodunu birləşdir
+```
+
+---
+
+## 7. Əlaqəli Fayllar Sorğu Yolu
+
+```
+backend/
+  app/Http/Controllers/SchoolAttendanceController.php
+    ├── stats()    [sətir 283]
+    ├── reports()  [sətir 353]
+    └── applyUserFiltering() [sətir 937]
+
+frontend/
+  src/pages/AttendanceReports.tsx
+    ├── useQuery (reports)  [sətir 221]
+    ├── useQuery (stats)    [sətir 271]
+    └── pagination logic    [sətir 301]
+  src/services/attendance.ts
+    ├── getAttendanceReports()  [sətir 166]
+    └── getAttendanceStats()    [sətir 187]
+  src/services/bulkAttendance.ts
+    └── getAttendanceReports()  [sətir 407] ← KÖHNƏ, silinməlidir
+```

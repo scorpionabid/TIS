@@ -69,17 +69,48 @@ class ClassBulkAttendance extends Model
     }
 
     // Helper methods
+
+    /**
+     * Effektiv iştirak sayını hesabla.
+     *
+     * Biznes qaydası: Müəllim sessiyanı yadda saxlayarkən heç bir dəyişiklik
+     * etmədiyi sinif üçün present=0, excused=0, unexcused=0 saxlanılır.
+     * Bu "heç kəs gəlmədi" mənasına gəlmir — "hamı var idi, dəyişiklik lazım deyildi"
+     * deməkdir. Odur ki, recorded_at dolu VƏ bütün saylar 0 olarsa,
+     * total_students qaytar (hamı iştirak etdi).
+     */
+    private function effectivePresent(int $present, int $excused, int $unexcused, mixed $recordedAt): int
+    {
+        if ($present === 0 && $excused === 0 && $unexcused === 0 && $recordedAt !== null) {
+            return (int) $this->total_students;
+        }
+
+        return $present;
+    }
+
     public function calculateMorningRate(): void
     {
         if ($this->total_students > 0) {
-            $this->morning_attendance_rate = ($this->morning_present / $this->total_students) * 100;
+            $eff = $this->effectivePresent(
+                (int) $this->morning_present,
+                (int) $this->morning_excused,
+                (int) $this->morning_unexcused,
+                $this->morning_recorded_at
+            );
+            $this->morning_attendance_rate = ($eff / $this->total_students) * 100;
         }
     }
 
     public function calculateEveningRate(): void
     {
         if ($this->total_students > 0) {
-            $this->evening_attendance_rate = ($this->evening_present / $this->total_students) * 100;
+            $eff = $this->effectivePresent(
+                (int) $this->evening_present,
+                (int) $this->evening_excused,
+                (int) $this->evening_unexcused,
+                $this->evening_recorded_at
+            );
+            $this->evening_attendance_rate = ($eff / $this->total_students) * 100;
         }
     }
 
@@ -95,16 +126,27 @@ class ClassBulkAttendance extends Model
         $hasMorning = $this->morning_recorded_at !== null;
         $hasEvening = $this->evening_recorded_at !== null;
 
+        $effMorning = $this->effectivePresent(
+            (int) $this->morning_present,
+            (int) $this->morning_excused,
+            (int) $this->morning_unexcused,
+            $this->morning_recorded_at
+        );
+        $effEvening = $this->effectivePresent(
+            (int) $this->evening_present,
+            (int) $this->evening_excused,
+            (int) $this->evening_unexcused,
+            $this->evening_recorded_at
+        );
+
         if ($hasMorning && $hasEvening) {
-            // Both sessions recorded - calculate average
-            $averagePresent = ($this->morning_present + $this->evening_present) / 2;
+            // Both sessions recorded - calculate average with effective values
+            $averagePresent = ($effMorning + $effEvening) / 2;
             $this->daily_attendance_rate = ($averagePresent / $this->total_students) * 100;
         } elseif ($hasMorning) {
-            // Only morning recorded - use morning rate
-            $this->daily_attendance_rate = ($this->morning_present / $this->total_students) * 100;
+            $this->daily_attendance_rate = ($effMorning / $this->total_students) * 100;
         } elseif ($hasEvening) {
-            // Only evening recorded - use evening rate
-            $this->daily_attendance_rate = ($this->evening_present / $this->total_students) * 100;
+            $this->daily_attendance_rate = ($effEvening / $this->total_students) * 100;
         } else {
             $this->daily_attendance_rate = 0;
         }

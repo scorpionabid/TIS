@@ -55,6 +55,7 @@ export interface AttendanceFilters {
   end_date?: string;
   page?: number;
   per_page?: number;
+  group_by?: 'daily' | 'weekly' | 'monthly';
 }
 
 export interface AttendanceStats {
