@@ -183,6 +183,9 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
     setShowProgress(false);
     setOperationId('');
 
+    // Reload the institutions list automatically without needing F5
+    queryClient.invalidateQueries({ queryKey: ['institutions'] });
+
     toast({
       variant: "success",
       title: "Əməliyyat tamamlandı",
@@ -323,7 +326,7 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
                   <Checkbox
                     id="force"
                     checked={force}
-                    onCheckedChange={setForce}
+                    onCheckedChange={(checked) => setForce(checked === true)}
                   />
                   <Label htmlFor="force" className="text-sm">
                     Rekursiv silməni başa düşürəm və davam etmək istəyirəm
@@ -337,7 +340,7 @@ export const EnhancedDeleteModal: React.FC<EnhancedDeleteModalProps> = ({
               <Checkbox
                 id="confirmation"
                 checked={confirmation}
-                onCheckedChange={setConfirmation}
+                onCheckedChange={(checked) => setConfirmation(checked === true)}
               />
               <Label htmlFor="confirmation" className="text-sm">
                 Yuxarıdakı məlumatları oxudum və bu əməliyyatın nəticələrini başa düşürəm.
