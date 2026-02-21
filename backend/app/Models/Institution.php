@@ -493,10 +493,10 @@ class Institution extends Model
 
                     foreach ($tablesToClear as $table => $columns) {
                         foreach ($columns as $column) {
-                            try {
+                            // PostgreSQL aborts the entire transaction if a query fails (e.g. table/column doesn't exist).
+                            // Thus, we strictly verify existence before performing any operation.
+                            if (\Illuminate\Support\Facades\Schema::hasTable($table) && \Illuminate\Support\Facades\Schema::hasColumn($table, $column)) {
                                 \DB::table($table)->where($column, $user->id)->delete();
-                            } catch (\Exception $e) {
-                                // Table might not exist or other column issue
                             }
                         }
                     }
@@ -756,15 +756,14 @@ class Institution extends Model
             ];
 
             foreach ($affectedTables as $table => $column) {
-                try {
+                // For PostgreSQL, an exception during a transaction aborts the entire transaction.
+                // We must ensure the table and column exist *before* querying them.
+                if (\Illuminate\Support\Facades\Schema::hasTable($table) && \Illuminate\Support\Facades\Schema::hasColumn($table, $column)) {
                     $count = \DB::table($table)->where($column, $institutionId)->count();
                     if ($count > 0) {
                         \DB::table($table)->where($column, $institutionId)->delete();
                         $deletedData["raw_{$table}"] = $count;
                     }
-                } catch (\Exception $e) {
-                    // Table might not exist, continue
-                    \Log::info("Table {$table} not found or error: " . $e->getMessage());
                 }
             }
         } catch (\Exception $e) {
