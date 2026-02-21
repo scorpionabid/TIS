@@ -33,8 +33,7 @@ import {
   LucideIcon,
   Library,
   Star,
-  User,
-  UseTarget,
+  User
 } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { UserRole, USER_ROLES } from '@/constants/roles';
@@ -92,6 +91,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         icon: UserCheck,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
         children: [
+          /* 
           {
             id: 'attendance-record',
             label: 'Davamiyyət Qeydiyyatı',
@@ -99,6 +99,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
             permissions: ['attendance.create', 'attendance.update']
           },
+          */
           {
             id: 'attendance-bulk',
             label: 'Toplu Davamiyyət Qeydiyyatı',
@@ -600,12 +601,14 @@ export const improvedNavigationConfig: MenuGroup[] = [
         icon: UserCheck,
         roles: [USER_ROLES.SEKTORADMIN],
         children: [
+          /*
           {
             id: 'sector-attendance-daily',
             label: 'Günlük Davamiyyət',
             path: '/school/attendance',
             roles: [USER_ROLES.SEKTORADMIN]
           },
+          */
           {
             id: 'sector-attendance-reports',
             label: 'Davamiyyət Hesabatları',
