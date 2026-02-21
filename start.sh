@@ -204,8 +204,11 @@ setup_database() {
         user_count=$("$DOCKER_BIN" exec atis_postgres psql -U atis_dev_user -d atis_dev -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' ' || echo "0")
     fi
 
-    # If we have data, we SKIP restoration
-    if [ "$user_count" -gt 0 ]; then
+    # Read AUTO_RESTORE_ON_START setting from .env file
+    local auto_restore=$(grep "^AUTO_RESTORE_ON_START=" backend/.env 2>/dev/null | cut -d '=' -f2 | tr -d '\r')
+    
+    # If we have data AND auto-restore is not enabled, we SKIP restoration
+    if [ "$user_count" -gt 0 ] && [ "$auto_restore" != "true" ]; then
         print_success "🔒 Database-də mövcud data tapıldı ($user_count istifadəçi). Bərpa prosesi ötürülür."
         # Ensure lock file exists if data is there
         touch backend/storage/app/db_imported.lock 2>/dev/null || true
@@ -213,8 +216,12 @@ setup_database() {
         "$DOCKER_BIN" exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force >/dev/null 2>&1
         return 0
     fi
+    
+    if [ "$user_count" -gt 0 ] && [ "$auto_restore" = "true" ]; then
+        print_warning "🔄 AUTO_RESTORE_ON_START=true aktivdir! Mövcud data ($user_count istifadəçi) sıfırlanıb yenidən bərpa ediləcək..."
+    fi
 
-    # If we reach here, user_count is 0. Check if it was because of an intentional lock
+    # If we reach here, either user_count is 0 OR auto_restore is true.
     if [ -f backend/storage/app/db_imported.lock ]; then
         print_warning "⚠️  Lock file tapıldı, amma baza boşdur! Datanı bərpa etməyə çalışıram..."
         rm backend/storage/app/db_imported.lock
