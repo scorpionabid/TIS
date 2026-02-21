@@ -849,9 +849,27 @@ const App = () => {
                       </LazyWrapper>
                     } />
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                    <Route path="sector-rating" element={<LazyWrapper><SectorRating /></LazyWrapper>} />
-                    <Route path="school-admin-rating" element={<LazyWrapper><SchoolAdminRating /></LazyWrapper>} />
-                    <Route path="teacher-rating" element={<LazyWrapper><TeacherRating /></LazyWrapper>} />
+                    <Route path="sector-rating" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR]}>
+                          <SectorRating />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="school-admin-rating" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN]}>
+                          <SchoolAdminRating />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+                    <Route path="teacher-rating" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN]}>
+                          <TeacherRating />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
                     <Route path="*" element={<NotFound />} />
                   </Route>
                 </Routes>

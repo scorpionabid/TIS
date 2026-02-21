@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Helpers\DataIsolationHelper;
 use App\Http\Controllers\BaseController;
+use App\Models\AcademicYear;
 use App\Models\Rating;
 use App\Services\RatingCalculationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class RatingController extends BaseController
 {
@@ -21,7 +24,7 @@ class RatingController extends BaseController
     }
 
     /**
-     * Display a listing of ratings.
+     * Display a listing of ratings with hierarchical institution filtering.
      */
     public function index(Request $request): JsonResponse
     {
@@ -29,20 +32,45 @@ class RatingController extends BaseController
             $period = $request->get('period');
             $academicYearId = $request->get('academic_year_id');
             $userRole = $request->get('user_role');
+            $forceCalculate = $request->boolean('force_calculate', false);
+
+            // Get allowed institution IDs based on user hierarchy
+            $allowedInstitutionIds = DataIsolationHelper::getAllowedInstitutionIds($request->user());
+
+            // Auto-calculate ratings when user_role and period are set
+            if ($userRole && $period) {
+                $calcAcademicYearId = $academicYearId
+                    ?? AcademicYear::current()->first()?->id
+                    ?? AcademicYear::active()->first()?->id;
+
+                if ($calcAcademicYearId) {
+                    try {
+                        $this->ratingService->calculateAllRatings([
+                            'academic_year_id' => $calcAcademicYearId,
+                            'period' => $period,
+                            'user_role' => $userRole,
+                        ], $request->user(), $forceCalculate);
+                    } catch (\Exception $e) {
+                        Log::warning('Auto-calculate ratings failed', [
+                            'error' => $e->getMessage(),
+                        ]);
+                    }
+                }
+            }
 
             if ($userRole) {
-                // If filtering by role, we want all users of that role, potentially with ratings
                 $sortBy = $request->get('sort_by', 'first_name');
                 $sortOrder = $request->get('sort_order', 'asc');
 
                 $query = \App\Models\User::with([
-                    'institution',
+                    'institution.parent',
                     'ratings' => function ($q) use ($period, $academicYearId) {
-                        $q->when($period, fn($q) => $q->where('period', $period))
-                            ->when($academicYearId, fn($q) => $q->where('academic_year_id', $academicYearId));
-                    }
+                        $q->when($period, fn ($q) => $q->where('period', $period))
+                            ->when($academicYearId, fn ($q) => $q->where('academic_year_id', $academicYearId));
+                    },
                 ])
                     ->byRole($userRole)
+                    ->whereIn('institution_id', $allowedInstitutionIds)
                     ->when($request->get('institution_id'), function ($query, $institutionId) {
                         return $query->where('institution_id', $institutionId);
                     })
@@ -54,31 +82,45 @@ class RatingController extends BaseController
                                 ->orWhere('username', 'like', "%{$search}%");
                         });
                     })
-                    ->when($request->user()->cannot('ratings.manage'), function ($query) use ($request) {
-                        return $query->where('institution_id', $request->user()->institution_id);
+                    ->when($request->get('status'), function ($query, $status) use ($period, $academicYearId) {
+                        return $query->whereHas('ratings', function ($q) use ($status, $period, $academicYearId) {
+                            $q->where('status', $status)
+                                ->when($period, fn ($q) => $q->where('period', $period))
+                                ->when($academicYearId, fn ($q) => $q->where('academic_year_id', $academicYearId));
+                        });
                     });
 
                 // Handle sorting
                 if (in_array($sortBy, ['first_name', 'last_name', 'name', 'email'])) {
                     $query->orderBy($sortBy === 'name' ? 'first_name' : $sortBy, $sortOrder);
                 } elseif (in_array($sortBy, ['overall_score', 'task_score', 'survey_score', 'manual_score'])) {
-                    // Sort by rating fields - requires join to work with pagination
                     $query->leftJoin('ratings', function ($join) use ($period, $academicYearId) {
                         $join->on('users.id', '=', 'ratings.user_id')
-                            ->when($period, fn($j) => $j->where('ratings.period', $period))
-                            ->when($academicYearId, fn($j) => $j->where('ratings.academic_year_id', $academicYearId));
+                            ->when($period, fn ($j) => $j->where('ratings.period', $period))
+                            ->when($academicYearId, fn ($j) => $j->where('ratings.academic_year_id', $academicYearId));
                     })
-                        ->select('users.*') // Ensure we only get user columns to avoid collisions
+                        ->select('users.*')
                         ->orderBy("ratings.{$sortBy}", $sortOrder);
+                } elseif ($sortBy === 'sector') {
+                    // Sort by sector (parent institution) for grouping
+                    $query->leftJoin('institutions', 'users.institution_id', '=', 'institutions.id')
+                        ->select('users.*')
+                        ->orderBy('institutions.parent_id', $sortOrder)
+                        ->orderBy('institutions.name', 'asc');
                 } else {
-                    $query->orderBy('first_name', 'asc');
+                    // Default: sort by sector then name for natural grouping
+                    $query->leftJoin('institutions', 'users.institution_id', '=', 'institutions.id')
+                        ->select('users.*')
+                        ->orderBy('institutions.parent_id', 'asc')
+                        ->orderBy('users.first_name', 'asc');
                 }
 
-                $paginator = $query->paginate($request->get('per_page', 15));
+                $paginator = $query->paginate($request->get('per_page', 50));
 
-                // Transform to look like Rating model for frontend compatibility
+                // Transform to include sector info and score_details
                 $transformedData = collect($paginator->items())->map(function ($user) use ($period, $academicYearId) {
                     $rating = $user->ratings->first();
+
                     return [
                         'id' => $rating?->id ?? null,
                         'user_id' => $user->id,
@@ -88,7 +130,10 @@ class RatingController extends BaseController
                         'overall_score' => $rating?->overall_score ?? 0,
                         'task_score' => $rating?->task_score ?? 0,
                         'survey_score' => $rating?->survey_score ?? 0,
+                        'attendance_score' => $rating?->attendance_score ?? 0,
+                        'link_score' => $rating?->link_score ?? 0,
                         'manual_score' => $rating?->manual_score ?? 0,
+                        'score_details' => $rating?->score_details,
                         'status' => $rating?->status ?? 'draft',
                         'user' => [
                             'id' => $user->id,
@@ -98,6 +143,8 @@ class RatingController extends BaseController
                         'institution' => $user->institution ? [
                             'id' => $user->institution->id,
                             'name' => $user->institution->name,
+                            'sector_id' => $user->institution->parent_id,
+                            'sector_name' => $user->institution->parent?->name,
                         ] : null,
                     ];
                 });
@@ -105,10 +152,8 @@ class RatingController extends BaseController
                 $results = $paginator->setCollection($transformedData);
             } else {
                 // Standard Rating-based query
-                $query = Rating::with(['user', 'institution', 'academicYear'])
-                    ->when($request->user()->cannot('ratings.manage'), function ($query) use ($request) {
-                        return $query->where('institution_id', $request->user()->institution_id);
-                    })
+                $query = Rating::with(['user', 'institution.parent', 'academicYear'])
+                    ->whereIn('institution_id', $allowedInstitutionIds)
                     ->when($request->get('user_id'), function ($query, $userId) {
                         return $query->where('user_id', $userId);
                     })
@@ -126,7 +171,7 @@ class RatingController extends BaseController
                     });
 
                 $results = $query->orderBy('created_at', 'desc')
-                    ->paginate($request->get('per_page', 15));
+                    ->paginate($request->get('per_page', 50));
             }
 
             return $this->successResponse($results, 'Reytinqlər uğurla əldə edildi');
@@ -146,7 +191,11 @@ class RatingController extends BaseController
                 'institution_id' => 'required|exists:institutions,id',
                 'academic_year_id' => 'required|exists:academic_years,id',
                 'period' => 'required|string|max:50',
-                'manual_score' => 'nullable|numeric|min:0|max:100',
+                'task_score' => 'nullable|numeric',
+                'survey_score' => 'nullable|numeric',
+                'attendance_score' => 'nullable|numeric',
+                'link_score' => 'nullable|numeric',
+                'manual_score' => 'nullable|numeric|min:-100|max:100',
                 'metadata' => 'nullable|array',
             ]);
 
@@ -164,10 +213,10 @@ class RatingController extends BaseController
     public function show(int $id): JsonResponse
     {
         try {
-            $rating = Rating::with(['user', 'institution', 'academicYear'])
-                ->when(auth()->user()->cannot('ratings.manage'), function ($query) {
-                    return $query->where('institution_id', auth()->user()->institution_id);
-                })
+            $allowedIds = DataIsolationHelper::getAllowedInstitutionIds(auth()->user());
+
+            $rating = Rating::with(['user', 'institution.parent', 'academicYear'])
+                ->whereIn('institution_id', $allowedIds)
                 ->findOrFail($id);
 
             return $this->successResponse($rating, 'Reytinq uğurla əldə edildi');
@@ -183,16 +232,26 @@ class RatingController extends BaseController
     {
         try {
             $validated = $request->validate([
-                'task_score' => 'nullable|numeric|min:0|max:100',
-                'survey_score' => 'nullable|numeric|min:0|max:100',
-                'manual_score' => 'nullable|numeric|min:0|max:100',
+                'task_score' => 'nullable|numeric',
+                'survey_score' => 'nullable|numeric',
+                'attendance_score' => 'nullable|numeric',
+                'link_score' => 'nullable|numeric',
+                'manual_score' => 'nullable|numeric|min:-100|max:100',
                 'status' => 'nullable|in:draft,published,archived',
                 'metadata' => 'nullable|array',
             ]);
 
-            $rating = Rating::when(auth()->user()->cannot('ratings.manage'), function ($query) {
-                return $query->where('institution_id', auth()->user()->institution_id);
-            })->findOrFail($id);
+            $allowedIds = DataIsolationHelper::getAllowedInstitutionIds(auth()->user());
+
+            $rating = Rating::whereIn('institution_id', $allowedIds)->findOrFail($id);
+
+            // Recalculate overall_score if any score changed
+            $taskScore = $validated['task_score'] ?? $rating->task_score;
+            $surveyScore = $validated['survey_score'] ?? $rating->survey_score;
+            $attendanceScore = $validated['attendance_score'] ?? $rating->attendance_score;
+            $linkScore = $validated['link_score'] ?? $rating->link_score;
+            $manualScore = $validated['manual_score'] ?? $rating->manual_score;
+            $validated['overall_score'] = $taskScore + $surveyScore + $attendanceScore + $linkScore + $manualScore;
 
             $rating->update($validated);
 
@@ -208,9 +267,9 @@ class RatingController extends BaseController
     public function destroy(int $id): JsonResponse
     {
         try {
-            $rating = Rating::when(auth()->user()->cannot('ratings.manage'), function ($query) {
-                return $query->where('institution_id', auth()->user()->institution_id);
-            })->findOrFail($id);
+            $allowedIds = DataIsolationHelper::getAllowedInstitutionIds(auth()->user());
+
+            $rating = Rating::whereIn('institution_id', $allowedIds)->findOrFail($id);
 
             $rating->delete();
 
@@ -240,7 +299,7 @@ class RatingController extends BaseController
     }
 
     /**
-     * Calculate ratings for all users.
+     * Calculate ratings for all users in the caller's hierarchy.
      */
     public function calculateAll(Request $request): JsonResponse
     {
@@ -248,9 +307,10 @@ class RatingController extends BaseController
             $validated = $request->validate([
                 'academic_year_id' => 'required|exists:academic_years,id',
                 'period' => 'required|string|max:50',
+                'user_role' => 'nullable|string',
             ]);
 
-            $results = $this->ratingService->calculateAllRatings($validated);
+            $results = $this->ratingService->calculateAllRatings($validated, $request->user());
 
             return $this->successResponse($results, 'Bütün reytinqlər uğurla hesablandı');
         } catch (\Exception $e) {

@@ -10,7 +10,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Save, Calculator } from 'lucide-react';
+import { Users, Save } from 'lucide-react';
 import {
     Pagination,
     PaginationContent,
@@ -40,8 +40,7 @@ interface RatingDataTableProps {
     onCellBlur: () => void;
     onKeyDown: (e: React.KeyboardEvent) => void;
     onSaveItem: (id: number) => void;
-    onCalculateItem: (userId: number) => void;
-    pendingChanges: Record<number, any>;
+    pendingChanges: Record<number, Partial<Pick<RatingItem, 'task_score' | 'survey_score' | 'manual_score'>>>;
     savingId: number | null;
 }
 
@@ -58,16 +57,15 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
     onCellBlur,
     onKeyDown,
     onSaveItem,
-    onCalculateItem,
     pendingChanges,
     savingId
 }) => {
     const getRatingBadge = (score: number) => {
-        if (score >= 90) return { text: 'Əla', variant: 'default' as const, className: 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' };
-        if (score >= 80) return { text: 'Yaxşı', variant: 'secondary' as const, className: 'bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200' };
-        if (score >= 70) return { text: 'Orta', variant: 'outline' as const, className: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200' };
-        if (score >= 60) return { text: 'Zəif', variant: 'destructive' as const, className: 'bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200' };
-        return { text: 'Çox Zəif', variant: 'destructive' as const, className: 'bg-red-100 text-red-700 hover:bg-red-100 border-red-200' };
+        if (score >= 5) return { text: 'Əla', variant: 'default' as const, className: 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' };
+        if (score >= 3) return { text: 'Yaxşı', variant: 'secondary' as const, className: 'bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200' };
+        if (score >= 1) return { text: 'Orta', variant: 'outline' as const, className: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200' };
+        if (score >= 0) return { text: 'Zəif', variant: 'destructive' as const, className: 'bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200' };
+        return { text: 'Mənfi', variant: 'destructive' as const, className: 'bg-red-100 text-red-700 hover:bg-red-100 border-red-200' };
     };
 
     const getStatusBadge = (status: string) => {
@@ -96,6 +94,8 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                         <TableHead className="font-semibold text-gray-700">Müəssisə</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Task</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Survey</TableHead>
+                        <TableHead className="text-center font-semibold text-gray-700">Davamiyyət</TableHead>
+                        <TableHead className="text-center font-semibold text-gray-700">Link</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Manual</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Ümumi</TableHead>
                         <TableHead className="text-center font-semibold text-gray-700">Status</TableHead>
@@ -134,14 +134,12 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                                     {item.institution?.name || '-'}
                                 </TableCell>
 
-                                {(['task_score', 'survey_score', 'manual_score'] as const).map((field) => (
+                                {(['task_score', 'survey_score'] as const).map((field) => (
                                     <TableCell key={field} className="text-center">
                                         {isEditingCell(field) ? (
                                             <input
                                                 type="number"
-                                                min="0"
-                                                max="100"
-                                                step="0.1"
+                                                step="1"
                                                 value={item[field] ?? 0}
                                                 onChange={(e) => onCellChange(rowId, field, e.target.value)}
                                                 onBlur={onCellBlur}
@@ -155,16 +153,66 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                                                 className={`inline-block min-w-[3rem] cursor-pointer hover:bg-blue-100 hover:text-blue-700 px-2 py-1 rounded transition-colors font-medium ${pendingChanges[rowId]?.[field] !== undefined ? 'text-blue-600 bg-blue-50 ring-1 ring-blue-200' : 'text-gray-700'
                                                     }`}
                                             >
-                                                {(Number(item[field]) || 0).toFixed(1)}
+                                                {Number(item[field]) || 0}
                                             </div>
                                         )}
                                     </TableCell>
                                 ))}
 
+                                {/* Attendance score (read-only, auto-calculated) */}
+                                <TableCell className="text-center">
+                                    <div
+                                        className="inline-block min-w-[3rem] px-2 py-1 rounded font-medium text-gray-700"
+                                        title={item.score_details ? `Vaxtında: ${item.score_details.attendance_on_time ?? 0} | Buraxılmış: ${item.score_details.attendance_missed ?? 0} | Cəmi gün: ${item.score_details.attendance_total_days ?? 0}` : 'Hesablanmayıb'}
+                                    >
+                                        <span className={Number(item.attendance_score) < 0 ? 'text-red-600' : ''}>
+                                            {Number(item.attendance_score) || 0}
+                                        </span>
+                                    </div>
+                                </TableCell>
+
+                                {/* Link score (read-only, auto-calculated) */}
+                                <TableCell className="text-center">
+                                    <div
+                                        className="inline-block min-w-[3rem] px-2 py-1 rounded font-medium text-gray-700"
+                                        title={item.score_details ? `Açılmış: ${item.score_details.links_opened ?? 0} | Açılmamış: ${item.score_details.links_missed ?? 0} | Cəmi: ${item.score_details.links_total ?? 0}` : 'Hesablanmayıb'}
+                                    >
+                                        <span className={Number(item.link_score) < 0 ? 'text-red-600' : ''}>
+                                            {Number(item.link_score) || 0}
+                                        </span>
+                                    </div>
+                                </TableCell>
+
+                                {/* Manual score (editable) */}
+                                <TableCell className="text-center">
+                                    {isEditingCell('manual_score') ? (
+                                        <input
+                                            type="number"
+                                            min={-100}
+                                            max={100}
+                                            step="1"
+                                            value={item.manual_score ?? 0}
+                                            onChange={(e) => onCellChange(rowId, 'manual_score', e.target.value)}
+                                            onBlur={onCellBlur}
+                                            onKeyDown={onKeyDown}
+                                            autoFocus
+                                            className="w-16 text-center border-2 border-blue-400 rounded-md px-1 py-0.5 focus:outline-none ring-2 ring-blue-100 text-sm font-bold"
+                                        />
+                                    ) : (
+                                        <div
+                                            onClick={() => onCellClick(rowId, 'manual_score')}
+                                            className={`inline-block min-w-[3rem] cursor-pointer hover:bg-blue-100 hover:text-blue-700 px-2 py-1 rounded transition-colors font-medium ${pendingChanges[rowId]?.manual_score !== undefined ? 'text-blue-600 bg-blue-50 ring-1 ring-blue-200' : 'text-gray-700'
+                                                }`}
+                                        >
+                                            {Number(item.manual_score) || 0}
+                                        </div>
+                                    )}
+                                </TableCell>
+
                                 <TableCell className="text-center">
                                     <div className="flex flex-col items-center gap-1">
-                                        <span className="font-bold text-lg text-gray-900">
-                                            {(Number(item.overall_score) || 0).toFixed(1)}
+                                        <span className={`font-bold text-lg ${Number(item.overall_score) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                                            {Number(item.overall_score) || 0}
                                         </span>
                                         <Badge variant={badge.variant} className={`text-[10px] px-1.5 py-0 h-4 border ${badge.className}`}>
                                             {badge.text}
@@ -177,29 +225,18 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                                 </TableCell>
 
                                 <TableCell className="text-right pr-6">
-                                    <div className="flex items-center justify-end gap-2">
-                                        {hasPending && (
-                                            <Button
-                                                onClick={() => onSaveItem(rowId)}
-                                                variant="default"
-                                                size="sm"
-                                                disabled={isSaving}
-                                                className="h-8 bg-green-600 hover:bg-green-700"
-                                            >
-                                                <Save className="h-3 w-3 mr-1" />
-                                                {isSaving ? '...' : 'Saxla'}
-                                            </Button>
-                                        )}
+                                    {hasPending && (
                                         <Button
-                                            onClick={() => onCalculateItem(item.user_id)}
-                                            variant="ghost"
+                                            onClick={() => onSaveItem(rowId)}
+                                            variant="default"
                                             size="sm"
-                                            className="h-8 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                            disabled={isSaving}
+                                            className="h-8 bg-green-600 hover:bg-green-700"
                                         >
-                                            <Calculator className="h-3.5 w-3.5 mr-1" />
-                                            Hesabla
+                                            <Save className="h-3 w-3 mr-1" />
+                                            {isSaving ? '...' : 'Saxla'}
                                         </Button>
-                                    </div>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         );

@@ -23,7 +23,10 @@ class Rating extends Model
         'overall_score',
         'task_score',
         'survey_score',
+        'attendance_score',
+        'link_score',
         'manual_score',
+        'score_details',
         // PRD-yə uyğun yeni komponent skorları
         'academic_score',
         'observation_score',
@@ -46,6 +49,8 @@ class Rating extends Model
         'overall_score' => 'decimal:2',
         'task_score' => 'decimal:2',
         'survey_score' => 'decimal:2',
+        'attendance_score' => 'decimal:2',
+        'link_score' => 'decimal:2',
         'manual_score' => 'decimal:2',
         // PRD-yə uyğun yeni komponent skorları
         'academic_score' => 'decimal:2',
@@ -56,6 +61,7 @@ class Rating extends Model
         'award_score' => 'decimal:2',
         'growth_bonus' => 'decimal:2',
         'yearly_breakdown' => 'array',
+        'score_details' => 'array',
         'metadata' => 'array',
         'created_at' => 'datetime',
         'updated_at' => 'datetime',

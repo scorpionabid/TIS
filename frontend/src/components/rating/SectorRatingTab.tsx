@@ -77,28 +77,24 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
     }
   };
 
-  const calculateRating = async (userId: number) => {
-    try {
-      await ratingService.calculate(userId, {
-        academic_year_id: academicYearId || 1,
-        period
-      });
-      loadData();
-    } catch (error) {
-      logger.error('Error calculating rating:', { error });
-    }
-  };
-
-  const calculateAllRatings = async () => {
+  const forceRefresh = async () => {
     try {
       setLoading(true);
-      await ratingService.calculateAll({
-        academic_year_id: academicYearId || 1,
-        period
+      const response = await ratingService.getAllRatings({
+        period,
+        institution_id: institutionId,
+        academic_year_id: academicYearId,
+        user_role: 'sektoradmin',
+        page: currentPage,
+        per_page: 15,
+        force_calculate: true,
       });
-      await loadData();
+      if (response && response.data) {
+        setData(response.data);
+        setPagination(response);
+      }
     } catch (error) {
-      logger.error('Error calculating all ratings:', { error });
+      logger.error('Error force refreshing sector ratings:', { error });
     } finally {
       setLoading(false);
     }
@@ -167,13 +163,15 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         : filteredData;
 
       const csv = [
-        ['Sektor Admin', 'Email', 'Müəssisə', 'Task', 'Survey', 'Manual', 'Ümumi', 'Status'],
+        ['Sektor Admin', 'Email', 'Müəssisə', 'Task', 'Survey', 'Davamiyyət', 'Link', 'Manual', 'Ümumi', 'Status'],
         ...exportData.map(item => [
           item.user?.full_name || '',
           item.user?.email || '',
           item.institution?.name || '',
           item.task_score || 0,
           item.survey_score || 0,
+          item.attendance_score || 0,
+          item.link_score || 0,
           item.manual_score || 0,
           item.overall_score || 0,
           item.status || ''
@@ -295,11 +293,10 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
       <RatingActionToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
-        onCalculateAll={calculateAllRatings}
+        onCalculateAll={forceRefresh}
         onBulkSave={bulkSaveChanges}
         onBulkDelete={bulkDelete}
         onExport={exportToExcel}
-        onLoadMore={() => { }}
         selectedCount={selectedItems.length}
         loading={loading}
       />
@@ -318,7 +315,6 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         onCellBlur={handleCellBlur}
         onKeyDown={handleKeyDown}
         onSaveItem={saveChanges}
-        onCalculateItem={calculateRating}
         pendingChanges={pendingChanges}
         savingId={savingId}
       />

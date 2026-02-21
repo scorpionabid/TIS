@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Calculator, Save, Trash2, Download, Users, Filter } from 'lucide-react';
+import { Search, RefreshCw, Save, Trash2, Download, Users, Filter } from 'lucide-react';
 import {
     Select,
     SelectContent,
@@ -19,8 +19,8 @@ interface RatingActionToolbarProps {
     onExport: () => void;
     selectedCount: number;
     loading?: boolean;
-    status: string;
-    onStatusChange: (value: string) => void;
+    status?: string;
+    onStatusChange?: (value: string) => void;
 }
 
 export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
@@ -41,25 +41,27 @@ export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
                 <div className="relative w-full md:w-72">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
-                        placeholder="Müəllim axtarışı..."
+                        placeholder="Axtarış..."
                         value={searchTerm}
                         onChange={(e) => onSearchChange(e.target.value)}
                         className="pl-10 h-10 border-gray-200 focus:ring-blue-500"
                     />
                 </div>
 
-                <Select value={status} onValueChange={onStatusChange}>
-                    <SelectTrigger className="w-full md:w-40 h-10 border-gray-200">
-                        <Filter className="h-4 w-4 mr-2 text-gray-400" />
-                        <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="all">Bütün Statuslar</SelectItem>
-                        <SelectItem value="published">Aktiv</SelectItem>
-                        <SelectItem value="draft">Qaralama</SelectItem>
-                        <SelectItem value="archived">Arxiv</SelectItem>
-                    </SelectContent>
-                </Select>
+                {status !== undefined && onStatusChange && (
+                    <Select value={status} onValueChange={onStatusChange}>
+                        <SelectTrigger className="w-full md:w-40 h-10 border-gray-200">
+                            <Filter className="h-4 w-4 mr-2 text-gray-400" />
+                            <SelectValue placeholder="Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">Bütün Statuslar</SelectItem>
+                            <SelectItem value="published">Aktiv</SelectItem>
+                            <SelectItem value="draft">Qaralama</SelectItem>
+                            <SelectItem value="archived">Arxiv</SelectItem>
+                        </SelectContent>
+                    </Select>
+                )}
             </div>
 
             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
@@ -70,8 +72,8 @@ export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
                     className="h-10 bg-blue-600 hover:bg-blue-700"
                     disabled={loading}
                 >
-                    <Calculator className="h-4 w-4 mr-2" />
-                    Hamısını Hesabla
+                    <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                    Yenilə
                 </Button>
 
                 {selectedCount > 0 && (

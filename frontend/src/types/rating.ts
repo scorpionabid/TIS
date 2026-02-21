@@ -1,3 +1,22 @@
+export interface ScoreDetails {
+  tasks_on_time: number;
+  tasks_late: number;
+  tasks_total: number;
+  task_score: number;
+  surveys_on_time: number;
+  surveys_late: number;
+  surveys_total: number;
+  survey_score: number;
+  attendance_on_time: number;
+  attendance_missed: number;
+  attendance_total_days: number;
+  attendance_score: number;
+  links_opened: number;
+  links_missed: number;
+  links_total: number;
+  link_score: number;
+}
+
 export interface RatingItem {
   id: number;
   user_id: number;
@@ -7,6 +26,8 @@ export interface RatingItem {
   overall_score: number;
   task_score: number;
   survey_score: number;
+  attendance_score: number;
+  link_score: number;
   manual_score: number;
   academic_score?: number;
   observation_score?: number;
@@ -15,7 +36,8 @@ export interface RatingItem {
   olympiad_score?: number;
   award_score?: number;
   growth_bonus?: number;
-  yearly_breakdown?: any;
+  yearly_breakdown?: Record<string, Record<string, number>>;
+  score_details?: ScoreDetails;
   status: 'draft' | 'published' | 'archived';
   metadata?: {
     calculation_method?: string;
@@ -37,6 +59,8 @@ export interface RatingItem {
   institution?: {
     id: number;
     name: string;
+    sector_id?: number;
+    sector_name?: string;
   };
   academic_year?: {
     id: number;
@@ -52,7 +76,7 @@ export interface RatingConfig {
   survey_weight: number;
   manual_weight: number;
   calculation_method: 'automatic' | 'manual' | 'hybrid';
-  config?: Record<string, any>;
+  config?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -82,11 +106,13 @@ export interface RatingListParams {
   sort_by?: string;
   sort_order?: 'asc' | 'desc';
   search?: string;
+  force_calculate?: boolean;
 }
 
 export interface CalculateRequest {
   academic_year_id: number;
   period: string;
+  user_role?: string;
 }
 
 export interface CalculateResponse {
