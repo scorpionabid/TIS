@@ -5,7 +5,12 @@ import { CheckCircle, XCircle, Clock, Edit, RefreshCw } from 'lucide-react';
 /**
  * Get status dot component for response status
  */
-export const getStatusDot = (status: string) => {
+export const getStatusDot = (status: string, approvalStatus?: string) => {
+  let effectiveStatus = status;
+  if (status === 'submitted' && approvalStatus === 'in_progress') {
+    effectiveStatus = 'in_progress';
+  }
+
   const statusConfig = {
     draft: {
       dotColor: 'bg-black',
@@ -16,6 +21,11 @@ export const getStatusDot = (status: string) => {
       dotColor: 'bg-blue-600',
       label: 'Təqdim edildi',
       tooltip: 'Təsdiq gözlənilir'
+    },
+    in_progress: {
+      dotColor: 'bg-purple-600',
+      label: 'İcrada',
+      tooltip: 'Qismən təsdiqlənib, növbəti mərhələdədir'
     },
     approved: {
       dotColor: 'bg-green-600',
@@ -34,7 +44,7 @@ export const getStatusDot = (status: string) => {
     },
   } as const;
 
-  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
+  const config = statusConfig[effectiveStatus as keyof typeof statusConfig] || statusConfig.draft;
 
   return (
     <div
@@ -47,7 +57,12 @@ export const getStatusDot = (status: string) => {
 /**
  * Get status badge with icon for response status
  */
-export const getStatusBadge = (status: string) => {
+export const getStatusBadge = (status: string, approvalStatus?: string) => {
+  let effectiveStatus = status;
+  if (status === 'submitted' && approvalStatus === 'in_progress') {
+    effectiveStatus = 'in_progress';
+  }
+
   const statusConfig = {
     draft: { 
       className: 'bg-black text-white hover:bg-black/80', 
@@ -58,6 +73,11 @@ export const getStatusBadge = (status: string) => {
       className: 'bg-blue-600 text-white hover:bg-blue-700', 
       icon: Clock, 
       text: 'Təqdim edilib' 
+    },
+    in_progress: { 
+      className: 'bg-purple-600 text-white hover:bg-purple-700', 
+      icon: RefreshCw, 
+      text: 'İcrada (Qismən)' 
     },
     approved: { 
       className: 'bg-green-600 text-white hover:bg-green-700', 
@@ -76,7 +96,7 @@ export const getStatusBadge = (status: string) => {
     },
   } as const;
 
-  const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
+  const config = statusConfig[effectiveStatus as keyof typeof statusConfig] || statusConfig.draft;
   const Icon = config.icon;
 
   return (

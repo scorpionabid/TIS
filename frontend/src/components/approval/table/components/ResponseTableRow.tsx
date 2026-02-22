@@ -128,7 +128,7 @@ const ResponseTableRow: React.FC<ResponseTableRowProps> = ({
       {/* Status */}
       <TableCell className="py-3">
         <div className="flex justify-center">
-          {getStatusBadge(response?.status || 'draft')}
+          {getStatusBadge(response?.status || 'draft', response?.approvalRequest?.current_status)}
         </div>
       </TableCell>
 
