@@ -1,20 +1,23 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { 
-  Target, 
-  Building, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Target,
+  Building,
+  Clock,
+  CheckCircle,
+  XCircle,
   AlertTriangle,
   Search,
   Filter,
   Download,
   RefreshCw,
+  RotateCw,
+  Undo2,
   BarChart3,
   Users,
   Calendar,
@@ -73,6 +76,11 @@ const SurveyApprovalDashboard: React.FC = () => {
   
   // UI state
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{
+    successful: number;
+    failed: number;
+    errors: Array<{ response_id: number; error: string }>;
+  } | null>(null);
 
   // Fetch published surveys
   const {
@@ -209,6 +217,18 @@ const SurveyApprovalDashboard: React.FC = () => {
     }));
   }, []);
 
+  // Handle stat card click — reset status filters and apply the selected one
+  const handleStatCardFilter = useCallback((
+    overrides: { status?: ResponseFilters['status']; approval_status?: ResponseFilters['approval_status'] }
+  ) => {
+    setFilters(prev => ({
+      per_page: prev.per_page,
+      status: overrides.status,
+      approval_status: overrides.approval_status,
+    }));
+    setSearchTerm('');
+  }, []);
+
   // Handle survey selection with localStorage persistence
   const handleSurveySelect = (survey: PublishedSurvey) => {
     console.log('📋 [DASHBOARD] Survey selection changing:', {
@@ -319,6 +339,16 @@ const SurveyApprovalDashboard: React.FC = () => {
         errors: result.errors
       });
 
+      // Save result for inline notification bar
+      setBulkResult({
+        successful: result.successful,
+        failed: result.failed,
+        errors: (result.errors || []).map((e: any) => ({
+          response_id: e.response_id,
+          error: e.message || e.error || 'Naməlum xəta',
+        })),
+      });
+
       // Check if operation was actually successful
       if (result.successful > 0) {
         // Clear API cache first
@@ -419,6 +449,8 @@ const SurveyApprovalDashboard: React.FC = () => {
     approved: 0,
     rejected: 0,
     draft: 0,
+    in_progress: 0,
+    returned: 0,
     completion_rate: 0,
   };
 
@@ -472,9 +504,16 @@ const SurveyApprovalDashboard: React.FC = () => {
 
       {selectedSurvey && (
         <>
-          {/* Statistics Dashboard */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <Card>
+          {/* Statistics Dashboard — clickable cards filter the table */}
+          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
+            {/* Ümumi — clears all status filters */}
+            <Card
+              className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-blue-300 ${
+                !filters.status && !filters.approval_status ? 'ring-2 ring-blue-500 bg-blue-50/50' : ''
+              }`}
+              onClick={() => handleStatCardFilter({})}
+              title="Bütün cavabları göstər"
+            >
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-blue-500" />
@@ -485,8 +524,15 @@ const SurveyApprovalDashboard: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-            
-            <Card>
+
+            {/* Gözləyir — status = 'submitted' (təqdim edilmiş, hər hansı approval vəziyyətində) */}
+            <Card
+              className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-yellow-300 ${
+                filters.status === 'submitted' ? 'ring-2 ring-yellow-500 bg-yellow-50/50' : ''
+              }`}
+              onClick={() => handleStatCardFilter({ status: 'submitted' })}
+              title="Gözləyən cavabları göstər"
+            >
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-yellow-500" />
@@ -497,8 +543,53 @@ const SurveyApprovalDashboard: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-            
-            <Card>
+
+            {/* İcrada — approval_status = 'in_progress' */}
+            <Card
+              className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-orange-300 ${
+                filters.approval_status === 'in_progress' ? 'ring-2 ring-orange-500 bg-orange-50/50' : ''
+              }`}
+              onClick={() => handleStatCardFilter({ approval_status: 'in_progress' })}
+              title="İcrada olan cavabları göstər"
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <RotateCw className="h-4 w-4 text-orange-500" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">İcrada</p>
+                    <p className="text-2xl font-bold">{stats.in_progress}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Geri qaytarıldı — approval_status = 'returned' */}
+            <Card
+              className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-amber-300 ${
+                filters.approval_status === 'returned' ? 'ring-2 ring-amber-600 bg-amber-50/50' : ''
+              }`}
+              onClick={() => handleStatCardFilter({ approval_status: 'returned' })}
+              title="Geri qaytarılmış cavabları göstər"
+            >
+              <CardContent className="p-4">
+                <div className="flex items-center gap-2">
+                  <Undo2 className="h-4 w-4 text-amber-600" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Geri qaytarıldı</p>
+                    <p className="text-2xl font-bold">{stats.returned}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Təsdiqləndi — status = 'approved' */}
+            <Card
+              className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-green-300 ${
+                filters.status === 'approved' ? 'ring-2 ring-green-600 bg-green-50/50' : ''
+              }`}
+              onClick={() => handleStatCardFilter({ status: 'approved' })}
+              title="Təsdiqlənmiş cavabları göstər"
+            >
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
                   <CheckCircle className="h-4 w-4 text-green-500" />
@@ -509,8 +600,15 @@ const SurveyApprovalDashboard: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-            
-            <Card>
+
+            {/* Rədd edildi — status = 'rejected' */}
+            <Card
+              className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-red-300 ${
+                filters.status === 'rejected' ? 'ring-2 ring-red-500 bg-red-50/50' : ''
+              }`}
+              onClick={() => handleStatCardFilter({ status: 'rejected' })}
+              title="Rədd edilmiş cavabları göstər"
+            >
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
                   <XCircle className="h-4 w-4 text-red-500" />
@@ -521,7 +619,8 @@ const SurveyApprovalDashboard: React.FC = () => {
                 </div>
               </CardContent>
             </Card>
-            
+
+            {/* Tamamlanma % — non-clickable */}
             <Card>
               <CardContent className="p-4">
                 <div className="flex items-center gap-2">
@@ -583,8 +682,6 @@ const SurveyApprovalDashboard: React.FC = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Bütün təsdiq statusları</SelectItem>
-                    <SelectItem value="pending">Gözləyir</SelectItem>
-                    <SelectItem value="in_progress">İcrada</SelectItem>
                     <SelectItem value="approved">Təsdiqləndi</SelectItem>
                     <SelectItem value="rejected">Rədd edildi</SelectItem>
                     <SelectItem value="returned">Geri qaytarıldı</SelectItem>
@@ -608,6 +705,32 @@ const SurveyApprovalDashboard: React.FC = () => {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Date Range Filter */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Tarixdən
+                  </label>
+                  <Input
+                    type="date"
+                    value={filters.date_from || ''}
+                    onChange={(e) => handleFilterChange('date_from', e.target.value || undefined)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    Tarixə
+                  </label>
+                  <Input
+                    type="date"
+                    value={filters.date_to || ''}
+                    onChange={(e) => handleFilterChange('date_to', e.target.value || undefined)}
+                  />
+                </div>
               </div>
 
               {/* Bulk Actions */}
@@ -668,6 +791,48 @@ const SurveyApprovalDashboard: React.FC = () => {
               </CardTitle>
             </CardHeader>
             <CardContent>
+              {/* Bulk Action Result Bar */}
+              {bulkResult && (
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-lg border bg-background p-3">
+                  {bulkResult.successful > 0 && (
+                    <Badge className="bg-green-100 text-green-800 hover:bg-green-100">
+                      ✓ {bulkResult.successful} uğurlu
+                    </Badge>
+                  )}
+                  {bulkResult.failed > 0 && (
+                    <Badge variant="destructive">
+                      ✗ {bulkResult.failed} xəta
+                    </Badge>
+                  )}
+                  {bulkResult.failed > 0 && (
+                    <Collapsible>
+                      <CollapsibleTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                          Detallar
+                        </Button>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="mt-2 w-full">
+                        <div className="rounded border bg-muted/50 p-2 space-y-1 max-h-32 overflow-y-auto">
+                          {bulkResult.errors.map((e) => (
+                            <p key={e.response_id} className="text-xs text-red-600">
+                              ID {e.response_id}: {e.error}
+                            </p>
+                          ))}
+                        </div>
+                      </CollapsibleContent>
+                    </Collapsible>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="ml-auto h-6 w-6 p-0"
+                    onClick={() => setBulkResult(null)}
+                  >
+                    ✕
+                  </Button>
+                </div>
+              )}
+
               <ResponseManagementTable
                 responses={responsesData?.responses || []}
                 pagination={responsesData?.pagination}

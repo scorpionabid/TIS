@@ -1,7 +1,8 @@
 import React from 'react';
 import { Table, TableBody } from '../../ui/table';
 import { Alert, AlertDescription } from '../../ui/alert';
-import { AlertTriangle, RefreshCw } from 'lucide-react';
+import { Skeleton } from '../../ui/skeleton';
+import { AlertTriangle } from 'lucide-react';
 import {
   SurveyResponseForApproval,
   ResponseFilters
@@ -105,14 +106,20 @@ const ResponseManagementTable: React.FC<ResponseManagementTableProps> = ({
     );
   }
 
-  // Loading state
+  // Loading state — skeleton rows
   if (loading && responses.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <RefreshCw className="h-5 w-5 animate-spin" />
-          <span>Cavablar yüklənir...</span>
-        </div>
+      <div className="space-y-2">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 p-3 border rounded-lg">
+            <Skeleton className="h-4 w-4 rounded shrink-0" />
+            <Skeleton className="h-4 flex-1" />
+            <Skeleton className="h-4 w-28 hidden sm:block" />
+            <Skeleton className="h-6 w-20 rounded-full hidden md:block" />
+            <Skeleton className="h-4 w-16 hidden lg:block" />
+            <Skeleton className="h-8 w-24 rounded hidden xl:block" />
+          </div>
+        ))}
       </div>
     );
   }

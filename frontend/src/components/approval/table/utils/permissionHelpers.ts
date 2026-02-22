@@ -105,7 +105,7 @@ export const canApproveResponse = (response: SurveyResponseForApproval, user?: U
   // Only specific roles can approve
   const approverRoleLevels: Record<string, number> = {
     sektoradmin: 2,
-    regionadmin: 3,
+    regionadmin: 2,
     superadmin: Infinity,
   };
 
@@ -115,8 +115,8 @@ export const canApproveResponse = (response: SurveyResponseForApproval, user?: U
     return false;
   }
 
-  // Must be submitted response
-  if (response?.status !== 'submitted') return false;
+  // Must be submitted or draft (backend also allows draft)
+  if (!response?.status || !['submitted', 'draft'].includes(response.status)) return false;
 
   const approvalRequest = response?.approvalRequest;
   if (!approvalRequest) return false;
@@ -152,7 +152,7 @@ export const canRejectResponse = (response: SurveyResponseForApproval, user?: Us
   // Only specific roles can reject
   const approverRoleLevels: Record<string, number> = {
     sektoradmin: 2,
-    regionadmin: 3,
+    regionadmin: 2,
     superadmin: Infinity,
   };
 
@@ -162,8 +162,8 @@ export const canRejectResponse = (response: SurveyResponseForApproval, user?: Us
     return false;
   }
 
-  // Must be submitted response
-  if (response?.status !== 'submitted') return false;
+  // Must be submitted or draft (backend also allows draft)
+  if (!response?.status || !['submitted', 'draft'].includes(response.status)) return false;
 
   const approvalRequest = response?.approvalRequest;
   if (!approvalRequest) return false;
@@ -227,11 +227,11 @@ export const getValidResponsesForBulkAction = (
     .filter(Boolean) as SurveyResponseForApproval[];
 
   const validResponses = selectedResponses.filter(r => {
-    const hasSubmittedStatus = r?.status === 'submitted';
+    const hasActionableStatus = ['submitted', 'draft'].includes(r?.status ?? '');
     const hasApprovalRequest = !!r?.approvalRequest;
 
     // Use the same logic as individual approval permission checks
-    if (!hasSubmittedStatus || !hasApprovalRequest) return false;
+    if (!hasActionableStatus || !hasApprovalRequest) return false;
 
     const currentStatus = r.approvalRequest.current_status;
     const currentLevel = r.approvalRequest.current_approval_level;
@@ -241,7 +241,7 @@ export const getValidResponsesForBulkAction = (
 
     if (currentStatus === 'in_progress' && user) {
       if (user.role === 'sektoradmin' && currentLevel === 2) return true;
-      if (user.role === 'regionadmin' && currentLevel === 3) return true;
+      if (user.role === 'regionadmin' && currentLevel === 2) return true;
       if (user.role === 'superadmin') return true;
     }
 
@@ -249,10 +249,10 @@ export const getValidResponsesForBulkAction = (
   });
 
   const invalidResponses = selectedResponses.filter(r => {
-    const hasSubmittedStatus = r?.status === 'submitted';
+    const hasActionableStatus = ['submitted', 'draft'].includes(r?.status ?? '');
     const hasApprovalRequest = !!r?.approvalRequest;
 
-    if (!hasSubmittedStatus || !hasApprovalRequest) return true;
+    if (!hasActionableStatus || !hasApprovalRequest) return true;
 
     const currentStatus = r.approvalRequest.current_status;
     const currentLevel = r.approvalRequest.current_approval_level;
@@ -262,7 +262,7 @@ export const getValidResponsesForBulkAction = (
 
     if (currentStatus === 'in_progress' && user) {
       if (user.role === 'sektoradmin' && currentLevel === 2) return false;
-      if (user.role === 'regionadmin' && currentLevel === 3) return false;
+      if (user.role === 'regionadmin' && currentLevel === 2) return false;
       if (user.role === 'superadmin') return false;
     }
 

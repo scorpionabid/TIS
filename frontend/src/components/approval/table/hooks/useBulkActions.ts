@@ -80,11 +80,24 @@ export const useBulkActions = ({
           variant: "destructive",
         });
       } else {
-        toast({
-          title: "Təsdiq xətası",
-          description: `Seçilmiş cavabların heç biri ${action} üçün uyğun deyil. Yalnız təqdim edilmiş və approval workflow-u olan cavablar bulk approval-a uyğundur.`,
-          variant: "destructive",
-        });
+        const alreadyApprovedCount = responses
+          .filter(r => selectedResponses.includes(r.id))
+          .filter(r => r?.approvalRequest?.current_status === 'approved' || r?.status === 'approved')
+          .length;
+
+        if (alreadyApprovedCount > 0) {
+          toast({
+            title: "Artıq təsdiqlənib",
+            description: `Seçilmiş ${alreadyApprovedCount} cavab artıq təsdiq edilmişdir. Yalnız gözləyən cavabları seçin.`,
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Təsdiq xətası",
+            description: `Seçilmiş cavabların heç biri ${action} üçün uyğun deyil. Yalnız təqdim edilmiş və approval workflow-u olan cavablar bulk approval-a uyğundur.`,
+            variant: "destructive",
+          });
+        }
       }
       return;
     }
@@ -94,6 +107,18 @@ export const useBulkActions = ({
       console.log(`⚠️ [BULK ${action.toUpperCase()}] Some responses will be skipped:`,
         invalidResponses.map(r => ({ id: r.id, status: r.status }))
       );
+    }
+
+    // Warn about draft responses before proceeding
+    if (action === 'approve') {
+      const draftCount = validResponses.filter(r => r.status === 'draft').length;
+      if (draftCount > 0) {
+        toast({
+          title: "Diqqət: Qaralama cavablar",
+          description: `${draftCount} cavab hələ qaralama vəziyyətindədir (tamamlanmamış məlumatlar). Bu cavablar da təsdiq ediləcək.`,
+          variant: "default",
+        });
+      }
     }
 
     setIsBulkProcessing(true);

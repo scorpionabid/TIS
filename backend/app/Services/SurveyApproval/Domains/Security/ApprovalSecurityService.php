@@ -157,7 +157,7 @@ class ApprovalSecurityService
      *
      * SECURITY CRITICAL: Prevents cross-institution unauthorized access
      */
-    protected function checkInstitutionHierarchyPermission(User $user, DataApprovalRequest $approvalRequest): bool
+    public function checkInstitutionHierarchyPermission(User $user, DataApprovalRequest $approvalRequest): bool
     {
         // Support both single role (role_id) and Spatie Permission roles
         $roleName = $user->role->name ?? $user->roles->pluck('name')->first() ?? null;

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Jobs\BulkApprovalJob;
 use App\Models\ApprovalAction;
 use App\Models\ApprovalWorkflow;
 use App\Models\DataApprovalRequest;
@@ -405,24 +404,12 @@ class SurveyApprovalService extends BaseService
      */
     public function bulkApprovalOperation(array $responseIds, string $action, User $approver, array $data = []): array
     {
-        $jobId = uniqid('bulk_approval_', true);
         $comments = $data['comments'] ?? null;
 
-        // For small batches (<=20), process synchronously
-        if (count($responseIds) <= 20) {
-            return $this->processBulkApprovalSync($responseIds, $action, $approver, $comments);
-        }
-
-        // For larger batches, dispatch to background job
-        BulkApprovalJob::dispatch($responseIds, $action, $approver->id, $comments, $jobId);
-
-        return [
-            'job_id' => $jobId,
-            'status' => 'queued',
-            'total' => count($responseIds),
-            'message' => 'Bulk approval operation has been queued for background processing',
-            'estimated_completion' => now()->addMinutes(ceil(count($responseIds) / 50))->toISOString(),
-        ];
+        // Always process synchronously — QUEUE_CONNECTION=sync means BulkApprovalJob would run inline
+        // anyway, but dispatch() returns void so the result format would differ. Processing directly
+        // ensures frontend always receives {successful, failed, errors} regardless of batch size.
+        return $this->processBulkApprovalSync($responseIds, $action, $approver, $comments);
     }
 
     /**
@@ -441,40 +428,40 @@ class SurveyApprovalService extends BaseService
             'approver_role' => $approver->role,
         ]);
 
-        DB::transaction(function () use ($responseIds, $action, $approver, $comments, &$results, &$errors) {
-            foreach ($responseIds as $responseId) {
-                try {
-                    \Log::info('📋 [BulkApproval] Processing response', [
-                        'response_id' => $responseId,
-                        'action' => $action,
-                    ]);
+        // Each individual approval has its own DB::transaction() inside approveResponse()/rejectResponse()
+        // No outer transaction — prevents a single failure from rolling back all previously approved responses
+        foreach ($responseIds as $responseId) {
+            try {
+                \Log::info('📋 [BulkApproval] Processing response', [
+                    'response_id' => $responseId,
+                    'action' => $action,
+                ]);
 
-                    $result = $this->processIndividualApproval($responseId, $action, $approver, $comments);
+                $result = $this->processIndividualApproval($responseId, $action, $approver, $comments);
 
-                    $results[] = [
-                        'response_id' => $responseId,
-                        'status' => 'success',
-                        'result' => $result,
-                    ];
+                $results[] = [
+                    'response_id' => $responseId,
+                    'status' => 'success',
+                    'result' => $result,
+                ];
 
-                    \Log::info('✅ [BulkApproval] Response processed successfully', [
-                        'response_id' => $responseId,
-                        'result' => $result,
-                    ]);
-                } catch (\Exception $e) {
-                    $errors[] = [
-                        'response_id' => $responseId,
-                        'error' => $e->getMessage(),
-                    ];
+                \Log::info('✅ [BulkApproval] Response processed successfully', [
+                    'response_id' => $responseId,
+                    'result' => $result,
+                ]);
+            } catch (\Exception $e) {
+                $errors[] = [
+                    'response_id' => $responseId,
+                    'error' => $e->getMessage(),
+                ];
 
-                    \Log::error('❌ [BulkApproval] Response processing failed', [
-                        'response_id' => $responseId,
-                        'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                    ]);
-                }
+                \Log::error('❌ [BulkApproval] Response processing failed', [
+                    'response_id' => $responseId,
+                    'error' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
             }
-        });
+        }
 
         $finalResult = [
             'successful' => count($results),
@@ -522,67 +509,66 @@ class SurveyApprovalService extends BaseService
             return false;
         }
 
-        // Must be submitted status
-        if ($response->status !== 'submitted') {
-            return false;
-        }
-
+        // Approval request must be in an approvable state
         $currentStatus = $approvalRequest->current_status;
-        $currentLevel = $approvalRequest->current_approval_level;
-
-        // SuperAdmin can approve any pending or in_progress approval
-        if ($approver->hasRole('superadmin')) {
-            return in_array($currentStatus, ['pending', 'in_progress']);
-        }
-
-        // SektorAdmin can approve responses from schools in their sector
-        if ($approver->hasRole('sektoradmin')) {
-            $responseInstitution = $response->institution;
-            if (! $responseInstitution) {
-                return false;
-            }
-
-            $approverInstitution = $approver->institution;
-            if (! $approverInstitution) {
-                return false;
-            }
-
-            // Check if response is from a school under this sector
-            // Schools have parent_id pointing to sector
-            if ($responseInstitution->parent_id === $approverInstitution->id) {
-                return in_array($currentStatus, ['pending', 'in_progress']);
-            }
-
+        if (! in_array($currentStatus, ['pending', 'in_progress'])) {
             return false;
         }
 
-        // RegionAdmin can approve responses from institutions in their region
-        if ($approver->hasRole('regionadmin')) {
-            // Check if response institution is within RegionAdmin's region
-            $responseInstitution = $response->institution;
-            if (! $responseInstitution) {
-                return false;
-            }
-
-            // Check region_id match
-            if ($responseInstitution->region_id === $approver->region_id) {
-                return in_array($currentStatus, ['pending', 'in_progress']);
-            }
-
+        // Response must be in a state that allows approval
+        // 'submitted' is the normal flow; 'draft' with a pending approval_request
+        // can occur when a response is re-submitted after data inconsistency
+        if (! in_array($response->status, ['submitted', 'draft'])) {
             return false;
         }
 
-        // Check if status allows approval for other roles
-        if ($currentStatus === 'pending') {
-            return true; // Anyone with approval permission can start the chain
-        }
-
-        if ($currentStatus === 'in_progress') {
-            // Other role-level checks can be added here if needed
+        // Institution hierarchy check: approver must belong to the response's institution hierarchy
+        if (! $this->securityService->checkInstitutionHierarchyPermission($approver, $approvalRequest)) {
             return false;
         }
 
-        return false;
+        // Level ordering check: approver's level must be >= current approval level.
+        // Additionally, any levels between currentLevel (exclusive) and approverLevel (exclusive)
+        // must all be non-required (skippable). This allows SektorAdmin (level 2) to approve
+        // level-1 pending responses (level 1 is required:false), while preventing RegionAdmin
+        // (level 3) from skipping SektorAdmin's required level 2.
+        $workflow = $approvalRequest->workflow;
+        $currentLevel = (int) ($approvalRequest->current_approval_level ?? 1);
+
+        try {
+            $approverLevel = $this->securityService->determineApprovalLevelForApprover(
+                $approvalRequest,
+                $workflow,
+                $approver
+            );
+        } catch (\Exception $e) {
+            return false;
+        }
+
+        // Approver must be at or above the current level
+        if ($approverLevel < $currentLevel) {
+            return false;
+        }
+
+        // Exact match — always allowed
+        if ($approverLevel === $currentLevel) {
+            return true;
+        }
+
+        // Approver is above current level — every level strictly between currentLevel and
+        // approverLevel must be non-required; a required level in the gap blocks the action.
+        $chain = $workflow->approval_chain ?? [];
+        foreach ($chain as $step) {
+            $stepLevel = (int) ($step['level'] ?? 0);
+            if ($stepLevel <= $currentLevel || $stepLevel >= $approverLevel) {
+                continue;
+            }
+            if ($step['required'] ?? true) {
+                return false; // Required intermediate level not yet completed
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -629,13 +615,16 @@ class SurveyApprovalService extends BaseService
             $baseQuery = SurveyResponse::where('survey_id', $survey->id);
             $this->applyUserAccessControl($baseQuery, $user);
 
-            // Single query to get all stats with aggregation
+            // Use correlated subqueries instead of LEFT JOIN to avoid ambiguous
+            // column reference when InstitutionScope adds unqualified institution_id
             $stats = $baseQuery->select(
                 DB::raw('COUNT(*) as total'),
-                DB::raw("COUNT(CASE WHEN status = 'submitted' THEN 1 END) as pending"),
-                DB::raw("COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved"),
-                DB::raw("COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected"),
-                DB::raw("COUNT(CASE WHEN status = 'draft' THEN 1 END) as draft")
+                DB::raw("COUNT(CASE WHEN survey_responses.status = 'submitted' THEN 1 END) as pending"),
+                DB::raw("COUNT(CASE WHEN survey_responses.status = 'approved' THEN 1 END) as approved"),
+                DB::raw("COUNT(CASE WHEN survey_responses.status = 'rejected' THEN 1 END) as rejected"),
+                DB::raw("COUNT(CASE WHEN survey_responses.status = 'draft' THEN 1 END) as draft"),
+                DB::raw("COUNT(CASE WHEN EXISTS(SELECT 1 FROM data_approval_requests WHERE approvalable_id = survey_responses.id AND approvalable_type = 'App\\Models\\SurveyResponse' AND current_status = 'in_progress') THEN 1 END) as in_progress"),
+                DB::raw("COUNT(CASE WHEN EXISTS(SELECT 1 FROM data_approval_requests WHERE approvalable_id = survey_responses.id AND approvalable_type = 'App\\Models\\SurveyResponse' AND current_status = 'returned') THEN 1 END) as returned")
             )->first();
 
             $total = $stats->total ?? 0;
@@ -648,6 +637,8 @@ class SurveyApprovalService extends BaseService
                 'approved' => $approved,
                 'rejected' => $rejected,
                 'draft' => $stats->draft ?? 0,
+                'in_progress' => $stats->in_progress ?? 0,
+                'returned' => $stats->returned ?? 0,
                 'completion_rate' => $total > 0 ? round(($approved + $rejected) / $total * 100, 2) : 0,
             ];
         }, $this->cacheMinutes);

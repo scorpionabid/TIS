@@ -116,6 +116,8 @@ export interface ApprovalStats {
   approved: number;
   rejected: number;
   draft: number;
+  in_progress: number;
+  returned: number;
   completion_rate: number;
 }
 
@@ -139,6 +141,7 @@ export interface ResponseFilters {
   date_to?: string;
   search?: string;
   per_page?: number;
+  page?: number;
   response_ids?: number[];
   sort_by?: string;
   sort_direction?: 'asc' | 'desc';

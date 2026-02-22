@@ -8,7 +8,6 @@ import {
   X,
   Filter,
   MoreHorizontal,
-  TrendingUp,
   BarChart3,
   Calendar,
   Download,
@@ -25,7 +24,7 @@ import {
   DropdownMenuSeparator
 } from '../../../ui/dropdown-menu';
 import { SurveyResponseForApproval } from "../../../../services/surveyApproval";
-import { canPerformBulkAction } from '../utils/permissionHelpers';
+import { canPerformBulkAction, canApproveResponse } from '../utils/permissionHelpers';
 
 interface BulkActionsBarProps {
   selectedResponses: number[];
@@ -115,22 +114,13 @@ const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
               <DropdownMenuItem onClick={() => {
-                const pendingIds = responses
-                  .filter(r => r.approvalRequest?.current_status === 'pending')
+                const approvableIds = responses
+                  .filter(r => canApproveResponse(r, user))
                   .map(r => r.id);
-                onBulkSelect(pendingIds);
+                onBulkSelect(approvableIds);
               }}>
                 <Clock className="h-4 w-4 mr-2 text-amber-600" />
-                Gözləyən cavabları seç
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => {
-                const highProgressIds = responses
-                  .filter(r => (r.progress_percentage || 0) >= 80)
-                  .map(r => r.id);
-                onBulkSelect(highProgressIds);
-              }}>
-                <TrendingUp className="h-4 w-4 mr-2 text-green-600" />
-                Tamamlanan cavabları seç
+                Təsdiq edə biləcəklərimi seç
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => {
                 const todayIds = responses.filter(r => {

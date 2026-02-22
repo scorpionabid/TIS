@@ -353,53 +353,53 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
 
             {/* Details Tab */}
             <TabsContent value="details" className="flex-1 overflow-y-auto space-y-6">
-              {/* Institution Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <Building className="h-5 w-5" />
+              {/* Institution + Respondent Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <h3 className="text-sm font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
+                    <Building className="h-4 w-4" />
                     Müəssisə Məlumatları
                   </h3>
                   <div className="space-y-2">
                     <div>
-                      <Label className="text-sm text-muted-foreground">Müəssisə adı</Label>
-                      <p className="font-medium">{response.institution?.name}</p>
+                      <Label className="text-xs text-muted-foreground">Müəssisə adı</Label>
+                      <p className="font-medium text-sm">{response.institution?.name}</p>
                     </div>
                     {response.institution?.type && (
                       <div>
-                        <Label className="text-sm text-muted-foreground">Tipi</Label>
-                        <p>{response.institution.type}</p>
+                        <Label className="text-xs text-muted-foreground">Tipi</Label>
+                        <p className="text-sm">{response.institution.type}</p>
                       </div>
                     )}
                     {response.department?.name && (
                       <div>
-                        <Label className="text-sm text-muted-foreground">Departament</Label>
-                        <p>{response.department.name}</p>
+                        <Label className="text-xs text-muted-foreground">Departament</Label>
+                        <p className="text-sm">{response.department.name}</p>
                       </div>
                     )}
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold flex items-center gap-2">
-                    <User className="h-5 w-5" />
+                <div className="rounded-lg border bg-muted/30 p-4 space-y-3">
+                  <h3 className="text-sm font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
+                    <User className="h-4 w-4" />
                     Cavablayan Məlumatları
                   </h3>
                   <div className="space-y-2">
                     <div>
-                      <Label className="text-sm text-muted-foreground">Ad</Label>
-                      <p className="font-medium">{response.respondent?.name || 'Bilinməyən'}</p>
+                      <Label className="text-xs text-muted-foreground">Ad</Label>
+                      <p className="font-medium text-sm">{response.respondent?.name || 'Bilinməyən'}</p>
                     </div>
                     {response.respondent_role && (
                       <div>
-                        <Label className="text-sm text-muted-foreground">Rolu</Label>
-                        <p>{response.respondent_role}</p>
+                        <Label className="text-xs text-muted-foreground">Rolu</Label>
+                        <p className="text-sm">{response.respondent_role}</p>
                       </div>
                     )}
                     {response.respondent?.email && (
                       <div>
-                        <Label className="text-sm text-muted-foreground">Email</Label>
-                        <p>{response.respondent.email}</p>
+                        <Label className="text-xs text-muted-foreground">Email</Label>
+                        <p className="text-sm">{response.respondent.email}</p>
                       </div>
                     )}
                   </div>
@@ -496,9 +496,9 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
                 )}
               </div>
 
-              <div className="space-y-6">
+              <div className="divide-y divide-border">
                 {Object.entries(isEditing ? editedResponses : response.responses || {}).map(([questionId, answer], index) => (
-                  <div key={questionId} className="space-y-2">
+                  <div key={questionId} className="space-y-2 py-4 first:pt-0">
                     <div className="flex items-center gap-2">
                       <Badge variant="outline">{index + 1}</Badge>
                       <Label className="font-medium">
@@ -526,36 +526,51 @@ const ResponseDetailModal: React.FC<ResponseDetailModalProps> = ({
               </h3>
 
               {approval_history && approval_history.length > 0 ? (
-                <div className="space-y-4">
-                  {approval_history.map((action, index) => (
-                    <div key={action.id} className="flex gap-4 p-4 border rounded-lg">
-                      <div className="flex-shrink-0">
-                        {action.action === 'approved' && <CheckCircle className="h-6 w-6 text-green-500" />}
-                        {action.action === 'rejected' && <XCircle className="h-6 w-6 text-red-500" />}
-                        {action.action === 'returned' && <RefreshCw className="h-6 w-6 text-yellow-500" />}
-                        {action.action === 'edited' && <Edit className="h-6 w-6 text-blue-500" />}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-medium">{action.approver?.name}</span>
-                          <Badge variant="outline" className="text-xs">
-                            Səviyyə {action.approval_level}
-                          </Badge>
+                <div className="relative space-y-0">
+                  {approval_history.map((action, index) => {
+                    const isApproved = action.action === 'approved';
+                    const isRejected = action.action === 'rejected';
+                    const isReturned = action.action === 'returned';
+                    const borderColor = isApproved
+                      ? 'border-l-green-500'
+                      : isRejected
+                        ? 'border-l-red-500'
+                        : isReturned
+                          ? 'border-l-yellow-500'
+                          : 'border-l-blue-500';
+                    return (
+                      <div
+                        key={action.id}
+                        className={`flex gap-4 p-4 border-l-4 ${borderColor} bg-background border border-l-4 rounded-lg mb-3`}
+                      >
+                        <div className="flex-shrink-0 mt-0.5">
+                          {isApproved && <CheckCircle className="h-5 w-5 text-green-500" />}
+                          {isRejected && <XCircle className="h-5 w-5 text-red-500" />}
+                          {isReturned && <RefreshCw className="h-5 w-5 text-yellow-500" />}
+                          {!isApproved && !isRejected && !isReturned && <Edit className="h-5 w-5 text-blue-500" />}
                         </div>
-                        <div className="text-sm text-muted-foreground mb-2">
-                          {formatDistanceToNow(new Date(action.action_taken_at), {
-                            addSuffix: true,
-                            locale: az
-                          })}
-                        </div>
-                        {action.comments && (
-                          <div className="p-2 bg-muted rounded text-sm">
-                            {action.comments}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <span className="font-medium text-sm">{action.approver?.name}</span>
+                            <Badge variant="outline" className="text-xs">
+                              Səviyyə {action.approval_level}
+                            </Badge>
                           </div>
-                        )}
+                          <div className="text-xs text-muted-foreground mb-2">
+                            {formatDistanceToNow(new Date(action.action_taken_at), {
+                              addSuffix: true,
+                              locale: az
+                            })}
+                          </div>
+                          {action.comments && (
+                            <div className="p-2 bg-muted/50 rounded text-sm border-l-2 border-muted-foreground/20">
+                              {action.comments}
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="text-center py-8 text-muted-foreground">
