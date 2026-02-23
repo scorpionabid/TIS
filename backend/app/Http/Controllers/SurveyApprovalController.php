@@ -36,7 +36,7 @@ class SurveyApprovalController extends Controller
                 'date_from' => 'sometimes|date',
                 'date_to' => 'sometimes|date|after_or_equal:date_from',
                 'search' => 'sometimes|string|max:255',
-                'per_page' => 'sometimes|integer|min:10|max:100',
+                'per_page' => 'sometimes|integer|min:10|max:500',
             ]);
 
             if ($validator->fails()) {
@@ -435,6 +435,11 @@ class SurveyApprovalController extends Controller
         try {
             $user = Auth::user();
             $query = Survey::query()->withCount(['questions', 'responses'])
+                ->with(['questions' => function ($q) {
+                    $q->where('is_active', true)
+                      ->orderBy('order_index')
+                      ->select(['id', 'survey_id', 'title', 'type', 'options', 'metadata', 'table_headers', 'order_index']);
+                }])
                 ->select(['id', 'title', 'description', 'start_date', 'end_date', 'target_institutions', 'current_questions_count', 'status'])
                 ->orderBy('created_at', 'desc');
 

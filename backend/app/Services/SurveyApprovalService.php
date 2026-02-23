@@ -127,8 +127,8 @@ class SurveyApprovalService extends BaseService
             $query->orderBy($orderField, $sortDirection);
         }
 
-        // Pagination
-        $perPage = $request->get('per_page', 25);
+        // Pagination — default 25, max 500 (controller enforces upper bound)
+        $perPage = min((int) $request->get('per_page', 25), 500);
         $responses = $query->paginate($perPage);
 
         \Log::info('✅ [APPROVAL] Query executed', [
