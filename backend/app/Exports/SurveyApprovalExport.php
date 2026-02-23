@@ -11,6 +11,7 @@ use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithMapping;
 use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHeadings, WithMapping, WithStyles
@@ -144,57 +145,34 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
 
     public function map($response): array
     {
-        // Production: Minimal logging for mapping process
-        if (app()->environment('local', 'development')) {
-            \Log::debug('[EXPORT] Mapping response', [
-                'response_id' => $response->id,
-                'institution_name' => $response->institution?->name,
-                'institution_level' => $response->institution?->level,
-                'sector_name' => $this->getSectorName($response->institution),
-            ]);
-        }
-
         // Get sector and institution names
-        $sectorName = $this->getSectorName($response->institution);
+        $sectorName      = $this->getSectorName($response->institution);
         $institutionName = $response->institution?->name ?? 'N/A';
 
         // Start with sector, then institution
         $row = [
-            $sectorName,        // NEW - Sector column
-            $institutionName,    // Institution column
+            $sectorName,
+            $institutionName,
         ];
 
         // Get survey questions and add response for each question
         $questions = $this->survey->questions;
         $responses = $response->responses ?? [];
 
-        \Log::info('📊 [EXPORT] Processing questions for response', [
-            'response_id' => $response->id,
-            'questions_count' => $questions->count(),
-            'question_ids' => $questions->pluck('id')->toArray(),
-            'responses_keys' => is_array($responses) ? array_keys($responses) : 'not_array',
-            'responses_values' => is_array($responses) ? array_values($responses) : 'not_array',
-        ]);
-
         foreach ($questions as $question) {
             $questionId = (string) $question->id;
-            $answer = $responses[$questionId] ?? '';
+            $answer     = $responses[$questionId] ?? '';
 
             // Format the answer based on question type
             if (is_array($answer)) {
-                // Check if it's a table_input response (array of row objects)
+                // table_input: qısa xülasə göstər, detallar üçün ayrı vərəqə bax
                 if ($question->type === 'table_input' || (isset($answer[0]) && is_array($answer[0]))) {
-                    // Format table_input as readable text
-                    $formattedRows = [];
-                    foreach ($answer as $rowIndex => $row) {
-                        if (is_array($row)) {
-                            $rowValues = array_filter(array_values($row), fn($v) => $v !== null && $v !== '');
-                            if (!empty($rowValues)) {
-                                $formattedRows[] = 'Sətir ' . ($rowIndex + 1) . ': ' . implode(' | ', $rowValues);
-                            }
-                        }
-                    }
-                    $answer = !empty($formattedRows) ? implode("\n", $formattedRows) : '';
+                    $filledRows    = array_filter($answer, fn ($r) => is_array($r) && !empty(array_filter(array_values($r))));
+                    $rowCount      = count($filledRows);
+                    $questionTitle = mb_substr(strip_tags($question->title ?? 'Cədvəl'), 0, 20);
+                    $answer        = $rowCount > 0
+                        ? "[{$rowCount} sətir] — '{$questionTitle}...' vərəqinə baxın"
+                        : '—';
                 } else {
                     // For multiple choice questions, join selected options
                     $answer = implode(', ', array_map('strval', $answer));
@@ -256,58 +234,50 @@ class SurveyApprovalExport implements FromCollection, WithColumnWidths, WithHead
 
     public function styles(Worksheet $sheet)
     {
+        $sheet->freezePane('A2');
+        $sheet->setAutoFilter($sheet->calculateWorksheetDimension());
+
         return [
             1 => [
-                'font' => ['bold' => true, 'size' => 11],
                 'fill' => [
-                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
+                    'fillType'   => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
                     'startColor' => ['argb' => 'FF2563EB'],
                 ],
-                'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true],
+                'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true, 'size' => 11],
             ],
         ];
     }
 
     public function columnWidths(): array
     {
-        $widths = [];
-        $columns = range('A', 'Z');
+        $widths = [
+            'A' => 30, // Sektor
+            'B' => 30, // Müəssisə
+        ];
 
-        // Column A - Sector name (NEW)
-        $widths['A'] = 30;
-
-        // Column B - Institution name (moved from A)
-        $widths['B'] = 30;
-
-        // Dynamic columns for questions (start from C instead of B)
-        $questions = $this->survey->questions;
-        $columnIndex = 2; // Start from C (A=0, B=1, C=2)
+        // Suallar C sütunundan başlayır; Coordinate::stringFromColumnIndex limitsizdir
+        $questions   = $this->survey->questions;
+        $columnIndex = 2; // 0-indexed: A=0, B=1, C=2
 
         foreach ($questions as $question) {
-            if ($columnIndex < count($columns)) {
-                // Set width based on question type
-                $width = match ($question->type ?? 'text') {
-                    'textarea' => 40,
-                    'multiple_choice' => 25,
-                    'single_choice' => 20,
-                    'number' => 15,
-                    'email' => 25,
-                    'date' => 15,
-                    default => 20
-                };
-                $widths[$columns[$columnIndex]] = $width;
-                $columnIndex++;
-            }
+            $colLetter = Coordinate::stringFromColumnIndex($columnIndex + 1);
+            $widths[$colLetter] = match ($question->type ?? 'text') {
+                'textarea'        => 40,
+                'table_input'     => 30,
+                'multiple_choice' => 25,
+                'single_choice'   => 20,
+                'number'          => 15,
+                'email'           => 25,
+                'date'            => 15,
+                default           => 20,
+            };
+            $columnIndex++;
         }
 
-        // Metadata columns at the end
-        $metadataColumns = ['Status', 'Təqdim Tarixi', 'Təsdiq Tarixi', 'Təsdiq Edən', 'Qeydlər'];
-        $metadataWidths = [15, 16, 16, 20, 35];
-
-        for ($i = 0; $i < count($metadataColumns); $i++) {
-            if ($columnIndex + $i < count($columns)) {
-                $widths[$columns[$columnIndex + $i]] = $metadataWidths[$i];
-            }
+        // Metadata sütunları (Status, Tarixlər, Təsdiq Edən, Qeydlər)
+        foreach ([15, 16, 16, 20, 35] as $i => $mWidth) {
+            $colLetter = Coordinate::stringFromColumnIndex($columnIndex + $i + 1);
+            $widths[$colLetter] = $mWidth;
         }
 
         return $widths;

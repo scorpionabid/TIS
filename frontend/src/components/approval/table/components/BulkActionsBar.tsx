@@ -12,6 +12,7 @@ import {
   Calendar,
   Download,
   FileText,
+  Loader2,
   UserPlus,
   Bell,
   Star
@@ -196,14 +197,20 @@ const BulkActionsBar: React.FC<BulkActionsBarProps> = ({
                 onClick={() => onExport('xlsx')}
                 disabled={isExporting || !selectedSurvey}
               >
-                <Download className={`h-4 w-4 mr-2 ${isExporting ? 'text-gray-400' : 'text-blue-600'}`} />
+                {isExporting
+                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin text-gray-400" />
+                  : <Download className="h-4 w-4 mr-2 text-blue-600" />
+                }
                 {isExporting ? 'İxrac edilir...' : 'Excel formatında ixrac et'}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => onExport('csv')}
                 disabled={isExporting || !selectedSurvey}
               >
-                <FileText className={`h-4 w-4 mr-2 ${isExporting ? 'text-gray-400' : 'text-green-600'}`} />
+                {isExporting
+                  ? <Loader2 className="h-4 w-4 mr-2 animate-spin text-gray-400" />
+                  : <FileText className="h-4 w-4 mr-2 text-green-600" />
+                }
                 {isExporting ? 'İxrac edilir...' : 'CSV formatında ixrac et'}
               </DropdownMenuItem>
               <DropdownMenuSeparator />

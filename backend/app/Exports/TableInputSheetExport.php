@@ -3,19 +3,30 @@
 namespace App\Exports;
 
 use App\Models\SurveyQuestion;
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
+use Maatwebsite\Excel\Concerns\WithColumnFormatting;
 use Maatwebsite\Excel\Concerns\WithColumnWidths;
+use Maatwebsite\Excel\Concerns\WithCustomStartCell;
 use Maatwebsite\Excel\Concerns\WithHeadings;
 use Maatwebsite\Excel\Concerns\WithStyles;
 use Maatwebsite\Excel\Concerns\WithTitle;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
+use PhpOffice\PhpSpreadsheet\Shared\Date as ExcelDate;
+use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Style\NumberFormat;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
 /**
- * Export sheet for a single table_input question
- * Creates a separate sheet with all responses to this question
+ * Export sheet for a single table_input question.
+ * Structure:
+ *   Row 1: Full question title (merged across all columns)
+ *   Row 2: Headings — Sektor | Müəssisə | Sətir № | col1 | col2 | ...
+ *   Row 3+: One row per table_input data row per response
  */
-class TableInputSheetExport implements FromCollection, WithColumnWidths, WithHeadings, WithStyles, WithTitle
+class TableInputSheetExport implements FromCollection, WithColumnFormatting, WithColumnWidths, WithCustomStartCell, WithHeadings, WithStyles, WithTitle
 {
     protected SurveyQuestion $question;
 
@@ -52,6 +63,14 @@ class TableInputSheetExport implements FromCollection, WithColumnWidths, WithHea
         return $columns;
     }
 
+    /**
+     * Start data (headings + rows) from A2, leaving row 1 for the full title.
+     */
+    public function startCell(): string
+    {
+        return 'A2';
+    }
+
     public function collection(): Collection
     {
         $rows = collect();
@@ -80,13 +99,30 @@ class TableInputSheetExport implements FromCollection, WithColumnWidths, WithHea
                     $rowIndex + 1, // Row number within this response
                 ];
 
-                // Add column values
+                // Add column values with proper type casting
                 foreach ($this->columns as $column) {
                     $value = $tableRow[$column['key']] ?? '';
-                    // Sanitize for Excel formula injection
+                    $type  = $column['type'] ?? 'text';
+
+                    if ($value !== '' && $value !== null) {
+                        if ($type === 'number' && is_numeric($value)) {
+                            // PHP numeric → Excel numeric cell (enables SUM, AVERAGE etc.)
+                            $value = str_contains((string) $value, '.') ? (float) $value : (int) $value;
+                        } elseif ($type === 'date') {
+                            try {
+                                // PHP DateTime → Excel serial number (enables date filtering)
+                                $value = ExcelDate::PHPToExcel(Carbon::parse($value));
+                            } catch (\Exception $e) {
+                                // Keep as string if parse fails
+                            }
+                        }
+                    }
+
+                    // Formula injection protection — only for remaining strings
                     if (is_string($value) && preg_match('/^[=+\-@]/', $value)) {
                         $value = "'" . $value;
                     }
+
                     $excelRow[] = $value;
                 }
 
@@ -114,14 +150,39 @@ class TableInputSheetExport implements FromCollection, WithColumnWidths, WithHea
 
     public function styles(Worksheet $sheet)
     {
+        // --- Row 1: Full question title (merged across all columns) ---
+        $lastCol = Coordinate::stringFromColumnIndex(3 + count($this->columns));
+        $sheet->mergeCells("A1:{$lastCol}1");
+        $sheet->setCellValue('A1', strip_tags($this->question->title ?? ''));
+        $sheet->getStyle('A1')->applyFromArray([
+            'font'      => ['bold' => true, 'size' => 12, 'color' => ['argb' => 'FF065F46']],
+            'alignment' => [
+                'horizontal' => Alignment::HORIZONTAL_LEFT,
+                'vertical'   => Alignment::VERTICAL_CENTER,
+                'wrapText'   => true,
+            ],
+            'fill' => [
+                'fillType'   => Fill::FILL_SOLID,
+                'startColor' => ['argb' => 'FFD1FAE5'], // Light green
+            ],
+        ]);
+        $sheet->getRowDimension(1)->setRowHeight(24);
+
+        // --- Freeze title + headings rows (scroll starts at row 3) ---
+        $sheet->freezePane('A3');
+
+        // --- AutoFilter on headings row ---
+        $lastRow = $sheet->getHighestRow();
+        $sheet->setAutoFilter("A2:{$lastCol}{$lastRow}");
+
+        // Row 2 = headings (green)
         return [
-            1 => [
-                'font' => ['bold' => true, 'size' => 11],
+            2 => [
                 'fill' => [
-                    'fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID,
-                    'startColor' => ['argb' => 'FF10B981'], // Green for table_input sheets
+                    'fillType'   => Fill::FILL_SOLID,
+                    'startColor' => ['argb' => 'FF10B981'],
                 ],
-                'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true],
+                'font' => ['color' => ['argb' => 'FFFFFFFF'], 'bold' => true, 'size' => 11],
             ],
         ];
     }
@@ -134,19 +195,31 @@ class TableInputSheetExport implements FromCollection, WithColumnWidths, WithHea
             'C' => 10, // Sətir №
         ];
 
-        $columnLetters = range('D', 'Z');
+        // A=1, B=2, C=3 → ilk dinamik sütun D=4; Coordinate::stringFromColumnIndex limitsizdir
         foreach ($this->columns as $index => $column) {
-            if ($index < count($columnLetters)) {
-                $width = match ($column['type'] ?? 'text') {
-                    'number' => 15,
-                    'date' => 15,
-                    default => 25,
-                };
-                $widths[$columnLetters[$index]] = $width;
-            }
+            $colLetter = Coordinate::stringFromColumnIndex(4 + $index);
+            $widths[$colLetter] = match ($column['type'] ?? 'text') {
+                'number' => 15,
+                'date'   => 15,
+                default  => 25,
+            };
         }
 
         return $widths;
+    }
+
+    public function columnFormats(): array
+    {
+        $formats = [];
+        foreach ($this->columns as $index => $column) {
+            $colLetter = Coordinate::stringFromColumnIndex(4 + $index);
+            $formats[$colLetter] = match ($column['type'] ?? 'text') {
+                'number' => NumberFormat::FORMAT_NUMBER_COMMA_SEPARATED1, // #,##0.00
+                'date'   => NumberFormat::FORMAT_DATE_DDMMYYYY,           // DD/MM/YYYY
+                default  => NumberFormat::FORMAT_GENERAL,
+            };
+        }
+        return $formats;
     }
 
     public function title(): string

@@ -29,30 +29,34 @@ class SurveyExportService
         ]);
 
         try {
-            // Check if survey has table_input questions
+            // Sorğunun suallarını yüklə
             $survey->load(['questions' => function ($query) {
                 $query->orderBy('order_index');
             }]);
 
-            $hasTableInputQuestions = $survey->questions->contains(function ($question) {
-                return $question->type === 'table_input';
-            });
+            // table_input sualı varsa → çox-vərəqli export (Xülasə + hər table_input üçün ayrı vərəq)
+            // table_input sualı yoxdursa → tək-vərəqli export (yalnız Xülasə vərəyi)
+            $hasTableInput = $survey->questions->contains(
+                fn ($q) => $q->type === 'table_input'
+            );
 
-            // Use multi-sheet export if there are table_input questions
-            if ($hasTableInputQuestions) {
+            if ($hasTableInput) {
                 $export = new \App\Exports\SurveyApprovalMultiSheetExport($survey, $request, $user);
-                Log::info('✅ [SERVICE] Multi-sheet export class instantiated (has table_input questions)');
             } else {
                 $export = new \App\Exports\SurveyApprovalExport($survey, $request, $user);
-                Log::info('✅ [SERVICE] Single-sheet export class instantiated');
             }
 
             // Determine format
             $format = $request->input('format', 'xlsx');
             $extension = $format === 'csv' ? 'csv' : 'xlsx';
 
-            // Generate filename
-            $filename = "survey_{$survey->id}_responses_" . date('Y-m-d_H-i-s') . ".{$extension}";
+            // Generate filename: ATIS_[SorguAdı]_[Tarix].xlsx
+            $safeTitle = mb_substr(
+                trim(preg_replace('/\s+/', '_', preg_replace('/[^\w\s-]/u', '', $survey->title ?? 'Sorgu'))),
+                0,
+                30
+            );
+            $filename = "ATIS_{$safeTitle}_" . date('Y-m-d') . ".{$extension}";
             $filePath = storage_path("app/exports/{$filename}");
 
             // Ensure directory exists

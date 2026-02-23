@@ -82,9 +82,11 @@ class SingleSurveyResponseExport implements FromArray, WithColumnWidths, WithHea
 
         // Question responses
         if ($this->response->survey->questions && count($this->response->survey->questions) > 0) {
+            $responses = $this->response->responses ?? [];
             foreach ($this->response->survey->questions as $index => $question) {
                 $questionNumber = $index + 1;
-                $answer = $this->response->responses[$question->id] ?? null;
+                // JSON-da açarlar string olur, integer key işləməyə bilər
+                $answer = $responses[(string) $question->id] ?? $responses[$question->id] ?? null;
 
                 $data[] = [
                     'Məlumat Tipi' => 'Sorğu Cavabı',
@@ -122,6 +124,8 @@ class SingleSurveyResponseExport implements FromArray, WithColumnWidths, WithHea
 
     public function styles(Worksheet $sheet)
     {
+        $sheet->freezePane('A2');
+
         return [
             // Header row styling
             1 => [

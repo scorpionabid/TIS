@@ -9,9 +9,12 @@ use Illuminate\Http\Request;
 use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 /**
- * Multi-sheet export for survey responses
- * - Main sheet: All responses (like SurveyApprovalExport)
- * - Additional sheets: One for each table_input question with expanded data
+ * Multi-sheet export for survey responses.
+ * - Sheet 1 (Xülasə): All responses × all questions as columns (SurveyApprovalExport)
+ * - Sheet 2+: One sheet per table_input question only
+ *   - Sıra 1: Sualın tam başlığı (birləşdirilmiş xana)
+ *   - Sıra 2: Sektor | Müəssisə | Sətir № | col1 | col2 | ...
+ *   - Sıra 3+: Məlumatlar
  */
 class SurveyApprovalMultiSheetExport implements WithMultipleSheets
 {
@@ -32,27 +35,27 @@ class SurveyApprovalMultiSheetExport implements WithMultipleSheets
     {
         $sheets = [];
 
-        // Main sheet with all responses
+        // Sheet 1: Summary — all responses × all questions (same as before)
         $sheets[] = new SurveyApprovalExport($this->survey, $this->request, $this->user);
 
-        // Load survey questions
+        // Load all survey questions ordered by display index
         $this->survey->load(['questions' => function ($query) {
             $query->orderBy('order_index');
         }]);
 
-        // Find table_input questions
-        $tableInputQuestions = $this->survey->questions->filter(function ($question) {
-            return $question->type === 'table_input';
-        });
+        // Yalnız table_input suallarını tap
+        $tableInputQuestions = $this->survey->questions->filter(
+            fn ($q) => $q->type === 'table_input'
+        );
 
         if ($tableInputQuestions->isEmpty()) {
             return $sheets;
         }
 
-        // Get all responses for this survey
+        // Müəssisə məlumatı ilə cavabları al
         $responses = $this->getResponses();
 
-        // Create a sheet for each table_input question
+        // Hər table_input sualı üçün ayrı vərəq yarat
         foreach ($tableInputQuestions as $question) {
             $sheets[] = new TableInputSheetExport($question, $responses);
         }
