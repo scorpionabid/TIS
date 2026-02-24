@@ -62,7 +62,7 @@ class UpdateUserRequest extends FormRequest
      * Role-specific validation rules for user updates.
      *
      * IMPORTANT: Department structure:
-     * - RegionOperator: Assigned to departments (level 4+ institutions)
+     * - RegionOperator: Assigned to regional institutions (level 2) with departments
      * - SektorAdmin: Assigned to sectors (level 3), NO departments
      * - SchoolAdmin: Assigned to schools (level 4+), NO departments
      * - RegionAdmin: Assigned to regions (level 2), NO departments
@@ -171,13 +171,12 @@ class UpdateUserRequest extends FormRequest
                     break;
 
                 case 'regionoperator':
-                    // RegionOperator can ONLY be assigned to:
-                    // - Level 2 (Sektor) - departments exist only at sector level
-                    // Reality check: departments are only in level 2 institutions
+                    // RegionOperator must be assigned to regional institution (level 2)
+                    // Regional institutions have departments (maliyyə, inzibati, təsərrüfat, etc.)
                     if ($institution->level != 2) {
                         $validator->errors()->add(
                             'institution_id',
-                            'RegionOperator yalnız sektor səviyyəli (level 2) müəssisəyə təyin edilə bilər, çünki departamentlər yalnız bu səviyyədə mövcuddur.'
+                            'RegionOperator yalnız region səviyyəli (level 2) müəssisəyə təyin edilə bilər.'
                         );
                     }
                     break;

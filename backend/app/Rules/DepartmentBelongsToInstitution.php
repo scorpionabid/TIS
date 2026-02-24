@@ -27,9 +27,9 @@ class DepartmentBelongsToInstitution implements ValidationRule
     /**
      * Run the validation rule.
      *
-     * IMPORTANT: Departments only exist at institution level 4+ (schools).
-     * Sectors (level 3), Regions (level 2) DO NOT have departments.
-     * Only RegionOperator role uses departments.
+     * Validates that the selected department belongs to the selected institution.
+     * Departments can exist at any institution level (regional level 2, sector level 3, school level 4+).
+     * Only RegionOperator role uses departments (always at level 2 regional institutions).
      *
      * @param \Closure(string): \Illuminate\Translation\PotentiallyTranslatedString $fail
      */
@@ -47,24 +47,7 @@ class DepartmentBelongsToInstitution implements ValidationRule
             return;
         }
 
-        // Get institution to check level
-        $institution = \App\Models\Institution::find($this->institutionId);
-
-        if (! $institution) {
-            $fail('Seçilmiş müəssisə tapılmadı.');
-
-            return;
-        }
-
-        // CRITICAL: Sectors (level 3) and Regions (level 2) don't have departments
-        // Only schools (level 4+) have departments
-        if ($institution->level < 4) {
-            $fail('Departamentlər yalnız məktəb səviyyəli müəssisələrdə mövcuddur. Sektor və region müəssisələrində departament yoxdur.');
-
-            return;
-        }
-
-        // Schools (level 4+) must have valid department that belongs to the institution
+        // Validate that the department belongs to the selected institution
         $exists = Department::where('id', $value)
             ->where('institution_id', $this->institutionId)
             ->exists();
