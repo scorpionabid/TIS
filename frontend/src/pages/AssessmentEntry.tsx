@@ -77,6 +77,7 @@ export default function AssessmentEntry() {
   const [showDraftRecoveryDialog, setShowDraftRecoveryDialog] = useState(false);
   const [lastAutoSaveTime, setLastAutoSaveTime] = useState<Date | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
   const { toast } = useToast();
   const { currentUser } = useAuth();
@@ -112,21 +113,15 @@ export default function AssessmentEntry() {
   });
 
   const grades = useMemo(() => {
-    console.log('🔍 AssessmentEntry Debug - gradesData:', gradesData);
-    console.log('🔍 AssessmentEntry Debug - gradesData type:', typeof gradesData);
+    if (!gradesData) return [];
+    if (Array.isArray(gradesData)) return gradesData as Grade[];
     
-    let result: Grade[] = [];
-    if (Array.isArray(gradesData)) {
-      result = gradesData as Grade[];
-    } else if (gradesData && typeof gradesData === 'object' && 'data' in gradesData && Array.isArray((gradesData as any).data)) {
-      result = (gradesData as any).data as Grade[];
-    } else if (gradesData && typeof gradesData === 'object' && 'grades' in gradesData && Array.isArray((gradesData as any).grades)) {
-      result = (gradesData as any).grades as Grade[];
-    }
+    const gd = gradesData as any;
+    if (gd.data && Array.isArray(gd.data)) return gd.data as Grade[];
+    if (gd.grades && Array.isArray(gd.grades)) return gd.grades as Grade[];
+    if (gd.data?.data && Array.isArray(gd.data.data)) return gd.data.data as Grade[];
     
-    console.log('🔍 AssessmentEntry Debug - final grades array:', result);
-    console.log('🔍 AssessmentEntry Debug - grades count:', result.length);
-    return result;
+    return [];
   }, [gradesData]);
 
   // Fetch subjects for selected grade
@@ -143,22 +138,14 @@ export default function AssessmentEntry() {
   });
 
   const subjects = useMemo(() => {
-    console.log('🔍 AssessmentEntry Debug - subjectsData:', subjectsData);
-    console.log('🔍 AssessmentEntry Debug - subjectsData type:', typeof subjectsData);
-    console.log('🔍 AssessmentEntry Debug - subjectsData.data:', subjectsData?.data);
+    if (!subjectsData) return [];
+    if (Array.isArray(subjectsData)) return subjectsData;
     
-    let result = [];
-    if (!subjectsData) {
-      result = [];
-    } else if (Array.isArray(subjectsData)) {
-      result = subjectsData;
-    } else if (subjectsData?.data && Array.isArray(subjectsData.data)) {
-      result = subjectsData.data;
-    }
+    const sd = subjectsData as any;
+    if (sd.data && Array.isArray(sd.data)) return sd.data;
+    if (sd.subjects && Array.isArray(sd.subjects)) return sd.subjects;
     
-    console.log('🔍 AssessmentEntry Debug - final subjects array:', result);
-    console.log('🔍 AssessmentEntry Debug - subjects count:', result.length);
-    return result;
+    return [];
   }, [subjectsData]);
 
   const { data: selectedSession, isLoading: sessionLoading } = useQuery({
@@ -168,13 +155,7 @@ export default function AssessmentEntry() {
   });
 
   const resultFields: AssessmentResultField[] = useMemo(
-    () => {
-      console.log('🔍 AssessmentEntry Debug - selectedSession:', selectedSession);
-      console.log('🔍 AssessmentEntry Debug - assessment_type:', selectedSession?.assessment_type);
-      console.log('🔍 AssessmentEntry Debug - result_fields:', selectedSession?.assessment_type?.result_fields);
-      console.log('🔍 AssessmentEntry Debug - stages:', selectedSession?.assessment_type?.stages);
-      return selectedSession?.assessment_type?.result_fields ?? [];
-    },
+    () => selectedSession?.assessment_type?.result_fields ?? [],
     [selectedSession]
   );
 
@@ -195,6 +176,7 @@ export default function AssessmentEntry() {
   useEffect(() => {
     if (selectedSessionId && !sessionLoading) {
       initializeClassForm();
+      setValidationErrors({}); // Clear errors when session changes
     }
   }, [selectedSessionId, sessionLoading, initializeClassForm]);
 
@@ -257,7 +239,26 @@ export default function AssessmentEntry() {
   };
 
   const handleClassFormChange = (key: keyof ClassResultPayload, value: any) => {
-    setClassForm(prev => ({ ...prev, [key]: value }));
+    setClassForm(prev => {
+      const newState = { ...prev, [key]: value };
+      
+      // Real-time participant count validation
+      if (key === 'participant_count' || key === 'student_count') {
+        const students = Number(newState.student_count || 0);
+        const participants = Number(newState.participant_count || 0);
+        
+        if (participants > students) {
+          setValidationErrors(v => ({ ...v, participant_count: 'İştirakçı sayı şagird sayından çox ola bilməz' }));
+        } else {
+          setValidationErrors(v => {
+            const { participant_count, ...rest } = v;
+            return rest;
+          });
+        }
+      }
+      
+      return newState;
+    });
   };
 
   const handleResultChange = (fieldKey: string, value: any) => {
@@ -282,9 +283,12 @@ export default function AssessmentEntry() {
     };
 
     if (!payload.class_label?.trim()) {
+      setValidationErrors(prev => ({ ...prev, class_label: 'Sinif etiketi mütləqdir' }));
       toast({ title: 'Məlumat çatışmır', description: 'Sinif etiketi mütləqdir', variant: 'destructive' });
       return;
     }
+
+    setValidationErrors({});
 
     try {
       await schoolAssessmentService.saveClassResult(selectedSessionId, payload);
@@ -295,7 +299,11 @@ export default function AssessmentEntry() {
       initializeClassForm();
       setEditingResultId(null);
       setSelectedGradeId(null);
+      setValidationErrors({});
     } catch (err: any) {
+      if (err.response?.data?.errors) {
+        setValidationErrors(err.response.data.errors);
+      }
       toast({ title: 'Xəta', description: err.message || 'Nəticələr saxlanılmadı.', variant: 'destructive' });
     }
   };
@@ -424,7 +432,7 @@ export default function AssessmentEntry() {
     };
   }, [classResults, selectedSession, editingResultId]);
 
-  const hasValidationErrors = false; // Temporarily disabled
+  const hasValidationErrors = Object.keys(validationErrors).length > 0;
 
   // Yalnız schooladmin roluna icazə ver
   if (!hasRole(['schooladmin'])) {
@@ -456,21 +464,21 @@ export default function AssessmentEntry() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="text-center p-4">
-              <div className="text-2xl font-bold text-blue-500">{assessmentStats.in_progress}</div>
-              <div className="text-sm text-muted-foreground">İcradadır</div>
+            <div className="bg-blue-50 dark:bg-blue-900/10 p-4 rounded-xl border border-blue-100 dark:border-blue-900/30 shadow-sm transition-all hover:shadow-md">
+              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{assessmentStats.in_progress}</div>
+              <div className="text-xs font-medium text-blue-600/70 dark:text-blue-400/70 uppercase tracking-wider">İcradadır</div>
             </div>
-            <div className="text-center p-4">
-              <div className="text-2xl font-bold text-green-500">{assessmentStats.completed}</div>
-              <div className="text-sm text-muted-foreground">Tamamlandı</div>
+            <div className="bg-green-50 dark:bg-green-900/10 p-4 rounded-xl border border-green-100 dark:border-green-900/30 shadow-sm transition-all hover:shadow-md">
+              <div className="text-2xl font-bold text-green-600 dark:text-green-400">{assessmentStats.completed}</div>
+              <div className="text-xs font-medium text-green-600/70 dark:text-green-400/70 uppercase tracking-wider">Tamamlandı</div>
             </div>
-            <div className="text-center p-4">
-              <div className="text-2xl font-bold text-red-500">{assessmentStats.overdue}</div>
-              <div className="text-sm text-muted-foreground">Gecikmiş</div>
+            <div className="bg-red-50 dark:bg-red-900/10 p-4 rounded-xl border border-red-100 dark:border-red-900/30 shadow-sm transition-all hover:shadow-md">
+              <div className="text-2xl font-bold text-red-600 dark:text-red-400">{assessmentStats.overdue}</div>
+              <div className="text-xs font-medium text-red-600/70 dark:text-red-400/70 uppercase tracking-wider">Gecikmiş</div>
             </div>
-            <div className="text-center p-4">
-              <div className="text-2xl font-bold text-gray-500">{assessmentStats.total}</div>
-              <div className="text-sm text-muted-foreground">Ümumi</div>
+            <div className="bg-gray-50 dark:bg-gray-900/10 p-4 rounded-xl border border-gray-100 dark:border-gray-900/30 shadow-sm transition-all hover:shadow-md">
+              <div className="text-2xl font-bold text-gray-600 dark:text-gray-400">{assessmentStats.total}</div>
+              <div className="text-xs font-medium text-gray-600/70 dark:text-gray-400/70 uppercase tracking-wider">Ümumi</div>
             </div>
           </div>
           {/* Progress indicators */}
@@ -639,7 +647,7 @@ export default function AssessmentEntry() {
 
                     <div className="flex items-center justify-end gap-2">
                       <Button variant="outline" onClick={initializeClassForm}>Təmizlə</Button>
-                      <Button onClick={handleSaveResults} disabled={hasValidationErrors}>
+                      <Button onClick={handleSaveResults} disabled={hasValidationErrors || !classForm.class_label}>
                         <Save className="h-4 w-4 mr-2" /> Saxla
                       </Button>
                     </div>
@@ -711,10 +719,10 @@ export default function AssessmentEntry() {
                       </TableHeader>
                       <TableBody>
                         {classResults.map(result => (
-                          <TableRow key={result.id}>
+                          <TableRow key={result.id} className="hover:bg-accent/50 transition-colors">
                             <TableCell>
-                              <div className="font-semibold">{result.class_label}</div>
-                              <div className="text-sm text-muted-foreground">{result.grade_level || '—'}</div>
+                              <div className="font-semibold text-primary">{result.class_label}</div>
+                              <div className="text-xs text-muted-foreground">{result.grade_level ? `${result.grade_level}-ci sinif` : '—'}</div>
                             </TableCell>
                             <TableCell>{result.subject || '—'}</TableCell>
                             <TableCell>

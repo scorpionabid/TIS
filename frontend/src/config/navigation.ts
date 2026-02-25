@@ -140,7 +140,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: 'assessment-entry',
             label: 'Qiymət Daxil Etmə',
             path: '/assessments/entry',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.MUELLIM]
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]
           },
           {
             id: 'gradebook',
