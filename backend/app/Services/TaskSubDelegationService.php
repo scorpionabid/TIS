@@ -145,7 +145,7 @@ class TaskSubDelegationService
         ]);
 
         // Task progress-ini də yenilə
-        $this->taskAssignmentService->updateTaskProgressFromAssignments($parentAssignment->task);
+        $this->taskAssignmentService->updateTaskProgressFromAssignments($parentAssignment->task, false);
 
         return $averageProgress;
     }

@@ -235,7 +235,7 @@ class TaskAssignmentService extends BaseService
             }
 
             // Update parent task progress
-            $this->updateTaskProgressFromAssignments($assignment->task->fresh('assignments'));
+            $this->updateTaskProgressFromAssignments($assignment->task->fresh('assignments'), $newStatus === 'completed');
 
             // Send notifications if needed
             if ($newStatus === 'completed' && $assignment->task->created_by !== $user->id) {
@@ -503,15 +503,19 @@ class TaskAssignmentService extends BaseService
     /**
      * Update task progress from assignments
      */
-    public function updateTaskProgressFromAssignments(Task $task): void
+    public function updateTaskProgressFromAssignments(Task $task, bool $forceCompleted = false): void
     {
         $progress = $this->calculateTaskProgress($task);
 
         $newStatus = $task->status;
         if ($progress >= 100) {
-            // When all assignments are completed, task goes to 'review' status
-            // awaiting creator's final approval
-            $newStatus = 'review';
+            // If forced (e.g. by main assignee) or doesn't require approval, go straight to completed
+            if ($forceCompleted || ! $task->requires_approval) {
+                $newStatus = 'completed';
+            } else {
+                // Otherwise, go to review status awaiting creator's final approval
+                $newStatus = 'review';
+            }
         } elseif ($progress > 0) {
             $newStatus = 'in_progress';
         }

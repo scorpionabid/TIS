@@ -21,6 +21,7 @@ import {
   getPriorityColor,
   getStatusColor,
 } from '../config/taskFormFields';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -251,15 +252,17 @@ export function ExcelTaskRow({
 
       {/* Status */}
       <td className="px-2 py-1">
-        <DropdownCell
-          value={task.status}
-          options={statusOptions}
-          isEditing={isEditing(task.id, 'status')}
-          onEdit={() => canEdit && startEdit(task.id, 'status', task.status)}
-          onSave={(value) => saveEdit(task.id, { status: value as Task['status'] })}
-          onCancel={cancelEdit}
-          showBadge
-        />
+        <div className="flex items-center justify-center">
+          <Badge
+            variant="outline"
+            className={cn(
+              'px-2 py-0.5 text-[10px] font-medium border uppercase tracking-wider',
+              getStatusColor(task.status)
+            )}
+          >
+            {statusLabels[task.status] || task.status}
+          </Badge>
+        </div>
       </td>
 
       {/* Assignees */}

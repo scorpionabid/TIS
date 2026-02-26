@@ -106,6 +106,6 @@ class TaskAssignmentUpdateTest extends TestCase
 
         $task->refresh();
         $this->assertEquals(100, $task->progress);
-        $this->assertEquals('review', $task->status);
+        $this->assertEquals('completed', $task->status);
     }
 }

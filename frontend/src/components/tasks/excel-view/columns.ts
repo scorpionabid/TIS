@@ -44,8 +44,8 @@ export const excelColumns: ExcelColumn[] = [
     label: 'Status',
     width: 'w-[130px]',
     sortable: true,
-    editable: true,
-    type: 'dropdown',
+    editable: false,
+    type: 'readonly',
   },
   {
     id: 'assignees',
