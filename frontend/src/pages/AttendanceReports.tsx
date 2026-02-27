@@ -106,9 +106,10 @@ export default function AttendanceReports() {
   // Derived defaults
   const defaultDateRange = useMemo(() => {
     const now = new Date();
+    const today = format(now, 'yyyy-MM-dd');
     return {
-      start: format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd'),
-      end: format(now, 'yyyy-MM-dd')
+      start: today,
+      end: today
     };
   }, []);
 
@@ -118,9 +119,9 @@ export default function AttendanceReports() {
   const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [startDate, setStartDate] = useState<string>(defaultDateRange.start);
   const [endDate, setEndDate] = useState<string>(defaultDateRange.end);
-  type DatePresetKey = 'today' | 'thisWeek' | 'thisMonth' | 'last30' | 'custom';
+  type DatePresetKey = 'today' | 'thisWeek' | 'thisMonth' | 'custom';
   type PresetOption = Exclude<DatePresetKey, 'custom'>;
-  const [activeDatePreset, setActiveDatePreset] = useState<DatePresetKey>('thisMonth');
+  const [activeDatePreset, setActiveDatePreset] = useState<DatePresetKey>('today');
   const [page, setPage] = useState<number>(1);
   const [perPage, setPerPage] = useState<number>(DEFAULT_PER_PAGE);
   const [isExporting, setIsExporting] = useState<boolean>(false);
@@ -164,7 +165,7 @@ export default function AttendanceReports() {
     () => [
       {
         id: 'today',
-        label: 'Bugün',
+        label: 'Gün',
         getRange: () => {
           const today = format(new Date(), 'yyyy-MM-dd');
           return { start: today, end: today };
@@ -172,7 +173,7 @@ export default function AttendanceReports() {
       },
       {
         id: 'thisWeek',
-        label: 'Bu həftə',
+        label: 'Həftə',
         getRange: () => {
           const start = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
           const end = format(endOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -181,20 +182,11 @@ export default function AttendanceReports() {
       },
       {
         id: 'thisMonth',
-        label: 'Bu ay',
+        label: 'Ay',
         getRange: () => {
           const now = new Date();
           const start = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
           const end = format(new Date(), 'yyyy-MM-dd');
-          return { start, end };
-        }
-      },
-      {
-        id: 'last30',
-        label: 'Son 30 gün',
-        getRange: () => {
-          const end = format(new Date(), 'yyyy-MM-dd');
-          const start = format(subDays(new Date(), 29), 'yyyy-MM-dd');
           return { start, end };
         }
       }
@@ -426,7 +418,7 @@ export default function AttendanceReports() {
   const handleResetFilters = () => {
     setSelectedSchool('all');
     setSelectedClass('all');
-    handlePresetSelect('thisMonth');
+    handlePresetSelect('today');
     setReportType('daily');
     setPage(1);
     setPerPage(DEFAULT_PER_PAGE);
@@ -672,16 +664,24 @@ export default function AttendanceReports() {
                         key={preset.id}
                         type="button"
                         onClick={() => handlePresetSelect(preset.id)}
-                        className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${
+                        className={`text-[10px] px-2 py-1 rounded transition-colors ${
                           activeDatePreset === preset.id 
-                            ? 'bg-primary/10 text-primary font-medium' 
-                            : 'text-muted-foreground hover:bg-muted'
+                            ? 'bg-primary text-primary-foreground font-medium' 
+                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
                         }`}
                         title={preset.label}
                       >
-                        {preset.label.split(' ')[0]} {/* Shorten label for compact view */}
+                        {preset.label}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      disabled
+                      className="text-[10px] px-2 py-1 rounded bg-muted/50 text-muted-foreground/50 cursor-not-allowed"
+                      title="Fərdi"
+                    >
+                      Fərdi
+                    </button>
                  </div>
               </div>
               <div className="flex items-center gap-2">

@@ -18,6 +18,7 @@ const defaultAttendance = {
   evening_present: 0,
   evening_excused: 0,
   evening_unexcused: 0,
+  uniform_violation: 0,
   morning_notes: "",
   evening_notes: "",
 };
@@ -44,6 +45,7 @@ export const buildSessionPayload = (
         morning_present: data.morning_present,
         morning_excused: data.morning_excused,
         morning_unexcused: data.morning_unexcused,
+        uniform_violation: data.uniform_violation || 0,
         morning_notes: data.morning_notes,
       };
     }
@@ -53,6 +55,7 @@ export const buildSessionPayload = (
       evening_present: data.evening_present,
       evening_excused: data.evening_excused,
       evening_unexcused: data.evening_unexcused,
+      uniform_violation: data.uniform_violation || 0,
       evening_notes: data.evening_notes,
     };
   });

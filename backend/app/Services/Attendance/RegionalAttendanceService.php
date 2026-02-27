@@ -82,7 +82,10 @@ class RegionalAttendanceService
 
         $sectorStats = $this->buildSectorStats(
             $scope['sectors'],
-            $schoolStats
+            $schoolStats,
+            $schoolIds,
+            $startDate,
+            $endDate
         );
 
         $summary = $this->buildSummary($schoolStats, $sectorStats, $startDate, $endDate, $scope['school_days']);
@@ -399,9 +402,37 @@ class RegionalAttendanceService
     /**
      * Aggregate stats on sector level.
      */
-    private function buildSectorStats(array $sectors, array $schoolStats): array
-    {
+    private function buildSectorStats(
+        array $sectors,
+        array $schoolStats,
+        array $schoolIds,
+        string $startDate,
+        string $endDate
+    ): array {
         $sectorStats = [];
+
+        // Get all school IDs grouped by sector for proper date aggregation
+        $schoolsBySector = [];
+        foreach ($schoolStats as $schoolStat) {
+            $sectorId = $schoolStat['sector_id'];
+            if (!isset($schoolsBySector[$sectorId])) {
+                $schoolsBySector[$sectorId] = [];
+            }
+            $schoolsBySector[$sectorId][] = $schoolStat['school_id'];
+        }
+
+        // Query unique dates per sector
+        $sectorUniqueDates = [];
+        foreach ($schoolsBySector as $sectorId => $sectorSchoolIds) {
+            $uniqueDates = ClassBulkAttendance::whereIn('institution_id', $sectorSchoolIds)
+                ->whereDate('attendance_date', '>=', $startDate)
+                ->whereDate('attendance_date', '<=', $endDate)
+                ->distinct()
+                ->pluck('attendance_date')
+                ->map(fn ($date) => (string) $date)
+                ->toArray();
+            $sectorUniqueDates[$sectorId] = array_unique($uniqueDates);
+        }
 
         foreach ($sectors as $sector) {
             $sectorStats[$sector->id] = [
@@ -425,7 +456,6 @@ class RegionalAttendanceService
 
             $sectorStats[$sectorId]['school_count']++;
             $sectorStats[$sectorId]['total_students'] += $schoolStat['total_students'];
-            $sectorStats[$sectorId]['reported_days'] += $schoolStat['reported_days'];
             $denominator = max($schoolStat['total_students'], 1);
             $sectorStats[$sectorId]['weighted_rates'] += $schoolStat['average_attendance_rate'] * $denominator;
             $sectorStats[$sectorId]['weighted_denominator'] += $denominator;
@@ -436,6 +466,10 @@ class RegionalAttendanceService
             $stat['average_attendance_rate'] = $stat['weighted_denominator'] > 0
                 ? round($stat['weighted_rates'] / $stat['weighted_denominator'], 2)
                 : 0;
+
+            // Set sector reported_days as count of unique dates across all sector schools
+            $sectorId = $stat['sector_id'];
+            $stat['reported_days'] = count($sectorUniqueDates[$sectorId] ?? []);
 
             unset($stat['weighted_rates'], $stat['weighted_denominator']);
         }

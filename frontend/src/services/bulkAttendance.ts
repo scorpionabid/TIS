@@ -9,6 +9,7 @@ export interface ClassAttendanceData {
   evening_present?: number;
   evening_excused?: number;
   evening_unexcused?: number;
+  uniform_violation?: number;
   morning_notes?: string;
   evening_notes?: string;
   session: "morning" | "evening" | "both";
@@ -28,6 +29,7 @@ export interface AttendanceRecord {
   evening_present: number;
   evening_excused: number;
   evening_unexcused: number;
+  uniform_violation: number;
   morning_attendance_rate: number;
   evening_attendance_rate: number;
   daily_attendance_rate: number;
@@ -112,6 +114,7 @@ export interface DailyReportSummary {
   morning_absent_total: number;
   evening_present_total: number;
   evening_absent_total: number;
+  uniform_violation_total: number;
   overall_morning_rate: number;
   overall_evening_rate: number;
   overall_daily_rate: number;
@@ -127,6 +130,7 @@ export interface DailyReportClass {
   evening_present: number;
   evening_excused: number;
   evening_unexcused: number;
+  uniform_violation: number;
   morning_attendance_rate: number;
   evening_attendance_rate: number;
   daily_attendance_rate: number;
@@ -215,6 +219,7 @@ class BulkAttendanceService {
             evening_present: number;
             evening_excused: number;
             evening_unexcused: number;
+            uniform_violation: number;
             morning_attendance_rate: number; // Backend casts to float
             evening_attendance_rate: number; // Backend casts to float
             daily_attendance_rate: number;   // Backend casts to float

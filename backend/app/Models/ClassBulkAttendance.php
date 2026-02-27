@@ -25,6 +25,7 @@ class ClassBulkAttendance extends Model
         'evening_present',
         'evening_excused',
         'evening_unexcused',
+        'uniform_violation',
         'total_students',
         'morning_attendance_rate',
         'evening_attendance_rate',

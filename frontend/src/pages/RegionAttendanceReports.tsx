@@ -27,13 +27,14 @@ const formatPercent = (value?: number | null) => {
 
 const getDefaultDates = () => {
   const now = new Date();
+  const today = format(now, 'yyyy-MM-dd');
   return {
-    start: format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd'),
-    end: format(now, 'yyyy-MM-dd'),
+    start: today,
+    end: today,
   };
 };
 
-type DatePreset = 'thisMonth' | 'last30' | 'custom';
+type DatePreset = 'today' | 'thisWeek' | 'thisMonth' | 'custom';
 
 export default function RegionAttendanceReports() {
   const { canAccess } = useRoleCheck();
@@ -50,7 +51,7 @@ export default function RegionAttendanceReports() {
   const defaults = getDefaultDates();
   const [startDate, setStartDate] = useState(defaults.start);
   const [endDate, setEndDate] = useState(defaults.end);
-  const [datePreset, setDatePreset] = useState<DatePreset>('thisMonth');
+  const [datePreset, setDatePreset] = useState<DatePreset>('today');
   const [selectedSectorId, setSelectedSectorId] = useState<string>('all');
   const [selectedSchoolId, setSelectedSchoolId] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'overview' | 'classes'>('overview');
@@ -118,15 +119,23 @@ export default function RegionAttendanceReports() {
 
   const handlePresetChange = (preset: DatePreset) => {
     setDatePreset(preset);
-    if (preset === 'thisMonth') {
-      const defaults = getDefaultDates();
-      setStartDate(defaults.start);
-      setEndDate(defaults.end);
-    } else if (preset === 'last30') {
-      const end = new Date();
-      const start = subDays(end, 29);
-      setStartDate(format(start, 'yyyy-MM-dd'));
-      setEndDate(format(end, 'yyyy-MM-dd'));
+    const now = new Date();
+    const today = format(now, 'yyyy-MM-dd');
+    
+    if (preset === 'today') {
+      setStartDate(today);
+      setEndDate(today);
+    } else if (preset === 'thisWeek') {
+      // Get start of week (Monday)
+      const dayOfWeek = now.getDay();
+      const diff = now.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
+      const startOfWeek = new Date(now.setDate(diff));
+      setStartDate(format(startOfWeek, 'yyyy-MM-dd'));
+      setEndDate(today);
+    } else if (preset === 'thisMonth') {
+      const start = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd');
+      setStartDate(start);
+      setEndDate(today);
     }
   };
 
@@ -289,17 +298,24 @@ export default function RegionAttendanceReports() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  variant={datePreset === 'thisMonth' ? 'default' : 'outline'}
-                  onClick={() => handlePresetChange('thisMonth')}
+                  variant={datePreset === 'today' ? 'default' : 'outline'}
+                  onClick={() => handlePresetChange('today')}
                 >
-                  Bu ay
+                  Gün
                 </Button>
                 <Button
                   size="sm"
-                  variant={datePreset === 'last30' ? 'default' : 'outline'}
-                  onClick={() => handlePresetChange('last30')}
+                  variant={datePreset === 'thisWeek' ? 'default' : 'outline'}
+                  onClick={() => handlePresetChange('thisWeek')}
                 >
-                  Son 30 gün
+                  Həftə
+                </Button>
+                <Button
+                  size="sm"
+                  variant={datePreset === 'thisMonth' ? 'default' : 'outline'}
+                  onClick={() => handlePresetChange('thisMonth')}
+                >
+                  Ay
                 </Button>
                 <Button size="sm" variant={datePreset === 'custom' ? 'default' : 'outline'} disabled>
                   Fərdi

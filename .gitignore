@@ -12,6 +12,7 @@
 /backend/node_modules/
 /backend/public/hot
 /backend/public/storage
+!/backend/public/index.php
 /backend/storage/*.key
 /backend/.env
 /backend/.env.backup
@@ -117,6 +118,7 @@ dist-ssr
 # Gatsby files
 .cache/
 public
+!/backend/public/index.php
 
 # Storybook build outputs
 .out

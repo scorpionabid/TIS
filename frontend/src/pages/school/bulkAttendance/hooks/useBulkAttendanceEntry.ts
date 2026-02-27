@@ -227,6 +227,7 @@ const useBulkAttendanceEntry = () => {
           cls.attendance?.evening_present ?? cls.total_students,
         evening_excused: cls.attendance?.evening_excused ?? 0,
         evening_unexcused: cls.attendance?.evening_unexcused ?? 0,
+        uniform_violation: cls.attendance?.uniform_violation ?? 0,
         morning_notes: cls.attendance?.morning_notes || "",
         evening_notes: cls.attendance?.evening_notes || "",
       };
@@ -408,11 +409,32 @@ const useBulkAttendanceEntry = () => {
     field: keyof AttendanceFormData[string],
     value: number | string
   ) => {
+    const sanitizeNumericValue = (input: number | string) => {
+      if (input === null || input === undefined) return 0;
+      if (typeof input === "number") {
+        return Number.isFinite(input) && !Number.isNaN(input) ? Math.floor(input) : 0;
+      }
+      const trimmed = String(input).trim();
+      if (!trimmed) return 0;
+      const parsed = parseInt(trimmed, 10);
+      return Number.isFinite(parsed) && !Number.isNaN(parsed) ? parsed : 0;
+    };
+
+    const isNumericField =
+      String(field).endsWith("_present") ||
+      String(field).endsWith("_excused") ||
+      String(field).endsWith("_unexcused") ||
+      field === "uniform_violation";
+
+    const sanitizedValue = isNumericField
+      ? sanitizeNumericValue(value)
+      : String(value ?? "");
+
     if (import.meta.env.DEV) {
       console.log("[BulkAttendance] updateAttendance called", {
         gradeId,
         field,
-        value,
+        value: sanitizedValue,
       });
     }
 
@@ -427,6 +449,18 @@ const useBulkAttendanceEntry = () => {
       return;
     }
 
+    // Calculate session info outside setAttendanceData
+    const sessionPrefix = field.startsWith("morning")
+      ? "morning"
+      : field.startsWith("evening")
+      ? "evening"
+      : null;
+
+    const isExcusedField = field.endsWith("_excused");
+    const isUnexcusedField = field.endsWith("_unexcused");
+    const isPresentField = field.endsWith("_present");
+    const isUniformViolationField = field === "uniform_violation";
+
     setAttendanceData((prev) => {
       const defaultEntry = {
         morning_present: 0,
@@ -435,6 +469,7 @@ const useBulkAttendanceEntry = () => {
         evening_present: 0,
         evening_excused: 0,
         evening_unexcused: 0,
+        uniform_violation: 0,
         morning_notes: "",
         evening_notes: "",
       };
@@ -444,27 +479,25 @@ const useBulkAttendanceEntry = () => {
       const nextEntry: AttendanceFormData[string] = { ...prevEntry };
 
       const ensureNumber = (input: unknown) => {
+        // Handle NaN, null, undefined
+        if (input === null || input === undefined) return 0;
         if (typeof input === "number") {
-          return Number.isFinite(input) ? input : 0;
+          if (Number.isNaN(input) || !Number.isFinite(input)) return 0;
+          return input;
         }
-        const parsed = parseInt(String(input ?? ""), 10);
+        const parsed = parseInt(String(input), 10);
         return Number.isNaN(parsed) ? 0 : parsed;
       };
 
-      const sessionPrefix = field.startsWith("morning")
-        ? "morning"
-        : field.startsWith("evening")
-        ? "evening"
-        : null;
-
-      const isExcusedField = field.endsWith("_excused");
-      const isUnexcusedField = field.endsWith("_unexcused");
-      const isPresentField = field.endsWith("_present");
-
-      if (isPresentField || isExcusedField || isUnexcusedField) {
-        nextEntry[field as AttendanceNumericField] = ensureNumber(value);
+      if (
+        isPresentField ||
+        isExcusedField ||
+        isUnexcusedField ||
+        isUniformViolationField
+      ) {
+        nextEntry[field as AttendanceNumericField] = ensureNumber(sanitizedValue);
       } else {
-        nextEntry[field as AttendanceNoteField] = String(value ?? "");
+        nextEntry[field as AttendanceNoteField] = String(sanitizedValue ?? "");
       }
 
       if (sessionPrefix && (isExcusedField || isUnexcusedField)) {
@@ -522,11 +555,7 @@ const useBulkAttendanceEntry = () => {
       };
     });
 
-    const session = field.startsWith("morning")
-      ? "morning"
-      : field.startsWith("evening")
-      ? "evening"
-      : null;
+    const session = sessionPrefix || (isUniformViolationField ? activeSession : null);
 
     if (session) {
       setDirtySessions((prev) => ({
@@ -654,6 +683,7 @@ const useBulkAttendanceEntry = () => {
           evening_present: 0,
           evening_excused: 0,
           evening_unexcused: 0,
+          uniform_violation: 0,
           morning_notes: "",
           evening_notes: "",
         };

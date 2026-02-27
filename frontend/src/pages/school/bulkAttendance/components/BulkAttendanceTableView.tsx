@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useCallback } from "react";
 import {
   Table,
   TableBody,
@@ -51,6 +51,7 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
   const [notePopoverOpen, setNotePopoverOpen] = useState<number | null>(null);
 
   const toSafeNumber = (value: unknown): number => {
+    if (value === undefined || value === null) return 0;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
   };
@@ -130,11 +131,12 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               <TableHead className="w-16 text-center">Say</TableHead>
               <TableHead className="w-24 text-center">🟢 Dərsdə</TableHead>
               <TableHead className="min-w-[140px] text-center">
-                🟡 Üzürlü
+                � Üzürlü
               </TableHead>
               <TableHead className="min-w-[140px] text-center">
-                🔴 Üzürsüz
+                � Üzürsüz
               </TableHead>
+              <TableHead className="min-w-[140px] text-center">Forma pozuntusu</TableHead>
               <TableHead className="w-28 text-center">Davamiyyət</TableHead>
               <TableHead className="w-20 text-center">Qeyd</TableHead>
               <TableHead className="w-16 text-center">Status</TableHead>
@@ -147,10 +149,12 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
 
               const excused = toSafeNumber(data[`${session}_excused`]);
               const unexcused = toSafeNumber(data[`${session}_unexcused`]);
-              const present = Math.max(
+              const uniformViolation = toSafeNumber(data.uniform_violation);
+              const calculatedPresent = Math.max(
                 0,
                 cls.total_students - (excused + unexcused)
               );
+              const present = Number.isFinite(calculatedPresent) ? calculatedPresent : 0;
               const sessionTotal = present + excused + unexcused;
               const attendanceRate = getAttendanceRate(
                 present,
@@ -256,6 +260,23 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
                       }
                     />
                   </TableCell>
+                  <TableCell className="text-center px-2 min-w-[140px]">
+                    <AttendanceNumberInput
+                      className="w-full"
+                      value={uniformViolation}
+                      min={0}
+                      max={cls.total_students}
+                      disabled={!hasStudentCount}
+                      aria-label={`${cls.name} forma pozuntusu`}
+                      onChange={(next) =>
+                        updateAttendance(
+                          cls.id,
+                          "uniform_violation",
+                          next
+                        )
+                      }
+                    />
+                  </TableCell>
                   <TableCell className="text-center">
                     <Badge
                       variant={
@@ -323,7 +344,7 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
 
       <Card className="bg-gradient-to-r from-green-50 to-emerald-50">
         <CardContent className="py-4">
-          <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
                 {summary.totalStudents}
@@ -337,6 +358,15 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               <div className="text-sm text-gray-600">
                 {session === "morning" ? "İlk dərs" : "Son dərs"} · Dərsdə
               </div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-orange-600">
+                {classes.reduce((acc, cls) => {
+                  const uv = attendanceData[cls.id]?.uniform_violation;
+                  return acc + (typeof uv === 'number' && !isNaN(uv) ? uv : 0);
+                }, 0)}
+              </div>
+              <div className="text-sm text-gray-600">Forma Pozuntusu</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">

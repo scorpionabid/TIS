@@ -11,6 +11,7 @@ export interface AttendanceFormData {
     evening_present: number;
     evening_excused: number;
     evening_unexcused: number;
+    uniform_violation: number;
     morning_notes: string;
     evening_notes: string;
   };

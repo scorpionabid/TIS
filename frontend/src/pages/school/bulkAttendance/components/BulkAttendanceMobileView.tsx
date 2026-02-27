@@ -37,6 +37,7 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
   getAttendanceRate,
 }) => {
   const toSafeNumber = (value: unknown): number => {
+    if (value === undefined || value === null) return 0;
     const parsed = Number(value);
     return Number.isFinite(parsed) ? parsed : 0;
   };
@@ -49,6 +50,7 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
 
         const excused = toSafeNumber(data[`${session}_excused`]);
         const unexcused = toSafeNumber(data[`${session}_unexcused`]);
+        const uniformViolation = toSafeNumber(data.uniform_violation);
         const present = Math.max(0, cls.total_students - (excused + unexcused));
         const sessionTotal = present + excused + unexcused;
         const attendanceRate = getAttendanceRate(present, cls.total_students);
@@ -133,7 +135,7 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
                 </Alert>
               )}
 
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs text-green-700">🟢 Dərsdə</Label>
                   <div className="h-10 flex items-center justify-center rounded-md border border-green-100 bg-green-50 text-sm font-semibold text-green-700">
@@ -145,7 +147,7 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
                     htmlFor={`mobile_${session}_excused_${cls.id}`}
                     className="text-xs text-yellow-700"
                   >
-                    🟡 Üzürlü
+                    � Üzürlü
                   </Label>
                   <AttendanceNumberInput
                     id={`mobile_${session}_excused_${cls.id}`}
@@ -170,7 +172,7 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
                     htmlFor={`mobile_${session}_unexcused_${cls.id}`}
                     className="text-xs text-red-700"
                   >
-                    🔴 Üzürsüz
+                    � Üzürsüz
                   </Label>
                   <AttendanceNumberInput
                     id={`mobile_${session}_unexcused_${cls.id}`}
@@ -187,6 +189,27 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
                         `${session}_unexcused`,
                         next
                       )
+                    }
+                  />
+                </div>
+                <div>
+                  <Label
+                    htmlFor={`mobile_uniform_violation_${cls.id}`}
+                    className="text-xs text-orange-700"
+                  >
+                    Forma pozuntusu
+                  </Label>
+                  <AttendanceNumberInput
+                    id={`mobile_uniform_violation_${cls.id}`}
+                    className="w-full"
+                    value={uniformViolation}
+                    min={0}
+                    max={cls.total_students}
+                    size="compact"
+                    disabled={!hasStudentCount}
+                    aria-label={`${cls.name} forma pozuntusu`}
+                    onChange={(next) =>
+                      updateAttendance(cls.id, "uniform_violation", next)
                     }
                   />
                 </div>

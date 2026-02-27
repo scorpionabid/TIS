@@ -86,6 +86,7 @@ class BulkAttendanceController extends BaseController
                         'evening_present' => $existingRecord->evening_present,
                         'evening_excused' => $existingRecord->evening_excused,
                         'evening_unexcused' => $existingRecord->evening_unexcused,
+                        'uniform_violation' => $existingRecord->uniform_violation,
                         'morning_attendance_rate' => $existingRecord->morning_attendance_rate,
                         'evening_attendance_rate' => $existingRecord->evening_attendance_rate,
                         'daily_attendance_rate' => $existingRecord->daily_attendance_rate,
@@ -145,6 +146,7 @@ class BulkAttendanceController extends BaseController
                 'classes.*.evening_present' => 'nullable|integer|min:0',
                 'classes.*.evening_excused' => 'nullable|integer|min:0',
                 'classes.*.evening_unexcused' => 'nullable|integer|min:0',
+                'classes.*.uniform_violation' => 'nullable|integer|min:0',
                 'classes.*.morning_notes' => 'nullable|string|max:500',
                 'classes.*.evening_notes' => 'nullable|string|max:500',
                 'classes.*.session' => 'required|in:morning,evening,both',
@@ -204,6 +206,8 @@ class BulkAttendanceController extends BaseController
                     $record->morning_unexcused = $classData['morning_unexcused'] ?? 0;
                     $record->morning_notes = $classData['morning_notes'] ?? null;
                     $record->morning_recorded_at = $now;
+                    // Uniform violation applies to morning session
+                    $record->uniform_violation = $classData['uniform_violation'] ?? 0;
                 }
 
                 if ($session === 'evening' || $session === 'both') {
@@ -212,6 +216,10 @@ class BulkAttendanceController extends BaseController
                     $record->evening_unexcused = $classData['evening_unexcused'] ?? 0;
                     $record->evening_notes = $classData['evening_notes'] ?? null;
                     $record->evening_recorded_at = $now;
+                    // Only update uniform_violation if not already set in morning
+                    if ($session === 'evening') {
+                        $record->uniform_violation = $classData['uniform_violation'] ?? 0;
+                    }
                 }
 
                 // Update completion status
@@ -313,6 +321,7 @@ class BulkAttendanceController extends BaseController
                 'morning_absent_total' => $records->sum('morning_excused') + $records->sum('morning_unexcused'),
                 'evening_present_total' => $records->sum('evening_present'),
                 'evening_absent_total' => $records->sum('evening_excused') + $records->sum('evening_unexcused'),
+                'uniform_violation_total' => $records->sum('uniform_violation'),
                 'overall_morning_rate' => $records->avg('morning_attendance_rate'),
                 'overall_evening_rate' => $records->avg('evening_attendance_rate'),
                 'overall_daily_rate' => $records->avg('daily_attendance_rate'),
@@ -320,28 +329,36 @@ class BulkAttendanceController extends BaseController
 
             return response()->json([
                 'success' => true,
-                'data' => [
-                    'summary' => $summary,
-                    'classes' => $records->map(function ($record) {
-                        return [
-                            'grade_name' => $record->grade->name,
-                            'grade_level' => $record->grade->class_level,
-                            'total_students' => $record->total_students,
-                            'morning_present' => $record->morning_present,
-                            'morning_excused' => $record->morning_excused,
-                            'morning_unexcused' => $record->morning_unexcused,
-                            'evening_present' => $record->evening_present,
-                            'evening_excused' => $record->evening_excused,
-                            'evening_unexcused' => $record->evening_unexcused,
-                            'morning_attendance_rate' => $record->morning_attendance_rate,
-                            'evening_attendance_rate' => $record->evening_attendance_rate,
-                            'daily_attendance_rate' => $record->daily_attendance_rate,
-                            'is_complete' => $record->is_complete,
-                        ];
-                    }),
-                ],
                 'date' => $date,
-            ]);
+                'total_classes' => $dayRecords->count(),
+                'completed_classes' => $dayRecords->where('is_complete', true)->count(),
+                'total_students' => $dayRecords->sum('total_students'),
+                'morning_present_total' => $dayRecords->sum('morning_present'),
+                'evening_present_total' => $dayRecords->sum('evening_present'),
+                'uniform_violation_total' => $dayRecords->sum('uniform_violation'),
+                'overall_daily_rate' => $dayRecords->avg('daily_attendance_rate'),
+                'classes' => $dayRecords->map(function ($record) {
+                    return [
+                        'grade_name' => $record->grade->name,
+                        'grade_level' => $record->grade->class_level,
+                        'total_students' => $record->total_students,
+                        'morning_present' => $record->morning_present,
+                        'morning_excused' => $record->morning_excused,
+                        'morning_unexcused' => $record->morning_unexcused,
+                        'evening_present' => $record->evening_present,
+                        'evening_excused' => $record->evening_excused,
+                        'evening_unexcused' => $record->evening_unexcused,
+                        'uniform_violation' => $record->uniform_violation,
+                        'morning_attendance_rate' => (float) $record->morning_attendance_rate,
+                        'evening_attendance_rate' => (float) $record->evening_attendance_rate,
+                        'daily_attendance_rate' => (float) $record->daily_attendance_rate,
+                        'is_complete' => $record->is_complete,
+                        'morning_notes' => $record->morning_notes,
+                        'evening_notes' => $record->evening_notes,
+                    ];
+                }),
+            ], 200);
+
         } catch (\Exception $e) {
             Log::error('Daily report error: ' . $e->getMessage());
 
@@ -393,6 +410,7 @@ class BulkAttendanceController extends BaseController
                             'evening_present' => $record->evening_present,
                             'evening_excused' => $record->evening_excused,
                             'evening_unexcused' => $record->evening_unexcused,
+                            'uniform_violation' => $record->uniform_violation,
                             'morning_attendance_rate' => (float) $record->morning_attendance_rate,
                             'evening_attendance_rate' => (float) $record->evening_attendance_rate,
                             'daily_attendance_rate' => (float) $record->daily_attendance_rate,
@@ -471,6 +489,7 @@ class BulkAttendanceController extends BaseController
                 'Axşam - Dərsdə',
                 'Axşam - Üzürlü',
                 'Axşam - Üzürsüz',
+                'Forma pozuntusu',
                 'Səhər Davamiyyəti (%)',
                 'Axşam Davamiyyəti (%)',
                 'Günlük Davamiyyət (%)',
@@ -497,6 +516,7 @@ class BulkAttendanceController extends BaseController
                         $record->evening_present,
                         $record->evening_excused,
                         $record->evening_unexcused,
+                        $record->uniform_violation,
                         $record->morning_attendance_rate,
                         $record->evening_attendance_rate,
                         $record->daily_attendance_rate,
