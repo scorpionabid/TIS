@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +31,9 @@ import {
   Download,
   Copy,
   AlertTriangle,
+  AlertCircle,
 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
 import { differenceInDays } from 'date-fns';
 import { reportTableService } from '@/services/reportTables';
@@ -156,14 +158,15 @@ function TableCard({
                 <DropdownMenuItem onClick={() => onConfirm('archive', table)} className="text-orange-600">
                   <Archive className="h-4 w-4 mr-2" /> Arxivlə
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={async () => {
-                  try {
-                    toast.info('Excel faylı hazırlanır...');
-                    await reportTableService.exportTable(table.id, table.title);
-                    toast.success('Fayl yükləndi.');
-                  } catch {
-                    toast.error('Export zamanı xəta baş verdi.');
-                  }
+                <DropdownMenuItem onClick={() => {
+                  toast.promise(
+                    reportTableService.exportTable(table.id, table.title),
+                    {
+                      loading: 'Excel faylı hazırlanır...',
+                      success: 'Fayl yükləndi.',
+                      error: 'Export zamanı xəta baş verdi.',
+                    }
+                  );
                 }}>
                   <Download className="h-4 w-4 mr-2" /> Export (Excel)
                 </DropdownMenuItem>
@@ -224,22 +227,28 @@ export default function ReportTables() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReportTableStatus | 'all'>('all');
+  const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingTable, setEditingTable] = useState<ReportTable | null>(null);
   const [viewingTable, setViewingTable] = useState<ReportTable | null>(null);
   const [confirmState, setConfirmState] = useState<{ type: ConfirmActionType; table: ReportTable } | null>(null);
 
-  const { data, isLoading } = useQuery({
-    queryKey: ['report-tables', search, statusFilter],
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['report-tables', search, statusFilter, page],
     queryFn: () =>
       reportTableService.getList({
         search: search || undefined,
         status: statusFilter !== 'all' ? statusFilter : undefined,
-        per_page: 50,
+        per_page: 20,
+        page,
       }),
   });
 
   const tables: ReportTable[] = data?.data ?? [];
+  const meta = data?.meta;
 
   // ─── Mutations ──────────────────────────────────────────────────────────────
 
@@ -360,6 +369,16 @@ export default function ReportTables() {
         </div>
       </div>
 
+      {/* Error state */}
+      {isError && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            Hesabat cədvəlləri yüklənərkən xəta baş verdi. Səhifəni yeniləyin.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Content */}
       {isLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -376,17 +395,42 @@ export default function ReportTables() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {tables.map((table) => (
-            <TableCard
-              key={table.id}
-              table={table}
-              onEdit={(t) => { setEditingTable(t); setShowModal(true); }}
-              onView={setViewingTable}
-              onConfirm={(type, t) => setConfirmState({ type, table: t })}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tables.map((table) => (
+              <TableCard
+                key={table.id}
+                table={table}
+                onEdit={(t) => { setEditingTable(t); setShowModal(true); }}
+                onView={setViewingTable}
+                onConfirm={(type, t) => setConfirmState({ type, table: t })}
+              />
+            ))}
+          </div>
+
+          {/* Pagination */}
+          {meta && meta.last_page > 1 && (
+            <div className="flex items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page <= 1}
+              >
+                Əvvəlki
+              </Button>
+              <span className="text-sm text-gray-500">{page} / {meta.last_page}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+                disabled={page >= meta.last_page}
+              >
+                Növbəti
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Create/Edit Modal */}

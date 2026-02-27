@@ -24,6 +24,7 @@ import {
   MinusCircle,
   LayoutList,
   TableIcon,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { reportTableService } from '@/services/reportTables';
@@ -301,6 +302,7 @@ export function ReportTableResponsesView({ table }: ReportTableResponsesViewProp
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
   const [viewMode, setViewMode] = useState<'expand' | 'flat'>('expand');
+  const [isExporting, setIsExporting] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['report-table-responses', table.id, page],
@@ -327,12 +329,14 @@ export function ReportTableResponsesView({ table }: ReportTableResponsesViewProp
   }, [responses, search]);
 
   const handleExport = async () => {
+    setIsExporting(true);
     try {
-      toast.info('Excel faylı hazırlanır...');
       await reportTableService.exportTable(table.id, table.title);
       toast.success('Fayl yükləndi.');
     } catch {
       toast.error('Export zamanı xəta baş verdi.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -386,9 +390,9 @@ export function ReportTableResponsesView({ table }: ReportTableResponsesViewProp
             <TableIcon className="h-4 w-4 mr-1" /> Cədvəl
           </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExport} className="gap-2">
-          <Download className="h-4 w-4" />
-          Excel Export
+        <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="gap-2">
+          {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+          {isExporting ? 'Hazırlanır...' : 'Excel Export'}
         </Button>
       </div>
 
