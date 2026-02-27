@@ -58,6 +58,10 @@ const SurveyAnalytics = lazy(() => import("./pages/SurveyAnalytics"));
 const SurveyExport = lazy(() => import("./pages/SurveyExport"));
 const PasswordReset = lazy(() => import("./pages/PasswordReset"));
 
+// Report Tables pages
+const ReportTables = lazy(() => import("./pages/ReportTables"));
+const ReportTableEntry = lazy(() => import("./pages/ReportTableEntry"));
+
 // Rating pages
 const EducationRating = lazy(() => import("./pages/EducationRating"));
 const SectorRating = lazy(() => import("./pages/SectorRating"));
@@ -444,6 +448,8 @@ const App = () => {
                     <Route path="hierarchy" element={<LazyWrapper><Hierarchy /></LazyWrapper>} />
                     <Route path="surveys" element={<LazyWrapper><Surveys /></LazyWrapper>} />
                     <Route path="survey-response/:surveyId" element={<LazyWrapper><SurveyResponse /></LazyWrapper>} />
+                    <Route path="report-tables" element={<LazyWrapper><ReportTables /></LazyWrapper>} />
+                    <Route path="report-table-entry" element={<LazyWrapper><ReportTableEntry /></LazyWrapper>} />
                     <Route path="survey-response/:surveyId/:responseId" element={<LazyWrapper><SurveyResponse /></LazyWrapper>} />
                     <Route path="approvals" element={
                       <LazyWrapper>

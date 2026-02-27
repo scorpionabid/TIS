@@ -33,7 +33,8 @@ import {
   LucideIcon,
   Library,
   Star,
-  User
+  User,
+  Table2
 } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { UserRole, USER_ROLES } from '@/constants/roles';
@@ -276,6 +277,30 @@ export const improvedNavigationConfig: MenuGroup[] = [
             permissions: ['approvals.read', 'survey_responses.read']
           },
         ]
+      },
+      // ─── Hesabat Cədvəlləri ───────────────────────────────────────────────
+      {
+        id: 'report-tables',
+        label: 'Hesabat Cədvəlləri',
+        icon: Table2,
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+        children: [
+          {
+            id: 'report-tables-list',
+            label: 'Cədvəlləri İdarə Et',
+            path: '/report-tables',
+            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
+            permissions: ['report_tables.read'],
+          },
+        ],
+      },
+      {
+        id: 'report-table-entry',
+        label: 'Hesabat Cədvəlim',
+        icon: Table2,
+        path: '/report-table-entry',
+        roles: [USER_ROLES.SCHOOLADMIN],
+        permissions: ['report_table_responses.write'],
       },
       {
         id: 'my-surveys',

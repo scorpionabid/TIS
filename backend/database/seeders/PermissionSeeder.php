@@ -56,6 +56,11 @@ class PermissionSeeder extends Seeder
             'survey_responses.approve',
             'survey_responses.bulk_approve',
 
+            // Report Tables Management
+            'report_tables.read',
+            'report_tables.write',
+            'report_table_responses.write',
+
             // Role Management
             'roles.read',
             'roles.create',
@@ -354,6 +359,7 @@ class PermissionSeeder extends Seeder
                 'users.create', 'users.read', 'users.update', 'users.delete', 'users.write', 'users.import', 'users.export', 'users.bulk', 'users.test',
                 'institutions.create', 'institutions.read', 'institutions.update', 'institutions.delete', 'institutions.write', 'institutions.hierarchy',
                 'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.respond', 'surveys.approve', 'surveys.target', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
+                'report_tables.read', 'report_tables.write', 'report_table_responses.write',
                 'roles.read', 'roles.create', 'roles.update', 'roles.delete',
                 'schedules.create', 'schedules.read', 'schedules.update', 'schedules.delete', 'schedules.approve',
                 'attendance.manage', 'attendance.create', 'attendance.read', 'attendance.update', 'attendance.delete', 'attendance.approve',
@@ -387,6 +393,7 @@ class PermissionSeeder extends Seeder
                 'users.read', 'users.create', 'users.update', 'users.delete',
                 'institutions.create', 'institutions.read', 'institutions.update', 'institutions.write', 'institutions.hierarchy',
                 'surveys.create', 'surveys.read', 'surveys.update', 'surveys.delete', 'surveys.write', 'surveys.publish', 'surveys.manage', 'surveys.target', 'surveys.approve', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
+                'report_tables.read', 'report_tables.write', 'report_table_responses.write',
                 'schedules.read', 'schedules.update', 'grades.read', 'attendance.manage', 'attendance.read', 'attendance.update', 'attendance.approve',
                 'school_attendance.read', 'school_attendance.write', 'school_attendance.export',
                 'documents.create', 'documents.read', 'documents.update', 'documents.delete', 'documents.share', 'documents.bulk', 'documents.analytics', 'documents.tracking',
@@ -414,6 +421,7 @@ class PermissionSeeder extends Seeder
                 'users.read', 'users.create', 'users.update',
                 'institutions.read',
                 'surveys.read', 'surveys.respond', 'survey_responses.read', 'survey_responses.write',
+                'report_table_responses.write',
                 'schedules.create', 'schedules.read', 'schedules.update',
                 'grades.create', 'grades.read', 'grades.update', 'grades.manage', 'grades.assign', 'attendance.manage', 'attendance.create', 'attendance.read', 'attendance.update',
                 'school_attendance.read', 'school_attendance.write', 'school_attendance.export',
@@ -545,6 +553,7 @@ class PermissionSeeder extends Seeder
                 'surveys.target',
                 'surveys.update',
                 'surveys.write',
+                'report_tables.read', 'report_tables.write', 'report_table_responses.write',
                 'tasks.analytics',
                 'tasks.approve',
                 'tasks.bulk',
@@ -565,6 +574,7 @@ class PermissionSeeder extends Seeder
                 'users.read', 'users.create', 'users.update',
                 'institutions.read', 'institutions.hierarchy',
                 'surveys.read', 'surveys.respond', 'survey_responses.read', 'survey_responses.write', 'survey_responses.approve', 'survey_responses.bulk_approve',
+                'report_tables.read',
                 'schedules.read', 'schedules.update', 'grades.read', 'attendance.read', 'attendance.update',
                 'school_attendance.read',
                 'documents.create', 'documents.read',

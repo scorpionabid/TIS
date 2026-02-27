@@ -1,0 +1,165 @@
+import { BaseService } from './BaseService';
+import { apiClient } from './api';
+import { handleApiResponseWithError } from '@/utils/apiResponseHandler';
+import {
+  ReportTable,
+  ReportTableResponse,
+  CreateReportTablePayload,
+  UpdateReportTablePayload,
+  ReportTableFilters,
+  ReportTableResponseFilters,
+  ReportTableRow,
+} from '../types/reportTable';
+
+// ─── Local response shape types ───────────────────────────────────────────────
+
+interface PaginatedApiResult<T> {
+  data: T[];
+  meta: {
+    current_page: number;
+    per_page: number;
+    total: number;
+    last_page: number;
+  };
+}
+
+interface SingleApiResult<T> {
+  data: T | null;
+}
+
+// ─── Service ──────────────────────────────────────────────────────────────────
+
+class ReportTableService extends BaseService<ReportTable> {
+  constructor() {
+    super('report-tables', ['report-tables']);
+  }
+
+  // ─── Admin: Cədvəl siyahısı ───────────────────────────────────────────────
+
+  async getList(filters?: ReportTableFilters): Promise<PaginatedApiResult<ReportTable>> {
+    const response = await apiClient.get<ReportTable[]>('report-tables', filters as Record<string, unknown>);
+    const result = response as unknown as PaginatedApiResult<ReportTable>;
+    return {
+      data: result.data ?? [],
+      meta: result.meta ?? { current_page: 1, per_page: 15, total: 0, last_page: 1 },
+    };
+  }
+
+  // ─── Məktəb: Mənə aid cədvəllər ──────────────────────────────────────────
+
+  async getMyTables(): Promise<ReportTable[]> {
+    const response = await this.get<ReportTable[]>('report-tables/my');
+    return handleApiResponseWithError<ReportTable[]>(response, 'ReportTableService.getMyTables', 'ReportTableService');
+  }
+
+  // ─── Show ─────────────────────────────────────────────────────────────────
+
+  async getTable(id: number): Promise<ReportTable> {
+    const response = await this.get<ReportTable>(`report-tables/${id}`);
+    return handleApiResponseWithError<ReportTable>(response, 'ReportTableService.getTable', 'ReportTableService');
+  }
+
+  // ─── Create ───────────────────────────────────────────────────────────────
+
+  async createTable(payload: CreateReportTablePayload): Promise<ReportTable> {
+    const response = await this.post<ReportTable>('report-tables', payload as unknown as Record<string, unknown>);
+    const result = handleApiResponseWithError<ReportTable>(response, 'ReportTableService.createTable', 'ReportTableService');
+    this.invalidateCache(['list']);
+    return result;
+  }
+
+  // ─── Update ───────────────────────────────────────────────────────────────
+
+  async updateTable(id: number, payload: UpdateReportTablePayload): Promise<ReportTable> {
+    const response = await this.put<ReportTable>(`report-tables/${id}`, payload as unknown as Record<string, unknown>);
+    const result = handleApiResponseWithError<ReportTable>(response, 'ReportTableService.updateTable', 'ReportTableService');
+    this.invalidateCache(['list', 'detail']);
+    return result;
+  }
+
+  // ─── Delete ───────────────────────────────────────────────────────────────
+
+  async deleteTable(id: number): Promise<void> {
+    await apiClient.delete(`report-tables/${id}`);
+    this.invalidateCache(['list', 'detail']);
+  }
+
+  // ─── Publish / Archive ────────────────────────────────────────────────────
+
+  async publishTable(id: number): Promise<ReportTable> {
+    const response = await this.post<ReportTable>(`report-tables/${id}/publish`);
+    const result = handleApiResponseWithError<ReportTable>(response, 'ReportTableService.publishTable', 'ReportTableService');
+    this.invalidateCache(['list', 'detail']);
+    return result;
+  }
+
+  async archiveTable(id: number): Promise<ReportTable> {
+    const response = await this.post<ReportTable>(`report-tables/${id}/archive`);
+    const result = handleApiResponseWithError<ReportTable>(response, 'ReportTableService.archiveTable', 'ReportTableService');
+    this.invalidateCache(['list', 'detail']);
+    return result;
+  }
+
+  // ─── Admin: Cavab siyahısı ────────────────────────────────────────────────
+
+  async getResponses(tableId: number, filters?: ReportTableResponseFilters): Promise<PaginatedApiResult<ReportTableResponse>> {
+    const response = await apiClient.get<ReportTableResponse[]>(
+      `report-tables/${tableId}/responses`,
+      filters as Record<string, unknown>
+    );
+    const result = response as unknown as PaginatedApiResult<ReportTableResponse>;
+    return {
+      data: result.data ?? [],
+      meta: result.meta ?? { current_page: 1, per_page: 50, total: 0, last_page: 1 },
+    };
+  }
+
+  // ─── Export ───────────────────────────────────────────────────────────────
+
+  async exportTable(tableId: number, title: string): Promise<void> {
+    const response = await apiClient.get<Blob>(
+      `report-tables/${tableId}/export`,
+      {},
+      { responseType: 'blob' }
+    );
+    const blobResponse = response as unknown as { data: Blob };
+    if (blobResponse.data) {
+      const url = window.URL.createObjectURL(blobResponse.data);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${title}_hesabat.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    }
+  }
+
+  // ─── School: Cavab əməliyyatları ──────────────────────────────────────────
+
+  async startResponse(tableId: number): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(`report-tables/${tableId}/response/start`);
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.startResponse', 'ReportTableService');
+  }
+
+  async getMyResponse(tableId: number): Promise<ReportTableResponse | null> {
+    const response = await this.get<ReportTableResponse | null>(`report-tables/${tableId}/response/my`);
+    const result = response as unknown as SingleApiResult<ReportTableResponse>;
+    return result.data ?? null;
+  }
+
+  async saveResponse(responseId: number, rows: ReportTableRow[]): Promise<ReportTableResponse> {
+    const response = await this.put<ReportTableResponse>(
+      `report-table-responses/${responseId}`,
+      { rows: rows as unknown as Record<string, unknown> }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.saveResponse', 'ReportTableService');
+  }
+
+  async submitResponse(responseId: number): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(`report-table-responses/${responseId}/submit`);
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.submitResponse', 'ReportTableService');
+  }
+}
+
+export const reportTableService = new ReportTableService();

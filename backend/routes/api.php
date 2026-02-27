@@ -118,6 +118,9 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Specialized Module Routes
     require __DIR__ . '/api/specialized.php';
+
+    // Report Tables Module Routes
+    require __DIR__ . '/api/report-tables.php';
 });
 Route::get('/test-approval', function () {
     return response()->json(['status' => 'working']);
