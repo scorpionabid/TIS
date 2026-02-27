@@ -129,12 +129,12 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               <TableHead className="w-20 text-center">Səviyyə</TableHead>
               <TableHead className="min-w-[100px]">Sinif</TableHead>
               <TableHead className="w-16 text-center">Say</TableHead>
-              <TableHead className="w-24 text-center">🟢 Dərsdə</TableHead>
+              <TableHead className="w-24 text-center">Dərsdə</TableHead>
               <TableHead className="min-w-[140px] text-center">
-                � Üzürlü
+                🟡 Üzürlü
               </TableHead>
               <TableHead className="min-w-[140px] text-center">
-                � Üzürsüz
+                🔴 Üzürsüz
               </TableHead>
               <TableHead className="min-w-[140px] text-center">Forma pozuntusu</TableHead>
               <TableHead className="w-28 text-center">Davamiyyət</TableHead>

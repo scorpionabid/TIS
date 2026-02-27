@@ -147,7 +147,7 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
                     htmlFor={`mobile_${session}_excused_${cls.id}`}
                     className="text-xs text-yellow-700"
                   >
-                    � Üzürlü
+                    🟡 Üzürlü
                   </Label>
                   <AttendanceNumberInput
                     id={`mobile_${session}_excused_${cls.id}`}
@@ -172,7 +172,7 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
                     htmlFor={`mobile_${session}_unexcused_${cls.id}`}
                     className="text-xs text-red-700"
                   >
-                    � Üzürsüz
+                    🔴 Üzürsüz
                   </Label>
                   <AttendanceNumberInput
                     id={`mobile_${session}_unexcused_${cls.id}`}
