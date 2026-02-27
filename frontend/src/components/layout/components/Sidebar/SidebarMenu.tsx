@@ -12,6 +12,22 @@ interface SidebarMenuProps {
   menuGroups: MenuGroup[];
 }
 
+// Hər bölməyə rəngli sol kənar + başlıq rəngi
+const GROUP_STYLES: Record<string, { border: string; label: string; dot: string }> = {
+  'dashboard':           { border: 'border-l-blue-400',    label: 'text-blue-500',    dot: 'bg-blue-400' },
+  'academic-tracking':   { border: 'border-l-violet-400',  label: 'text-violet-500',  dot: 'bg-violet-400' },
+  'content':             { border: 'border-l-amber-500',   label: 'text-amber-600',   dot: 'bg-amber-400' },
+  'education-rating':    { border: 'border-l-emerald-400', label: 'text-emerald-600', dot: 'bg-emerald-400' },
+  'schedule-management': { border: 'border-l-teal-400',    label: 'text-teal-600',    dot: 'bg-teal-400' },
+  'teacher-profile':     { border: 'border-l-indigo-400',  label: 'text-indigo-500',  dot: 'bg-indigo-400' },
+  'school-management':   { border: 'border-l-sky-400',     label: 'text-sky-600',     dot: 'bg-sky-400' },
+  'sector-management':   { border: 'border-l-cyan-400',    label: 'text-cyan-600',    dot: 'bg-cyan-400' },
+  'system-structure':    { border: 'border-l-slate-400',   label: 'text-slate-500',   dot: 'bg-slate-400' },
+  'analytics':           { border: 'border-l-green-400',   label: 'text-green-600',   dot: 'bg-green-400' },
+  'notifications':       { border: 'border-l-rose-400',    label: 'text-rose-500',    dot: 'bg-rose-400' },
+  'system-settings':     { border: 'border-l-gray-400',    label: 'text-gray-500',    dot: 'bg-gray-400' },
+};
+
 export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
   const { isExpanded, currentPath, handleNavigation } = useSidebarBehavior();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
@@ -122,18 +138,31 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
 
   return (
     <nav className="flex-1 py-4 overflow-y-auto">
-      {menuGroups.map(group => (
-        <div key={group.id} className="mb-6">
-          {isExpanded && (
-            <h3 className="px-4 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              {group.label}
-            </h3>
-          )}
-          <div className="space-y-1">
-            {group.items.map(item => renderMenuItem(item))}
+      {menuGroups.map(group => {
+        const gs = GROUP_STYLES[group.id];
+        return (
+          <div
+            key={group.id}
+            className={cn(
+              "mb-5",
+              isExpanded && gs && `border-l-2 ml-2 pl-0 rounded-r-sm ${gs.border}`
+            )}
+          >
+            {isExpanded && (
+              <h3 className={cn(
+                "px-3 mb-1.5 text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5",
+                gs ? gs.label : "text-muted-foreground"
+              )}>
+                <span className={cn("inline-block w-1.5 h-1.5 rounded-full shrink-0", gs ? gs.dot : "bg-muted-foreground/40")} />
+                {group.label}
+              </h3>
+            )}
+            <div className="space-y-0.5">
+              {group.items.map(item => renderMenuItem(item))}
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
     </nav>
   );
 };
