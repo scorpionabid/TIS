@@ -139,6 +139,7 @@ Route::middleware('permission:institutions.read')->group(function () {
     Route::get('institutions/{institution}/hierarchy', [InstitutionController::class, 'getHierarchy']);
     Route::get('institutions/{institution}/summary', [InstitutionController::class, 'getSummary'])
         ->whereNumber('institution');
+    Route::get('institutions/level/{level}', [InstitutionHierarchyController::class, 'getByLevel']);
     Route::get('institutions/search/{query}', [InstitutionController::class, 'search']);
     Route::get('institutions/find-similar', [InstitutionController::class, 'findSimilar']);
     Route::get('institutions/check-code-exists', [InstitutionController::class, 'checkCodeExists']);
