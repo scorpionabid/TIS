@@ -1,11 +1,48 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { profileService, ProfileResponse, UpdateProfileData } from '@/services/profile';
-import { subjectService, Subject } from '@/services/subjects';
+import {
+  profileService,
+  ProfileResponse,
+  ProfileFormData,
+  UpdateProfileData,
+} from '@/services/profile';
 import { useToast } from '@/hooks/use-toast';
 
-export const useProfileForm = (isOpen: boolean, initialProfileData?: ProfileResponse | null, onSuccess?: () => void) => {
+const toUpdateData = (data: ProfileFormData): UpdateProfileData => ({
+  username: data.username || undefined,
+  email: data.email || undefined,
+  profile: {
+    first_name: data.first_name || undefined,
+    last_name: data.last_name || undefined,
+    patronymic: data.patronymic || undefined,
+    birth_date: data.birth_date || undefined,
+    gender: (data.gender as 'male' | 'female' | 'other') || undefined,
+    contact_phone: data.contact_phone || undefined,
+  },
+});
+
+const EMPTY_FORM: ProfileFormData = {
+  username: '',
+  email: '',
+  first_name: '',
+  last_name: '',
+  patronymic: '',
+  birth_date: '',
+  gender: '',
+  national_id: '',
+  contact_phone: '',
+  emergency_contact_name: '',
+  emergency_contact_phone: '',
+  address_street: '',
+  address_city: '',
+};
+
+export const useProfileForm = (
+  isOpen: boolean,
+  initialProfileData?: ProfileResponse | null,
+  onSuccess?: () => void,
+) => {
   const [activeTab, setActiveTab] = useState('personal');
   const [avatar, setAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
@@ -14,120 +51,69 @@ export const useProfileForm = (isOpen: boolean, initialProfileData?: ProfileResp
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<UpdateProfileData>({
-    defaultValues: {
-      username: '',
-      email: '',
-      profile: {
-        first_name: '',
-        last_name: '',
-        patronymic: '',
-        birth_date: '',
-        gender: undefined,
-        contact_phone: '',
-        bio: '',
-      },
-      preferences: {
-        theme: 'auto',
-        language: 'az',
-        notifications: {
-          email: true,
-          browser: true,
-          sound: false,
-        },
-      },
-    }
-  });
+  const form = useForm<ProfileFormData>({ defaultValues: EMPTY_FORM });
 
-  // Load profile data from server (always current user — no userId param)
+  // Serverdən cari istifadəçi profilini yüklə
   const { data: profileData, isLoading: profileLoading } = useQuery({
     queryKey: ['user-profile'],
     queryFn: () => profileService.getProfile(),
     enabled: isOpen,
-    staleTime: 1000 * 60 * 5, // 5 dəqiqə cache
+    staleTime: 1000 * 60 * 5,
   });
 
-  // Use server data, fall back to prop data
+  // Server data varsa onu, yoxdursa ilkin prop-u istifadə et
   const profile = profileData ?? initialProfileData;
 
-  // Load subjects data
-  const { data: subjects } = useQuery<Subject[]>({
-    queryKey: ['subjects'],
-    queryFn: () => subjectService.getAll(),
-    enabled: isOpen,
-  });
+  // Profil yükləndikdə formu doldur
+  useEffect(() => {
+    const user = profile?.user;
+    if (!user) return;
 
-  // Update profile mutation
+    const p = user.profile;
+    form.reset({
+      username: user.username ?? '',
+      email: user.email ?? '',
+      first_name: p?.first_name ?? '',
+      last_name: p?.last_name ?? '',
+      patronymic: p?.patronymic ?? '',
+      birth_date: p?.birth_date ?? '',
+      gender: (p?.gender as ProfileFormData['gender']) ?? '',
+      national_id: p?.national_id ?? '',
+      contact_phone: p?.contact_phone ?? '',
+      emergency_contact_name: p?.emergency_contact_name ?? '',
+      emergency_contact_phone: p?.emergency_contact_phone ?? '',
+      address_street: p?.address?.street ?? '',
+      address_city: p?.address?.city ?? '',
+    });
+  }, [profile, form]);
+
   const updateMutation = useMutation({
     mutationFn: (data: UpdateProfileData) => profileService.updateProfile(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
-      toast({
-        title: 'Uğurlu',
-        description: 'Profil məlumatları yeniləndi',
-      });
+      toast({ title: 'Uğurlu', description: 'Profil məlumatları yeniləndi' });
       onSuccess?.();
     },
     onError: (error: unknown) => {
-      const message = (error as { response?: { data?: { message?: string } } })
-        ?.response?.data?.message || 'Profil yenilənərkən xəta baş verdi';
-      toast({
-        title: 'Xəta',
-        description: message,
-        variant: 'destructive',
-      });
+      const msg =
+        (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+        ?? 'Profil yenilənərkən xəta baş verdi';
+      toast({ title: 'Xəta', description: msg, variant: 'destructive' });
     },
   });
 
-  // Upload avatar mutation
   const avatarMutation = useMutation({
     mutationFn: (file: File) => profileService.uploadAvatar(file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       setAvatar(null);
       setAvatarPreview(null);
-      toast({
-        title: 'Uğurlu',
-        description: 'Profil şəkli yeniləndi',
-      });
+      toast({ title: 'Uğurlu', description: 'Profil şəkli yeniləndi' });
     },
     onError: () => {
-      toast({
-        title: 'Xəta',
-        description: 'Şəkil yüklənərkən xəta baş verdi',
-        variant: 'destructive',
-      });
+      toast({ title: 'Xəta', description: 'Şəkil yüklənərkən xəta baş verdi', variant: 'destructive' });
     },
   });
-
-  // Initialize form when profile data loads
-  useEffect(() => {
-    const user = profile?.user;
-    if (user) {
-      form.reset({
-        username: user.username || '',
-        email: user.email || '',
-        profile: {
-          first_name: user.profile?.first_name || '',
-          last_name: user.profile?.last_name || '',
-          patronymic: user.profile?.patronymic || '',
-          birth_date: user.profile?.birth_date || '',
-          gender: user.profile?.gender,
-          contact_phone: user.profile?.contact_phone || '',
-          bio: '',
-        },
-        preferences: {
-          theme: user.profile?.preferences?.theme || 'auto',
-          language: user.profile?.preferences?.language || 'az',
-          notifications: {
-            email: user.profile?.preferences?.notifications?.email ?? true,
-            browser: user.profile?.preferences?.notifications?.browser ?? true,
-            sound: user.profile?.preferences?.notifications?.sound ?? false,
-          },
-        },
-      });
-    }
-  }, [profile, form]);
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -135,11 +121,7 @@ export const useProfileForm = (isOpen: boolean, initialProfileData?: ProfileResp
 
     const validation = profileService.validateAvatarFile(file);
     if (!validation.valid) {
-      toast({
-        title: 'Xəta',
-        description: validation.error,
-        variant: 'destructive',
-      });
+      toast({ title: 'Xəta', description: validation.error, variant: 'destructive' });
       return;
     }
 
@@ -154,47 +136,28 @@ export const useProfileForm = (isOpen: boolean, initialProfileData?: ProfileResp
     setAvatarPreview(null);
   };
 
-  // Placeholder array helpers — ProfessionalInfoTab üçün saxlanılır (Phase 2-də refactor ediləcək)
-  const addArrayItem = (_field: string, _value: string) => {};
-  const removeArrayItem = (_field: string, _index: number) => {};
-
-  const handleSubmit = async (data: UpdateProfileData) => {
+  const handleSubmit = async (data: ProfileFormData) => {
     setIsSubmitting(true);
     try {
-      await updateMutation.mutateAsync(data);
-
-      if (avatar) {
-        await avatarMutation.mutateAsync(avatar);
-      }
+      await updateMutation.mutateAsync(toUpdateData(data));
+      if (avatar) await avatarMutation.mutateAsync(avatar);
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return {
-    // State
     activeTab,
     setActiveTab,
     avatar,
     avatarPreview,
     isSubmitting,
-
-    // Data
     profile,
-    subjects: subjects || [],
     profileLoading,
-
-    // Form
     form,
-
-    // Actions
     handleAvatarChange,
     handleRemoveAvatarPreview,
     handleSubmit,
-    addArrayItem,
-    removeArrayItem,
-
-    // Mutations
     updateMutation,
     avatarMutation,
   };

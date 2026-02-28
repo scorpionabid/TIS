@@ -1,45 +1,53 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ProfileUpdateData } from '@/services/profile';
+import { ProfileFormData } from '@/services/profile';
 
 interface PersonalInfoTabProps {
-  form: UseFormReturn<ProfileUpdateData>;
+  form: UseFormReturn<ProfileFormData>;
 }
 
 export const PersonalInfoTab = ({ form }: PersonalInfoTabProps) => {
   const { register, formState: { errors }, setValue, watch } = form;
-  
+
   return (
-    <div className="space-y-6">
-      {/* Basic Information */}
+    <div className="space-y-4">
+      {/* Əsas məlumatlar */}
       <Card>
         <CardHeader>
-          <CardTitle>Əsas Məlumatlar</CardTitle>
+          <CardTitle className="text-base">Əsas Məlumatlar</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="first_name">Ad *</Label>
               <Input
                 id="first_name"
                 {...register('first_name', { required: 'Ad məcburidir' })}
-                placeholder="Adınızı daxil edin"
+                placeholder="Adınız"
               />
               {errors.first_name && (
                 <p className="text-sm text-destructive">{errors.first_name.message}</p>
               )}
             </div>
-            
+
+            <div className="space-y-2">
+              <Label htmlFor="patronymic">Ata adı</Label>
+              <Input
+                id="patronymic"
+                {...register('patronymic')}
+                placeholder="Ata adınız"
+              />
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="last_name">Soyad *</Label>
               <Input
                 id="last_name"
                 {...register('last_name', { required: 'Soyad məcburidir' })}
-                placeholder="Soyadınızı daxil edin"
+                placeholder="Soyadınız"
               />
               {errors.last_name && (
                 <p className="text-sm text-destructive">{errors.last_name.message}</p>
@@ -49,48 +57,21 @@ export const PersonalInfoTab = ({ form }: PersonalInfoTabProps) => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email *</Label>
+              <Label htmlFor="birth_date">Doğum tarixi</Label>
               <Input
-                id="email"
-                type="email"
-                {...register('email', { 
-                  required: 'Email məcburidir',
-                  pattern: {
-                    value: /^\S+@\S+$/i,
-                    message: 'Düzgün email formatı daxil edin'
-                  }
-                })}
-                placeholder="email@example.com"
-              />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="phone">Telefon</Label>
-              <Input
-                id="phone"
-                {...register('phone')}
-                placeholder="+994 XX XXX XX XX"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="date_of_birth">Doğum tarixi</Label>
-              <Input
-                id="date_of_birth"
+                id="birth_date"
                 type="date"
-                {...register('date_of_birth')}
+                {...register('birth_date')}
               />
             </div>
-            
+
             <div className="space-y-2">
               <Label htmlFor="gender">Cins</Label>
-              <Select value={watch('gender')} onValueChange={(value) => setValue('gender', value)}>
-                <SelectTrigger>
+              <Select
+                value={watch('gender')}
+                onValueChange={(v) => setValue('gender', v as ProfileFormData['gender'])}
+              >
+                <SelectTrigger id="gender">
                   <SelectValue placeholder="Cinsi seçin" />
                 </SelectTrigger>
                 <SelectContent>
@@ -100,75 +81,108 @@ export const PersonalInfoTab = ({ form }: PersonalInfoTabProps) => {
                 </SelectContent>
               </Select>
             </div>
-            
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="national_id">FİN kodu</Label>
+            <Input
+              id="national_id"
+              {...register('national_id')}
+              placeholder="Şəxsiyyət vəsiqəsinin FİN kodu"
+              maxLength={7}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Hesab məlumatları */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Hesab Məlumatları</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="blood_type">Qan qrupu</Label>
-              <Select value={watch('blood_type')} onValueChange={(value) => setValue('blood_type', value)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Qan qrupunu seçin" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A+">A+</SelectItem>
-                  <SelectItem value="A-">A-</SelectItem>
-                  <SelectItem value="B+">B+</SelectItem>
-                  <SelectItem value="B-">B-</SelectItem>
-                  <SelectItem value="AB+">AB+</SelectItem>
-                  <SelectItem value="AB-">AB-</SelectItem>
-                  <SelectItem value="O+">O+</SelectItem>
-                  <SelectItem value="O-">O-</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="email">E-poçt *</Label>
+              <Input
+                id="email"
+                type="email"
+                {...register('email', {
+                  required: 'E-poçt məcburidir',
+                  pattern: { value: /^\S+@\S+\.\S+$/, message: 'Düzgün e-poçt daxil edin' },
+                })}
+                placeholder="email@example.com"
+              />
+              {errors.email && (
+                <p className="text-sm text-destructive">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="username">İstifadəçi adı</Label>
+              <Input
+                id="username"
+                {...register('username')}
+                placeholder="İstifadəçi adınız"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Əlaqə məlumatları */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Əlaqə Məlumatları</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="contact_phone">Telefon nömrəsi</Label>
+            <Input
+              id="contact_phone"
+              {...register('contact_phone')}
+              placeholder="+994 XX XXX XX XX"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="address_city">Şəhər</Label>
+              <Input
+                id="address_city"
+                {...register('address_city')}
+                placeholder="Bakı"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="address_street">Ünvan</Label>
+              <Input
+                id="address_street"
+                {...register('address_street')}
+                placeholder="Küçə, bina, mənzil"
+              />
             </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="nationality">Milliyyət</Label>
+              <Label htmlFor="emergency_contact_name">Təcili əlaqə (ad)</Label>
               <Input
-                id="nationality"
-                {...register('nationality')}
-                placeholder="Milliyyətinizi daxil edin"
+                id="emergency_contact_name"
+                {...register('emergency_contact_name')}
+                placeholder="Əlaqə şəxsinin adı"
               />
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="id_number">Şəxsiyyət vəsiqəsi</Label>
+              <Label htmlFor="emergency_contact_phone">Təcili əlaqə (telefon)</Label>
               <Input
-                id="id_number"
-                {...register('id_number')}
-                placeholder="AZE1234567"
+                id="emergency_contact_phone"
+                {...register('emergency_contact_phone')}
+                placeholder="+994 XX XXX XX XX"
               />
             </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="address">Ünvan</Label>
-            <Textarea
-              id="address"
-              {...register('address')}
-              placeholder="Yaşadığınız ünvanı daxil edin"
-              rows={3}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="emergency_contact">Təcili əlaqə</Label>
-            <Textarea
-              id="emergency_contact"
-              {...register('emergency_contact')}
-              placeholder="Təcili hallarda əlaqə saxlanılan şəxsin məlumatları"
-              rows={2}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="bio">Haqqında</Label>
-            <Textarea
-              id="bio"
-              {...register('bio')}
-              placeholder="Özünüz haqqında qısa məlumat"
-              rows={4}
-            />
           </div>
         </CardContent>
       </Card>
