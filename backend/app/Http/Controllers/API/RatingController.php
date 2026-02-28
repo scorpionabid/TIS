@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\API;
 
 use App\Helpers\DataIsolationHelper;
 use App\Http\Controllers\BaseController;

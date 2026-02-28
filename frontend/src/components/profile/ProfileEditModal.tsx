@@ -14,47 +14,50 @@ import { ProfilePhotoSection } from './ProfilePhotoSection';
 import { PersonalInfoTab } from './PersonalInfoTab';
 import { ProfessionalInfoTab } from './ProfessionalInfoTab';
 import { EducationTab } from './EducationTab';
+import { ProfileResponse } from '@/services/profile';
 
 interface ProfileEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userId?: number;
-  onSuccess?: () => void;
+  profileData?: ProfileResponse | null;
+  onProfileUpdate?: (updatedProfile: ProfileResponse) => void;
 }
 
 export default function ProfileEditModal({
   isOpen,
   onClose,
-  userId,
-  onSuccess
+  profileData,
+  onProfileUpdate,
 }: ProfileEditModalProps) {
+  const handleSuccess = () => {
+    onClose();
+    onProfileUpdate?.(profileData!);
+  };
+
   const {
     // State
     activeTab,
     setActiveTab,
     avatarPreview,
     isSubmitting,
-    
+
     // Data
     profile,
     subjects,
     profileLoading,
-    
+
     // Form
     form,
-    
+
     // Actions
     handleAvatarChange,
+    handleRemoveAvatarPreview,
     handleSubmit,
     addArrayItem,
     removeArrayItem,
-  } = useProfileForm(isOpen, userId, onSuccess);
+  } = useProfileForm(isOpen, profileData, handleSuccess);
 
   const onSubmit = form.handleSubmit(handleSubmit);
-
-  const handleRemovePreview = () => {
-    // Logic to remove avatar preview
-  };
 
   if (profileLoading) {
     return (
@@ -82,10 +85,11 @@ export default function ProfileEditModal({
         <form onSubmit={onSubmit} className="space-y-6">
           {/* Profile Photo Section */}
           <ProfilePhotoSection
-            profile={profile}
+            userProfile={profile?.user?.profile}
+            avatarUrl={profile?.avatar_url}
             avatarPreview={avatarPreview}
             onAvatarChange={handleAvatarChange}
-            onRemovePreview={handleRemovePreview}
+            onRemovePreview={handleRemoveAvatarPreview}
           />
 
           {/* Tabs */}

@@ -72,7 +72,7 @@ const BulkAttendanceEntry: React.FC = () => {
     saveDirtySessions,
   } = useBulkAttendanceEntry();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
-    null
+    null,
   );
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [dialogSaving, setDialogSaving] = useState(false);
@@ -194,8 +194,8 @@ const BulkAttendanceEntry: React.FC = () => {
       lastSaveResult.session === "morning"
         ? "İlk dərs"
         : lastSaveResult.session === "evening"
-        ? "Son dərs"
-        : "";
+          ? "Son dərs"
+          : "";
 
     const IconComponent = icon;
 
@@ -265,6 +265,7 @@ const BulkAttendanceEntry: React.FC = () => {
               value={selectedDate}
               onChange={(e) => handleDateInputChange(e.target.value)}
               className="w-40"
+              data-testid="bulk-attendance-date"
             />
           </div>
         </div>
@@ -273,7 +274,8 @@ const BulkAttendanceEntry: React.FC = () => {
         <Alert variant="default">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            {hiddenClasses} sinif siyahıdan çıxarıldı (sistemdə artıq mövcud deyil).
+            {hiddenClasses} sinif siyahıdan çıxarıldı (sistemdə artıq mövcud
+            deyil).
           </AlertDescription>
         </Alert>
       )}
@@ -321,7 +323,12 @@ const BulkAttendanceEntry: React.FC = () => {
                   <Download className="h-4 w-4" />
                   <span>{isExporting ? "Endirilir..." : "Export"}</span>
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleRefreshClick}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshClick}
+                  data-testid="bulk-attendance-refresh"
+                >
                   Yenilə
                 </Button>
               </div>
@@ -329,7 +336,8 @@ const BulkAttendanceEntry: React.FC = () => {
             <div className="text-sm text-gray-600 space-y-1">
               <div>
                 <Users className="inline h-4 w-4 mr-1" />
-                <span className="font-medium">{classes.length}</span> aktiv sinif
+                <span className="font-medium">{classes.length}</span> aktiv
+                sinif
               </div>
               {hiddenClasses > 0 && (
                 <div className="text-xs text-amber-600">
@@ -419,9 +427,9 @@ const BulkAttendanceEntry: React.FC = () => {
             onClick={() => handleSaveSession("morning")}
             disabled={saveAttendanceMutation.isPending}
             className="flex items-center justify-center gap-2"
+            data-testid="bulk-attendance-save-morning"
           >
-            {saveAttendanceMutation.isPending &&
-            savingSession === "morning" ? (
+            {saveAttendanceMutation.isPending && savingSession === "morning" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Save className="h-4 w-4" />
@@ -432,9 +440,9 @@ const BulkAttendanceEntry: React.FC = () => {
             onClick={() => handleSaveSession("evening")}
             disabled={saveAttendanceMutation.isPending}
             className="flex items-center justify-center gap-2"
+            data-testid="bulk-attendance-save-evening"
           >
-            {saveAttendanceMutation.isPending &&
-            savingSession === "evening" ? (
+            {saveAttendanceMutation.isPending && savingSession === "evening" ? (
               <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <Save className="h-4 w-4" />
@@ -444,7 +452,10 @@ const BulkAttendanceEntry: React.FC = () => {
         </div>
       </div>
 
-      <AlertDialog open={showUnsavedDialog} onOpenChange={handleDialogOpenChange}>
+      <AlertDialog
+        open={showUnsavedDialog}
+        onOpenChange={handleDialogOpenChange}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Saxlanılmamış dəyişikliklər var</AlertDialogTitle>

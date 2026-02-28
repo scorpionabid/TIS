@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import {
@@ -10,14 +11,15 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { 
-  User, 
-  Settings, 
-  LogOut, 
-  Shield, 
-  Building2, 
+import {
+  User,
+  Settings,
+  LogOut,
+  Shield,
+  Building2,
   MapPin,
   Mail,
+  Phone,
   Clock,
   ChevronDown,
   Edit
@@ -75,6 +77,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProf
   const [isProfileEditOpen, setIsProfileEditOpen] = useState(false);
   const [isPasswordChangeOpen, setIsPasswordChangeOpen] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const loadProfileData = useCallback(async () => {
     try {
@@ -224,7 +227,7 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProf
           {/* Phone Info */}
           {profile?.contact_phone && (
             <div className="flex items-center space-x-3 text-sm">
-              <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+              <Phone className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <div className="min-w-0">
                 <p className="font-medium text-foreground truncate">{profile.contact_phone}</p>
                 <p className="text-xs text-muted-foreground">Telefon</p>
@@ -246,6 +249,10 @@ export const UserProfile: React.FC<UserProfileProps> = ({ user, onLogout, onProf
         <DropdownMenuSeparator />
 
         {/* Actions */}
+        <DropdownMenuItem className="cursor-pointer" onClick={() => navigate('/profile')}>
+          <User className="h-4 w-4 mr-3" />
+          Profilim
+        </DropdownMenuItem>
         <DropdownMenuItem className="cursor-pointer" onClick={handleEditProfile}>
           <Edit className="h-4 w-4 mr-3" />
           Profil Redaktə Et

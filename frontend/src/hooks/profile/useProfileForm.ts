@@ -1,66 +1,65 @@
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { profileService, ProfileResponse, ProfileUpdateData } from '@/services/profile';
-import { subjectService, subjectKeys } from '@/services/subjects';
+import { profileService, ProfileResponse, UpdateProfileData } from '@/services/profile';
+import { subjectService, Subject } from '@/services/subjects';
 import { useToast } from '@/hooks/use-toast';
 
-export const useProfileForm = (isOpen: boolean, userId?: number, onSuccess?: () => void) => {
+export const useProfileForm = (isOpen: boolean, initialProfileData?: ProfileResponse | null, onSuccess?: () => void) => {
   const [activeTab, setActiveTab] = useState('personal');
   const [avatar, setAvatar] = useState<File | null>(null);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const form = useForm<ProfileUpdateData>({
+  const form = useForm<UpdateProfileData>({
     defaultValues: {
-      first_name: '',
-      last_name: '',
+      username: '',
       email: '',
-      phone: '',
-      date_of_birth: '',
-      gender: '',
-      address: '',
-      bio: '',
-      emergency_contact: '',
-      blood_type: '',
-      nationality: '',
-      id_number: '',
-      position: '',
-      department: '',
-      hire_date: '',
-      salary: '',
-      experience_years: '',
-      education_level: '',
-      university: '',
-      graduation_year: '',
-      major: '',
-      certificates: [],
-      skills: [],
-      languages: [],
-      subject_specializations: [],
+      profile: {
+        first_name: '',
+        last_name: '',
+        patronymic: '',
+        birth_date: '',
+        gender: undefined,
+        contact_phone: '',
+        bio: '',
+      },
+      preferences: {
+        theme: 'auto',
+        language: 'az',
+        notifications: {
+          email: true,
+          browser: true,
+          sound: false,
+        },
+      },
     }
   });
 
-  // Load profile data
-  const { data: profile, isLoading: profileLoading } = useQuery({
-    queryKey: ['user-profile', userId],
-    queryFn: () => profileService.getProfile(userId),
-    enabled: isOpen && !!userId,
+  // Load profile data from server (always current user — no userId param)
+  const { data: profileData, isLoading: profileLoading } = useQuery({
+    queryKey: ['user-profile'],
+    queryFn: () => profileService.getProfile(),
+    enabled: isOpen,
+    staleTime: 1000 * 60 * 5, // 5 dəqiqə cache
   });
 
+  // Use server data, fall back to prop data
+  const profile = profileData ?? initialProfileData;
+
   // Load subjects data
-  const { data: subjects } = useQuery({
-    queryKey: subjectKeys.all,
-    queryFn: subjectService.getSubjects,
+  const { data: subjects } = useQuery<Subject[]>({
+    queryKey: ['subjects'],
+    queryFn: () => subjectService.getAll(),
     enabled: isOpen,
   });
 
   // Update profile mutation
   const updateMutation = useMutation({
-    mutationFn: (data: ProfileUpdateData) => profileService.updateProfile(userId!, data),
+    mutationFn: (data: UpdateProfileData) => profileService.updateProfile(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       toast({
@@ -69,10 +68,12 @@ export const useProfileForm = (isOpen: boolean, userId?: number, onSuccess?: () 
       });
       onSuccess?.();
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      const message = (error as { response?: { data?: { message?: string } } })
+        ?.response?.data?.message || 'Profil yenilənərkən xəta baş verdi';
       toast({
         title: 'Xəta',
-        description: error.response?.data?.message || 'Profil yenilənərkən xəta baş verdi',
+        description: message,
         variant: 'destructive',
       });
     },
@@ -80,7 +81,7 @@ export const useProfileForm = (isOpen: boolean, userId?: number, onSuccess?: () 
 
   // Upload avatar mutation
   const avatarMutation = useMutation({
-    mutationFn: (file: File) => profileService.uploadAvatar(userId!, file),
+    mutationFn: (file: File) => profileService.uploadAvatar(file),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-profile'] });
       setAvatar(null);
@@ -101,80 +102,73 @@ export const useProfileForm = (isOpen: boolean, userId?: number, onSuccess?: () 
 
   // Initialize form when profile data loads
   useEffect(() => {
-    if (profile?.data) {
-      const profileData = profile.data;
+    const user = profile?.user;
+    if (user) {
       form.reset({
-        first_name: profileData.first_name || '',
-        last_name: profileData.last_name || '',
-        email: profileData.email || '',
-        phone: profileData.phone || '',
-        date_of_birth: profileData.date_of_birth || '',
-        gender: profileData.gender || '',
-        address: profileData.address || '',
-        bio: profileData.bio || '',
-        emergency_contact: profileData.emergency_contact || '',
-        blood_type: profileData.blood_type || '',
-        nationality: profileData.nationality || '',
-        id_number: profileData.id_number || '',
-        position: profileData.position || '',
-        department: profileData.department || '',
-        hire_date: profileData.hire_date || '',
-        salary: profileData.salary || '',
-        experience_years: profileData.experience_years || '',
-        education_level: profileData.education_level || '',
-        university: profileData.university || '',
-        graduation_year: profileData.graduation_year || '',
-        major: profileData.major || '',
-        certificates: profileData.certificates || [],
-        skills: profileData.skills || [],
-        languages: profileData.languages || [],
-        subject_specializations: profileData.subject_specializations || [],
+        username: user.username || '',
+        email: user.email || '',
+        profile: {
+          first_name: user.profile?.first_name || '',
+          last_name: user.profile?.last_name || '',
+          patronymic: user.profile?.patronymic || '',
+          birth_date: user.profile?.birth_date || '',
+          gender: user.profile?.gender,
+          contact_phone: user.profile?.contact_phone || '',
+          bio: '',
+        },
+        preferences: {
+          theme: user.profile?.preferences?.theme || 'auto',
+          language: user.profile?.preferences?.language || 'az',
+          notifications: {
+            email: user.profile?.preferences?.notifications?.email ?? true,
+            browser: user.profile?.preferences?.notifications?.browser ?? true,
+            sound: user.profile?.preferences?.notifications?.sound ?? false,
+          },
+        },
       });
     }
   }, [profile, form]);
 
   const handleAvatarChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast({
-          title: 'Xəta',
-          description: 'Şəkil ölçüsü 5MB-dan çox ola bilməz',
-          variant: 'destructive',
-        });
-        return;
-      }
+    if (!file) return;
 
-      setAvatar(file);
-      const reader = new FileReader();
-      reader.onload = () => setAvatarPreview(reader.result as string);
-      reader.readAsDataURL(file);
+    const validation = profileService.validateAvatarFile(file);
+    if (!validation.valid) {
+      toast({
+        title: 'Xəta',
+        description: validation.error,
+        variant: 'destructive',
+      });
+      return;
     }
+
+    setAvatar(file);
+    const reader = new FileReader();
+    reader.onload = () => setAvatarPreview(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
-  const handleSubmit = async (data: ProfileUpdateData) => {
+  const handleRemoveAvatarPreview = () => {
+    setAvatar(null);
+    setAvatarPreview(null);
+  };
+
+  // Placeholder array helpers — ProfessionalInfoTab üçün saxlanılır (Phase 2-də refactor ediləcək)
+  const addArrayItem = (_field: string, _value: string) => {};
+  const removeArrayItem = (_field: string, _index: number) => {};
+
+  const handleSubmit = async (data: UpdateProfileData) => {
     setIsSubmitting(true);
     try {
       await updateMutation.mutateAsync(data);
-      
+
       if (avatar) {
         await avatarMutation.mutateAsync(avatar);
       }
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const addArrayItem = (field: keyof ProfileUpdateData, value: string) => {
-    const currentValues = form.getValues(field) as string[];
-    if (value.trim() && !currentValues.includes(value.trim())) {
-      form.setValue(field, [...currentValues, value.trim()]);
-    }
-  };
-
-  const removeArrayItem = (field: keyof ProfileUpdateData, index: number) => {
-    const currentValues = form.getValues(field) as string[];
-    form.setValue(field, currentValues.filter((_, i) => i !== index));
   };
 
   return {
@@ -184,21 +178,22 @@ export const useProfileForm = (isOpen: boolean, userId?: number, onSuccess?: () 
     avatar,
     avatarPreview,
     isSubmitting,
-    
+
     // Data
-    profile: profile?.data,
-    subjects: subjects?.data || [],
+    profile,
+    subjects: subjects || [],
     profileLoading,
-    
+
     // Form
     form,
-    
+
     // Actions
     handleAvatarChange,
+    handleRemoveAvatarPreview,
     handleSubmit,
     addArrayItem,
     removeArrayItem,
-    
+
     // Mutations
     updateMutation,
     avatarMutation,

@@ -109,9 +109,12 @@ export interface ChangePasswordData {
 
 export interface ActivityRecord {
   id: number;
+  activity_type: string;
+  entity_type?: string;
+  entity_id?: number;
   description: string;
-  subject_type?: string;
-  subject_id?: number;
+  properties?: Record<string, unknown>;
+  ip_address?: string;
   created_at: string;
 }
 
