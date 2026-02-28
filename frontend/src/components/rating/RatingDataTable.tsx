@@ -8,9 +8,24 @@ import {
     TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Save } from 'lucide-react';
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipProvider,
+    TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
+    ClipboardList,
+    MessageSquare,
+    CalendarCheck,
+    CheckSquare,
+    ExternalLink,
+    SlidersHorizontal,
+    Trophy,
+    Users,
+    Pencil,
+} from 'lucide-react';
 import {
     Pagination,
     PaginationContent,
@@ -22,10 +37,32 @@ import {
 } from '@/components/ui/pagination';
 import { RatingItem, PaginatedResponse } from '@/types/rating';
 
-interface EditingCell {
-    itemId: number;
-    field: 'task_score' | 'survey_score' | 'manual_score';
-}
+const CATEGORY_LABELS: Record<string, string> = {
+    region_contribution: 'Region təhsilinə tövhə',
+    sector_contribution: 'Rayon/Sektor tövhəsi',
+    documents_ok: 'Sənədlər qaydasında',
+    attendance_ok: 'Davamiyyət qaydasında',
+    teaching_quality_high: 'Tədris keyfiyyəti yüksək',
+    parent_relations_good: 'Valideynlərlə iş nümunəvi',
+    digital_env_ok: 'Rəqəmsal mühit qurulub',
+    monitoring_positive: 'Monitorinq müsbət',
+    self_development: 'Özünütəhsil fəaliyyəti',
+    teacher_management_good: 'Müəllimlər ilə iş yaxşı',
+    documents_fail: 'Sənədlər qaydasında deyil',
+    attendance_fail: 'Davamiyyət qaydasında deyil',
+    teaching_quality_low: 'Tədris keyfiyyəti aşağı',
+    parent_relations_weak: 'Valideynlərlə iş zəif',
+    digital_env_fail: 'Rəqəmsal mühit yoxdur',
+    monitoring_negative: 'Monitorinq nöqsanlar',
+    teacher_management_weak: 'Müəllimlər ilə iş zəif',
+    admin_violations: 'İnzibati nöqsanlar',
+};
+
+const POSITIVE_CATEGORY_VALUES = new Set([
+    'region_contribution', 'sector_contribution', 'documents_ok',
+    'attendance_ok', 'teaching_quality_high', 'parent_relations_good',
+    'digital_env_ok', 'monitoring_positive', 'self_development', 'teacher_management_good',
+]);
 
 interface RatingDataTableProps {
     data: RatingItem[];
@@ -34,14 +71,7 @@ interface RatingDataTableProps {
     selectedItems: number[];
     onSelectItem: (id: number) => void;
     onSelectAll: (checked: boolean) => void;
-    editingCell: EditingCell | null;
-    onCellClick: (itemId: number, field: EditingCell['field']) => void;
-    onCellChange: (itemId: number, field: EditingCell['field'], value: string) => void;
-    onCellBlur: () => void;
-    onKeyDown: (e: React.KeyboardEvent) => void;
-    onSaveItem: (id: number) => void;
-    pendingChanges: Record<number, Partial<Pick<RatingItem, 'task_score' | 'survey_score' | 'manual_score'>>>;
-    savingId: number | null;
+    onManualScoreEdit: (item: RatingItem) => void;
     variant?: 'school' | 'sector';
 }
 
@@ -52,67 +82,147 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
     selectedItems,
     onSelectItem,
     onSelectAll,
-    editingCell,
-    onCellClick,
-    onCellChange,
-    onCellBlur,
-    onKeyDown,
-    onSaveItem,
-    pendingChanges,
-    savingId,
-    variant = 'school'
+    onManualScoreEdit,
+    variant = 'school',
 }) => {
     const isSector = variant === 'sector';
+
     const getRatingBadge = (score: number) => {
-        if (score >= 5) return { text: 'Əla', variant: 'default' as const, className: 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' };
-        if (score >= 3) return { text: 'Yaxşı', variant: 'secondary' as const, className: 'bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200' };
-        if (score >= 1) return { text: 'Orta', variant: 'outline' as const, className: 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100 border-yellow-200' };
-        if (score >= 0) return { text: 'Zəif', variant: 'destructive' as const, className: 'bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200' };
-        return { text: 'Mənfi', variant: 'destructive' as const, className: 'bg-red-100 text-red-700 hover:bg-red-100 border-red-200' };
+        if (score >= 5) return { text: 'Əla', className: 'bg-green-100 text-green-700 border-green-200' };
+        if (score >= 3) return { text: 'Yaxşı', className: 'bg-blue-100 text-blue-700 border-blue-200' };
+        if (score >= 1) return { text: 'Orta', className: 'bg-yellow-100 text-yellow-700 border-yellow-200' };
+        if (score >= 0) return { text: 'Zəif', className: 'bg-orange-100 text-orange-700 border-orange-200' };
+        return { text: 'Mənfi', className: 'bg-red-100 text-red-700 border-red-200' };
     };
 
     const getStatusBadge = (status: string) => {
         switch (status) {
             case 'published':
-                return <Badge className="bg-green-500 hover:bg-green-600">Aktiv</Badge>;
+                return <Badge className="bg-green-500 hover:bg-green-600 text-[10px] px-1.5 py-0 h-4">Aktiv</Badge>;
             case 'archived':
-                return <Badge variant="secondary">Arxiv</Badge>;
+                return <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">Arxiv</Badge>;
             default:
-                return <Badge variant="outline">Qaralama</Badge>;
+                return <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4">Qaralama</Badge>;
         }
     };
+
+    const scoreCell = (
+        value: number,
+        tooltipText: string,
+        isNegativeColored = true
+    ) => (
+        <TooltipProvider delayDuration={200}>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className={`inline-block min-w-[2.5rem] px-2 py-0.5 rounded font-medium text-center text-sm ${
+                        isNegativeColored && value < 0 ? 'text-red-600' : 'text-gray-700'
+                    }`}>
+                        {value}
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs max-w-[200px]">
+                    {tooltipText}
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
+
+    const iconHead = (icon: React.ReactNode, tooltip: string) => (
+        <TooltipProvider delayDuration={200}>
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <div className="flex items-center justify-center cursor-default">
+                        {icon}
+                    </div>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                    {tooltip}
+                </TooltipContent>
+            </Tooltip>
+        </TooltipProvider>
+    );
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
             <Table>
                 <TableHeader className="bg-gray-50/50">
                     <TableRow>
-                        <TableHead className="w-12 text-center">
+                        <TableHead className="w-10 text-center">
                             <Checkbox
                                 checked={data.length > 0 && selectedItems.length === data.length}
                                 onCheckedChange={(checked) => onSelectAll(!!checked)}
                             />
                         </TableHead>
-                        <TableHead className="font-semibold text-gray-700">{isSector ? 'Sektor Admin' : 'Direktor'}</TableHead>
-                        <TableHead className="font-semibold text-gray-700">Müəssisə</TableHead>
-                        <TableHead className="text-center font-semibold text-gray-700">Task</TableHead>
-                        <TableHead className="text-center font-semibold text-gray-700">Survey</TableHead>
-                        <TableHead className="text-center font-semibold text-gray-700">{isSector ? 'Təsdiq' : 'Davamiyyət'}</TableHead>
-                        <TableHead className="text-center font-semibold text-gray-700">Link</TableHead>
-                        <TableHead className="text-center font-semibold text-gray-700">Manual</TableHead>
-                        <TableHead className="text-center font-semibold text-gray-700">Ümumi</TableHead>
-                        <TableHead className="text-center font-semibold text-gray-700">Status</TableHead>
-                        <TableHead className="text-right font-semibold text-gray-700 pr-6">Əməliyyat</TableHead>
+
+                        {/* Merged: Institution + Director */}
+                        <TableHead className="font-semibold text-gray-700 min-w-[200px]">
+                            {isSector ? 'Sektor Admin' : 'Müəssisə / Direktor'}
+                        </TableHead>
+
+                        {/* Icon headers */}
+                        <TableHead className="w-12 text-center">
+                            {iconHead(
+                                <ClipboardList className="h-4 w-4 text-gray-500" />,
+                                'Tapşırıq balı (auto-hesablanan)'
+                            )}
+                        </TableHead>
+                        <TableHead className="w-12 text-center">
+                            {iconHead(
+                                <MessageSquare className="h-4 w-4 text-gray-500" />,
+                                'Sorğu balı (auto-hesablanan)'
+                            )}
+                        </TableHead>
+                        <TableHead className="w-12 text-center">
+                            {iconHead(
+                                isSector
+                                    ? <CheckSquare className="h-4 w-4 text-gray-500" />
+                                    : <CalendarCheck className="h-4 w-4 text-gray-500" />,
+                                isSector
+                                    ? 'Təsdiq balı (auto-hesablanan)'
+                                    : 'Davamiyyət balı (auto-hesablanan)'
+                            )}
+                        </TableHead>
+                        <TableHead className="w-12 text-center">
+                            {iconHead(
+                                <ExternalLink className="h-4 w-4 text-gray-500" />,
+                                'Link balı (auto-hesablanan)'
+                            )}
+                        </TableHead>
+
+                        {/* Manual — wider column */}
+                        <TableHead className="min-w-[180px] font-semibold text-gray-700">
+                            {iconHead(
+                                <div className="flex items-center gap-1.5">
+                                    <SlidersHorizontal className="h-4 w-4 text-blue-600" />
+                                    <span className="text-xs font-semibold text-gray-700">Manual</span>
+                                </div>,
+                                'Manual bal — admin tərəfindən əl ilə verilir'
+                            )}
+                        </TableHead>
+
+                        <TableHead className="w-16 text-center">
+                            {iconHead(
+                                <Trophy className="h-4 w-4 text-amber-500" />,
+                                'Ümumi bal (task + survey + davamiyyət/təsdiq + link + manual)'
+                            )}
+                        </TableHead>
+
+                        <TableHead className="w-20 text-center font-semibold text-gray-700">
+                            Status
+                        </TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {data.map((item) => {
                         const rowId = item.id || item.user_id;
                         const badge = getRatingBadge(Number(item.overall_score) || 0);
-                        const hasPending = !!pendingChanges[rowId];
-                        const isSaving = savingId === rowId;
-                        const isEditingCell = (field: EditingCell['field']) =>
-                            editingCell?.itemId === rowId && editingCell?.field === field;
+                        const hasCategory = !!item.manual_score_category;
+                        const isPositiveCat = item.manual_score_category
+                            ? POSITIVE_CATEGORY_VALUES.has(item.manual_score_category)
+                            : true;
+                        const categoryLabel = item.manual_score_category
+                            ? CATEGORY_LABELS[item.manual_score_category] ?? item.manual_score_category
+                            : null;
 
                         return (
                             <TableRow key={rowId} className="hover:bg-blue-50/30 transition-colors">
@@ -122,135 +232,116 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                                         onCheckedChange={() => onSelectItem(rowId)}
                                     />
                                 </TableCell>
-                                <TableCell>
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center border border-blue-200">
-                                            <Users className="h-4 w-4 text-blue-600" />
-                                        </div>
-                                        <div>
-                                            <div className="font-semibold text-gray-900">{item.user?.full_name || 'Bilinməyən'}</div>
-                                            <div className="text-xs text-muted-foreground">{item.user?.email || '-'}</div>
-                                        </div>
+
+                                {/* Merged institution + director cell */}
+                                <TableCell className="py-2.5">
+                                    <div className="font-semibold text-sm text-gray-900 leading-tight truncate max-w-[240px]">
+                                        {item.institution?.name || '—'}
                                     </div>
-                                </TableCell>
-                                <TableCell className="max-w-[200px] truncate text-sm text-gray-600">
-                                    {item.institution?.name || '-'}
-                                </TableCell>
-
-                                {(['task_score', 'survey_score'] as const).map((field) => (
-                                    <TableCell key={field} className="text-center">
-                                        {isEditingCell(field) ? (
-                                            <input
-                                                type="number"
-                                                step="1"
-                                                value={item[field] ?? 0}
-                                                onChange={(e) => onCellChange(rowId, field, e.target.value)}
-                                                onBlur={onCellBlur}
-                                                onKeyDown={onKeyDown}
-                                                autoFocus
-                                                className="w-16 text-center border-2 border-blue-400 rounded-md px-1 py-0.5 focus:outline-none ring-2 ring-blue-100 text-sm font-bold"
-                                            />
-                                        ) : (
-                                            <div
-                                                onClick={() => onCellClick(rowId, field)}
-                                                className={`inline-block min-w-[3rem] cursor-pointer hover:bg-blue-100 hover:text-blue-700 px-2 py-1 rounded transition-colors font-medium ${pendingChanges[rowId]?.[field] !== undefined ? 'text-blue-600 bg-blue-50 ring-1 ring-blue-200' : 'text-gray-700'
-                                                    }`}
-                                            >
-                                                {Number(item[field]) || 0}
-                                            </div>
-                                        )}
-                                    </TableCell>
-                                ))}
-
-                                {/* Attendance/Approval score (read-only, auto-calculated) */}
-                                <TableCell className="text-center">
-                                    {isSector ? (
-                                        <div
-                                            className="inline-block min-w-[3rem] px-2 py-1 rounded font-medium text-gray-700"
-                                            title={item.score_details ? `Vaxtında: ${item.score_details.approved_on_time ?? 0} | Gecikmiş: ${item.score_details.approved_late ?? 0} | Gözləyən: ${item.score_details.approval_pending_overdue ?? 0} | Cəmi: ${item.score_details.approval_total ?? 0}` : 'Hesablanmayıb'}
-                                        >
-                                            <span className={Number(item.approval_score) < 0 ? 'text-red-600' : ''}>
-                                                {Number(item.approval_score) || 0}
-                                            </span>
-                                        </div>
-                                    ) : (
-                                        <div
-                                            className="inline-block min-w-[3rem] px-2 py-1 rounded font-medium text-gray-700"
-                                            title={item.score_details ? `Vaxtında: ${item.score_details.attendance_on_time ?? 0} | Buraxılmış: ${item.score_details.attendance_missed ?? 0} | Cəmi gün: ${item.score_details.attendance_total_days ?? 0}` : 'Hesablanmayıb'}
-                                        >
-                                            <span className={Number(item.attendance_score) < 0 ? 'text-red-600' : ''}>
-                                                {Number(item.attendance_score) || 0}
-                                            </span>
-                                        </div>
-                                    )}
-                                </TableCell>
-
-                                {/* Link score (read-only, auto-calculated) */}
-                                <TableCell className="text-center">
-                                    <div
-                                        className="inline-block min-w-[3rem] px-2 py-1 rounded font-medium text-gray-700"
-                                        title={item.score_details ? `Açılmış: ${item.score_details.links_opened ?? 0} | Açılmamış: ${item.score_details.links_missed ?? 0} | Cəmi: ${item.score_details.links_total ?? 0}` : 'Hesablanmayıb'}
-                                    >
-                                        <span className={Number(item.link_score) < 0 ? 'text-red-600' : ''}>
-                                            {Number(item.link_score) || 0}
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                        <Users className="h-3 w-3 text-gray-400 flex-shrink-0" />
+                                        <span className="text-xs text-muted-foreground truncate max-w-[220px]">
+                                            {item.user?.full_name || 'Bilinməyən'}
                                         </span>
                                     </div>
                                 </TableCell>
 
-                                {/* Manual score (editable) */}
-                                <TableCell className="text-center">
-                                    {isEditingCell('manual_score') ? (
-                                        <input
-                                            type="number"
-                                            min={-100}
-                                            max={100}
-                                            step="1"
-                                            value={item.manual_score ?? 0}
-                                            onChange={(e) => onCellChange(rowId, 'manual_score', e.target.value)}
-                                            onBlur={onCellBlur}
-                                            onKeyDown={onKeyDown}
-                                            autoFocus
-                                            className="w-16 text-center border-2 border-blue-400 rounded-md px-1 py-0.5 focus:outline-none ring-2 ring-blue-100 text-sm font-bold"
-                                        />
-                                    ) : (
-                                        <div
-                                            onClick={() => onCellClick(rowId, 'manual_score')}
-                                            className={`inline-block min-w-[3rem] cursor-pointer hover:bg-blue-100 hover:text-blue-700 px-2 py-1 rounded transition-colors font-medium ${pendingChanges[rowId]?.manual_score !== undefined ? 'text-blue-600 bg-blue-50 ring-1 ring-blue-200' : 'text-gray-700'
-                                                }`}
-                                        >
-                                            {Number(item.manual_score) || 0}
-                                        </div>
+                                {/* Task score (read-only) */}
+                                <TableCell className="text-center p-2">
+                                    {scoreCell(
+                                        Number(item.task_score) || 0,
+                                        item.score_details
+                                            ? `Vaxtında: ${item.score_details.tasks_on_time ?? 0} | Gecikmiş: ${item.score_details.tasks_late ?? 0} | Cəmi: ${item.score_details.tasks_total ?? 0}`
+                                            : 'Hesablanmayıb'
                                     )}
                                 </TableCell>
 
-                                <TableCell className="text-center">
-                                    <div className="flex flex-col items-center gap-1">
-                                        <span className={`font-bold text-lg ${Number(item.overall_score) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                                {/* Survey score (read-only) */}
+                                <TableCell className="text-center p-2">
+                                    {scoreCell(
+                                        Number(item.survey_score) || 0,
+                                        item.score_details
+                                            ? `Vaxtında: ${item.score_details.surveys_on_time ?? 0} | Gecikmiş: ${item.score_details.surveys_late ?? 0} | Cəmi: ${item.score_details.surveys_total ?? 0}`
+                                            : 'Hesablanmayıb'
+                                    )}
+                                </TableCell>
+
+                                {/* Attendance / Approval score (read-only) */}
+                                <TableCell className="text-center p-2">
+                                    {isSector
+                                        ? scoreCell(
+                                            Number(item.approval_score) || 0,
+                                            item.score_details
+                                                ? `Vaxtında: ${item.score_details.approved_on_time ?? 0} | Gecikmiş: ${item.score_details.approved_late ?? 0} | Gözləyən: ${item.score_details.approval_pending_overdue ?? 0} | Cəmi: ${item.score_details.approval_total ?? 0}`
+                                                : 'Hesablanmayıb'
+                                        )
+                                        : scoreCell(
+                                            Number(item.attendance_score) || 0,
+                                            item.score_details
+                                                ? `Vaxtında: ${item.score_details.attendance_on_time ?? 0} | Buraxılmış: ${item.score_details.attendance_missed ?? 0} | Cəmi gün: ${item.score_details.attendance_total_days ?? 0}`
+                                                : 'Hesablanmayıb'
+                                        )
+                                    }
+                                </TableCell>
+
+                                {/* Link score (read-only) */}
+                                <TableCell className="text-center p-2">
+                                    {scoreCell(
+                                        Number(item.link_score) || 0,
+                                        item.score_details
+                                            ? `Açılmış: ${item.score_details.links_opened ?? 0} | Açılmamış: ${item.score_details.links_missed ?? 0} | Cəmi: ${item.score_details.links_total ?? 0}`
+                                            : 'Hesablanmayıb'
+                                    )}
+                                </TableCell>
+
+                                {/* Manual score — click to edit via dialog */}
+                                <TableCell className="p-2">
+                                    <button
+                                        onClick={() => onManualScoreEdit(item)}
+                                        className="w-full flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-blue-50 transition-colors group text-left"
+                                        title="Manual balı dəyişdir"
+                                    >
+                                        <span className={`font-bold text-sm min-w-[2rem] text-center ${
+                                            Number(item.manual_score) < 0
+                                                ? 'text-red-600'
+                                                : Number(item.manual_score) > 0
+                                                    ? 'text-green-700'
+                                                    : 'text-gray-500'
+                                        }`}>
+                                            {Number(item.manual_score) > 0 ? '+' : ''}{Number(item.manual_score) || 0}
+                                        </span>
+                                        <div className="flex-1 min-w-0">
+                                            {hasCategory ? (
+                                                <span className={`inline-block text-[10px] px-1.5 py-0.5 rounded-full border font-medium leading-tight truncate max-w-[130px] ${
+                                                    isPositiveCat
+                                                        ? 'bg-green-50 text-green-700 border-green-200'
+                                                        : 'bg-red-50 text-red-700 border-red-200'
+                                                }`}>
+                                                    {categoryLabel}
+                                                </span>
+                                            ) : (
+                                                <span className="text-[10px] text-gray-400 italic">kateqoriya yoxdur</span>
+                                            )}
+                                        </div>
+                                        <Pencil className="h-3 w-3 text-gray-300 group-hover:text-blue-500 flex-shrink-0 mt-0.5 transition-colors" />
+                                    </button>
+                                </TableCell>
+
+                                {/* Overall score */}
+                                <TableCell className="text-center p-2">
+                                    <div className="flex flex-col items-center gap-0.5">
+                                        <span className={`font-bold text-base ${Number(item.overall_score) < 0 ? 'text-red-600' : 'text-gray-900'}`}>
                                             {Number(item.overall_score) || 0}
                                         </span>
-                                        <Badge variant={badge.variant} className={`text-[10px] px-1.5 py-0 h-4 border ${badge.className}`}>
+                                        <Badge variant="outline" className={`text-[10px] px-1.5 py-0 h-4 border ${badge.className}`}>
                                             {badge.text}
                                         </Badge>
                                     </div>
                                 </TableCell>
 
-                                <TableCell className="text-center">
+                                {/* Status */}
+                                <TableCell className="text-center p-2">
                                     {getStatusBadge(item.status)}
-                                </TableCell>
-
-                                <TableCell className="text-right pr-6">
-                                    {hasPending && (
-                                        <Button
-                                            onClick={() => onSaveItem(rowId)}
-                                            variant="default"
-                                            size="sm"
-                                            disabled={isSaving}
-                                            className="h-8 bg-green-600 hover:bg-green-700"
-                                        >
-                                            <Save className="h-3 w-3 mr-1" />
-                                            {isSaving ? '...' : 'Saxla'}
-                                        </Button>
-                                    )}
                                 </TableCell>
                             </TableRow>
                         );
@@ -264,14 +355,17 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                         <Users className="h-10 w-10 text-gray-300" />
                     </div>
                     <h3 className="text-lg font-medium text-gray-900">Məlumat tapılmadı</h3>
-                    <p className="text-sm">Seçilmiş kriteriyalara uyğun heç bir {isSector ? 'sektor admin' : 'direktor'} reytinqi mövcud deyil.</p>
+                    <p className="text-sm">
+                        Seçilmiş kriteriyalara uyğun heç bir {isSector ? 'sektor admin' : 'direktor'} reytinqi mövcud deyil.
+                    </p>
                 </div>
             )}
 
             {pagination && pagination.last_page > 1 && (
                 <div className="p-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
                     <div className="text-sm text-muted-foreground">
-                        Toplam <strong>{pagination.total}</strong> qeyddən <strong>{pagination.from}-{pagination.to}</strong> arası göstərilir
+                        Toplam <strong>{pagination.total}</strong> qeyddən{' '}
+                        <strong>{pagination.from}-{pagination.to}</strong> arası göstərilir
                     </div>
                     <Pagination className="mx-0 w-auto">
                         <PaginationContent>

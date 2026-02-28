@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, RefreshCw, Save, Trash2, Download, Users, Filter } from 'lucide-react';
+import { Search, RefreshCw, Save, Trash2, Download, Filter, CalendarDays } from 'lucide-react';
 import {
     Select,
     SelectContent,
@@ -9,6 +9,23 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+
+const AZ_MONTHS = [
+    'Yanvar', 'Fevral', 'Mart', 'Aprel', 'May', 'İyun',
+    'İyul', 'Avqust', 'Sentyabr', 'Oktyabr', 'Noyabr', 'Dekabr',
+];
+
+function generatePeriodOptions(count = 18): { value: string; label: string }[] {
+    const options = [];
+    const now = new Date();
+    for (let i = 0; i < count; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const label = `${AZ_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+        options.push({ value, label });
+    }
+    return options;
+}
 
 interface RatingActionToolbarProps {
     searchTerm: string;
@@ -21,6 +38,8 @@ interface RatingActionToolbarProps {
     loading?: boolean;
     status?: string;
     onStatusChange?: (value: string) => void;
+    period?: string;
+    onPeriodChange?: (value: string) => void;
 }
 
 export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
@@ -33,12 +52,16 @@ export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
     selectedCount,
     loading,
     status,
-    onStatusChange
+    onStatusChange,
+    period,
+    onPeriodChange,
 }) => {
+    const periodOptions = useMemo(() => generatePeriodOptions(18), []);
+
     return (
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-gray-100">
             <div className="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-                <div className="relative w-full md:w-72">
+                <div className="relative w-full md:w-64">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
                         placeholder="Axtarış..."
@@ -47,6 +70,22 @@ export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
                         className="pl-10 h-10 border-gray-200 focus:ring-blue-500"
                     />
                 </div>
+
+                {period !== undefined && onPeriodChange && (
+                    <Select value={period} onValueChange={onPeriodChange}>
+                        <SelectTrigger className="w-full md:w-44 h-10 border-gray-200">
+                            <CalendarDays className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
+                            <SelectValue placeholder="Ay seçin" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {periodOptions.map((opt) => (
+                                <SelectItem key={opt.value} value={opt.value}>
+                                    {opt.label}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
 
                 {status !== undefined && onStatusChange && (
                     <Select value={status} onValueChange={onStatusChange}>

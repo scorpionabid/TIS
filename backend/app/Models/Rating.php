@@ -27,6 +27,8 @@ class Rating extends Model
         'approval_score',
         'link_score',
         'manual_score',
+        'manual_score_category',
+        'manual_score_reason',
         'score_details',
         // PRD-yə uyğun yeni komponent skorları
         'academic_score',

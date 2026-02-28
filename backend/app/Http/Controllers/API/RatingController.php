@@ -198,6 +198,8 @@ class RatingController extends BaseController
                 'approval_score' => 'nullable|numeric',
                 'link_score' => 'nullable|numeric',
                 'manual_score' => 'nullable|numeric|min:-100|max:100',
+                'manual_score_category' => 'nullable|string|max:100',
+                'manual_score_reason' => 'nullable|string|max:1000',
                 'metadata' => 'nullable|array',
             ]);
 
@@ -240,6 +242,8 @@ class RatingController extends BaseController
                 'approval_score' => 'nullable|numeric',
                 'link_score' => 'nullable|numeric',
                 'manual_score' => 'nullable|numeric|min:-100|max:100',
+                'manual_score_category' => 'nullable|string|max:100',
+                'manual_score_reason' => 'nullable|string|max:1000',
                 'status' => 'nullable|in:draft,published,archived',
                 'metadata' => 'nullable|array',
             ]);
