@@ -64,6 +64,7 @@ export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
                 <div className="relative w-full md:w-64">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                     <Input
+                        data-testid="rating-search"
                         placeholder="Axtarış..."
                         value={searchTerm}
                         onChange={(e) => onSearchChange(e.target.value)}
@@ -73,7 +74,7 @@ export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
 
                 {period !== undefined && onPeriodChange && (
                     <Select value={period} onValueChange={onPeriodChange}>
-                        <SelectTrigger className="w-full md:w-44 h-10 border-gray-200">
+                        <SelectTrigger data-testid="rating-period-select" className="w-full md:w-44 h-10 border-gray-200">
                             <CalendarDays className="h-4 w-4 mr-2 text-gray-400 flex-shrink-0" />
                             <SelectValue placeholder="Ay seçin" />
                         </SelectTrigger>
@@ -89,7 +90,7 @@ export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
 
                 {status !== undefined && onStatusChange && (
                     <Select value={status} onValueChange={onStatusChange}>
-                        <SelectTrigger className="w-full md:w-40 h-10 border-gray-200">
+                        <SelectTrigger data-testid="rating-status-select" className="w-full md:w-40 h-10 border-gray-200">
                             <Filter className="h-4 w-4 mr-2 text-gray-400" />
                             <SelectValue placeholder="Status" />
                         </SelectTrigger>
@@ -105,6 +106,7 @@ export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
 
             <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
                 <Button
+                    data-testid="rating-refresh-btn"
                     onClick={onCalculateAll}
                     variant="default"
                     size="sm"
@@ -142,6 +144,7 @@ export const RatingActionToolbar: React.FC<RatingActionToolbarProps> = ({
                 <div className="h-6 w-px bg-gray-200 mx-1 hidden md:block" />
 
                 <Button
+                    data-testid="rating-export-btn"
                     onClick={onExport}
                     variant="outline"
                     size="sm"

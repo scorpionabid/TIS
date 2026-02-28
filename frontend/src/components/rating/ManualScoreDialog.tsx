@@ -114,7 +114,7 @@ export const ManualScoreDialog: React.FC<ManualScoreDialogProps> = ({
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-            <DialogContent className="sm:max-w-[480px]">
+            <DialogContent className="sm:max-w-[480px]" data-testid="manual-score-dialog">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-base">
                         <span className="text-gray-500 font-normal">Manual Bal —</span>
@@ -129,7 +129,7 @@ export const ManualScoreDialog: React.FC<ManualScoreDialogProps> = ({
                             Kateqoriya <span className="text-red-500">*</span>
                         </Label>
                         <Select value={category} onValueChange={handleCategoryChange}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger className="w-full" data-testid="manual-score-category-trigger">
                                 <SelectValue placeholder="Kateqoriya seçin..." />
                             </SelectTrigger>
                             <SelectContent>
@@ -164,6 +164,7 @@ export const ManualScoreDialog: React.FC<ManualScoreDialogProps> = ({
                         <Label className="text-sm font-medium text-gray-700">Bal miqdarı</Label>
                         <div className="flex items-center gap-3">
                             <div
+                                data-testid="manual-score-sign"
                                 className={`flex items-center justify-center w-10 h-10 rounded-lg font-bold text-lg select-none ${
                                     category
                                         ? isPositive
@@ -175,6 +176,7 @@ export const ManualScoreDialog: React.FC<ManualScoreDialogProps> = ({
                                 {category ? (isPositive ? '+' : '−') : '±'}
                             </div>
                             <input
+                                data-testid="manual-score-input"
                                 type="number"
                                 min={1}
                                 max={100}
@@ -204,6 +206,7 @@ export const ManualScoreDialog: React.FC<ManualScoreDialogProps> = ({
                             <span className="text-xs font-normal text-muted-foreground">(istəyə bağlı)</span>
                         </Label>
                         <Textarea
+                            data-testid="manual-score-reason"
                             value={reason}
                             onChange={(e) => setReason(e.target.value.slice(0, 500))}
                             placeholder="Balın verilmə səbəbi, xüsusi qeydlər..."
@@ -217,7 +220,7 @@ export const ManualScoreDialog: React.FC<ManualScoreDialogProps> = ({
 
                     {/* Preview row */}
                     {category && (
-                        <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-sm space-y-1">
+                        <div data-testid="manual-score-preview" className="bg-gray-50 rounded-lg p-3 border border-gray-200 text-sm space-y-1">
                             <div className="flex justify-between">
                                 <span className="text-gray-500">Kateqoriya:</span>
                                 <span className="font-medium text-gray-800">{categoryLabel}</span>
@@ -237,10 +240,11 @@ export const ManualScoreDialog: React.FC<ManualScoreDialogProps> = ({
                 </div>
 
                 <DialogFooter className="gap-2">
-                    <Button variant="outline" onClick={onClose} disabled={saving}>
+                    <Button data-testid="manual-score-cancel" variant="outline" onClick={onClose} disabled={saving}>
                         Ləğv et
                     </Button>
                     <Button
+                        data-testid="manual-score-save"
                         onClick={handleSave}
                         disabled={!canSave || saving}
                         className="bg-blue-600 hover:bg-blue-700"

@@ -144,11 +144,12 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
 
     return (
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-            <Table>
+            <Table data-testid="rating-table">
                 <TableHeader className="bg-gray-50/50">
                     <TableRow>
                         <TableHead className="w-10 text-center">
                             <Checkbox
+                                data-testid="rating-select-all"
                                 checked={data.length > 0 && selectedItems.length === data.length}
                                 onCheckedChange={(checked) => onSelectAll(!!checked)}
                             />
@@ -225,9 +226,10 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                             : null;
 
                         return (
-                            <TableRow key={rowId} className="hover:bg-blue-50/30 transition-colors">
+                            <TableRow key={rowId} data-testid={`rating-row-${rowId}`} className="hover:bg-blue-50/30 transition-colors">
                                 <TableCell className="text-center">
                                     <Checkbox
+                                        data-testid={`rating-select-${rowId}`}
                                         checked={selectedItems.includes(rowId)}
                                         onCheckedChange={() => onSelectItem(rowId)}
                                     />
@@ -297,6 +299,7 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                                 {/* Manual score — click to edit via dialog */}
                                 <TableCell className="p-2">
                                     <button
+                                        data-testid={`rating-manual-edit-${rowId}`}
                                         onClick={() => onManualScoreEdit(item)}
                                         className="w-full flex items-start gap-2 px-2 py-1.5 rounded-lg hover:bg-blue-50 transition-colors group text-left"
                                         title="Manual balı dəyişdir"
@@ -350,7 +353,7 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
             </Table>
 
             {data.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                <div data-testid="rating-empty-state" className="flex flex-col items-center justify-center py-16 text-muted-foreground">
                     <div className="bg-gray-50 p-4 rounded-full mb-4">
                         <Users className="h-10 w-10 text-gray-300" />
                     </div>
