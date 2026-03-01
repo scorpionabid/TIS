@@ -89,6 +89,9 @@ function BulkActionDialog({ open, action, count, onClose, onConfirm, loading }: 
           <DialogTitle>
             {action ? labels[action] : ''} — {count} sətir
           </DialogTitle>
+          <div className="sr-only">
+            {count} sətir üzərində toplu əməliyyat üçün təsdiq pəncərəsi
+          </div>
         </DialogHeader>
 
         {action === 'reject' && (

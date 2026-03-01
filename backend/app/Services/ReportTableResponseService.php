@@ -258,8 +258,14 @@ class ReportTableResponseService
             ->whereIn('institution_id', $institutionIds)
             ->whereNotNull('row_statuses')
             ->whereRaw("EXISTS (
-                SELECT 1 FROM jsonb_each(row_statuses) AS rs(key, val)
-                WHERE val->>'status' = 'submitted'
+                SELECT 1 FROM (
+                    SELECT jsonb_array_elements(row_statuses) AS element
+                    WHERE jsonb_typeof(row_statuses) = 'array'
+                    UNION ALL
+                    SELECT value AS element FROM jsonb_each(row_statuses)
+                    WHERE jsonb_typeof(row_statuses) = 'object'
+                ) sub
+                WHERE element->>'status' = 'submitted'
             )")
             ->whereHas('reportTable', fn ($q) => $q->whereNull('deleted_at')->where('status', 'published'))
             ->get();

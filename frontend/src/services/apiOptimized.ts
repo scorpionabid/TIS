@@ -609,18 +609,24 @@ class ApiClientOptimized {
   // Helper: invalidate both in-memory cache and CacheService for a mutation endpoint
   private invalidateCachesForMutation(endpoint: string): void {
     const resourcePath = endpoint.split('?')[0]; // Remove query params
-    const basePath = resourcePath.split('/').slice(0, 3).join('/'); // e.g., "/regionadmin/users"
+    const parts = resourcePath.split('/').filter(Boolean);
+    const basePath = parts.slice(0, parts.length > 2 ? 3 : 2).join('/'); 
 
     // 1. Clear apiOptimized in-memory cache
     this.clearCache(basePath);
 
-    // 2. Clear CacheService cache (tag-based) - fixes stale data from BaseService.getAll/getById
-    // BaseService stores cache entries with tags like [baseEndpoint, 'list'] or [baseEndpoint, 'detail']
-    // clearByTags uses OR matching - any matching tag clears the entry
+    // Special case for report-tables: if any report-table is mutated, clear the approval queue
+    if (resourcePath.includes('report-tables')) {
+      this.clearCache('report-tables/approval-queue');
+    }
+
+    // 2. Clear CacheService cache (tag-based)
     try {
       cacheService.clearByTags([basePath, resourcePath]);
+      if (resourcePath.includes('report-tables')) {
+        cacheService.clearByTags(['report-tables/approval-queue']);
+      }
     } catch (e) {
-      // CacheService failure should not block the mutation
       log('warn', 'Failed to clear CacheService', e);
     }
   }

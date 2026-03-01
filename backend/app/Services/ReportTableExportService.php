@@ -38,7 +38,7 @@ class ReportTableExportService
 
         $export = new ReportTableExport($table, $responses);
 
-        Excel::store($export, "private/exports/{$filename}", 'local');
+        Excel::store($export, "exports/{$filename}", 'local');
 
         return response()->download($filePath, $filename, [
             'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
