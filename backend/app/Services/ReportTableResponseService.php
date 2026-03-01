@@ -158,7 +158,6 @@ class ReportTableResponseService
     {
         return ReportTableResponse::with(['institution', 'respondent.profile'])
             ->where('report_table_id', $table->id)
-            ->submitted()
             ->orderBy('institution_id')
             ->get();
     }
