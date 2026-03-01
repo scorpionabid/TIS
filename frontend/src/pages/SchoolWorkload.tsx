@@ -286,11 +286,11 @@ export default function SchoolWorkload() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dərs Yükü İdarəetməsi</h1>
-          <p className="text-muted-foreground">Müəllimlərin dərs yükü və fənn təqsimati</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Dərs Yükü İdarəetməsi</h1>
+          <p className="text-muted-foreground">Müəllim lərin dərs yükü və fənn təqsimati</p>
         </div>
         <Button className="flex items-center gap-2" onClick={handleCreateNew}>
           <Plus className="h-4 w-4" />
@@ -452,8 +452,8 @@ export default function SchoolWorkload() {
               Heç bir müəllim tapılmadı
             </div>
           ) : (
-            <div className="rounded-md border">
-              <Table>
+            <div className="rounded-md border overflow-x-auto">
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Müəllim</TableHead>
