@@ -2,7 +2,7 @@ import { BaseEntity } from '../services/BaseService';
 
 // ─── Column Types ─────────────────────────────────────────────────────────────
 
-export type ColumnType = 'text' | 'number' | 'date';
+export type ColumnType = 'text' | 'number' | 'date' | 'select' | 'boolean';
 
 export interface ReportTableColumn {
   key: string;
@@ -15,11 +15,31 @@ export interface ReportTableColumn {
   max?: number;
   min_length?: number;
   max_length?: number;
+  // For select type: list of allowed options
+  options?: string[];
 }
+
+// ─── Row Status ───────────────────────────────────────────────────────────────
+
+export type RowStatus = 'draft' | 'submitted' | 'approved' | 'rejected';
+
+export interface RowStatusMeta {
+  status: RowStatus;
+  submitted_by?: number;
+  submitted_at?: string;
+  approved_by?: number;
+  approved_at?: string;
+  rejected_by?: number;
+  rejected_at?: string;
+  rejection_reason?: string;
+}
+
+/** Key = row index as string (e.g. "0", "1", "2") */
+export type RowStatuses = Record<string, RowStatusMeta>;
 
 // ─── Report Table ─────────────────────────────────────────────────────────────
 
-export type ReportTableStatus = 'draft' | 'published' | 'archived';
+export type ReportTableStatus = 'draft' | 'published' | 'archived' | 'deleted';
 
 export interface ReportTable extends BaseEntity {
   title: string;
@@ -32,6 +52,8 @@ export interface ReportTable extends BaseEntity {
   deadline?: string;
   published_at?: string;
   archived_at?: string;
+  deleted_at?: string | null;
+  is_deleted?: boolean;
   creator?: {
     id: number;
     name: string;
@@ -55,6 +77,7 @@ export interface ReportTableResponse extends BaseEntity {
   rows: ReportTableRow[];
   status: ReportTableResponseStatus;
   submitted_at?: string;
+  row_statuses?: RowStatuses;
   report_table?: Pick<ReportTable, 'id' | 'title' | 'columns' | 'max_rows' | 'status' | 'deadline'>;
   institution?: {
     id: number;
@@ -97,7 +120,7 @@ export interface UpdateReportTablePayload {
 
 export interface ReportTableFilters {
   search?: string;
-  status?: ReportTableStatus;
+  status?: string;
   per_page?: number;
   page?: number;
 }

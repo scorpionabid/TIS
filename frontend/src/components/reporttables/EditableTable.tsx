@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Trash2, AlertCircle } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Plus, Trash2, AlertCircle, Send, Loader2, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import type { ReportTableRow, ReportTableColumn } from '@/types/reportTable';
+import type { ReportTableRow, ReportTableColumn, RowStatuses, RowStatusMeta } from '@/types/reportTable';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -32,6 +40,15 @@ export function validateRow(
       if (col.min_length && val.length < col.min_length) { errors[col.key] = `Min ${col.min_length} simvol`; return; }
       if (col.max_length && val.length > col.max_length) { errors[col.key] = `Maks ${col.max_length} simvol`; return; }
     }
+
+    if (col.type === 'select' && col.options && col.options.length > 0) {
+      if (!col.options.includes(val)) { errors[col.key] = 'Yanlış seçim'; return; }
+    }
+
+    if (col.type === 'boolean') {
+      const valid = ['bəli', 'xeyr', 'true', 'false', '1', '0'];
+      if (!valid.includes(val.toLowerCase())) { errors[col.key] = 'Bəli və ya Xeyr seçin'; return; }
+    }
   });
   return errors;
 }
@@ -42,7 +59,7 @@ export function hasValidationErrors(
   return Object.values(rowErrors).some((errs) => Object.keys(errs).length > 0);
 }
 
-// ─── TSV Parser (Phase 8) ─────────────────────────────────────────────────────
+// ─── TSV Parser ───────────────────────────────────────────────────────────────
 // Handles Excel-style quoted fields: "value with, comma", escaped quotes ""→"
 
 function parseTSV(text: string): string[][] {
@@ -74,7 +91,107 @@ function parseTSV(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ''));
 }
 
-// ─── Memoized Desktop Row (Phase 7) ──────────────────────────────────────────
+// ─── Row Status Helpers ───────────────────────────────────────────────────────
+
+function isRowLocked(status: RowStatusMeta | undefined): boolean {
+  return status?.status === 'submitted' || status?.status === 'approved';
+}
+
+function RowStatusBadge({ meta }: { meta: RowStatusMeta | undefined }) {
+  if (!meta || meta.status === 'draft') return null;
+
+  if (meta.status === 'submitted') {
+    return (
+      <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 text-xs shrink-0">
+        <Clock className="h-3 w-3" /> Gözləyir
+      </Badge>
+    );
+  }
+  if (meta.status === 'approved') {
+    return (
+      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1 text-xs shrink-0">
+        <CheckCircle2 className="h-3 w-3" /> Təsdiqləndi
+      </Badge>
+    );
+  }
+  if (meta.status === 'rejected') {
+    return (
+      <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 text-xs shrink-0" title={meta.rejection_reason ?? ''}>
+        <XCircle className="h-3 w-3" /> Rədd edildi
+      </Badge>
+    );
+  }
+  return null;
+}
+
+// ─── CellInput: Polymorphic per-column-type input ────────────────────────────
+
+interface CellInputProps {
+  col: ReportTableColumn;
+  value: string;
+  onChange: (v: string) => void;
+  onBlur: () => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
+  disabled: boolean;
+  error: boolean;
+  inputRef?: (el: HTMLInputElement | null) => void;
+}
+
+const CellInput = React.memo(function CellInput({
+  col, value, onChange, onBlur, onKeyDown, onPaste, disabled, error, inputRef,
+}: CellInputProps) {
+  if (col.type === 'select') {
+    return (
+      <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger
+          className={`h-9 text-sm ${error ? 'border-red-400 focus:ring-red-300' : ''}`}
+        >
+          <SelectValue placeholder="Seçin..." />
+        </SelectTrigger>
+        <SelectContent>
+          {(col.options ?? []).map((opt) => (
+            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  if (col.type === 'boolean') {
+    return (
+      <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
+        <SelectTrigger
+          className={`h-9 text-sm ${error ? 'border-red-400 focus:ring-red-300' : ''}`}
+        >
+          <SelectValue placeholder="Seçin..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="bəli">Bəli</SelectItem>
+          <SelectItem value="xeyr">Xeyr</SelectItem>
+        </SelectContent>
+      </Select>
+    );
+  }
+
+  return (
+    <Input
+      ref={inputRef}
+      type={col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'}
+      inputMode={col.type === 'number' ? 'decimal' : undefined}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={onBlur}
+      onKeyDown={onKeyDown}
+      onPaste={onPaste}
+      disabled={disabled}
+      placeholder={col.hint || col.label}
+      className={`h-9 text-sm ${error ? 'border-red-400 focus-visible:ring-red-300' : ''}`}
+    />
+  );
+});
+
+// ─── Memoized Desktop Row ─────────────────────────────────────────────────────
 
 interface DesktopRowProps {
   row: ReportTableRow;
@@ -83,61 +200,118 @@ interface DesktopRowProps {
   disabled: boolean;
   errors: Record<string, string>;
   canRemove: boolean;
+  rowStatus: RowStatusMeta | undefined;
   onCellChange: (rowIdx: number, colKey: string, value: string) => void;
   onCellBlur: (rowIdx: number) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
   onRemove: (rowIdx: number) => void;
+  onRowSubmit?: (rowIdx: number) => void;
+  isRowSubmitting?: boolean;
   cellRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
 }
 
 const DesktopRow = React.memo(function DesktopRow({
-  row, rowIdx, columns, disabled, errors, canRemove,
-  onCellChange, onCellBlur, onKeyDown, onPaste, onRemove, cellRefs,
+  row, rowIdx, columns, disabled, errors, canRemove, rowStatus,
+  onCellChange, onCellBlur, onKeyDown, onPaste, onRemove,
+  onRowSubmit, isRowSubmitting, cellRefs,
 }: DesktopRowProps) {
+  const locked = isRowLocked(rowStatus) || disabled;
+  const rowHasContent = Object.values(row).some((v) => v !== null && v !== '');
+  const canSubmitRow = !locked && !disabled && onRowSubmit && rowHasContent &&
+    (!rowStatus || rowStatus.status === 'rejected' || rowStatus.status === 'draft');
+
+  const statusColor = rowStatus?.status === 'approved'
+    ? 'bg-emerald-50'
+    : rowStatus?.status === 'submitted'
+    ? 'bg-amber-50'
+    : rowStatus?.status === 'rejected'
+    ? 'bg-red-50'
+    : '';
+
   return (
-    <tr className="border-b border-gray-200 hover:bg-gray-50">
+    <tr className={`border-b border-gray-200 hover:bg-gray-50 ${statusColor}`}>
       <td className="px-2 py-2 text-center text-gray-400 font-medium">{rowIdx + 1}</td>
       {columns.map((col, colIdx) => {
         const err = errors[col.key];
         return (
           <td key={col.key} className="px-1 py-1">
-            <Input
-              ref={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
-              type={col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'}
-              inputMode={col.type === 'number' ? 'decimal' : undefined}
+            <CellInput
+              col={col}
               value={String(row[col.key] ?? '')}
-              onChange={(e) => onCellChange(rowIdx, col.key, e.target.value)}
+              onChange={(v) => onCellChange(rowIdx, col.key, v)}
               onBlur={() => onCellBlur(rowIdx)}
               onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx)}
               onPaste={(e) => onPaste(e, rowIdx, colIdx)}
-              disabled={disabled}
-              placeholder={col.hint || col.label}
-              className={`h-9 text-sm ${err ? 'border-red-400 focus-visible:ring-red-300' : ''}`}
+              disabled={locked}
+              error={!!err}
+              inputRef={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
             />
             {err && <p className="text-xs text-red-500 mt-0.5 px-1">{err}</p>}
           </td>
         );
       })}
-      {!disabled && (
-        <td className="px-1 py-2 text-center">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onRemove(rowIdx)}
-            disabled={!canRemove}
-            className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        </td>
-      )}
+      <td className="px-2 py-2 text-center whitespace-nowrap">
+        <div className="flex items-center gap-1 justify-center">
+          <RowStatusBadge meta={rowStatus} />
+          {canSubmitRow && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+              onClick={() => onRowSubmit(rowIdx)}
+              disabled={isRowSubmitting}
+            >
+              {isRowSubmitting ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Send className="h-3 w-3" />
+              )}
+              Təsdiq et
+            </Button>
+          )}
+          {!locked && !onRowSubmit && canRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(rowIdx)}
+              className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          {!locked && onRowSubmit && canRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(rowIdx)}
+              className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+          {locked && !disabled && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(rowIdx)}
+              disabled
+              className="h-8 w-8 p-0 text-gray-200"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+      </td>
     </tr>
   );
 });
 
-// ─── Memoized Mobile Card Row (Phase 7) ──────────────────────────────────────
+// ─── Memoized Mobile Card Row ─────────────────────────────────────────────────
 
 interface MobileRowProps {
   row: ReportTableRow;
@@ -146,34 +320,60 @@ interface MobileRowProps {
   disabled: boolean;
   errors: Record<string, string>;
   canRemove: boolean;
+  rowStatus: RowStatusMeta | undefined;
   onCellChange: (rowIdx: number, colKey: string, value: string) => void;
   onCellBlur: (rowIdx: number) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
   onRemove: (rowIdx: number) => void;
+  onRowSubmit?: (rowIdx: number) => void;
+  isRowSubmitting?: boolean;
   cellRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
 }
 
 const MobileRow = React.memo(function MobileRow({
-  row, rowIdx, columns, disabled, errors, canRemove,
-  onCellChange, onCellBlur, onKeyDown, onPaste, onRemove, cellRefs,
+  row, rowIdx, columns, disabled, errors, canRemove, rowStatus,
+  onCellChange, onCellBlur, onKeyDown, onPaste, onRemove,
+  onRowSubmit, isRowSubmitting, cellRefs,
 }: MobileRowProps) {
+  const locked = isRowLocked(rowStatus) || disabled;
+  const rowHasContent = Object.values(row).some((v) => v !== null && v !== '');
+  const canSubmitRow = !locked && !disabled && onRowSubmit && rowHasContent &&
+    (!rowStatus || rowStatus.status === 'rejected' || rowStatus.status === 'draft');
+
   return (
     <div className="border border-gray-200 rounded-lg p-3 bg-white space-y-2">
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs font-semibold text-gray-500">Sətir {rowIdx + 1}</span>
-        {!disabled && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => onRemove(rowIdx)}
-            disabled={!canRemove}
-            className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-semibold text-gray-500">Sətir {rowIdx + 1}</span>
+          <RowStatusBadge meta={rowStatus} />
+        </div>
+        <div className="flex items-center gap-1">
+          {canSubmitRow && (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+              onClick={() => onRowSubmit(rowIdx)}
+              disabled={isRowSubmitting}
+            >
+              {isRowSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
+              Təsdiq et
+            </Button>
+          )}
+          {!locked && canRemove && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onRemove(rowIdx)}
+              className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
       </div>
       {columns.map((col, colIdx) => {
         const err = errors[col.key];
@@ -182,24 +382,19 @@ const MobileRow = React.memo(function MobileRow({
             <label className="text-xs text-gray-500 mb-1 block">
               {col.required && <span className="text-red-500 mr-0.5">*</span>}
               {col.label}
-              {col.type !== 'text' && (
-                <span className="ml-1 text-gray-400">
-                  ({col.type === 'number' ? 'rəqəm' : 'tarix'})
-                </span>
-              )}
+              {col.type === 'number' && <span className="ml-1 text-gray-400">(rəqəm)</span>}
+              {col.type === 'date' && <span className="ml-1 text-gray-400">(tarix)</span>}
             </label>
-            <Input
-              ref={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
-              type={col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'}
-              inputMode={col.type === 'number' ? 'decimal' : undefined}
+            <CellInput
+              col={col}
               value={String(row[col.key] ?? '')}
-              onChange={(e) => onCellChange(rowIdx, col.key, e.target.value)}
+              onChange={(v) => onCellChange(rowIdx, col.key, v)}
               onBlur={() => onCellBlur(rowIdx)}
               onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx)}
               onPaste={(e) => onPaste(e, rowIdx, colIdx)}
-              disabled={disabled}
-              placeholder={col.hint || col.label}
-              className={`h-9 text-sm ${err ? 'border-red-400' : ''}`}
+              disabled={locked}
+              error={!!err}
+              inputRef={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
             />
             {err && <p className="text-xs text-red-500 mt-0.5">{err}</p>}
           </div>
@@ -217,8 +412,14 @@ interface EditableTableProps {
   maxRows: number;
   onChange: (rows: ReportTableRow[]) => void;
   disabled: boolean;
-  /** Phase 2: callback replaces DOM querySelector anti-pattern */
+  /** Callback replaces DOM querySelector anti-pattern */
   onValidationChange?: (hasErrors: boolean) => void;
+  /** Per-row approval status from backend */
+  rowStatuses?: RowStatuses;
+  /** Called when user clicks "Təsdiq et" for a single row */
+  onRowSubmit?: (rowIndex: number) => void;
+  /** Whether a specific row's submit button is loading */
+  isRowSubmitting?: (rowIndex: number) => boolean;
 }
 
 export const EditableTable = React.memo(function EditableTable({
@@ -228,11 +429,14 @@ export const EditableTable = React.memo(function EditableTable({
   onChange,
   disabled,
   onValidationChange,
+  rowStatuses,
+  onRowSubmit,
+  isRowSubmitting,
 }: EditableTableProps) {
   const [rowErrors, setRowErrors] = useState<Record<number, Record<string, string>>>({});
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Phase 2: notify parent of validation state via callback — no DOM needed
+  // Notify parent of validation state via callback — no DOM needed
   useEffect(() => {
     onValidationChange?.(hasValidationErrors(rowErrors));
   }, [rowErrors, onValidationChange]);
@@ -287,7 +491,7 @@ export const EditableTable = React.memo(function EditableTable({
     }
   }, [columns.length]);
 
-  // Phase 8: proper TSV parser with quoted field support
+  // Proper TSV parser with quoted field support
   const handleCellPaste = useCallback((
     e: React.ClipboardEvent<HTMLInputElement>,
     startRowIdx: number,
@@ -349,6 +553,14 @@ export const EditableTable = React.memo(function EditableTable({
     (acc, errs) => acc + Object.keys(errs).length, 0
   );
 
+  const colTypeLabel = (col: ReportTableColumn) => {
+    if (col.type === 'number') return 'rəqəm';
+    if (col.type === 'date') return 'tarix';
+    if (col.type === 'select') return 'seçim';
+    if (col.type === 'boolean') return 'bəli/xeyr';
+    return null;
+  };
+
   return (
     <div className="space-y-3">
       {errorCount > 0 && (
@@ -372,9 +584,9 @@ export const EditableTable = React.memo(function EditableTable({
                   <div className="flex items-center gap-1">
                     {col.required && <span className="text-red-500 text-xs">*</span>}
                     {col.label}
-                    {col.type !== 'text' && (
+                    {colTypeLabel(col) && (
                       <span className="ml-1 text-xs font-normal text-gray-400">
-                        ({col.type === 'number' ? 'rəqəm' : 'tarix'})
+                        ({colTypeLabel(col)})
                       </span>
                     )}
                   </div>
@@ -383,9 +595,7 @@ export const EditableTable = React.memo(function EditableTable({
                   )}
                 </th>
               ))}
-              {!disabled && (
-                <th className="px-2 py-3 text-center border-b border-gray-200 w-10" />
-              )}
+              <th className="px-2 py-3 text-center border-b border-gray-200 w-28" />
             </tr>
           </thead>
           <tbody>
@@ -398,11 +608,14 @@ export const EditableTable = React.memo(function EditableTable({
                 disabled={disabled}
                 errors={rowErrors[rowIdx] ?? {}}
                 canRemove={displayRows.length > 1}
+                rowStatus={rowStatuses?.[String(rowIdx)]}
                 onCellChange={handleCellChange}
                 onCellBlur={handleCellBlur}
                 onKeyDown={handleKeyDown}
                 onPaste={handleCellPaste}
                 onRemove={handleRemoveRow}
+                onRowSubmit={onRowSubmit}
+                isRowSubmitting={isRowSubmitting?.(rowIdx)}
                 cellRefs={cellRefs}
               />
             ))}
@@ -421,11 +634,14 @@ export const EditableTable = React.memo(function EditableTable({
             disabled={disabled}
             errors={rowErrors[rowIdx] ?? {}}
             canRemove={displayRows.length > 1}
+            rowStatus={rowStatuses?.[String(rowIdx)]}
             onCellChange={handleCellChange}
             onCellBlur={handleCellBlur}
             onKeyDown={handleKeyDown}
             onPaste={handleCellPaste}
             onRemove={handleRemoveRow}
+            onRowSubmit={onRowSubmit}
+            isRowSubmitting={isRowSubmitting?.(rowIdx)}
             cellRefs={cellRefs}
           />
         ))}

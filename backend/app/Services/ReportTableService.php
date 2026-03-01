@@ -54,9 +54,13 @@ class ReportTableService
             });
         }
 
-        // Status filtri
+        // Status filtri — 'deleted' xüsusi hal: soft-deleted cədvəllər
         if (! empty($filters['status'])) {
-            $query->where('status', $filters['status']);
+            if ($filters['status'] === 'deleted') {
+                $query->onlyTrashed();
+            } else {
+                $query->where('status', $filters['status']);
+            }
         }
 
         $query->orderBy('created_at', 'desc');
@@ -176,22 +180,40 @@ class ReportTableService
     }
 
     /**
-     * Cədvəli silir (yalnız draft statusunda).
+     * Cədvəli soft-delete ilə silir (istənilən statusda işləyir).
      */
     public function deleteTable(ReportTable $table): void
     {
-        if (! $table->isDraft()) {
-            throw new \InvalidArgumentException('Yalnız qaralama statusundakı cədvəllər silinə bilər.');
-        }
-
         $table->delete();
+    }
+
+    /**
+     * Soft-deleted cədvəli bərpa edir.
+     * Route Model Binding soft-deleted-ləri göstərmədiyi üçün raw ID ilə işləyir.
+     */
+    public function restoreTable(int $tableId): ReportTable
+    {
+        $table = ReportTable::onlyTrashed()->findOrFail($tableId);
+        $table->restore();
+
+        return $table->fresh(['creator']);
+    }
+
+    /**
+     * Cədvəli birdəfəlik silir (SuperAdmin only).
+     * Route Model Binding soft-deleted-ləri göstərmədiyi üçün raw ID ilə işləyir.
+     */
+    public function forceDeleteTable(int $tableId): void
+    {
+        $table = ReportTable::withTrashed()->findOrFail($tableId);
+        $table->forceDelete();
     }
 
     // ─── Column Validation ────────────────────────────────────────────────────
 
     /**
      * Sütun strukturunu yoxlayır.
-     * Format: [{key: 'col_1', label: 'Ad', type: 'text|number|date'}, ...]
+     * Format: [{key: 'col_1', label: 'Ad', type: 'text|number|date|select|boolean', options?: [...]}, ...]
      */
     public function validateColumns(array $columns): void
     {
@@ -201,7 +223,7 @@ class ReportTableService
             ]);
         }
 
-        $validTypes = ['text', 'number', 'date'];
+        $validTypes = ['text', 'number', 'date', 'select', 'boolean'];
         $keys = [];
         $errors = [];
 
@@ -218,8 +240,20 @@ class ReportTableService
                 $errors["columns.{$index}.label"] = ["{$pos}. sütunun etiketi boş ola bilməz."];
             }
 
-            if (empty($column['type']) || ! in_array($column['type'], $validTypes, true)) {
-                $errors["columns.{$index}.type"] = ["{$pos}. sütunun tipi 'text', 'number' və ya 'date' olmalıdır."];
+            $colType = $column['type'] ?? '';
+            if (empty($colType) || ! in_array($colType, $validTypes, true)) {
+                $errors["columns.{$index}.type"] = ["{$pos}. sütunun tipi 'text', 'number', 'date', 'select' və ya 'boolean' olmalıdır."];
+            } elseif ($colType === 'select') {
+                $opts = $column['options'] ?? [];
+                if (empty($opts) || ! is_array($opts)) {
+                    $errors["columns.{$index}.options"] = ["{$pos}. sütun üçün ən azı bir seçim variantı əlavə edilməlidir."];
+                } else {
+                    foreach ($opts as $optIdx => $opt) {
+                        if (! is_string($opt) || trim($opt) === '') {
+                            $errors["columns.{$index}.options.{$optIdx}"] = ["{$pos}. sütunun " . ($optIdx + 1) . ". variantı boş ola bilməz."];
+                        }
+                    }
+                }
             }
 
             if (! empty($column['key'])) {

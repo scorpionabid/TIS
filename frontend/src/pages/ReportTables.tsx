@@ -32,6 +32,8 @@ import {
   Copy,
   AlertTriangle,
   AlertCircle,
+  RotateCcw,
+  ShieldAlert,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
@@ -40,6 +42,7 @@ import { reportTableService } from '@/services/reportTables';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
 import { ReportTableModal } from '@/components/modals/ReportTableModal';
 import { ReportTableResponsesView } from '@/components/reporttables/ReportTableResponsesView';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 import type { ReportTable, ReportTableStatus } from '@/types/reportTable';
 
 // ─── Status Config ────────────────────────────────────────────────────────────
@@ -83,30 +86,41 @@ function DeadlineIndicator({ deadline }: { deadline?: string }) {
 
 // ─── Card Component ───────────────────────────────────────────────────────────
 
-type ConfirmActionType = 'delete' | 'publish' | 'archive' | 'clone';
+type ConfirmActionType = 'delete' | 'publish' | 'archive' | 'clone' | 'restore' | 'forceDelete';
 
 function TableCard({
   table,
   onEdit,
   onView,
   onConfirm,
+  isSuperAdmin,
 }: {
   table: ReportTable;
   onEdit: (t: ReportTable) => void;
   onView: (t: ReportTable) => void;
   onConfirm: (type: ConfirmActionType, t: ReportTable) => void;
+  isSuperAdmin: boolean;
 }) {
+  const isDeleted = table.is_deleted ?? false;
   const target = table.target_institutions?.length ?? 0;
   const submitted = table.responses_count ?? 0;
   const pct = target > 0 ? Math.round((submitted / target) * 100) : 0;
 
   return (
-    <div className="bg-white border rounded-xl p-4 hover:shadow-sm transition-shadow">
+    <div className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-shadow ${isDeleted ? 'opacity-70 border-dashed border-red-200' : ''}`}>
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <StatusBadge status={table.status} />
-            <DeadlineIndicator deadline={table.deadline} />
+            {isDeleted ? (
+              <Badge className="bg-red-100 text-red-600 border-red-200 gap-1">
+                <Trash2 className="h-3 w-3" /> Silinib
+              </Badge>
+            ) : (
+              <>
+                <StatusBadge status={table.status} />
+                <DeadlineIndicator deadline={table.deadline} />
+              </>
+            )}
           </div>
           <h3 className="font-semibold text-gray-800 leading-tight truncate">{table.title}</h3>
           {table.description && (
@@ -118,8 +132,8 @@ function TableCard({
             <span>Maks. {table.max_rows} sətir</span>
           </div>
 
-          {/* Response progress */}
-          {table.status === 'published' && target > 0 && (
+          {/* Response progress (only for non-deleted published tables) */}
+          {!isDeleted && table.status === 'published' && target > 0 && (
             <div className="mt-3">
               <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
                 <span>Cavablar</span>
@@ -137,47 +151,73 @@ function TableCard({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => onView(table)}>
-              <Eye className="h-4 w-4 mr-2" /> Cavablara bax
-            </DropdownMenuItem>
-            {table.can_edit && (
-              <DropdownMenuItem onClick={() => onEdit(table)}>
-                <Edit className="h-4 w-4 mr-2" /> Redaktə et
-              </DropdownMenuItem>
-            )}
-            <DropdownMenuItem onClick={() => onConfirm('clone', table)}>
-              <Copy className="h-4 w-4 mr-2" /> Kopyala
-            </DropdownMenuItem>
-            {table.status === 'draft' && (
-              <DropdownMenuItem onClick={() => onConfirm('publish', table)} className="text-emerald-600">
-                <Play className="h-4 w-4 mr-2" /> Dərc et
-              </DropdownMenuItem>
-            )}
-            {table.status === 'published' && (
+            {isDeleted ? (
+              // Deleted table: show restore and (SuperAdmin) force delete
               <>
-                <DropdownMenuItem onClick={() => onConfirm('archive', table)} className="text-orange-600">
-                  <Archive className="h-4 w-4 mr-2" /> Arxivlə
+                <DropdownMenuItem
+                  onClick={() => onConfirm('restore', table)}
+                  className="text-emerald-600"
+                >
+                  <RotateCcw className="h-4 w-4 mr-2" /> Bərpa et
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => {
-                  toast.promise(
-                    reportTableService.exportTable(table.id, table.title),
-                    {
-                      loading: 'Excel faylı hazırlanır...',
-                      success: 'Fayl yükləndi.',
-                      error: 'Export zamanı xəta baş verdi.',
-                    }
-                  );
-                }}>
-                  <Download className="h-4 w-4 mr-2" /> Export (Excel)
-                </DropdownMenuItem>
+                {isSuperAdmin && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => onConfirm('forceDelete', table)}
+                      className="text-red-600"
+                    >
+                      <ShieldAlert className="h-4 w-4 mr-2" /> Birdəfəlik sil
+                    </DropdownMenuItem>
+                  </>
+                )}
               </>
-            )}
-            {table.status === 'draft' && (
+            ) : (
+              // Active table: normal actions
               <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onConfirm('delete', table)} className="text-red-600">
-                  <Trash2 className="h-4 w-4 mr-2" /> Sil
+                <DropdownMenuItem onClick={() => onView(table)}>
+                  <Eye className="h-4 w-4 mr-2" /> Cavablara bax
                 </DropdownMenuItem>
+                {table.can_edit && (
+                  <DropdownMenuItem onClick={() => onEdit(table)}>
+                    <Edit className="h-4 w-4 mr-2" /> Redaktə et
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={() => onConfirm('clone', table)}>
+                  <Copy className="h-4 w-4 mr-2" /> Kopyala
+                </DropdownMenuItem>
+                {table.status === 'draft' && (
+                  <DropdownMenuItem onClick={() => onConfirm('publish', table)} className="text-emerald-600">
+                    <Play className="h-4 w-4 mr-2" /> Dərc et
+                  </DropdownMenuItem>
+                )}
+                {table.status === 'published' && (
+                  <>
+                    <DropdownMenuItem onClick={() => onConfirm('archive', table)} className="text-orange-600">
+                      <Archive className="h-4 w-4 mr-2" /> Arxivlə
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => {
+                      toast.promise(
+                        reportTableService.exportTable(table.id, table.title),
+                        {
+                          loading: 'Excel faylı hazırlanır...',
+                          success: 'Fayl yükləndi.',
+                          error: 'Export zamanı xəta baş verdi.',
+                        }
+                      );
+                    }}>
+                      <Download className="h-4 w-4 mr-2" /> Export (Excel)
+                    </DropdownMenuItem>
+                  </>
+                )}
+                {table.status === 'draft' && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onConfirm('delete', table)} className="text-red-600">
+                      <Trash2 className="h-4 w-4 mr-2" /> Sil
+                    </DropdownMenuItem>
+                  </>
+                )}
               </>
             )}
           </DropdownMenuContent>
@@ -197,8 +237,8 @@ const CONFIRM_CONFIG: Record<ConfirmActionType, {
 }> = {
   delete: {
     title: 'Cədvəli sil?',
-    description: 'Bu əməliyyat geri alına bilməz. Cədvəl bütün məlumatları ilə silinəcək.',
-    type: 'danger',
+    description: 'Cədvəl silinmiş siyahıya köçürüləcək. SuperAdmin tərəfindən bərpa edilə bilər.',
+    type: 'warning',
     label: 'Sil',
   },
   publish: {
@@ -219,14 +259,27 @@ const CONFIRM_CONFIG: Record<ConfirmActionType, {
     type: 'info',
     label: 'Kopyala',
   },
+  restore: {
+    title: 'Cədvəli bərpa et?',
+    description: 'Cədvəl yenidən aktiv siyahıya qaytarılacaq. Mövcud cavablar qorunacaq.',
+    type: 'info',
+    label: 'Bərpa et',
+  },
+  forceDelete: {
+    title: 'Cədvəli birdəfəlik sil?',
+    description: 'Bu əməliyyat GERİ ALINMAZ! Cədvəl bütün cavabları ilə birlikdə sistemdən tamamilə silinəcək.',
+    type: 'danger',
+    label: 'Birdəfəlik sil',
+  },
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function ReportTables() {
   const queryClient = useQueryClient();
+  const { isSuperAdmin } = useRoleCheck();
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ReportTableStatus | 'all'>('all');
+  const [statusFilter, setStatusFilter] = useState<ReportTableStatus | 'all' | 'deleted'>('all');
   const [page, setPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editingTable, setEditingTable] = useState<ReportTable | null>(null);
@@ -301,6 +354,26 @@ export default function ReportTables() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  const restoreMutation = useMutation({
+    mutationFn: (table: ReportTable) => reportTableService.restoreTable(table.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['report-tables'] });
+      toast.success('Cədvəl bərpa edildi.');
+      setConfirmState(null);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const forceDeleteMutation = useMutation({
+    mutationFn: (table: ReportTable) => reportTableService.forceDeleteTable(table.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['report-tables'] });
+      toast.success('Cədvəl birdəfəlik silindi.');
+      setConfirmState(null);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   // ─── Confirm handler ────────────────────────────────────────────────────────
 
   const handleConfirmAction = () => {
@@ -310,13 +383,27 @@ export default function ReportTables() {
     else if (type === 'publish') publishMutation.mutate(table);
     else if (type === 'archive') archiveMutation.mutate(table);
     else if (type === 'clone') cloneMutation.mutate(table);
+    else if (type === 'restore') restoreMutation.mutate(table);
+    else if (type === 'forceDelete') forceDeleteMutation.mutate(table);
   };
 
   const isMutating =
     publishMutation.isPending ||
     archiveMutation.isPending ||
     deleteMutation.isPending ||
-    cloneMutation.isPending;
+    cloneMutation.isPending ||
+    restoreMutation.isPending ||
+    forceDeleteMutation.isPending;
+
+  // ─── Filter button list ──────────────────────────────────────────────────────
+
+  const statusButtons: { value: ReportTableStatus | 'all' | 'deleted'; label: string; className?: string }[] = [
+    { value: 'all', label: 'Hamısı' },
+    { value: 'draft', label: STATUS_MAP.draft.label },
+    { value: 'published', label: STATUS_MAP.published.label },
+    { value: 'archived', label: STATUS_MAP.archived.label },
+    ...(isSuperAdmin ? [{ value: 'deleted' as const, label: 'Silinmiş', className: 'text-red-500' }] : []),
+  ];
 
   // ─── Render ─────────────────────────────────────────────────────────────────
 
@@ -333,13 +420,15 @@ export default function ReportTables() {
             Məktəblər üçün dinamik məlumat cədvəlləri yaradın və idarə edin.
           </p>
         </div>
-        <Button
-          onClick={() => setShowModal(true)}
-          className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-        >
-          <Plus className="h-4 w-4" />
-          Yeni cədvəl
-        </Button>
+        {statusFilter !== 'deleted' && (
+          <Button
+            onClick={() => setShowModal(true)}
+            className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Yeni cədvəl
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
@@ -354,20 +443,37 @@ export default function ReportTables() {
           />
         </div>
 
-        <div className="flex gap-1">
-          {(['all', 'draft', 'published', 'archived'] as const).map((s) => (
+        <div className="flex gap-1 flex-wrap">
+          {statusButtons.map((btn) => (
             <Button
-              key={s}
-              variant={statusFilter === s ? 'default' : 'outline'}
+              key={btn.value}
+              variant={statusFilter === btn.value ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setStatusFilter(s)}
-              className={statusFilter === s ? 'bg-emerald-600 hover:bg-emerald-700' : ''}
+              onClick={() => setStatusFilter(btn.value)}
+              className={
+                statusFilter === btn.value
+                  ? btn.value === 'deleted'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : 'bg-emerald-600 hover:bg-emerald-700'
+                  : btn.className ?? ''
+              }
             >
-              {s === 'all' ? 'Hamısı' : STATUS_MAP[s as ReportTableStatus]?.label ?? s}
+              {btn.value === 'deleted' && <Trash2 className="h-3.5 w-3.5 mr-1" />}
+              {btn.label}
             </Button>
           ))}
         </div>
       </div>
+
+      {/* Deleted tab info banner */}
+      {statusFilter === 'deleted' && (
+        <Alert className="border-red-200 bg-red-50 text-red-800">
+          <ShieldAlert className="h-4 w-4 text-red-600" />
+          <AlertDescription>
+            Silinmiş cədvəllər göstərilir. Bərpa etmək üçün "Bərpa et", tamamilə silmək üçün "Birdəfəlik sil" seçin.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {/* Error state */}
       {isError && (
@@ -389,9 +495,15 @@ export default function ReportTables() {
       ) : tables.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Table2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="text-lg font-medium">Cədvəl tapılmadı</p>
+          <p className="text-lg font-medium">
+            {statusFilter === 'deleted' ? 'Silinmiş cədvəl yoxdur' : 'Cədvəl tapılmadı'}
+          </p>
           <p className="text-sm mt-1">
-            {search ? 'Axtarışa uyğun cədvəl yoxdur.' : 'Hələ heç bir hesabat cədvəli yaradılmayıb.'}
+            {search
+              ? 'Axtarışa uyğun cədvəl yoxdur.'
+              : statusFilter === 'deleted'
+              ? 'Heç bir cədvəl silinməyib.'
+              : 'Hələ heç bir hesabat cədvəli yaradılmayıb.'}
           </p>
         </div>
       ) : (
@@ -404,6 +516,7 @@ export default function ReportTables() {
                 onEdit={(t) => { setEditingTable(t); setShowModal(true); }}
                 onView={setViewingTable}
                 onConfirm={(type, t) => setConfirmState({ type, table: t })}
+                isSuperAdmin={isSuperAdmin}
               />
             ))}
           </div>
@@ -433,7 +546,7 @@ export default function ReportTables() {
         </>
       )}
 
-      {/* Create/Edit Modal */}
+      {/* Create/Edit Modal (hidden for deleted tab) */}
       <ReportTableModal
         open={showModal}
         onClose={() => { setShowModal(false); setEditingTable(null); }}

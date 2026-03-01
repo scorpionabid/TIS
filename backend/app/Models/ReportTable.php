@@ -6,10 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ReportTable extends Model
 {
-    use HasFactory;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'title',
@@ -32,6 +33,7 @@ class ReportTable extends Model
             'deadline'            => 'datetime',
             'published_at'        => 'datetime',
             'archived_at'         => 'datetime',
+            'deleted_at'          => 'datetime',
         ];
     }
 

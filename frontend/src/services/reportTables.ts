@@ -160,6 +160,56 @@ class ReportTableService extends BaseService<ReportTable> {
     const response = await this.post<ReportTableResponse>(`report-table-responses/${responseId}/submit`);
     return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.submitResponse', 'ReportTableService');
   }
+
+  // ─── School: Tək sətir göndər ─────────────────────────────────────────────
+
+  async submitRow(tableId: number, responseId: number, rowIndex: number): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(
+      `report-tables/${tableId}/responses/${responseId}/rows/submit`,
+      { row_index: rowIndex }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.submitRow', 'ReportTableService');
+  }
+
+  // ─── Admin: Sətir action-ları (review) ────────────────────────────────────
+
+  async approveRow(tableId: number, responseId: number, rowIndex: number): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(
+      `report-tables/${tableId}/responses/${responseId}/rows/approve`,
+      { row_index: rowIndex }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.approveRow', 'ReportTableService');
+  }
+
+  async rejectRow(tableId: number, responseId: number, rowIndex: number, reason: string): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(
+      `report-tables/${tableId}/responses/${responseId}/rows/reject`,
+      { row_index: rowIndex, reason }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.rejectRow', 'ReportTableService');
+  }
+
+  async returnRow(tableId: number, responseId: number, rowIndex: number): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(
+      `report-tables/${tableId}/responses/${responseId}/rows/return`,
+      { row_index: rowIndex }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.returnRow', 'ReportTableService');
+  }
+
+  // ─── SuperAdmin: Soft delete bərpa / birdəfəlik sil ──────────────────────
+
+  async restoreTable(tableId: number): Promise<ReportTable> {
+    const response = await this.post<ReportTable>(`report-tables/${tableId}/restore`);
+    const result = handleApiResponseWithError<ReportTable>(response, 'ReportTableService.restoreTable', 'ReportTableService');
+    this.invalidateCache(['list', 'detail']);
+    return result;
+  }
+
+  async forceDeleteTable(tableId: number): Promise<void> {
+    await apiClient.delete(`report-tables/${tableId}/force`);
+    this.invalidateCache(['list', 'detail']);
+  }
 }
 
 export const reportTableService = new ReportTableService();

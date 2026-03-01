@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Institution;
 use App\Models\ReportTable;
 use App\Models\ReportTableResponse;
 use App\Models\User;
@@ -54,7 +55,8 @@ class ReportTableResponseService
     // ─── Save ────────────────────────────────────────────────────────────────
 
     /**
-     * Cavabı saxlayır (yalnız draft statusunda).
+     * Cavabı saxlayır.
+     * Təsdiqlənmiş (submitted/approved) sətirləri qoruyur — onlar üzərindən yazılmır.
      */
     public function save(ReportTableResponse $response, array $rows, User $user): ReportTableResponse
     {
@@ -71,8 +73,20 @@ class ReportTableResponseService
 
         $this->validateRows($rows, $table->columns ?? [], $table->max_rows ?? 50);
 
-        return DB::transaction(function () use ($response, $rows) {
-            $response->rows = $rows;
+        // Kilidlənmiş sətirləri qoru (submitted/approved)
+        $existingStatuses = $response->row_statuses ?? [];
+        $existingRows     = $response->rows ?? [];
+        $mergedRows       = $rows;
+
+        foreach ($rows as $idx => $row) {
+            $rowStatus = $existingStatuses[$idx]['status'] ?? null;
+            if (in_array($rowStatus, ['submitted', 'approved'], true)) {
+                $mergedRows[$idx] = $existingRows[$idx] ?? $row;
+            }
+        }
+
+        return DB::transaction(function () use ($response, $mergedRows) {
+            $response->rows = $mergedRows;
             $response->save();
 
             return $response->fresh(['reportTable', 'institution', 'respondent']);
@@ -149,6 +163,123 @@ class ReportTableResponseService
             ->get();
     }
 
+    // ─── Row Actions ─────────────────────────────────────────────────────────
+
+    /**
+     * Sətiri təsdiq üçün göndərir (məktəb tərəfindən).
+     */
+    public function submitRow(ReportTableResponse $response, int $rowIndex, User $user): ReportTableResponse
+    {
+        if ($response->respondent_id !== $user->id) {
+            throw new \InvalidArgumentException('Yalnız öz cavabınızın sətirini göndərə bilərsiniz.');
+        }
+
+        if (! $response->isRowEditable($rowIndex)) {
+            throw new \InvalidArgumentException('Bu sətir artıq göndərilib və ya təsdiqlənib.');
+        }
+
+        $rows = $response->rows ?? [];
+        if (! isset($rows[$rowIndex])) {
+            throw new \InvalidArgumentException('Sətir tapılmadı.');
+        }
+
+        // Sətir ən azı bir qeyri-boş dəyər olmalıdır
+        $hasContent = collect($rows[$rowIndex])->some(fn ($v) => $v !== null && $v !== '');
+        if (! $hasContent) {
+            throw new \InvalidArgumentException('Boş sətiri göndərmək olmaz.');
+        }
+
+        $response->submitRow($rowIndex, $user->id);
+
+        return $response->fresh(['reportTable', 'institution', 'respondent']);
+    }
+
+    /**
+     * Sətiri təsdiqləyir (admin tərəfindən).
+     */
+    public function approveRow(ReportTableResponse $response, int $rowIndex, User $reviewer): ReportTableResponse
+    {
+        $this->checkReviewerHierarchyAccess($response, $reviewer);
+
+        $status = $response->getRowStatus($rowIndex)['status'] ?? null;
+        if ($status !== 'submitted') {
+            throw new \InvalidArgumentException('Sətir təsdiq üçün göndərilməyib.');
+        }
+
+        $response->approveRow($rowIndex, $reviewer->id);
+
+        return $response->fresh(['reportTable', 'institution', 'respondent']);
+    }
+
+    /**
+     * Sətiri rədd edir (admin tərəfindən).
+     */
+    public function rejectRow(ReportTableResponse $response, int $rowIndex, User $reviewer, string $reason): ReportTableResponse
+    {
+        $this->checkReviewerHierarchyAccess($response, $reviewer);
+
+        $status = $response->getRowStatus($rowIndex)['status'] ?? null;
+        if ($status !== 'submitted') {
+            throw new \InvalidArgumentException('Sətir təsdiq üçün göndərilməyib.');
+        }
+
+        $response->rejectRow($rowIndex, $reviewer->id, $reason);
+
+        return $response->fresh(['reportTable', 'institution', 'respondent']);
+    }
+
+    /**
+     * Sətiri qaralamaya qaytarır (admin tərəfindən — məktəb yenidən redaktə edə bilsin).
+     */
+    public function returnRowToDraft(ReportTableResponse $response, int $rowIndex, User $reviewer): ReportTableResponse
+    {
+        $this->checkReviewerHierarchyAccess($response, $reviewer);
+
+        $response->returnRowToDraft($rowIndex);
+
+        return $response->fresh(['reportTable', 'institution', 'respondent']);
+    }
+
+    /**
+     * Reviewer-in bu responsa baxmaq hüququnu yoxlayır.
+     * SektorAdmin: yalnız birbaşa öz sektoruna aid məktəblər.
+     * RegionAdmin/Operator: öz region hierarchiyasındakı bütün məktəblər.
+     * SuperAdmin: məhdudiyyətsiz.
+     */
+    private function checkReviewerHierarchyAccess(ReportTableResponse $response, User $reviewer): void
+    {
+        if ($reviewer->hasRole('superadmin')) {
+            return; // Tam giriş
+        }
+
+        $response->loadMissing('institution');
+        $responseInstitutionId = $response->institution_id;
+
+        if ($reviewer->hasRole('sektoradmin')) {
+            // SektorAdmin yalnız birbaşa ona tabe olan məktəbləri görə bilər
+            $directChildIds = Institution::where('parent_id', $reviewer->institution_id)
+                ->pluck('id')
+                ->toArray();
+
+            if (! in_array($responseInstitutionId, $directChildIds, true)) {
+                abort(403, 'Bu məktəbin məlumatlarını təsdiqləmək icazəniz yoxdur.');
+            }
+        } elseif ($reviewer->hasRole(['regionadmin', 'regionoperator'])) {
+            // RegionAdmin öz hierarchiyasındakı bütün alt müəssisələri görə bilər
+            $reviewerInstitution = $reviewer->institution;
+            if (! $reviewerInstitution) {
+                abort(403, 'Müəssisəyə aid deyilsiniz.');
+            }
+
+            $allowedIds = $reviewerInstitution->getAllChildrenIds();
+            if (! in_array($responseInstitutionId, $allowedIds, true)) {
+                abort(403, 'Bu məktəbin məlumatlarını təsdiqləmək icazəniz yoxdur.');
+            }
+        } else {
+            abort(403, 'Təsdiq etmək icazəniz yoxdur.');
+        }
+    }
+
     // ─── Row Validation ──────────────────────────────────────────────────────
 
     /**
@@ -168,9 +299,12 @@ class ReportTableResponseService
         $columnTypes = [];
         $columnLabels = [];
 
+        $columnOptions = [];
+
         foreach ($columns as $col) {
-            $columnTypes[$col['key']] = $col['type'] ?? 'text';
-            $columnLabels[$col['key']] = $col['label'] ?? $col['key'];
+            $columnTypes[$col['key']]   = $col['type'] ?? 'text';
+            $columnLabels[$col['key']]  = $col['label'] ?? $col['key'];
+            $columnOptions[$col['key']] = $col['options'] ?? [];
         }
 
         foreach ($rows as $rowIndex => $row) {
@@ -191,8 +325,9 @@ class ReportTableResponseService
                     continue;
                 }
 
-                $colType = $columnTypes[$colKey] ?? 'text';
-                $colLabel = $columnLabels[$colKey] ?? $colKey;
+                $colType    = $columnTypes[$colKey] ?? 'text';
+                $colLabel   = $columnLabels[$colKey] ?? $colKey;
+                $colOptions = $columnOptions[$colKey] ?? [];
 
                 switch ($colType) {
                     case 'number':
@@ -201,8 +336,19 @@ class ReportTableResponseService
                         }
                         break;
                     case 'date':
-                        if (! $this->isValidDate($cellValue)) {
+                        if (! $this->isValidDate((string) $cellValue)) {
                             $errors["rows.{$rowIndex}.{$colKey}"] = ["{$pos}. sətir, \"{$colLabel}\" sütununda düzgün tarix formatı gözlənilir (YYYY-MM-DD)."];
+                        }
+                        break;
+                    case 'select':
+                        if (! empty($colOptions) && ! in_array($cellValue, $colOptions, true)) {
+                            $errors["rows.{$rowIndex}.{$colKey}"] = ["{$pos}. sətir, \"{$colLabel}\" sütununda yanlış seçim: {$cellValue}"];
+                        }
+                        break;
+                    case 'boolean':
+                        $booleanValues = ['bəli', 'xeyr', 'true', 'false', '1', '0', 'yes', 'no'];
+                        if (! in_array(strtolower((string) $cellValue), $booleanValues, true)) {
+                            $errors["rows.{$rowIndex}.{$colKey}"] = ["{$pos}. sətir, \"{$colLabel}\" sütununda 'Bəli' və ya 'Xeyr' seçin."];
                         }
                         break;
                     case 'text':
