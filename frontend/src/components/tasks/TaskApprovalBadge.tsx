@@ -20,6 +20,7 @@ export function TaskApprovalBadge({
   if (!approvalStatus) {
     return (
       <Badge
+        data-testid="approval-badge"
         variant="secondary"
         className={cn(
           'bg-gray-100 text-gray-700 border-gray-300 flex items-center gap-1',
@@ -58,6 +59,7 @@ export function TaskApprovalBadge({
 
   return (
     <Badge
+      data-testid="approval-badge"
       variant="outline"
       className={cn('flex items-center gap-1', status.className, className)}
     >

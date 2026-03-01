@@ -411,6 +411,7 @@ const AssignedTasks = () => {
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
+              data-testid="tasks-search"
               placeholder="Tapşırıq axtar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -419,7 +420,7 @@ const AssignedTasks = () => {
           </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger data-testid="tasks-status-filter" className="w-[160px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -463,7 +464,7 @@ const AssignedTasks = () => {
       </div>
 
       <div className="rounded-md border">
-        <Table>
+        <Table data-testid="tasks-table">
           <TableHeader>
             <TableRow>
               <SortableHeader
@@ -536,7 +537,7 @@ const AssignedTasks = () => {
                 const progressValue = assignment?.progress ?? task.progress ?? 0;
 
                 return (
-                  <TableRow key={task.id}>
+                  <TableRow key={task.id} data-testid={`task-row-${task.id}`}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {task.origin_scope_label && (
@@ -564,7 +565,7 @@ const AssignedTasks = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getAssignmentStatusClass(statusForUser)}`}>
+                        <span data-testid={`task-status-${task.id}`} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getAssignmentStatusClass(statusForUser)}`}>
                           {assignmentStatusLabels[statusForUser] || statusLabels[statusForUser] || statusForUser}
                         </span>
                         {assignment && task.status !== statusForUser && (
@@ -648,6 +649,7 @@ const AssignedTasks = () => {
                             {/* Complete button - for in_progress and delegated tasks */}
                             {canTransition(assignment, "completed") && (statusForUser === "in_progress" || statusForUser === "delegated") && (
                               <Button
+                                data-testid={`task-complete-btn-${task.id}`}
                                 size="sm"
                                 variant="default"
                                 onClick={() => handleOpenCompletionDialog(task, assignment)}

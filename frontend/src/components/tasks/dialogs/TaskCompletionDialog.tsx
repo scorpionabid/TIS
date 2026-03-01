@@ -47,7 +47,7 @@ export const TaskCompletionDialog: React.FC<TaskCompletionDialogProps> = ({
 }) => {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
-      <DialogContent>
+      <DialogContent data-testid="completion-dialog">
         <DialogHeader>
           <DialogTitle>Tapşırığı tamamla</DialogTitle>
         </DialogHeader>
@@ -76,6 +76,7 @@ export const TaskCompletionDialog: React.FC<TaskCompletionDialogProps> = ({
           <div>
             <Label htmlFor="completion-notes">Qeydlər (isteğe bağlı)</Label>
             <Textarea
+              data-testid="completion-notes"
               id="completion-notes"
               rows={4}
               value={completionNotes}
@@ -86,10 +87,10 @@ export const TaskCompletionDialog: React.FC<TaskCompletionDialogProps> = ({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={isPending}>
+          <Button data-testid="completion-cancel" variant="outline" onClick={onClose} disabled={isPending}>
             Ləğv et
           </Button>
-          <Button onClick={onSubmit} disabled={!isValid || isPending}>
+          <Button data-testid="completion-submit" onClick={onSubmit} disabled={!isValid || isPending}>
             {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Tamamlandı kimi qeyd et
           </Button>

@@ -21,6 +21,7 @@ export function TextQuestionInput({
   if (displayMode === 'single-line') {
     return (
       <Input
+        data-testid={`question-text-${question.id}`}
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
@@ -31,6 +32,7 @@ export function TextQuestionInput({
 
   return (
     <Textarea
+      data-testid={`question-text-${question.id}`}
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}

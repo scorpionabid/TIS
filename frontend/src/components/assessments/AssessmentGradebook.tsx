@@ -127,11 +127,12 @@ export const AssessmentGradebook: React.FC<AssessmentGradebookProps> = ({
         <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as any)}>
           <div className="flex items-center justify-between">
             <TabsList>
-              <TabsTrigger value="assessments" className="flex items-center gap-2">
+              <TabsTrigger data-testid="assessments-tab" value="assessments" className="flex items-center gap-2">
                 <FileText className="h-4 w-4" />
                 Qiymətləndirmələr
               </TabsTrigger>
               <TabsTrigger 
+                data-testid="grades-tab"
                 value="grades" 
                 disabled={!selectedAssessmentId}
                 className="flex items-center gap-2"
@@ -152,6 +153,7 @@ export const AssessmentGradebook: React.FC<AssessmentGradebookProps> = ({
                 </Button>
               )}
               <Button 
+                data-testid="new-assessment-btn"
                 onClick={() => setCreateModalOpen(true)}
                 disabled={!selectedClassId}
               >

@@ -29,6 +29,7 @@ export function SingleChoiceQuestionInput({
       {options.map((option, index) => (
         <div key={index} className="flex items-center space-x-2">
           <RadioGroupItem
+            data-testid={`question-radio-${question.id}-${typeof option === "string" ? index : option.id || index}`}
             value={
               typeof option === "string"
                 ? option
