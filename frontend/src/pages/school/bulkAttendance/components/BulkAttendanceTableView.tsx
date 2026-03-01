@@ -121,8 +121,8 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table data-testid="bulk-table">
+      <div className="rounded-md border overflow-x-auto">
+        <Table data-testid="bulk-table" className="min-w-[900px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">#</TableHead>
