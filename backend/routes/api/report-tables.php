@@ -19,6 +19,10 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('report-tables/my', [ReportTableController::class, 'my'])
         ->middleware('permission:report_table_responses.write');
+
+    // Approval Queue — reviewer-in hüquqlu olduğu bütün gözləyən sətirləri
+    Route::get('report-tables/approval-queue', [ReportTableResponseController::class, 'approvalQueue'])
+        ->middleware('permission:report_table_responses.review');
 });
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Read) ───────────────────────────
@@ -65,6 +69,8 @@ Route::middleware('permission:report_table_responses.review')->group(function ()
     Route::post('report-tables/{table}/responses/{response}/rows/approve', [ReportTableResponseController::class, 'approveRow']);
     Route::post('report-tables/{table}/responses/{response}/rows/reject',  [ReportTableResponseController::class, 'rejectRow']);
     Route::post('report-tables/{table}/responses/{response}/rows/return',  [ReportTableResponseController::class, 'returnRow']);
+    // Toplu sətir əməliyyatı (approval queue-dən)
+    Route::post('report-tables/{table}/responses/bulk-row-action',         [ReportTableResponseController::class, 'bulkRowAction']);
 });
 
 // ─── Admin: Tək cavab baxışı ──────────────────────────────────────────────────

@@ -211,6 +211,50 @@ class ReportTableResponseController extends BaseController
         }
     }
 
+    // ─── Approval Queue ──────────────────────────────────────────────────────
+
+    /**
+     * GET /api/report-tables/approval-queue
+     * Reviewer-in hüquqlu olduğu bütün gözləyən sətirləri qaytarır.
+     */
+    public function approvalQueue(Request $request): JsonResponse
+    {
+        $data = $this->service->getApprovalQueue($request->user());
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * POST /api/report-tables/{table}/responses/bulk-row-action
+     * Bir cədvəl üçün seçilmiş sətirləri toplu şəkildə emal edir.
+     */
+    public function bulkRowAction(ReportTable $table, Request $request): JsonResponse
+    {
+        $request->validate([
+            'row_specs'                  => 'required|array|min:1',
+            'row_specs.*.response_id'    => 'required|integer',
+            'row_specs.*.row_indices'    => 'required|array|min:1',
+            'row_specs.*.row_indices.*'  => 'integer|min:0',
+            'action'                     => 'required|in:approve,reject,return',
+            'reason'                     => 'required_if:action,reject|nullable|string|max:500',
+        ]);
+
+        $result = $this->service->bulkRowAction(
+            $table,
+            $request->row_specs,
+            $request->action,
+            $request->reason,
+            $request->user()
+        );
+
+        return response()->json([
+            'message'    => "{$result['successful']} sətir emal edildi.",
+            'successful' => $result['successful'],
+            'failed'     => $result['failed'],
+            'errors'     => $result['errors'],
+        ]);
+    }
+
     // ─── Show (admin) ────────────────────────────────────────────────────────
 
     /**

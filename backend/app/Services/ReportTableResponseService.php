@@ -240,6 +240,137 @@ class ReportTableResponseService
         return $response->fresh(['reportTable', 'institution', 'respondent']);
     }
 
+    // ─── Approval Queue ──────────────────────────────────────────────────────
+
+    /**
+     * Reviewer-in hüquqlu olduğu bütün cədvəllərdəki gözləyən sətirləri
+     * Cədvəl → Cavab (məktəb) qruplamasında qaytarır.
+     */
+    public function getApprovalQueue(User $user): array
+    {
+        $institutionIds = $this->getReviewableInstitutionIds($user);
+
+        if (empty($institutionIds)) {
+            return [];
+        }
+
+        $responses = ReportTableResponse::with(['reportTable', 'institution.parent'])
+            ->whereIn('institution_id', $institutionIds)
+            ->whereNotNull('row_statuses')
+            ->whereRaw("EXISTS (
+                SELECT 1 FROM jsonb_each(row_statuses) AS rs(key, val)
+                WHERE val->>'status' = 'submitted'
+            )")
+            ->whereHas('reportTable', fn ($q) => $q->whereNull('deleted_at')->where('status', 'published'))
+            ->get();
+
+        $grouped = [];
+
+        foreach ($responses as $response) {
+            $tableId = $response->report_table_id;
+
+            if (! isset($grouped[$tableId])) {
+                $table = $response->reportTable;
+                $grouped[$tableId] = [
+                    'table' => [
+                        'id'       => $table->id,
+                        'title'    => $table->title,
+                        'deadline' => $table->deadline?->toISOString(),
+                        'columns'  => $table->columns ?? [],
+                    ],
+                    'pending_count' => 0,
+                    'responses'     => [],
+                ];
+            }
+
+            $pendingIndices = [];
+            foreach ($response->row_statuses as $idx => $meta) {
+                if (($meta['status'] ?? null) === 'submitted') {
+                    $pendingIndices[] = (int) $idx;
+                    $grouped[$tableId]['pending_count']++;
+                }
+            }
+
+            $institution = $response->institution;
+            $grouped[$tableId]['responses'][] = [
+                'id'                  => $response->id,
+                'institution_id'      => $response->institution_id,
+                'institution'         => [
+                    'id'     => $institution->id,
+                    'name'   => $institution->name,
+                    'parent' => $institution->parent
+                        ? ['id' => $institution->parent->id, 'name' => $institution->parent->name]
+                        : null,
+                ],
+                'rows'                => $response->rows ?? [],
+                'row_statuses'        => $response->row_statuses ?? [],
+                'pending_row_indices' => $pendingIndices,
+            ];
+        }
+
+        return array_values($grouped);
+    }
+
+    /**
+     * Bir cədvəl üçün seçilmiş sətirləri toplu şəkildə emal edir (approve/reject/return).
+     * Hər rowSpec: {response_id, row_indices[]}.
+     * Returns: {successful, failed, errors[]}.
+     */
+    public function bulkRowAction(
+        ReportTable $table,
+        array $rowSpecs,
+        string $action,
+        ?string $reason,
+        User $reviewer
+    ): array {
+        $successful = 0;
+        $errors     = [];
+
+        DB::transaction(function () use ($table, $rowSpecs, $action, $reason, $reviewer, &$successful, &$errors) {
+            foreach ($rowSpecs as $spec) {
+                $responseId = $spec['response_id'] ?? null;
+                $rowIndices = $spec['row_indices'] ?? [];
+
+                $response = ReportTableResponse::find($responseId);
+                if (! $response || $response->report_table_id !== $table->id) {
+                    $errors[] = ['response_id' => $responseId, 'error' => 'Cavab tapılmadı'];
+                    continue;
+                }
+
+                try {
+                    $this->checkReviewerHierarchyAccess($response, $reviewer);
+                } catch (\Throwable $e) {
+                    $errors[] = ['response_id' => $responseId, 'error' => $e->getMessage()];
+                    continue;
+                }
+
+                foreach ($rowIndices as $rowIndex) {
+                    $idx    = (int) $rowIndex;
+                    $status = $response->getRowStatus($idx)['status'] ?? null;
+
+                    if ($status !== 'submitted') {
+                        $errors[] = [
+                            'response_id' => $responseId,
+                            'row_index'   => $idx,
+                            'error'       => 'Sətir submitted statusunda deyil',
+                        ];
+                        continue;
+                    }
+
+                    match ($action) {
+                        'approve' => $response->approveRow($idx, $reviewer->id),
+                        'reject'  => $response->rejectRow($idx, $reviewer->id, $reason ?? ''),
+                        'return'  => $response->returnRowToDraft($idx),
+                    };
+
+                    $successful++;
+                }
+            }
+        });
+
+        return ['successful' => $successful, 'failed' => count($errors), 'errors' => $errors];
+    }
+
     /**
      * Reviewer-in bu responsa baxmaq hüququnu yoxlayır.
      * SektorAdmin: yalnız birbaşa öz sektoruna aid məktəblər.
@@ -249,35 +380,39 @@ class ReportTableResponseService
     private function checkReviewerHierarchyAccess(ReportTableResponse $response, User $reviewer): void
     {
         if ($reviewer->hasRole('superadmin')) {
-            return; // Tam giriş
+            return;
         }
 
         $response->loadMissing('institution');
         $responseInstitutionId = $response->institution_id;
 
-        if ($reviewer->hasRole('sektoradmin')) {
-            // SektorAdmin yalnız birbaşa ona tabe olan məktəbləri görə bilər
-            $directChildIds = Institution::where('parent_id', $reviewer->institution_id)
-                ->pluck('id')
-                ->toArray();
+        $allowedIds = $this->getReviewableInstitutionIds($reviewer);
 
-            if (! in_array($responseInstitutionId, $directChildIds, true)) {
-                abort(403, 'Bu məktəbin məlumatlarını təsdiqləmək icazəniz yoxdur.');
-            }
-        } elseif ($reviewer->hasRole(['regionadmin', 'regionoperator'])) {
-            // RegionAdmin öz hierarchiyasındakı bütün alt müəssisələri görə bilər
-            $reviewerInstitution = $reviewer->institution;
-            if (! $reviewerInstitution) {
-                abort(403, 'Müəssisəyə aid deyilsiniz.');
-            }
-
-            $allowedIds = $reviewerInstitution->getAllChildrenIds();
-            if (! in_array($responseInstitutionId, $allowedIds, true)) {
-                abort(403, 'Bu məktəbin məlumatlarını təsdiqləmək icazəniz yoxdur.');
-            }
-        } else {
-            abort(403, 'Təsdiq etmək icazəniz yoxdur.');
+        if (! in_array($responseInstitutionId, $allowedIds, true)) {
+            abort(403, 'Bu məktəbin məlumatlarını təsdiqləmək icazəniz yoxdur.');
         }
+    }
+
+    /**
+     * Reviewer-in hüquqlu olduğu müəssisə ID-lərini qaytarır.
+     */
+    private function getReviewableInstitutionIds(User $user): array
+    {
+        if ($user->hasRole('superadmin')) {
+            return Institution::pluck('id')->toArray();
+        }
+
+        $institution = $user->institution;
+        if (! $institution) {
+            return [];
+        }
+
+        if ($user->hasRole('sektoradmin')) {
+            return Institution::where('parent_id', $institution->id)->pluck('id')->toArray();
+        }
+
+        // regionadmin / regionoperator
+        return $institution->getAllChildrenIds();
     }
 
     // ─── Row Validation ──────────────────────────────────────────────────────

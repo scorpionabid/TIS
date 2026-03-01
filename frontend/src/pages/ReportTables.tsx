@@ -34,6 +34,7 @@ import {
   AlertCircle,
   RotateCcw,
   ShieldAlert,
+  ClipboardCheck,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
@@ -42,6 +43,7 @@ import { reportTableService } from '@/services/reportTables';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
 import { ReportTableModal } from '@/components/modals/ReportTableModal';
 import { ReportTableResponsesView } from '@/components/reporttables/ReportTableResponsesView';
+import { ReportTableApprovalQueue } from '@/components/reporttables/ReportTableApprovalQueue';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import type { ReportTable, ReportTableStatus } from '@/types/reportTable';
 
@@ -277,7 +279,9 @@ const CONFIRM_CONFIG: Record<ConfirmActionType, {
 
 export default function ReportTables() {
   const queryClient = useQueryClient();
-  const { isSuperAdmin } = useRoleCheck();
+  const { isSuperAdmin, hasPermission } = useRoleCheck();
+  const canReview = hasPermission('report_table_responses.review');
+  const [viewMode, setViewMode] = useState<'tables' | 'approval'>('tables');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReportTableStatus | 'all' | 'deleted'>('all');
   const [page, setPage] = useState(1);
@@ -420,128 +424,152 @@ export default function ReportTables() {
             Məktəblər üçün dinamik məlumat cədvəlləri yaradın və idarə edin.
           </p>
         </div>
-        {statusFilter !== 'deleted' && (
-          <Button
-            onClick={() => setShowModal(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Yeni cədvəl
-          </Button>
-        )}
-      </div>
-
-      {/* Filters */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Axtar..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-
-        <div className="flex gap-1 flex-wrap">
-          {statusButtons.map((btn) => (
+        <div className="flex items-center gap-2">
+          {canReview && (
             <Button
-              key={btn.value}
-              variant={statusFilter === btn.value ? 'default' : 'outline'}
+              variant={viewMode === 'approval' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setStatusFilter(btn.value)}
+              onClick={() => setViewMode(v => v === 'approval' ? 'tables' : 'approval')}
               className={
-                statusFilter === btn.value
-                  ? btn.value === 'deleted'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : 'bg-emerald-600 hover:bg-emerald-700'
-                  : btn.className ?? ''
+                viewMode === 'approval'
+                  ? 'bg-amber-600 hover:bg-amber-700 gap-1.5'
+                  : 'text-amber-600 border-amber-200 hover:bg-amber-50 gap-1.5'
               }
             >
-              {btn.value === 'deleted' && <Trash2 className="h-3.5 w-3.5 mr-1" />}
-              {btn.label}
+              <ClipboardCheck className="h-4 w-4" />
+              Təsdiq Növbəsi
             </Button>
-          ))}
+          )}
+          {viewMode === 'tables' && statusFilter !== 'deleted' && (
+            <Button
+              onClick={() => setShowModal(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Yeni cədvəl
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Deleted tab info banner */}
-      {statusFilter === 'deleted' && (
-        <Alert className="border-red-200 bg-red-50 text-red-800">
-          <ShieldAlert className="h-4 w-4 text-red-600" />
-          <AlertDescription>
-            Silinmiş cədvəllər göstərilir. Bərpa etmək üçün "Bərpa et", tamamilə silmək üçün "Birdəfəlik sil" seçin.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Error state */}
-      {isError && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            Hesabat cədvəlləri yüklənərkən xəta baş verdi. Səhifəni yeniləyin.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Content */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <Skeleton key={i} className="h-44 w-full rounded-xl" />
-          ))}
-        </div>
-      ) : tables.length === 0 ? (
-        <div className="text-center py-16 text-gray-400">
-          <Table2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
-          <p className="text-lg font-medium">
-            {statusFilter === 'deleted' ? 'Silinmiş cədvəl yoxdur' : 'Cədvəl tapılmadı'}
-          </p>
-          <p className="text-sm mt-1">
-            {search
-              ? 'Axtarışa uyğun cədvəl yoxdur.'
-              : statusFilter === 'deleted'
-              ? 'Heç bir cədvəl silinməyib.'
-              : 'Hələ heç bir hesabat cədvəli yaradılmayıb.'}
-          </p>
-        </div>
+      {/* Approval Queue Mode */}
+      {viewMode === 'approval' ? (
+        <ReportTableApprovalQueue />
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tables.map((table) => (
-              <TableCard
-                key={table.id}
-                table={table}
-                onEdit={(t) => { setEditingTable(t); setShowModal(true); }}
-                onView={setViewingTable}
-                onConfirm={(type, t) => setConfirmState({ type, table: t })}
-                isSuperAdmin={isSuperAdmin}
+          {/* Filters */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-48 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Axtar..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
               />
-            ))}
+            </div>
+
+            <div className="flex gap-1 flex-wrap">
+              {statusButtons.map((btn) => (
+                <Button
+                  key={btn.value}
+                  variant={statusFilter === btn.value ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatusFilter(btn.value)}
+                  className={
+                    statusFilter === btn.value
+                      ? btn.value === 'deleted'
+                        ? 'bg-red-600 hover:bg-red-700'
+                        : 'bg-emerald-600 hover:bg-emerald-700'
+                      : btn.className ?? ''
+                  }
+                >
+                  {btn.value === 'deleted' && <Trash2 className="h-3.5 w-3.5 mr-1" />}
+                  {btn.label}
+                </Button>
+              ))}
+            </div>
           </div>
 
-          {/* Pagination */}
-          {meta && meta.last_page > 1 && (
-            <div className="flex items-center justify-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-              >
-                Əvvəlki
-              </Button>
-              <span className="text-sm text-gray-500">{page} / {meta.last_page}</span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
-                disabled={page >= meta.last_page}
-              >
-                Növbəti
-              </Button>
+          {/* Deleted tab info banner */}
+          {statusFilter === 'deleted' && (
+            <Alert className="border-red-200 bg-red-50 text-red-800">
+              <ShieldAlert className="h-4 w-4 text-red-600" />
+              <AlertDescription>
+                Silinmiş cədvəllər göstərilir. Bərpa etmək üçün "Bərpa et", tamamilə silmək üçün "Birdəfəlik sil" seçin.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Error state */}
+          {isError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Hesabat cədvəlləri yüklənərkən xəta baş verdi. Səhifəni yeniləyin.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Content */}
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="h-44 w-full rounded-xl" />
+              ))}
             </div>
+          ) : tables.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <Table2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="text-lg font-medium">
+                {statusFilter === 'deleted' ? 'Silinmiş cədvəl yoxdur' : 'Cədvəl tapılmadı'}
+              </p>
+              <p className="text-sm mt-1">
+                {search
+                  ? 'Axtarışa uyğun cədvəl yoxdur.'
+                  : statusFilter === 'deleted'
+                  ? 'Heç bir cədvəl silinməyib.'
+                  : 'Hələ heç bir hesabat cədvəli yaradılmayıb.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {tables.map((table) => (
+                  <TableCard
+                    key={table.id}
+                    table={table}
+                    onEdit={(t) => { setEditingTable(t); setShowModal(true); }}
+                    onView={setViewingTable}
+                    onConfirm={(type, t) => setConfirmState({ type, table: t })}
+                    isSuperAdmin={isSuperAdmin}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {meta && meta.last_page > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                  >
+                    Əvvəlki
+                  </Button>
+                  <span className="text-sm text-gray-500">{page} / {meta.last_page}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+                    disabled={page >= meta.last_page}
+                  >
+                    Növbəti
+                  </Button>
+                </div>
+              )}
+            </>
           )}
         </>
       )}

@@ -9,6 +9,9 @@ import {
   ReportTableFilters,
   ReportTableResponseFilters,
   ReportTableRow,
+  ApprovalQueueTable,
+  BulkRowSpec,
+  BulkRowActionResult,
 } from '../types/reportTable';
 
 // ─── Local response shape types ───────────────────────────────────────────────
@@ -195,6 +198,29 @@ class ReportTableService extends BaseService<ReportTable> {
       { row_index: rowIndex }
     );
     return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.returnRow', 'ReportTableService');
+  }
+
+  // ─── Approval Queue ───────────────────────────────────────────────────────
+
+  async getApprovalQueue(): Promise<ApprovalQueueTable[]> {
+    const response = await this.get<{ data: ApprovalQueueTable[] }>('report-tables/approval-queue');
+    const result = response as unknown as { data: ApprovalQueueTable[] };
+    return result.data ?? [];
+  }
+
+  async bulkRowAction(
+    tableId: number,
+    rowSpecs: BulkRowSpec[],
+    action: 'approve' | 'reject' | 'return',
+    reason?: string
+  ): Promise<BulkRowActionResult> {
+    const payload: Record<string, unknown> = { row_specs: rowSpecs, action };
+    if (reason) payload.reason = reason;
+    const response = await this.post<BulkRowActionResult>(
+      `report-tables/${tableId}/responses/bulk-row-action`,
+      payload
+    );
+    return response as unknown as BulkRowActionResult;
   }
 
   // ─── SuperAdmin: Soft delete bərpa / birdəfəlik sil ──────────────────────

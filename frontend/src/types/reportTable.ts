@@ -131,3 +131,47 @@ export interface ReportTableResponseFilters {
   per_page?: number;
   page?: number;
 }
+
+// ─── Approval Queue ───────────────────────────────────────────────────────────
+
+export interface ApprovalQueueResponse {
+  id: number;
+  institution_id: number;
+  institution: {
+    id: number;
+    name: string;
+    parent?: { id: number; name: string };
+  };
+  rows: ReportTableRow[];
+  row_statuses: RowStatuses;
+  pending_row_indices: number[];
+}
+
+export interface ApprovalQueueTable {
+  table: {
+    id: number;
+    title: string;
+    deadline?: string;
+    columns: ReportTableColumn[];
+  };
+  pending_count: number;
+  responses: ApprovalQueueResponse[];
+}
+
+export interface BulkRowSpec {
+  response_id: number;
+  row_indices: number[];
+}
+
+export interface BulkRowActionPayload {
+  row_specs: BulkRowSpec[];
+  action: 'approve' | 'reject' | 'return';
+  reason?: string;
+}
+
+export interface BulkRowActionResult {
+  message: string;
+  successful: number;
+  failed: number;
+  errors: Array<{ response_id?: number; row_index?: number; error: string }>;
+}
