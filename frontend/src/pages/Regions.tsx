@@ -449,7 +449,7 @@ export default function Regions() {
           return (
             <Card key={region.id} className={!region.is_active ? 'opacity-75' : ''}>
               <CardHeader className="space-y-2">
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                   <div className="flex items-start gap-2">
                     <MapPin className="h-5 w-5 text-primary mt-1" />
                     <div>

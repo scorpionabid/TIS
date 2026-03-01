@@ -234,9 +234,9 @@ describe("BulkAttendanceTableView", () => {
   it("should display mismatch styling when totals do not match", () => {
     const mismatchedData: AttendanceFormData = {
       "1": {
-        morning_present: 10,
-        morning_excused: 5,
-        morning_unexcused: 5,
+        morning_present: 0,
+        morning_excused: 15,
+        morning_unexcused: 15,
         evening_present: 0,
         evening_excused: 0,
         evening_unexcused: 0,
@@ -257,7 +257,7 @@ describe("BulkAttendanceTableView", () => {
       />,
     );
 
-    // Class 1: 10 present + 5 excused + 5 unexcused = 20, but total is 25, so mismatch
+    // Class 1: 15 excused + 15 unexcused = 30, which is > 25 (total), so mismatch
     const rowWithMismatch = screen.getByTestId("bulk-row-1");
     expect(rowWithMismatch).toHaveClass("bg-orange-50");
   });

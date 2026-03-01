@@ -354,7 +354,8 @@ export default function RegionAttendanceReports() {
                 ) : sectors.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Seçilmiş filterlər üçün sektor tapılmadı.</p>
                 ) : (
-                  <Table>
+                  <div className="rounded-md border overflow-x-auto">
+                  <Table className="min-w-[640px]">
                     <TableHeader>
                       <TableRow>
                         <TableHead>Sektor</TableHead>
@@ -383,6 +384,7 @@ export default function RegionAttendanceReports() {
                       ))}
                     </TableBody>
                   </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -435,7 +437,8 @@ export default function RegionAttendanceReports() {
               {overviewLoading ? (
                 <Skeleton className="h-40 w-full" />
               ) : (
-                <Table>
+                <div className="rounded-md border overflow-x-auto">
+                <Table className="min-w-[640px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Məktəb</TableHead>
@@ -485,6 +488,7 @@ export default function RegionAttendanceReports() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -600,7 +604,8 @@ export default function RegionAttendanceReports() {
                   {classLoading ? (
                     <Skeleton className="h-48 w-full" />
                   ) : classBreakdown ? (
-                    <Table>
+                    <div className="rounded-md border overflow-x-auto">
+                    <Table className="min-w-[640px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Sinif</TableHead>
@@ -643,6 +648,7 @@ export default function RegionAttendanceReports() {
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Sinif məlumatı tapılmadı.</p>
                   )}

@@ -264,7 +264,7 @@ export default function Hierarchy() {
             Təşkilati strukturun dinamik idarəsi və visualizasiya
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button 
             variant="outline" 
             onClick={handleRefresh}
@@ -284,7 +284,7 @@ export default function Hierarchy() {
             </Button>
           )}
           {canModify && (
-            <Button className="flex items-center gap-2">
+            <Button className="flex items-center justify-center gap-2 w-full sm:w-auto">
               <Settings className="h-4 w-4" />
               Strukturu İdarə Et
             </Button>
@@ -342,7 +342,7 @@ export default function Hierarchy() {
         <div className="lg:col-span-2">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div className="flex items-center gap-2">
                   <GitBranch className="h-5 w-5 text-primary" />
                   <CardTitle>Təşkilati Struktur</CardTitle>

@@ -635,7 +635,7 @@ export default function AssessmentResults() {
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-[800px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Məktəb</TableHead>
@@ -684,7 +684,7 @@ export default function AssessmentResults() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="min-w-[800px]">
                     <TableHeader className="sticky top-0 bg-background z-10">
                       <TableRow>
                         <TableHead>

@@ -117,13 +117,13 @@ export default function RegionSchedules() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Bölgə Cədvəl Nəzarəti</h1>
           <p className="text-gray-600">Bölgədəki bütün təşkilatların cədvəllərini izləyin</p>
         </div>
         
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
           <Button variant="outline">
             <Download className="h-4 w-4 mr-2" />
             Bölgə Hesabatı
@@ -232,19 +232,19 @@ export default function RegionSchedules() {
           <CardTitle>Təşkilat Cədvəl Vəziyyəti</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-4 mb-6">
-            <div className="relative">
+          <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
+            <div className="relative w-full md:w-auto">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 placeholder="Təşkilat axtarın..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-64"
+                className="pl-10 w-full md:w-64"
               />
             </div>
             
             <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
-              <SelectTrigger className="w-48">
+              <SelectTrigger className="w-full md:w-48">
                 <SelectValue placeholder="Təşkilat seçin" />
               </SelectTrigger>
               <SelectContent>
@@ -258,7 +258,7 @@ export default function RegionSchedules() {
             </Select>
             
             <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-40">
+              <SelectTrigger className="w-full md:w-40">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -275,13 +275,13 @@ export default function RegionSchedules() {
             {filteredOverview.map((item) => (
               <Card key={item.institution.id} className="border">
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div>
                       <CardTitle className="text-lg">{item.institution.name}</CardTitle>
                       <p className="text-sm text-gray-600">{item.institution.type_name}</p>
                     </div>
                     
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
                       {item.stats.conflicts > 0 && (
                         <Badge variant="destructive" className="text-xs">
                           {item.stats.conflicts} konflikt

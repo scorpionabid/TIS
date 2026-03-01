@@ -201,12 +201,12 @@ export default function Notifications() {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Bildirişlər</h1>
           <p className="text-muted-foreground">Sistem bildirişlərinin idarə edilməsi</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
           <Button 
             variant="outline" 
             onClick={() => markAllAsReadMutation.mutate()}
@@ -384,7 +384,7 @@ export default function Notifications() {
               {notifications.map((notification: Notification) => (
                 <div
                   key={notification.id}
-                  className={`flex items-start justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer ${
+                  className={`flex flex-col sm:flex-row sm:items-start sm:justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors cursor-pointer gap-4 ${
                     notification.status === 'unread' ? 'border-primary/50 bg-primary/5' : 'border-border'
                   }`}
                   onClick={() => {
@@ -449,7 +449,7 @@ export default function Notifications() {
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 ml-4">
+                  <div className="flex items-center gap-2 mt-2 sm:mt-0">
                     <Button
                       variant="ghost"
                       size="sm"

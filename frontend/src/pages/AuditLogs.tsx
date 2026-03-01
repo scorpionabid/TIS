@@ -26,12 +26,12 @@ export default function AuditLogs() {
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Audit Logları</h1>
           <p className="text-muted-foreground">Sistem fəaliyyət qeydləri və audit izləməsi</p>
         </div>
-        <Button className="flex items-center gap-2">
+        <Button className="flex items-center gap-2 w-full sm:w-auto">
           <Download className="h-4 w-4" />
           Log Eksport
         </Button>
@@ -210,9 +210,9 @@ export default function AuditLogs() {
                 status: "success"
               }
             ].map((log) => (
-              <div key={log.id} className="flex items-center justify-between p-4 border border-border rounded-lg hover:bg-surface/50 transition-colors">
+              <div key={log.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between p-4 border border-border rounded-lg hover:bg-surface/50 transition-colors gap-4">
                 <div className="flex-1">
-                  <div className="flex items-center gap-3 mb-2">
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
                     <h3 className="font-medium text-foreground">{log.action}</h3>
                     <Badge 
                       variant={

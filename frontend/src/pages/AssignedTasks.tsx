@@ -463,8 +463,8 @@ const AssignedTasks = () => {
         </div>
       </div>
 
-      <div className="rounded-md border">
-        <Table data-testid="tasks-table">
+      <div className="rounded-md border overflow-x-auto">
+        <Table data-testid="tasks-table" className="min-w-[800px]">
           <TableHeader>
             <TableRow>
               <SortableHeader

@@ -355,32 +355,32 @@ export default function Roles() {
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Rollar</h1>
           <p className="text-muted-foreground">Sistem rollarının və icazələrinin idarə edilməsi</p>
         </div>
-        <Button className="flex items-center gap-2" onClick={() => handleOpenModal()}>
+        <Button className="flex items-center gap-2 w-full sm:w-auto" onClick={() => handleOpenModal()}>
           <Plus className="h-4 w-4" />
           Yeni Rol
         </Button>
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          <div className="relative">
+      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
+        <div className="flex flex-col md:flex-row gap-4 items-start md:items-center w-full md:w-auto">
+          <div className="relative w-full md:w-auto">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Rol axtar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8 w-[250px]"
+              className="pl-8 w-full md:w-[250px]"
             />
           </div>
           
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger className="w-full md:w-[150px]">
               <SelectValue placeholder="Kateqoriya" />
             </SelectTrigger>
             <SelectContent>
@@ -394,7 +394,7 @@ export default function Roles() {
           </Select>
 
           <Select value={levelFilter} onValueChange={setLevelFilter}>
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-full md:w-[120px]">
               <SelectValue placeholder="Səviyyə" />
             </SelectTrigger>
             <SelectContent>

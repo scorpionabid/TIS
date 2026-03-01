@@ -388,11 +388,11 @@ export default function Permissions() {
       {/* Pagination */}
       {permissionsData && permissionsData.total > perPage && (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4">
-          <div className="text-sm text-muted-foreground">
+          <div className="text-sm text-muted-foreground text-center sm:text-left">
             Göstərilir {((currentPage - 1) * perPage) + 1} - {Math.min(currentPage * perPage, permissionsData.total)} / {permissionsData.total}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             <Button
               variant="outline"
               size="sm"
