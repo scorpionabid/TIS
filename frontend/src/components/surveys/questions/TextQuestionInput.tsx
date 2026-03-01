@@ -21,9 +21,10 @@ export function TextQuestionInput({
   if (displayMode === 'single-line') {
     return (
       <Input
+        data-testid={`question-text-${question.id}`}
         value={value ?? ''}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={placeholder as string}
         disabled={disabled}
       />
     );
@@ -31,10 +32,11 @@ export function TextQuestionInput({
 
   return (
     <Textarea
+      data-testid={`question-text-${question.id}`}
       value={value ?? ''}
       onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      rows={question.metadata?.rows ?? 3}
+      placeholder={placeholder as string}
+      rows={(question.metadata?.rows as number) ?? 3}
       disabled={disabled}
     />
   );

@@ -473,7 +473,7 @@ const SurveyApprovalDashboard: React.FC = () => {
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="flex items-center gap-2 text-2xl font-bold sm:text-3xl">
+          <h1 data-testid="survey-approval-title" className="flex items-center gap-2 text-2xl font-bold sm:text-3xl">
             <Target className="h-7 w-7 text-primary sm:h-8 sm:w-8" />
             Sorğu Cavablarının Təsdiqi
           </h1>
@@ -508,6 +508,7 @@ const SurveyApprovalDashboard: React.FC = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-4">
             {/* Ümumi — clears all status filters */}
             <Card
+              data-testid="stat-card-total"
               className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-blue-300 ${
                 !filters.status && !filters.approval_status ? 'ring-2 ring-blue-500 bg-blue-50/50' : ''
               }`}
@@ -519,7 +520,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                   <Users className="h-4 w-4 text-blue-500" />
                   <div>
                     <p className="text-sm text-muted-foreground">Ümumi</p>
-                    <p className="text-2xl font-bold">{stats.total}</p>
+                    <p data-testid="stat-value-total" className="text-2xl font-bold">{stats.total}</p>
                   </div>
                 </div>
               </CardContent>
@@ -527,6 +528,7 @@ const SurveyApprovalDashboard: React.FC = () => {
 
             {/* Gözləyir — status = 'submitted' (təqdim edilmiş, hər hansı approval vəziyyətində) */}
             <Card
+              data-testid="stat-card-pending"
               className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-yellow-300 ${
                 filters.status === 'submitted' ? 'ring-2 ring-yellow-500 bg-yellow-50/50' : ''
               }`}
@@ -538,7 +540,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                   <Clock className="h-4 w-4 text-yellow-500" />
                   <div>
                     <p className="text-sm text-muted-foreground">Gözləyir</p>
-                    <p className="text-2xl font-bold">{stats.pending}</p>
+                    <p data-testid="stat-value-pending" className="text-2xl font-bold">{stats.pending}</p>
                   </div>
                 </div>
               </CardContent>
@@ -584,6 +586,7 @@ const SurveyApprovalDashboard: React.FC = () => {
 
             {/* Təsdiqləndi — status = 'approved' */}
             <Card
+              data-testid="stat-card-approved"
               className={`cursor-pointer transition-all hover:shadow-md hover:ring-2 hover:ring-green-300 ${
                 filters.status === 'approved' ? 'ring-2 ring-green-600 bg-green-50/50' : ''
               }`}
@@ -595,7 +598,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                   <CheckCircle className="h-4 w-4 text-green-500" />
                   <div>
                     <p className="text-sm text-muted-foreground">Təsdiqləndi</p>
-                    <p className="text-2xl font-bold">{stats.approved}</p>
+                    <p data-testid="stat-value-approved" className="text-2xl font-bold">{stats.approved}</p>
                   </div>
                 </div>
               </CardContent>
@@ -744,6 +747,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Button
+                        data-testid="bulk-approve-btn"
                         size="sm"
                         variant="default"
                         onClick={() => handleBulkAction('approve')}
@@ -753,6 +757,7 @@ const SurveyApprovalDashboard: React.FC = () => {
                         Təsdiq Et
                       </Button>
                       <Button
+                        data-testid="bulk-reject-btn"
                         size="sm"
                         variant="destructive"
                         onClick={() => handleBulkAction('reject')}

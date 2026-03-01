@@ -75,7 +75,7 @@ export function SurveyQuestionRenderer({
   };
 
   return (
-    <div className="space-y-2">
+    <div data-testid={`question-${questionKey}`} className="space-y-2">
       {renderQuestion()}
       {error && (
         <p className={cn('text-sm text-red-600')}>

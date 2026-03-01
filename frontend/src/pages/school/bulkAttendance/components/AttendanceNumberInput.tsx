@@ -10,6 +10,7 @@ interface AttendanceNumberInputProps {
   max?: number;
   disabled?: boolean;
   id?: string;
+  "data-testid"?: string;
   "aria-label"?: string;
   onChange: (nextValue: number) => void;
   size?: "default" | "compact";
@@ -28,17 +29,19 @@ const AttendanceNumberInput: React.FC<AttendanceNumberInputProps> = ({
   max = Number.MAX_SAFE_INTEGER,
   disabled,
   id,
+  "data-testid": dataTestId,
   onChange,
   "aria-label": ariaLabel,
   size = "default",
   className,
 }) => {
   // Ensure value is a valid number
-  const value = typeof rawValue === 'number' && !isNaN(rawValue) ? rawValue : 0;
+  const value = typeof rawValue === "number" && !isNaN(rawValue) ? rawValue : 0;
 
   // Safe wrapper to ensure we never pass NaN to parent
   const safeOnChange = (val: number) => {
-    const safeVal = Number.isFinite(val) && !Number.isNaN(val) ? Math.floor(val) : 0;
+    const safeVal =
+      Number.isFinite(val) && !Number.isNaN(val) ? Math.floor(val) : 0;
     onChange(safeVal);
   };
 
@@ -63,13 +66,15 @@ const AttendanceNumberInput: React.FC<AttendanceNumberInputProps> = ({
     const safeMax = Number.isFinite(max) ? max : Number.MAX_SAFE_INTEGER;
 
     // Handle empty string
-    if (inputValue === '' || inputValue === '-') {
+    if (inputValue === "" || inputValue === "-") {
       safeOnChange(safeMin);
       return;
     }
 
     // Remove leading zeros and parse
-    const cleanedValue = inputValue.replace(/^0+(?=[1-9])/, '').replace(/^0+$/, '0');
+    const cleanedValue = inputValue
+      .replace(/^0+(?=[1-9])/, "")
+      .replace(/^0+$/, "0");
 
     const parsed = parseInt(cleanedValue, 10);
 
@@ -84,16 +89,14 @@ const AttendanceNumberInput: React.FC<AttendanceNumberInputProps> = ({
 
   const containerClass = "h-10";
   const buttonClass =
-    size === "compact"
-      ? "h-10 w-9 rounded-none"
-      : "h-10 w-10 rounded-none";
+    size === "compact" ? "h-10 w-9 rounded-none" : "h-10 w-10 rounded-none";
 
   return (
     <div
       className={cn(
         "flex items-center justify-between rounded-md border border-input bg-background",
         containerClass,
-        className
+        className,
       )}
     >
       <Button
@@ -109,6 +112,7 @@ const AttendanceNumberInput: React.FC<AttendanceNumberInputProps> = ({
       </Button>
       <Input
         id={id}
+        data-testid={dataTestId}
         aria-label={ariaLabel}
         type="number"
         inputMode="numeric"
@@ -120,7 +124,7 @@ const AttendanceNumberInput: React.FC<AttendanceNumberInputProps> = ({
         max={Number.isFinite(max) ? max : Number.MAX_SAFE_INTEGER}
         className={cn(
           "flex-1 h-full border-0 text-center focus-visible:ring-0",
-          size === "compact" && "py-1 text-sm"
+          size === "compact" && "py-1 text-sm",
         )}
       />
       <Button

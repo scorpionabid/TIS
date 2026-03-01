@@ -46,6 +46,7 @@ const AcademicYearManagement = lazy(() => import("./pages/AcademicYearManagement
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Analytics = lazy(() => import("./pages/Analytics"));
 const Settings = lazy(() => import("./pages/Settings"));
+const Profile = lazy(() => import("./pages/Profile"));
 const AuditLogs = lazy(() => import("./pages/AuditLogs"));
 const Performance = lazy(() => import("./pages/Performance"));
 const SchoolWorkload = lazy(() => import("./pages/SchoolWorkload"));
@@ -583,6 +584,7 @@ const App = () => {
                         </RoleProtectedRoute>
                       </LazyWrapper>
                     } />
+                    <Route path="profile" element={<LazyWrapper><Profile /></LazyWrapper>} />
                     <Route path="settings" element={<LazyWrapper><Settings /></LazyWrapper>} />
                     <Route path="audit-logs" element={<LazyWrapper><AuditLogs /></LazyWrapper>} />
                     <Route path="performance" element={<LazyWrapper><Performance /></LazyWrapper>} />

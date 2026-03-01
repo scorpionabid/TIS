@@ -297,7 +297,7 @@ export default function SurveyArchive() {
             <div className="space-y-4">
               {surveys.map((survey: ArchivedSurvey) => (
                 <div key={survey.id} className="p-4 border border-border rounded-lg hover:bg-accent/50 transition-colors">
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="font-medium text-foreground">{survey.title}</h3>
@@ -362,7 +362,7 @@ export default function SurveyArchive() {
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2 ml-4">
+                    <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
                       <Button 
                         variant="outline" 
                         size="sm" 

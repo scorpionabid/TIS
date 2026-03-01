@@ -124,6 +124,137 @@ class ReportTableResponseController extends BaseController
         }
     }
 
+    // ─── Row Actions ─────────────────────────────────────────────────────────
+
+    /**
+     * POST /api/report-tables/{table}/responses/{response}/rows/submit
+     * Sətiri təsdiq üçün göndərir (məktəb tərəfindən).
+     */
+    public function submitRow(ReportTable $table, ReportTableResponse $response, Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'row_index' => 'required|integer|min:0',
+        ]);
+
+        try {
+            $updated = $this->service->submitRow($response, $validated['row_index'], Auth::user());
+
+            return $this->successResponse($this->formatResponse($updated), 'Sətir uğurla göndərildi.');
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/report-tables/{table}/responses/{response}/rows/approve
+     * Sətiri təsdiqləyir (admin tərəfindən).
+     */
+    public function approveRow(ReportTable $table, ReportTableResponse $response, Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'row_index' => 'required|integer|min:0',
+        ]);
+
+        try {
+            $updated = $this->service->approveRow($response, $validated['row_index'], Auth::user());
+
+            return $this->successResponse($this->formatResponse($updated), 'Sətir uğurla təsdiqləndi.');
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/report-tables/{table}/responses/{response}/rows/reject
+     * Sətiri rədd edir (admin tərəfindən).
+     */
+    public function rejectRow(ReportTable $table, ReportTableResponse $response, Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'row_index' => 'required|integer|min:0',
+            'reason'    => 'required|string|max:500',
+        ]);
+
+        try {
+            $updated = $this->service->rejectRow($response, $validated['row_index'], Auth::user(), $validated['reason']);
+
+            return $this->successResponse($this->formatResponse($updated), 'Sətir rədd edildi.');
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * POST /api/report-tables/{table}/responses/{response}/rows/return
+     * Sətiri qaralamaya qaytarır (admin tərəfindən).
+     */
+    public function returnRow(ReportTable $table, ReportTableResponse $response, Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'row_index' => 'required|integer|min:0',
+        ]);
+
+        try {
+            $updated = $this->service->returnRowToDraft($response, $validated['row_index'], Auth::user());
+
+            return $this->successResponse($this->formatResponse($updated), 'Sətir redaktəyə qaytarıldı.');
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    // ─── Approval Queue ──────────────────────────────────────────────────────
+
+    /**
+     * GET /api/report-tables/approval-queue
+     * Reviewer-in hüquqlu olduğu bütün gözləyən sətirləri qaytarır.
+     */
+    public function approvalQueue(Request $request): JsonResponse
+    {
+        $data = $this->service->getApprovalQueue($request->user());
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * POST /api/report-tables/{table}/responses/bulk-row-action
+     * Bir cədvəl üçün seçilmiş sətirləri toplu şəkildə emal edir.
+     */
+    public function bulkRowAction(ReportTable $table, Request $request): JsonResponse
+    {
+        $request->validate([
+            'row_specs'                  => 'required|array|min:1',
+            'row_specs.*.response_id'    => 'required|integer',
+            'row_specs.*.row_indices'    => 'required|array|min:1',
+            'row_specs.*.row_indices.*'  => 'integer|min:0',
+            'action'                     => 'required|in:approve,reject,return',
+            'reason'                     => 'required_if:action,reject|nullable|string|max:500',
+        ]);
+
+        $result = $this->service->bulkRowAction(
+            $table,
+            $request->row_specs,
+            $request->action,
+            $request->reason,
+            $request->user()
+        );
+
+        return response()->json([
+            'message'    => "{$result['successful']} sətir emal edildi.",
+            'successful' => $result['successful'],
+            'failed'     => $result['failed'],
+            'errors'     => $result['errors'],
+        ]);
+    }
+
     // ─── Show (admin) ────────────────────────────────────────────────────────
 
     /**
@@ -149,6 +280,7 @@ class ReportTableResponseController extends BaseController
             'rows'            => $response->rows,
             'status'          => $response->status,
             'submitted_at'    => $response->submitted_at,
+            'row_statuses'    => $response->row_statuses ?? [],
             'created_at'      => $response->created_at,
             'updated_at'      => $response->updated_at,
             'report_table'    => $response->relationLoaded('reportTable') && $response->reportTable ? [

@@ -244,7 +244,7 @@ export default function Preschools() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Məktəbəqədər Müəssisələr</h1>
           <p className="text-muted-foreground">
@@ -253,7 +253,7 @@ export default function Preschools() {
         </div>
         {/* Only superadmin, regionadmin, and sektoradmin can create preschools */}
         {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) && (
-          <Button onClick={handleOpenCreateModal} className="flex items-center gap-2">
+          <Button onClick={handleOpenCreateModal} className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
             <Plus className="h-4 w-4" />
             Yeni Məktəbəqədər Müəssisə
           </Button>
@@ -401,7 +401,7 @@ export default function Preschools() {
             return (
               <Card key={preschool.id} className="hover:shadow-md transition-shadow">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-lg">{typeInfo.icon}</span>

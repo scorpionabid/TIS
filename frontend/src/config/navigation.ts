@@ -779,6 +779,21 @@ export const improvedNavigationConfig: MenuGroup[] = [
     ]
   },
 
+  // 👤 Hesab
+  {
+    id: 'account',
+    label: 'Hesab',
+    panel: 'management',
+    items: [
+      {
+        id: 'profile',
+        label: 'Profilim',
+        path: '/profile',
+        icon: User,
+      }
+    ]
+  },
+
   // ⚙️ Sistem Tənzimləmələri
   {
     id: 'system-settings',

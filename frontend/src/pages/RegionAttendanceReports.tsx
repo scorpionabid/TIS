@@ -483,10 +483,87 @@ export default function RegionAttendanceReports() {
             renderSummaryCards()
           )}
 
-          <div className="grid gap-4 md:grid-cols-2">
-            {renderSectorChart()}
-            {renderUniformSectorChart()}
-            {renderTrendChart()}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <Card className="lg:col-span-2">
+              <CardHeader>
+                <CardTitle>Sektor icmalı</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {overviewFetching && !overview ? (
+                  <Skeleton className="h-40 w-full" />
+                ) : sectors.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Seçilmiş filterlər üçün sektor tapılmadı.</p>
+                ) : (
+                  <div className="rounded-md border overflow-x-auto">
+                  <Table className="min-w-[640px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Sektor</TableHead>
+                        <TableHead className="text-center">Məktəb</TableHead>
+                        <TableHead className="text-center">Şagird</TableHead>
+                        <TableHead className="text-center">Orta davamiyyət</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {sectors.map((sector) => (
+                        <TableRow key={sector.sector_id}>
+                          <TableCell>
+                            <div className="font-medium">{sector.name}</div>
+                            <p className="text-xs text-muted-foreground">
+                              {sector.reported_days} hesabat günü
+                            </p>
+                          </TableCell>
+                          <TableCell className="text-center">{sector.school_count}</TableCell>
+                          <TableCell className="text-center">
+                            {numberFormatter.format(sector.total_students)}
+                          </TableCell>
+                          <TableCell className="text-center font-semibold">
+                            {formatPercent(sector.average_attendance_rate)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Bildirişlər</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <h4 className="font-semibold text-sm">Məlumat göndərməyən məktəblər</h4>
+                  <div className="mt-2 space-y-1">
+                    {(overview?.alerts.missing_reports ?? []).slice(0, 5).map((alert) => (
+                      <div key={alert.school_id} className="flex items-center gap-2 text-sm">
+                        <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                        {alert.name}
+                      </div>
+                    ))}
+                    {!overview?.alerts.missing_reports?.length && (
+                      <p className="text-xs text-muted-foreground">Bütün məktəblər hesabat göndərib.</p>
+                    )}
+                  </div>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-sm">Aşağı davamiyyət</h4>
+                  <div className="mt-2 space-y-1">
+                    {(overview?.alerts.low_attendance ?? []).slice(0, 5).map((alert) => (
+                      <div key={alert.school_id} className="flex items-center justify-between text-sm">
+                        <span>{alert.name}</span>
+                        <span className="font-semibold text-red-600">{formatPercent(alert.rate)}</span>
+                      </div>
+                    ))}
+                    {!overview?.alerts.low_attendance?.length && (
+                      <p className="text-xs text-muted-foreground">Aşağı davamiyyət müşahidə edilmir.</p>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
           <Card>
@@ -500,7 +577,8 @@ export default function RegionAttendanceReports() {
               {overviewLoading ? (
                 <Skeleton className="h-40 w-full" />
               ) : (
-                <Table>
+                <div className="rounded-md border overflow-x-auto">
+                <Table className="min-w-[640px]">
                   <TableHeader>
                     <TableRow>
                       <TableHead>Məktəb</TableHead>
@@ -554,6 +632,7 @@ export default function RegionAttendanceReports() {
                     })}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -668,7 +747,8 @@ export default function RegionAttendanceReports() {
                   {classLoading ? (
                     <Skeleton className="h-48 w-full" />
                   ) : classBreakdown ? (
-                    <Table>
+                    <div className="rounded-md border overflow-x-auto">
+                    <Table className="min-w-[640px]">
                       <TableHeader>
                         <TableRow>
                           <TableHead>Sinif</TableHead>
@@ -715,6 +795,7 @@ export default function RegionAttendanceReports() {
                         ))}
                       </TableBody>
                     </Table>
+                    </div>
                   ) : (
                     <p className="text-sm text-muted-foreground">Sinif məlumatı tapılmadı.</p>
                   )}

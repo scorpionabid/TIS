@@ -19,6 +19,10 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('report-tables/my', [ReportTableController::class, 'my'])
         ->middleware('permission:report_table_responses.write');
+
+    // Approval Queue — reviewer-in hüquqlu olduğu bütün gözləyən sətirləri
+    Route::get('report-tables/approval-queue', [ReportTableResponseController::class, 'approvalQueue'])
+        ->middleware('permission:report_table_responses.review');
 });
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Read) ───────────────────────────
@@ -52,12 +56,33 @@ Route::middleware('permission:report_table_responses.write')->group(function () 
     // Cavab saxlamaq (auto-save)
     Route::put('report-table-responses/{response}', [ReportTableResponseController::class, 'save']);
 
-    // Cavab göndərmək
+    // Cavab göndərmək (bütün cavabı)
     Route::post('report-table-responses/{response}/submit', [ReportTableResponseController::class, 'submit']);
+
+    // Tək sətiri göndərmək
+    Route::post('report-tables/{table}/responses/{response}/rows/submit', [ReportTableResponseController::class, 'submitRow']);
+});
+
+// ─── Admin: Sətir action-ları (review) ───────────────────────────────────────
+
+Route::middleware('permission:report_table_responses.review')->group(function () {
+    Route::post('report-tables/{table}/responses/{response}/rows/approve', [ReportTableResponseController::class, 'approveRow']);
+    Route::post('report-tables/{table}/responses/{response}/rows/reject',  [ReportTableResponseController::class, 'rejectRow']);
+    Route::post('report-tables/{table}/responses/{response}/rows/return',  [ReportTableResponseController::class, 'returnRow']);
+    // Toplu sətir əməliyyatı (approval queue-dən)
+    Route::post('report-tables/{table}/responses/bulk-row-action',         [ReportTableResponseController::class, 'bulkRowAction']);
 });
 
 // ─── Admin: Tək cavab baxışı ──────────────────────────────────────────────────
 
 Route::middleware('permission:report_tables.read')->group(function () {
     Route::get('report-table-responses/{response}', [ReportTableResponseController::class, 'show']);
+});
+
+// ─── SuperAdmin: Soft delete bərpası və birdəfəlik silmə ─────────────────────
+
+Route::middleware('role:superadmin')->group(function () {
+    // Raw int params — Route Model Binding soft-deleted cədvəlləri göstərmir
+    Route::post('report-tables/{tableId}/restore',  [ReportTableController::class, 'restore']);
+    Route::delete('report-tables/{tableId}/force',  [ReportTableController::class, 'forceDestroy']);
 });

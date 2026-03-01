@@ -95,6 +95,7 @@ export const GradingInterface: React.FC<GradingInterfaceProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <Button 
+            data-testid="save-grades-btn"
             onClick={onSaveGrades}
             disabled={isSaving || stats.graded === 0}
           >
@@ -208,6 +209,7 @@ export const GradingInterface: React.FC<GradingInterfaceProps> = ({
                         Bal (max: {assessment.total_points})
                       </label>
                       <Input
+                        data-testid={`grade-input-${student.id}`}
                         type="number"
                         min="0"
                         max={assessment.total_points}

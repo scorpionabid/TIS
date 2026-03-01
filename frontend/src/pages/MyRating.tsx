@@ -83,7 +83,7 @@ export default function MyRating() {
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Mənim Qiymətləndirmələrim</h1>
           <p className="text-muted-foreground mt-2">
@@ -91,7 +91,7 @@ export default function MyRating() {
           </p>
         </div>
         <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-          <SelectTrigger className="w-[200px]">
+          <SelectTrigger className="w-full sm:w-[200px] mt-2 sm:mt-0">
             <SelectValue>
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
@@ -520,9 +520,9 @@ function ComponentCard({
 }) {
   return (
     <div className="border rounded-lg p-4 space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h4 className="font-semibold">{title}</h4>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline">Çəki: {(weight * 100).toFixed(0)}%</Badge>
           <Badge>Bal: {score.toFixed(2)}</Badge>
         </div>

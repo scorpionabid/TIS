@@ -18,7 +18,20 @@ import {
   CheckCircle,
   Loader2,
   Save,
+  School,
+  Calendar,
+  CheckSquare,
+  Download,
+  Users,
 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useAuth } from "@/contexts/AuthContext";
 import useBulkAttendanceEntry from "./bulkAttendance/hooks/useBulkAttendanceEntry";
 import useMediaQuery from "./bulkAttendance/hooks/useMediaQuery";
 import BulkAttendanceMobileView from "./bulkAttendance/components/BulkAttendanceMobileView";
@@ -34,6 +47,8 @@ type PendingAction =
 
 const BulkAttendanceEntry: React.FC = () => {
   const isDesktop = useMediaQuery("(min-width: 1024px)");
+  const { currentUser } = useAuth();
+  const schoolName = currentUser?.institution?.name || currentUser?.region?.name || "";
   const {
     state: {
       selectedDate,
@@ -61,7 +76,7 @@ const BulkAttendanceEntry: React.FC = () => {
     saveDirtySessions,
   } = useBulkAttendanceEntry();
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(
-    null
+    null,
   );
   const [showUnsavedDialog, setShowUnsavedDialog] = useState(false);
   const [dialogSaving, setDialogSaving] = useState(false);
@@ -242,8 +257,8 @@ const BulkAttendanceEntry: React.FC = () => {
       lastSaveResult.session === "morning"
         ? "İlk dərs"
         : lastSaveResult.session === "evening"
-        ? "Son dərs"
-        : "";
+          ? "Son dərs"
+          : "";
 
     const IconComponent = icon;
 
@@ -293,58 +308,110 @@ const BulkAttendanceEntry: React.FC = () => {
   };
 
   return (
-    <div className="container mx-auto p-4 sm:p-6 space-y-4">
-      {/* Session Tabs (left) + Top Actions (right) */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <ModernSessionTabs
-          activeSession={activeSession}
-          onSessionChange={handleSessionChange}
-          morningHasData={classes.some((c) => c.attendance?.morning_recorded_at)}
-          eveningHasData={classes.some((c) => c.attendance?.evening_recorded_at)}
-          morningDirty={dirtySessions.morning}
-          eveningDirty={dirtySessions.evening}
-        />
-
-        <ModernTopBar
-          classCount={classes.length}
-          selectedDate={selectedDate}
-          onDateChange={handleDateInputChange}
-          onMarkAllPresent={handleMarkAllPresent}
-          onRefresh={handleRefreshClick}
-        />
+    <div className="container mx-auto p-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold text-gray-900">
+            Toplu Davamiyyət Qeydiyyatı
+          </h1>
+          <p className="text-gray-600 flex items-center gap-2">
+            <School className="inline h-4 w-4" />
+            {schoolName}
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <div className="flex items-center space-x-2">
+            <Calendar className="h-4 w-4 text-gray-500" />
+            <Input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => handleDateInputChange(e.target.value)}
+              className="w-40"
+              data-testid="bulk-attendance-date"
+            />
+          </div>
+        </div>
       </div>
 
       {hiddenClasses > 0 && (
         <Alert variant="default">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription className="text-sm">
-            {hiddenClasses} sinif siyahıdan çıxarıldı (sistemdə artıq mövcud deyil).
+            {hiddenClasses} sinif siyahıdan çıxarıldı (sistemdə artıq mövcud
+            deyil).
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Modern Table Content */}
-      {isDesktop ? (
-        <ModernTableView
-          session={activeSession}
-          classes={classes}
-          attendanceData={attendanceData}
-          updateAttendance={updateAttendance}
-          errors={errors}
-          serverErrors={serverErrors}
-          getAttendanceRate={getAttendanceRate}
-        />
-      ) : (
-        <BulkAttendanceMobileView
-          session={activeSession}
-          classes={classes}
-          attendanceData={attendanceData}
-          updateAttendance={updateAttendance}
-          errors={errors}
-          serverErrors={serverErrors}
-          getAttendanceRate={getAttendanceRate}
-        />
-      )}
+      {/* Quick Actions Toolbar */}
+      <Card className="bg-gradient-to-r from-blue-50 to-indigo-50">
+        <CardContent className="py-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-2">
+              <span className="text-sm font-medium text-gray-700">
+                Sürətli əməliyyatlar
+              </span>
+              <div className="flex flex-wrap gap-2">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center space-x-1"
+                    >
+                      <CheckSquare className="h-4 w-4" />
+                      <span>Hamısını dərsdə işarələ</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem
+                      onClick={() => handleMarkAllPresent("morning")}
+                    >
+                      İlk dərs üçün işarələ
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleMarkAllPresent("evening")}
+                    >
+                      Son dərs üçün işarələ
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportData}
+                  disabled={isExporting}
+                  className="flex items-center space-x-1"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>{isExporting ? "Endirilir..." : "Export"}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshClick}
+                  data-testid="bulk-attendance-refresh"
+                >
+                  Yenilə
+                </Button>
+              </div>
+            </div>
+            <div className="text-sm text-gray-600 space-y-1">
+              <div>
+                <Users className="inline h-4 w-4 mr-1" />
+                <span className="font-medium">{classes.length}</span> aktiv
+                sinif
+              </div>
+              {hiddenClasses > 0 && (
+                <div className="text-xs text-amber-600">
+                  {hiddenClasses} sinif siyahıdan çıxarıldı
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Modern Summary Strip */}
       <ModernSummaryStrip
@@ -372,10 +439,11 @@ const BulkAttendanceEntry: React.FC = () => {
           <Button
             onClick={() => handleSaveSession("morning")}
             disabled={saveAttendanceMutation.isPending}
-            className="px-8 py-3 h-auto rounded-2xl border-none text-sm font-bold text-white shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition-all hover:-translate-y-0.5 bg-gradient-to-r from-[#1e88e5] to-[#42a5f5] hover:shadow-[0_6px_20px_rgba(30,136,229,0.3)]"
+            className="flex items-center justify-center gap-2"
+            data-testid="bulk-attendance-save-morning"
           >
             {saveAttendanceMutation.isPending && savingSession === "morning" ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <span className="mr-1">💾</span>
             )}
@@ -384,10 +452,11 @@ const BulkAttendanceEntry: React.FC = () => {
           <Button
             onClick={() => handleSaveSession("evening")}
             disabled={saveAttendanceMutation.isPending}
-            className="px-8 py-3 h-auto rounded-2xl border-none text-sm font-bold text-white shadow-[0_4px_16px_rgba(0,0,0,0.12)] transition-all hover:-translate-y-0.5 bg-gradient-to-r from-[#43a047] to-[#66bb6a] hover:shadow-[0_6px_20px_rgba(67,160,71,0.3)]"
+            className="flex items-center justify-center gap-2"
+            data-testid="bulk-attendance-save-evening"
           >
             {saveAttendanceMutation.isPending && savingSession === "evening" ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              <Loader2 className="h-4 w-4 animate-spin" />
             ) : (
               <span className="mr-1">✅</span>
             )}
@@ -396,7 +465,10 @@ const BulkAttendanceEntry: React.FC = () => {
         </div>
       </div>
 
-      <AlertDialog open={showUnsavedDialog} onOpenChange={handleDialogOpenChange}>
+      <AlertDialog
+        open={showUnsavedDialog}
+        onOpenChange={handleDialogOpenChange}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Saxlanılmamış dəyişikliklər var</AlertDialogTitle>

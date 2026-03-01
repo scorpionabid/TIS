@@ -31,7 +31,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import {
   Loader2, Plus, X, ChevronLeft, ChevronRight,
-  GripVertical, ChevronDown, Copy, Settings2,
+  GripVertical, ChevronDown, Copy, Settings2, ListChecks,
 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { institutionService, type Institution } from '@/services/institutions';
@@ -42,9 +42,11 @@ import type { ReportTable, ReportTableColumn, ColumnType } from '@/types/reportT
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const COLUMN_TYPES: { value: ColumnType; label: string }[] = [
-  { value: 'text', label: 'Mətn' },
-  { value: 'number', label: 'Rəqəm' },
-  { value: 'date', label: 'Tarix' },
+  { value: 'text',    label: 'Mətn' },
+  { value: 'number',  label: 'Rəqəm' },
+  { value: 'date',    label: 'Tarix' },
+  { value: 'select',  label: 'Seçim (dropdown)' },
+  { value: 'boolean', label: 'Bəli / Xeyr' },
 ];
 
 const MAX_ROWS_OPTIONS = [5, 10, 15, 20, 25, 30, 40, 50, 100, 200];
@@ -73,7 +75,7 @@ interface SortableColumnItemProps {
   col: ReportTableColumn;
   index: number;
   disabled: boolean;
-  onUpdate: (index: number, field: keyof ReportTableColumn, value: string | boolean | number | undefined) => void;
+  onUpdate: (index: number, field: keyof ReportTableColumn, value: string | boolean | number | string[] | undefined) => void;
   onRemove: (index: number) => void;
 }
 
@@ -101,7 +103,8 @@ function SortableColumnItem({ col, index, disabled, onUpdate, onRemove }: Sortab
     col.min !== undefined ||
     col.max !== undefined ||
     col.min_length !== undefined ||
-    col.max_length !== undefined;
+    col.max_length !== undefined ||
+    (col.type === 'select' && (col.options?.length ?? 0) > 0);
 
   return (
     <div ref={setNodeRef} style={style} className="bg-gray-50 rounded-lg border border-gray-200">
@@ -145,7 +148,11 @@ function SortableColumnItem({ col, index, disabled, onUpdate, onRemove }: Sortab
             <Label className="text-xs text-gray-500 mb-1 block">Tip</Label>
             <Select
               value={col.type}
-              onValueChange={(v) => onUpdate(index, 'type', v)}
+              onValueChange={(v) => {
+                onUpdate(index, 'type', v);
+                // select tipindən çıxanda options-ı sıfırla
+                if (v !== 'select') onUpdate(index, 'options', undefined);
+              }}
               disabled={disabled}
             >
               <SelectTrigger className="text-sm">
@@ -265,6 +272,54 @@ function SortableColumnItem({ col, index, disabled, onUpdate, onRemove }: Sortab
                   />
                 </div>
               </>
+            )}
+
+            {/* Select options */}
+            {col.type === 'select' && (
+              <div className="col-span-2 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <ListChecks className="h-3.5 w-3.5 text-gray-500" />
+                  <Label className="text-xs text-gray-500">Seçim variantları <span className="text-red-500">*</span></Label>
+                </div>
+                {(col.options ?? []).map((opt, optIdx) => (
+                  <div key={optIdx} className="flex gap-2">
+                    <Input
+                      value={opt}
+                      onChange={(e) => {
+                        const newOpts = [...(col.options ?? [])];
+                        newOpts[optIdx] = e.target.value;
+                        onUpdate(index, 'options', newOpts);
+                      }}
+                      placeholder={`Variant ${optIdx + 1}`}
+                      className="text-sm h-8"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-red-400 hover:text-red-600 shrink-0"
+                      onClick={() => {
+                        const newOpts = (col.options ?? []).filter((_, i) => i !== optIdx);
+                        onUpdate(index, 'options', newOpts);
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full text-xs h-7 border-dashed"
+                  onClick={() => onUpdate(index, 'options', [...(col.options ?? []), ''])}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Variant əlavə et
+                </Button>
+                {(col.options?.length ?? 0) === 0 && (
+                  <p className="text-xs text-red-500">Ən azı bir variant əlavə edin</p>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -409,7 +464,7 @@ export function ReportTableModal({ open, onClose, editingTable }: ReportTableMod
   const updateColumn = useCallback((
     index: number,
     field: keyof ReportTableColumn,
-    value: string | boolean | number | undefined
+    value: string | boolean | number | string[] | undefined
   ) => {
     setFormData((prev) => ({
       ...prev,
@@ -496,7 +551,10 @@ export function ReportTableModal({ open, onClose, editingTable }: ReportTableMod
   const isLoading = createMutation.isPending || updateMutation.isPending;
   const canProceedStep1 = formData.title.trim().length > 0;
   const canProceedStep2 = formData.columns.length > 0 &&
-    formData.columns.every((col) => col.key.trim() && col.label.trim() && col.type);
+    formData.columns.every((col) =>
+      col.key.trim() && col.label.trim() && col.type &&
+      (col.type !== 'select' || (col.options?.length ?? 0) > 0)
+    );
   const columnsDisabled = isEditing && !editingTable?.can_edit_columns;
 
   // ─── Render ───────────────────────────────────────────────────────────────

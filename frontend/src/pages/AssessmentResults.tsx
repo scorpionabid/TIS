@@ -158,7 +158,7 @@ export default function AssessmentResults() {
     queryKey: ['institutions-list'],
     queryFn: async () => {
       const { apiClient } = await import('@/services/api');
-      const response = await apiClient.get('/institutions');
+      const response = await apiClient.get('/institutions') as any;
       return response.data?.data ?? response.data ?? [];
     },
     enabled: hasRole(['superadmin', 'regionadmin']),
@@ -635,7 +635,7 @@ export default function AssessmentResults() {
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="min-w-[800px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Məktəb</TableHead>
@@ -684,7 +684,7 @@ export default function AssessmentResults() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <Table>
+                  <Table className="min-w-[800px]">
                     <TableHeader className="sticky top-0 bg-background z-10">
                       <TableRow>
                         <TableHead>

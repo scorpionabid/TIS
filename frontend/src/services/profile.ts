@@ -101,6 +101,26 @@ export interface UpdateProfileData {
   };
 }
 
+/**
+ * Flat form data — ProfileEditModal formunun daxili tipi.
+ * Backend-ə göndərilməzdən əvvəl UpdateProfileData-ya transform edilir.
+ */
+export interface ProfileFormData {
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  patronymic: string;
+  birth_date: string;
+  gender: 'male' | 'female' | 'other' | '';
+  national_id: string;
+  contact_phone: string;
+  emergency_contact_name: string;
+  emergency_contact_phone: string;
+  address_street: string;
+  address_city: string;
+}
+
 export interface ChangePasswordData {
   current_password: string;
   new_password: string;
@@ -109,9 +129,12 @@ export interface ChangePasswordData {
 
 export interface ActivityRecord {
   id: number;
+  activity_type: string;
+  entity_type?: string;
+  entity_id?: number;
   description: string;
-  subject_type?: string;
-  subject_id?: number;
+  properties?: Record<string, unknown>;
+  ip_address?: string;
   created_at: string;
 }
 

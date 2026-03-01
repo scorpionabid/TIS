@@ -161,12 +161,12 @@ export default function Analytics() {
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Sistem Statistikası</h1>
           <p className="text-muted-foreground">Sistem performansı və istifadə statistikaları</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {realtimeLoading ? (
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
           ) : (

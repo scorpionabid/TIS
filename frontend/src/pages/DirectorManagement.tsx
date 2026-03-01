@@ -117,14 +117,14 @@ export default function DirectorManagement() {
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Direktor İdarəetməsi</h1>
           <p className="text-muted-foreground mt-2">
             Təhsil müəssisələrinin direktorlarını idarə edin
           </p>
         </div>
-        <Button onClick={() => setAssignModalOpen(true)}>
+        <Button onClick={() => setAssignModalOpen(true)} className="w-full sm:w-auto mt-2 sm:mt-0">
           <Plus className="h-4 w-4 mr-2" />
           Direktor Təyin Et
         </Button>
@@ -175,14 +175,14 @@ export default function DirectorManagement() {
           {directors.map((directorData) => (
             <Card key={directorData.institution_id} className="hover:shadow-md transition-shadow">
               <CardHeader>
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Building2 className="h-5 w-5 text-primary" />
                     <CardTitle className="text-lg">
                       {directorData.institution_name}
                     </CardTitle>
                   </div>
-                  <Badge variant="outline">{directorData.institution_type}</Badge>
+                  <Badge variant="outline" className="w-fit">{directorData.institution_type}</Badge>
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">

@@ -35,6 +35,8 @@ export interface RatingItem {
   approval_score: number;
   link_score: number;
   manual_score: number;
+  manual_score_category?: string;
+  manual_score_reason?: string;
   academic_score?: number;
   observation_score?: number;
   assessment_score?: number;

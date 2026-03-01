@@ -1055,8 +1055,8 @@ export default function AttendanceReports({ embedded = false }: { embedded?: boo
           </p>
         </CardHeader>
         <CardContent>
-          <div className="rounded-md border">
-            <Table>
+          <div className="rounded-md border overflow-x-auto">
+            <Table className="min-w-[800px]">
               <TableHeader>
                 <TableRow className="bg-muted/50">
                   <TableHead className="w-[120px]">

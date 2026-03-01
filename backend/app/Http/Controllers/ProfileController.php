@@ -156,9 +156,8 @@ class ProfileController extends BaseController
         $user = Auth::user();
         $perPage = $request->get('per_page', 15);
 
-        $activities = $user->activities()
-            ->with('subject')
-            ->latest()
+        $activities = $user->activityLogs()
+            ->latest('created_at')
             ->paginate($perPage);
 
         return $this->paginatedResponse($activities, 'Aktivlik tarixçəsi');

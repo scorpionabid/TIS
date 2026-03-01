@@ -17,6 +17,7 @@ class ReportTableResponse extends Model
         'rows',
         'status',
         'submitted_at',
+        'row_statuses',
     ];
 
     protected function casts(): array
@@ -24,6 +25,7 @@ class ReportTableResponse extends Model
         return [
             'rows'         => 'array',
             'submitted_at' => 'datetime',
+            'row_statuses' => 'array',
         ];
     }
 
@@ -61,6 +63,60 @@ class ReportTableResponse extends Model
         $this->status       = 'submitted';
         $this->submitted_at = now();
         $this->save();
+    }
+
+    // ─── Row Status Methods ───────────────────────────────────────────────────
+
+    public function getRowStatus(int $rowIndex): ?array
+    {
+        return $this->row_statuses[$rowIndex] ?? null;
+    }
+
+    public function isRowEditable(int $rowIndex): bool
+    {
+        $status = $this->getRowStatus($rowIndex)['status'] ?? null;
+        return $status === null || $status === 'rejected' || $status === 'draft';
+    }
+
+    public function submitRow(int $rowIndex, int $userId): void
+    {
+        $statuses              = $this->row_statuses ?? [];
+        $statuses[$rowIndex]   = [
+            'status'       => 'submitted',
+            'submitted_by' => $userId,
+            'submitted_at' => now()->toISOString(),
+        ];
+        $this->update(['row_statuses' => $statuses]);
+    }
+
+    public function approveRow(int $rowIndex, int $userId): void
+    {
+        $statuses            = $this->row_statuses ?? [];
+        $statuses[$rowIndex] = array_merge($statuses[$rowIndex] ?? [], [
+            'status'      => 'approved',
+            'approved_by' => $userId,
+            'approved_at' => now()->toISOString(),
+        ]);
+        $this->update(['row_statuses' => $statuses]);
+    }
+
+    public function rejectRow(int $rowIndex, int $userId, string $reason): void
+    {
+        $statuses            = $this->row_statuses ?? [];
+        $statuses[$rowIndex] = array_merge($statuses[$rowIndex] ?? [], [
+            'status'           => 'rejected',
+            'rejected_by'      => $userId,
+            'rejected_at'      => now()->toISOString(),
+            'rejection_reason' => $reason,
+        ]);
+        $this->update(['row_statuses' => $statuses]);
+    }
+
+    public function returnRowToDraft(int $rowIndex): void
+    {
+        $statuses            = $this->row_statuses ?? [];
+        $statuses[$rowIndex] = ['status' => 'draft'];
+        $this->update(['row_statuses' => $statuses]);
     }
 
     // ─── Scopes ───────────────────────────────────────────────────────────────

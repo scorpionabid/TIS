@@ -64,7 +64,7 @@ export const ClassSelector: React.FC<ClassSelectorProps> = ({
                     onClassChange(value ? parseInt(value) : null);
                   }}
                 >
-                  <SelectTrigger id="class-select" className="w-full lg:w-64">
+                  <SelectTrigger data-testid="class-select" id="class-select" className="w-full lg:w-64">
                     <SelectValue placeholder="Sinif seçin..." />
                   </SelectTrigger>
                   <SelectContent>

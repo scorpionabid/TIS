@@ -25,7 +25,7 @@ export default function Performance() {
   }
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Performans Monitorinqi</h1>
           <p className="text-muted-foreground">Sistem performansının real vaxt izlənməsi</p>

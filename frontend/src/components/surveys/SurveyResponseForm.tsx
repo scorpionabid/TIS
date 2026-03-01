@@ -682,13 +682,13 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
+    <div data-testid="survey-form" className="max-w-4xl mx-auto p-4 space-y-6">
       {/* Survey Header */}
       <Card>
         <CardHeader>
           <div className="flex items-start justify-between">
             <div className="space-y-2">
-              <CardTitle className="text-2xl">{survey.title}</CardTitle>
+              <CardTitle data-testid="survey-title" className="text-2xl">{survey.title}</CardTitle>
               {survey.description && (
                 <CardDescription className="text-base">
                   {survey.description}
@@ -809,6 +809,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
               
               <div className="flex gap-2">
                 <Button
+                  data-testid="survey-save-draft"
                   variant="outline"
                   onClick={() => handleSave(false)}
                   disabled={saveResponseMutation.isPending}
@@ -827,6 +828,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
                 </Button>
                 
                 <Button
+                  data-testid="survey-submit"
                   onClick={handleSubmit}
                   disabled={!canSubmit || submitResponseMutation.isPending}
                 >

@@ -44,6 +44,7 @@ export function MultipleChoiceQuestionInput({
       {options.map((option, index) => (
         <div key={index} className="flex items-center space-x-2">
           <Checkbox
+            data-testid={`question-checkbox-${question.id}-${typeof option === "string" ? index : option.id || index}`}
             id={`${question.id}-${index}`}
             checked={selectedOptions.includes(
               typeof option === "string"

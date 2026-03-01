@@ -1,8 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import {
@@ -25,11 +26,13 @@ import {
   LayoutList,
   TableIcon,
   Loader2,
+  XCircle,
+  RotateCcw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { reportTableService } from '@/services/reportTables';
 import { institutionService } from '@/services/institutions';
-import type { ReportTable, ReportTableResponse, ReportTableColumn } from '@/types/reportTable';
+import type { ReportTable, ReportTableResponse, ReportTableColumn, RowStatusMeta } from '@/types/reportTable';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -37,13 +40,159 @@ interface ReportTableResponsesViewProps {
   table: ReportTable;
 }
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
+// ─── Response-level Status Badge ──────────────────────────────────────────────
 
 function StatusBadge({ status }: { status: string }) {
   if (status === 'submitted') {
     return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Göndərilib</Badge>;
   }
   return <Badge variant="outline" className="text-gray-500">Qaralama</Badge>;
+}
+
+// ─── Row-level Status Badge ────────────────────────────────────────────────────
+
+function RowStatusBadge({ status, rejectionReason }: { status?: string; rejectionReason?: string }) {
+  if (!status || status === 'draft') {
+    return <span className="text-xs text-gray-400">—</span>;
+  }
+  if (status === 'submitted') {
+    return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs gap-1 whitespace-nowrap">
+      <Clock className="h-3 w-3" /> Gözləyir
+    </Badge>;
+  }
+  if (status === 'approved') {
+    return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs gap-1 whitespace-nowrap">
+      <CheckCircle2 className="h-3 w-3" /> Təsdiqləndi
+    </Badge>;
+  }
+  if (status === 'rejected') {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <Badge className="bg-red-100 text-red-700 border-red-200 text-xs gap-1 whitespace-nowrap">
+          <XCircle className="h-3 w-3" /> Rədd edildi
+        </Badge>
+        {rejectionReason && (
+          <p className="text-xs text-red-500 italic leading-tight max-w-[180px]">{rejectionReason}</p>
+        )}
+      </div>
+    );
+  }
+  return null;
+}
+
+// ─── Row Action Buttons ───────────────────────────────────────────────────────
+
+interface RowActionButtonsProps {
+  tableId: number;
+  responseId: number;
+  rowIndex: number;
+  rowStatus?: RowStatusMeta;
+}
+
+function RowActionButtons({ tableId, responseId, rowIndex, rowStatus }: RowActionButtonsProps) {
+  const queryClient = useQueryClient();
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [reason, setReason] = useState('');
+
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ['report-table-responses', tableId] });
+
+  const approveMutation = useMutation({
+    mutationFn: () => reportTableService.approveRow(tableId, responseId, rowIndex),
+    onSuccess: () => { invalidate(); toast.success('Sətir təsdiqləndi.'); },
+    onError: (e: Error) => toast.error(e.message || 'Xəta baş verdi.'),
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: (r: string) => reportTableService.rejectRow(tableId, responseId, rowIndex, r),
+    onSuccess: () => {
+      setShowRejectForm(false);
+      setReason('');
+      invalidate();
+      toast.success('Sətir rədd edildi.');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Xəta baş verdi.'),
+  });
+
+  const returnMutation = useMutation({
+    mutationFn: () => reportTableService.returnRow(tableId, responseId, rowIndex),
+    onSuccess: () => { invalidate(); toast.success('Sətir redaktəyə qaytarıldı.'); },
+    onError: (e: Error) => toast.error(e.message || 'Xəta baş verdi.'),
+  });
+
+  if (rowStatus?.status !== 'submitted') return null;
+
+  const anyPending = approveMutation.isPending || rejectMutation.isPending || returnMutation.isPending;
+
+  return (
+    <div className="flex flex-col gap-2 min-w-[200px]">
+      <div className="flex flex-wrap gap-1">
+        <Button
+          size="sm"
+          className="h-7 text-xs bg-emerald-600 hover:bg-emerald-700 gap-1"
+          onClick={() => approveMutation.mutate()}
+          disabled={anyPending}
+        >
+          {approveMutation.isPending
+            ? <Loader2 className="h-3 w-3 animate-spin" />
+            : <CheckCircle2 className="h-3 w-3" />}
+          Təsdiqlə
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50"
+          onClick={() => setShowRejectForm((v) => !v)}
+          disabled={anyPending}
+        >
+          <XCircle className="h-3 w-3" /> Rədd et
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-7 text-xs gap-1 text-gray-500 hover:text-gray-700"
+          onClick={() => returnMutation.mutate()}
+          disabled={anyPending}
+        >
+          {returnMutation.isPending
+            ? <Loader2 className="h-3 w-3 animate-spin" />
+            : <RotateCcw className="h-3 w-3" />}
+          Geri qaytar
+        </Button>
+      </div>
+
+      {showRejectForm && (
+        <div className="flex flex-col gap-1.5 p-2 border border-red-200 rounded-lg bg-red-50">
+          <Textarea
+            placeholder="Rədd etmə səbəbini yazın..."
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={2}
+            className="text-xs resize-none bg-white"
+          />
+          <div className="flex gap-1 justify-end">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 text-xs"
+              onClick={() => { setShowRejectForm(false); setReason(''); }}
+            >
+              Ləğv et
+            </Button>
+            <Button
+              size="sm"
+              className="h-7 text-xs bg-red-600 hover:bg-red-700 gap-1"
+              onClick={() => rejectMutation.mutate(reason)}
+              disabled={!reason.trim() || rejectMutation.isPending}
+            >
+              {rejectMutation.isPending && <Loader2 className="h-3 w-3 animate-spin" />}
+              Rədd et
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ─── Stat Card ────────────────────────────────────────────────────────────────
@@ -70,17 +219,32 @@ function StatCard({
   );
 }
 
+// ─── Column type label helper ─────────────────────────────────────────────────
+
+function colTypeLabel(type: string): string {
+  switch (type) {
+    case 'number': return 'rəqəm';
+    case 'date': return 'tarix';
+    case 'select': return 'seçim';
+    case 'boolean': return 'bəli/xeyr';
+    default: return '';
+  }
+}
+
 // ─── Expandable Response Row ──────────────────────────────────────────────────
 
 function ResponseRow({
   response,
   columns,
+  tableId,
 }: {
   response: ReportTableResponse;
   columns: ReportTableColumn[];
+  tableId: number;
 }) {
   const [expanded, setExpanded] = useState(false);
   const rows = response.rows ?? [];
+  const rowStatuses = response.row_statuses ?? {};
 
   return (
     <>
@@ -123,30 +287,54 @@ function ResponseRow({
                       <tr className="bg-gray-100">
                         <th className="px-2 py-2 text-center w-10 border-r border-gray-200 text-gray-500">#</th>
                         {columns.map((col) => (
-                          <th key={col.key} className="px-3 py-2 text-left border-r border-gray-200 font-medium text-gray-600">
+                          <th key={col.key} className="px-3 py-2 text-left border-r border-gray-200 font-medium text-gray-600 whitespace-nowrap">
                             {col.label}
                             {col.type !== 'text' && (
                               <span className="ml-1 text-xs font-normal text-gray-400">
-                                ({col.type === 'number' ? 'rəqəm' : 'tarix'})
+                                ({colTypeLabel(col.type)})
                               </span>
                             )}
                           </th>
                         ))}
+                        <th className="px-3 py-2 text-left border-r border-gray-200 font-medium text-gray-600 whitespace-nowrap">Status</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600 whitespace-nowrap">Əməliyyat</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {rows.map((row, idx) => (
-                        <tr key={idx} className="border-t border-gray-200 hover:bg-white transition-colors">
-                          <td className="px-2 py-1.5 text-center text-gray-400 border-r border-gray-200">{idx + 1}</td>
-                          {columns.map((col) => (
-                            <td key={col.key} className="px-3 py-1.5 border-r border-gray-200 text-gray-700">
-                              {row[col.key] !== undefined && row[col.key] !== null && row[col.key] !== ''
-                                ? String(row[col.key])
-                                : <span className="text-gray-300">—</span>}
+                      {rows.map((row, idx) => {
+                        const rowStatus = rowStatuses[String(idx)];
+                        const rowBg =
+                          rowStatus?.status === 'approved' ? 'bg-emerald-50' :
+                          rowStatus?.status === 'submitted' ? 'bg-amber-50' :
+                          rowStatus?.status === 'rejected' ? 'bg-red-50' : '';
+
+                        return (
+                          <tr key={idx} className={`border-t border-gray-200 transition-colors ${rowBg}`}>
+                            <td className="px-2 py-2 text-center text-gray-400 border-r border-gray-200">{idx + 1}</td>
+                            {columns.map((col) => (
+                              <td key={col.key} className="px-3 py-2 border-r border-gray-200 text-gray-700">
+                                {row[col.key] !== undefined && row[col.key] !== null && row[col.key] !== ''
+                                  ? String(row[col.key])
+                                  : <span className="text-gray-300">—</span>}
+                              </td>
+                            ))}
+                            <td className="px-3 py-2 border-r border-gray-200 align-top">
+                              <RowStatusBadge
+                                status={rowStatus?.status}
+                                rejectionReason={rowStatus?.rejection_reason}
+                              />
                             </td>
-                          ))}
-                        </tr>
-                      ))}
+                            <td className="px-3 py-2 align-top">
+                              <RowActionButtons
+                                tableId={tableId}
+                                responseId={response.id}
+                                rowIndex={idx}
+                                rowStatus={rowStatus}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -161,11 +349,7 @@ function ResponseRow({
 
 // ─── Not Started List ─────────────────────────────────────────────────────────
 
-function NotStartedList({
-  notStartedIds,
-}: {
-  notStartedIds: number[];
-}) {
+function NotStartedList({ notStartedIds }: { notStartedIds: number[] }) {
   const { data, isLoading } = useQuery({
     queryKey: ['institutions-for-not-started', notStartedIds.length],
     queryFn: () => institutionService.getAll({ per_page: 1000 }),
@@ -195,14 +379,6 @@ function NotStartedList({
       </div>
     );
   }
-
-  // Group by sector (parent_id)
-  const grouped: Record<string, typeof institutions> = {};
-  institutions.forEach((inst) => {
-    const sectorName = (inst as typeof inst & { parent?: { name: string } }).parent?.name ?? 'Digər';
-    if (!grouped[sectorName]) grouped[sectorName] = [];
-    grouped[sectorName].push(inst);
-  });
 
   return (
     <div className="border rounded-lg overflow-hidden">
@@ -292,6 +468,40 @@ function FlatView({
           )}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ─── Shared Response Table ────────────────────────────────────────────────────
+
+function ResponseTable({
+  responses,
+  columns,
+  tableId,
+}: {
+  responses: ReportTableResponse[];
+  columns: ReportTableColumn[];
+  tableId: number;
+}) {
+  return (
+    <div className="border rounded-lg overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow className="bg-gray-50">
+            <TableHead className="w-10" />
+            <TableHead>Müəssisə</TableHead>
+            <TableHead>Sektor</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Sətir sayı</TableHead>
+            <TableHead>Tarix</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {responses.map((response) => (
+            <ResponseRow key={response.id} response={response} columns={columns} tableId={tableId} />
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -405,7 +615,7 @@ export function ReportTableResponsesView({ table }: ReportTableResponsesViewProp
           <TabsTrigger value="not_started">Başlanmayıb ({notStartedCount})</TabsTrigger>
         </TabsList>
 
-        {/* Search (not for not_started tab) */}
+        {/* Search */}
         <div className="relative mt-3">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
@@ -429,25 +639,7 @@ export function ReportTableResponsesView({ table }: ReportTableResponsesViewProp
           ) : viewMode === 'flat' ? (
             <FlatView responses={filteredBySearch} columns={columns} />
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="w-10" />
-                    <TableHead>Müəssisə</TableHead>
-                    <TableHead>Sektor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Sətir sayı</TableHead>
-                    <TableHead>Tarix</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredBySearch.map((response) => (
-                    <ResponseRow key={response.id} response={response} columns={columns} />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <ResponseTable responses={filteredBySearch} columns={columns} tableId={table.id} />
           )}
         </TabsContent>
 
@@ -455,35 +647,17 @@ export function ReportTableResponsesView({ table }: ReportTableResponsesViewProp
         <TabsContent value="submitted" className="mt-3">
           {isLoading ? (
             <div className="space-y-2">{[...Array(3)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
+          ) : viewMode === 'flat' ? (
+            <FlatView
+              responses={filteredBySearch.filter((r) => r.status === 'submitted')}
+              columns={columns}
+            />
           ) : (
-            <>
-              {viewMode === 'flat' ? (
-                <FlatView
-                  responses={filteredBySearch.filter((r) => r.status === 'submitted')}
-                  columns={columns}
-                />
-              ) : (
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow className="bg-gray-50">
-                        <TableHead className="w-10" />
-                        <TableHead>Müəssisə</TableHead>
-                        <TableHead>Sektor</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Sətir sayı</TableHead>
-                        <TableHead>Tarix</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {filteredBySearch.filter((r) => r.status === 'submitted').map((response) => (
-                        <ResponseRow key={response.id} response={response} columns={columns} />
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </>
+            <ResponseTable
+              responses={filteredBySearch.filter((r) => r.status === 'submitted')}
+              columns={columns}
+              tableId={table.id}
+            />
           )}
         </TabsContent>
 
@@ -492,25 +666,11 @@ export function ReportTableResponsesView({ table }: ReportTableResponsesViewProp
           {isLoading ? (
             <div className="space-y-2">{[...Array(2)].map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}</div>
           ) : (
-            <div className="border rounded-lg overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow className="bg-gray-50">
-                    <TableHead className="w-10" />
-                    <TableHead>Müəssisə</TableHead>
-                    <TableHead>Sektor</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Sətir sayı</TableHead>
-                    <TableHead>Tarix</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredBySearch.filter((r) => r.status === 'draft').map((response) => (
-                    <ResponseRow key={response.id} response={response} columns={columns} />
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <ResponseTable
+              responses={filteredBySearch.filter((r) => r.status === 'draft')}
+              columns={columns}
+              tableId={table.id}
+            />
           )}
         </TabsContent>
 

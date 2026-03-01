@@ -29,7 +29,7 @@ class ReportTableController extends BaseController
     {
         $filters = $request->validate([
             'search'    => 'nullable|string|max:255',
-            'status'    => 'nullable|string|in:draft,published,archived',
+            'status'    => 'nullable|string|in:draft,published,archived,deleted',
             'per_page'  => 'nullable|integer|min:1|max:100',
         ]);
 
@@ -95,7 +95,9 @@ class ReportTableController extends BaseController
             'columns'                => 'required|array|min:1',
             'columns.*.key'          => 'required|string|max:64',
             'columns.*.label'        => 'required|string|max:255',
-            'columns.*.type'         => 'required|string|in:text,number,date',
+            'columns.*.type'         => 'required|string|in:text,number,date,select,boolean',
+            'columns.*.options'      => 'nullable|array',
+            'columns.*.options.*'    => 'string|max:255',
             'max_rows'               => 'nullable|integer|min:1|max:500',
             'target_institutions'    => 'nullable|array',
             'target_institutions.*'  => 'integer|exists:institutions,id',
@@ -126,7 +128,9 @@ class ReportTableController extends BaseController
             'columns'                => 'sometimes|required|array|min:1',
             'columns.*.key'          => 'required_with:columns|string|max:64',
             'columns.*.label'        => 'required_with:columns|string|max:255',
-            'columns.*.type'         => 'required_with:columns|string|in:text,number,date',
+            'columns.*.type'         => 'required_with:columns|string|in:text,number,date,select,boolean',
+            'columns.*.options'      => 'nullable|array',
+            'columns.*.options.*'    => 'string|max:255',
             'max_rows'               => 'nullable|integer|min:1|max:500',
             'target_institutions'    => 'nullable|array',
             'target_institutions.*'  => 'integer|exists:institutions,id',
@@ -159,6 +163,44 @@ class ReportTableController extends BaseController
             return $this->successResponse(null, 'Hesabat cədvəli uğurla silindi.');
         } catch (\InvalidArgumentException $e) {
             return $this->errorResponse($e->getMessage(), 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    // ─── Restore / Force Delete ──────────────────────────────────────────────
+
+    /**
+     * POST /api/report-tables/{tableId}/restore
+     * Soft-deleted cədvəli bərpa edir (SuperAdmin only).
+     * Raw int param — Route Model Binding soft-deleted-ləri buraxmır.
+     */
+    public function restore(int $tableId): JsonResponse
+    {
+        try {
+            $table = $this->service->restoreTable($tableId);
+
+            return $this->successResponse($this->formatTableDetailed($table), 'Hesabat cədvəli uğurla bərpa edildi.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            return $this->errorResponse('Cədvəl tapılmadı.', 404);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * DELETE /api/report-tables/{tableId}/force
+     * Cədvəli birdəfəlik silir (SuperAdmin only).
+     * Raw int param — Route Model Binding soft-deleted-ləri buraxmır.
+     */
+    public function forceDestroy(int $tableId): JsonResponse
+    {
+        try {
+            $this->service->forceDeleteTable($tableId);
+
+            return $this->successResponse(null, 'Hesabat cədvəli birdəfəlik silindi.');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            return $this->errorResponse('Cədvəl tapılmadı.', 404);
         } catch (\Exception $e) {
             return $this->errorResponse($e->getMessage(), 500);
         }
@@ -253,6 +295,8 @@ class ReportTableController extends BaseController
             'deadline'            => $table->deadline,
             'published_at'        => $table->published_at,
             'archived_at'         => $table->archived_at,
+            'deleted_at'          => $table->deleted_at?->toISOString(),
+            'is_deleted'          => $table->trashed(),
             'creator'             => $table->creator ? [
                 'id'   => $table->creator->id,
                 'name' => $table->creator->profile?->full_name ?? $table->creator->username,

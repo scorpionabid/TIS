@@ -45,8 +45,8 @@ export function GenericTable<T extends BaseEntity>({
   // Loading skeleton
   if (isLoading) {
     return (
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table className="min-w-[640px]">
           <TableHeader>
             <TableRow>
               {onRowSelect && (
@@ -91,8 +91,8 @@ export function GenericTable<T extends BaseEntity>({
   }
 
   return (
-    <div className="rounded-md border">
-      <Table>
+    <div className="rounded-md border overflow-x-auto">
+      <Table className="min-w-[640px]">
         <TableHeader>
           <TableRow>
             {/* Bulk selection checkbox */}

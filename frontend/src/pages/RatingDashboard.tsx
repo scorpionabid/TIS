@@ -83,16 +83,16 @@ export default function RatingDashboard() {
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Qiymətləndirmə Dashboard</h1>
           <p className="text-muted-foreground mt-2">
             Personal statistikası və performans göstəriciləri
           </p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-4 mt-2 md:mt-0">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-            <SelectTrigger className="w-[200px]">
+            <SelectTrigger className="w-full sm:w-[200px]">
               <SelectValue placeholder="Dövr seçin" />
             </SelectTrigger>
             <SelectContent>
@@ -249,7 +249,7 @@ export default function RatingDashboard() {
             <TabsContent value="leaderboard" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         <Trophy className="h-5 w-5 text-yellow-500" />
@@ -257,9 +257,9 @@ export default function RatingDashboard() {
                       </CardTitle>
                       <CardDescription>Ən yüksək performans göstərənlər</CardDescription>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2 mt-2 md:mt-0">
                       <Select value={leaderboardCategory} onValueChange={setLeaderboardCategory}>
-                        <SelectTrigger className="w-[200px]">
+                        <SelectTrigger className="w-full sm:w-[200px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -272,7 +272,7 @@ export default function RatingDashboard() {
                         </SelectContent>
                       </Select>
                       <Select value={leaderboardType} onValueChange={setLeaderboardType}>
-                        <SelectTrigger className="w-[150px]">
+                        <SelectTrigger className="w-full sm:w-[150px]">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>

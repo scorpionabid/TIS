@@ -5,19 +5,11 @@ import { logger } from '@/utils/logger';
 import { RatingStatsCards } from './RatingStatsCards';
 import { RatingActionToolbar } from './RatingActionToolbar';
 import { RatingDataTable } from './RatingDataTable';
+import { ManualScoreDialog } from './ManualScoreDialog';
 
 interface SectorRatingTabProps {
   institutionId?: number;
   academicYearId?: number;
-}
-
-interface EditingCell {
-  itemId: number;
-  field: 'task_score' | 'survey_score' | 'manual_score';
-}
-
-interface PendingChanges {
-  [itemId: number]: Partial<Pick<RatingItem, 'task_score' | 'survey_score' | 'manual_score'>>;
 }
 
 export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
@@ -30,10 +22,12 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
   const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
   const [searchTerm, setSearchTerm] = useState('');
-  const [editingCell, setEditingCell] = useState<EditingCell | null>(null);
-  const [pendingChanges, setPendingChanges] = useState<PendingChanges>({});
-  const [savingId, setSavingId] = useState<number | null>(null);
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
+
+  // Manual score dialog state
+  const [manualDialogOpen, setManualDialogOpen] = useState(false);
+  const [manualDialogItem, setManualDialogItem] = useState<RatingItem | null>(null);
+  const [manualSaving, setManualSaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -50,8 +44,6 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         page: currentPage,
         per_page: 15
       });
-
-      console.log('📥 [SectorRating] Response structure check:', response);
 
       if (response && response.data) {
         setData(response.data);
@@ -70,7 +62,6 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         });
       }
     } catch (error) {
-      console.error('❌ Error loading sector ratings:', error);
       logger.error('Error loading sector ratings:', { error });
     } finally {
       setLoading(false);
@@ -95,40 +86,6 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
       }
     } catch (error) {
       logger.error('Error force refreshing sector ratings:', { error });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const bulkSaveChanges = async () => {
-    try {
-      setLoading(true);
-      const rowIds = Object.keys(pendingChanges);
-
-      for (const rowIdStr of rowIds) {
-        const rowId = parseInt(rowIdStr);
-        const item = data.find(d => (d.id || d.user_id) === rowId);
-        if (!item) continue;
-
-        const changes = pendingChanges[rowId];
-        if (item.id) {
-          await ratingService.updateRating(item.id, changes);
-        } else {
-          await ratingService.createRating({
-            ...changes,
-            user_id: item.user_id,
-            institution_id: item.institution_id,
-            academic_year_id: academicYearId || item.academic_year_id,
-            period: item.period || period
-          } as any);
-        }
-      }
-
-      setPendingChanges({});
-      await loadData();
-      logger.info('Bulk save completed', { count: rowIds.length });
-    } catch (error) {
-      logger.error('Error in bulk save:', { error });
     } finally {
       setLoading(false);
     }
@@ -163,16 +120,17 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         : filteredData;
 
       const csv = [
-        ['Sektor Admin', 'Email', 'Müəssisə', 'Task', 'Survey', 'Təsdiq', 'Link', 'Manual', 'Ümumi', 'Status'],
+        ['Müəssisə', 'Sektor Admin', 'Email', 'Task', 'Survey', 'Təsdiq', 'Link', 'Manual', 'Manual Kateqoriya', 'Ümumi', 'Status'],
         ...exportData.map(item => [
+          item.institution?.name || '',
           item.user?.full_name || '',
           item.user?.email || '',
-          item.institution?.name || '',
           item.task_score || 0,
           item.survey_score || 0,
           item.approval_score || 0,
           item.link_score || 0,
           item.manual_score || 0,
+          item.manual_score_category || '',
           item.overall_score || 0,
           item.status || ''
         ])
@@ -190,68 +148,43 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
     }
   };
 
-  const handleCellClick = (itemId: number, field: EditingCell['field']) => {
-    setEditingCell({ itemId, field });
+  // Manual score dialog handlers
+  const handleManualScoreEdit = (item: RatingItem) => {
+    setManualDialogItem(item);
+    setManualDialogOpen(true);
   };
 
-  const handleCellChange = (rowId: number, field: EditingCell['field'], value: string) => {
-    const numValue = parseFloat(value) || 0;
-    const clampedValue = Math.min(100, Math.max(0, numValue));
-
-    setPendingChanges(prev => ({
-      ...prev,
-      [rowId]: {
-        ...prev[rowId],
-        [field]: clampedValue
-      }
-    }));
-
-    setData(prev => prev.map(item =>
-      (item.id || item.user_id) === rowId ? { ...item, [field]: clampedValue } : item
-    ));
-  };
-
-  const handleCellBlur = () => {
-    setEditingCell(null);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' || e.key === 'Escape') {
-      setEditingCell(null);
-    }
-  };
-
-  const saveChanges = async (rowId: number) => {
-    const changes = pendingChanges[rowId];
-    if (!changes) return;
-
-    const item = data.find(d => (d.id || d.user_id) === rowId);
-    if (!item) return;
+  const handleManualSave = async (score: number, category: string, reason: string) => {
+    if (!manualDialogItem) return;
 
     try {
-      setSavingId(rowId);
-      if (item.id) {
-        await ratingService.updateRating(item.id, changes);
+      setManualSaving(true);
+      const updatePayload = {
+        manual_score: score,
+        manual_score_category: category,
+        manual_score_reason: reason,
+      };
+
+      if (manualDialogItem.id) {
+        await ratingService.updateRating(manualDialogItem.id, updatePayload);
       } else {
         await ratingService.createRating({
-          ...changes,
-          user_id: item.user_id,
-          institution_id: item.institution_id,
-          academic_year_id: academicYearId || item.academic_year_id,
-          period: item.period || period
-        } as any);
+          ...updatePayload,
+          user_id: manualDialogItem.user_id,
+          institution_id: manualDialogItem.institution_id,
+          academic_year_id: academicYearId || manualDialogItem.academic_year_id,
+          period: manualDialogItem.period || period,
+        } as Partial<RatingItem>);
       }
 
-      setPendingChanges(prev => {
-        const next = { ...prev };
-        delete next[rowId];
-        return next;
-      });
-      loadData();
+      setManualDialogOpen(false);
+      setManualDialogItem(null);
+      await loadData();
+      logger.info('Manual score saved', { score, category });
     } catch (error) {
-      logger.error('Error saving rating:', { error });
+      logger.error('Error saving manual score:', { error });
     } finally {
-      setSavingId(null);
+      setManualSaving(false);
     }
   };
 
@@ -286,22 +219,24 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
-      {/* 📊 Summary Cards */}
+      {/* Summary Cards */}
       <RatingStatsCards data={filteredData} loading={loading} />
 
-      {/* 🛠 Toolbar Actions */}
+      {/* Toolbar Actions */}
       <RatingActionToolbar
         searchTerm={searchTerm}
         onSearchChange={setSearchTerm}
         onCalculateAll={forceRefresh}
-        onBulkSave={bulkSaveChanges}
+        onBulkSave={async () => {}}
         onBulkDelete={bulkDelete}
         onExport={exportToExcel}
         selectedCount={selectedItems.length}
         loading={loading}
+        period={period}
+        onPeriodChange={(val) => { setPeriod(val); setCurrentPage(1); }}
       />
 
-      {/* 📋 Rating Table */}
+      {/* Rating Table */}
       <RatingDataTable
         data={filteredData}
         pagination={pagination}
@@ -309,16 +244,26 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         selectedItems={selectedItems}
         onSelectItem={handleSelectItem}
         onSelectAll={handleSelectAll}
-        editingCell={editingCell}
-        onCellClick={handleCellClick}
-        onCellChange={handleCellChange}
-        onCellBlur={handleCellBlur}
-        onKeyDown={handleKeyDown}
-        onSaveItem={saveChanges}
-        pendingChanges={pendingChanges}
-        savingId={savingId}
+        onManualScoreEdit={handleManualScoreEdit}
         variant="sector"
       />
+
+      {/* Manual Score Dialog */}
+      {manualDialogItem && (
+        <ManualScoreDialog
+          isOpen={manualDialogOpen}
+          onClose={() => {
+            setManualDialogOpen(false);
+            setManualDialogItem(null);
+          }}
+          onSave={handleManualSave}
+          currentScore={Number(manualDialogItem.manual_score) || 0}
+          currentCategory={manualDialogItem.manual_score_category ?? ''}
+          currentReason={manualDialogItem.manual_score_reason ?? ''}
+          directorName={manualDialogItem.user?.full_name ?? 'Sektor Admin'}
+          saving={manualSaving}
+        />
+      )}
     </div>
   );
 };

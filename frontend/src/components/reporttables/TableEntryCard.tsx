@@ -27,9 +27,8 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
-
-  // Phase 2: tracks validation state via callback — no DOM querySelector needed
   const [tableHasErrors, setTableHasErrors] = useState(false);
+  const [submittingRowIdx, setSubmittingRowIdx] = useState<number | null>(null);
 
   const initialRowsRef = useRef<string>('');
 
@@ -114,8 +113,31 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
     onError: (err: Error) => toast.error(err.message || 'Göndərmək mümkün olmadı.'),
   });
 
-  // ─── Phase 3: Debounce auto-save (3s after last change) ───────────────────
-  // Replaces setInterval — fires only after typing stops, no stale closure issues
+  // Row-level submit mutation
+  const submitRowMutation = useMutation({
+    mutationFn: async (rowIndex: number) => {
+      // Ensure we have a responseId; if not, start + save first
+      let currentResponseId = responseId;
+      if (!currentResponseId) {
+        const started = await reportTableService.startResponse(table.id);
+        setResponseId(started.id);
+        setResponseStatus(started.status);
+        currentResponseId = started.id;
+      }
+      // Save current rows before submitting individual row
+      await reportTableService.saveResponse(currentResponseId, rows);
+      return reportTableService.submitRow(table.id, currentResponseId, rowIndex);
+    },
+    onMutate: (rowIndex) => setSubmittingRowIdx(rowIndex),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['report-table-my-response', table.id] });
+      toast.success('Sətir təsdiq üçün göndərildi.');
+    },
+    onError: (err: Error) => toast.error(err.message || 'Göndərmək mümkün olmadı.'),
+    onSettled: () => setSubmittingRowIdx(null),
+  });
+
+  // ─── Debounce auto-save (3s after last change) ────────────────────────────
 
   useEffect(() => {
     if (responseStatus === 'submitted' || !hasUnsaved || rows.length === 0) return;
@@ -132,13 +154,20 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   }, []);
 
   const handleSubmitClick = useCallback(() => {
-    // Phase 2: use state from onValidationChange callback — no DOM
     if (tableHasErrors) {
       toast.error('Xanalarındakı xətaları düzəldin.');
       return;
     }
     setShowSubmitConfirm(true);
   }, [tableHasErrors]);
+
+  const handleRowSubmit = useCallback((rowIndex: number) => {
+    submitRowMutation.mutate(rowIndex);
+  }, [submitRowMutation]);
+
+  const isRowSubmitting = useCallback((rowIndex: number) => {
+    return submittingRowIdx === rowIndex && submitRowMutation.isPending;
+  }, [submittingRowIdx, submitRowMutation.isPending]);
 
   // ─── Derived state ─────────────────────────────────────────────────────────
 
@@ -211,7 +240,7 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
               className="bg-emerald-600 hover:bg-emerald-700 gap-1"
             >
               <Send className="h-3.5 w-3.5" />
-              {isSubmitting ? 'Göndərilir...' : 'Göndər'}
+              {isSubmitting ? 'Göndərilir...' : 'Hamısını göndər'}
             </Button>
           </div>
         )}
@@ -258,6 +287,9 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
             onChange={handleRowsChange}
             disabled={isSubmitted}
             onValidationChange={setTableHasErrors}
+            rowStatuses={existingResponse?.row_statuses}
+            onRowSubmit={handleRowSubmit}
+            isRowSubmitting={isRowSubmitting}
           />
         )}
       </div>
@@ -266,9 +298,9 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
       <ConfirmDialog
         open={showSubmitConfirm}
         type="warning"
-        title="Cədvəli göndər?"
-        description="Göndərildikdən sonra məlumatlar dəyişdirilə bilməz. Davam etmək istəyirsiniz?"
-        confirmLabel="Göndər"
+        title="Bütün cədvəli göndər?"
+        description="Göndərildikdən sonra bütün məlumatlar dəyişdirilə bilməz. Davam etmək istəyirsiniz?"
+        confirmLabel="Hamısını göndər"
         onConfirm={() => { setShowSubmitConfirm(false); submitMutation.mutate(); }}
         onClose={() => setShowSubmitConfirm(false)}
         loading={isSubmitting}

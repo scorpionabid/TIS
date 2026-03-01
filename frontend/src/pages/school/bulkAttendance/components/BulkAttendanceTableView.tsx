@@ -32,7 +32,7 @@ interface TableViewProps {
   updateAttendance: (
     gradeId: number,
     field: keyof AttendanceFormData[string],
-    value: number | string
+    value: number | string,
   ) => void;
   errors: Record<string, string>;
   serverErrors?: ServerErrorMap;
@@ -69,11 +69,11 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
 
         const morningPresent = Math.max(
           0,
-          cls.total_students - (morningExcused + morningUnexcused)
+          cls.total_students - (morningExcused + morningUnexcused),
         );
         const eveningPresent = Math.max(
           0,
-          cls.total_students - (eveningExcused + eveningUnexcused)
+          cls.total_students - (eveningExcused + eveningUnexcused),
         );
         const sessionExcused =
           session === "morning" ? morningExcused : eveningExcused;
@@ -104,7 +104,7 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
         classesCompleted: 0,
         totalStudentSessions: 0,
         totalPresentSessions: 0,
-      }
+      },
     );
   }, [attendanceData, classes, session]);
 
@@ -126,14 +126,14 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
   const overallDailyRate =
     summary.totalStudentSessions > 0
       ? Math.round(
-          (summary.totalPresentSessions / summary.totalStudentSessions) * 100
+          (summary.totalPresentSessions / summary.totalStudentSessions) * 100,
         )
       : 0;
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table data-testid="bulk-table" className="min-w-[900px]">
           <TableHeader>
             <TableRow>
               <TableHead className="w-12">#</TableHead>
@@ -147,7 +147,9 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               <TableHead className="min-w-[140px] text-center">
                 🔴 Üzürsüz
               </TableHead>
-              <TableHead className="min-w-[140px] text-center">Forma pozuntusu</TableHead>
+              <TableHead className="min-w-[140px] text-center">
+                Forma pozuntusu
+              </TableHead>
               <TableHead className="w-28 text-center">Davamiyyət</TableHead>
               <TableHead className="w-20 text-center">Qeyd</TableHead>
               <TableHead className="w-16 text-center">Status</TableHead>
@@ -163,13 +165,15 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               const uniformViolation = toSafeNumber(data.uniform_violation);
               const calculatedPresent = Math.max(
                 0,
-                cls.total_students - (excused + unexcused)
+                cls.total_students - (excused + unexcused),
               );
-              const present = Number.isFinite(calculatedPresent) ? calculatedPresent : 0;
+              const present = Number.isFinite(calculatedPresent)
+                ? calculatedPresent
+                : 0;
               const sessionTotal = present + excused + unexcused;
               const attendanceRate = getAttendanceRate(
                 present,
-                cls.total_students
+                cls.total_students,
               );
               const hasError = errors[`${cls.id}_${session}`];
               const serverError = serverErrors[cls.id];
@@ -182,12 +186,12 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               const statusColor = !hasStudentCount
                 ? "text-yellow-500"
                 : rowHasError
-                ? "text-red-500"
-                : isMismatch
-                ? "text-orange-500"
-                : isRecorded
-                ? "text-green-500"
-                : "text-gray-400";
+                  ? "text-red-500"
+                  : isMismatch
+                    ? "text-orange-500"
+                    : isRecorded
+                      ? "text-green-500"
+                      : "text-gray-400";
 
               const statusIcon = !hasStudentCount ? (
                 <AlertCircle className="h-4 w-4" />
@@ -202,12 +206,9 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               return (
                 <TableRow
                   key={cls.id}
+                  data-testid={`bulk-row-${cls.id}`}
                   className={`${
-                    rowHasError
-                      ? "bg-red-50"
-                      : isMismatch
-                      ? "bg-orange-50"
-                      : ""
+                    rowHasError ? "bg-red-50" : isMismatch ? "bg-orange-50" : ""
                   } hover:bg-gray-50`}
                 >
                   <TableCell className="text-center font-medium text-gray-500">
@@ -231,7 +232,10 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
                       </div>
                     )}
                   </TableCell>
-                  <TableCell className="text-center font-medium">
+                  <TableCell
+                    className="text-center font-medium"
+                    data-testid={`bulk-total-${cls.id}`}
+                  >
                     {cls.total_students}
                   </TableCell>
                   <TableCell className="text-center font-semibold text-green-600">
@@ -244,13 +248,10 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
                       min={0}
                       max={cls.total_students}
                       disabled={!hasStudentCount}
+                      data-testid={`attendance-input-${cls.id}-${session}-excused`}
                       aria-label={`${cls.name} ${session} üzürlü`}
                       onChange={(next) =>
-                        updateAttendance(
-                          cls.id,
-                          `${session}_excused`,
-                          next
-                        )
+                        updateAttendance(cls.id, `${session}_excused`, next)
                       }
                     />
                   </TableCell>
@@ -261,13 +262,10 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
                       min={0}
                       max={cls.total_students}
                       disabled={!hasStudentCount}
+                      data-testid={`attendance-input-${cls.id}-${session}-unexcused`}
                       aria-label={`${cls.name} ${session} üzürsüz`}
                       onChange={(next) =>
-                        updateAttendance(
-                          cls.id,
-                          `${session}_unexcused`,
-                          next
-                        )
+                        updateAttendance(cls.id, `${session}_unexcused`, next)
                       }
                     />
                   </TableCell>
@@ -278,13 +276,10 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
                       min={0}
                       max={cls.total_students}
                       disabled={!hasStudentCount}
+                      data-testid={`attendance-input-${cls.id}-uniform-violation`}
                       aria-label={`${cls.name} forma pozuntusu`}
                       onChange={(next) =>
-                        updateAttendance(
-                          cls.id,
-                          "uniform_violation",
-                          next
-                        )
+                        updateAttendance(cls.id, "uniform_violation", next)
                       }
                     />
                   </TableCell>
@@ -294,8 +289,8 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
                         attendanceRate >= 95
                           ? "default"
                           : attendanceRate >= 85
-                          ? "secondary"
-                          : "destructive"
+                            ? "secondary"
+                            : "destructive"
                       }
                       className="font-medium"
                     >
@@ -331,7 +326,7 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
                               updateAttendance(
                                 cls.id,
                                 `${session}_notes`,
-                                e.target.value
+                                e.target.value,
                               )
                             }
                             placeholder={`${
@@ -353,7 +348,10 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
         </Table>
       </div>
 
-      <Card className="bg-gradient-to-r from-green-50 to-emerald-50">
+      <Card
+        className="bg-gradient-to-r from-green-50 to-emerald-50"
+        data-testid="bulk-table-footer"
+      >
         <CardContent className="py-4">
           <div className="grid grid-cols-2 md:grid-cols-8 gap-4">
             <div className="text-center">
@@ -372,7 +370,10 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600">
-                {uniformViolationTotal}
+                {classes.reduce((acc, cls) => {
+                  const uv = attendanceData[cls.id]?.uniform_violation;
+                  return acc + (typeof uv === "number" && !isNaN(uv) ? uv : 0);
+                }, 0)}
               </div>
               <div className="text-sm text-gray-600">Forma Pozuntusu</div>
             </div>
@@ -409,9 +410,7 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
               <div className="text-3xl font-bold text-indigo-600">
                 {overallDailyRate}%
               </div>
-              <div className="text-sm text-gray-600">
-                Günün Davamiyyəti
-              </div>
+              <div className="text-sm text-gray-600">Günün Davamiyyəti</div>
             </div>
           </div>
         </CardContent>

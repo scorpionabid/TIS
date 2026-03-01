@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, CheckCircle, Filter, Search, Loader2, Forward, ArrowUpDown, ArrowUp, ArrowDown, ClipboardList, Send, Eye } from "lucide-react";
+import { AlertTriangle, Filter, Search, Loader2, Forward, ArrowUpDown, ArrowUp, ArrowDown, ClipboardList, Send, Eye, Clock } from "lucide-react";
 
 import { useAuth } from "@/contexts/AuthContext";
 import { taskService, Task, UserAssignmentSummary, AssignmentStatus } from "@/services/tasks";
@@ -9,6 +9,7 @@ import { useAssignmentDialogs } from "@/hooks/tasks/useAssignmentDialogs";
 import { useAssignmentMutations } from "@/hooks/tasks/useAssignmentMutations";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -33,16 +34,30 @@ const formatDate = (dateString?: string | null) => {
   });
 };
 
-const getStatusBadgeVariant = (status: string): "secondary" | "default" | "outline" | "destructive" => {
-  const variants: Record<string, "secondary" | "default" | "outline" | "destructive"> = {
-    pending: "secondary",
-    accepted: "default",
-    in_progress: "default",
-    review: "outline",
-    completed: "default",
-    cancelled: "destructive",
+const getAssignmentStatusClass = (status: string): string => {
+  const classes: Record<string, string> = {
+    pending:     "bg-yellow-100 text-yellow-800 border border-yellow-200 dark:bg-yellow-900/30 dark:text-yellow-300 dark:border-yellow-800",
+    accepted:    "bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
+    in_progress: "bg-blue-100 text-blue-800 border border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800",
+    completed:   "bg-green-100 text-green-800 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800",
+    cancelled:   "bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700",
+    delegated:   "bg-purple-100 text-purple-800 border border-purple-200 dark:bg-purple-900/30 dark:text-purple-300 dark:border-purple-800",
+    rejected:    "bg-red-100 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800",
+    review:      "bg-orange-100 text-orange-800 border border-orange-200 dark:bg-orange-900/30 dark:text-orange-300 dark:border-orange-800",
   };
-  return variants[status] || "secondary";
+  return classes[status] ?? "bg-gray-100 text-gray-600 border border-gray-200";
+};
+
+const getProgressBarColor = (progress: number): string => {
+  if (progress >= 70) return "bg-green-500";
+  if (progress >= 30) return "bg-amber-400";
+  return "bg-red-500";
+};
+
+const isTaskOverdue = (deadline?: string | null, status?: string): boolean => {
+  if (!deadline) return false;
+  if (status === "completed" || status === "cancelled") return false;
+  return new Date(deadline) < new Date();
 };
 
 // Extended status labels for assignment statuses
@@ -227,9 +242,15 @@ const AssignedTasks = () => {
   const error = activeQuery.error as Error | null | undefined;
 
   // Server-side data extraction
-  const responseData = activeQuery.data as { data?: Task[]; meta?: { current_page: number; last_page: number; per_page: number; total: number; from: number; to: number } } | undefined;
+  type AssignedTasksResponse = {
+    data?: Task[];
+    meta?: { current_page: number; last_page: number; per_page: number; total: number; from: number; to: number };
+    statistics?: { total: number; pending: number; in_progress: number; completed: number; overdue: number };
+  };
+  const responseData = activeQuery.data as AssignedTasksResponse | undefined;
   const tasks = Array.isArray(responseData?.data) ? responseData.data : [];
   const meta = responseData?.meta;
+  const statistics = responseData?.statistics;
 
   // Reset page when filters change
   useEffect(() => {
@@ -352,11 +373,45 @@ const AssignedTasks = () => {
         </Tabs>
       )}
 
+      {/* Statistics Cards */}
+      {statistics && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <Card className="border-0 shadow-sm bg-muted/40">
+            <CardContent className="p-4">
+              <p className="text-xs text-muted-foreground mb-1">Toplam</p>
+              <p className="text-2xl font-bold">{statistics.total}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm bg-yellow-50 dark:bg-yellow-900/20">
+            <CardContent className="p-4">
+              <p className="text-xs text-yellow-700 dark:text-yellow-400 mb-1">Gözləyir</p>
+              <p className="text-2xl font-bold text-yellow-800 dark:text-yellow-300">{statistics.pending}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm bg-blue-50 dark:bg-blue-900/20">
+            <CardContent className="p-4">
+              <p className="text-xs text-blue-700 dark:text-blue-400 mb-1">İcrada</p>
+              <p className="text-2xl font-bold text-blue-800 dark:text-blue-300">{statistics.in_progress}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-0 shadow-sm bg-red-50 dark:bg-red-900/20">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-1 mb-1">
+                <Clock className="h-3 w-3 text-red-600 dark:text-red-400" />
+                <p className="text-xs text-red-700 dark:text-red-400">Gecikmiş</p>
+              </div>
+              <p className="text-2xl font-bold text-red-700 dark:text-red-400">{statistics.overdue}</p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
+              data-testid="tasks-search"
               placeholder="Tapşırıq axtar..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -365,7 +420,7 @@ const AssignedTasks = () => {
           </div>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[160px]">
+            <SelectTrigger data-testid="tasks-status-filter" className="w-[160px]">
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -408,8 +463,8 @@ const AssignedTasks = () => {
         </div>
       </div>
 
-      <div className="rounded-md border">
-        <Table>
+      <div className="rounded-md border overflow-x-auto">
+        <Table data-testid="tasks-table" className="min-w-[800px]">
           <TableHeader>
             <TableRow>
               <SortableHeader
@@ -482,7 +537,7 @@ const AssignedTasks = () => {
                 const progressValue = assignment?.progress ?? task.progress ?? 0;
 
                 return (
-                  <TableRow key={task.id}>
+                  <TableRow key={task.id} data-testid={`task-row-${task.id}`}>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {task.origin_scope_label && (
@@ -510,9 +565,9 @@ const AssignedTasks = () => {
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-col gap-1">
-                        <Badge variant={getStatusBadgeVariant(statusForUser)}>
+                        <span data-testid={`task-status-${task.id}`} className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getAssignmentStatusClass(statusForUser)}`}>
                           {assignmentStatusLabels[statusForUser] || statusLabels[statusForUser] || statusForUser}
-                        </Badge>
+                        </span>
                         {assignment && task.status !== statusForUser && (
                           <span className="text-xs text-muted-foreground">
                             Ümumi: {statusLabels[task.status] || task.status}
@@ -520,12 +575,30 @@ const AssignedTasks = () => {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{formatDate(assignment?.due_date ?? task.deadline)}</TableCell>
+                    <TableCell>
+                      {(() => {
+                        const deadline = assignment?.due_date ?? task.deadline;
+                        const overdue = isTaskOverdue(deadline, task.status);
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <span className={overdue ? "text-red-600 font-medium dark:text-red-400" : ""}>
+                              {formatDate(deadline)}
+                            </span>
+                            {overdue && (
+                              <span className="flex items-center gap-0.5 text-xs text-red-500 dark:text-red-400">
+                                <Clock className="h-3 w-3" />
+                                Gecikmiş
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-2">
-                        <div className="w-16 bg-secondary rounded-full h-2">
+                        <div className="w-20 bg-secondary rounded-full h-2">
                           <div
-                            className="bg-primary h-2 rounded-full transition-all"
+                            className={`${getProgressBarColor(progressValue)} h-2 rounded-full transition-all`}
                             style={{ width: `${Math.min(Math.max(progressValue, 0), 100)}%` }}
                           />
                         </div>
@@ -576,6 +649,7 @@ const AssignedTasks = () => {
                             {/* Complete button - for in_progress and delegated tasks */}
                             {canTransition(assignment, "completed") && (statusForUser === "in_progress" || statusForUser === "delegated") && (
                               <Button
+                                data-testid={`task-complete-btn-${task.id}`}
                                 size="sm"
                                 variant="default"
                                 onClick={() => handleOpenCompletionDialog(task, assignment)}

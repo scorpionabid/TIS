@@ -1,29 +1,35 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Camera, Upload, X } from 'lucide-react';
+import { Camera, X } from 'lucide-react';
+import { UserProfile } from '@/services/profile';
 
 interface ProfilePhotoSectionProps {
-  profile: any;
+  userProfile?: UserProfile;
+  avatarUrl?: string;
   avatarPreview: string | null;
   onAvatarChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onRemovePreview: () => void;
 }
 
 export const ProfilePhotoSection = ({
-  profile,
+  userProfile,
+  avatarUrl,
   avatarPreview,
   onAvatarChange,
-  onRemovePreview
+  onRemovePreview,
 }: ProfilePhotoSectionProps) => {
-  const getInitials = (name: string) => {
-    return name
-      .split(' ')
-      .map(n => n[0])
+  const getInitials = (firstName?: string, lastName?: string): string => {
+    const parts = [firstName, lastName].filter(Boolean);
+    if (parts.length === 0) return 'UN';
+    return parts
+      .map(p => p!.charAt(0))
       .join('')
       .toUpperCase()
       .slice(0, 2);
   };
+
+  const displaySrc = avatarPreview || avatarUrl || '';
 
   return (
     <Card className="mb-6">
@@ -31,15 +37,12 @@ export const ProfilePhotoSection = ({
         <div className="flex items-center gap-6">
           <div className="relative">
             <Avatar className="h-24 w-24">
-              <AvatarImage 
-                src={avatarPreview || profile?.avatar || ''} 
-                alt={profile?.first_name || 'User'} 
-              />
+              <AvatarImage src={displaySrc} alt={userProfile?.first_name || 'User'} />
               <AvatarFallback className="text-lg">
-                {profile?.first_name ? getInitials(`${profile.first_name} ${profile.last_name || ''}`) : 'UN'}
+                {getInitials(userProfile?.first_name, userProfile?.last_name)}
               </AvatarFallback>
             </Avatar>
-            
+
             {avatarPreview && (
               <Button
                 type="button"
@@ -52,40 +55,25 @@ export const ProfilePhotoSection = ({
               </Button>
             )}
           </div>
-          
+
           <div className="flex-1">
             <h3 className="text-lg font-semibold mb-2">Profil Şəkli</h3>
             <p className="text-sm text-muted-foreground mb-4">
-              JPG, PNG və ya GIF format. Maksimum 5MB.
+              JPG, PNG və ya GIF format. Maksimum 2MB.
             </p>
-            
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" asChild>
-                <label className="cursor-pointer">
-                  <Camera className="h-4 w-4 mr-2" />
-                  Şəkil Seç
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={onAvatarChange}
-                    className="hidden"
-                  />
-                </label>
-              </Button>
-              
-              <Button type="button" variant="ghost" size="sm" asChild>
-                <label className="cursor-pointer">
-                  <Upload className="h-4 w-4 mr-2" />
-                  Yüklə
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={onAvatarChange}
-                    className="hidden"
-                  />
-                </label>
-              </Button>
-            </div>
+
+            <Button type="button" variant="outline" size="sm" asChild>
+              <label className="cursor-pointer">
+                <Camera className="h-4 w-4 mr-2" />
+                Şəkil Seç
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif"
+                  onChange={onAvatarChange}
+                  className="hidden"
+                />
+              </label>
+            </Button>
           </div>
         </div>
       </CardContent>

@@ -9,6 +9,9 @@ import {
   ReportTableFilters,
   ReportTableResponseFilters,
   ReportTableRow,
+  ApprovalQueueTable,
+  BulkRowSpec,
+  BulkRowActionResult,
 } from '../types/reportTable';
 
 // ─── Local response shape types ───────────────────────────────────────────────
@@ -159,6 +162,79 @@ class ReportTableService extends BaseService<ReportTable> {
   async submitResponse(responseId: number): Promise<ReportTableResponse> {
     const response = await this.post<ReportTableResponse>(`report-table-responses/${responseId}/submit`);
     return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.submitResponse', 'ReportTableService');
+  }
+
+  // ─── School: Tək sətir göndər ─────────────────────────────────────────────
+
+  async submitRow(tableId: number, responseId: number, rowIndex: number): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(
+      `report-tables/${tableId}/responses/${responseId}/rows/submit`,
+      { row_index: rowIndex }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.submitRow', 'ReportTableService');
+  }
+
+  // ─── Admin: Sətir action-ları (review) ────────────────────────────────────
+
+  async approveRow(tableId: number, responseId: number, rowIndex: number): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(
+      `report-tables/${tableId}/responses/${responseId}/rows/approve`,
+      { row_index: rowIndex }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.approveRow', 'ReportTableService');
+  }
+
+  async rejectRow(tableId: number, responseId: number, rowIndex: number, reason: string): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(
+      `report-tables/${tableId}/responses/${responseId}/rows/reject`,
+      { row_index: rowIndex, reason }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.rejectRow', 'ReportTableService');
+  }
+
+  async returnRow(tableId: number, responseId: number, rowIndex: number): Promise<ReportTableResponse> {
+    const response = await this.post<ReportTableResponse>(
+      `report-tables/${tableId}/responses/${responseId}/rows/return`,
+      { row_index: rowIndex }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.returnRow', 'ReportTableService');
+  }
+
+  // ─── Approval Queue ───────────────────────────────────────────────────────
+
+  async getApprovalQueue(): Promise<ApprovalQueueTable[]> {
+    const response = await this.get<{ data: ApprovalQueueTable[] }>('report-tables/approval-queue');
+    const result = response as unknown as { data: ApprovalQueueTable[] };
+    return result.data ?? [];
+  }
+
+  async bulkRowAction(
+    tableId: number,
+    rowSpecs: BulkRowSpec[],
+    action: 'approve' | 'reject' | 'return',
+    reason?: string
+  ): Promise<BulkRowActionResult> {
+    const payload: Record<string, unknown> = { row_specs: rowSpecs, action };
+    if (reason) payload.reason = reason;
+    const response = await this.post<BulkRowActionResult>(
+      `report-tables/${tableId}/responses/bulk-row-action`,
+      payload
+    );
+    return response as unknown as BulkRowActionResult;
+  }
+
+  // ─── SuperAdmin: Soft delete bərpa / birdəfəlik sil ──────────────────────
+
+  async restoreTable(tableId: number): Promise<ReportTable> {
+    const response = await this.post<ReportTable>(`report-tables/${tableId}/restore`);
+    const result = handleApiResponseWithError<ReportTable>(response, 'ReportTableService.restoreTable', 'ReportTableService');
+    this.invalidateCache(['list', 'detail']);
+    return result;
+  }
+
+  async forceDeleteTable(tableId: number): Promise<void> {
+    await apiClient.delete(`report-tables/${tableId}/force`);
+    this.invalidateCache(['list', 'detail']);
   }
 }
 

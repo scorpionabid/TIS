@@ -29,6 +29,7 @@ export function RatingQuestionInput({
         <span>{labelMax}</span>
       </div>
       <RadioGroup
+        data-testid={`question-rating-${question.id}`}
         value={value != null ? value.toString() : ''}
         onValueChange={(raw) => onChange(Number(raw))}
         className="flex flex-wrap gap-3"

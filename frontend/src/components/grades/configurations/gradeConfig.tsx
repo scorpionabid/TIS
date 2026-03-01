@@ -482,7 +482,7 @@ export const GradeFiltersComponent: React.FC<{
   };
 
   return (
-    <div className="flex flex-wrap gap-4 p-4 bg-muted/50 rounded-lg">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4 bg-muted/50 rounded-lg">
       {/* Institution Filter */}
       {availableInstitutions.length > 1 && (
         <div className="flex flex-col gap-2">

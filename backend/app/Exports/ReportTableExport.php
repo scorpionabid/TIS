@@ -66,6 +66,12 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
                     continue;
                 }
 
+                // Yalnız təsdiq edilmiş sətirləri export et
+                $rowStatus = $response->getRowStatus($rowIndex)['status'] ?? null;
+                if ($rowStatus !== 'approved') {
+                    continue;
+                }
+
                 $excelRow = [
                     $sectorName,
                     $institutionName,
