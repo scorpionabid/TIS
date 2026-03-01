@@ -23,12 +23,12 @@ export const UserActions = memo(({
   const canAccessTrashedUsers = ['superadmin', 'regionadmin'].includes(currentUserRole);
 
   return (
-    <div className="flex justify-between items-center">
+    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">İstifadəçilər</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">İstifadəçilər</h1>
         <p className="text-muted-foreground">Sistem istifadəçilərinin idarə edilməsi</p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button variant="outline" onClick={onExport} className="flex items-center gap-2">
           <FileDown className="h-4 w-4" />
           Export

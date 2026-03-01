@@ -150,13 +150,13 @@ export default function Settings() {
   const isLoading = systemLoading || databaseLoading || mailLoading || securityLoading || notificationLoading;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Sistem Parametrləri</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground">Sistem Parametrləri</h1>
           <p className="text-muted-foreground">Sistem ayarları və konfiqurasiya</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {health && health.database && (
             <div className="flex items-center gap-2">
               <Activity className="h-4 w-4 text-muted-foreground" />
@@ -179,12 +179,12 @@ export default function Settings() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="general">Ümumi</TabsTrigger>
-          <TabsTrigger value="database">Verilənlər Bazası</TabsTrigger>
-          <TabsTrigger value="mail">Email</TabsTrigger>
-          <TabsTrigger value="security">Təhlükəsizlik</TabsTrigger>
-          <TabsTrigger value="notifications">Bildirişlər</TabsTrigger>
+        <TabsList className="flex overflow-x-auto w-full h-auto flex-wrap gap-1 sm:flex-nowrap sm:overflow-visible">
+          <TabsTrigger value="general" className="text-xs sm:text-sm">Ümumi</TabsTrigger>
+          <TabsTrigger value="database" className="text-xs sm:text-sm">Verilənlər Bazası</TabsTrigger>
+          <TabsTrigger value="mail" className="text-xs sm:text-sm">Email</TabsTrigger>
+          <TabsTrigger value="security" className="text-xs sm:text-sm">Təhlükəsizlik</TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs sm:text-sm">Bildirişlər</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
