@@ -75,15 +75,23 @@ export const UserManagement = memo(() => {
 
   const {
     searchTerm,
+    utisCode,
     roleFilter,
     statusFilter,
     institutionFilter,
     sortField,
     sortDirection,
+    showAdvanced,
+    startDate,
+    endDate,
     setSearchTerm,
+    setUtisCode,
     setRoleFilter,
     setStatusFilter,
     setInstitutionFilter,
+    setShowAdvanced,
+    setStartDate,
+    setEndDate,
     handleSortChange,
     handleClearFilters,
     filterParams,
@@ -157,9 +165,12 @@ export const UserManagement = memo(() => {
       page,
       perPage,
       filterParams.search ?? "",
+      filterParams.utis_code ?? "",
       filterParams.role ?? "",
       filterParams.status ?? "",
       filterParams.institution_id ?? "",
+      filterParams.start_date ?? "",
+      filterParams.end_date ?? "",
       filterParams.sort_by,
       filterParams.sort_direction,
     ],
@@ -174,6 +185,9 @@ export const UserManagement = memo(() => {
       if (filterParams.search) {
         params.search = filterParams.search;
       }
+      if (filterParams.utis_code) {
+        params.utis_code = filterParams.utis_code;
+      }
       if (filterParams.role) {
         params.role = filterParams.role;
       }
@@ -182,6 +196,12 @@ export const UserManagement = memo(() => {
       }
       if (filterParams.institution_id) {
         params.institution_id = filterParams.institution_id;
+      }
+      if (filterParams.start_date) {
+        params.start_date = filterParams.start_date;
+      }
+      if (filterParams.end_date) {
+        params.end_date = filterParams.end_date;
       }
 
       const currentRoleName = getRoleName(currentUser?.role);
@@ -556,12 +576,29 @@ export const UserManagement = memo(() => {
       <UserFilters
         searchTerm={searchTerm}
         onSearchChange={handleSearchChange}
+        utisCode={utisCode}
+        onUtisCodeChange={(value) => {
+          setUtisCode(value);
+          setPage(1);
+        }}
         roleFilter={roleFilter}
         onRoleFilterChange={handleRoleFilterChange}
         statusFilter={statusFilter}
         onStatusFilterChange={handleStatusFilterChange}
         institutionFilter={institutionFilter}
         onInstitutionFilterChange={handleInstitutionFilterChange}
+        startDate={startDate}
+        onStartDateChange={(value) => {
+          setStartDate(value);
+          setPage(1);
+        }}
+        endDate={endDate}
+        onEndDateChange={(value) => {
+          setEndDate(value);
+          setPage(1);
+        }}
+        showAdvanced={showAdvanced}
+        onShowAdvancedChange={setShowAdvanced}
         sortField={sortField}
         sortDirection={sortDirection}
         onSortChange={handleSortChangeWithReset}
