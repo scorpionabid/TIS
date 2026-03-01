@@ -158,7 +158,7 @@ export default function AssessmentResults() {
     queryKey: ['institutions-list'],
     queryFn: async () => {
       const { apiClient } = await import('@/services/api');
-      const response = await apiClient.get('/institutions');
+      const response = await apiClient.get('/institutions') as any;
       return response.data?.data ?? response.data ?? [];
     },
     enabled: hasRole(['superadmin', 'regionadmin']),

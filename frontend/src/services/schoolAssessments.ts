@@ -101,7 +101,15 @@ class SchoolAssessmentService {
     return (response as any)?.data ?? response;
   }
 
-  async getSummaryReport(params: { assessment_type_id: number; assessment_stage_id: number; institution_id?: number; class_label?: string; subject?: string; }): Promise<any> {
+  async getSummaryReport(params: {
+    assessment_type_id: number;
+    assessment_stage_id: number;
+    institution_id?: number;
+    class_label?: string;
+    subject?: string;
+    per_page?: number;
+    page?: number;
+  }): Promise<any> {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
@@ -127,6 +135,8 @@ class SchoolAssessmentService {
     institution_id?: number;
     class_label?: string;
     subject?: string;
+    per_page?: number;
+    page?: number;
   }): Promise<Blob> {
     const searchParams = new URLSearchParams();
     Object.entries(params).forEach(([key, value]) => {
