@@ -34,6 +34,13 @@ class RegionalAttendanceService
              COUNT(*)                        AS records,
              SUM(morning_present)            AS total_morning_present,
              SUM(evening_present)            AS total_evening_present,
+             SUM(uniform_violation)          AS total_uniform_violations,
+             SUM(CASE WHEN morning_recorded_at IS NOT NULL THEN (
+                 CASE WHEN morning_present = 0 AND morning_excused = 0 AND morning_unexcused = 0 THEN total_students ELSE morning_present END
+             ) ELSE 0 END) AS eff_morning_present,
+             SUM(CASE WHEN evening_recorded_at IS NOT NULL THEN (
+                 CASE WHEN evening_present = 0 AND evening_excused = 0 AND evening_unexcused = 0 THEN total_students ELSE evening_present END
+             ) ELSE 0 END) AS eff_evening_present,
              SUM(morning_excused + morning_unexcused)   AS morning_absent,
              SUM(evening_excused + evening_unexcused)   AS evening_absent,
              SUM(total_students)             AS total_possible,
@@ -368,6 +375,18 @@ class RegionalAttendanceService
             $reportedDays = (int) ($agg?->reported_days ?? 0);
             $avgRate      = round((float) ($agg?->avg_rate ?? 0), 2);
 
+            $presentTotal = (int) ($agg?->eff_morning_present ?? 0) + (int) ($agg?->eff_evening_present ?? 0);
+            $uniformViolations = (int) ($agg?->total_uniform_violations ?? 0);
+            if ($presentTotal > 0) {
+                $uniformViolations = min($uniformViolations, $presentTotal);
+            }
+            $uniformViolationRate = $presentTotal > 0
+                ? round(($uniformViolations / $presentTotal) * 100, 2)
+                : 0.0;
+            $uniformComplianceRate = $presentTotal > 0
+                ? round(100 - $uniformViolationRate, 2)
+                : 0.0;
+
             $stat = [
                 'school_id'             => $school->id,
                 'name'                  => $school->name,
@@ -382,6 +401,10 @@ class RegionalAttendanceService
                 'possible_attendance'   => (int) ($agg?->total_possible ?? 0),
                 'morning_absent'        => (int) ($agg?->morning_absent ?? 0),
                 'evening_absent'        => (int) ($agg?->evening_absent ?? 0),
+                'present_total'         => $presentTotal,
+                'total_uniform_violations' => $uniformViolations,
+                'uniform_violation_rate' => $uniformViolationRate,
+                'uniform_compliance_rate' => $uniformComplianceRate,
                 'average_attendance_rate' => $avgRate,
                 'reporting_gap'         => max(0, $schoolDays - $reportedDays),
                 'warnings'              => [],
@@ -440,6 +463,10 @@ class RegionalAttendanceService
                 'name' => $sector->name,
                 'school_count' => 0,
                 'total_students' => 0,
+                'present_total' => 0,
+                'total_uniform_violations' => 0,
+                'uniform_violation_rate' => 0,
+                'uniform_compliance_rate' => 0,
                 'average_attendance_rate' => 0,
                 'reported_days' => 0,
                 'weighted_rates' => 0,
@@ -456,9 +483,15 @@ class RegionalAttendanceService
 
             $sectorStats[$sectorId]['school_count']++;
             $sectorStats[$sectorId]['total_students'] += $schoolStat['total_students'];
-            $denominator = max($schoolStat['total_students'], 1);
-            $sectorStats[$sectorId]['weighted_rates'] += $schoolStat['average_attendance_rate'] * $denominator;
-            $sectorStats[$sectorId]['weighted_denominator'] += $denominator;
+            $sectorStats[$sectorId]['present_total'] += (int) ($schoolStat['present_total'] ?? 0);
+            $sectorStats[$sectorId]['total_uniform_violations'] += (int) ($schoolStat['total_uniform_violations'] ?? 0);
+
+            $reportedDays = (int) ($schoolStat['reported_days'] ?? 0);
+            $denominator = (int) ($schoolStat['total_students'] ?? 0);
+            if ($reportedDays > 0 && $denominator > 0) {
+                $sectorStats[$sectorId]['weighted_rates'] += $schoolStat['average_attendance_rate'] * $denominator;
+                $sectorStats[$sectorId]['weighted_denominator'] += $denominator;
+            }
             $sectorStats[$sectorId]['schools'][] = $schoolStat;
         }
 
@@ -466,6 +499,19 @@ class RegionalAttendanceService
             $stat['average_attendance_rate'] = $stat['weighted_denominator'] > 0
                 ? round($stat['weighted_rates'] / $stat['weighted_denominator'], 2)
                 : 0;
+
+            $presentTotal = (int) ($stat['present_total'] ?? 0);
+            $uniformViolations = (int) ($stat['total_uniform_violations'] ?? 0);
+            if ($presentTotal > 0) {
+                $uniformViolations = min($uniformViolations, $presentTotal);
+            }
+            $stat['total_uniform_violations'] = $uniformViolations;
+            $stat['uniform_violation_rate'] = $presentTotal > 0
+                ? round(($uniformViolations / $presentTotal) * 100, 2)
+                : 0.0;
+            $stat['uniform_compliance_rate'] = $presentTotal > 0
+                ? round(100 - $stat['uniform_violation_rate'], 2)
+                : 0.0;
 
             // Set sector reported_days as count of unique dates across all sector schools
             $sectorId = $stat['sector_id'];
@@ -480,14 +526,28 @@ class RegionalAttendanceService
     private function buildSummary(array $schoolStats, array $sectorStats, string $startDate, string $endDate, int $schoolDays): array
     {
         $totalStudents = array_sum(array_column($schoolStats, 'total_students'));
+        $presentTotal = array_sum(array_map(fn ($s) => (int) ($s['present_total'] ?? 0), $schoolStats));
+        $uniformViolations = array_sum(array_map(fn ($s) => (int) ($s['total_uniform_violations'] ?? 0), $schoolStats));
+        if ($presentTotal > 0) {
+            $uniformViolations = min($uniformViolations, $presentTotal);
+        }
+        $uniformViolationRate = $presentTotal > 0
+            ? round(($uniformViolations / $presentTotal) * 100, 2)
+            : 0.0;
+        $uniformComplianceRate = $presentTotal > 0
+            ? round(100 - $uniformViolationRate, 2)
+            : 0.0;
         $weightedRates = 0;
         $weightedDenominator = 0;
         $totalReportedDays = array_sum(array_column($schoolStats, 'reported_days'));
 
         foreach ($schoolStats as $stat) {
-            $denominator = max($stat['total_students'], 1);
-            $weightedRates += $stat['average_attendance_rate'] * $denominator;
-            $weightedDenominator += $denominator;
+            $reportedDays = (int) ($stat['reported_days'] ?? 0);
+            $denominator = (int) ($stat['total_students'] ?? 0);
+            if ($reportedDays > 0 && $denominator > 0) {
+                $weightedRates += $stat['average_attendance_rate'] * $denominator;
+                $weightedDenominator += $denominator;
+            }
         }
 
         $averageRate = $weightedDenominator > 0
@@ -498,6 +558,10 @@ class RegionalAttendanceService
             'total_sectors' => count($sectorStats),
             'total_schools' => count($schoolStats),
             'total_students' => $totalStudents,
+            'present_total' => $presentTotal,
+            'total_uniform_violations' => $uniformViolations,
+            'uniform_violation_rate' => $uniformViolationRate,
+            'uniform_compliance_rate' => $uniformComplianceRate,
             'average_attendance_rate' => $averageRate,
             'reported_days' => $totalReportedDays,
             'schools_missing_reports' => collect($schoolStats)
@@ -592,6 +656,10 @@ class RegionalAttendanceService
                 'possible_attendance' => 0,
                 'morning_absent' => 0,
                 'evening_absent' => 0,
+                'present_total' => 0,
+                'total_uniform_violations' => 0,
+                'uniform_violation_rate' => 0,
+                'uniform_compliance_rate' => 0,
                 'unique_dates' => [],
                 'warnings' => [],
                 'expected_school_days' => $schoolDays,
@@ -614,6 +682,10 @@ class RegionalAttendanceService
                     'possible_attendance' => 0,
                     'morning_absent' => 0,
                     'evening_absent' => 0,
+                    'present_total' => 0,
+                    'total_uniform_violations' => 0,
+                    'uniform_violation_rate' => 0,
+                    'uniform_compliance_rate' => 0,
                     'unique_dates' => [],
                     'warnings' => [],
                     'expected_school_days' => $schoolDays,
@@ -624,6 +696,31 @@ class RegionalAttendanceService
             $classTotal = max((int) ($record->grade?->student_count ?? $record->total_students ?? 0), 0);
             $morningPresent = (int) $record->morning_present;
             $eveningPresent = (int) $record->evening_present;
+
+            $hasMorning = $record->morning_recorded_at !== null;
+            $hasEvening = $record->evening_recorded_at !== null;
+
+            $noMorningChanges = $morningPresent === 0
+                && (int) $record->morning_excused === 0
+                && (int) $record->morning_unexcused === 0
+                && $hasMorning;
+            $noEveningChanges = $eveningPresent === 0
+                && (int) $record->evening_excused === 0
+                && (int) $record->evening_unexcused === 0
+                && $hasEvening;
+
+            $effMorning = $noMorningChanges ? $classTotal : $morningPresent;
+            $effEvening = $noEveningChanges ? $classTotal : $eveningPresent;
+
+            if ($hasMorning) {
+                $stat['present_total'] += $effMorning;
+            }
+
+            if ($hasEvening) {
+                $stat['present_total'] += $effEvening;
+            }
+
+            $stat['total_uniform_violations'] += (int) ($record->uniform_violation ?? 0);
             $dailyPresent = $classTotal > 0 ? ($morningPresent + $eveningPresent) / 2 : max($morningPresent, $eveningPresent);
             $possible = max($classTotal, 1);
             $dailyRate = $record->daily_attendance_rate ?? ($possible > 0
@@ -650,6 +747,19 @@ class RegionalAttendanceService
                 ? round($stat['weighted_rates'] / $stat['weighted_denominator'], 2)
                 : 0;
 
+            $presentTotal = (int) ($stat['present_total'] ?? 0);
+            $uniformViolations = (int) ($stat['total_uniform_violations'] ?? 0);
+            if ($presentTotal > 0) {
+                $uniformViolations = min($uniformViolations, $presentTotal);
+            }
+            $stat['total_uniform_violations'] = $uniformViolations;
+            $stat['uniform_violation_rate'] = $presentTotal > 0
+                ? round(($uniformViolations / $presentTotal) * 100, 2)
+                : 0.0;
+            $stat['uniform_compliance_rate'] = $presentTotal > 0
+                ? round(100 - $stat['uniform_violation_rate'], 2)
+                : 0.0;
+
             $stat['reporting_gap'] = max(0, $stat['expected_school_days'] - $stat['reported_days']);
 
             if ($stat['reported_days'] === 0) {
@@ -671,6 +781,10 @@ class RegionalAttendanceService
                 'total_classes' => 0,
                 'reported_classes' => 0,
                 'average_attendance_rate' => 0,
+                'present_total' => 0,
+                'total_uniform_violations' => 0,
+                'uniform_violation_rate' => 0,
+                'uniform_compliance_rate' => 0,
                 'period' => [
                     'start_date' => $startDate,
                     'end_date' => $endDate,
@@ -681,6 +795,17 @@ class RegionalAttendanceService
 
         $totalClasses = count($classStats);
         $reportedClasses = collect($classStats)->where('reported_days', '>', 0)->count();
+        $presentTotal = array_sum(array_map(fn ($s) => (int) ($s['present_total'] ?? 0), $classStats));
+        $uniformViolations = array_sum(array_map(fn ($s) => (int) ($s['total_uniform_violations'] ?? 0), $classStats));
+        if ($presentTotal > 0) {
+            $uniformViolations = min($uniformViolations, $presentTotal);
+        }
+        $uniformViolationRate = $presentTotal > 0
+            ? round(($uniformViolations / $presentTotal) * 100, 2)
+            : 0.0;
+        $uniformComplianceRate = $presentTotal > 0
+            ? round(100 - $uniformViolationRate, 2)
+            : 0.0;
         $weightedRates = 0;
         $denominator = 0;
 
@@ -694,6 +819,10 @@ class RegionalAttendanceService
             'total_classes' => $totalClasses,
             'reported_classes' => $reportedClasses,
             'average_attendance_rate' => $denominator > 0 ? round($weightedRates / $denominator, 2) : 0,
+            'present_total' => $presentTotal,
+            'total_uniform_violations' => $uniformViolations,
+            'uniform_violation_rate' => $uniformViolationRate,
+            'uniform_compliance_rate' => $uniformComplianceRate,
             'period' => [
                 'start_date' => $startDate,
                 'end_date' => $endDate,

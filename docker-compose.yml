@@ -25,7 +25,6 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/.env:/var/www/html/.env
       - ./backend/database:/var/www/html/database
       - ./backend/storage:/var/www/html/storage
       - ./backend/app:/var/www/html/app
@@ -48,8 +47,6 @@ services:
     container_name: atis_frontend
     restart: unless-stopped
     environment:
-      - VITE_API_BASE_URL=http://192.168.61.43:8000/api
-      - VITE_APP_URL=http://192.168.61.43:3000
       - VITE_LOCAL_API_URL=http://localhost:8000/api
       - VITE_LOCAL_APP_URL=http://localhost:3000
       - NODE_ENV=development

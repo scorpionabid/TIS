@@ -13,7 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        $middleware->prepend(\Illuminate\Http\Middleware\HandleCors::class);
+        // Add ForceCors as global middleware
+        $middleware->use([
+            \App\Http\Middleware\ForceCors::class,
+        ]);
 
         $middleware->alias([
             // Custom Auth Middleware

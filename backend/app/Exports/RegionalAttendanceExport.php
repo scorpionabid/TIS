@@ -34,6 +34,8 @@ class RegionalAttendanceExport implements FromCollection, WithHeadings, WithMapp
             'Şagird Sayı',
             'Hesabat Günləri',
             'Orta Davamiyyət (%)',
+            'Forma pozuntusu',
+            'Məktəbli forma (%)',
             'Status'
         ];
     }
@@ -54,6 +56,8 @@ class RegionalAttendanceExport implements FromCollection, WithHeadings, WithMapp
             $school['total_students'],
             $school['reported_days'] . '/' . $school['expected_school_days'],
             $school['average_attendance_rate'] . '%',
+            $school['total_uniform_violations'] ?? 0,
+            isset($school['uniform_compliance_rate']) ? ($school['uniform_compliance_rate'] . '%') : '0%',
             $status
         ];
     }

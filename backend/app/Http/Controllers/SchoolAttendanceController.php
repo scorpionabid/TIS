@@ -303,6 +303,53 @@ class SchoolAttendanceController extends BaseController
             $records = $query->get();
             $totalStudents = $records->sum('total_students');
             $uniqueDays = $records->pluck('attendance_date')->unique()->count();
+
+            $presentTotal = 0;
+            foreach ($records as $record) {
+                $total = (int) $record->total_students;
+                if ($total <= 0) {
+                    continue;
+                }
+
+                $hasMorning = $record->morning_recorded_at !== null;
+                $hasEvening = $record->evening_recorded_at !== null;
+
+                $morning = (int) $record->morning_present;
+                $evening = (int) $record->evening_present;
+
+                $noMorningChanges = $morning === 0
+                    && (int) $record->morning_excused === 0
+                    && (int) $record->morning_unexcused === 0
+                    && $record->morning_recorded_at !== null;
+
+                $noEveningChanges = $evening === 0
+                    && (int) $record->evening_excused === 0
+                    && (int) $record->evening_unexcused === 0
+                    && $record->evening_recorded_at !== null;
+
+                $effMorning = $noMorningChanges ? $total : $morning;
+                $effEvening = $noEveningChanges ? $total : $evening;
+
+                if ($hasMorning) {
+                    $presentTotal += $effMorning;
+                }
+
+                if ($hasEvening) {
+                    $presentTotal += $effEvening;
+                }
+            }
+
+            $uniformViolations = (int) $records->sum('uniform_violation');
+            if ($presentTotal > 0) {
+                $uniformViolations = min($uniformViolations, $presentTotal);
+            }
+            $uniformViolationRate = $presentTotal > 0
+                ? round(($uniformViolations / $presentTotal) * 100, 2)
+                : 0.0;
+            $uniformComplianceRate = $presentTotal > 0
+                ? round(100 - $uniformViolationRate, 2)
+                : 0.0;
+
             $weightedAttendance = $records->sum(function (ClassBulkAttendance $record) {
                 // calculateEffectiveRate istifadə et: stored daily_attendance_rate
                 // köhnə qeydlərdə yanlış ola bilər (0 present = hamı var idi qaydası)
@@ -315,6 +362,9 @@ class SchoolAttendanceController extends BaseController
                 'total_present' => $records->sum('morning_present') + $records->sum('evening_present'),
                 'total_absent' => ($records->sum('morning_excused') + $records->sum('morning_unexcused')) +
                                   ($records->sum('evening_excused') + $records->sum('evening_unexcused')),
+                'total_uniform_violations' => $uniformViolations,
+                'uniform_violation_rate' => $uniformViolationRate,
+                'uniform_compliance_rate' => $uniformComplianceRate,
                 'average_attendance' => $weightedDenominator > 0
                     ? round($weightedAttendance / $weightedDenominator, 2)
                     : 0,
@@ -483,6 +533,19 @@ class SchoolAttendanceController extends BaseController
                     $morningRate = ($hasMorning && $total > 0) ? round(($effMorning / $total) * 100, 2) : 0.0;
                     $eveningRate = ($hasEvening && $total > 0) ? round(($effEvening / $total) * 100, 2) : 0.0;
 
+                    $presentTotal = ($hasMorning ? $effMorning : 0) + ($hasEvening ? $effEvening : 0);
+                    $uniformViolations = (int) ($record->uniform_violation ?? 0);
+                    if ($presentTotal > 0) {
+                        $uniformViolations = min($uniformViolations, $presentTotal);
+                    }
+
+                    $uniformViolationRate = $presentTotal > 0
+                        ? round(($uniformViolations / $presentTotal) * 100, 2)
+                        : 0.0;
+                    $uniformComplianceRate = $presentTotal > 0
+                        ? round(100 - $uniformViolationRate, 2)
+                        : 0.0;
+
                     return [
                         'id' => $record->id,
                         'date' => $record->attendance_date?->format('Y-m-d') ?? null,
@@ -501,6 +564,10 @@ class SchoolAttendanceController extends BaseController
                         'morning_attendance_rate' => $morningRate,
                         'evening_attendance_rate' => $eveningRate,
                         'notes' => $this->formatBulkNotes($record->morning_notes, $record->evening_notes),
+                        'uniform_violation' => $uniformViolations,
+                        'present_total' => $presentTotal,
+                        'uniform_violation_rate' => $uniformViolationRate,
+                        'uniform_compliance_rate' => $uniformComplianceRate,
                         'school' => $record->institution ? [
                             'id' => $record->institution->id,
                             'name' => $record->institution->name,
@@ -612,6 +679,45 @@ class SchoolAttendanceController extends BaseController
                     ? round($weightedSum / $totalStudents, 2)
                     : 0.0;
 
+                $presentTotal = $items->sum(function (ClassBulkAttendance $item) {
+                    $total = (int) $item->total_students;
+                    if ($total <= 0) {
+                        return 0;
+                    }
+
+                    $hasMorning = $item->morning_recorded_at !== null;
+                    $hasEvening = $item->evening_recorded_at !== null;
+
+                    $m = (int) $item->morning_present;
+                    $e = (int) $item->evening_present;
+
+                    $noMorningChanges = $m === 0
+                        && (int) $item->morning_excused === 0
+                        && (int) $item->morning_unexcused === 0
+                        && $hasMorning;
+                    $noEveningChanges = $e === 0
+                        && (int) $item->evening_excused === 0
+                        && (int) $item->evening_unexcused === 0
+                        && $hasEvening;
+
+                    $effMorning = ($noMorningChanges && $total > 0) ? $total : $m;
+                    $effEvening = ($noEveningChanges && $total > 0) ? $total : $e;
+
+                    return ($hasMorning ? $effMorning : 0) + ($hasEvening ? $effEvening : 0);
+                });
+
+                $uniformViolations = (int) $items->sum(fn (ClassBulkAttendance $item) => (int) ($item->uniform_violation ?? 0));
+                if ($presentTotal > 0) {
+                    $uniformViolations = min($uniformViolations, $presentTotal);
+                }
+
+                $uniformViolationRate = $presentTotal > 0
+                    ? round(($uniformViolations / $presentTotal) * 100, 2)
+                    : 0.0;
+                $uniformComplianceRate = $presentTotal > 0
+                    ? round(100 - $uniformViolationRate, 2)
+                    : 0.0;
+
                 return [
                     'id' => md5($key . $classLabel . $schoolLabel),
                     'date' => $rangeStart->toDateString(),
@@ -624,6 +730,10 @@ class SchoolAttendanceController extends BaseController
                     'start_count' => $totalStart,
                     'end_count' => $totalEnd,
                     'attendance_rate' => $attendanceRate,
+                    'uniform_violation' => $uniformViolations,
+                    'present_total' => $presentTotal,
+                    'uniform_violation_rate' => $uniformViolationRate,
+                    'uniform_compliance_rate' => $uniformComplianceRate,
                     'notes' => $recordCount . ' qeyd',
                     'record_count' => $recordCount,
                 ];
