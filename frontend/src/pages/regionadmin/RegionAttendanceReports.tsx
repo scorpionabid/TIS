@@ -14,7 +14,7 @@ import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { useAuth } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/constants/roles';
 import { useQuery } from '@tanstack/react-query';
-import { regionalAttendanceService } from '@/services/regionalAttendance';
+import { regionalAttendanceService, SchoolClassBreakdown } from '@/services/regionalAttendance';
 import { format, subDays } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -178,7 +178,7 @@ export default function RegionAttendanceReports() {
     isFetching: classFetching,
     error: classError,
     refetch: refetchClassBreakdown,
-  } = useQuery({
+  } = useQuery<SchoolClassBreakdown | null>({
     queryKey: ['regional-attendance', 'school-classes', selectedSchoolId, startDate, endDate],
     queryFn: () =>
       selectedSchoolId
