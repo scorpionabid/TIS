@@ -8,7 +8,7 @@ import { logger } from '@/utils/logger';
 import { apiClient } from '@/services/api';
 
 // Configure Pusher
-window.Pusher = Pusher;
+(window as any).Pusher = Pusher;
 
 interface WebSocketConfig {
   key: string;
@@ -29,7 +29,7 @@ interface WebSocketConfig {
 
 export interface WebSocketContextType {
   // Laravel Echo support (primary)
-  echo: Echo | null;
+  echo: Echo<any> | null;
   isEchoConnected: boolean;
 
   // Legacy WebSocket support (for backward compatibility)
@@ -53,7 +53,7 @@ export interface WebSocketContextType {
   listenToRoleChannel: (role: string, callback: (data: any) => void) => void;
   stopListening: (channelName: string) => void;
   isWebSocketConnected: () => boolean;
-  getEcho: () => Echo | null;
+  getEcho: () => Echo<any> | null;
 }
 
 interface WebSocketProviderProps {
@@ -76,11 +76,12 @@ export const useWebSocket = (): WebSocketContextType => {
 };
 
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
-  const { currentUser, getAuthToken } = useAuth();
+  const { currentUser } = useAuth();
+  const getAuthToken = useCallback(() => apiClient.getToken(), []);
   const queryClient = useQueryClient();
 
   // Laravel Echo state
-  const [echo, setEcho] = useState<Echo | null>(null);
+  const [echo, setEcho] = useState<Echo<any> | null>(null);
   const [isEchoConnected, setIsEchoConnected] = useState(false);
   const [config, setConfig] = useState<WebSocketConfig | null>(null);
   const [websocketUnavailable, setWebsocketUnavailable] = useState(false);
@@ -105,44 +106,31 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   // Get WebSocket configuration from backend
   const getWebSocketConfig = useCallback(async (): Promise<WebSocketConfig | null> => {
     try {
-      const response = await fetch('/api/test/websocket/info');
+      // Use apiClient to ensure the correct backend URL is used
+      // apiClient already handles JSON parsing and error response checking
+      const result = await apiClient.get<any>('test/websocket/info');
 
-      if (!response.ok) {
-        logger.info(`WebSocket config request failed (${response.status}). Falling back to polling.`);
+      if (!result || result.success === false) {
+        const message = result?.message || 'WebSocket configuration unavailable';
+        logger.info(`${message} - Real-time updates will use polling instead.`);
         return null;
       }
 
-      const rawText = await response.text();
-      if (!rawText) {
-        const message = 'Empty WebSocket configuration response';
-        logger.warn(message);
-        throw new Error(message);
+      const data = result.data;
+      if (!data) {
+        logger.warn('Empty WebSocket configuration data received');
+        return null;
       }
 
-      let data: any;
-      try {
-        data = JSON.parse(rawText);
-      } catch (parseError) {
-        logger.error('Invalid WebSocket configuration payload', parseError);
-        throw new Error('WebSocket configuration is not valid JSON');
-      }
-
-      if (data.success) {
-        return {
-          key: data.data.app_key || 'atis-key',
-          host: data.data.reverb_host,
-          port: data.data.reverb_port,
-          scheme: data.data.reverb_port === 443 ? 'https' : 'http',
-          encrypted: data.data.reverb_port === 443,
-          forceTLS: data.data.reverb_port === 443,
-          enableLogging: process.env.NODE_ENV === 'development',
-        };
-      }
-
-      // WebSocket is disabled on the backend
-      const message = data.message || 'WebSocket/Broadcasting is disabled';
-      logger.info(message + ' - Real-time updates will use polling instead.');
-      return null;
+      return {
+        key: data.app_key || 'atis-key',
+        host: data.reverb_host,
+        port: data.reverb_port,
+        scheme: data.reverb_port === 443 ? 'https' : 'http',
+        encrypted: data.reverb_port === 443,
+        forceTLS: data.reverb_port === 443,
+        enableLogging: true, // Only log in dev
+      };
     } catch (error) {
       logger.warn('Could not fetch WebSocket configuration - using polling for updates');
       return null;
@@ -205,7 +193,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
   }, [currentUser?.id, queryClient]);
 
   // Setup Echo connection listeners
-  const setupEchoListeners = useCallback((echoInstance: Echo) => {
+  const setupEchoListeners = useCallback((echoInstance: Echo<any>) => {
     if (!echoInstance) return;
 
     echoInstance.connector.pusher.connection.bind('connected', () => {
@@ -287,9 +275,10 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
       reconnectAttempts.current = 0;
 
       logger.info('Laravel Echo connection established', {
-        host: wsConfig.host,
-        port: wsConfig.port,
-        scheme: wsConfig.scheme,
+        data: {
+          port: wsConfig.port,
+          scheme: wsConfig.scheme,
+        }
       });
     } catch (error) {
       logger.warn('Failed to initialize Laravel Echo connection - using polling instead', error);
@@ -501,7 +490,7 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     return isEchoConnected && echo !== null;
   }, [isEchoConnected, echo]);
 
-  const getEcho = useCallback((): Echo | null => {
+  const getEcho = useCallback((): Echo<any> | null => {
     return echo;
   }, [echo]);
 

@@ -85,6 +85,7 @@ const { apiBaseUrl: API_BASE_URL, sanctumBaseUrl: SANCTUM_BASE_URL } = validateA
 
 export interface ApiResponse<T = any> {
   data?: T;
+  success?: boolean;
   message?: string;
   errors?: Record<string, string[]>;
   status?: string;
