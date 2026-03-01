@@ -112,6 +112,17 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
     summary.totalStudents > 0
       ? Math.round((summary.totalPresent / summary.totalStudents) * 100)
       : 0;
+  const uniformViolationTotal = useMemo(() => {
+    return classes.reduce((acc, cls) => {
+      const uv = attendanceData[cls.id]?.uniform_violation;
+      return acc + (typeof uv === 'number' && !isNaN(uv) ? uv : 0);
+    }, 0);
+  }, [attendanceData, classes]);
+
+  const uniformComplianceRate =
+    summary.totalPresent > 0
+      ? Math.round((1 - uniformViolationTotal / summary.totalPresent) * 100)
+      : 0;
   const overallDailyRate =
     summary.totalStudentSessions > 0
       ? Math.round(
@@ -344,7 +355,7 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
 
       <Card className="bg-gradient-to-r from-green-50 to-emerald-50">
         <CardContent className="py-4">
-          <div className="grid grid-cols-2 md:grid-cols-7 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-8 gap-4">
             <div className="text-center">
               <div className="text-2xl font-bold text-gray-900">
                 {summary.totalStudents}
@@ -361,12 +372,15 @@ const BulkAttendanceTableView: React.FC<TableViewProps> = ({
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-orange-600">
-                {classes.reduce((acc, cls) => {
-                  const uv = attendanceData[cls.id]?.uniform_violation;
-                  return acc + (typeof uv === 'number' && !isNaN(uv) ? uv : 0);
-                }, 0)}
+                {uniformViolationTotal}
               </div>
               <div className="text-sm text-gray-600">Forma Pozuntusu</div>
+            </div>
+            <div className="text-center">
+              <div className="text-3xl font-bold text-teal-600">
+                {uniformComplianceRate}%
+              </div>
+              <div className="text-sm text-gray-600">Məktəbli forma</div>
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-yellow-600">

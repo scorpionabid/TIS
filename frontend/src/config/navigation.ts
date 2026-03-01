@@ -90,46 +90,8 @@ export const improvedNavigationConfig: MenuGroup[] = [
         id: 'attendance',
         label: 'Davamiyyət',
         icon: UserCheck,
+        path: '/attendance',
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN, USER_ROLES.SCHOOLADMIN],
-        children: [
-          /* 
-          {
-            id: 'attendance-record',
-            label: 'Davamiyyət Qeydiyyatı',
-            path: '/school/attendance',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-            permissions: ['attendance.create', 'attendance.update']
-          },
-          */
-          {
-            id: 'attendance-bulk',
-            label: 'Toplu Davamiyyət Qeydiyyatı',
-            path: '/school/attendance/bulk',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-            permissions: ['attendance.create', 'attendance.update'],
-            description: 'Siniflərdə toplu şəkildə davamiyyət qeyd edin'
-          },
-          {
-            id: 'attendance-reports',
-            label: 'Davamiyyət Hesabatları',
-            path: '/school/attendance/reports',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-            permissions: ['attendance.read']
-          },
-          {
-            id: 'attendance-regional-overview',
-            label: 'Regional Davamiyyət',
-            path: '/regionadmin/attendance/reports',
-            roles: [
-              USER_ROLES.SUPERADMIN,
-              USER_ROLES.REGIONADMIN,
-              USER_ROLES.SEKTORADMIN,
-              USER_ROLES.REGIONOPERATOR,
-            ],
-            permissions: ['attendance.read'],
-            description: 'Sektor və məktəb üzrə iştirak nəzarəti'
-          }
-        ]
       },
       {
         id: 'assessments',
@@ -637,7 +599,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
           {
             id: 'sector-attendance-reports',
             label: 'Davamiyyət Hesabatları',
-            path: '/school/attendance/reports',
+            path: '/school/attendance?tab=reports',
             roles: [USER_ROLES.SEKTORADMIN]
           }
         ]

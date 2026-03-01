@@ -243,7 +243,15 @@ class AuthService {
     // STEP 1: Get CSRF cookie first (required for Laravel Sanctum SPA)
     this.log('🍪 Auth Service: Fetching CSRF cookie');
     try {
-      const baseUrl = import.meta.env.VITE_API_URL?.replace('/api', '') || 'https://atis.sim.edu.az';
+      const currentHost = typeof window !== 'undefined' ? window.location.hostname : 'localhost';
+      const isLocalHost = currentHost === 'localhost' || currentHost === '127.0.0.1';
+      const apiBaseUrl =
+        (isLocalHost
+          ? (import.meta.env.VITE_LOCAL_API_URL || import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL)
+          : (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || `http://${currentHost}:8000/api`))
+        || `http://${currentHost}:8000/api`;
+
+      const baseUrl = apiBaseUrl.replace(/\/api\/?$/, '');
       await fetch(`${baseUrl}/sanctum/csrf-cookie`, {
         method: 'GET',
         credentials: 'include',
@@ -264,20 +272,19 @@ class AuthService {
     let deviceId = getStableDeviceId(normalizedIdentifier, this.DEBUG_MODE);
 
     const attemptLogin = async () => {
-      const loginData = {
-        login: loginIdentifier,
-        password: credentials.password?.trim(),
-        device_name: deviceName,
-        device_id: deviceId,
-      };
+      const loginData = new URLSearchParams();
+      loginData.set('login', loginIdentifier);
+      loginData.set('password', credentials.password?.trim() ?? '');
+      loginData.set('device_name', deviceName);
+      loginData.set('device_id', deviceId);
 
       this.log('🔍 Auth Service: Sending login request');
       if (this.DEBUG_MODE) {
         console.log('🔐 Auth Service: Login payload preview', {
-          login: loginData.login,
-          passwordLength: loginData.password?.length,
-          deviceName: loginData.device_name,
-          deviceId: loginData.device_id,
+          login: loginData.get('login'),
+          passwordLength: (loginData.get('password') || '').length,
+          deviceName: loginData.get('device_name'),
+          deviceId: loginData.get('device_id'),
         });
       }
 
@@ -298,7 +305,12 @@ class AuthService {
         session_id?: string;
         remember?: boolean;
         requires_password_change?: boolean;
-      }>('/login', loginData);
+      }>('/login', loginData, {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
+      });
 
       const payload = response.data?.data ?? response.data;
 

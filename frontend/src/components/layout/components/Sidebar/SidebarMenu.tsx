@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { ChevronRight, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ const GROUP_STYLES: Record<string, { border: string; label: string; dot: string 
 
 export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
   const { isExpanded, currentPath, handleNavigation } = useSidebarBehavior();
+  const navigate = useNavigate();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   const toggleGroup = (groupId: string) => {
@@ -90,7 +91,16 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
       return (
         <Collapsible key={item.id} open={isGroupOpen} onOpenChange={() => toggleGroup(item.id)}>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" className={buttonClasses}>
+            <Button
+              variant="ghost"
+              className={buttonClasses}
+              onClick={() => {
+                if (item.path) {
+                  navigate(item.path);
+                  handleNavigation(item.path);
+                }
+              }}
+            >
               <IconComponent className={cn("h-4 w-4", isExpanded && "mr-3")} />
               <span
                 className={cn(

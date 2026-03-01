@@ -30,7 +30,7 @@
       "@/*": ["./src/*"],
       "@shared/*": ["../shared/*"]
     },
-    "types": ["vite/client"]
+    "types": ["vite/client", "react", "react-dom"]
   },
   "include": ["src"]
 }

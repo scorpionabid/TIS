@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, AlertTriangle, Building2, Users, Target, School as SchoolIcon } from 'lucide-react';
+import { Loader2, RefreshCw, AlertTriangle, Building2, Users, Target, School as SchoolIcon, Shirt } from 'lucide-react';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { USER_ROLES } from '@/constants/roles';
@@ -18,11 +18,28 @@ import { format, subDays } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+} from 'recharts';
+
 const numberFormatter = new Intl.NumberFormat('az');
 
 const formatPercent = (value?: number | null) => {
   if (value === undefined || value === null) return '0%';
   return `${Number(value).toFixed(1)}%`;
+};
+
+const getChartColor = (rate: number) => {
+  if (rate >= 95) return '#22c55e'; // Green-500
+  if (rate >= 85) return '#eab308'; // Yellow-500
+  return '#ef4444'; // Red-500
 };
 
 const getDefaultDates = () => {
@@ -191,6 +208,12 @@ export default function RegionAttendanceReports() {
         description: 'Hesabat dövrü üzrə',
       },
       {
+        label: 'Məktəbli forma',
+        value: formatPercent(summary.uniform_compliance_rate),
+        icon: Shirt,
+        description: `${numberFormatter.format(summary.total_uniform_violations ?? 0)} pozuntu`,
+      },
+      {
         label: 'Məlumat çatışmazlığı',
         value: summary.schools_missing_reports,
         icon: AlertTriangle,
@@ -199,7 +222,7 @@ export default function RegionAttendanceReports() {
     ];
 
     return (
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         {cards.map((card) => (
           <Card key={card.label}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -215,6 +238,123 @@ export default function RegionAttendanceReports() {
           </Card>
         ))}
       </div>
+    );
+  };
+
+  const renderSectorChart = () => {
+    if (!sectors.length) return null;
+
+    const data = sectors.map((s) => ({
+      name: s.name.length > 20 ? s.name.substring(0, 20) + '...' : s.name,
+      fullName: s.name,
+      rate: s.average_attendance_rate,
+    }));
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Sektor müqayisəsi (Davamiyyət %)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  angle={-15}
+                  textAnchor="end"
+                  interval={0}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} fontSize={12} />
+                <Tooltip
+                  formatter={(value: number) => [`${value}%`, 'Davamiyyət']}
+                  labelFormatter={(_, payload) => payload[0]?.payload?.fullName || ''}
+                />
+                <Bar dataKey="rate" radius={[4, 4, 0, 0]} barSize={40}>
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getChartColor(entry.rate)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderUniformSectorChart = () => {
+    if (!sectors.length) return null;
+
+    const data = sectors.map((s) => ({
+      name: s.name.length > 20 ? s.name.substring(0, 20) + '...' : s.name,
+      fullName: s.name,
+      rate: Number(s.uniform_compliance_rate ?? 0),
+    }));
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Sektor müqayisəsi (Məktəbli forma %)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  angle={-15}
+                  textAnchor="end"
+                  interval={0}
+                  tick={{ fontSize: 11 }}
+                />
+                <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} fontSize={12} />
+                <Tooltip
+                  formatter={(value: number) => [`${value}%`, 'Məktəbli forma']}
+                  labelFormatter={(_, payload) => payload[0]?.payload?.fullName || ''}
+                />
+                <Bar dataKey="rate" radius={[4, 4, 0, 0]} barSize={40}>
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={getChartColor(entry.rate)} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderTrendChart = () => {
+    if (!overview?.trends?.length) return null;
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold">Dinamika (Gündəlik davamiyyət %)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={overview.trends} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                <XAxis dataKey="short_date" fontSize={11} tick={{ fontSize: 11 }} />
+                <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} fontSize={12} />
+                <Tooltip formatter={(value: number) => [`${value}%`, 'Davamiyyət']} />
+                <Bar dataKey="rate" radius={[4, 4, 0, 0]} barSize={20}>
+                  {(overview.trends ?? []).map((entry, index) => (
+                    <Cell key={`trend-${index}`} fill={entry.reported ? '#2563eb' : '#cbd5e1'} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </CardContent>
+      </Card>
     );
   };
 
@@ -343,85 +483,10 @@ export default function RegionAttendanceReports() {
             renderSummaryCards()
           )}
 
-          <div className="grid gap-4 lg:grid-cols-3">
-            <Card className="lg:col-span-2">
-              <CardHeader>
-                <CardTitle>Sektor icmalı</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {overviewFetching && !overview ? (
-                  <Skeleton className="h-40 w-full" />
-                ) : sectors.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">Seçilmiş filterlər üçün sektor tapılmadı.</p>
-                ) : (
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Sektor</TableHead>
-                        <TableHead className="text-center">Məktəb</TableHead>
-                        <TableHead className="text-center">Şagird</TableHead>
-                        <TableHead className="text-center">Orta davamiyyət</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {sectors.map((sector) => (
-                        <TableRow key={sector.sector_id}>
-                          <TableCell>
-                            <div className="font-medium">{sector.name}</div>
-                            <p className="text-xs text-muted-foreground">
-                              {sector.reported_days} hesabat günü
-                            </p>
-                          </TableCell>
-                          <TableCell className="text-center">{sector.school_count}</TableCell>
-                          <TableCell className="text-center">
-                            {numberFormatter.format(sector.total_students)}
-                          </TableCell>
-                          <TableCell className="text-center font-semibold">
-                            {formatPercent(sector.average_attendance_rate)}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Bildirişlər</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div>
-                  <h4 className="font-semibold text-sm">Məlumat göndərməyən məktəblər</h4>
-                  <div className="mt-2 space-y-1">
-                    {(overview?.alerts.missing_reports ?? []).slice(0, 5).map((alert) => (
-                      <div key={alert.school_id} className="flex items-center gap-2 text-sm">
-                        <AlertTriangle className="h-4 w-4 text-yellow-500" />
-                        {alert.name}
-                      </div>
-                    ))}
-                    {!overview?.alerts.missing_reports?.length && (
-                      <p className="text-xs text-muted-foreground">Bütün məktəblər hesabat göndərib.</p>
-                    )}
-                  </div>
-                </div>
-                <div>
-                  <h4 className="font-semibold text-sm">Aşağı davamiyyət</h4>
-                  <div className="mt-2 space-y-1">
-                    {(overview?.alerts.low_attendance ?? []).slice(0, 5).map((alert) => (
-                      <div key={alert.school_id} className="flex items-center justify-between text-sm">
-                        <span>{alert.name}</span>
-                        <span className="font-semibold text-red-600">{formatPercent(alert.rate)}</span>
-                      </div>
-                    ))}
-                    {!overview?.alerts.low_attendance?.length && (
-                      <p className="text-xs text-muted-foreground">Aşağı davamiyyət müşahidə edilmir.</p>
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+          <div className="grid gap-4 md:grid-cols-2">
+            {renderSectorChart()}
+            {renderUniformSectorChart()}
+            {renderTrendChart()}
           </div>
 
           <Card>
@@ -442,6 +507,7 @@ export default function RegionAttendanceReports() {
                       <TableHead className="text-center">Şagird</TableHead>
                       <TableHead className="text-center">Hesabat günləri</TableHead>
                       <TableHead className="text-center">Orta davamiyyət</TableHead>
+                      <TableHead className="text-center">Məktəbli forma</TableHead>
                       <TableHead className="text-center">Status</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -464,6 +530,9 @@ export default function RegionAttendanceReports() {
                           </TableCell>
                           <TableCell className="text-center font-semibold">
                             {formatPercent(school.average_attendance_rate)}
+                          </TableCell>
+                          <TableCell className="text-center font-semibold">
+                            {formatPercent(school.uniform_compliance_rate)}
                           </TableCell>
                           <TableCell className="text-center">
                             {warnings.length === 0 ? (
@@ -550,10 +619,10 @@ export default function RegionAttendanceReports() {
               <div className="grid gap-4 md:grid-cols-3">
                 {classLoading || classFetching ? (
                   Array.from({ length: 3 }).map((_, index) => <Skeleton key={index} className="h-24 w-full" />)
-                ) : classBreakdown ? (
-                  <>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                     <Card>
-                      <CardHeader>
+                      <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium">Sinif sayı</CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -564,7 +633,7 @@ export default function RegionAttendanceReports() {
                       </CardContent>
                     </Card>
                     <Card>
-                      <CardHeader>
+                      <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium">Orta davamiyyət</CardTitle>
                       </CardHeader>
                       <CardContent>
@@ -575,21 +644,20 @@ export default function RegionAttendanceReports() {
                       </CardContent>
                     </Card>
                     <Card>
-                      <CardHeader>
-                        <CardTitle className="text-sm font-medium">Hesabat dövrü</CardTitle>
+                      <CardHeader className="pb-2">
+                        <CardTitle className="text-sm font-medium">Məktəbli forma</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="text-lg font-semibold">
-                          {format(new Date(startDate), 'dd MMM', { locale: az })} —{' '}
-                          {format(new Date(endDate), 'dd MMM', { locale: az })}
+                        <div className="text-2xl font-bold">
+                          {formatPercent(classBreakdown.summary.uniform_compliance_rate)}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          {classBreakdown.summary.period.school_days} tədris günü
+                          {numberFormatter.format(classBreakdown.summary.total_uniform_violations ?? 0)} pozuntu
                         </p>
                       </CardContent>
                     </Card>
-                  </>
-                ) : null}
+                  </div>
+                )}
               </div>
 
               <Card>
@@ -607,6 +675,7 @@ export default function RegionAttendanceReports() {
                           <TableHead className="text-center">Şagird</TableHead>
                           <TableHead className="text-center">Hesabat günləri</TableHead>
                           <TableHead className="text-center">Orta davamiyyət</TableHead>
+                          <TableHead className="text-center">Məktəbli forma</TableHead>
                           <TableHead className="text-center">Status</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -627,6 +696,9 @@ export default function RegionAttendanceReports() {
                             </TableCell>
                             <TableCell className="text-center font-semibold">
                               {formatPercent(classStat.average_attendance_rate)}
+                            </TableCell>
+                            <TableCell className="text-center font-semibold">
+                              {formatPercent(classStat.uniform_compliance_rate)}
                             </TableCell>
                             <TableCell className="text-center">
                               {classStat.warnings?.length ? (

@@ -18,6 +18,7 @@ import "@/utils/debugHelpers"; // Load debug helpers in development
 
 // Lazy load pages for better performance
 const Index = lazy(() => import("./pages/Index"));
+const Attendance = lazy(() => import("./pages/Attendance"));
 const Users = lazy(() => import("./pages/Users"));
 const Students = lazy(() => import("./pages/Students"));
 const Roles = lazy(() => import("./pages/Roles"));
@@ -83,6 +84,7 @@ const RegionAttendanceReports = lazy(() => import("./pages/regionadmin/RegionAtt
 const SchoolTeachers = lazy(() => import("./pages/school/SchoolTeachers"));
 const SchoolClasses = lazy(() => import("./pages/school/SchoolClasses"));
 const SchoolAttendanceRecord = lazy(() => import("./pages/school/SchoolAttendanceRecord"));
+const SchoolAttendance = lazy(() => import("./pages/school/Attendance"));
 const SchoolGradebook = lazy(() => import("./pages/school/SchoolGradebook"));
 const SchoolAssessments = lazy(() => import("./pages/SchoolAssessments"));
 const AttendanceReports = lazy(() => import("./pages/AttendanceReports"));
@@ -714,6 +716,20 @@ const App = () => {
                     {/* REDIRECTS for old routes - backward compatibility */}
                     <Route path="my-documents" element={<Navigate to="/my-resources?tab=folders" replace />} />
 
+                    <Route path="attendance" element={
+                      <LazyWrapper>
+                        <RoleProtectedRoute allowedRoles={[
+                          USER_ROLES.SUPERADMIN,
+                          USER_ROLES.REGIONADMIN,
+                          USER_ROLES.SEKTORADMIN,
+                          USER_ROLES.REGIONOPERATOR,
+                          USER_ROLES.SCHOOLADMIN,
+                        ]}>
+                          <Attendance />
+                        </RoleProtectedRoute>
+                      </LazyWrapper>
+                    } />
+
                     {/* SchoolAdmin Routes */}
                     <Route path="school/students" element={<Navigate to="/students" replace />} />
                     <Route path="school/teachers" element={
@@ -733,26 +749,15 @@ const App = () => {
                     <Route path="school/attendance" element={
                       <LazyWrapper>
                         <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                          <SchoolAttendanceRecord />
+                          <SchoolAttendance />
                         </RoleProtectedRoute>
                       </LazyWrapper>
                     } />
                     <Route path="school/attendance/bulk" element={
-                      <LazyWrapper>
-                        <RoleProtectedRoute allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN]}>
-                          <BulkAttendanceEntry />
-                        </RoleProtectedRoute>
-                      </LazyWrapper>
+                      <Navigate to="/school/attendance?tab=entry" replace />
                     } />
                     <Route path="school/attendance/reports" element={
-                      <LazyWrapper>
-                        <RoleProtectedRoute
-                          allowedRoles={[USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN, USER_ROLES.REGIONOPERATOR]}
-                          requiredPermissions={['attendance.read']}
-                        >
-                          <AttendanceReports />
-                        </RoleProtectedRoute>
-                      </LazyWrapper>
+                      <Navigate to="/school/attendance?tab=reports" replace />
                     } />
                     <Route path="school/assessments" element={
                       <LazyWrapper>

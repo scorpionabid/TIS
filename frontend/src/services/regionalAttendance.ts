@@ -14,6 +14,10 @@ export interface AttendanceSummary {
   average_attendance_rate: number;
   reported_days: number;
   schools_missing_reports: number;
+  present_total?: number;
+  total_uniform_violations?: number;
+  uniform_violation_rate?: number;
+  uniform_compliance_rate?: number;
   period: {
     start_date: string;
     end_date: string;
@@ -25,6 +29,7 @@ export interface SchoolAttendanceStat {
   school_id: number;
   name: string;
   sector_id: number | null;
+  sector_name?: string;
   total_students: number;
   expected_school_days: number;
   records: number;
@@ -34,6 +39,10 @@ export interface SchoolAttendanceStat {
   possible_attendance: number;
   morning_absent: number;
   evening_absent: number;
+  present_total?: number;
+  total_uniform_violations?: number;
+  uniform_violation_rate?: number;
+  uniform_compliance_rate?: number;
   average_attendance_rate: number;
   reporting_gap: number;
   warnings: string[];
@@ -44,6 +53,10 @@ export interface SectorAttendanceStat {
   name: string;
   school_count: number;
   total_students: number;
+  present_total?: number;
+  total_uniform_violations?: number;
+  uniform_violation_rate?: number;
+  uniform_compliance_rate?: number;
   average_attendance_rate: number;
   reported_days: number;
   schools: SchoolAttendanceStat[];
@@ -92,6 +105,10 @@ export interface SchoolClassStat {
   possible_attendance: number;
   morning_absent: number;
   evening_absent: number;
+  present_total?: number;
+  total_uniform_violations?: number;
+  uniform_violation_rate?: number;
+  uniform_compliance_rate?: number;
   report_gap?: number;
   warnings?: string[];
   expected_school_days: number;
@@ -107,6 +124,10 @@ export interface SchoolClassBreakdown {
     total_classes: number;
     reported_classes: number;
     average_attendance_rate: number;
+    present_total?: number;
+    total_uniform_violations?: number;
+    uniform_violation_rate?: number;
+    uniform_compliance_rate?: number;
     period: {
       start_date: string;
       end_date: string;

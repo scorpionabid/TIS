@@ -31,6 +31,7 @@ import { attendanceService } from '@/services/attendance';
 import { institutionService } from '@/services/institutions';
 import { format, startOfWeek, endOfWeek, subDays } from 'date-fns';
 import { az } from 'date-fns/locale';
+import * as XLSX from 'xlsx';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useModuleAccess } from '@/hooks/useModuleAccess';
@@ -52,6 +53,11 @@ const formatClassLabel = (value?: string | null, level?: number | string | null)
   return trimmed;
 };
 
+const formatPercent = (value?: number | null) => {
+  if (value === undefined || value === null) return '0%';
+  return `${Number(value).toFixed(1)}%`;
+};
+
 interface AttendanceRecord {
   id: number;
   date: string;
@@ -60,6 +66,8 @@ interface AttendanceRecord {
   start_count: number;
   end_count: number;
   attendance_rate: number;
+  uniform_violation?: number;
+  uniform_compliance_rate?: number;
   notes?: string;
   total_students?: number;
   grade_level?: number;
@@ -84,6 +92,9 @@ interface AttendanceStats {
   total_students: number;
   average_attendance: number;
   trend_direction: 'up' | 'down' | 'stable';
+  total_uniform_violations?: number;
+  uniform_compliance_rate?: number;
+  uniform_violation_rate?: number;
   total_days: number;
   total_records: number;
 }
@@ -91,7 +102,7 @@ interface AttendanceStats {
 const DEFAULT_PER_PAGE = 20;
 const AGGREGATION_FETCH_LIMIT = 500;
 
-export default function AttendanceReports() {
+export default function AttendanceReports({ embedded = false }: { embedded?: boolean } = {}) {
   const { currentUser } = useAuth();
   const {
     canAccess,
@@ -307,6 +318,9 @@ export default function AttendanceReports() {
     total_students: 0,
     average_attendance: 0,
     trend_direction: 'stable',
+    total_uniform_violations: 0,
+    uniform_compliance_rate: 0,
+    uniform_violation_rate: 0,
     total_days: 0,
     total_records: 0
   };
@@ -378,8 +392,13 @@ export default function AttendanceReports() {
   }
 
   const handleExportReport = async () => {
-    if (isExporting) return;
+    console.log('[Export] Button clicked');
+    if (isExporting) {
+      console.log('[Export] Already exporting, returning');
+      return;
+    }
     setIsExporting(true);
+    console.log('[Export] Starting export...');
     try {
       const filters: any = {
         start_date: startDate,
@@ -398,20 +417,28 @@ export default function AttendanceReports() {
 
       filters.group_by = reportType;
 
+      console.log('[Export] Calling API with filters:', filters);
       const blob = await attendanceService.exportAttendance(filters);
-      
+      console.log('[Export] Blob received:', { type: blob.type, size: blob.size });
+
+      // Create download link exactly like region admin does
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `davamiyyət-hesabatı-${format(new Date(), 'dd-MM-yyyy')}.csv`;
+      a.download = `davamiyyet_${startDate}_${endDate}.xlsx`;
+      document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      console.log('[Export] Download triggered');
       
       toast.success('Hesabat uğurla export edildi');
     } catch (error) {
+      console.error('[Export] Error:', error);
       toast.error(getErrorMessage(error));
     } finally {
       setIsExporting(false);
+      console.log('[Export] Finished');
     }
   };
 
@@ -446,40 +473,23 @@ export default function AttendanceReports() {
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Davamiyyət Hesabatları</h1>
-          <p className="text-muted-foreground">
-            Detallı davamiyyət analizi və statistika 
-            {isSchoolAdmin && currentUser?.institution && (
-              <span className="text-blue-600 font-medium"> - {currentUser.institution.name}</span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            onClick={() => refetch()}
-            disabled={attendanceLoading || isRefetchingAttendance}
-          >
-            {isRefetchingAttendance ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <BarChart3 className="h-4 w-4 mr-2" />
-            )}
-            {isRefetchingAttendance ? 'Yenilənir...' : 'Yenilə'}
-          </Button>
-          <Button onClick={handleExportReport} disabled={isExporting || attendanceData.length === 0}>
-            {isExporting ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Download className="h-4 w-4 mr-2" />
-            )}
-            {isExporting ? 'Export olunur...' : 'Export'}
-          </Button>
-        </div>
-      </div>
+      {!embedded && (
+        <>
+          {/* Header */}
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold text-foreground">Davamiyyət hesabatları</h1>
+            <p className="text-sm text-muted-foreground">
+              Detallı davamiyyət analizi və statistika
+              {(currentUser?.institution?.name || currentUser?.department?.name || currentUser?.region?.name) && (
+                <span className="text-muted-foreground">
+                  {' '}·{' '}
+                  {currentUser?.institution?.name || currentUser?.department?.name || currentUser?.region?.name}
+                </span>
+              )}
+            </p>
+          </div>
+        </>
+      )}
 
       {attendanceError && (
         <Alert variant="destructive">
@@ -506,6 +516,268 @@ export default function AttendanceReports() {
         </Alert>
       )}
 
+      {/* Filters - Move to top for school admin */}
+      {isSchoolAdmin && (
+        <Card className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] border-0">
+          <CardContent className="p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Filterlər</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    handlePresetSelect('today');
+                    refetch();
+                  }}
+                  disabled={attendanceLoading || isRefetchingAttendance}
+                  className="h-9 px-4 rounded-xl border-[1.4px] border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                >
+                  {isRefetchingAttendance ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <BarChart3 className="h-4 w-4 mr-1.5" />
+                  )}
+                  {isRefetchingAttendance ? 'Yenilənir...' : 'Yenilə'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportReport}
+                  disabled={isExporting}
+                  className="h-9 px-4 rounded-xl border-[1.4px] border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-1.5" />
+                  )}
+                  {isExporting ? 'Export olunur...' : 'Eksport (Excel)'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-end flex-wrap">
+              <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Başlanğıc tarixi</Label>
+                <Input
+                  type="date"
+                  className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
+                  value={startDate}
+                  onChange={(e) => {
+                    setActiveDatePreset('custom');
+                    setStartDate(e.target.value);
+                  }}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Son tarix</Label>
+                <Input
+                  type="date"
+                  className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
+                  value={endDate}
+                  onChange={(e) => {
+                    setActiveDatePreset('custom');
+                    setEndDate(e.target.value);
+                  }}
+                  min={startDate}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sinif</Label>
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                  <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
+                    <SelectValue placeholder={classOptionsLoading ? 'Yüklənir...' : 'Sinif seçin'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Bütün siniflər</SelectItem>
+                    {classOptions.map((className) => (
+                      <SelectItem key={className} value={className}>
+                        {className}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Hesabat növü</Label>
+                <Select value={reportType} onValueChange={(value) => setReportType(value as 'daily' | 'weekly' | 'monthly')}>
+                  <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Günlük</SelectItem>
+                    <SelectItem value="weekly">Həftəlik</SelectItem>
+                    <SelectItem value="monthly">Aylıq</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1 flex-1 min-w-[240px]">
+                <div className="flex bg-slate-100 rounded-xl p-1 gap-1 mt-5">
+                  {datePresets.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handlePresetSelect(preset.id)}
+                      className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all whitespace-nowrap ${
+                        activeDatePreset === preset.id
+                          ? 'bg-slate-900 text-white shadow-[0_2px_8px_rgba(30,41,59,0.25)]'
+                          : 'text-slate-500 hover:bg-indigo-100 hover:text-indigo-700'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled
+                    className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap cursor-not-allowed ${
+                      activeDatePreset === 'custom'
+                        ? 'bg-slate-900 text-white shadow-[0_2px_8px_rgba(30,41,59,0.25)]'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    Fərdi
+                  </button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      {!isSchoolAdmin && (
+        <Card className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] border-0">
+          <CardContent className="p-4 sm:p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Filterlər</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    handlePresetSelect('today');
+                    refetch();
+                  }}
+                  disabled={attendanceLoading || isRefetchingAttendance}
+                  className="h-9 px-4 rounded-xl border-[1.4px] border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                >
+                  {isRefetchingAttendance ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <BarChart3 className="h-4 w-4 mr-1.5" />
+                  )}
+                  {isRefetchingAttendance ? 'Yenilənir...' : 'Yenilə'}
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={handleExportReport}
+                  disabled={isExporting}
+                  className="h-9 px-4 rounded-xl border-[1.4px] border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+                >
+                  {isExporting ? (
+                    <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-1.5" />
+                  )}
+                  {isExporting ? 'Export olunur...' : 'Eksport (Excel)'}
+                </Button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 items-end flex-wrap">
+              <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Başlanğıc tarixi</Label>
+                <Input
+                  type="date"
+                  className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
+                  value={startDate}
+                  onChange={(e) => {
+                    setActiveDatePreset('custom');
+                    setStartDate(e.target.value);
+                  }}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Son tarix</Label>
+                <Input
+                  type="date"
+                  className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
+                  value={endDate}
+                  onChange={(e) => {
+                    setActiveDatePreset('custom');
+                    setEndDate(e.target.value);
+                  }}
+                  min={startDate}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sinif</Label>
+                <Select value={selectedClass} onValueChange={setSelectedClass}>
+                  <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
+                    <SelectValue placeholder={classOptionsLoading ? 'Yüklənir...' : 'Sinif seçin'} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Bütün siniflər</SelectItem>
+                    {classOptions.map((className) => (
+                      <SelectItem key={className} value={className}>
+                        {className}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1 flex-1 min-w-[180px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Hesabat növü</Label>
+                <Select value={reportType} onValueChange={(value) => setReportType(value as 'daily' | 'weekly' | 'monthly')}>
+                  <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="daily">Günlük</SelectItem>
+                    <SelectItem value="weekly">Həftəlik</SelectItem>
+                    <SelectItem value="monthly">Aylıq</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-col gap-1 flex-1 min-w-[240px]">
+                <div className="flex bg-slate-100 rounded-xl p-1 gap-1 mt-5">
+                  {datePresets.map((preset) => (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => handlePresetSelect(preset.id)}
+                      className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all whitespace-nowrap ${
+                        activeDatePreset === preset.id
+                          ? 'bg-slate-900 text-white shadow-[0_2px_8px_rgba(30,41,59,0.25)]'
+                          : 'text-slate-500 hover:bg-indigo-100 hover:text-indigo-700'
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    disabled
+                    className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap cursor-not-allowed ${
+                      activeDatePreset === 'custom'
+                        ? 'bg-slate-900 text-white shadow-[0_2px_8px_rgba(30,41,59,0.25)]'
+                        : 'text-slate-400'
+                    }`}
+                  >
+                    Fərdi
+                  </button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Statistics Cards */}
       {statsError ? (
         <Alert variant="destructive">
@@ -513,80 +785,108 @@ export default function AttendanceReports() {
           <AlertDescription>{getErrorMessage(statsError)}</AlertDescription>
         </Alert>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-l-4 border-l-blue-500">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#2563eb]" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-blue-600 transition-colors">Ümumi Qeyd</CardTitle>
-              <FileText className="h-5 w-5 text-blue-500 group-hover:scale-110 transition-transform" />
+              <CardTitle className="text-xs font-semibold text-slate-500">Ümumi qeyd</CardTitle>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-[0_12px_20px_rgba(15,23,42,0.12)] bg-gradient-to-br from-[#2563eb] to-[#60a5fa]">
+                <FileText className="h-5 w-5" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-extrabold">{attendanceStats.total_records}</div>
-              <p className="text-sm text-muted-foreground mt-1 flex items-center">
-                <CalendarIcon className="h-3 w-3 mr-1" />
+              <div className="text-2xl font-extrabold text-[#1d4ed8]">{attendanceStats.total_records}</div>
+              <p className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1">
+                <CalendarIcon className="h-3 w-3" />
                 {attendanceStats.total_days} tədris günü
               </p>
             </CardContent>
-            <div className="absolute bottom-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500/10 to-transparent" />
           </Card>
 
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-l-4 border-l-emerald-500">
+          <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#10b981]" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-emerald-600 transition-colors">Orta Davamiyyət</CardTitle>
-              <BarChart3 className="h-5 w-5 text-emerald-500 group-hover:scale-110 transition-transform" />
+              <CardTitle className="text-xs font-semibold text-slate-500">Orta davamiyyət</CardTitle>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-[0_12px_20px_rgba(15,23,42,0.12)] bg-gradient-to-br from-[#10b981] to-[#6ee7b7]">
+                <BarChart3 className="h-5 w-5" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-extrabold text-emerald-600">
+              <div className="text-2xl font-extrabold text-[#047857]">
                 {statsLoading && !statsResponse ? <Loader2 className="h-6 w-6 animate-spin" /> : `${attendanceStats.average_attendance}%`}
               </div>
-              <div className="mt-2 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className="bg-emerald-500 h-full rounded-full transition-all duration-500" 
-                  style={{ width: `${attendanceStats.average_attendance}%` }}
-                />
-              </div>
-              <p className="text-sm text-muted-foreground mt-2 flex items-center">
-                <Users className="h-3 w-3 mr-1" />
+              <p className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1">
+                <Users className="h-3 w-3" />
                 {attendanceStats.total_students} şagird üzrə
               </p>
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-l-4 border-l-indigo-500">
+          <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#6366f1]" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-indigo-600 transition-colors">Dinamika</CardTitle>
+              <CardTitle className="text-xs font-semibold text-slate-500">Məktəbli forma</CardTitle>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-[0_12px_20px_rgba(15,23,42,0.12)] bg-gradient-to-br from-[#6366f1] to-[#a5b4fc]">
+                <BookOpen className="h-5 w-5" />
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-extrabold text-[#3730a3]">
+                {statsLoading && !statsResponse ? <Loader2 className="h-6 w-6 animate-spin" /> : `${Number(attendanceStats.uniform_compliance_rate ?? 0).toFixed(1)}%`}
+              </div>
+              <p className="text-[10px] text-slate-400 font-medium mt-1 flex items-center gap-1">
+                <AlertTriangle className="h-3 w-3" />
+                {Number(attendanceStats.total_uniform_violations ?? 0)} pozuntu
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#7c3aed]" />
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-xs font-semibold text-slate-500">Dinamika</CardTitle>
               {attendanceStats.trend_direction === 'up' ? (
-                <TrendingUp className="h-5 w-5 text-emerald-500 group-hover:translate-y--1 transition-transform" />
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-[0_12px_20px_rgba(15,23,42,0.12)] bg-gradient-to-br from-[#10b981] to-[#6ee7b7]">
+                  <TrendingUp className="h-5 w-5" />
+                </div>
               ) : attendanceStats.trend_direction === 'down' ? (
-                <TrendingDown className="h-5 w-5 text-rose-500 group-hover:translate-y-1 transition-transform" />
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-[0_12px_20px_rgba(15,23,42,0.12)] bg-gradient-to-br from-[#ef4444] to-[#fda4af]">
+                  <TrendingDown className="h-5 w-5" />
+                </div>
               ) : (
-                <PieChart className="h-5 w-5 text-indigo-500" />
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-[0_12px_20px_rgba(15,23,42,0.12)] bg-gradient-to-br from-[#7c3aed] to-[#c084fc]">
+                  <PieChart className="h-5 w-5" />
+                </div>
               )}
             </CardHeader>
             <CardContent>
-              <div className={`text-xl font-bold ${
-                attendanceStats.trend_direction === 'up' ? 'text-emerald-600' : 
-                attendanceStats.trend_direction === 'down' ? 'text-rose-600' : 'text-indigo-600'
+              <div className={`text-base font-extrabold ${
+                attendanceStats.trend_direction === 'up' ? 'text-[#047857]' : 
+                attendanceStats.trend_direction === 'down' ? 'text-[#be123c]' : 'text-[#6d28d9]'
               }`}>
                 {activeTrendCopy.label}
               </div>
-              <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+              <p className="text-[10px] text-slate-400 font-medium mt-1 line-clamp-2">
                 {activeTrendCopy.description}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="relative overflow-hidden group hover:shadow-lg transition-all duration-300 border-l-4 border-l-amber-500">
+          <Card className="relative overflow-hidden rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.05)] hover:shadow-[0_10px_26px_rgba(0,0,0,0.12)] transition-all duration-200 hover:-translate-y-0.5">
+            <div className="absolute top-0 left-0 right-0 h-1 bg-[#f59e0b]" />
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground group-hover:text-amber-600 transition-colors">Hesabat Dövrü</CardTitle>
-              <CalendarIcon className="h-5 w-5 text-amber-500" />
+              <CardTitle className="text-xs font-semibold text-slate-500">Hesabat dövrü</CardTitle>
+              <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-white shadow-[0_12px_20px_rgba(15,23,42,0.12)] bg-gradient-to-br from-[#f97316] to-[#facc15]">
+                <CalendarIcon className="h-5 w-5" />
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="text-xl font-bold flex flex-wrap gap-1">
+              <div className="text-sm font-extrabold flex flex-wrap gap-1 text-[#b45309]">
                 <span>{format(new Date(startDate), 'dd MMM', { locale: az })}</span>
                 <span className="text-muted-foreground font-normal">→</span>
                 <span>{format(new Date(endDate), 'dd MMM', { locale: az })}</span>
               </div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-[10px] text-slate-400 font-medium mt-1">
                 {activeDatePreset === 'custom' ? 'Fərdi seçim' : datePresets.find(p => p.id === activeDatePreset)?.label}
               </p>
             </CardContent>
@@ -595,21 +895,51 @@ export default function AttendanceReports() {
       )}
 
       {/* Filters */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filterlər
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+      {!isSchoolAdmin && (
+        <Card className="bg-white rounded-2xl shadow-[0_1px_8px_rgba(0,0,0,0.06)] border-0">
+        <CardContent className="p-4 sm:p-5 space-y-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Filterlər</span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  handlePresetSelect('today');
+                  refetch();
+                }}
+                disabled={attendanceLoading || isRefetchingAttendance}
+                className="h-9 px-4 rounded-xl border-[1.4px] border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+              >
+                {isRefetchingAttendance ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <BarChart3 className="h-4 w-4 mr-1.5" />
+                )}
+                {isRefetchingAttendance ? 'Yenilənir...' : 'Yenilə'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleExportReport}
+                disabled={isExporting}
+                className="h-9 px-4 rounded-xl border-[1.4px] border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+              >
+                {isExporting ? (
+                  <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-1.5" />
+                )}
+                {isExporting ? 'Export olunur...' : 'Eksport (Excel)'}
+              </Button>
+            </div>
+          </div>
+
+          <div className="flex gap-3 items-end flex-wrap">
             {/* School filter - only for non-school admins */}
             {!isSchoolAdmin && (
-              <div className="space-y-2">
-                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Məktəb</Label>
+              <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+                <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Məktəb</Label>
                 <Select value={selectedSchool} onValueChange={setSelectedSchool}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
                     <SelectValue placeholder="Məktəb seçin" />
                   </SelectTrigger>
                   <SelectContent>
@@ -624,10 +954,10 @@ export default function AttendanceReports() {
               </div>
             )}
 
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Sinif</Label>
+            <div className="flex flex-col gap-1 flex-1 min-w-[160px]">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Sinif</Label>
               <Select value={selectedClass} onValueChange={setSelectedClass}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
                   <SelectValue placeholder={classOptionsLoading ? 'Yüklənir...' : 'Sinif seçin'} />
                 </SelectTrigger>
                 <SelectContent>
@@ -641,10 +971,10 @@ export default function AttendanceReports() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Hesabat növü</Label>
+            <div className="flex flex-col gap-1 flex-1 min-w-[150px]">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Hesabat növü</Label>
               <Select value={reportType} onValueChange={(value) => setReportType(value as 'daily' | 'weekly' | 'monthly')}>
-                <SelectTrigger className="h-9">
+                <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -655,49 +985,22 @@ export default function AttendanceReports() {
               </Select>
             </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                 <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Tarix Aralığı</Label>
-                 <div className="flex gap-1">
-                    {datePresets.map((preset) => (
-                      <button
-                        key={preset.id}
-                        type="button"
-                        onClick={() => handlePresetSelect(preset.id)}
-                        className={`text-[10px] px-2 py-1 rounded transition-colors ${
-                          activeDatePreset === preset.id 
-                            ? 'bg-primary text-primary-foreground font-medium' 
-                            : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                        }`}
-                        title={preset.label}
-                      >
-                        {preset.label}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      disabled
-                      className="text-[10px] px-2 py-1 rounded bg-muted/50 text-muted-foreground/50 cursor-not-allowed"
-                      title="Fərdi"
-                    >
-                      Fərdi
-                    </button>
-                 </div>
-              </div>
+            <div className="flex flex-col gap-1 flex-1 min-w-[220px]">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Tarix aralığı</Label>
               <div className="flex items-center gap-2">
                 <Input
                   type="date"
-                  className="h-9 text-xs"
+                  className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
                   value={startDate}
                   onChange={(e) => {
                     setActiveDatePreset('custom');
                     setStartDate(e.target.value);
                   }}
                 />
-                <span className="text-muted-foreground text-xs">-</span>
+                <span className="text-slate-400 text-xs">-</span>
                 <Input
                   type="date"
-                  className="h-9 text-xs"
+                  className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
                   value={endDate}
                   onChange={(e) => {
                     setActiveDatePreset('custom');
@@ -708,14 +1011,40 @@ export default function AttendanceReports() {
               </div>
             </div>
 
-            <div className={isSchoolAdmin ? "col-span-1 lg:col-span-2 flex justify-end" : "col-span-1 flex justify-end"}>
-              <Button variant="ghost" onClick={handleResetFilters} className="h-9 text-xs text-muted-foreground hover:text-foreground">
-                Təmizlə
-              </Button>
+            <div className="flex flex-col gap-1 flex-1 min-w-[220px]">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Hazır intervallar</Label>
+              <div className="flex bg-slate-100 rounded-xl p-1 gap-1">
+                {datePresets.map((preset) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handlePresetSelect(preset.id)}
+                    className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold transition-all whitespace-nowrap ${
+                      activeDatePreset === preset.id
+                        ? 'bg-slate-900 text-white shadow-[0_2px_8px_rgba(30,41,59,0.25)]'
+                        : 'text-slate-500 hover:bg-indigo-100 hover:text-indigo-700'
+                    }`}
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  disabled
+                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap cursor-not-allowed ${
+                    activeDatePreset === 'custom'
+                      ? 'bg-slate-900 text-white shadow-[0_2px_8px_rgba(30,41,59,0.25)]'
+                      : 'text-slate-400'
+                  }`}
+                >
+                  Fərdi
+                </button>
+              </div>
             </div>
           </div>
         </CardContent>
-      </Card>
+        </Card>
+      )}
 
       {/* Data Table */}
       <Card>
@@ -763,6 +1092,7 @@ export default function AttendanceReports() {
                       <ArrowUpDown className={`h-4 w-4 ${sortField === 'attendance_rate' ? 'text-primary' : 'text-muted-foreground/50'}`} />
                     </Button>
                   </TableHead>
+                  <TableHead className="text-center w-[160px]">Məktəbli forması</TableHead>
                   <TableHead>Qeydlər</TableHead>
                 </TableRow>
               </TableHeader>
@@ -777,11 +1107,12 @@ export default function AttendanceReports() {
                       <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
                       <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
                       <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
+                      <TableCell><div className="h-4 bg-gray-200 rounded animate-pulse"></div></TableCell>
                     </TableRow>
                   ))
                 ) : displayRecords.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={isSchoolAdmin ? 6 : 7} className="text-center py-8 text-muted-foreground">
+                    <TableCell colSpan={isSchoolAdmin ? 7 : 8} className="text-center py-8 text-muted-foreground">
                       Seçilmiş kriteriyalara uyğun məlumat tapılmadı
                     </TableCell>
                   </TableRow>
@@ -807,6 +1138,15 @@ export default function AttendanceReports() {
                     ].filter(Boolean);
                     const combinedNotes = record.notes || (noteHints.length ? noteHints.join(' | ') : null);
                     const formattedClassName = formatClassLabel(record.class_name, record.grade_level);
+
+                    const uniformComplianceRate = Number(record.uniform_compliance_rate ?? 0);
+                    const uniformViolations = Number(record.uniform_violation ?? 0);
+                    const uniformTone =
+                      uniformComplianceRate >= 95
+                        ? 'text-emerald-600'
+                        : uniformComplianceRate >= 85
+                        ? 'text-amber-600'
+                        : 'text-rose-600';
 
                     return (
                     <TableRow key={`${reportType}-${record.id ?? index}`} className="hover:bg-muted/30 transition-colors">
@@ -879,9 +1219,21 @@ export default function AttendanceReports() {
                           />
                         </div>
                       </TableCell>
+                      <TableCell className="text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`text-xs font-bold ${uniformTone}`}>
+                            {formatPercent(uniformComplianceRate)} ({uniformViolations})
+                          </span>
+                        </div>
+                      </TableCell>
                       <TableCell className="max-w-[200px]">
-                        <div className="text-xs text-muted-foreground line-clamp-2 italic" title={combinedNotes || ''}>
-                          {combinedNotes || '-'}
+                        <div className="flex flex-col gap-1">
+                          <div className="text-xs text-muted-foreground line-clamp-2 italic" title={combinedNotes || ''}>
+                            {combinedNotes || '-'}
+                          </div>
+                          {uniformViolations > 0 && (
+                            <span className="text-[10px] text-muted-foreground">Forma pozuntusu: {uniformViolations}</span>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>

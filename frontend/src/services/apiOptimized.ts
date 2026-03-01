@@ -16,7 +16,7 @@ const log = (level: 'info' | 'warn' | 'error', message: string, data?: any) => {
 
 // Environment variable validation and setup
 function validateAndSetupApiUrls() {
-  const envApiUrl = import.meta.env.VITE_API_BASE_URL;
+  const envApiUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
   const localApiUrl = import.meta.env.VITE_LOCAL_API_URL;
   const fallbackUrl = 'http://localhost:8000/api';
   
@@ -36,7 +36,7 @@ function validateAndSetupApiUrls() {
       });
     } else {
       // Running from IP - use IP-based URL
-      apiBaseUrl = envApiUrl || fallbackUrl;
+      apiBaseUrl = envApiUrl || `http://${currentHost}:8000/api`;
       log('info', 'Remote development detected', {
         currentHost,
         usingIpApi: true,
@@ -723,6 +723,9 @@ class ApiClientOptimized {
         requestInit.body = data;
         // Remove Content-Type header for FormData - browser sets it automatically with boundary
         delete (requestInit.headers as Record<string, string>)['Content-Type'];
+      } else if (data instanceof URLSearchParams) {
+        requestInit.body = data.toString();
+        (requestInit.headers as Record<string, string>)['Content-Type'] = 'application/x-www-form-urlencoded';
       } else {
         requestInit.body = JSON.stringify(data);
       }

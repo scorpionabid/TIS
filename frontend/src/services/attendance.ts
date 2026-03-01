@@ -343,22 +343,16 @@ class AttendanceService extends BaseService {
     const queryString = params.toString();
     const endpoint = queryString ? `${this.baseUrl}/export?${queryString}` : `${this.baseUrl}/export`;
     
-    const headers: Record<string, string> = {
-      'Accept': 'text/csv',
-      ...apiClient.getAuthHeaders(),
-    };
-
-    const response = await fetch(endpoint, {
-      method: 'GET',
-      headers,
-      credentials: 'include',
+    // Use apiClient for proper base URL and auth handling
+    const response = await apiClient.get<Blob>(endpoint, undefined, {
+      responseType: 'blob'
     });
-
-    if (!response.ok) {
-      throw new Error('Export failed');
+    
+    if (!response.data) {
+      throw new Error('Export failed - no data received');
     }
-
-    return response.blob();
+    
+    return response.data;
   }
 
   /**
