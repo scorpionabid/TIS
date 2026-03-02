@@ -27,8 +27,8 @@ use Illuminate\Support\Facades\Route;
 */
 
 // Dashboard routes
-Route::get('dashboard/stats', [App\Http\Controllers\DashboardController::class, 'getStats']);
-Route::get('dashboard/activity', [App\Http\Controllers\DashboardController::class, 'getRecentActivity']);
+Route::get('dashboard/stats', [App\Http\Controllers\DashboardController::class, 'stats']);
+Route::get('dashboard/activity', [App\Http\Controllers\DashboardController::class, 'recentActivity']);
 
 // SuperAdmin advanced dashboard routes
 Route::middleware('role:superadmin')->group(function () {

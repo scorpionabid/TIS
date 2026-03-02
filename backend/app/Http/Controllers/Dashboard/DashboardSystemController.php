@@ -98,11 +98,7 @@ class DashboardSystemController extends Controller
 
             // Apply filters
             if ($type) {
-                $query->where('type', $type);
-            }
-
-            if ($level) {
-                $query->where('level', $level);
+                $query->where('activity_type', $type);
             }
 
             $activities = $query->limit($limit)->get();
@@ -110,9 +106,9 @@ class DashboardSystemController extends Controller
             $formattedActivities = $activities->map(function ($activity) {
                 return [
                     'id' => $activity->id,
-                    'type' => $activity->type,
-                    'level' => $activity->level,
-                    'message' => $activity->message,
+                    'type' => $activity->activity_type,
+                    'level' => null,
+                    'message' => $activity->description,
                     'description' => $activity->description,
                     'user' => $activity->user ? [
                         'id' => $activity->user->id,
@@ -385,8 +381,8 @@ class DashboardSystemController extends Controller
 
         return [
             'total_activities' => $query->count(),
-            'by_type' => $query->groupBy('type')->pluck(DB::raw('count(*) as count'), 'type')->toArray(),
-            'by_level' => $query->groupBy('level')->pluck(DB::raw('count(*) as count'), 'level')->toArray(),
+            'by_type' => $query->groupBy('activity_type')->pluck(DB::raw('count(*) as count'), 'activity_type')->toArray(),
+            'by_level' => [],
             'unique_users' => $query->distinct('user_id')->count('user_id'),
         ];
     }

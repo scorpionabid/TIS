@@ -36,7 +36,6 @@ import useBulkAttendanceEntry from "./bulkAttendance/hooks/useBulkAttendanceEntr
 import useMediaQuery from "./bulkAttendance/hooks/useMediaQuery";
 import BulkAttendanceMobileView from "./bulkAttendance/components/BulkAttendanceMobileView";
 import { AttendanceSession } from "./bulkAttendance/types";
-import ModernTopBar from "./bulkAttendance/components/ModernTopBar";
 import ModernSessionTabs from "./bulkAttendance/components/ModernSessionTabs";
 import ModernTableView from "./bulkAttendance/components/ModernTableView";
 import ModernSummaryStrip from "./bulkAttendance/components/ModernSummaryStrip";
@@ -226,6 +225,14 @@ const BulkAttendanceEntry: React.FC = () => {
   const overallDailyRate = calculatedSummary.totalStudentSessions > 0
     ? Math.round((calculatedSummary.totalPresentSessions / calculatedSummary.totalStudentSessions) * 100)
     : 0;
+
+  const morningHasData = Object.values(attendanceData).some(
+    d => (d.morning_excused ?? 0) > 0 || (d.morning_unexcused ?? 0) > 0
+  );
+  const eveningHasData = Object.values(attendanceData).some(
+    d => (d.evening_excused ?? 0) > 0 || (d.evening_unexcused ?? 0) > 0
+  );
+
   const renderSaveStatus = () => {
     if (!lastSaveResult || lastSaveResult.status === "idle") {
       return null;
@@ -447,6 +454,39 @@ const BulkAttendanceEntry: React.FC = () => {
         totalClasses={classes.length}
         sessionLabel={activeSession === 'morning' ? 'İlk dərs' : 'Son dərs'}
       />
+
+      {/* Session Tabs */}
+      <ModernSessionTabs
+        activeSession={activeSession}
+        onSessionChange={handleSessionChange}
+        morningHasData={morningHasData}
+        eveningHasData={eveningHasData}
+        morningDirty={dirtySessions.morning}
+        eveningDirty={dirtySessions.evening}
+      />
+
+      {/* Attendance Table */}
+      {isDesktop ? (
+        <ModernTableView
+          session={activeSession}
+          classes={classes}
+          attendanceData={attendanceData}
+          updateAttendance={updateAttendance}
+          errors={errors}
+          serverErrors={serverErrors}
+          getAttendanceRate={getAttendanceRate}
+        />
+      ) : (
+        <BulkAttendanceMobileView
+          session={activeSession}
+          classes={classes}
+          attendanceData={attendanceData}
+          updateAttendance={updateAttendance}
+          errors={errors}
+          serverErrors={serverErrors}
+          getAttendanceRate={getAttendanceRate}
+        />
+      )}
 
       {/* Modern Footer Actions */}
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
