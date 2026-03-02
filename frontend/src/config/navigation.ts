@@ -245,20 +245,13 @@ export const improvedNavigationConfig: MenuGroup[] = [
         id: 'report-tables',
         label: 'Hesabat Cədvəlləri',
         icon: Table2,
+        path: '/report-tables',
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
-        children: [
-          {
-            id: 'report-tables-list',
-            label: 'Cədvəlləri İdarə Et',
-            path: '/report-tables',
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.REGIONOPERATOR, USER_ROLES.SEKTORADMIN],
-            permissions: ['report_tables.read'],
-          },
-        ],
+        permissions: ['report_tables.read'],
       },
       {
         id: 'report-table-entry',
-        label: 'Hesabat Cədvəlim',
+        label: 'Hesabat Cədvəlləri',
         icon: Table2,
         path: '/report-table-entry',
         roles: [USER_ROLES.SCHOOLADMIN],

@@ -47,6 +47,10 @@ const COLUMN_TYPES: { value: ColumnType; label: string }[] = [
   { value: 'date',    label: 'Tarix' },
   { value: 'select',  label: 'Seçim (dropdown)' },
   { value: 'boolean', label: 'Bəli / Xeyr' },
+  { value: 'calculated', label: 'Hesablama (formula)' },
+  { value: 'file',    label: 'Fayl yükləmə' },
+  { value: 'signature', label: 'Elektron imza' },
+  { value: 'gps',     label: 'GPS koordinat' },
 ];
 
 const MAX_ROWS_OPTIONS = [5, 10, 15, 20, 25, 30, 40, 50, 100, 200];
@@ -318,6 +322,212 @@ function SortableColumnItem({ col, index, disabled, onUpdate, onRemove }: Sortab
                 </Button>
                 {(col.options?.length ?? 0) === 0 && (
                   <p className="text-xs text-red-500">Ən azı bir variant əlavə edin</p>
+                )}
+              </div>
+            )}
+
+            {/* Calculated column formula */}
+            {col.type === 'calculated' && (
+              <div className="col-span-2 space-y-3">
+                <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                  <p className="text-xs text-blue-700">
+                    Hesablama sütunları Excel-kimi formula ilə avtomatik hesablanır. 
+                    A1, B1, C1 kimi xana istinadlarından istifadə edin.
+                  </p>
+                </div>
+                
+                <div>
+                  <Label className="text-xs text-gray-500 mb-1 block">Formula <span className="text-red-500">*</span></Label>
+                  <Input
+                    value={col.formula ?? ''}
+                    onChange={(e) => onUpdate(index, 'formula', e.target.value)}
+                    placeholder="=SUM(A1:A10) * B1"
+                    className="text-sm font-mono"
+                  />
+                  {col.formula && !col.formula.startsWith('=') && (
+                    <p className="text-xs text-amber-600 mt-1">Formula = ilə başlamalıdır</p>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">Format</Label>
+                    <Select
+                      value={col.format || 'number'}
+                      onValueChange={(v) => onUpdate(index, 'format', v as 'number' | 'currency' | 'percent')}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="number">Rəqəm</SelectItem>
+                        <SelectItem value="currency">Valyuta (AZN)</SelectItem>
+                        <SelectItem value="percent">Faiz</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">Onluq rəqəmlər</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={10}
+                      value={col.decimals ?? 2}
+                      onChange={(e) => onUpdate(index, 'decimals', e.target.value === '' ? 2 : Number(e.target.value))}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500">
+                  <p className="font-medium mb-1">Mövcud funksiyalar:</p>
+                  <div className="flex flex-wrap gap-1">
+                    {['SUM', 'AVERAGE', 'COUNT', 'MIN', 'MAX', 'IF', 'ROUND', 'ABS', 'POWER', 'SQRT', 'AND', 'OR', 'NOT', 'TODAY', 'YEAR', 'MONTH', 'DAY', 'CONCAT', 'LEFT', 'RIGHT', 'MID', 'LEN', 'UPPER', 'LOWER', 'TRIM', 'IFERROR'].map(fn => (
+                      <code key={fn} className="bg-gray-100 px-1 py-0.5 rounded text-[10px]">{fn}()</code>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* File upload settings */}
+            {col.type === 'file' && (
+              <div className="col-span-2 space-y-3">
+                <div className="bg-blue-50 border border-blue-200 rounded p-2">
+                  <p className="text-xs text-blue-700">
+                    Məktəblər bu sahəyə sənəd, şəkil və digər fayllar yükləyə bilər.
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-xs text-gray-500">Qəbul edilən fayl tipləri</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {['.pdf', '.jpg', '.png', '.doc', '.docx', '.xls', '.xlsx'].map(ext => (
+                      <label key={ext} className="flex items-center gap-1 text-sm bg-gray-100 px-2 py-1 rounded">
+                        <input
+                          type="checkbox"
+                          checked={(col.accepted_types || []).includes(ext)}
+                          onChange={(e) => {
+                            const current = col.accepted_types || [];
+                            const updated = e.target.checked 
+                              ? [...current, ext]
+                              : current.filter(x => x !== ext);
+                            onUpdate(index, 'accepted_types', updated.length > 0 ? updated : undefined);
+                          }}
+                          className="rounded"
+                        />
+                        {ext}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400">
+                    Heç biri seçilməzsə, bütün fayl tipləri qəbul ediləcək
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">Maksimum fayl ölçüsü (MB)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={col.max_file_size || 10}
+                      onChange={(e) => onUpdate(index, 'max_file_size', Number(e.target.value))}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Signature settings */}
+            {col.type === 'signature' && (
+              <div className="col-span-2 space-y-3">
+                <div className="bg-purple-50 border border-purple-200 rounded p-2">
+                  <p className="text-xs text-purple-700">
+                    Məktəblər bu sahədə elektron imza (əl izi) ata bilər. 
+                    Mobil cihazlarda daha yaxşı işləyir.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">İmza sahəsi eni (px)</Label>
+                    <Input
+                      type="number"
+                      min={200}
+                      max={800}
+                      step={50}
+                      value={col.signature_width || 400}
+                      onChange={(e) => onUpdate(index, 'signature_width', Number(e.target.value))}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">İmza sahəsi hündürlüyü (px)</Label>
+                    <Input
+                      type="number"
+                      min={100}
+                      max={400}
+                      step={50}
+                      value={col.signature_height || 200}
+                      onChange={(e) => onUpdate(index, 'signature_height', Number(e.target.value))}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* GPS settings */}
+            {col.type === 'gps' && (
+              <div className="col-span-2 space-y-3">
+                <div className="bg-green-50 border border-green-200 rounded p-2">
+                  <p className="text-xs text-green-700">
+                    Məktəblər cari GPS koordinatlarını avtomatik əldə edə bilər.
+                    Coğrafi mövqeyin təsdiqi üçün istifadə olunur.
+                  </p>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">GPS dəqiqliyi</Label>
+                    <Select
+                      value={col.gps_precision || 'medium'}
+                      onValueChange={(v) => onUpdate(index, 'gps_precision', v as 'high' | 'medium' | 'low')}
+                    >
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="high">Yüksək (±5m)</SelectItem>
+                        <SelectItem value="medium">Orta (±50m)</SelectItem>
+                        <SelectItem value="low">Aşağı (±200m)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs text-gray-500 mb-1 block">
+                      İcazə verilən radius (m)
+                      <span className="text-gray-400 ml-1">(0 = məhdudiyyət yoxdur)</span>
+                    </Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={10000}
+                      value={col.gps_radius || 0}
+                      onChange={(e) => onUpdate(index, 'gps_radius', Number(e.target.value))}
+                      className="text-sm"
+                      placeholder="Məs: 500"
+                    />
+                  </div>
+                </div>
+                
+                {col.gps_radius && col.gps_radius > 0 && (
+                  <p className="text-xs text-amber-600">
+                    ⚠️ Məktəb yalnız müəyyən edilmiş radius daxilində olduqda məlumat daxil edə bilər
+                  </p>
                 )}
               </div>
             )}

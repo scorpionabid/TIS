@@ -3,12 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Save, Send, CheckCircle2, Clock, Info, FileText, Loader2, AlertCircle } from 'lucide-react';
+import { Save, Send, CheckCircle2, Clock, Info, FileText, Loader2, AlertCircle, Download, MoreHorizontal } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
 import { EditableTable } from './EditableTable';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { reportTableService } from '@/services/reportTables';
 import type { ReportTable, ReportTableResponse, ReportTableRow } from '@/types/reportTable';
 
@@ -49,12 +55,23 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
     }
   }, [existingResponse]);
 
+  const rowStatuses = useMemo(() => existingResponse?.row_statuses ?? {}, [existingResponse]);
+
+  const hasEditableRows = useMemo(() => {
+    if (rows.length === 0) return false;
+    return rows.some((_, idx) => {
+      const st = rowStatuses[String(idx)]?.status;
+      return st == null || st === 'draft' || st === 'rejected';
+    });
+  }, [rows, rowStatuses]);
+
   // ─── Track unsaved changes ─────────────────────────────────────────────────
 
   useEffect(() => {
     const current = JSON.stringify(rows);
-    setHasUnsaved(current !== initialRowsRef.current && responseStatus !== 'submitted');
-  }, [rows, responseStatus]);
+    const fullyLocked = responseStatus === 'submitted' && !hasEditableRows;
+    setHasUnsaved(current !== initialRowsRef.current && !fullyLocked);
+  }, [rows, responseStatus, hasEditableRows]);
 
   // ─── Warn on navigation with unsaved changes ───────────────────────────────
 
@@ -137,15 +154,25 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
     onSettled: () => setSubmittingRowIdx(null),
   });
 
+  // Export mutation
+  const exportMutation = useMutation({
+    mutationFn: () => reportTableService.exportMyResponse(table.id, table.title),
+    onSuccess: () => {
+      toast.success('Cədvəl export edildi!');
+    },
+    onError: (error: Error) => toast.error(error.message || 'Export mümkün olmadı.'),
+  });
+
   // ─── Debounce auto-save (3s after last change) ────────────────────────────
 
   useEffect(() => {
-    if (responseStatus === 'submitted' || !hasUnsaved || rows.length === 0) return;
+    const fullyLocked = responseStatus === 'submitted' && !hasEditableRows;
+    if (fullyLocked || !hasUnsaved || rows.length === 0) return;
     const timer = setTimeout(() => {
       saveMutation.mutate(rows);
     }, 3_000);
     return () => clearTimeout(timer);
-  }, [rows]); // intentional: only re-arm when rows actually change
+  }, [rows, responseStatus, hasEditableRows, hasUnsaved, saveMutation]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -174,6 +201,7 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   const isSubmitted = responseStatus === 'submitted';
   const isSaving = saveMutation.isPending;
   const isSubmitting = submitMutation.isPending;
+  const fullyLocked = isSubmitted && !hasEditableRows;
 
   const deadlineBadge = useMemo(() => {
     if (!table.deadline) return null;
@@ -205,7 +233,7 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
           <h2 className="font-semibold text-gray-800 leading-snug">{table.title}</h2>
         </div>
 
-        {!isSubmitted && (
+        {!fullyLocked && (
           <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
             {/* Auto-save status */}
             <div className="text-xs flex items-center gap-1">
@@ -233,15 +261,65 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
               <Save className="h-3.5 w-3.5" />
               Saxla
             </Button>
-            <Button
-              size="sm"
-              onClick={handleSubmitClick}
-              disabled={isSubmitting || rows.length === 0}
-              className="bg-emerald-600 hover:bg-emerald-700 gap-1"
-            >
-              <Send className="h-3.5 w-3.5" />
-              {isSubmitting ? 'Göndərilir...' : 'Hamısını göndər'}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => exportMutation.mutate()}
+                  disabled={exportMutation.isPending || rows.length === 0}
+                  className="gap-2"
+                >
+                  {exportMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Export (Excel)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            {!isSubmitted && (
+              <Button
+                size="sm"
+                onClick={handleSubmitClick}
+                disabled={isSubmitting || rows.length === 0}
+                className="bg-emerald-600 hover:bg-emerald-700 gap-1"
+              >
+                <Send className="h-3.5 w-3.5" />
+                {isSubmitting ? 'Göndərilir...' : 'Hamısını göndər'}
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Export menu for submitted/locked tables */}
+        {fullyLocked && (
+          <div className="flex items-center gap-2 shrink-0">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                  <MoreHorizontal className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  onClick={() => exportMutation.mutate()}
+                  disabled={exportMutation.isPending || rows.length === 0}
+                  className="gap-2"
+                >
+                  {exportMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  Export (Excel)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
       </div>
@@ -285,9 +363,10 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
             rows={rows}
             maxRows={table.max_rows ?? 50}
             onChange={handleRowsChange}
-            disabled={isSubmitted}
+            disabled={fullyLocked}
+            lockStructure={false}
             onValidationChange={setTableHasErrors}
-            rowStatuses={existingResponse?.row_statuses}
+            rowStatuses={rowStatuses}
             onRowSubmit={handleRowSubmit}
             isRowSubmitting={isRowSubmitting}
           />

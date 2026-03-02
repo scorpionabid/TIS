@@ -2,7 +2,7 @@ import { BaseEntity } from '../services/BaseService';
 
 // ─── Column Types ─────────────────────────────────────────────────────────────
 
-export type ColumnType = 'text' | 'number' | 'date' | 'select' | 'boolean';
+export type ColumnType = 'text' | 'number' | 'date' | 'select' | 'boolean' | 'calculated' | 'file' | 'signature' | 'gps';
 
 export interface ReportTableColumn {
   key: string;
@@ -17,6 +17,20 @@ export interface ReportTableColumn {
   max_length?: number;
   // For select type: list of allowed options
   options?: string[];
+  // For calculated type: formula string
+  formula?: string;
+  // Format for calculated columns
+  format?: 'number' | 'currency' | 'percent';
+  decimals?: number;
+  // For file type: accepted file types
+  accepted_types?: string[];
+  max_file_size?: number; // in MB
+  // For signature type: dimensions
+  signature_width?: number;
+  signature_height?: number;
+  // For gps type: precision and validation
+  gps_precision?: 'high' | 'medium' | 'low';
+  gps_radius?: number; // meters - validate if within radius
 }
 
 // ─── Row Status ───────────────────────────────────────────────────────────────
@@ -54,6 +68,11 @@ export interface ReportTable extends BaseEntity {
   archived_at?: string;
   deleted_at?: string | null;
   is_deleted?: boolean;
+  my_response_status?: 'draft' | 'submitted' | 'approved' | null;
+  my_response_row_stats?: {
+    total: number;
+    completed: number;
+  };
   creator?: {
     id: number;
     name: string;
@@ -66,7 +85,7 @@ export interface ReportTable extends BaseEntity {
 
 // ─── Report Table Response ────────────────────────────────────────────────────
 
-export type ReportTableResponseStatus = 'draft' | 'submitted';
+export type ReportTableResponseStatus = 'draft' | 'submitted' | 'approved';
 
 export type ReportTableRow = Record<string, string | number | null>;
 

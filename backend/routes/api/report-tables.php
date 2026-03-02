@@ -32,6 +32,8 @@ Route::middleware('permission:report_tables.read')->group(function () {
     Route::get('report-tables/{table}', [ReportTableController::class, 'show']);
     Route::get('report-tables/{table}/responses', [ReportTableController::class, 'responses']);
     Route::get('report-tables/{table}/export', [ReportTableController::class, 'export']);
+    // Yalnız təsdiqlənmiş sətirləri export etmək (Hazır tabı üçün)
+    Route::get('report-tables/{table}/export/approved', [ReportTableController::class, 'exportApproved']);
 });
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Write) ──────────────────────────
@@ -42,6 +44,18 @@ Route::middleware('permission:report_tables.write')->group(function () {
     Route::delete('report-tables/{table}', [ReportTableController::class, 'destroy']);
     Route::post('report-tables/{table}/publish', [ReportTableController::class, 'publish']);
     Route::post('report-tables/{table}/archive', [ReportTableController::class, 'archive']);
+    Route::post('report-tables/{table}/unarchive', [ReportTableController::class, 'unarchive']);
+
+    // Template routes
+    Route::post('report-tables/{table}/save-as-template', [ReportTableController::class, 'saveAsTemplate']);
+    Route::post('report-tables/templates', [ReportTableController::class, 'createFromTemplate']);
+    Route::post('report-tables/{table}/remove-template', [ReportTableController::class, 'removeTemplateStatus']);
+});
+
+// ─── Admin: Template siyahısı (Read) ─────────────────────────────────────────
+
+Route::middleware('permission:report_tables.read')->group(function () {
+    Route::get('report-tables/templates/list', [ReportTableController::class, 'getTemplates']);
 });
 
 // ─── School: Cavab əməliyyatları ──────────────────────────────────────────────
@@ -61,6 +75,9 @@ Route::middleware('permission:report_table_responses.write')->group(function () 
 
     // Tək sətiri göndərmək
     Route::post('report-tables/{table}/responses/{response}/rows/submit', [ReportTableResponseController::class, 'submitRow']);
+
+    // School: öz cavabını export etmək
+    Route::get('report-tables/{table}/export/my', [ReportTableController::class, 'exportMyResponse']);
 });
 
 // ─── Admin: Sətir action-ları (review) ───────────────────────────────────────

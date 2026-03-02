@@ -24,7 +24,7 @@ import {
   TrendingUp,
   Activity,
   CheckCircle,
-  Clock
+  Clock,
 } from "lucide-react";
 import { dashboardService } from "@/services/dashboard";
 import { formatDistanceToNow } from "date-fns";
@@ -44,6 +44,7 @@ import {
   Cell
 } from "recharts";
 import { StatsCard } from "@/components/dashboard/StatsCard";
+import { useAuth } from "@/contexts/AuthContextOptimized";
 
 const isValidDateValue = (value?: string) => {
   if (!value) return false;
@@ -106,6 +107,7 @@ interface SektorDashboardStats {
 
 export const SektorAdminDashboard = () => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [refreshing, setRefreshing] = useState(false);
 
   const {
@@ -127,36 +129,39 @@ export const SektorAdminDashboard = () => {
     refetchOnWindowFocus: false,
   });
 
+  // Use stats directly - backend already filters by sector
+  const statsData = stats;
+
   const summaryCards = useMemo(
     () => [
       {
         title: "Ümumi məktəblər",
-        value: stats?.totalSchools ?? 0,
+        value: statsData?.totalSchools ?? 0,
         icon: School,
         variant: "primary" as const
       },
       {
         title: "Aktiv məktəblər",
-        value: stats?.activeSchools ?? 0,
+        value: statsData?.activeSchools ?? 0,
         icon: CheckCircle,
         variant: "success" as const
       },
       {
         title: "Şagird sayı",
-        value: stats?.totalStudents
-          ? stats.totalStudents.toLocaleString()
+        value: statsData?.totalStudents
+          ? statsData.totalStudents.toLocaleString()
           : "0",
         icon: GraduationCap,
         variant: "info" as const
       },
       {
         title: "Müəllim sayı",
-        value: stats?.totalTeachers ?? 0,
+        value: statsData?.totalTeachers ?? 0,
         icon: Users,
         variant: "warning" as const
       },
     ],
-    [stats]
+    [statsData]
   );
 
   const quickLinks = useMemo(
@@ -167,7 +172,7 @@ export const SektorAdminDashboard = () => {
         description: "Sektor üzrə tapşırıqları izləyin.",
         href: "/tasks/assigned",
         icon: ClipboardList,
-        badge: stats?.pendingReports ?? 0,
+        badge: statsData?.pendingReports ?? 0,
         color: "text-blue-600",
         bg: "bg-blue-100"
       },
@@ -177,7 +182,7 @@ export const SektorAdminDashboard = () => {
         description: "Aktiv sorğulara nəzarət edin.",
         href: "/my-surveys/pending",
         icon: ListChecks,
-        badge: stats?.activeSurveys ?? 0,
+        badge: statsData?.activeSurveys ?? 0,
         color: "text-emerald-600",
         bg: "bg-emerald-100"
       },
@@ -202,7 +207,7 @@ export const SektorAdminDashboard = () => {
         bg: "bg-purple-100"
       },
     ],
-    [stats]
+    [statsData]
   );
 
   const handleRefresh = async () => {
@@ -236,7 +241,7 @@ export const SektorAdminDashboard = () => {
     }
   };
 
-  if (isLoading && !stats) {
+  if (isLoading && !statsData) {
     return (
       <div className="flex h-[320px] items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-muted-foreground">
@@ -247,7 +252,7 @@ export const SektorAdminDashboard = () => {
     );
   }
 
-  if (!stats) {
+  if (!statsData) {
     return (
       <div className="space-y-4">
         <Card className="border-destructive/40 bg-destructive/10">
@@ -288,7 +293,7 @@ export const SektorAdminDashboard = () => {
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Badge variant="secondary" className="w-fit px-3 py-1">
-            {stats.sektorInfo.region} • {stats.sektorInfo.name}
+            {statsData.sektorInfo.region} • {statsData.sektorInfo.name}
           </Badge>
           <Button
             variant="outline"
@@ -415,8 +420,8 @@ export const SektorAdminDashboard = () => {
               <CardDescription>Sektor daxilində əsas məktəblər</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              {stats.schoolsList?.length ? (
-                stats.schoolsList.slice(0, 6).map((school) => (
+              {statsData.schoolsList?.length ? (
+                statsData.schoolsList.slice(0, 6).map((school) => (
                   <div
                     key={school.id}
                     className="flex w-full items-center justify-between rounded-lg border border-border/60 bg-muted/20 px-3 py-3 hover:bg-muted/40 transition-colors"
@@ -463,8 +468,8 @@ export const SektorAdminDashboard = () => {
               <Activity className="h-5 w-5 text-muted-foreground" />
             </CardHeader>
             <CardContent className="space-y-3">
-              {stats.recentActivities?.length ? (
-                stats.recentActivities.slice(0, 6).map((activity) => (
+              {statsData.recentActivities?.length ? (
+                statsData.recentActivities.slice(0, 6).map((activity) => (
                   <div
                     key={`${activity.id}-${activity.type}`}
                     className="flex gap-4 pb-4 border-b last:border-0 last:pb-0"

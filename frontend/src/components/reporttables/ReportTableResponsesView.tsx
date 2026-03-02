@@ -28,11 +28,14 @@ import {
   Loader2,
   XCircle,
   RotateCcw,
+  MessageCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { reportTableService } from '@/services/reportTables';
 import { institutionService } from '@/services/institutions';
 import type { ReportTable, ReportTableResponse, ReportTableColumn, RowStatusMeta } from '@/types/reportTable';
+import { RowComments } from './RowComments';
+import { PartialReturnDialog } from './PartialReturnDialog';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -87,11 +90,23 @@ interface RowActionButtonsProps {
   responseId: number;
   rowIndex: number;
   rowStatus?: RowStatusMeta;
+  institutionName?: string;
+  row?: Record<string, string | number | null>;
+  columns?: ReportTableColumn[];
 }
 
-function RowActionButtons({ tableId, responseId, rowIndex, rowStatus }: RowActionButtonsProps) {
+function RowActionButtons({ 
+  tableId, 
+  responseId, 
+  rowIndex, 
+  rowStatus,
+  institutionName = 'Məktəb',
+  row = {},
+  columns = [],
+}: RowActionButtonsProps) {
   const queryClient = useQueryClient();
   const [showRejectForm, setShowRejectForm] = useState(false);
+  const [showPartialReturn, setShowPartialReturn] = useState(false);
   const [reason, setReason] = useState('');
 
   const invalidate = () =>
@@ -109,18 +124,37 @@ function RowActionButtons({ tableId, responseId, rowIndex, rowStatus }: RowActio
       setShowRejectForm(false);
       setReason('');
       invalidate();
-      toast.success('Sətir rədd edildi.');
+      toast.success('Sətir rədd edildi. Məktəb yeni sətir əlavə edə bilməz.');
     },
     onError: (e: Error) => toast.error(e.message || 'Xəta baş verdi.'),
   });
 
   const returnMutation = useMutation({
     mutationFn: () => reportTableService.returnRow(tableId, responseId, rowIndex),
-    onSuccess: () => { invalidate(); toast.success('Sətir redaktəyə qaytarıldı.'); },
+    onSuccess: () => { invalidate(); toast.success('Sətir redaktəyə qaytarıldı. Məktəb düzəliş edib yenidən göndərə bilər.'); },
     onError: (e: Error) => toast.error(e.message || 'Xəta baş verdi.'),
   });
 
-  if (rowStatus?.status !== 'submitted') return null;
+  // Show return/reject buttons only for submitted rows
+  if (rowStatus?.status !== 'submitted') {
+    // For approved/rejected rows, only show comments
+    return (
+      <div className="flex items-center gap-2">
+        <RowComments
+          tableId={tableId}
+          responseId={responseId}
+          rowIndex={rowIndex}
+          institutionName={institutionName}
+          trigger={
+            <Button variant="ghost" size="sm" className="gap-1 text-gray-500">
+              <MessageCircle className="h-4 w-4" />
+              Şərhlər
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   const anyPending = approveMutation.isPending || rejectMutation.isPending || returnMutation.isPending;
 
@@ -141,24 +175,34 @@ function RowActionButtons({ tableId, responseId, rowIndex, rowStatus }: RowActio
         <Button
           size="sm"
           variant="outline"
-          className="h-7 text-xs gap-1 border-red-200 text-red-600 hover:bg-red-50"
+          className="h-7 text-xs gap-1 border-red-300 text-red-700 hover:bg-red-50 bg-red-50/50"
           onClick={() => setShowRejectForm((v) => !v)}
           disabled={anyPending}
+          title="Sətiri rədd et - məktəb bu sətri silə bilməz, yalnız yeni sətir əlavə edə bilər"
         >
           <XCircle className="h-3 w-3" /> Rədd et
         </Button>
         <Button
           size="sm"
-          variant="ghost"
-          className="h-7 text-xs gap-1 text-gray-500 hover:text-gray-700"
-          onClick={() => returnMutation.mutate()}
+          variant="outline"
+          className="h-7 text-xs gap-1 border-amber-300 text-amber-700 hover:bg-amber-50 bg-amber-50/50"
+          onClick={() => setShowPartialReturn(true)}
           disabled={anyPending}
+          title="Sətiri redaktəyə qaytar - məktəb bu sətri düzəliş edib yenidən göndərə bilər"
         >
-          {returnMutation.isPending
-            ? <Loader2 className="h-3 w-3 animate-spin" />
-            : <RotateCcw className="h-3 w-3" />}
-          Geri qaytar
+          <RotateCcw className="h-3 w-3" /> Qaytar
         </Button>
+        <RowComments
+          tableId={tableId}
+          responseId={responseId}
+          rowIndex={rowIndex}
+          institutionName={institutionName}
+          trigger={
+            <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-gray-400 hover:text-gray-600">
+              <MessageCircle className="h-4 w-4" />
+            </Button>
+          }
+        />
       </div>
 
       {showRejectForm && (
@@ -191,6 +235,19 @@ function RowActionButtons({ tableId, responseId, rowIndex, rowStatus }: RowActio
           </div>
         </div>
       )}
+
+      {/* Partial Return Dialog */}
+      <PartialReturnDialog
+        open={showPartialReturn}
+        onClose={() => setShowPartialReturn(false)}
+        tableId={tableId}
+        responseId={responseId}
+        rowIndex={rowIndex}
+        row={row}
+        columns={columns}
+        rowStatus={rowStatus}
+        institutionName={institutionName}
+      />
     </div>
   );
 }
@@ -330,6 +387,9 @@ function ResponseRow({
                                 responseId={response.id}
                                 rowIndex={idx}
                                 rowStatus={rowStatus}
+                                institutionName={response.institution?.name ?? 'Məktəb'}
+                                row={row}
+                                columns={columns}
                               />
                             </td>
                           </tr>

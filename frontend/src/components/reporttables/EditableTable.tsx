@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -9,9 +9,13 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, AlertCircle, Send, Loader2, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { Keyboard, Plus, Trash2, AlertCircle, Send, Loader2, CheckCircle2, Clock, XCircle, HelpCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ReportTableRow, ReportTableColumn, RowStatuses, RowStatusMeta } from '@/types/reportTable';
+import { FormulaEngine, CellContext } from '@/lib/formulaEngine';
+import { FileUploadInput } from './FileUploadInput';
+import { SignatureInput } from './SignatureInput';
+import { GPSInput } from './GPSInput';
 
 // ─── Validation ───────────────────────────────────────────────────────────────
 
@@ -116,9 +120,16 @@ function RowStatusBadge({ meta }: { meta: RowStatusMeta | undefined }) {
   }
   if (meta.status === 'rejected') {
     return (
-      <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 text-xs shrink-0" title={meta.rejection_reason ?? ''}>
-        <XCircle className="h-3 w-3" /> Rədd edildi
-      </Badge>
+      <div className="space-y-1">
+        <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 text-xs shrink-0" title={meta.rejection_reason ?? 'Səbəb göstərilməyib'}>
+          <XCircle className="h-3 w-3" /> Rədd edildi
+        </Badge>
+        {meta.rejection_reason && (
+          <p className="text-[10px] text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 max-w-[200px] truncate">
+            {meta.rejection_reason}
+          </p>
+        )}
+      </div>
     );
   }
   return null;
@@ -141,6 +152,45 @@ interface CellInputProps {
 const CellInput = React.memo(function CellInput({
   col, value, onChange, onBlur, onKeyDown, onPaste, disabled, error, inputRef,
 }: CellInputProps) {
+  // Handle file upload columns
+  if (col.type === 'file') {
+    return (
+      <FileUploadInput
+        value={value || null}
+        onChange={(v) => onChange(v || '')}
+        disabled={disabled}
+        acceptedTypes={col.accepted_types}
+        maxSizeMB={col.max_file_size}
+      />
+    );
+  }
+
+  // Handle signature columns
+  if (col.type === 'signature') {
+    return (
+      <SignatureInput
+        value={value || null}
+        onChange={(v) => onChange(v || '')}
+        disabled={disabled}
+        width={col.signature_width}
+        height={col.signature_height}
+      />
+    );
+  }
+
+  // Handle GPS columns
+  if (col.type === 'gps') {
+    return (
+      <GPSInput
+        value={value || null}
+        onChange={(v) => onChange(v || '')}
+        disabled={disabled}
+        precision={col.gps_precision}
+        radius={col.gps_radius}
+      />
+    );
+  }
+
   if (col.type === 'select') {
     return (
       <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
@@ -209,17 +259,21 @@ interface DesktopRowProps {
   onRowSubmit?: (rowIdx: number) => void;
   isRowSubmitting?: boolean;
   cellRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
+  getCellDisplayValue: (row: ReportTableRow, rowIdx: number, col: ReportTableColumn) => string;
 }
 
 const DesktopRow = React.memo(function DesktopRow({
   row, rowIdx, columns, disabled, errors, canRemove, rowStatus,
   onCellChange, onCellBlur, onKeyDown, onPaste, onRemove,
-  onRowSubmit, isRowSubmitting, cellRefs,
+  onRowSubmit, isRowSubmitting, cellRefs, getCellDisplayValue,
 }: DesktopRowProps) {
   const locked = isRowLocked(rowStatus) || disabled;
   const rowHasContent = Object.values(row).some((v) => v !== null && v !== '');
   const canSubmitRow = !locked && !disabled && onRowSubmit && rowHasContent &&
     (!rowStatus || rowStatus.status === 'rejected' || rowStatus.status === 'draft');
+  
+  // Row can only be removed if it's not locked (submitted/approved) and general canRemove is true
+  const canRemoveRow = canRemove && !isRowLocked(rowStatus);
 
   const statusColor = rowStatus?.status === 'approved'
     ? 'bg-emerald-50'
@@ -234,19 +288,30 @@ const DesktopRow = React.memo(function DesktopRow({
       <td className="px-2 py-2 text-center text-gray-400 font-medium">{rowIdx + 1}</td>
       {columns.map((col, colIdx) => {
         const err = errors[col.key];
+        const displayValue = getCellDisplayValue(row, rowIdx, col);
+        const isCalculated = col.type === 'calculated';
+        
         return (
-          <td key={col.key} className="px-1 py-1">
-            <CellInput
-              col={col}
-              value={String(row[col.key] ?? '')}
-              onChange={(v) => onCellChange(rowIdx, col.key, v)}
-              onBlur={() => onCellBlur(rowIdx)}
-              onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx)}
-              onPaste={(e) => onPaste(e, rowIdx, colIdx)}
-              disabled={locked}
-              error={!!err}
-              inputRef={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
-            />
+          <td key={col.key} className={`px-1 py-1 ${isCalculated ? 'bg-slate-50' : ''}`}>
+            {isCalculated ? (
+              <div className="h-9 px-3 py-2 text-sm text-slate-600 flex items-center">
+                <span className={displayValue.startsWith('#ERROR') ? 'text-red-500' : ''}>
+                  {displayValue}
+                </span>
+              </div>
+            ) : (
+              <CellInput
+                col={col}
+                value={String(row[col.key] ?? '')}
+                onChange={(v) => onCellChange(rowIdx, col.key, v)}
+                onBlur={() => onCellBlur(rowIdx)}
+                onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx)}
+                onPaste={(e) => onPaste(e, rowIdx, colIdx)}
+                disabled={locked}
+                error={!!err}
+                inputRef={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
+              />
+            )}
             {err && <p className="text-xs text-red-500 mt-0.5 px-1">{err}</p>}
           </td>
         );
@@ -271,7 +336,7 @@ const DesktopRow = React.memo(function DesktopRow({
               Təsdiq et
             </Button>
           )}
-          {!locked && !onRowSubmit && canRemove && (
+          {!locked && !onRowSubmit && canRemoveRow && (
             <Button
               type="button"
               variant="ghost"
@@ -282,7 +347,7 @@ const DesktopRow = React.memo(function DesktopRow({
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
-          {!locked && onRowSubmit && canRemove && (
+          {!locked && onRowSubmit && canRemoveRow && (
             <Button
               type="button"
               variant="ghost"
@@ -329,17 +394,21 @@ interface MobileRowProps {
   onRowSubmit?: (rowIdx: number) => void;
   isRowSubmitting?: boolean;
   cellRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
+  getCellDisplayValue: (row: ReportTableRow, rowIdx: number, col: ReportTableColumn) => string;
 }
 
 const MobileRow = React.memo(function MobileRow({
   row, rowIdx, columns, disabled, errors, canRemove, rowStatus,
   onCellChange, onCellBlur, onKeyDown, onPaste, onRemove,
-  onRowSubmit, isRowSubmitting, cellRefs,
+  onRowSubmit, isRowSubmitting, cellRefs, getCellDisplayValue,
 }: MobileRowProps) {
   const locked = isRowLocked(rowStatus) || disabled;
   const rowHasContent = Object.values(row).some((v) => v !== null && v !== '');
   const canSubmitRow = !locked && !disabled && onRowSubmit && rowHasContent &&
     (!rowStatus || rowStatus.status === 'rejected' || rowStatus.status === 'draft');
+  
+  // Row can only be removed if it's not locked (submitted/approved) and general canRemove is true
+  const canRemoveRow = canRemove && !isRowLocked(rowStatus);
 
   return (
     <div className="border border-gray-200 rounded-lg p-3 bg-white space-y-2">
@@ -362,7 +431,7 @@ const MobileRow = React.memo(function MobileRow({
               Təsdiq et
             </Button>
           )}
-          {!locked && canRemove && (
+          {!locked && canRemoveRow && (
             <Button
               type="button"
               variant="ghost"
@@ -377,25 +446,40 @@ const MobileRow = React.memo(function MobileRow({
       </div>
       {columns.map((col, colIdx) => {
         const err = errors[col.key];
+        const displayValue = getCellDisplayValue(row, rowIdx, col);
+        const isCalculated = col.type === 'calculated';
+        
         return (
-          <div key={col.key}>
+          <div key={col.key} className={isCalculated ? 'bg-slate-50 rounded p-1' : ''}>
             <label className="text-xs text-gray-500 mb-1 block">
               {col.required && <span className="text-red-500 mr-0.5">*</span>}
               {col.label}
               {col.type === 'number' && <span className="ml-1 text-gray-400">(rəqəm)</span>}
               {col.type === 'date' && <span className="ml-1 text-gray-400">(tarix)</span>}
+              {isCalculated && <span className="ml-1 text-gray-400">(hesablama)</span>}
+              {col.type === 'file' && <span className="ml-1 text-gray-400">(fayl)</span>}
+              {col.type === 'signature' && <span className="ml-1 text-gray-400">(imza)</span>}
+              {col.type === 'gps' && <span className="ml-1 text-gray-400">(GPS)</span>}
             </label>
-            <CellInput
-              col={col}
-              value={String(row[col.key] ?? '')}
-              onChange={(v) => onCellChange(rowIdx, col.key, v)}
-              onBlur={() => onCellBlur(rowIdx)}
-              onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx)}
-              onPaste={(e) => onPaste(e, rowIdx, colIdx)}
-              disabled={locked}
-              error={!!err}
-              inputRef={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
-            />
+            {isCalculated ? (
+              <div className="h-9 px-3 py-2 text-sm text-slate-600 flex items-center border border-slate-200 rounded">
+                <span className={displayValue.startsWith('#ERROR') ? 'text-red-500' : ''}>
+                  {displayValue}
+                </span>
+              </div>
+            ) : (
+              <CellInput
+                col={col}
+                value={String(row[col.key] ?? '')}
+                onChange={(v) => onCellChange(rowIdx, col.key, v)}
+                onBlur={() => onCellBlur(rowIdx)}
+                onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx)}
+                onPaste={(e) => onPaste(e, rowIdx, colIdx)}
+                disabled={locked}
+                error={!!err}
+                inputRef={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
+              />
+            )}
             {err && <p className="text-xs text-red-500 mt-0.5">{err}</p>}
           </div>
         );
@@ -412,6 +496,8 @@ interface EditableTableProps {
   maxRows: number;
   onChange: (rows: ReportTableRow[]) => void;
   disabled: boolean;
+  /** Prevent structural changes (add/remove rows) while still allowing editable rows */
+  lockStructure?: boolean;
   /** Callback replaces DOM querySelector anti-pattern */
   onValidationChange?: (hasErrors: boolean) => void;
   /** Per-row approval status from backend */
@@ -428,11 +514,13 @@ export const EditableTable = React.memo(function EditableTable({
   maxRows,
   onChange,
   disabled,
+  lockStructure,
   onValidationChange,
   rowStatuses,
   onRowSubmit,
   isRowSubmitting,
 }: EditableTableProps) {
+  const structureLocked = disabled || lockStructure;
   const [rowErrors, setRowErrors] = useState<Record<number, Record<string, string>>>({});
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -478,18 +566,157 @@ export const EditableTable = React.memo(function EditableTable({
     rowIdx: number,
     colIdx: number
   ) => {
-    if (e.key === 'Tab' && !e.shiftKey) {
-      e.preventDefault();
-      if (colIdx + 1 < columns.length) {
-        focusCell(rowIdx, colIdx + 1);
-      } else {
-        focusCell(rowIdx + 1, 0);
-      }
-    } else if (e.key === 'Enter') {
-      e.preventDefault();
-      focusCell(rowIdx + 1, colIdx);
+    const totalRows = displayRows.length;
+    const totalCols = columns.length;
+    
+    switch (e.key) {
+      case 'Tab':
+        e.preventDefault();
+        if (e.shiftKey) {
+          // Shift+Tab - move backwards
+          if (colIdx > 0) {
+            focusCell(rowIdx, colIdx - 1);
+          } else if (rowIdx > 0) {
+            focusCell(rowIdx - 1, totalCols - 1);
+          }
+        } else {
+          // Tab - move forwards
+          if (colIdx + 1 < totalCols) {
+            focusCell(rowIdx, colIdx + 1);
+          } else if (rowIdx + 1 < totalRows) {
+            focusCell(rowIdx + 1, 0);
+          }
+        }
+        break;
+        
+      case 'Enter':
+        e.preventDefault();
+        // Move to next row, same column
+        if (rowIdx + 1 < totalRows) {
+          focusCell(rowIdx + 1, colIdx);
+        } else if (totalRows < maxRows) {
+          // If at last row and we can add more, create new row and focus it
+          handleAddRowRef.current?.();
+          setTimeout(() => focusCell(rowIdx + 1, colIdx), 0);
+        }
+        break;
+        
+      case 'ArrowUp':
+        e.preventDefault();
+        if (rowIdx > 0) {
+          focusCell(rowIdx - 1, colIdx);
+        }
+        break;
+        
+      case 'ArrowDown':
+        e.preventDefault();
+        if (rowIdx + 1 < totalRows) {
+          focusCell(rowIdx + 1, colIdx);
+        } else if (totalRows < maxRows) {
+          // Create new row at end
+          handleAddRowRef.current?.();
+          setTimeout(() => focusCell(rowIdx + 1, colIdx), 0);
+        }
+        break;
+        
+      case 'ArrowLeft':
+        // Only move left if at beginning of input
+        if ((e.target as HTMLInputElement).selectionStart === 0) {
+          e.preventDefault();
+          if (colIdx > 0) {
+            focusCell(rowIdx, colIdx - 1);
+          }
+        }
+        break;
+        
+      case 'ArrowRight':
+        // Only move right if at end of input
+        const input = e.target as HTMLInputElement;
+        if (input.selectionStart === input.value.length) {
+          e.preventDefault();
+          if (colIdx + 1 < totalCols) {
+            focusCell(rowIdx, colIdx + 1);
+          }
+        }
+        break;
+        
+      case 'Home':
+        e.preventDefault();
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl+Home - go to first cell of table
+          focusCell(0, 0);
+        } else {
+          // Home - go to first cell of current row
+          focusCell(rowIdx, 0);
+        }
+        break;
+        
+      case 'End':
+        e.preventDefault();
+        if (e.ctrlKey || e.metaKey) {
+          // Ctrl+End - go to last populated cell
+          const lastRow = totalRows - 1;
+          const lastCol = totalCols - 1;
+          focusCell(lastRow, lastCol);
+        } else {
+          // End - go to last cell of current row
+          focusCell(rowIdx, totalCols - 1);
+        }
+        break;
+        
+      case 'PageUp':
+        e.preventDefault();
+        const upRows = Math.min(5, rowIdx); // Move up 5 rows or to top
+        if (upRows > 0) {
+          focusCell(rowIdx - upRows, colIdx);
+        }
+        break;
+        
+      case 'PageDown':
+        e.preventDefault();
+        const downRows = Math.min(5, totalRows - rowIdx - 1);
+        if (downRows > 0) {
+          focusCell(rowIdx + downRows, colIdx);
+        } else if (totalRows < maxRows) {
+          // Add rows if needed
+          handleAddRowRef.current?.();
+          setTimeout(() => focusCell(rowIdx + 1, colIdx), 0);
+        }
+        break;
+        
+      case 'Escape':
+        e.preventDefault();
+        // Blur the current input to exit edit mode
+        (e.target as HTMLInputElement).blur();
+        break;
+        
+      case 'Delete':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          // Ctrl+Delete - clear current cell
+          const colKey = columns[colIdx].key;
+          handleCellChange(rowIdx, colKey, '');
+        }
+        break;
+        
+      case 'F2':
+        e.preventDefault();
+        // F2 - Enter edit mode (select all text)
+        const targetInput = e.target as HTMLInputElement;
+        targetInput.select();
+        break;
+        
+      case 's':
+      case 'S':
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+          e.preventDefault();
+          // Ctrl+S - trigger save (parent component handles actual save)
+          // Just trigger blur to save current cell
+          (e.target as HTMLInputElement).blur();
+        }
+        break;
     }
-  }, [columns.length]);
+  }, [columns, displayRows.length, maxRows, handleCellChange]);
 
   // Proper TSV parser with quoted field support
   const handleCellPaste = useCallback((
@@ -525,6 +752,9 @@ export const EditableTable = React.memo(function EditableTable({
     toast.info(`${pastedData.length} sətir yapışdırıldı.`);
   }, [rows, maxRows, columns, onChange, createEmptyRow]);
 
+  // Add row ref for use in keyboard handler
+  const handleAddRowRef = useRef<() => void>();
+  
   const handleAddRow = useCallback(() => {
     const current = rows.length > 0 ? rows : [createEmptyRow()];
     if (current.length >= maxRows) {
@@ -533,6 +763,11 @@ export const EditableTable = React.memo(function EditableTable({
     }
     onChange([...current, createEmptyRow()]);
   }, [rows, maxRows, onChange, createEmptyRow]);
+
+  // Keep ref in sync
+  useEffect(() => {
+    handleAddRowRef.current = handleAddRow;
+  }, [handleAddRow]);
 
   const handleRemoveRow = useCallback((idx: number) => {
     const current = rows.length > 0 ? rows : [createEmptyRow()];
@@ -558,11 +793,195 @@ export const EditableTable = React.memo(function EditableTable({
     if (col.type === 'date') return 'tarix';
     if (col.type === 'select') return 'seçim';
     if (col.type === 'boolean') return 'bəli/xeyr';
+    if (col.type === 'calculated') return 'hesablama';
+    if (col.type === 'file') return 'fayl';
+    if (col.type === 'signature') return 'imza';
+    if (col.type === 'gps') return 'GPS';
     return null;
   };
 
+  // ─── Calculated Column Support ─────────────────────────────────────────────
+  
+  /**
+   * Build cell context for formula evaluation from a row
+   * Column keys map to cell refs: col_0 -> A1, col_1 -> B1, etc.
+   */
+  const buildCellContext = useCallback((row: ReportTableRow, rowIdx: number): CellContext => {
+    const context: CellContext = {};
+    columns.forEach((col, colIdx) => {
+      // Map column key to Excel-style reference (A1, B1, etc.)
+      const colLetter = String.fromCharCode(65 + colIdx); // A, B, C...
+      const cellRef = `${colLetter}${rowIdx + 1}`;
+      const value = row[col.key];
+      // Convert to appropriate type for formula engine
+      if (col.type === 'number' && value !== '' && value !== null) {
+        context[cellRef] = parseFloat(String(value)) || 0;
+      } else if (col.type === 'boolean') {
+        const lower = String(value).toLowerCase();
+        context[cellRef] = lower === 'bəli' || lower === 'true' || lower === '1';
+      } else {
+        context[cellRef] = value ?? '';
+      }
+      // Also store by column key for direct reference
+      context[col.key] = context[cellRef];
+    });
+    return context;
+  }, [columns]);
+
+  /**
+   * Compute value for a calculated column
+   */
+  const computeCalculatedValue = useCallback((
+    row: ReportTableRow,
+    rowIdx: number,
+    col: ReportTableColumn
+  ): string => {
+    if (!col.formula) return '';
+    const context = buildCellContext(row, rowIdx);
+    const result = FormulaEngine.evaluate(col.formula, context);
+    if (result.error) return `#ERROR: ${result.error}`;
+    if (result.value === null) return '';
+    
+    // Format based on column settings
+    let value = result.value;
+    if (typeof value === 'number') {
+      if (col.format === 'currency') {
+        return value.toLocaleString('az-AZ', { style: 'currency', currency: 'AZN' });
+      } else if (col.format === 'percent') {
+        return `${(value * 100).toFixed(col.decimals ?? 0)}%`;
+      } else {
+        return value.toFixed(col.decimals ?? 2);
+      }
+    }
+    return String(value);
+  }, [buildCellContext]);
+
+  /**
+   * Get display value for a cell - handles calculated columns
+   */
+  const getCellDisplayValue = useCallback((
+    row: ReportTableRow,
+    rowIdx: number,
+    col: ReportTableColumn
+  ): string => {
+    if (col.type === 'calculated') {
+      return computeCalculatedValue(row, rowIdx, col);
+    }
+    return String(row[col.key] ?? '');
+  }, [computeCalculatedValue]);
+
+  /**
+   * Get all calculated columns
+   */
+  const calculatedColumns = useMemo(() => 
+    columns.filter(col => col.type === 'calculated'),
+  [columns]);
+
+  /**
+   * Check if calculated columns have circular references
+   */
+  const circularErrors = useMemo(() => {
+    if (calculatedColumns.length === 0) return [];
+    const dependencies: Record<string, string[]> = {};
+    calculatedColumns.forEach(col => {
+      if (col.formula) {
+        dependencies[col.key] = FormulaEngine.getDependencies(col.formula);
+      }
+    });
+    return FormulaEngine.detectCircular(dependencies);
+  }, [calculatedColumns]);
+
+  // Keyboard shortcuts help state
+  const [showShortcuts, setShowShortcuts] = useState(false);
+
   return (
     <div className="space-y-3">
+      {/* Keyboard shortcuts toggle */}
+      {!disabled && (
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setShowShortcuts(!showShortcuts)}
+            className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <HelpCircle className="h-3.5 w-3.5" />
+            {showShortcuts ? 'Qısayolları gizlət' : 'Klaviatura qısayolları'}
+          </button>
+          <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            <Keyboard className="h-3.5 w-3.5" />
+            <span>Excel-kimi naviqasiya aktivdir</span>
+          </div>
+        </div>
+      )}
+
+      {/* Keyboard shortcuts panel */}
+      {showShortcuts && (
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700">
+          <h4 className="font-semibold mb-2 text-slate-800">Klaviatura Qısayolları:</h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">↑↓←→</kbd>
+              <span>Xanalar arasında hərəkət</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Tab</kbd>
+              <span>Növbəti xanaya</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Shift+Tab</kbd>
+              <span>Əvvəlki xanaya</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Enter</kbd>
+              <span>Növbəti sətirə</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Home / End</kbd>
+              <span>Sətirin əvvəli/sonu</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+Home</kbd>
+              <span>Cədvəlin əvvəlinə</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+End</kbd>
+              <span>Cədvəlin sonuna</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">PgUp / PgDn</kbd>
+              <span>5 sətir yuxarı/aşağı</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">F2</kbd>
+              <span>Redaktə rejimi (hamısını seç)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Esc</kbd>
+              <span>Redaktədən çıx</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+Del</kbd>
+              <span>Xananı təmizlə</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+S</kbd>
+              <span>Yadda saxla</span>
+            </div>
+          </div>
+        </div>
+      )}
+      {circularErrors.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <div>
+            <span className="font-medium">Dövri istinad xətası:</span>
+            <ul className="mt-1 ml-4 list-disc">
+              {circularErrors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       {errorCount > 0 && (
         <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -617,6 +1036,7 @@ export const EditableTable = React.memo(function EditableTable({
                 onRowSubmit={onRowSubmit}
                 isRowSubmitting={isRowSubmitting?.(rowIdx)}
                 cellRefs={cellRefs}
+                getCellDisplayValue={getCellDisplayValue}
               />
             ))}
           </tbody>
@@ -633,7 +1053,7 @@ export const EditableTable = React.memo(function EditableTable({
             columns={columns}
             disabled={disabled}
             errors={rowErrors[rowIdx] ?? {}}
-            canRemove={displayRows.length > 1}
+            canRemove={!structureLocked && displayRows.length > 1}
             rowStatus={rowStatuses?.[String(rowIdx)]}
             onCellChange={handleCellChange}
             onCellBlur={handleCellBlur}
@@ -643,11 +1063,12 @@ export const EditableTable = React.memo(function EditableTable({
             onRowSubmit={onRowSubmit}
             isRowSubmitting={isRowSubmitting?.(rowIdx)}
             cellRefs={cellRefs}
+            getCellDisplayValue={getCellDisplayValue}
           />
         ))}
       </div>
 
-      {!disabled && (
+      {(!disabled || !lockStructure) && (
         <Button
           type="button"
           variant="outline"

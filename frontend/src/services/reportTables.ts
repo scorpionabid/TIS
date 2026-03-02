@@ -103,6 +103,13 @@ class ReportTableService extends BaseService<ReportTable> {
     return result;
   }
 
+  async unarchiveTable(id: number): Promise<ReportTable> {
+    const response = await this.post<ReportTable>(`report-tables/${id}/unarchive`);
+    const result = handleApiResponseWithError<ReportTable>(response, 'ReportTableService.unarchiveTable', 'ReportTableService');
+    this.invalidateCache(['list', 'detail']);
+    return result;
+  }
+
   // ─── Admin: Cavab siyahısı ────────────────────────────────────────────────
 
   async getResponses(tableId: number, filters?: ReportTableResponseFilters): Promise<PaginatedApiResult<ReportTableResponse>> {
@@ -120,14 +127,32 @@ class ReportTableService extends BaseService<ReportTable> {
   // ─── Export ───────────────────────────────────────────────────────────────
 
   async exportTable(tableId: number, title: string): Promise<void> {
-    const response = await apiClient.get<Blob>(
-      `report-tables/${tableId}/export`,
-      {},
-      { responseType: 'blob' }
-    );
-    const blobResponse = response as unknown as { data: Blob };
-    if (blobResponse.data) {
-      const url = window.URL.createObjectURL(blobResponse.data);
+    try {
+      const response = await apiClient.get<Blob>(
+        `report-tables/${tableId}/export`,
+        {},
+        { responseType: 'blob' }
+      );
+      
+      // Handle different response structures
+      let blob: Blob | null = null;
+      
+      if (response && typeof response === 'object') {
+        if ('data' in response && response.data instanceof Blob) {
+          // ApiResponse wrapper structure
+          blob = response.data;
+        } else if (response instanceof Blob) {
+          // Direct Blob response
+          blob = response;
+        }
+      }
+      
+      if (!blob) {
+        throw new Error('Fayl məlumatları alınmadı');
+      }
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `${title}_hesabat.xlsx`);
@@ -135,6 +160,10 @@ class ReportTableService extends BaseService<ReportTable> {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
+      
+    } catch (error: any) {
+      console.error('Export error:', error);
+      throw new Error(error.message || 'Export zamanı xəta baş verdi');
     }
   }
 
@@ -223,6 +252,14 @@ class ReportTableService extends BaseService<ReportTable> {
     return response as unknown as BulkRowActionResult;
   }
 
+  // ─── Get All Responses (for Master View) ─────────────────────────────────
+
+  async getAllResponses(tableId: number): Promise<ReportTableResponse[]> {
+    const response = await this.get<{ data: ReportTableResponse[] }>(`report-tables/${tableId}/responses/all`);
+    const result = response as unknown as { data: ReportTableResponse[] };
+    return result.data ?? [];
+  }
+
   // ─── SuperAdmin: Soft delete bərpa / birdəfəlik sil ──────────────────────
 
   async restoreTable(tableId: number): Promise<ReportTable> {
@@ -235,6 +272,107 @@ class ReportTableService extends BaseService<ReportTable> {
   async forceDeleteTable(tableId: number): Promise<void> {
     await apiClient.delete(`report-tables/${tableId}/force`);
     this.invalidateCache(['list', 'detail']);
+  }
+
+  async exportMyResponse(tableId: number, title?: string): Promise<void> {
+    try {
+      const response = await apiClient.get<Blob>(
+        `report-tables/${tableId}/export/my`,
+        {},
+        { responseType: 'blob' }
+      );
+      
+      // Handle different response structures
+      let blob: Blob | null = null;
+      
+      if (response && typeof response === 'object') {
+        if ('data' in response && response.data instanceof Blob) {
+          blob = response.data;
+        } else if (response instanceof Blob) {
+          blob = response;
+        }
+      }
+      
+      if (!blob) {
+        throw new Error('Fayl məlumatları alınmadı');
+      }
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${title || 'Cedvelim'}_export.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error: any) {
+      console.error('Export my response error:', error);
+      throw new Error(error.message || 'Export zamanı xəta baş verdi');
+    }
+  }
+
+  async exportApprovedRows(tableId: number, title?: string): Promise<void> {
+    try {
+      const response = await apiClient.get<Blob>(
+        `report-tables/${tableId}/export/approved`,
+        {},
+        { responseType: 'blob' }
+      );
+      
+      // Handle different response structures
+      let blob: Blob | null = null;
+      
+      if (response && typeof response === 'object') {
+        if ('data' in response && response.data instanceof Blob) {
+          blob = response.data;
+        } else if (response instanceof Blob) {
+          blob = response;
+        }
+      }
+      
+      if (!blob) {
+        throw new Error('Fayl məlumatları alınmadı');
+      }
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${title || 'HazirCedvel'}_export.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error: any) {
+      console.error('Export approved rows error:', error);
+      throw new Error(error.message || 'Export zamanı xəta baş verdi');
+    }
+  }
+
+  // ─── Template Methods ───────────────────────────────────────────────────────
+
+  async saveAsTemplate(tableId: number, category?: string): Promise<ReportTable> {
+    const response = await this.post<ReportTable>(`report-tables/${tableId}/save-as-template`, { category });
+    return handleApiResponseWithError<ReportTable>(response, 'ReportTableService.saveAsTemplate', 'ReportTableService');
+  }
+
+  async getTemplates(): Promise<ReportTable[]> {
+    const response = await this.get<{ data: ReportTable[] }>('report-tables/templates/list');
+    const result = response as unknown as { data: ReportTable[] };
+    return result.data ?? [];
+  }
+
+  async createFromTemplate(templateId: number, title: string): Promise<ReportTable> {
+    const response = await this.post<ReportTable>('report-tables/templates', { template_id: templateId, title });
+    return handleApiResponseWithError<ReportTable>(response, 'ReportTableService.createFromTemplate', 'ReportTableService');
+  }
+
+  async removeTemplateStatus(tableId: number): Promise<ReportTable> {
+    const response = await this.post<ReportTable>(`report-tables/${tableId}/remove-template`);
+    return handleApiResponseWithError<ReportTable>(response, 'ReportTableService.removeTemplateStatus', 'ReportTableService');
   }
 }
 

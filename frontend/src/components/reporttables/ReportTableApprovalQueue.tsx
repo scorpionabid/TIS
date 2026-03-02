@@ -403,19 +403,35 @@ function TableBlock({ item, selected, onToggleRow, onToggleAll, onToggleTable, o
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function ReportTableApprovalQueue() {
+interface ReportTableApprovalQueueProps {
+  tableId?: number;
+}
+
+export function ReportTableApprovalQueue({ tableId }: ReportTableApprovalQueueProps = {}) {
   const queryClient = useQueryClient();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkAction, setBulkAction] = useState<BulkAction | null>(null);
 
   const { data: queue = [], isLoading, isError } = useQuery({
-    queryKey: ['report-table-approval-queue'],
-    queryFn: () => reportTableService.getApprovalQueue(),
+    queryKey: ['report-table-approval-queue', tableId],
+    queryFn: async () => {
+      const allQueue = await reportTableService.getApprovalQueue();
+      // If tableId is provided, filter to show only that table
+      if (tableId) {
+        return allQueue.filter((item: ApprovalQueueTable) => item.table.id === tableId);
+      }
+      return allQueue;
+    },
     refetchInterval: 60_000,
   });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['report-table-approval-queue'] });
+    // Hazır tabının query-lərini də yenilə ki, təsdiqlənən sətirlər dərhal orada görünsün
+    if (tableId) {
+      queryClient.invalidateQueries({ queryKey: ['approved-responses', tableId] });
+      queryClient.invalidateQueries({ queryKey: ['table-detail', tableId] });
+    }
     setSelected(new Set());
   };
 

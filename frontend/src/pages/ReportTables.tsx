@@ -5,6 +5,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetClose,
+} from '@/components/ui/sheet';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +21,11 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import {
+  BarChart3,
+  LayoutTemplate,
+  History,
+  Users,
+  Wifi,
   Plus,
   Table2,
   Search,
@@ -35,6 +42,10 @@ import {
   RotateCcw,
   ShieldAlert,
   ClipboardCheck,
+  CheckCircle2,
+  X,
+  FileSpreadsheet,
+  Building,
 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { toast } from 'sonner';
@@ -42,17 +53,21 @@ import { differenceInDays } from 'date-fns';
 import { reportTableService } from '@/services/reportTables';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
 import { ReportTableModal } from '@/components/modals/ReportTableModal';
-import { ReportTableResponsesView } from '@/components/reporttables/ReportTableResponsesView';
 import { ReportTableApprovalQueue } from '@/components/reporttables/ReportTableApprovalQueue';
+import { ReportTableReadyView } from '@/components/reporttables/ReportTableReadyView';
+import { MasterTableView } from '@/components/reporttables/MasterTableView';
+import { TableTemplates } from '@/components/reporttables/TableTemplates';
+import { TableAnalytics } from '@/components/reporttables/TableAnalytics';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import type { ReportTable, ReportTableStatus } from '@/types/reportTable';
 
 // ─── Status Config ────────────────────────────────────────────────────────────
 
-const STATUS_MAP: Record<ReportTableStatus, { label: string; className: string }> = {
+const STATUS_MAP: Record<ReportTableStatus | 'deleted', { label: string; className: string }> = {
   draft: { label: 'Qaralama', className: 'bg-gray-100 text-gray-600 border-gray-200' },
   published: { label: 'Dərc edilib', className: 'bg-emerald-100 text-emerald-700 border-emerald-200' },
   archived: { label: 'Arxiv', className: 'bg-orange-100 text-orange-600 border-orange-200' },
+  deleted: { label: 'Silinmiş', className: 'bg-red-100 text-red-600 border-red-200' },
 };
 
 function StatusBadge({ status }: { status: ReportTableStatus }) {
@@ -88,7 +103,7 @@ function DeadlineIndicator({ deadline }: { deadline?: string }) {
 
 // ─── Card Component ───────────────────────────────────────────────────────────
 
-type ConfirmActionType = 'delete' | 'publish' | 'archive' | 'clone' | 'restore' | 'forceDelete';
+type ConfirmActionType = 'delete' | 'publish' | 'archive' | 'unarchive' | 'clone' | 'restore' | 'forceDelete';
 
 function TableCard({
   table,
@@ -177,9 +192,6 @@ function TableCard({
             ) : (
               // Active table: normal actions
               <>
-                <DropdownMenuItem onClick={() => onView(table)}>
-                  <Eye className="h-4 w-4 mr-2" /> Cavablara bax
-                </DropdownMenuItem>
                 {table.can_edit && (
                   <DropdownMenuItem onClick={() => onEdit(table)}>
                     <Edit className="h-4 w-4 mr-2" /> Redaktə et
@@ -209,6 +221,28 @@ function TableCard({
                       );
                     }}>
                       <Download className="h-4 w-4 mr-2" /> Export (Excel)
+                    </DropdownMenuItem>
+                    <TableAnalytics table={table} trigger={
+                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                        <BarChart3 className="h-4 w-4 mr-2" /> Analitika
+                      </DropdownMenuItem>
+                    } />
+                  </>
+                )}
+                {table.status === 'archived' && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => onConfirm('unarchive', table)}
+                      className="text-emerald-700"
+                    >
+                      <RotateCcw className="h-4 w-4 mr-2" /> Arxivdən çıxart
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      onClick={() => onConfirm('delete', table)}
+                      className="text-red-600"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" /> Sil
                     </DropdownMenuItem>
                   </>
                 )}
@@ -255,6 +289,12 @@ const CONFIRM_CONFIG: Record<ConfirmActionType, {
     type: 'warning',
     label: 'Arxivlə',
   },
+  unarchive: {
+    title: 'Cədvəli arxivdən çıxart?',
+    description: 'Cədvəl yenidən dərc edilmiş kimi aktiv olacaq və məktəblər üçün görünəcək.',
+    type: 'info',
+    label: 'Arxivdən çıxart',
+  },
   clone: {
     title: 'Cədvəli kopyala?',
     description: 'Cədvəlin sütunları və parametrləri ilə yeni qaralama yaradılacaq.',
@@ -281,7 +321,8 @@ export default function ReportTables() {
   const queryClient = useQueryClient();
   const { isSuperAdmin, hasPermission } = useRoleCheck();
   const canReview = hasPermission('report_table_responses.review');
-  const [viewMode, setViewMode] = useState<'tables' | 'approval'>('tables');
+  const canViewMaster = hasPermission('report_tables.view_all');
+  const [viewMode, setViewMode] = useState<'tables' | 'approval' | 'ready' | 'master' | 'templates'>('tables');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<ReportTableStatus | 'all' | 'deleted'>('all');
   const [page, setPage] = useState(1);
@@ -289,6 +330,9 @@ export default function ReportTables() {
   const [editingTable, setEditingTable] = useState<ReportTable | null>(null);
   const [viewingTable, setViewingTable] = useState<ReportTable | null>(null);
   const [confirmState, setConfirmState] = useState<{ type: ConfirmActionType; table: ReportTable } | null>(null);
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [sheetActiveTab, setSheetActiveTab] = useState<'tesdiq' | 'hazir'>('tesdiq');
+  const [readySelectedTableId, setReadySelectedTableId] = useState<number | null>(null);
 
   // Reset to page 1 when filters change
   useEffect(() => { setPage(1); }, [search, statusFilter]);
@@ -324,6 +368,16 @@ export default function ReportTables() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['report-tables'] });
       toast.success('Hesabat cədvəli arxivləndi.');
+      setConfirmState(null);
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
+  const unarchiveMutation = useMutation({
+    mutationFn: (table: ReportTable) => reportTableService.unarchiveTable(table.id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['report-tables'] });
+      toast.success('Hesabat cədvəli arxivdən çıxarıldı.');
       setConfirmState(null);
     },
     onError: (err: Error) => toast.error(err.message),
@@ -386,6 +440,7 @@ export default function ReportTables() {
     if (type === 'delete') deleteMutation.mutate(table);
     else if (type === 'publish') publishMutation.mutate(table);
     else if (type === 'archive') archiveMutation.mutate(table);
+    else if (type === 'unarchive') unarchiveMutation.mutate(table);
     else if (type === 'clone') cloneMutation.mutate(table);
     else if (type === 'restore') restoreMutation.mutate(table);
     else if (type === 'forceDelete') forceDeleteMutation.mutate(table);
@@ -394,10 +449,24 @@ export default function ReportTables() {
   const isMutating =
     publishMutation.isPending ||
     archiveMutation.isPending ||
+    unarchiveMutation.isPending ||
     deleteMutation.isPending ||
     cloneMutation.isPending ||
     restoreMutation.isPending ||
     forceDeleteMutation.isPending;
+
+  // ─── Helper Functions ──────────────────────────────────────────────────────
+
+  const handleExport = (table: ReportTable) => {
+    toast.promise(
+      reportTableService.exportTable(table.id, table.title),
+      {
+        loading: 'Cədvəl export edilir...',
+        success: 'Cədvəl export edildi',
+        error: 'Export zamanı xəta baş verdi',
+      }
+    );
+  };
 
   // ─── Filter button list ──────────────────────────────────────────────────────
 
@@ -424,22 +493,62 @@ export default function ReportTables() {
             Məktəblər üçün dinamik məlumat cədvəlləri yaradın və idarə edin.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {canReview && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* View Mode Buttons */}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             <Button
-              variant={viewMode === 'approval' ? 'default' : 'outline'}
+              variant={viewMode === 'tables' ? 'secondary' : 'ghost'}
               size="sm"
-              onClick={() => setViewMode(v => v === 'approval' ? 'tables' : 'approval')}
-              className={
-                viewMode === 'approval'
-                  ? 'bg-amber-600 hover:bg-amber-700 gap-1.5'
-                  : 'text-amber-600 border-amber-200 hover:bg-amber-50 gap-1.5'
-              }
+              onClick={() => setViewMode('tables')}
+              className="gap-1"
             >
-              <ClipboardCheck className="h-4 w-4" />
-              Təsdiq Növbəsi
+              <Table2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Cədvəllər</span>
             </Button>
-          )}
+            {canReview && (
+              <>
+                <Button
+                  variant={viewMode === 'approval' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('approval')}
+                  className="gap-1"
+                >
+                  <ClipboardCheck className="h-4 w-4" />
+                  <span className="hidden sm:inline">Təsdiq</span>
+                </Button>
+                <Button
+                  variant={viewMode === 'ready' ? 'secondary' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('ready')}
+                  className="gap-1"
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Hazır</span>
+                </Button>
+              </>
+            )}
+            {canViewMaster && (
+              <Button
+                variant={viewMode === 'master' ? 'secondary' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('master')}
+                className="gap-1"
+              >
+                <Users className="h-4 w-4" />
+                <span className="hidden sm:inline">Master</span>
+              </Button>
+            )}
+            <Button
+              variant={viewMode === 'templates' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('templates')}
+              className="gap-1"
+            >
+              <LayoutTemplate className="h-4 w-4" />
+              <span className="hidden sm:inline">Şablonlar</span>
+            </Button>
+          </div>
+
           {viewMode === 'tables' && statusFilter !== 'deleted' && (
             <Button
               onClick={() => setShowModal(true)}
@@ -452,9 +561,247 @@ export default function ReportTables() {
         </div>
       </div>
 
-      {/* Approval Queue Mode */}
-      {viewMode === 'approval' ? (
+      {/* Main Content - Single Grid Layout (removed left list) */}
+      {viewMode === 'tables' ? (
+        <div className="space-y-6">
+          {/* Filters Row */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-48 max-w-xs">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Cədvəl axtar..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            <div className="flex gap-1 flex-wrap">
+              {statusButtons.map((btn) => (
+                <Button
+                  key={btn.value}
+                  variant={statusFilter === btn.value ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setStatusFilter(btn.value)}
+                  className={
+                    statusFilter === btn.value
+                      ? btn.value === 'deleted'
+                        ? 'bg-red-600 hover:bg-red-700'
+                        : 'bg-emerald-600 hover:bg-emerald-700'
+                      : btn.className ?? ''
+                  }
+                >
+                  {btn.value === 'deleted' && <Trash2 className="h-3.5 w-3.5 mr-1" />}
+                  {btn.label}
+                </Button>
+              ))}
+            </div>
+
+            {/* Global Export Button */}
+            {tables.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const publishedTables = tables.filter(t => t.status === 'published' && !t.is_deleted);
+                  if (publishedTables.length === 0) {
+                    toast.error('Export üçün dərc edilmiş cədvəl yoxdur');
+                    return;
+                  }
+                  
+                  toast.promise(
+                    reportTableService.exportTable(publishedTables[0].id, publishedTables[0].title),
+                    {
+                      loading: 'Cədvəl export edilir...',
+                      success: 'Cədvəl export edildi',
+                      error: 'Export zamanı xəta baş verdi',
+                    }
+                  );
+                }}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            )}
+          </div>
+
+          {/* Tables Grid */}
+          {isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="h-44 w-full rounded-xl" />
+              ))}
+            </div>
+          ) : tables.length === 0 ? (
+            <div className="text-center py-16 text-gray-400">
+              <Table2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+              <p className="text-lg font-medium">
+                {statusFilter === 'deleted' ? 'Silinmiş cədvəl yoxdur' : 'Cədvəl tapılmadı'}
+              </p>
+              <p className="text-sm mt-1">
+                {search
+                  ? 'Axtarışa uyğun cədvəl yoxdur.'
+                  : statusFilter === 'deleted'
+                  ? 'Heç bir cədvəl silinməyib.'
+                  : 'Hələ heç bir hesabat cədvəli yaradılmayıb.'}
+              </p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {tables.map((table) => (
+                  <TableCard
+                    key={table.id}
+                    table={table}
+                    onEdit={(t) => { setEditingTable(t); setShowModal(true); }}
+                    onView={(t) => { setViewingTable(t); setIsSheetOpen(true); }}
+                    onConfirm={(type, t) => setConfirmState({ type, table: t })}
+                    isSuperAdmin={isSuperAdmin}
+                  />
+                ))}
+              </div>
+
+              {/* Pagination */}
+              {meta && meta.last_page > 1 && (
+                <div className="flex items-center justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                  >
+                    Əvvəlki
+                  </Button>
+                  <span className="text-sm text-gray-500">{page} / {meta.last_page}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+                    disabled={page >= meta.last_page}
+                  >
+                    Növbəti
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      ) : viewMode === 'approval' ? (
         <ReportTableApprovalQueue />
+      ) : viewMode === 'ready' ? (
+        <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-200px)]">
+          {/* Left Panel - Table List */}
+          <div className="lg:w-[380px] shrink-0 space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Cədvəl axtar..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+
+            <div className="bg-white border rounded-xl overflow-hidden">
+              <div className="px-4 py-3 border-b bg-gray-50">
+                <p className="text-sm font-medium text-gray-700">Hazır cədvəllər</p>
+                <p className="text-xs text-gray-500">Klik edin və sağ paneldə görün</p>
+              </div>
+              <div className="max-h-[calc(100vh-280px)] overflow-y-auto divide-y">
+                {tables
+                  .filter(t => t.status === 'published' && (t.responses_count ?? 0) > 0)
+                  .filter(t => !search.trim() || t.title.toLowerCase().includes(search.toLowerCase()))
+                  .map((table) => {
+                    const isSelected = readySelectedTableId === table.id;
+                    return (
+                      <button
+                        key={table.id}
+                        type="button"
+                        onClick={() => setReadySelectedTableId(table.id)}
+                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${
+                          isSelected ? 'bg-emerald-50 border-l-4 border-emerald-500' : ''
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className={`font-medium text-sm truncate ${isSelected ? 'text-emerald-700' : 'text-gray-800'}`}>
+                              {table.title}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-500">
+                              <span className="inline-flex items-center gap-1">
+                                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
+                                {table.responses_count} cavab
+                              </span>
+                            </div>
+                          </div>
+                          {isSelected && (
+                            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                {tables.filter(t => t.status === 'published' && (t.responses_count ?? 0) > 0).length === 0 && (
+                  <div className="px-4 py-10 text-center text-sm text-gray-500">
+                    Hazır cədvəl tapılmadı.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Right Panel - Selected Table Data */}
+          <div className="flex-1 min-h-0 overflow-hidden">
+            {readySelectedTableId ? (
+              <div className="h-full overflow-y-auto pr-2">
+                <ReportTableReadyView 
+                  tableId={readySelectedTableId} 
+                  showAsList 
+                />
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center border rounded-xl bg-gray-50 text-gray-500">
+                <div className="text-center p-8">
+                  <Table2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+                  <p className="font-medium">Cədvəl seçin</p>
+                  <p className="text-sm mt-1">Sol siyahıdan istənilən cədvəli seçərək məlumatları görün.</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : viewMode === 'master' ? (
+        <div className="text-center py-16 text-gray-400">
+          <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
+          <p className="text-lg font-medium">Master görünüş hazırlanma mərhələsindədir</p>
+          <p className="text-sm mt-1">Bu funksiya tezliklə istifadəyə veriləcək.</p>
+        </div>
+      ) : viewMode === 'templates' ? (
+        <div className="space-y-6">
+          <Alert className="bg-blue-50 border-blue-200">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertDescription className="text-blue-800">
+              Şablonlar funksiyası hazırlanma mərhələsindədir. Tezliklə istifadəyə veriləcək.
+            </AlertDescription>
+          </Alert>
+          <TableTemplates
+            onSelectTemplate={(template) => {
+              // Create new table from template
+              reportTableService.createTable({
+                title: template.name + ' (Şablon)',
+                description: template.description,
+                columns: template.columns,
+                max_rows: template.max_rows ?? 50,
+                target_institutions: [],
+              }).then(() => {
+                toast.success('Şablondan cədvəl yaradıldı');
+                queryClient.invalidateQueries({ queryKey: ['report-tables'] });
+                setViewMode('tables');
+              });
+            }}
+          />
+        </div>
       ) : (
         <>
           {/* Filters */}
@@ -489,6 +836,34 @@ export default function ReportTables() {
                 </Button>
               ))}
             </div>
+
+            {/* Global Export Button */}
+            {tables.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const publishedTables = tables.filter(t => t.status === 'published' && !t.is_deleted);
+                  if (publishedTables.length === 0) {
+                    toast.error('Export üçün dərc edilmiş cədvəl yoxdur');
+                    return;
+                  }
+                  
+                  toast.promise(
+                    reportTableService.exportTable(publishedTables[0].id, publishedTables[0].title),
+                    {
+                      loading: 'Cədvəl export edilir...',
+                      success: 'Cədvəl export edildi',
+                      error: 'Export zamanı xəta baş verdi',
+                    }
+                  );
+                }}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export
+              </Button>
+            )}
           </div>
 
           {/* Deleted tab info banner */}
@@ -581,20 +956,93 @@ export default function ReportTables() {
         editingTable={editingTable}
       />
 
-      {/* Responses View Dialog */}
-      <Dialog open={!!viewingTable} onOpenChange={(v) => !v && setViewingTable(null)}>
-        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5 text-emerald-600" />
-              {viewingTable?.title}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto">
-            {viewingTable && <ReportTableResponsesView table={viewingTable} />}
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Slide-in Panel with Tabs (like School Admin) */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent className="w-full sm:max-w-4xl overflow-y-auto">
+          <SheetHeader className="flex flex-row items-center justify-between pb-4 border-b">
+            <div className="flex-1">
+              <SheetTitle className="flex items-center gap-2 text-lg">
+                <Table2 className="h-5 w-5 text-emerald-600" />
+                {viewingTable?.title}
+              </SheetTitle>
+              <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                <span>{viewingTable?.columns?.length ?? 0} sütun</span>
+                <span>·</span>
+                <span>Maks. {viewingTable?.max_rows} sətir</span>
+                {viewingTable?.deadline && (
+                  <>
+                    <span>·</span>
+                    <span>Son tarix: {new Date(viewingTable.deadline).toLocaleDateString('az-AZ')}</span>
+                  </>
+                )}
+              </div>
+              
+              {/* Statistics */}
+              {viewingTable && (
+                <div className="flex items-center gap-4 mt-3">
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <Building className="h-4 w-4 text-blue-500" />
+                    <span className="font-medium">{viewingTable.target_institutions?.length ?? 0}</span>
+                    <span className="text-gray-500">Hədəf müəssisə</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-sm">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                    <span className="font-medium">{viewingTable.responses_count ?? 0}</span>
+                    <span className="text-gray-500">Cavab</span>
+                  </div>
+                  {(() => {
+                    const target = viewingTable.target_institutions?.length ?? 0;
+                    const submitted = viewingTable.responses_count ?? 0;
+                    const pct = target > 0 ? Math.round((submitted / target) * 100) : 0;
+                    return (
+                      <div className="flex items-center gap-2 flex-1">
+                        <Progress value={pct} className="h-2 w-24" />
+                        <span className="text-sm font-medium">{pct}%</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+            <SheetClose asChild>
+              <Button variant="ghost" size="sm" className="h-8 w-8 p-0 ml-2">
+                <X className="h-4 w-4" />
+              </Button>
+            </SheetClose>
+          </SheetHeader>
+          
+          {viewingTable && (
+            <div className="mt-4 space-y-4">
+              {/* Table Description */}
+              <div className="bg-gray-50 rounded-lg p-3">
+                <p className="text-sm text-gray-600">{viewingTable.description || 'Açıqlama yoxdur'}</p>
+              </div>
+
+              {/* Tabs */}
+              <Tabs value={sheetActiveTab} onValueChange={(v) => setSheetActiveTab(v as 'tesdiq' | 'hazir')}>
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="tesdiq" className="gap-1">
+                    <ClipboardCheck className="h-4 w-4" />
+                    Təsdiq
+                  </TabsTrigger>
+                  <TabsTrigger value="hazir" className="gap-1">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Hazır
+                  </TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="tesdiq" className="mt-4">
+                  <ReportTableApprovalQueue tableId={viewingTable.id} />
+                </TabsContent>
+                
+                <TabsContent value="hazir" className="mt-4">
+                  <ReportTableReadyView tableId={viewingTable.id} showAsList />
+                </TabsContent>
+              </Tabs>
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* Confirm Dialog */}
       {confirmState && (

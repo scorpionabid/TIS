@@ -17,6 +17,9 @@ class ReportTable extends Model
         'description',
         'creator_id',
         'status',
+        'is_template',
+        'cloned_from_id',
+        'template_category',
         'columns',
         'max_rows',
         'target_institutions',
@@ -34,6 +37,7 @@ class ReportTable extends Model
             'published_at'        => 'datetime',
             'archived_at'         => 'datetime',
             'deleted_at'          => 'datetime',
+            'is_template'         => 'boolean',
         ];
     }
 
@@ -47,6 +51,16 @@ class ReportTable extends Model
     public function responses(): HasMany
     {
         return $this->hasMany(ReportTableResponse::class);
+    }
+
+    public function clonedFrom(): BelongsTo
+    {
+        return $this->belongsTo(ReportTable::class, 'cloned_from_id');
+    }
+
+    public function clones(): HasMany
+    {
+        return $this->hasMany(ReportTable::class, 'cloned_from_id');
     }
 
     // ─── Status Methods ───────────────────────────────────────────────────────
@@ -66,6 +80,11 @@ class ReportTable extends Model
         return $this->status === 'archived';
     }
 
+    public function isTemplate(): bool
+    {
+        return $this->is_template;
+    }
+
     public function publish(): void
     {
         $this->status       = 'published';
@@ -77,6 +96,56 @@ class ReportTable extends Model
     {
         $this->status      = 'archived';
         $this->archived_at = now();
+        $this->save();
+    }
+
+    public function unarchive(): void
+    {
+        $this->status      = 'published';
+        $this->archived_at = null;
+        $this->save();
+    }
+
+    // ─── Template Methods ───────────────────────────────────────────────────
+
+    /**
+     * Create a new table from this template
+     */
+    public function cloneAsNew(string $newTitle, ?int $creatorId = null): ReportTable
+    {
+        $clone = new static();
+        $clone->title = $newTitle;
+        $clone->description = $this->description;
+        $clone->creator_id = $creatorId ?? $this->creator_id;
+        $clone->status = 'draft';
+        $clone->is_template = false;
+        $clone->cloned_from_id = $this->id;
+        $clone->columns = $this->columns;
+        $clone->max_rows = $this->max_rows;
+        $clone->target_institutions = [];
+        $clone->deadline = null;
+        $clone->save();
+
+        return $clone;
+    }
+
+    /**
+     * Mark this table as a template
+     */
+    public function saveAsTemplate(?string $category = null): void
+    {
+        $this->is_template = true;
+        $this->template_category = $category;
+        $this->save();
+    }
+
+    /**
+     * Remove template status from this table
+     */
+    public function removeTemplateStatus(): void
+    {
+        $this->is_template = false;
+        $this->template_category = null;
         $this->save();
     }
 
@@ -138,5 +207,20 @@ class ReportTable extends Model
     public function scopeCreatedBy($query, int $userId)
     {
         return $query->where('creator_id', $userId);
+    }
+
+    public function scopeTemplates($query)
+    {
+        return $query->where('is_template', true);
+    }
+
+    public function scopeNotTemplates($query)
+    {
+        return $query->where('is_template', false);
+    }
+
+    public function scopeByCategory($query, string $category)
+    {
+        return $query->where('template_category', $category);
     }
 }

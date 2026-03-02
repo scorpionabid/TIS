@@ -18,31 +18,123 @@ class ReportTableExportService
      */
     public function export(ReportTable $table): BinaryFileResponse
     {
-        $table->load(['responses.institution.parent']);
+        try {
+            $table->load(['responses.institution.parent']);
 
-        $responses = $this->responseService->getAllResponsesForExport($table);
+            $responses = $this->responseService->getAllResponsesForExport($table);
 
-        $safeTitle = mb_substr(
-            trim(preg_replace('/\s+/', '_', preg_replace('/[^\w\s-]/u', '', $table->title ?? 'Hesabat'))),
-            0,
-            30
-        );
+            // Əgər cavab yoxdursa, boş fayl yaratmaq əvəzinə xəta qaytar
+            if ($responses->isEmpty()) {
+                throw new \Exception('Export üçün cavab tapılmadı. Məktəblər hələ cavab göndərməyib.');
+            }
 
-        $filename = "ATIS_HesabatCedveli_{$safeTitle}_" . date('Y-m-d') . '.xlsx';
-        $filePath = storage_path("app/private/exports/{$filename}");
+            $safeTitle = mb_substr(
+                trim(preg_replace('/\s+/', '_', preg_replace('/[^\w\s-]/u', '', $table->title ?? 'Hesabat'))),
+                0,
+                30
+            );
 
-        // Qovluğu yarat (yoxdursa)
-        if (! file_exists(dirname($filePath))) {
-            mkdir(dirname($filePath), 0755, true);
+            $filename = "ATIS_HesabatCedveli_{$safeTitle}_" . date('Y-m-d') . '.xlsx';
+            
+            // Storage disk istifadə et - private/exports qovluğu avtomatik yaradılacaq
+            $export = new ReportTableExport($table, $responses);
+            
+            // Excel faylını yadda saxla və download et
+            return Excel::download($export, $filename);
+            
+        } catch (\Exception $e) {
+            \Log::error('Export error: ' . $e->getMessage());
+            throw $e;
         }
+    }
 
-        $export = new ReportTableExport($table, $responses);
+    /**
+     * Yalnız bir müəssisənin cavabını Excel formatında qaytarır (school özü üçün).
+     */
+    public function exportSingleInstitution(ReportTable $table, int $institutionId): BinaryFileResponse
+    {
+        try {
+            $table->load(['responses.institution']);
 
-        Excel::store($export, "exports/{$filename}", 'local');
+            // Yalnız bu müəssisənin cavabını al
+            $response = $table->responses()
+                ->where('institution_id', $institutionId)
+                ->with('institution')
+                ->first();
 
-        return response()->download($filePath, $filename, [
-            'Content-Type'        => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            'Content-Disposition' => 'attachment; filename="' . $filename . '"',
-        ])->deleteFileAfterSend(true);
+            $responses = $response ? collect([$response]) : collect([]);
+
+            // Əgər cavab yoxdursa, xəta qaytar
+            if ($responses->isEmpty()) {
+                throw new \Exception('Bu cədvəl üçün cavab tapılmadı.');
+            }
+
+            $safeTitle = mb_substr(
+                trim(preg_replace('/\s+/', '_', preg_replace('/[^\w\s-]/u', '', $table->title ?? 'Hesabat'))),
+                0,
+                30
+            );
+
+            $institutionName = $response?->institution?->name ?? 'Mekteb';
+            $safeInstitution = mb_substr(trim(preg_replace('/\s+/', '_', preg_replace('/[^\w\s-]/u', '', $institutionName))), 0, 20);
+
+            $filename = "ATIS_Cedvel_{$safeTitle}_{$safeInstitution}_" . date('Y-m-d') . '.xlsx';
+            
+            $export = new ReportTableExport($table, $responses);
+            
+            return Excel::download($export, $filename);
+            
+        } catch (\Exception $e) {
+            \Log::error('Single institution export error: ' . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
+     * Yalnız təsdiqlənmiş (approved) sətirləri Excel formatında qaytarır (Hazır tabı üçün).
+     */
+    public function exportApprovedRows(ReportTable $table): BinaryFileResponse
+    {
+        try {
+            $table->load(['responses.institution.parent']);
+
+            // Bütün cavabları al və yalnız təsdiqlənmiş sətirləri olanları saxla
+            $allResponses = $this->responseService->getAllResponsesForExport($table);
+            
+            $filteredResponses = $allResponses->filter(function ($response) {
+                // Response-un row_statuses-ini yoxla
+                $rowStatuses = $response->row_statuses ?? [];
+                
+                // Ən azı bir sətir təsdiqlənmiş olmalıdır
+                foreach ($rowStatuses as $idx => $meta) {
+                    if (($meta['status'] ?? null) === 'approved') {
+                        return true;
+                    }
+                }
+                
+                return false;
+            });
+
+            // Əgər təsdiqlənmiş cavab yoxdursa, xəta qaytar
+            if ($filteredResponses->isEmpty()) {
+                throw new \Exception('Export üçün təsdiqlənmiş cavab tapılmadı.');
+            }
+
+            $safeTitle = mb_substr(
+                trim(preg_replace('/\s+/', '_', preg_replace('/[^\w\s-]/u', '', $table->title ?? 'Hesabat'))),
+                0,
+                30
+            );
+
+            $filename = "ATIS_HazirCedvel_{$safeTitle}_" . date('Y-m-d') . '.xlsx';
+            
+            $export = new ReportTableExport($table, $filteredResponses);
+            
+            return Excel::download($export, $filename);
+            
+        } catch (\Exception $e) {
+            \Log::error('Export approved rows error: ' . $e->getMessage());
+            throw $e;
+        }
     }
 }

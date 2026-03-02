@@ -20,7 +20,11 @@ class ReportTableService
      */
     public function getPaginatedList(array $filters, User $user, int $perPage = 15): LengthAwarePaginator
     {
-        $query = ReportTable::with(['creator']);
+        $query = ReportTable::with(['creator'])
+            ->withCount(['responses' => function ($q) {
+                // Only count submitted and approved responses (not draft)
+                $q->whereIn('status', ['submitted', 'approved']);
+            }]);
 
         // Rol-based filtrləmə
         if ($user->hasRole('superadmin')) {
@@ -40,7 +44,22 @@ class ReportTableService
                     });
             });
         } elseif ($user->hasRole('sektoradmin')) {
-            $query->where('creator_id', $user->id);
+            // Sektor admin: öz yaratdıqları + sektorundakı məktəblərə göndərilənlər
+            $sectorId = $user->institution_id;
+            $schoolIds = Institution::where('parent_id', $sectorId)->where('level', 4)->pluck('id')->toArray();
+            $allIds = array_merge([$sectorId], $schoolIds);
+            
+            $query->where(function ($q) use ($user, $allIds) {
+                $q->where('creator_id', $user->id)
+                    ->orWhere(function ($sq) use ($allIds) {
+                        $sq->whereNotNull('target_institutions')
+                            ->where(function ($jsq) use ($allIds) {
+                                foreach ($allIds as $id) {
+                                    $jsq->orWhereJsonContains('target_institutions', $id);
+                                }
+                            });
+                    });
+            });
         } else {
             // Digər rollar heç nə görməməlidir (schooladmin vs)
             $query->whereRaw('1=0');
@@ -180,6 +199,22 @@ class ReportTableService
     }
 
     /**
+     * Cədvəli arxivdən çıxarır.
+     */
+    public function unarchiveTable(ReportTable $table): ReportTable
+    {
+        if (! $table->isArchived()) {
+            throw new \InvalidArgumentException('Yalnız arxivdə olan cədvəllər arxivdən çıxarıla bilər.');
+        }
+
+        DB::transaction(function () use ($table) {
+            $table->unarchive();
+        });
+
+        return $table->fresh(['creator']);
+    }
+
+    /**
      * Cədvəli soft-delete ilə silir (istənilən statusda işləyir).
      */
     public function deleteTable(ReportTable $table): void
@@ -223,7 +258,7 @@ class ReportTableService
             ]);
         }
 
-        $validTypes = ['text', 'number', 'date', 'select', 'boolean'];
+        $validTypes = ['text', 'number', 'date', 'select', 'boolean', 'calculated', 'file', 'signature', 'gps'];
         $keys = [];
         $errors = [];
 
@@ -242,7 +277,7 @@ class ReportTableService
 
             $colType = $column['type'] ?? '';
             if (empty($colType) || ! in_array($colType, $validTypes, true)) {
-                $errors["columns.{$index}.type"] = ["{$pos}. sütunun tipi 'text', 'number', 'date', 'select' və ya 'boolean' olmalıdır."];
+                $errors["columns.{$index}.type"] = ["{$pos}. sütunun tipi düzgün deyil."];
             } elseif ($colType === 'select') {
                 $opts = $column['options'] ?? [];
                 if (empty($opts) || ! is_array($opts)) {
@@ -253,6 +288,67 @@ class ReportTableService
                             $errors["columns.{$index}.options.{$optIdx}"] = ["{$pos}. sütunun " . ($optIdx + 1) . ". variantı boş ola bilməz."];
                         }
                     }
+                }
+            } elseif ($colType === 'calculated') {
+                $formula = $column['formula'] ?? null;
+                if (! is_string($formula) || trim($formula) === '') {
+                    $errors["columns.{$index}.formula"] = ["{$pos}. hesablama sütunu üçün formula tələb olunur."];
+                }
+                $format = $column['format'] ?? null;
+                if ($format !== null && ! in_array($format, ['number', 'currency', 'percent'], true)) {
+                    $errors["columns.{$index}.format"] = ["{$pos}. hesablama sütunu üçün format düzgün deyil."];
+                }
+                $decimals = $column['decimals'] ?? null;
+                if ($decimals !== null) {
+                    if (! is_numeric($decimals)) {
+                        $errors["columns.{$index}.decimals"] = ["{$pos}. hesablama sütunu üçün onluq sayı düzgün deyil."];
+                    } else {
+                        $d = (int) $decimals;
+                        if ($d < 0 || $d > 10) {
+                            $errors["columns.{$index}.decimals"] = ["{$pos}. hesablama sütunu üçün onluq sayı düzgün deyil."];
+                        }
+                    }
+                }
+            } elseif ($colType === 'file') {
+                $accepted = $column['accepted_types'] ?? null;
+                if ($accepted !== null && ! is_array($accepted)) {
+                    $errors["columns.{$index}.accepted_types"] = ["{$pos}. fayl sütunu üçün accepted_types array olmalıdır."];
+                }
+                $maxSize = $column['max_file_size'] ?? null;
+                if ($maxSize !== null && ! is_numeric($maxSize)) {
+                    $errors["columns.{$index}.max_file_size"] = ["{$pos}. fayl sütunu üçün max_file_size rəqəm olmalıdır."];
+                }
+            } elseif ($colType === 'signature') {
+                $w = $column['signature_width'] ?? null;
+                $h = $column['signature_height'] ?? null;
+                if ($w !== null) {
+                    if (! is_numeric($w)) {
+                        $errors["columns.{$index}.signature_width"] = ["{$pos}. imza eni düzgün deyil."];
+                    } else {
+                        $wi = (int) $w;
+                        if ($wi < 50 || $wi > 3000) {
+                            $errors["columns.{$index}.signature_width"] = ["{$pos}. imza eni düzgün deyil."];
+                        }
+                    }
+                }
+                if ($h !== null) {
+                    if (! is_numeric($h)) {
+                        $errors["columns.{$index}.signature_height"] = ["{$pos}. imza hündürlüyü düzgün deyil."];
+                    } else {
+                        $hi = (int) $h;
+                        if ($hi < 50 || $hi > 3000) {
+                            $errors["columns.{$index}.signature_height"] = ["{$pos}. imza hündürlüyü düzgün deyil."];
+                        }
+                    }
+                }
+            } elseif ($colType === 'gps') {
+                $precision = $column['gps_precision'] ?? null;
+                if ($precision !== null && ! in_array($precision, ['high', 'medium', 'low'], true)) {
+                    $errors["columns.{$index}.gps_precision"] = ["{$pos}. GPS precision düzgün deyil."];
+                }
+                $radius = $column['gps_radius'] ?? null;
+                if ($radius !== null && ! is_numeric($radius)) {
+                    $errors["columns.{$index}.gps_radius"] = ["{$pos}. GPS radius rəqəm olmalıdır."];
                 }
             }
 
@@ -267,6 +363,66 @@ class ReportTableService
         if (! empty($errors)) {
             throw ValidationException::withMessages($errors);
         }
+    }
+
+    // ─── Template Methods ────────────────────────────────────────────────────
+
+    /**
+     * Save a table as template
+     */
+    public function saveAsTemplate(ReportTable $table, ?string $category = null): ReportTable
+    {
+        // Only draft or published tables can be saved as templates
+        if (! $table->isDraft() && ! $table->isPublished()) {
+            throw new \InvalidArgumentException('Yalnız draft və ya published cədvəllər şablon kimi saxlanıla bilər.');
+        }
+
+        $table->saveAsTemplate($category);
+
+        return $table->fresh();
+    }
+
+    /**
+     * Clone a table from template
+     */
+    public function cloneFromTemplate(ReportTable $template, string $newTitle, int $creatorId): ReportTable
+    {
+        if (! $template->isTemplate()) {
+            throw new \InvalidArgumentException('Bu cədvəl şablon deyil.');
+        }
+
+        return $template->cloneAsNew($newTitle, $creatorId);
+    }
+
+    /**
+     * Get all available templates
+     */
+    public function getTemplates(?string $category = null, ?int $creatorId = null): array
+    {
+        $query = ReportTable::templates()->notTemplates(); // Templates scope only
+        $query = ReportTable::where('is_template', true);
+
+        if ($category) {
+            $query->where('template_category', $category);
+        }
+
+        if ($creatorId) {
+            $query->where(function ($q) use ($creatorId) {
+                $q->where('creator_id', $creatorId)
+                  ->orWhereNull('template_category'); // Public templates
+            });
+        }
+
+        return $query->orderBy('title')->get()->toArray();
+    }
+
+    /**
+     * Remove template status
+     */
+    public function removeTemplateStatus(ReportTable $table): ReportTable
+    {
+        $table->removeTemplateStatus();
+        return $table->fresh();
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────

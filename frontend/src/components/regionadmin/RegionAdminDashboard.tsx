@@ -23,7 +23,7 @@ import {
   TrendingUp,
   Users,
   Building2,
-  GraduationCap
+  GraduationCap,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { az } from "date-fns/locale";
