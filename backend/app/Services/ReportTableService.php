@@ -12,6 +12,15 @@ use Illuminate\Validation\ValidationException;
 
 class ReportTableService
 {
+    // ─── Logging Helper ─────────────────────────────────────────────────────
+
+    private function log(string $level, string $message, array $context = []): void
+    {
+        $context['service'] = 'ReportTableService';
+        $context['user_id'] = Auth::id();
+        Log::channel('report_tables')->$level($message, $context);
+    }
+
     // ─── List / Query ─────────────────────────────────────────────────────────
 
     /**
