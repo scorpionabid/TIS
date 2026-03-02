@@ -64,14 +64,12 @@ class ReportTableResponseService
             throw new \InvalidArgumentException('Yalnız öz cavabınızı yeniləyə bilərsiniz.');
         }
 
-        if (! $response->isDraft()) {
-            throw new \InvalidArgumentException('Göndərilmiş cavabları dəyişmək olmaz.');
+        if (! in_array($response->status, ['draft', 'submitted'], true)) {
+            throw new \InvalidArgumentException('Cavab statusu dəyişdirilə bilmir.');
         }
 
         $response->loadMissing(['reportTable']);
         $table = $response->reportTable;
-
-        $this->validateRows($rows, $table->columns ?? [], $table->max_rows ?? 50);
 
         // Kilidlənmiş sətirləri qoru (submitted/approved)
         $existingStatuses = $response->row_statuses ?? [];
@@ -84,6 +82,8 @@ class ReportTableResponseService
                 $mergedRows[$idx] = $existingRows[$idx] ?? $row;
             }
         }
+
+        $this->validateRows($mergedRows, $table->columns ?? [], $table->max_rows ?? 50);
 
         return DB::transaction(function () use ($response, $mergedRows) {
             $response->rows = $mergedRows;
@@ -132,18 +132,32 @@ class ReportTableResponseService
 
     /**
      * Bir cədvəl üçün bütün cavabları qaytarır (admin baxışı).
+     * SektorAdmin yalnız öz sektorunun məktəblərinin cavablarını görür.
      */
-    public function getResponsesForTable(ReportTable $table, array $filters = [], int $perPage = 50): \Illuminate\Pagination\LengthAwarePaginator
+    public function getResponsesForTable(ReportTable $table, array $filters = [], int $perPage = 50, ?User $user = null): \Illuminate\Pagination\LengthAwarePaginator
     {
-        $query = ReportTableResponse::with(['institution', 'respondent.profile'])
+        $query = ReportTableResponse::with(['institution.parent', 'respondent.profile'])
             ->where('report_table_id', $table->id);
 
+        // Filter by status if provided
         if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
+        // Filter by institution_id if provided
         if (! empty($filters['institution_id'])) {
             $query->where('institution_id', $filters['institution_id']);
+        }
+
+        // SECTOR FILTER: If user is sektoradmin, only show responses from their sector's schools
+        if ($user && $user->hasRole('sektoradmin')) {
+            $allowedInstitutionIds = $this->getReviewableInstitutionIds($user);
+            if (!empty($allowedInstitutionIds)) {
+                $query->whereIn('institution_id', $allowedInstitutionIds);
+            } else {
+                // If no allowed institutions, return empty result
+                $query->whereRaw('1 = 0');
+            }
         }
 
         $query->orderBy('updated_at', 'desc');
@@ -413,11 +427,15 @@ class ReportTableResponseService
         }
 
         if ($user->hasRole('sektoradmin')) {
+            // Sektor admin: yalnız birbaşa öz sektorunun altındakı məktəblər
             return Institution::where('parent_id', $institution->id)->pluck('id')->toArray();
         }
 
-        // regionadmin / regionoperator
-        return $institution->getAllChildrenIds();
+        // regionadmin / regionoperator: bütün hierarchiyadakı məktəblər (özü daxil olmadan)
+        $allChildrenIds = $institution->getAllChildrenIds();
+        
+        // Öz ID-sini çıxar (region özü məktəb deyil, cavabı olmamalı)
+        return array_values(array_diff($allChildrenIds, [$institution->id]));
     }
 
     // ─── Row Validation ──────────────────────────────────────────────────────

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ReportTableResponse;
 use App\Models\ReportTable;
 use App\Services\ReportTableExportService;
 use App\Services\ReportTableResponseService;
@@ -61,7 +62,40 @@ class ReportTableController extends BaseController
         try {
             $tables = $this->service->getMyTablesForSchool($user);
 
-            $formatted = $tables->map(fn ($table) => $this->formatTable($table));
+            $institutionId = $user->institution_id;
+            $statusesByTableId = [];
+            $rowStatsByTableId = [];
+            if ($institutionId && $tables->isNotEmpty()) {
+                $responses = ReportTableResponse::query()
+                    ->where('institution_id', $institutionId)
+                    ->whereIn('report_table_id', $tables->pluck('id')->all())
+                    ->get(['id', 'report_table_id', 'status', 'row_statuses']);
+                
+                foreach ($responses as $response) {
+                    $statusesByTableId[$response->report_table_id] = $response->status;
+                    
+                    // Calculate row stats
+                    $rowStatuses = $response->row_statuses ?? [];
+                    $totalRows = count($rowStatuses);
+                    $completedRows = 0;
+                    foreach ($rowStatuses as $idx => $meta) {
+                        if (($meta['status'] ?? null) === 'submitted' || ($meta['status'] ?? null) === 'approved') {
+                            $completedRows++;
+                        }
+                    }
+                    $rowStatsByTableId[$response->report_table_id] = [
+                        'total' => $totalRows,
+                        'completed' => $completedRows,
+                    ];
+                }
+            }
+
+            $formatted = $tables->map(function ($table) use ($statusesByTableId, $rowStatsByTableId) {
+                return array_merge($this->formatTable($table), [
+                    'my_response_status' => $statusesByTableId[$table->id] ?? null,
+                    'my_response_row_stats' => $rowStatsByTableId[$table->id] ?? ['total' => 0, 'completed' => 0],
+                ]);
+            });
 
             return $this->successResponse($formatted, 'Hesabat cədvəlləri uğurla alındı.');
         } catch (\Exception $e) {
@@ -95,9 +129,25 @@ class ReportTableController extends BaseController
             'columns'                => 'required|array|min:1',
             'columns.*.key'          => 'required|string|max:64',
             'columns.*.label'        => 'required|string|max:255',
-            'columns.*.type'         => 'required|string|in:text,number,date,select,boolean',
+            'columns.*.type'         => 'required|string|in:text,number,date,select,boolean,calculated,file,signature,gps',
+            'columns.*.hint'         => 'nullable|string|max:500',
+            'columns.*.required'     => 'nullable|boolean',
+            'columns.*.min'          => 'nullable|numeric',
+            'columns.*.max'          => 'nullable|numeric',
+            'columns.*.min_length'   => 'nullable|integer|min:0|max:10000',
+            'columns.*.max_length'   => 'nullable|integer|min:0|max:10000',
             'columns.*.options'      => 'nullable|array',
             'columns.*.options.*'    => 'string|max:255',
+            'columns.*.formula'      => 'nullable|string|max:2000',
+            'columns.*.format'       => 'nullable|string|in:number,currency,percent',
+            'columns.*.decimals'     => 'nullable|integer|min:0|max:10',
+            'columns.*.accepted_types'   => 'nullable|array',
+            'columns.*.accepted_types.*' => 'string|max:100',
+            'columns.*.max_file_size'    => 'nullable|numeric|min:0|max:1000',
+            'columns.*.signature_width'  => 'nullable|integer|min:50|max:3000',
+            'columns.*.signature_height' => 'nullable|integer|min:50|max:3000',
+            'columns.*.gps_precision'    => 'nullable|string|in:high,medium,low',
+            'columns.*.gps_radius'       => 'nullable|numeric|min:0|max:100000',
             'max_rows'               => 'nullable|integer|min:1|max:500',
             'target_institutions'    => 'nullable|array',
             'target_institutions.*'  => 'integer|exists:institutions,id',
@@ -128,9 +178,25 @@ class ReportTableController extends BaseController
             'columns'                => 'sometimes|required|array|min:1',
             'columns.*.key'          => 'required_with:columns|string|max:64',
             'columns.*.label'        => 'required_with:columns|string|max:255',
-            'columns.*.type'         => 'required_with:columns|string|in:text,number,date,select,boolean',
+            'columns.*.type'         => 'required_with:columns|string|in:text,number,date,select,boolean,calculated,file,signature,gps',
+            'columns.*.hint'         => 'nullable|string|max:500',
+            'columns.*.required'     => 'nullable|boolean',
+            'columns.*.min'          => 'nullable|numeric',
+            'columns.*.max'          => 'nullable|numeric',
+            'columns.*.min_length'   => 'nullable|integer|min:0|max:10000',
+            'columns.*.max_length'   => 'nullable|integer|min:0|max:10000',
             'columns.*.options'      => 'nullable|array',
             'columns.*.options.*'    => 'string|max:255',
+            'columns.*.formula'      => 'nullable|string|max:2000',
+            'columns.*.format'       => 'nullable|string|in:number,currency,percent',
+            'columns.*.decimals'     => 'nullable|integer|min:0|max:10',
+            'columns.*.accepted_types'   => 'nullable|array',
+            'columns.*.accepted_types.*' => 'string|max:100',
+            'columns.*.max_file_size'    => 'nullable|numeric|min:0|max:1000',
+            'columns.*.signature_width'  => 'nullable|integer|min:50|max:3000',
+            'columns.*.signature_height' => 'nullable|integer|min:50|max:3000',
+            'columns.*.gps_precision'    => 'nullable|string|in:high,medium,low',
+            'columns.*.gps_radius'       => 'nullable|numeric|min:0|max:100000',
             'max_rows'               => 'nullable|integer|min:1|max:500',
             'target_institutions'    => 'nullable|array',
             'target_institutions.*'  => 'integer|exists:institutions,id',
@@ -240,11 +306,28 @@ class ReportTableController extends BaseController
         }
     }
 
+    /**
+     * POST /api/report-tables/{table}/unarchive
+     */
+    public function unarchive(ReportTable $table): JsonResponse
+    {
+        try {
+            $updated = $this->service->unarchiveTable($table);
+
+            return $this->successResponse($this->formatTableDetailed($updated), 'Hesabat cədvəli uğurla arxivdən çıxarıldı.');
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
     // ─── Responses: Admin View ────────────────────────────────────────────────
 
     /**
      * GET /api/report-tables/{table}/responses
      * Bir cədvəl üçün bütün cavabların siyahısı (admin).
+     * SektorAdmin yalnız öz sektorunun məktəblərinin cavablarını görür.
      */
     public function responses(Request $request, ReportTable $table): JsonResponse
     {
@@ -255,9 +338,10 @@ class ReportTableController extends BaseController
         ]);
 
         $perPage = $filters['per_page'] ?? 50;
+        $user = Auth::user();
 
         try {
-            $responses = $this->responseService->getResponsesForTable($table, $filters, $perPage);
+            $responses = $this->responseService->getResponsesForTable($table, $filters, $perPage, $user);
 
             return $this->paginatedResponse($responses, 'Cavablar uğurla alındı.');
         } catch (\Exception $e) {
@@ -274,9 +358,145 @@ class ReportTableController extends BaseController
     public function export(ReportTable $table): mixed
     {
         try {
+            // Check if there are any responses to export
+            $responses = $this->responseService->getAllResponsesForExport($table);
+            
+            if ($responses->isEmpty()) {
+                return $this->errorResponse('Export üçün cavab tapılmadı. Məktəblər hələ cavab göndərməyib.', 404);
+            }
+            
             return $this->exportService->export($table);
         } catch (\Exception $e) {
+            \Log::error('Export error: ' . $e->getMessage());
             return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/report-tables/{table}/export/approved
+     * Yalnız təsdiqlənmiş (approved) sətirləri Excel formatında export edir (Hazır tabı üçün).
+     */
+    public function exportApproved(ReportTable $table): mixed
+    {
+        try {
+            return $this->exportService->exportApprovedRows($table);
+        } catch (\Exception $e) {
+            \Log::error('Export approved rows error: ' . $e->getMessage());
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/report-tables/{table}/export/my
+     * Məktəbin öz cavabını Excel formatında export edir.
+     */
+    public function exportMyResponse(ReportTable $table): mixed
+    {
+        try {
+            $user = Auth::user();
+            $institutionId = $user->institution_id;
+            
+            if (!$institutionId) {
+                return $this->errorResponse('Müəssisə tapılmadı.', 403);
+            }
+            
+            // Check if response exists
+            $response = $table->responses()
+                ->where('institution_id', $institutionId)
+                ->first();
+                
+            if (!$response) {
+                return $this->errorResponse('Bu cədvəl üçün cavab tapılmadı.', 404);
+            }
+            
+            return $this->exportService->exportSingleInstitution($table, $institutionId);
+        } catch (\Exception $e) {
+            \Log::error('Single institution export error: ' . $e->getMessage());
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    // ─── Template Methods ───────────────────────────────────────────────────
+
+    /**
+     * POST /api/report-tables/{table}/save-as-template
+     * Cədvəli şablon kimi saxla
+     */
+    public function saveAsTemplate(ReportTable $table): mixed
+    {
+        try {
+            $category = request('category', null);
+            $template = $this->tableService->saveAsTemplate($table, $category);
+            
+            return $this->successResponse(
+                $this->formatTable($template),
+                'Cədvəl şablon kimi saxlanıldı.'
+            );
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * POST /api/report-tables/templates
+     * Şablondan yeni cədvəl yarat
+     */
+    public function createFromTemplate(): mixed
+    {
+        try {
+            $data = request()->validate([
+                'template_id' => 'required|integer|exists:report_tables,id',
+                'title' => 'required|string|max:300',
+            ]);
+
+            $template = ReportTable::findOrFail($data['template_id']);
+            $user = Auth::user();
+
+            $newTable = $this->tableService->cloneFromTemplate($template, $data['title'], $user->id);
+
+            return $this->successResponse(
+                $this->formatTable($newTable),
+                'Yeni cədvəl şablondan yaradıldı.',
+                201
+            );
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 400);
+        }
+    }
+
+    /**
+     * GET /api/report-tables/templates/list
+     * Bütün şablonları gətir
+     */
+    public function getTemplates(): mixed
+    {
+        try {
+            $category = request('category', null);
+            $user = Auth::user();
+            
+            $templates = $this->tableService->getTemplates($category, $user->id);
+
+            return $this->successResponse($templates, 'Şablonlar siyahısı.');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * DELETE /api/report-tables/{table}/remove-template
+     * Şablon statusunu sil
+     */
+    public function removeTemplateStatus(ReportTable $table): mixed
+    {
+        try {
+            $table = $this->tableService->removeTemplateStatus($table);
+            
+            return $this->successResponse(
+                $this->formatTable($table),
+                'Şablon statusu silindi.'
+            );
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 400);
         }
     }
 
@@ -289,6 +509,9 @@ class ReportTableController extends BaseController
             'title'               => $table->title,
             'description'         => $table->description,
             'status'              => $table->status,
+            'is_template'         => $table->is_template,
+            'cloned_from_id'      => $table->cloned_from_id,
+            'template_category'   => $table->template_category,
             'columns'             => $table->columns,
             'max_rows'            => $table->max_rows,
             'target_institutions' => $table->target_institutions,
