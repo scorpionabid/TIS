@@ -307,24 +307,24 @@ class BulkAttendanceController extends BaseController
 
             $date = $request->get('date', now()->format('Y-m-d'));
 
-            $records = ClassBulkAttendance::with(['grade', 'academicYear'])
+            $dayRecords = ClassBulkAttendance::with(['grade', 'academicYear'])
                 ->byInstitution($school->id)
                 ->where('attendance_date', $date)
                 ->orderBy('grade_id')
                 ->get();
 
             $summary = [
-                'total_classes' => $records->count(),
-                'completed_classes' => $records->where('is_complete', true)->count(),
-                'total_students' => $records->sum('total_students'),
-                'morning_present_total' => $records->sum('morning_present'),
-                'morning_absent_total' => $records->sum('morning_excused') + $records->sum('morning_unexcused'),
-                'evening_present_total' => $records->sum('evening_present'),
-                'evening_absent_total' => $records->sum('evening_excused') + $records->sum('evening_unexcused'),
-                'uniform_violation_total' => $records->sum('uniform_violation'),
-                'overall_morning_rate' => $records->avg('morning_attendance_rate'),
-                'overall_evening_rate' => $records->avg('evening_attendance_rate'),
-                'overall_daily_rate' => $records->avg('daily_attendance_rate'),
+                'total_classes' => $dayRecords->count(),
+                'completed_classes' => $dayRecords->where('is_complete', true)->count(),
+                'total_students' => $dayRecords->sum('total_students'),
+                'morning_present_total' => $dayRecords->sum('morning_present'),
+                'morning_absent_total' => $dayRecords->sum('morning_excused') + $dayRecords->sum('morning_unexcused'),
+                'evening_present_total' => $dayRecords->sum('evening_present'),
+                'evening_absent_total' => $dayRecords->sum('evening_excused') + $dayRecords->sum('evening_unexcused'),
+                'uniform_violation_total' => $dayRecords->sum('uniform_violation'),
+                'overall_morning_rate' => $dayRecords->avg('morning_attendance_rate'),
+                'overall_evening_rate' => $dayRecords->avg('evening_attendance_rate'),
+                'overall_daily_rate' => $dayRecords->avg('daily_attendance_rate'),
             ];
 
             return response()->json([

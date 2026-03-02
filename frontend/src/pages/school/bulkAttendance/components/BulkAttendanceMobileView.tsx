@@ -45,8 +45,17 @@ const BulkAttendanceMobileView: React.FC<MobileViewProps> = ({
   return (
     <div className="space-y-3">
       {classes.map((cls) => {
-        const data = attendanceData[cls.id];
-        if (!data) return null;
+        const data = attendanceData[cls.id] ?? {
+          morning_present: cls.total_students,
+          morning_excused: 0,
+          morning_unexcused: 0,
+          evening_present: cls.total_students,
+          evening_excused: 0,
+          evening_unexcused: 0,
+          uniform_violation: 0,
+          morning_notes: "",
+          evening_notes: "",
+        };
 
         const excused = toSafeNumber(data[`${session}_excused`]);
         const unexcused = toSafeNumber(data[`${session}_unexcused`]);

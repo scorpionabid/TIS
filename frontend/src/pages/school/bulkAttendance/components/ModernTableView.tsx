@@ -179,8 +179,17 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
           </TableHeader>
           <TableBody>
             {classes.map((cls, index) => {
-              const data = attendanceData[cls.id];
-              if (!data) return null;
+              const data = attendanceData[cls.id] ?? {
+                morning_present: cls.total_students,
+                morning_excused: 0,
+                morning_unexcused: 0,
+                evening_present: cls.total_students,
+                evening_excused: 0,
+                evening_unexcused: 0,
+                uniform_violation: 0,
+                morning_notes: "",
+                evening_notes: "",
+              };
 
               const excused = toSafeNumber(data[`${session}_excused`]);
               const unexcused = toSafeNumber(data[`${session}_unexcused`]);
@@ -217,7 +226,7 @@ const ModernTableView: React.FC<ModernTableViewProps> = ({
                   <TableCell className="py-2.5 text-center">
                     <span
                       className={`inline-flex items-center justify-center w-7 h-7 rounded-lg text-white font-bold text-sm ${getGradeBadgeStyle(
-                        cls.level || 0
+                        toSafeNumber(cls.level)
                       )}`}
                     >
                       {cls.level || '-'}

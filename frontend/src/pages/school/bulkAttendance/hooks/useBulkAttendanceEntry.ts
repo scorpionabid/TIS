@@ -72,8 +72,7 @@ const useBulkAttendanceEntry = () => {
     return list.filter(
       (cls) =>
         typeof cls?.id === "number" &&
-        Boolean(cls.name) &&
-        !(cls as Record<string, unknown>)?.deleted_at
+        Boolean(cls.name)
     );
   }, [classesQuery.data]);
 

@@ -309,31 +309,6 @@ const BulkAttendanceEntry: React.FC = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div className="space-y-1">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Toplu Davamiyyət Qeydiyyatı
-          </h1>
-          <p className="text-gray-600 flex items-center gap-2">
-            <School className="inline h-4 w-4" />
-            {schoolName}
-          </p>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-4 w-4 text-gray-500" />
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => handleDateInputChange(e.target.value)}
-              className="w-40"
-              data-testid="bulk-attendance-date"
-            />
-          </div>
-        </div>
-      </div>
-
       {hiddenClasses > 0 && (
         <Alert variant="default">
           <AlertCircle className="h-4 w-4" />
@@ -397,23 +372,67 @@ const BulkAttendanceEntry: React.FC = () => {
                 </Button>
               </div>
             </div>
-            <div className="text-sm text-gray-600 space-y-1">
-              <div>
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-gray-600">
                 <Users className="inline h-4 w-4 mr-1" />
-                <span className="font-medium">{classes.length}</span> aktiv
-                sinif
+                <span className="font-medium">{classes.length}</span> aktiv sinif
+                {hiddenClasses > 0 && (
+                  <span className="text-xs text-amber-600 ml-2">
+                    ({hiddenClasses} sinif siyahıdan çıxarıldı)
+                  </span>
+                )}
               </div>
-              {hiddenClasses > 0 && (
-                <div className="text-xs text-amber-600">
-                  {hiddenClasses} sinif siyahıdan çıxarıldı
-                </div>
-              )}
+              <div className="flex items-center space-x-2 bg-white px-3 py-1.5 rounded-md border border-gray-200">
+                <Calendar className="h-4 w-4 text-gray-500" />
+                <Input
+                  type="date"
+                  value={selectedDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => handleDateInputChange(e.target.value)}
+                  className="w-32 border-0 p-0 h-auto focus-visible:ring-0"
+                  data-testid="bulk-attendance-date"
+                />
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Modern Summary Strip */}
+      {/* Session Tabs */}
+      <ModernSessionTabs
+        activeSession={activeSession}
+        onSessionChange={handleSessionChange}
+        morningHasData={classes.some((cls) => attendanceData[cls.id]?.morning_present !== undefined)}
+        eveningHasData={classes.some((cls) => attendanceData[cls.id]?.evening_present !== undefined)}
+        morningDirty={dirtySessions.morning}
+        eveningDirty={dirtySessions.evening}
+      />
+
+      {/* Table View - Desktop */}
+      {isDesktop ? (
+        <ModernTableView
+          session={activeSession}
+          classes={classes}
+          attendanceData={attendanceData}
+          updateAttendance={updateAttendance}
+          errors={errors}
+          serverErrors={serverErrors}
+          getAttendanceRate={getAttendanceRate}
+        />
+      ) : (
+        <BulkAttendanceMobileView
+          session={activeSession}
+          classes={classes}
+          attendanceData={attendanceData}
+          updateAttendance={updateAttendance}
+          errors={errors}
+          serverErrors={serverErrors}
+          getAttendanceRate={getAttendanceRate}
+        />
+      )}
+
+      {/* Modern Summary Strip - Statistika siniflerden sonra */}
       <ModernSummaryStrip
         classCount={classes.length}
         totalStudents={calculatedSummary.totalStudents}
