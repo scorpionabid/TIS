@@ -422,15 +422,16 @@ export function ReportTableApprovalQueue({ tableId }: ReportTableApprovalQueuePr
       }
       return allQueue;
     },
-    refetchInterval: 60_000,
+    refetchInterval: 30_000,
   });
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['report-table-approval-queue'] });
-    // Hazır tabının query-lərini də yenilə ki, təsdiqlənən sətirlər dərhal orada görünsün
     if (tableId) {
       queryClient.invalidateQueries({ queryKey: ['approved-responses', tableId] });
       queryClient.invalidateQueries({ queryKey: ['table-detail', tableId] });
+      queryClient.invalidateQueries({ queryKey: ['report-table-responses', tableId] });
+      queryClient.invalidateQueries({ queryKey: ['report-table-all-responses', tableId] });
     }
     setSelected(new Set());
   };

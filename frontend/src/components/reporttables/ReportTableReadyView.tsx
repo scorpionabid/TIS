@@ -108,6 +108,7 @@ export function ReportTableReadyView({ tables: propTables, tableId, showAsList =
       return filteredApproved;
     },
     enabled: !!tableId,
+    refetchInterval: 30_000,
   });
 
   // Fetch table data if tableId is provided

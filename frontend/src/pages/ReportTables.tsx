@@ -347,6 +347,7 @@ export default function ReportTables() {
         per_page: 20,
         page,
       }),
+    refetchInterval: 30_000,
   });
 
   const tables: ReportTable[] = data?.data ?? [];

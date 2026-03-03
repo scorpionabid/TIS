@@ -28,6 +28,7 @@ export default function ReportTableEntry() {
   const { data, isLoading } = useQuery({
     queryKey: ['report-tables-my'],
     queryFn: () => reportTableService.getMyTables(),
+    refetchInterval: 30_000,
   });
 
   const tables: ReportTable[] = useMemo(() => data ?? [], [data]);

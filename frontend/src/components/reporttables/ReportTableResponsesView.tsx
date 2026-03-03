@@ -110,8 +110,11 @@ function RowActionButtons({
   const [showPartialReturn, setShowPartialReturn] = useState(false);
   const [reason, setReason] = useState('');
 
-  const invalidate = () =>
+  const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['report-table-responses', tableId] });
+    queryClient.invalidateQueries({ queryKey: ['approved-responses', tableId] });
+    queryClient.invalidateQueries({ queryKey: ['report-table-all-responses', tableId] });
+  };
 
   const approveMutation = useMutation({
     mutationFn: () => reportTableService.approveRow(tableId, responseId, rowIndex),
@@ -598,6 +601,7 @@ export function ReportTableResponsesView({ table }: ReportTableResponsesViewProp
   const { data, isLoading } = useQuery({
     queryKey: ['report-table-responses', table.id, page],
     queryFn: () => reportTableService.getResponses(table.id, { per_page: 50, page }),
+    refetchInterval: 30_000,
   });
 
   const responses: ReportTableResponse[] = data?.data ?? [];

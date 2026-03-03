@@ -426,7 +426,7 @@ class ReportTableController extends BaseController
     {
         try {
             $category = request('category', null);
-            $template = $this->tableService->saveAsTemplate($table, $category);
+            $template = $this->service->saveAsTemplate($table, $category);
             
             return $this->successResponse(
                 $this->formatTable($template),
@@ -452,7 +452,7 @@ class ReportTableController extends BaseController
             $template = ReportTable::findOrFail($data['template_id']);
             $user = Auth::user();
 
-            $newTable = $this->tableService->cloneFromTemplate($template, $data['title'], $user->id);
+            $newTable = $this->service->cloneFromTemplate($template, $data['title'], $user->id);
 
             return $this->successResponse(
                 $this->formatTable($newTable),
@@ -474,7 +474,7 @@ class ReportTableController extends BaseController
             $category = request('category', null);
             $user = Auth::user();
             
-            $templates = $this->tableService->getTemplates($category, $user->id);
+            $templates = $this->service->getTemplates($category, $user->id);
 
             return $this->successResponse($templates, 'Şablonlar siyahısı.');
         } catch (\Exception $e) {
@@ -489,7 +489,7 @@ class ReportTableController extends BaseController
     public function removeTemplateStatus(ReportTable $table): mixed
     {
         try {
-            $table = $this->tableService->removeTemplateStatus($table);
+            $table = $this->service->removeTemplateStatus($table);
             
             return $this->successResponse(
                 $this->formatTable($table),

@@ -116,6 +116,7 @@ export function MasterTableView({
     queryKey: ["report-table-all-responses", table.id],
     queryFn: () => reportTableService.getAllResponses(table.id),
     enabled: !!table.id,
+    refetchInterval: 30_000,
   });
 
   // ─── Data Processing (via custom hook) ───────────────────────────────────
