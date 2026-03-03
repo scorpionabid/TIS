@@ -15,6 +15,7 @@ class ReportTable extends Model
     protected $fillable = [
         'title',
         'description',
+        'notes',
         'creator_id',
         'status',
         'is_template',

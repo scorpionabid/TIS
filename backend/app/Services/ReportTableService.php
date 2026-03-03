@@ -127,6 +127,7 @@ class ReportTableService
             return ReportTable::create([
                 'title'               => $data['title'],
                 'description'         => $data['description'] ?? null,
+                'notes'               => $data['notes'] ?? null,
                 'creator_id'          => $user->id,
                 'status'              => 'draft',
                 'columns'             => $data['columns'],
@@ -149,6 +150,7 @@ class ReportTableService
         $updateData = array_filter([
             'title'               => $data['title'] ?? null,
             'description'         => $data['description'] ?? null,
+            'notes'               => $data['notes'] ?? null,
             'max_rows'            => $data['max_rows'] ?? null,
             'target_institutions' => $data['target_institutions'] ?? null,
             'deadline'            => $data['deadline'] ?? null,
