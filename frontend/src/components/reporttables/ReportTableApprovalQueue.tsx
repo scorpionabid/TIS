@@ -427,11 +427,11 @@ export function ReportTableApprovalQueue({ tableId }: ReportTableApprovalQueuePr
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['report-table-approval-queue'] });
+    queryClient.invalidateQueries({ queryKey: ['approved-responses'] });
+    queryClient.invalidateQueries({ queryKey: ['report-table-all-responses'] });
+    queryClient.invalidateQueries({ queryKey: ['report-table-responses'] });
     if (tableId) {
-      queryClient.invalidateQueries({ queryKey: ['approved-responses', tableId] });
       queryClient.invalidateQueries({ queryKey: ['table-detail', tableId] });
-      queryClient.invalidateQueries({ queryKey: ['report-table-responses', tableId] });
-      queryClient.invalidateQueries({ queryKey: ['report-table-all-responses', tableId] });
     }
     setSelected(new Set());
   };

@@ -119,6 +119,7 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
       initialRowsRef.current = JSON.stringify(rows);
       queryClient.invalidateQueries({ queryKey: ['report-table-my-response', table.id] });
       queryClient.invalidateQueries({ queryKey: ['report-table-responses', table.id] });
+      queryClient.invalidateQueries({ queryKey: ['report-table-approval-queue'] });
       toast.success('Məlumatlar uğurla göndərildi!');
       onStatusChange?.(table.id, 'submitted');
     },
