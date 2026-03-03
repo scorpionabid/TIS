@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { AlertCircle } from "lucide-react";
 import { ResourceModal } from "@/components/modals/ResourceModal";
@@ -15,9 +15,12 @@ import { useLinkActions } from "@/pages/Links/hooks/useLinkActions";
 import { useResourceFilters } from "@/hooks/useResourceFilters";
 import { useModuleAccess } from "@/hooks/useModuleAccess";
 import { useLinkSharingOverview } from "@/hooks/resources/useLinkSharingOverview";
-import { useResourceScope, resourceMatchesScope } from "@/hooks/resources/useResourceScope";
-import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { USER_ROLES } from '@/constants/roles';
+import {
+  useResourceScope,
+  resourceMatchesScope,
+} from "@/hooks/resources/useResourceScope";
+import { useRoleCheck } from "@/hooks/useRoleCheck";
+import { USER_ROLES } from "@/constants/roles";
 import { institutionService } from "@/services/institutions";
 import { userService } from "@/services/users";
 import { LinkBulkUploadResult } from "@/services/links";
@@ -37,12 +40,14 @@ const flattenResponseArray = (payload: any): any[] => {
   return [];
 };
 
-const normalizeInstitution = (input: Institution | { data?: Institution } | null | undefined): Institution | undefined => {
+const normalizeInstitution = (
+  input: Institution | { data?: Institution } | null | undefined,
+): Institution | undefined => {
   if (!input) {
     return undefined;
   }
 
-  if (typeof input === 'object' && 'data' in input) {
+  if (typeof input === "object" && "data" in input) {
     return (input as { data?: Institution }).data ?? undefined;
   }
 
@@ -50,18 +55,18 @@ const normalizeInstitution = (input: Institution | { data?: Institution } | null
 };
 
 const filtersToValue = (value?: string | null) => {
-  if (!value || value === 'all') {
+  if (!value || value === "all") {
     return undefined;
   }
   return value;
 };
 
-const LINK_SORT_BY: 'created_at' | 'title' = 'created_at';
-const LINK_SORT_DIRECTION: 'asc' | 'desc' = 'desc';
+const LINK_SORT_BY: "created_at" | "title" = "created_at";
+const LINK_SORT_DIRECTION: "asc" | "desc" = "desc";
 
 export default function Links() {
   const { currentUser, hasPermission, hasAnyRole } = useRoleCheck();
-  const linksAccess = useModuleAccess('links');
+  const linksAccess = useModuleAccess("links");
 
   // State management
   const {
@@ -92,29 +97,43 @@ export default function Links() {
     toggleFilterPanel: toggleLinkFilterPanel,
   } = useResourceFilters();
 
-  const [linkSearchInput, setLinkSearchInput] = useState(() => linkFilters.search || '');
-  const [linkScope, setLinkScope] = useState<'scoped' | 'global'>(() => {
-    if (typeof window === 'undefined') {
-      return 'scoped';
+  const [linkSearchInput, setLinkSearchInput] = useState(
+    () => linkFilters.search || "",
+  );
+  const [linkScope, setLinkScope] = useState<"scoped" | "global">(() => {
+    if (typeof window === "undefined") {
+      return "scoped";
     }
-    const stored = window.localStorage.getItem('resources_link_scope');
-    return stored === 'global' ? 'global' : 'scoped';
+    const stored = window.localStorage.getItem("resources_link_scope");
+    return stored === "global" ? "global" : "scoped";
   });
 
   // Check permissions
   const isAuthenticated = !!currentUser;
   const canViewLinks = linksAccess.canView;
   const canCreateLinks = linksAccess.canCreate;
-  const isAssignedOnlyRole = hasAnyRole([USER_ROLES.MUELLIM, USER_ROLES.REGIONOPERATOR]);
+  const isAssignedOnlyRole = hasAnyRole([
+    USER_ROLES.MUELLIM,
+    USER_ROLES.REGIONOPERATOR,
+  ]);
+  const isRegionOperator = hasAnyRole([USER_ROLES.REGIONOPERATOR]);
+  const isRegionAdmin = hasAnyRole([USER_ROLES.REGIONADMIN]);
+  const isSektorAdmin = hasAnyRole([USER_ROLES.SEKTORADMIN]);
   const shouldUseAssignedResources = !canCreateLinks && isAssignedOnlyRole;
   const hasAdminResourceAccess = canCreateLinks;
-  const canLoadCreators = hasPermission('users.read');
+  const canLoadCreators = hasPermission("users.read");
   const canFetchLinkStats = canViewLinks;
   const canBulkUploadLinks = linksAccess.canManage || linksAccess.canCreate;
   const canUseGlobalLinkScope =
-    hasAnyRole([USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN, USER_ROLES.SEKTORADMIN]) ||
-    hasPermission('links.analytics') ||
-    hasPermission('links.bulk');
+    hasAnyRole([
+      USER_ROLES.SUPERADMIN,
+      USER_ROLES.REGIONADMIN,
+      USER_ROLES.SEKTORADMIN,
+    ]) ||
+    hasPermission("links.analytics") ||
+    hasPermission("links.bulk");
+
+  const isSuperAdmin = hasAnyRole([USER_ROLES.SUPERADMIN]);
 
   const {
     shouldRestrictByInstitution,
@@ -124,16 +143,44 @@ export default function Links() {
     isSectorAdmin,
   } = useResourceScope();
 
+  // RegionOperator, RegionAdmin, SektorAdmin üçün regional filter bypass etməməliyik
+  // çünki onlar yalnız öz regionlarına/sektorlarına aid linkləri görməlidirlər
+  // Yalnız SuperAdmin bypass edə bilər (bütün linkləri görür)
+  const shouldBypassRegionalFilter = isSuperAdmin;
+
+  // DEBUG: Log filter settings
+  useEffect(() => {
+    if (import.meta.env?.DEV) {
+      console.log("[Links] Filter settings:", {
+        isSuperAdmin,
+        isRegionAdmin,
+        isRegionOperator,
+        isSektorAdmin,
+        shouldBypassRegionalFilter,
+        shouldRestrictByInstitution,
+        accessibleInstitutionIds: accessibleInstitutionIds?.length || 0,
+      });
+    }
+  }, [
+    isSuperAdmin,
+    isRegionAdmin,
+    isRegionOperator,
+    isSektorAdmin,
+    shouldBypassRegionalFilter,
+    shouldRestrictByInstitution,
+    accessibleInstitutionIds,
+  ]);
+
   // Effects for search and scope
   useEffect(() => {
-    setLinkSearchInput(linkFilters.search || '');
+    setLinkSearchInput(linkFilters.search || "");
   }, [linkFilters.search]);
 
   useEffect(() => {
     const handler = setTimeout(() => {
       setLinkFilters((prev) => {
         const normalized = linkSearchInput || undefined;
-        if ((prev.search || '') === (normalized || '')) {
+        if ((prev.search || "") === (normalized || "")) {
           return prev;
         }
         return {
@@ -147,40 +194,60 @@ export default function Links() {
   }, [linkSearchInput, setLinkFilters]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') {
+    if (typeof window === "undefined") {
       return;
     }
-    window.localStorage.setItem('resources_link_scope', linkScope);
+    window.localStorage.setItem("resources_link_scope", linkScope);
   }, [linkScope]);
 
   useEffect(() => {
-    if (!canUseGlobalLinkScope && linkScope === 'global') {
-      setLinkScope('scoped');
+    if (!canUseGlobalLinkScope && linkScope === "global") {
+      setLinkScope("scoped");
     }
   }, [canUseGlobalLinkScope, linkScope]);
 
   // Normalized filters
-  const normalizedLinkFilters = useMemo(() => ({
-    search: filtersToValue(linkFilters.search),
-    link_type: filtersToValue(linkFilters.link_type),
-    share_scope: filtersToValue(linkFilters.share_scope),
-    status: filtersToValue(linkFilters.status)?.toLowerCase(),
-    creator_id: linkFilters.creator_id,
-    institution_id: linkFilters.institution_id,
-    institution_ids: linkFilters.institution_ids,
-    is_featured: linkFilters.is_featured,
-    my_links: linkFilters.my_links,
-    date_from: linkFilters.date_from,
-    date_to: linkFilters.date_to,
-    access_level: filtersToValue(linkFilters.access_level),
-    category: filtersToValue(linkFilters.category),
-    mime_type: filtersToValue(linkFilters.mime_type),
-    sort_by: linkFilters.sort_by,
-    sort_direction: linkFilters.sort_direction,
-  }), [linkFilters]);
+  const normalizedLinkFilters = useMemo(
+    () => ({
+      search: filtersToValue(linkFilters.search),
+      link_type: filtersToValue(linkFilters.link_type) as
+        | "external"
+        | "video"
+        | "form"
+        | "document"
+        | undefined,
+      share_scope: filtersToValue(linkFilters.share_scope) as
+        | "public"
+        | "regional"
+        | "sectoral"
+        | "institutional"
+        | "specific_users"
+        | undefined,
+      status: filtersToValue(linkFilters.status)?.toLowerCase(),
+      creator_id: linkFilters.creator_id,
+      institution_id: linkFilters.institution_id,
+      institution_ids: linkFilters.institution_ids,
+      is_featured: linkFilters.is_featured,
+      my_links: linkFilters.my_links,
+      date_from: linkFilters.date_from,
+      date_to: linkFilters.date_to,
+      access_level: filtersToValue(linkFilters.access_level) as
+        | "public"
+        | "regional"
+        | "sectoral"
+        | "institution"
+        | undefined,
+      category: filtersToValue(linkFilters.category),
+      mime_type: filtersToValue(linkFilters.mime_type),
+      sort_by: linkFilters.sort_by,
+      sort_direction: linkFilters.sort_direction,
+    }),
+    [linkFilters],
+  );
 
   const linkSortBy = normalizedLinkFilters.sort_by || LINK_SORT_BY;
-  const linkSortDirection = normalizedLinkFilters.sort_direction || LINK_SORT_DIRECTION;
+  const linkSortDirection =
+    normalizedLinkFilters.sort_direction || LINK_SORT_DIRECTION;
 
   const scopedLinkInstitutionIds = useMemo(() => {
     if (!shouldRestrictByInstitution) {
@@ -189,13 +256,23 @@ export default function Links() {
     if (!accessibleInstitutionIds) {
       return undefined;
     }
-    if (!normalizedLinkFilters.institution_ids || normalizedLinkFilters.institution_ids.length === 0) {
+    if (
+      !normalizedLinkFilters.institution_ids ||
+      normalizedLinkFilters.institution_ids.length === 0
+    ) {
       return accessibleInstitutionIds;
     }
     const allowed = accessibleInstitutionSet ?? new Set<number>();
-    const filtered = normalizedLinkFilters.institution_ids.filter((id) => allowed.has(id));
+    const filtered = normalizedLinkFilters.institution_ids.filter((id) =>
+      allowed.has(id),
+    );
     return filtered.length > 0 ? filtered : [];
-  }, [shouldRestrictByInstitution, normalizedLinkFilters.institution_ids, accessibleInstitutionIds, accessibleInstitutionSet]);
+  }, [
+    shouldRestrictByInstitution,
+    normalizedLinkFilters.institution_ids,
+    accessibleInstitutionIds,
+    accessibleInstitutionSet,
+  ]);
 
   // Data fetching
   const {
@@ -205,12 +282,20 @@ export default function Links() {
     isLinkRefreshing,
     linkError,
     refreshLinks,
-  } = useLinkData(statusTab, linkPage, linkPerPage, {
-    ...normalizedLinkFilters,
-    institution_ids: shouldRestrictByInstitution ? undefined : scopedLinkInstitutionIds,
-    sort_by: linkSortBy,
-    sort_direction: linkSortDirection,
-    scope: linkScope === 'global' ? 'global' : undefined,
+  } = useLinkData({
+    statusTab,
+    linkPage,
+    linkPerPage,
+    normalizedFilters: {
+      ...normalizedLinkFilters,
+      institution_ids: shouldRestrictByInstitution
+        ? undefined
+        : scopedLinkInstitutionIds,
+      sort_by: linkSortBy,
+      sort_direction: linkSortDirection,
+      scope: linkScope === "global" ? "global" : undefined,
+    },
+    shouldBypassRegionalFilter,
   });
 
   // Sharing overview
@@ -218,25 +303,52 @@ export default function Links() {
     data: linkSharingOverview,
     isLoading: sharingOverviewLoading,
     refetch: refetchLinkSharingOverview,
-  } = useLinkSharingOverview(selectedLink, isAuthenticated && canViewLinks, true);
+  } = useLinkSharingOverview(
+    selectedLink,
+    isAuthenticated && canViewLinks,
+    true,
+  );
 
   /*
    * ═══════════════════════════════════════════════════════════════════════════
-   * CRITICAL: Client-side filtering deaktiv edilib
+   * Client-side filtering
    * ═══════════════════════════════════════════════════════════════════════════
-   * Əvvəllər burada resourceMatchesScope() ilə client-side filter var idi.
-   * İndi backend-də selection_mode=true və group_by_title=true göndərilir,
-   * ona görə client-side filter lazım deyil.
+   * SuperAdmin üçün regional filter bypass edilir (bütün linkləri görür).
    *
-   * Nəticə: Bütün istifadəçilər 6 unikal link başlığını görür.
-   * Əgər filter bərpa edilsə, bəzi istifadəçilər linkləri görməyəcək!
+   * RegionOperator, RegionAdmin və SektorAdmin üçün:
+   * - Backend-də regional filter tətbiq edilir
+   * - Əlavə təhlükəsizlik üçün client-side filter də işləyir
    *
-   * Bax: useLinkData.ts - selection_mode və group_by_title parametrləri
+   * Bax: useLinkData.ts - shouldBypassRegionalFilter parametri
    * ═══════════════════════════════════════════════════════════════════════════
    */
   const finalLinkData = useMemo(() => {
+    // RegionOperator, RegionAdmin və SektorAdmin üçün əlavə client-side filter
+    // (təhlükəsizlik qatı - backend filterinə əlavə)
+    const needsClientSideFilter =
+      (isRegionOperator || isRegionAdmin || isSektorAdmin) &&
+      shouldRestrictByInstitution &&
+      accessibleInstitutionSet;
+
+    if (needsClientSideFilter) {
+      const filtered = linkData.filter((link) =>
+        resourceMatchesScope(link, accessibleInstitutionSet),
+      );
+      if (import.meta.env?.DEV) {
+        console.log("[Links] Regional client-side filter:", {
+          isRegionOperator,
+          isRegionAdmin,
+          isSektorAdmin,
+          before: linkData.length,
+          after: filtered.length,
+          accessibleCount: accessibleInstitutionSet.size,
+        });
+      }
+      return filtered;
+    }
+
     if (import.meta.env?.DEV) {
-      console.log('[Links] finalLinkData debug:', {
+      console.log("[Links] finalLinkData debug:", {
         linkScope,
         shouldRestrictByInstitution,
         accessibleInstitutionSet: accessibleInstitutionSet?.size || 0,
@@ -247,7 +359,16 @@ export default function Links() {
     }
 
     return linkData;
-  }, [linkData, shouldRestrictByInstitution, accessibleInstitutionSet, linkScope, institutionScopeReady]);
+  }, [
+    linkData,
+    shouldRestrictByInstitution,
+    accessibleInstitutionSet,
+    linkScope,
+    institutionScopeReady,
+    isRegionOperator,
+    isRegionAdmin,
+    isSektorAdmin,
+  ]);
 
   // Effects for page reset and selection
   useEffect(() => {
@@ -276,71 +397,93 @@ export default function Links() {
     setSelectedLink(link);
   }, []);
 
-  const handleLinkSortChange = useCallback((value: string) => {
-    const [field, direction] = value.split('-');
-    const nextSortBy = field === 'title' ? 'title' : 'created_at';
-    const nextSortDirection = direction === 'asc' ? 'asc' : 'desc';
-    setLinkFilters((prev) => {
-      if (
-        prev.sort_by === nextSortBy &&
-        prev.sort_direction === nextSortDirection
-      ) {
-        return prev;
-      }
-      return {
-        ...prev,
-        sort_by: nextSortBy,
-        sort_direction: nextSortDirection,
-      };
-    });
-  }, [setLinkFilters]);
-
-  const handleAfterResourceSaved = useCallback((resource: Resource, isEditing: boolean) => {
-    // Toast is handled in useLinkActions
-    refreshLinks();
-
-    if (resource.type === 'link') {
-      handleSelectLink(resource);
-    }
-    setLinkBeingEdited(null);
-    setIsLinkModalOpen(false);
-
-    // UX IMPROVEMENT: Keep user on current tab to see their creation
-    if (!isEditing) {
-      setLinkSearchInput('');
+  const handleLinkSortChange = useCallback(
+    (value: string) => {
+      const [field, direction] = value.split("-");
+      const nextSortBy = field === "title" ? "title" : "created_at";
+      const nextSortDirection = direction === "asc" ? "asc" : "desc";
       setLinkFilters((prev) => {
-        if (!prev.search) {
+        if (
+          prev.sort_by === nextSortBy &&
+          prev.sort_direction === nextSortDirection
+        ) {
           return prev;
         }
         return {
           ...prev,
-          search: undefined,
+          sort_by: nextSortBy,
+          sort_direction: nextSortDirection,
         };
       });
-    }
-  }, [refreshLinks, handleSelectLink, setLinkBeingEdited, setIsLinkModalOpen, setLinkSearchInput, setLinkFilters]);
+    },
+    [setLinkFilters],
+  );
 
-  const handleLinkSaved = useCallback((resource: Resource) => {
-    const isEditing = !!linkBeingEdited;
-    handleAfterResourceSaved(resource, isEditing);
-  }, [linkBeingEdited, handleAfterResourceSaved]);
+  const handleAfterResourceSaved = useCallback(
+    (resource: Resource, isEditing: boolean) => {
+      // Toast is handled in useLinkActions
+      refreshLinks();
 
-  const handleBulkUploadSuccess = useCallback((result: LinkBulkUploadResult) => {
-    refreshLinks();
-    // Toast is handled in useLinkActions
-  }, [refreshLinks]);
-
-  const handleResourceActionWithModal = useCallback(async (resource: Resource, action: LinkAction) => {
-    if (action === 'edit') {
-      const result = await handleResourceAction(resource, action);
-      if (result?.action === 'open-edit-modal') {
-        setLinkBeingEdited(result.data);
-        setIsLinkModalOpen(true);
+      if (resource.type === "link") {
+        handleSelectLink(resource);
       }
-    } else {
-      await handleResourceAction(resource, action);
-    }
-  }, [handleResourceAction, setLinkBeingEdited, setIsLinkModalOpen]);
+      setLinkBeingEdited(null);
+      setIsLinkModalOpen(false);
+
+      // UX IMPROVEMENT: Keep user on current tab to see their creation
+      if (!isEditing) {
+        setLinkSearchInput("");
+        setLinkFilters((prev) => {
+          if (!prev.search) {
+            return prev;
+          }
+          return {
+            ...prev,
+            search: undefined,
+          };
+        });
+      }
+    },
+    [
+      refreshLinks,
+      handleSelectLink,
+      setLinkBeingEdited,
+      setIsLinkModalOpen,
+      setLinkSearchInput,
+      setLinkFilters,
+    ],
+  );
+
+  const handleLinkSaved = useCallback(
+    (resource: Resource) => {
+      const isEditing = !!linkBeingEdited;
+      handleAfterResourceSaved(resource, isEditing);
+    },
+    [linkBeingEdited, handleAfterResourceSaved],
+  );
+
+  const handleBulkUploadSuccess = useCallback(
+    (result: LinkBulkUploadResult) => {
+      refreshLinks();
+      // Toast is handled in useLinkActions
+    },
+    [refreshLinks],
+  );
+
+  const handleResourceActionWithModal = useCallback(
+    async (resource: Resource, action: LinkAction) => {
+      if (action === "edit") {
+        const result = await handleResourceAction(resource, action);
+        if (result?.action === "open-edit-modal") {
+          setLinkBeingEdited(result.data);
+          setIsLinkModalOpen(true);
+        }
+      } else {
+        await handleResourceAction(resource, action);
+      }
+    },
+    [handleResourceAction, setLinkBeingEdited, setIsLinkModalOpen],
+  );
 
   // Security checks
   if (!isAuthenticated) {
@@ -421,7 +564,7 @@ export default function Links() {
           }}
           resourceType="link"
           resource={linkBeingEdited}
-          mode={linkBeingEdited ? 'edit' : 'create'}
+          mode={linkBeingEdited ? "edit" : "create"}
           onResourceSaved={handleLinkSaved}
           lockedTab="links"
         />

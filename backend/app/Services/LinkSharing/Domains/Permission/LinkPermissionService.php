@@ -28,13 +28,12 @@ class LinkPermissionService
             return true;
         }
 
-        if ($user->can('links.analytics') || $user->can('links.bulk')) {
-            return true;
-        }
-
-        if ($user->hasAnyRole(['regionadmin', 'sektoradmin']) && $user->can('links.update')) {
-            return true;
-        }
+        // REMOVED: regionadmin/sektoradmin can no longer view all links
+        // They should only see links from their own region/sector
+        // Old code:
+        // if ($user->hasAnyRole(['regionadmin', 'sektoradmin']) && $user->can('links.update')) {
+        //     return true;
+        // }
 
         return false;
     }

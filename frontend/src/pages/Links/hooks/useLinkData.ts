@@ -1,28 +1,37 @@
-import { useMemo, useCallback } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { resourceService } from '@/services/resources';
-import type { Resource, ResourceFilters } from '@/types/resources';
-import type { StatusTab } from '@/pages/Links/hooks/useLinkState';
+import { useMemo, useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { resourceService } from "@/services/resources";
+import type { Resource, ResourceFilters } from "@/types/resources";
+import type { StatusTab } from "@/pages/Links/hooks/useLinkState";
 
-export const useLinkData = (
-  statusTab: StatusTab,
-  linkPage: number,
-  linkPerPage: number,
-  normalizedFilters: ResourceFilters
-) => {
+interface UseLinkDataOptions {
+  statusTab: StatusTab;
+  linkPage: number;
+  linkPerPage: number;
+  normalizedFilters: ResourceFilters;
+  shouldBypassRegionalFilter?: boolean;
+}
+
+export const useLinkData = ({
+  statusTab,
+  linkPage,
+  linkPerPage,
+  normalizedFilters,
+  shouldBypassRegionalFilter = true,
+}: UseLinkDataOptions) => {
   const queryClient = useQueryClient();
 
   // Build statuses array based on tab
   const statuses = useMemo(() => {
     switch (statusTab) {
-      case 'active':
-        return ['active'];
-      case 'disabled':
-        return ['disabled'];
-      case 'all':
-        return ['active', 'disabled', 'expired'];
+      case "active":
+        return ["active"];
+      case "disabled":
+        return ["disabled"];
+      case "all":
+        return ["active", "disabled", "expired"];
       default:
-        return ['active'];
+        return ["active"];
     }
   }, [statusTab]);
 
@@ -39,28 +48,44 @@ export const useLinkData = (
    * - 700+ link siyahısı göstərilərdi (hər müəssisə üçün ayrı link)
    *
    * Backend: LinkQueryBuilder.php faylında bu parametrlər işlənir
+   *
+   * RegionOperator üçün: shouldBypassRegionalFilter = false olmalıdır
+   * çünki onlar yalnız öz regionlarına aid linkləri görməlidirlər.
    * ═══════════════════════════════════════════════════════════════════════════
    */
   const queryParams = useMemo(() => {
-    const params = {
+    const params: any = {
       ...normalizedFilters,
       statuses,
       page: linkPage,
       per_page: linkPerPage,
-      selection_mode: true,
-      group_by_title: true,
     };
 
+    // RegionOperator və digər regional məhdudiyyəti olan rollar üçün
+    // regional filter-i bypass etməyək
+    if (shouldBypassRegionalFilter) {
+      params.selection_mode = true;
+      params.group_by_title = true;
+    }
+
     if (import.meta.env?.DEV) {
-      console.log('[useLinkData] Query params:', {
+      console.log("[useLinkData] Query params:", {
         statusTab,
         statuses,
+        shouldBypassRegionalFilter,
         finalParams: params,
       });
     }
 
     return params;
-  }, [normalizedFilters, statuses, linkPage, linkPerPage]);
+  }, [
+    normalizedFilters,
+    statuses,
+    linkPage,
+    linkPerPage,
+    shouldBypassRegionalFilter,
+    statusTab,
+  ]);
 
   // Fetch links
   const {
@@ -69,10 +94,13 @@ export const useLinkData = (
     isFetching: linkFetching,
     error: linkError,
   } = useQuery({
-    queryKey: ['link-resources', queryParams],
+    queryKey: ["link-resources", queryParams],
     queryFn: async () => {
       if (import.meta.env?.DEV) {
-        console.log('[useLinkData] Calling resourceService.getLinksPaginated with:', queryParams);
+        console.log(
+          "[useLinkData] Calling resourceService.getLinksPaginated with:",
+          queryParams,
+        );
       }
       const response = await resourceService.getLinksPaginated(queryParams);
       return response;
@@ -96,7 +124,7 @@ export const useLinkData = (
 
   // Refresh function
   const refreshLinks = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['link-resources'] });
+    queryClient.invalidateQueries({ queryKey: ["link-resources"] });
   }, [queryClient]);
 
   return {
