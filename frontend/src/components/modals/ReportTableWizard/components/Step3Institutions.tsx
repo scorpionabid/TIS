@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import type { Institution } from '@/services/institutions';
 import { useQuery } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
+import { useAuth } from '@/contexts/AuthContextOptimized';
 import type { StepProps } from '../types';
 
 interface Step3InstitutionsProps extends StepProps {
@@ -28,16 +29,30 @@ export function Step3Institutions({
 }: Step3InstitutionsProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Determine parent institution filter based on current user's institution level
+  const { currentUser } = useAuth();
+  const parentInstitutionId = useMemo(() => {
+    const inst = currentUser?.institution;
+    return inst && inst.level >= 2 ? inst.id : null;
+  }, [currentUser]);
+
   // Load institutions
   const { data: institutionsResponse } = useQuery({
-    queryKey: ['institutions-for-report-tables-l4'],
-    queryFn: () => institutionService.getAll({ per_page: 1000 }),
+    queryKey: ['institutions-for-report-tables-l4', parentInstitutionId],
+    queryFn: () => institutionService.getAll({
+      per_page: 1000,
+      ...(parentInstitutionId ? { parent_id: parentInstitutionId } : {}),
+    } as Parameters<typeof institutionService.getAll>[0]),
     enabled: open,
   });
 
   const { data: sectorsResponse } = useQuery({
-    queryKey: ['institutions-for-report-tables-l3'],
-    queryFn: () => institutionService.getAll({ per_page: 200, level: 3 } as Parameters<typeof institutionService.getAll>[0]),
+    queryKey: ['institutions-for-report-tables-l3', parentInstitutionId],
+    queryFn: () => institutionService.getAll({
+      per_page: 200,
+      level: 3,
+      ...(parentInstitutionId ? { parent_id: parentInstitutionId } : {}),
+    } as Parameters<typeof institutionService.getAll>[0]),
     enabled: open,
   });
 

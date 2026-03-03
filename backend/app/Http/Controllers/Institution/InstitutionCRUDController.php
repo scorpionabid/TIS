@@ -35,6 +35,20 @@ class InstitutionCRUDController extends Controller
         // Apply role-based access control
         $this->applyAccessControl($query, $user);
 
+        // Filter by parent institution hierarchy (for report table wizard and similar selectors)
+        if ($request->has('parent_id')) {
+            $parentId = $request->integer('parent_id');
+            $query->where(function ($q) use ($parentId) {
+                $q->where('id', $parentId)
+                  ->orWhere('parent_id', $parentId)
+                  ->orWhereIn('parent_id', function ($subQuery) use ($parentId) {
+                      $subQuery->select('id')
+                          ->from('institutions')
+                          ->where('parent_id', $parentId);
+                  });
+            });
+        }
+
         // Apply filters if provided
         if ($request->has('type')) {
             $query->where('type', $request->type);
