@@ -319,9 +319,24 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
             </div>
           )}
           {table.notes && (
-            <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
-              <FileText className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>{table.notes}</p>
+            <div className="relative overflow-hidden rounded-xl border-l-4 border-amber-500 bg-white shadow-md">
+              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-amber-400 to-orange-500"></div>
+              <div className="flex gap-4 p-5">
+                <div className="flex-shrink-0">
+                  <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl p-3 shadow-lg">
+                    <FileText className="h-7 w-7 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0 pt-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-bold border border-amber-300">
+                      📋 TƏLİMAT
+                    </span>
+                    <div className="h-px flex-1 bg-gradient-to-r from-amber-200 to-transparent"></div>
+                  </div>
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">{table.notes}</p>
+                </div>
+              </div>
             </div>
           )}
         </div>

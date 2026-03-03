@@ -325,6 +325,24 @@ class ReportTableController extends BaseController
     // ─── Responses: Admin View ────────────────────────────────────────────────
 
     /**
+     * GET /api/report-tables/{table}/responses/all
+     * Bir cədvəl üçün bütün cavabların siyahısı (paginasyon olmadan).
+     * Analytics üçün istifadə olunur.
+     */
+    public function getAllResponses(Request $request, ReportTable $table): JsonResponse
+    {
+        $user = Auth::user();
+
+        try {
+            $responses = $this->responseService->getAllResponsesForTable($table, $user);
+
+            return $this->successResponse($responses, 'Bütün cavablar uğurla alındı.');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
      * GET /api/report-tables/{table}/responses
      * Bir cədvəl üçün bütün cavabların siyahısı (admin).
      * SektorAdmin yalnız öz sektorunun məktəblərinin cavablarını görür.
@@ -508,6 +526,7 @@ class ReportTableController extends BaseController
             'id'                  => $table->id,
             'title'               => $table->title,
             'description'         => $table->description,
+            'notes'               => $table->notes,
             'status'              => $table->status,
             'is_template'         => $table->is_template,
             'cloned_from_id'      => $table->cloned_from_id,
