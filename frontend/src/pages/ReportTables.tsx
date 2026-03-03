@@ -333,6 +333,7 @@ export default function ReportTables() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [sheetActiveTab, setSheetActiveTab] = useState<'tesdiq' | 'hazir'>('tesdiq');
   const [readySelectedTableId, setReadySelectedTableId] = useState<number | null>(null);
+  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
 
   // Reset to page 1 when filters change
   useEffect(() => { setPage(1); }, [search, statusFilter]);
@@ -598,32 +599,7 @@ export default function ReportTables() {
             </div>
 
             {/* Global Export Button */}
-            {tables.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const publishedTables = tables.filter(t => t.status === 'published' && !t.is_deleted);
-                  if (publishedTables.length === 0) {
-                    toast.error('Export üçün dərc edilmiş cədvəl yoxdur');
-                    return;
-                  }
-                  
-                  toast.promise(
-                    reportTableService.exportTable(publishedTables[0].id, publishedTables[0].title),
-                    {
-                      loading: 'Cədvəl export edilir...',
-                      success: 'Cədvəl export edildi',
-                      error: 'Export zamanı xəta baş verdi',
-                    }
-                  );
-                }}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            )}
+            {/* REMOVED as per user request */}
           </div>
 
           {/* Tables Grid */}
@@ -779,15 +755,29 @@ export default function ReportTables() {
         </div>
       ) : viewMode === 'templates' ? (
         <div className="space-y-6">
-          <Alert className="bg-blue-50 border-blue-200">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              Şablonlar funksiyası hazırlanma mərhələsindədir. Tezliklə istifadəyə veriləcək.
-            </AlertDescription>
-          </Alert>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                <LayoutTemplate className="h-5 w-5 text-emerald-600" />
+                Cədvəl şablonları
+              </h2>
+              <p className="text-gray-500 text-sm mt-1">
+                Hazır şablonlardan istifadə edərək yeni cədvəllər yaradın
+              </p>
+            </div>
+            <Button
+              onClick={() => setShowTemplatesDialog(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Şablondan yarat
+            </Button>
+          </div>
+
           <TableTemplates
+            open={showTemplatesDialog}
+            onOpenChange={setShowTemplatesDialog}
             onSelectTemplate={(template) => {
-              // Create new table from template
               reportTableService.createTable({
                 title: template.name + ' (Şablon)',
                 description: template.description,
@@ -838,32 +828,7 @@ export default function ReportTables() {
             </div>
 
             {/* Global Export Button */}
-            {tables.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const publishedTables = tables.filter(t => t.status === 'published' && !t.is_deleted);
-                  if (publishedTables.length === 0) {
-                    toast.error('Export üçün dərc edilmiş cədvəl yoxdur');
-                    return;
-                  }
-                  
-                  toast.promise(
-                    reportTableService.exportTable(publishedTables[0].id, publishedTables[0].title),
-                    {
-                      loading: 'Cədvəl export edilir...',
-                      success: 'Cədvəl export edildi',
-                      error: 'Export zamanı xəta baş verdi',
-                    }
-                  );
-                }}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            )}
+            {/* REMOVED as per user request */}
           </div>
 
           {/* Deleted tab info banner */}

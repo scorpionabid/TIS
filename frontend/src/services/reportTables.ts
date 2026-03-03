@@ -229,6 +229,17 @@ class ReportTableService extends BaseService<ReportTable> {
     return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.returnRow', 'ReportTableService');
   }
 
+  /**
+   * Sətiri tamamilə silir (admin tərəfindən — məktəbin cədvəlindən sətir silinir).
+   */
+  async deleteRow(tableId: number, responseId: number, rowIndex: number): Promise<ReportTableResponse> {
+    const response = await apiClient.delete<ReportTableResponse>(
+      `report-tables/${tableId}/responses/${responseId}/rows/delete`,
+      { row_index: rowIndex }
+    );
+    return handleApiResponseWithError<ReportTableResponse>(response, 'ReportTableService.deleteRow', 'ReportTableService');
+  }
+
   // ─── Approval Queue ───────────────────────────────────────────────────────
 
   async getApprovalQueue(): Promise<ApprovalQueueTable[]> {

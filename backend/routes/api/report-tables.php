@@ -86,6 +86,8 @@ Route::middleware('permission:report_table_responses.review')->group(function ()
     Route::post('report-tables/{table}/responses/{response}/rows/approve', [ReportTableResponseController::class, 'approveRow']);
     Route::post('report-tables/{table}/responses/{response}/rows/reject',  [ReportTableResponseController::class, 'rejectRow']);
     Route::post('report-tables/{table}/responses/{response}/rows/return',  [ReportTableResponseController::class, 'returnRow']);
+    // Sətiri tamamilə silmək (məktəbin cədvəlindən sətir silinir)
+    Route::delete('report-tables/{table}/responses/{response}/rows/delete', [ReportTableResponseController::class, 'deleteRow']);
     // Toplu sətir əməliyyatı (approval queue-dən)
     Route::post('report-tables/{table}/responses/bulk-row-action',         [ReportTableResponseController::class, 'bulkRowAction']);
 });

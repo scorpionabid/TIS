@@ -8,9 +8,4 @@ export { useTableAnalytics } from './useTableAnalytics';
 export { AnalyticsOverview } from './AnalyticsOverview';
 export { AnalyticsColumns } from './AnalyticsColumns';
 export { AnalyticsInstitutions } from './AnalyticsInstitutions';
-export type {
-  ColumnAnalytics,
-  TableAnalyticsData,
-  UseTableAnalyticsProps,
-  BarChartDataItem,
-} from './types';
+export { AnalyticsNonFillingSchools } from './AnalyticsNonFillingSchools';

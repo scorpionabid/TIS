@@ -6,11 +6,14 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { CircularProgress } from '@/components/ui/circular-progress';
-import { CheckCircle2, Table2, Search, Clock, CheckCircle, BarChart3, Filter, Archive, TrendingUp, Layers, Activity } from 'lucide-react';
+import { CheckCircle2, Table2, Search, Clock, CheckCircle, BarChart3, Filter, Archive, TrendingUp, Layers, Activity, Building2 } from 'lucide-react';
 import { TableEntryCard } from '@/components/reporttables/TableEntryCard';
+import { TableEntryCompactCard } from '@/components/reporttables/TableEntryCompactCard';
 import { reportTableService } from '@/services/reportTables';
 import type { ReportTable } from '@/types/reportTable';
 import { cn } from '@/lib/utils';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { USER_ROLES } from '@/constants/roles';
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -19,6 +22,8 @@ export default function ReportTableEntry() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'inprogress' | 'archived'>('all');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+
+  const { isSektorAdmin, isSchoolAdmin, currentUser } = useRoleCheck();
 
   const { data, isLoading } = useQuery({
     queryKey: ['report-tables-my'],
@@ -81,13 +86,26 @@ export default function ReportTableEntry() {
   // Filter tables based on search and status
   const filteredTables = useMemo(() => {
     let result = tables;
-    
-    // Apply status filter
+
+    // Apply status filter based on my_response_status and row stats
     if (statusFilter !== 'all') {
       result = result.filter(t => {
-        if (statusFilter === 'completed') return t.my_response_status === 'submitted' && t.status !== 'archived';
-        if (statusFilter === 'inprogress') return t.my_response_status !== 'submitted' && t.status !== 'archived';
-        if (statusFilter === 'archived') return t.status === 'archived';
+        const stats = t.my_response_row_stats;
+        const fillPercent = stats && stats.total > 0 ? (stats.completed / stats.total) * 100 : 0;
+        const isFullyCompleted = t.my_response_status === 'submitted' && fillPercent === 100;
+        const isPartiallyCompleted = t.my_response_status === 'submitted' && fillPercent < 100;
+        const isNotStarted = !t.my_response_status;
+        const isDraft = t.my_response_status === 'draft';
+
+        if (statusFilter === 'completed') {
+          return isFullyCompleted;
+        }
+        if (statusFilter === 'inprogress') {
+          return isNotStarted || isDraft || isPartiallyCompleted;
+        }
+        if (statusFilter === 'archived') {
+          return t.status === 'archived';
+        }
         return true;
       });
     }
@@ -109,7 +127,13 @@ export default function ReportTableEntry() {
     return tables.find((t) => t.id === selectedTableId) ?? null;
   }, [tables, selectedTableId]);
 
-  // Use improved overallPercent from tableStats
+  // Get user role display text
+  const userRoleText = useMemo(() => {
+    if (isSektorAdmin) return 'Sektor Admin';
+    if (isSchoolAdmin) return 'Məktəb Admin';
+    return currentUser?.role || 'İstifadəçi';
+  }, [isSektorAdmin, isSchoolAdmin, currentUser]);
+
   const { completedCount, inProgressCount, archivedCount, overallPercent } = tableStats;
 
   return (
@@ -120,8 +144,12 @@ export default function ReportTableEntry() {
           <Table2 className="h-6 w-6 text-emerald-600" />
           Hesabat Cədvəlləri
         </h1>
-        <p className="text-gray-500 text-sm mt-1">
+        <p className="text-gray-500 text-sm mt-1 flex items-center gap-2">
           Aşağıdakı cədvəlləri dolduraraq göndərin.
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-full border border-blue-200">
+            <Building2 className="h-3 w-3" />
+            {userRoleText}
+          </span>
         </p>
       </div>
 
@@ -254,123 +282,29 @@ export default function ReportTableEntry() {
             </div>
           </div>
 
-          {/* Bottom Section - Table List */}
-          <div className="bg-white/80 backdrop-blur-sm border rounded-xl overflow-hidden shadow-sm flex-1 flex flex-col h-[calc(100vh-280px)]">
-            <div className="px-4 py-3 border-b bg-gray-50/80 shrink-0">
-              <p className="text-sm font-medium text-gray-700">Cədvəllər</p>
-              <p className="text-xs text-gray-500">Klik edin və sağ paneldə doldurun</p>
+          {/* Bottom Section - Table Grid */}
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filteredTables.map((table) => (
+                <TableEntryCompactCard
+                  key={table.id}
+                  table={table}
+                  isSelected={selectedTableId === table.id}
+                  onClick={() => {
+                    setSelectedTableId(table.id);
+                    setOpen(true);
+                  }}
+                />
+              ))}
             </div>
-            <div className="overflow-y-auto flex-1 divide-y custom-scrollbar">
-              {filteredTables.map((table) => {
-                    const status = table.my_response_status;
-                    const isSelected = selectedTableId === table.id;
-                    const rowStats = table.my_response_row_stats;
-                    const fillPercent = rowStats && rowStats.total > 0
-                      ? Math.round((rowStats.completed / rowStats.total) * 100)
-                      : 0;
-                    return (
-                      <button
-                        key={table.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedTableId(table.id);
-                          setOpen(true);
-                        }}
-                        className={cn(
-                          "w-full text-left px-4 py-3 hover:bg-emerald-50/50 transition-all duration-200",
-                          isSelected && 'bg-emerald-50 border-l-4 border-emerald-500'
-                        )}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-gray-800 truncate">{table.title}</p>
-                            {table.description && (
-                              <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{table.description}</p>
-                            )}
-                            
-                            {/* Fill percentage progress */}
-                            {rowStats && rowStats.total > 0 && (
-                              <div className="mt-2">
-                                <div className="flex items-center justify-between text-xs mb-1">
-                                  <span className="flex items-center gap-1 text-gray-500">
-                                    <BarChart3 className="h-3 w-3" />
-                                    Doldurma: {rowStats.completed}/{rowStats.total}
-                                  </span>
-                                  <span className={cn(
-                                    fillPercent === 100 ? 'text-emerald-600 font-medium' : 'text-gray-500'
-                                  )}>
-                                    {fillPercent}%
-                                  </span>
-                                </div>
-                                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                  <div 
-                                    className={cn(
-                                      "h-full rounded-full transition-all duration-500",
-                                      fillPercent === 100 ? 'bg-emerald-500' : 'bg-gradient-to-r from-blue-400 to-blue-500'
-                                    )}
-                                    style={{ width: `${fillPercent}%` }}
-                                  />
-                                </div>
-                              </div>
-                            )}
-                            
-                            <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-                              {table.status === 'archived' && (
-                                <span className="inline-flex items-center gap-1 text-gray-500">
-                                  <Archive className="h-3.5 w-3.5" />
-                                  Arxiv
-                                </span>
-                              )}
-                              {table.deadline && table.status !== 'archived' && (
-                                <span className="inline-flex items-center gap-1">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  {new Date(table.deadline).toLocaleDateString('az-AZ')}
-                                </span>
-                              )}
-                              {status === 'submitted' && table.status !== 'archived' && (
-                                <span className="inline-flex items-center gap-1 text-emerald-700">
-                                  <CheckCircle className="h-3.5 w-3.5" />
-                                  Göndərilib
-                                </span>
-                              )}
-                              {status === 'draft' && table.status !== 'archived' && (
-                                <span className="inline-flex items-center gap-1 text-amber-700">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  Qaralama
-                                </span>
-                              )}
-                              {status == null && table.status !== 'archived' && (
-                                <span className="inline-flex items-center gap-1 text-gray-600">
-                                  <Clock className="h-3.5 w-3.5" />
-                                  Başlanmayıb
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="shrink-0">
-                            <span className={cn(
-                              "text-xs px-2 py-1 rounded-full border transition-colors",
-                              table.status === 'archived'
-                                ? 'bg-gray-100 text-gray-600 border-gray-200'
-                                : status === 'submitted'
-                                ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
-                                : 'bg-amber-50 text-amber-700 border-amber-200'
-                            )}>
-                              {table.status === 'archived' ? 'Arxiv' : status === 'submitted' ? 'Tamamlandı' : 'Davam edir'}
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
 
-                  {filteredTables.length === 0 && (
-                    <div className="px-4 py-10 text-center text-sm text-gray-500">
-                      <Table2 className="h-8 w-8 mx-auto mb-2 opacity-30" />
-                      Axtarışa uyğun cədvəl tapılmadı.
-                    </div>
-                  )}
-            </div>
+            {filteredTables.length === 0 && (
+              <div className="text-center py-16 text-gray-400">
+                <Table2 className="h-12 w-12 mx-auto mb-3 opacity-30" />
+                <p className="text-lg font-medium">Aktiv cədvəl yoxdur</p>
+                <p className="text-sm mt-1">Axtarışa uyğun cədvəl tapılmadı.</p>
+              </div>
+            )}
           </div>
 
           <Sheet

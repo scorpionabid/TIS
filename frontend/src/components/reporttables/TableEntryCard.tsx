@@ -3,18 +3,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Save, Send, CheckCircle2, Clock, Info, FileText, Loader2, AlertCircle, Download, MoreHorizontal } from 'lucide-react';
+import { Save, Send, CheckCircle2, Clock, Info, FileText, Loader2, AlertCircle, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
 import { EditableTable } from './EditableTable';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 import { reportTableService } from '@/services/reportTables';
 import type { ReportTable, ReportTableResponse, ReportTableRow } from '@/types/reportTable';
 
@@ -261,27 +255,20 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
               <Save className="h-3.5 w-3.5" />
               Saxla
             </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => exportMutation.mutate()}
-                  disabled={exportMutation.isPending || rows.length === 0}
-                  className="gap-2"
-                >
-                  {exportMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                  Export (Excel)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportMutation.mutate()}
+              disabled={exportMutation.isPending || rows.length === 0}
+              className="gap-1"
+            >
+              {exportMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              Export
+            </Button>
             {!isSubmitted && (
               <Button
                 size="sm"
@@ -299,27 +286,20 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
         {/* Export menu for submitted/locked tables */}
         {fullyLocked && (
           <div className="flex items-center gap-2 shrink-0">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                  <MoreHorizontal className="h-4 w-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem
-                  onClick={() => exportMutation.mutate()}
-                  disabled={exportMutation.isPending || rows.length === 0}
-                  className="gap-2"
-                >
-                  {exportMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                  Export (Excel)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportMutation.mutate()}
+              disabled={exportMutation.isPending || rows.length === 0}
+              className="gap-1"
+            >
+              {exportMutation.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Download className="h-3.5 w-3.5" />
+              )}
+              Export
+            </Button>
           </div>
         )}
       </div>

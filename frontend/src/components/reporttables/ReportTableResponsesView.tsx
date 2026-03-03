@@ -29,6 +29,7 @@ import {
   XCircle,
   RotateCcw,
   MessageCircle,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { reportTableService } from '@/services/reportTables';
@@ -135,6 +136,12 @@ function RowActionButtons({
     onError: (e: Error) => toast.error(e.message || 'Xəta baş verdi.'),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: () => reportTableService.deleteRow(tableId, responseId, rowIndex),
+    onSuccess: () => { invalidate(); toast.success('Sətir tamamilə silindi.'); },
+    onError: (e: Error) => toast.error(e.message || 'Xəta baş verdi.'),
+  });
+
   // Show return/reject buttons only for submitted rows
   if (rowStatus?.status !== 'submitted') {
     // For approved/rejected rows, only show comments
@@ -156,7 +163,7 @@ function RowActionButtons({
     );
   }
 
-  const anyPending = approveMutation.isPending || rejectMutation.isPending || returnMutation.isPending;
+  const anyPending = approveMutation.isPending || rejectMutation.isPending || returnMutation.isPending || deleteMutation.isPending;
 
   return (
     <div className="flex flex-col gap-2 min-w-[200px]">
@@ -191,6 +198,20 @@ function RowActionButtons({
           title="Sətiri redaktəyə qaytar - məktəb bu sətri düzəliş edib yenidən göndərə bilər"
         >
           <RotateCcw className="h-3 w-3" /> Qaytar
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs gap-1 border-gray-300 text-gray-700 hover:bg-gray-100 bg-gray-50/50"
+          onClick={() => {
+            if (confirm('Bu sətiri tamamilə silmək istədiyinizə əminsiniz? Bu əməliyyat geri alına bilməz.')) {
+              deleteMutation.mutate();
+            }
+          }}
+          disabled={anyPending}
+          title="Sətiri tamamilə sil - məktəbin cədvəlindən bu sətir silinəcək"
+        >
+          <Trash2 className="h-3 w-3" /> Sil
         </Button>
         <RowComments
           tableId={tableId}
@@ -660,10 +681,7 @@ export function ReportTableResponsesView({ table }: ReportTableResponsesViewProp
             <TableIcon className="h-4 w-4 mr-1" /> Cədvəl
           </Button>
         </div>
-        <Button variant="outline" size="sm" onClick={handleExport} disabled={isExporting} className="gap-2">
-          {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-          {isExporting ? 'Hazırlanır...' : 'Excel Export'}
-        </Button>
+        {/* Excel Export button removed as per user request */}
       </div>
 
       {/* Tabs */}

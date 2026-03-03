@@ -211,6 +211,27 @@ class ReportTableResponseController extends BaseController
         }
     }
 
+    /**
+     * DELETE /api/report-tables/{table}/responses/{response}/rows/delete
+     * Sətiri tamamilə silir (admin tərəfindən — məktəbin cədvəlindən sətir silinir).
+     */
+    public function deleteRow(ReportTable $table, ReportTableResponse $response, Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'row_index' => 'required|integer|min:0',
+        ]);
+
+        try {
+            $updated = $this->service->deleteRow($response, $validated['row_index'], Auth::user());
+
+            return $this->successResponse($this->formatResponse($updated), 'Sətir uğurla silindi.');
+        } catch (\InvalidArgumentException $e) {
+            return $this->errorResponse($e->getMessage(), 422);
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
     // ─── Approval Queue ──────────────────────────────────────────────────────
 
     /**

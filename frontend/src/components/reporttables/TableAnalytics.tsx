@@ -17,10 +17,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   BarChart3,
   Loader2,
-  BarChart,
-  Activity,
   Building2,
   Download,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { ReportTable } from "@/types/reportTable";
@@ -33,6 +32,7 @@ import {
   AnalyticsOverview,
   AnalyticsColumns,
   AnalyticsInstitutions,
+  AnalyticsNonFillingSchools,
 } from "./table-analytics";
 
 interface TableAnalyticsProps {
@@ -113,15 +113,12 @@ export function TableAnalytics({ table, trigger }: TableAnalyticsProps) {
           onValueChange={setActiveTab}
           className="flex-1 flex flex-col"
         >
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="overview" className="gap-1">
-              <Activity className="h-4 w-4" /> Ümumi
-            </TabsTrigger>
-            <TabsTrigger value="columns" className="gap-1">
-              <BarChart className="h-4 w-4" /> Sütunlar
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="institutions" className="gap-1">
               <Building2 className="h-4 w-4" /> Müəssisələr
+            </TabsTrigger>
+            <TabsTrigger value="non-filling" className="gap-1">
+              <AlertCircle className="h-4 w-4 text-red-500" /> Doldurmayanlar
             </TabsTrigger>
           </TabsList>
 
@@ -130,23 +127,14 @@ export function TableAnalytics({ table, trigger }: TableAnalyticsProps) {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
               </div>
-            ) : !analytics ? (
-              <div className="text-center py-12 text-gray-500">
-                <BarChart3 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                <p>Hələ kifayət qədər məlumat yoxdur</p>
-              </div>
             ) : (
               <>
-                <TabsContent value="overview" className="mt-0">
-                  <AnalyticsOverview analytics={analytics} table={table} />
-                </TabsContent>
-
-                <TabsContent value="columns" className="mt-0">
-                  <AnalyticsColumns analytics={analytics} />
-                </TabsContent>
-
                 <TabsContent value="institutions" className="mt-0">
-                  <AnalyticsInstitutions responses={responses} />
+                  <AnalyticsInstitutions responses={responses} table={table} />
+                </TabsContent>
+
+                <TabsContent value="non-filling" className="mt-0">
+                  <AnalyticsNonFillingSchools table={table} responses={responses} />
                 </TabsContent>
               </>
             )}

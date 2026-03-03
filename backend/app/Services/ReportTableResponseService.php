@@ -391,6 +391,49 @@ class ReportTableResponseService
     }
 
     /**
+     * Sətiri tamamilə silir (admin tərəfindən — məktəbin cədvəlindən sətir silinir).
+     * Bu əməliyyat sətri cavabdan tamamilə çıxarır.
+     */
+    public function deleteRow(ReportTableResponse $response, int $rowIndex, User $reviewer): ReportTableResponse
+    {
+        $this->checkReviewerHierarchyAccess($response, $reviewer);
+
+        $rows = $response->rows ?? [];
+        $rowStatuses = $response->row_statuses ?? [];
+
+        // Check if row exists
+        if (!isset($rows[$rowIndex])) {
+            throw new \InvalidArgumentException('Sətir tapılmadı.');
+        }
+
+        // Remove the row from rows array
+        array_splice($rows, $rowIndex, 1);
+
+        // Rebuild row_statuses with new indices
+        $newRowStatuses = [];
+        $oldIndices = array_keys($rowStatuses);
+        sort($oldIndices);
+
+        foreach ($oldIndices as $oldIdx) {
+            $oldIdxInt = (int) $oldIdx;
+            if ($oldIdxInt < $rowIndex) {
+                // Rows before deleted one keep their indices
+                $newRowStatuses[$oldIdx] = $rowStatuses[$oldIdx];
+            } elseif ($oldIdxInt > $rowIndex) {
+                // Rows after deleted one shift down by 1
+                $newRowStatuses[(string)($oldIdxInt - 1)] = $rowStatuses[$oldIdx];
+            }
+            // Rows at deleted index are skipped (removed)
+        }
+
+        $response->rows = $rows;
+        $response->row_statuses = $newRowStatuses;
+        $response->save();
+
+        return $response->fresh(['reportTable', 'institution', 'respondent']);
+    }
+
+    /**
      * Reviewer-in bu responsa baxmaq hüququnu yoxlayır.
      * SektorAdmin: yalnız birbaşa öz sektoruna aid məktəblər.
      * RegionAdmin/Operator: öz region hierarchiyasındakı bütün məktəblər.
