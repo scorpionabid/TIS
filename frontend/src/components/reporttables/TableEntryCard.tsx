@@ -20,6 +20,9 @@ interface TableEntryCardProps {
 }
 
 export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
+  // DEBUG: API-dən notes gəlirmi?
+  console.log('[TableEntryCard] table.id:', table.id, 'table.notes:', table.notes);
+  
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<ReportTableRow[]>([]);
   const [responseId, setResponseId] = useState<number | null>(null);
