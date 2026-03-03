@@ -505,6 +505,23 @@ class InstitutionCRUDController extends Controller
                         });
                 });
             }
+        } elseif ($user->hasRole('regionoperator')) {
+            // RegionOperator: region comes from user's institution or, as fallback, from their department's institution
+            $regionInstitution = $user->institution;
+            if (! $regionInstitution && $user->department) {
+                $regionInstitution = $user->department->institution;
+            }
+            if ($regionInstitution && $regionInstitution->level === 2) {
+                $query->where(function ($q) use ($regionInstitution) {
+                    $q->where('id', $regionInstitution->id)
+                        ->orWhere('parent_id', $regionInstitution->id)
+                        ->orWhereIn('parent_id', function ($subQuery) use ($regionInstitution) {
+                            $subQuery->select('id')
+                                ->from('institutions')
+                                ->where('parent_id', $regionInstitution->id);
+                        });
+                });
+            }
         } elseif ($user->hasRole('sektoradmin')) {
             // SectorAdmin can see their own sector and child schools
             $userInstitution = $user->institution;
