@@ -163,7 +163,10 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
 
   useEffect(() => {
     const fullyLocked = responseStatus === 'submitted' && !hasEditableRows;
-    if (fullyLocked || !hasUnsaved || rows.length === 0) return;
+    const hasNonEmptyRows = rows.some(r =>
+      Object.values(r).some(v => v !== null && v !== '' && v !== undefined)
+    );
+    if (fullyLocked || !hasUnsaved || !hasNonEmptyRows) return;
     const timer = setTimeout(() => {
       saveMutation.mutate(rows);
     }, 3_000);

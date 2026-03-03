@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Keyboard, Plus, Trash2, AlertCircle, Send, Loader2, CheckCircle2, Clock, XCircle, HelpCircle } from 'lucide-react';
+import { Keyboard, Plus, Trash2, AlertCircle, Send, Loader2, CheckCircle2, Clock, XCircle, HelpCircle, Layers, Sigma, Columns } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ReportTableRow, ReportTableColumn, RowStatuses, RowStatusMeta } from '@/types/reportTable';
 import { FormulaEngine, CellContext } from '@/lib/formulaEngine';
@@ -93,6 +93,22 @@ function parseTSV(text: string): string[][] {
   }
   if (row.length > 0 || cell) { row.push(cell); rows.push(row); }
   return rows.filter((r) => r.some((c) => c.trim() !== ''));
+}
+
+// ─── Column Width Helper ──────────────────────────────────────────────────────
+
+function colMinWidth(type: string): string {
+  switch (type) {
+    case 'number':
+    case 'boolean':
+    case 'calculated': return 'min-w-[110px]';
+    case 'date':       return 'min-w-[140px]';
+    case 'select':     return 'min-w-[150px]';
+    case 'file':
+    case 'signature':  return 'min-w-[180px]';
+    case 'gps':        return 'min-w-[170px]';
+    default:           return 'min-w-[180px]';
+  }
 }
 
 // ─── Row Status Helpers ───────────────────────────────────────────────────────
@@ -256,16 +272,18 @@ interface DesktopRowProps {
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
   onRemove: (rowIdx: number) => void;
+  onDuplicate: (rowIdx: number) => void;
   onRowSubmit?: (rowIdx: number) => void;
   isRowSubmitting?: boolean;
   cellRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
   getCellDisplayValue: (row: ReportTableRow, rowIdx: number, col: ReportTableColumn) => string;
+  freezeFirstCol: boolean;
 }
 
 const DesktopRow = React.memo(function DesktopRow({
   row, rowIdx, columns, disabled, errors, canRemove, rowStatus,
-  onCellChange, onCellBlur, onKeyDown, onPaste, onRemove,
-  onRowSubmit, isRowSubmitting, cellRefs, getCellDisplayValue,
+  onCellChange, onCellBlur, onKeyDown, onPaste, onRemove, onDuplicate,
+  onRowSubmit, isRowSubmitting, cellRefs, getCellDisplayValue, freezeFirstCol,
 }: DesktopRowProps) {
   const locked = isRowLocked(rowStatus) || disabled;
   const rowHasContent = Object.values(row).some((v) => v !== null && v !== '');
@@ -285,14 +303,18 @@ const DesktopRow = React.memo(function DesktopRow({
 
   return (
     <tr className={`border-b border-gray-200 hover:bg-gray-50 ${statusColor}`}>
-      <td className="px-2 py-2 text-center text-gray-400 font-medium">{rowIdx + 1}</td>
+      <td className={`px-2 py-2 text-center text-gray-400 font-medium${freezeFirstCol ? ' sticky left-0 z-20 bg-white' : ''}`}>{rowIdx + 1}</td>
       {columns.map((col, colIdx) => {
         const err = errors[col.key];
         const displayValue = getCellDisplayValue(row, rowIdx, col);
         const isCalculated = col.type === 'calculated';
         
         return (
-          <td key={col.key} className={`px-1 py-1 ${isCalculated ? 'bg-slate-50' : ''}`}>
+          <td key={col.key} className={[
+            'px-1 py-1',
+            freezeFirstCol && colIdx === 0 ? 'sticky left-10 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : '',
+            freezeFirstCol && colIdx === 0 ? (isCalculated ? 'bg-slate-50' : 'bg-white') : (isCalculated ? 'bg-slate-50' : ''),
+          ].filter(Boolean).join(' ')}>
             {isCalculated ? (
               <div className="h-9 px-3 py-2 text-sm text-slate-600 flex items-center">
                 <span className={displayValue.startsWith('#ERROR') ? 'text-red-500' : ''}>
@@ -334,6 +356,18 @@ const DesktopRow = React.memo(function DesktopRow({
                 <Send className="h-3 w-3" />
               )}
               Təsdiq et
+            </Button>
+          )}
+          {!locked && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onDuplicate(rowIdx)}
+              className="h-8 w-8 p-0 text-gray-400 hover:text-blue-500"
+              title="Kopyala"
+            >
+              <Layers className="h-4 w-4" />
             </Button>
           )}
           {!locked && !onRowSubmit && canRemoveRow && (
@@ -715,8 +749,25 @@ export const EditableTable = React.memo(function EditableTable({
           (e.target as HTMLInputElement).blur();
         }
         break;
+
+      case 'd':
+      case 'D':
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          if (rowIdx > 0) {
+            const fillCol = columns[colIdx];
+            if (fillCol && fillCol.type !== 'calculated') {
+              const currentRows = rows.length > 0 ? rows : [createEmptyRow()];
+              const valueAbove = currentRows[rowIdx - 1]?.[fillCol.key];
+              if (valueAbove !== undefined && valueAbove !== '') {
+                handleCellChange(rowIdx, fillCol.key, String(valueAbove));
+              }
+            }
+          }
+        }
+        break;
     }
-  }, [columns, displayRows.length, maxRows, handleCellChange]);
+  }, [columns, displayRows.length, maxRows, handleCellChange, rows, createEmptyRow]);
 
   // Proper TSV parser with quoted field support
   const handleCellPaste = useCallback((
@@ -783,6 +834,39 @@ export const EditableTable = React.memo(function EditableTable({
       return updated;
     });
   }, [rows, onChange, createEmptyRow]);
+
+  const handleDuplicateRow = useCallback((idx: number) => {
+    const current = rows.length > 0 ? rows : [createEmptyRow()];
+    if (current.length >= maxRows) {
+      toast.warning(`Maksimum ${maxRows} sətir əlavə edilə bilər.`);
+      return;
+    }
+    const copy = { ...current[idx] };
+    const newRows = [
+      ...current.slice(0, idx + 1),
+      copy,
+      ...current.slice(idx + 1),
+    ];
+    onChange(newRows);
+  }, [rows, maxRows, onChange, createEmptyRow]);
+
+  const navigateToFirstError = useCallback(() => {
+    for (const [rowIdxStr, colErrors] of Object.entries(rowErrors)) {
+      const colKeys = Object.keys(colErrors);
+      if (colKeys.length > 0) {
+        const rowIdx = Number(rowIdxStr);
+        const colIdx = columns.findIndex(c => c.key === colKeys[0]);
+        if (colIdx >= 0) {
+          const el = cellRefs.current[`${rowIdx}-${colIdx}`];
+          if (el) {
+            el.focus();
+            el.scrollIntoView({ block: 'center' });
+          }
+        }
+        return;
+      }
+    }
+  }, [rowErrors, columns]);
 
   const errorCount = Object.values(rowErrors).reduce(
     (acc, errs) => acc + Object.keys(errs).length, 0
@@ -893,12 +977,41 @@ export const EditableTable = React.memo(function EditableTable({
 
   // Keyboard shortcuts help state
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [showTotals, setShowTotals] = useState(false);
+  const [freezeFirstCol, setFreezeFirstCol] = useState(false);
+
+  const hasNumericCols = useMemo(
+    () => columns.some(c => c.type === 'number' || c.type === 'calculated'),
+    [columns]
+  );
+
+  const columnTotals = useMemo(() => {
+    if (!showTotals || displayRows.length <= 1) return {} as Record<string, number>;
+    const totals: Record<string, number> = {};
+    columns.forEach(col => {
+      if (col.type === 'number') {
+        totals[col.key] = displayRows.reduce((acc, row) => {
+          const val = parseFloat(String(row[col.key] ?? ''));
+          return isNaN(val) ? acc : acc + val;
+        }, 0);
+      } else if (col.type === 'calculated') {
+        let sum = 0;
+        let hasValues = false;
+        displayRows.forEach((row, rowIdx) => {
+          const val = parseFloat(getCellDisplayValue(row, rowIdx, col));
+          if (!isNaN(val)) { sum += val; hasValues = true; }
+        });
+        if (hasValues) totals[col.key] = sum;
+      }
+    });
+    return totals;
+  }, [columns, displayRows, showTotals, getCellDisplayValue]);
 
   return (
     <div className="space-y-3">
       {/* Keyboard shortcuts toggle */}
       {!disabled && (
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <button
             onClick={() => setShowShortcuts(!showShortcuts)}
             className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-gray-700 transition-colors"
@@ -906,9 +1019,29 @@ export const EditableTable = React.memo(function EditableTable({
             <HelpCircle className="h-3.5 w-3.5" />
             {showShortcuts ? 'Qısayolları gizlət' : 'Klaviatura qısayolları'}
           </button>
-          <div className="flex items-center gap-1.5 text-xs text-gray-400">
-            <Keyboard className="h-3.5 w-3.5" />
-            <span>Excel-kimi naviqasiya aktivdir</span>
+          <div className="flex items-center gap-3">
+            {hasNumericCols && (
+              <button
+                onClick={() => setShowTotals(!showTotals)}
+                className={`flex items-center gap-1.5 text-xs transition-colors ${showTotals ? 'text-blue-600 hover:text-blue-800' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <Sigma className="h-3.5 w-3.5" />
+                {showTotals ? 'Cəmi gizlət' : 'Cəmi göstər'}
+              </button>
+            )}
+            {columns.length > 3 && (
+              <button
+                onClick={() => setFreezeFirstCol(!freezeFirstCol)}
+                className={`flex items-center gap-1.5 text-xs transition-colors ${freezeFirstCol ? 'text-blue-600 hover:text-blue-800' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <Columns className="h-3.5 w-3.5" />
+                {freezeFirstCol ? 'Sütunu azad et' : 'Sütunu sabitle'}
+              </button>
+            )}
+            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+              <Keyboard className="h-3.5 w-3.5" />
+              <span>Excel-kimi naviqasiya aktivdir</span>
+            </div>
           </div>
         </div>
       )}
@@ -966,6 +1099,10 @@ export const EditableTable = React.memo(function EditableTable({
               <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+S</kbd>
               <span>Yadda saxla</span>
             </div>
+            <div className="flex items-center gap-2">
+              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+D</kbd>
+              <span>Yuxarı xananı kopyala (Fill Down)</span>
+            </div>
           </div>
         </div>
       )}
@@ -983,10 +1120,13 @@ export const EditableTable = React.memo(function EditableTable({
         </div>
       )}
       {errorCount > 0 && (
-        <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+        <button
+          onClick={navigateToFirstError}
+          className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 w-full text-left hover:bg-red-100 transition-colors"
+        >
           <AlertCircle className="h-4 w-4 shrink-0" />
-          {errorCount} xanada xəta var. Göndərməzdən əvvəl düzəldin.
-        </div>
+          {errorCount} xanada xəta var — birinciyə keç →
+        </button>
       )}
 
       {/* Desktop table */}
@@ -994,11 +1134,15 @@ export const EditableTable = React.memo(function EditableTable({
         <table className="min-w-full border border-gray-200 text-sm rounded-lg overflow-hidden">
           <thead>
             <tr className="bg-gray-50">
-              <th className="px-2 py-3 text-center border-b border-gray-200 w-10 text-gray-500">#</th>
-              {columns.map((col) => (
+              <th className={`px-2 py-3 text-center border-b border-gray-200 w-10 text-gray-500${freezeFirstCol ? ' sticky left-0 z-20 bg-gray-50' : ''}`}>#</th>
+              {columns.map((col, colIdx) => (
                 <th
                   key={col.key}
-                  className="px-3 py-3 text-left border-b border-gray-200 font-medium text-gray-700 min-w-[140px]"
+                  className={[
+                    'px-3 py-3 text-left border-b border-gray-200 font-medium text-gray-700',
+                    colMinWidth(col.type),
+                    freezeFirstCol && colIdx === 0 ? 'sticky left-10 z-10 bg-gray-50 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : '',
+                  ].filter(Boolean).join(' ')}
                 >
                   <div className="flex items-center gap-1">
                     {col.required && <span className="text-red-500 text-xs">*</span>}
@@ -1033,13 +1177,34 @@ export const EditableTable = React.memo(function EditableTable({
                 onKeyDown={handleKeyDown}
                 onPaste={handleCellPaste}
                 onRemove={handleRemoveRow}
+                onDuplicate={handleDuplicateRow}
                 onRowSubmit={onRowSubmit}
                 isRowSubmitting={isRowSubmitting?.(rowIdx)}
                 cellRefs={cellRefs}
                 getCellDisplayValue={getCellDisplayValue}
+                freezeFirstCol={freezeFirstCol}
               />
             ))}
           </tbody>
+          {showTotals && displayRows.length > 1 && (
+            <tfoot>
+              <tr className="bg-gray-100 border-t-2 border-gray-300 font-medium">
+                <td className={`px-2 py-2 text-center text-xs font-semibold text-gray-600${freezeFirstCol ? ' sticky left-0 z-20 bg-gray-100' : ''}`}>Cəm</td>
+                {columns.map((col, colIdx) => (
+                  <td key={col.key} className={[
+                    'px-3 py-2 text-sm',
+                    (col.type === 'number' || col.type === 'calculated') ? 'font-medium text-gray-800' : 'text-gray-400',
+                    freezeFirstCol && colIdx === 0 ? 'sticky left-10 z-10 bg-gray-100 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : '',
+                  ].filter(Boolean).join(' ')}>
+                    {(col.type === 'number' || col.type === 'calculated') && columnTotals[col.key] !== undefined
+                      ? (Number.isInteger(columnTotals[col.key]) ? columnTotals[col.key] : columnTotals[col.key]!.toFixed(2))
+                      : null}
+                  </td>
+                ))}
+                <td />
+              </tr>
+            </tfoot>
+          )}
         </table>
       </div>
 
