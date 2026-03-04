@@ -45,8 +45,13 @@ interface MasterTableFiltersProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   selectedCount: number;
-  onExport: () => void;
+  totalCount: number;
+  onExport: (selectedOnly: boolean) => void;
   onBulkAction?: (action: 'approve' | 'reject' | 'return') => void;
+  onSelectBySector?: (sector: string) => void;
+  onSelectByStatus?: (status: string) => void;
+  onSelectAllFiltered?: () => void;
+  onSelectSearchResults?: () => void;
 }
 
 export const MasterTableFilters: React.FC<MasterTableFiltersProps> = ({
@@ -60,8 +65,13 @@ export const MasterTableFilters: React.FC<MasterTableFiltersProps> = ({
   viewMode,
   onViewModeChange,
   selectedCount,
+  totalCount,
   onExport,
   onBulkAction,
+  onSelectBySector,
+  onSelectByStatus,
+  onSelectAllFiltered,
+  onSelectSearchResults,
 }) => {
   return (
     <div className="flex flex-wrap gap-3 items-center justify-between bg-white p-4 rounded-lg border">
@@ -133,11 +143,53 @@ export const MasterTableFilters: React.FC<MasterTableFiltersProps> = ({
 
       {/* Right side - Actions */}
       <div className="flex gap-2">
-        {/* Export Button */}
-        <Button variant="outline" onClick={onExport}>
-          <FileDown className="h-4 w-4 mr-1" />
-          Export
-        </Button>
+        {/* Export Buttons */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">
+              <FileDown className="h-4 w-4 mr-1" />
+              Export
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => onExport(false)}>
+              <FileDown className="h-4 w-4 mr-2 text-gray-500" />
+              Bütün sətirləri export et ({totalCount})
+            </DropdownMenuItem>
+            {selectedCount > 0 && (
+              <DropdownMenuItem onClick={() => onExport(true)}>
+                <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-500" />
+                Seçilmişləri export et ({selectedCount})
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            {/* Filter + Select Options */}
+            {sectorFilter !== 'all' && onSelectBySector && (
+              <DropdownMenuItem onClick={() => onSelectBySector(sectorFilter)}>
+                <Building2 className="h-4 w-4 mr-2 text-blue-500" />
+                "{sectorFilter}" sektorunu seç
+              </DropdownMenuItem>
+            )}
+            {statusFilter !== 'all' && onSelectByStatus && (
+              <DropdownMenuItem onClick={() => onSelectByStatus(statusFilter)}>
+                <Filter className="h-4 w-4 mr-2 text-amber-500" />
+                "{statusFilter}" statusunu seç
+              </DropdownMenuItem>
+            )}
+            {onSelectAllFiltered && (
+              <DropdownMenuItem onClick={onSelectAllFiltered}>
+                <CheckCircle2 className="h-4 w-4 mr-2 text-purple-500" />
+                Filterlənmişlərin hamısını seç
+              </DropdownMenuItem>
+            )}
+            {searchTerm && onSelectSearchResults && (
+              <DropdownMenuItem onClick={onSelectSearchResults}>
+                <Search className="h-4 w-4 mr-2 text-blue-500" />
+                Axtarış nəticələrini seç
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         {/* Bulk Actions */}
         {selectedCount > 0 && onBulkAction && (

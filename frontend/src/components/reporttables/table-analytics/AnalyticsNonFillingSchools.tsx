@@ -1,66 +1,68 @@
 /**
  * AnalyticsNonFillingSchools - Shows list of schools that haven't responded
- * This is crucial for admins to track which institutions need reminders
+ * Uses pre-computed data from analytics endpoint for better performance
  */
 
-import React, { useMemo } from 'react';
+import React, { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
-import { AlertCircle, School, Mail } from 'lucide-react';
+import { AlertCircle, School, Mail, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import { useQuery } from '@tanstack/react-query';
-import type { ReportTable, ReportTableResponse } from '@/types/reportTable';
-import { institutionService } from '@/services/institutions';
+import type { TableAnalyticsSummary, AnalyticsNonFillingSchool } from '@/types/reportTable';
 
 interface AnalyticsNonFillingSchoolsProps {
-  table: ReportTable;
-  responses: ReportTableResponse[];
-}
-
-interface Institution {
-  id: number;
-  name: string;
-  parent?: {
-    id: number;
-    name: string;
-  } | null;
+  analytics: TableAnalyticsSummary;
 }
 
 export const AnalyticsNonFillingSchools: React.FC<AnalyticsNonFillingSchoolsProps> = ({
-  table,
-  responses,
+  analytics,
 }) => {
-  // Get responded institution IDs
-  const respondedIds = useMemo(() => new Set(responses.map((r) => r.institution_id)), [responses]);
-  
-  // Target institutions that haven't responded
-  const targetInstitutions = table.target_institutions || [];
-  const nonRespondingIds = useMemo(
-    () => targetInstitutions.filter((id) => !respondedIds.has(id)),
-    [targetInstitutions, respondedIds]
-  );
+  const [isExporting, setIsExporting] = useState(false);
 
-  // Fetch institution details for non-responding schools
-  const { data: institutionsData, isLoading } = useQuery({
-    queryKey: ['institution-summaries', nonRespondingIds],
-    queryFn: async () => {
-      if (nonRespondingIds.length === 0) return {};
-      return institutionService.getSummaries(nonRespondingIds);
-    },
-    enabled: nonRespondingIds.length > 0,
-  });
-  
-  // Calculate statistics
-  const totalTarget = targetInstitutions.length;
-  const respondedCount = respondedIds.size;
-  const nonRespondingCount = nonRespondingIds.length;
-  const responseRate = totalTarget > 0 ? ((respondedCount / totalTarget) * 100).toFixed(1) : '0';
+  const { summary, non_filling_schools } = analytics;
+  const nonRespondingCount = non_filling_schools.length;
 
-  // Helper to get institution name
-  const getInstitutionName = (id: number): string => {
-    const inst = institutionsData?.[id];
-    return inst?.name || `Məktəb #${id}`;
+  const handleExport = () => {
+    if (non_filling_schools.length === 0) {
+      toast.info('İxrac ediləcək məlumat yoxdur');
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const csvContent = [
+        ['№', 'Məktəb ID', 'Məktəb adı', 'Status', 'Sektor'].join(','),
+        ...non_filling_schools.map((school: AnalyticsNonFillingSchool, idx: number) => {
+          return [
+            idx + 1,
+            school.id,
+            `"${school.name.replace(/"/g, '""')}"`,
+            'Cavab verməyib',
+            `"${school.sector.replace(/"/g, '""')}"`,
+          ].join(',');
+        }),
+      ].join('\n');
+
+      const blob = new Blob(["\ufeff" + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      const url = URL.createObjectURL(blob);
+      link.setAttribute('href', url);
+      link.setAttribute('download', `doldurmayan-mektebler-${new Date().toISOString().split('T')[0]}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success('İxrac tamamlandı', {
+        description: `${nonRespondingCount} məktəb CSV faylına ixrac edildi.`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast.error('İxrac xətası', {
+        description: 'Fayl yaradılarkən xəta baş verdi.',
+      });
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleSendReminder = () => {
@@ -71,14 +73,13 @@ export const AnalyticsNonFillingSchools: React.FC<AnalyticsNonFillingSchoolsProp
 
   return (
     <div className="space-y-4">
-      {/* Statistics Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-blue-50 p-3 rounded-lg">
           <div className="flex items-center gap-2 mb-1">
             <School className="h-4 w-4 text-blue-600" />
             <span className="text-sm text-gray-600">Hədəf məktəb</span>
           </div>
-          <p className="text-2xl font-bold text-blue-700">{totalTarget}</p>
+          <p className="text-2xl font-bold text-blue-700">{summary.target_institutions}</p>
         </div>
         
         <div className="bg-emerald-50 p-3 rounded-lg">
@@ -86,7 +87,7 @@ export const AnalyticsNonFillingSchools: React.FC<AnalyticsNonFillingSchoolsProp
             <School className="h-4 w-4 text-emerald-600" />
             <span className="text-sm text-gray-600">Cavab verən</span>
           </div>
-          <p className="text-2xl font-bold text-emerald-700">{respondedCount}</p>
+          <p className="text-2xl font-bold text-emerald-700">{summary.responded_institutions}</p>
         </div>
         
         <div className="bg-red-50 p-3 rounded-lg">
@@ -102,7 +103,7 @@ export const AnalyticsNonFillingSchools: React.FC<AnalyticsNonFillingSchoolsProp
             <School className="h-4 w-4 text-amber-600" />
             <span className="text-sm text-gray-600">İştirak %</span>
           </div>
-          <p className="text-2xl font-bold text-amber-700">{responseRate}%</p>
+          <p className="text-2xl font-bold text-amber-700">{summary.participation_rate.toFixed(1)}%</p>
         </div>
       </div>
 
@@ -117,48 +118,56 @@ export const AnalyticsNonFillingSchools: React.FC<AnalyticsNonFillingSchoolsProp
             </Badge>
           </h4>
           {nonRespondingCount > 0 && (
-            <Button size="sm" variant="outline" onClick={handleSendReminder} className="gap-1">
-              <Mail className="h-3 w-3" />
-              Xatırlatma göndər
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleExport}
+                disabled={isExporting}
+                className="gap-1"
+              >
+                <Download className="h-3 w-3" />
+                {isExporting ? 'Yüklənir...' : 'İxrac et'}
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleSendReminder} className="gap-1">
+                <Mail className="h-3 w-3" />
+                Xatırlatma göndər
+              </Button>
+            </div>
           )}
         </div>
         
-        {nonRespondingIds.length === 0 ? (
+        {non_filling_schools.length === 0 ? (
           <div className="p-8 text-center text-gray-500">
             <School className="h-12 w-12 mx-auto mb-3 text-emerald-400" />
             <p className="font-medium text-emerald-700">Bütün məktəblər cavab verib!</p>
             <p className="text-sm mt-1">
-              {totalTarget} məktəbdən {respondedCount} məktəb cədvəli doldurub.
+              {summary.target_institutions} məktəbdən {summary.responded_institutions} məktəb cədvəli doldurub.
             </p>
-          </div>
-        ) : isLoading ? (
-          <div className="p-8 space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="flex items-center gap-4">
-                <Skeleton className="h-4 w-8" />
-                <Skeleton className="h-4 w-64" />
-                <Skeleton className="h-6 w-24" />
-              </div>
-            ))}
           </div>
         ) : (
           <div className="max-h-[400px] overflow-y-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 sticky top-0">
                 <tr>
-                  <th className="px-4 py-2 text-left font-medium text-gray-700">#</th>
-                  <th className="px-4 py-2 text-left font-medium text-gray-700">Məktəb adı</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-700 w-12">#</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-700 min-w-[300px]">Məktəb adı</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-700">Sektor</th>
                   <th className="px-4 py-2 text-left font-medium text-gray-700">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {nonRespondingIds.map((id, idx) => (
-                  <tr key={id} className="hover:bg-gray-50">
+                {non_filling_schools.map((school: AnalyticsNonFillingSchool, idx: number) => (
+                  <tr key={school.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-500 align-top">{idx + 1}</td>
                     <td className="px-4 py-3 align-top">
-                      <p className="font-medium text-gray-800 whitespace-normal break-words">
-                        {getInstitutionName(id)}
+                      <p className="font-medium text-gray-800 whitespace-normal break-words leading-relaxed">
+                        {school.name}
+                      </p>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <p className="text-gray-600 whitespace-normal break-words">
+                        {school.sector}
                       </p>
                     </td>
                     <td className="px-4 py-3 align-top">

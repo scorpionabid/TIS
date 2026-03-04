@@ -28,9 +28,7 @@ import { reportTableService } from "@/services/reportTables";
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
 import {
-  useTableAnalytics,
   AnalyticsOverview,
-  AnalyticsColumns,
   AnalyticsInstitutions,
   AnalyticsNonFillingSchools,
 } from "./table-analytics";
@@ -44,31 +42,22 @@ export function TableAnalytics({ table, trigger }: TableAnalyticsProps) {
   const [open, setOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
-  const { data: responsesData, isLoading } = useQuery({
-    queryKey: ["table-analytics", table.id],
-    queryFn: () => reportTableService.getAllResponses(table.id),
+  // Use new efficient analytics endpoint
+  const { data: analytics, isLoading } = useQuery({
+    queryKey: ["table-analytics-summary", table.id],
+    queryFn: () => reportTableService.getAnalyticsSummary(table.id),
     enabled: open,
   });
-
-  const responses = responsesData || [];
-  const analytics = useTableAnalytics({ responses, table });
 
   const handleExport = () => {
     if (!analytics) return;
 
     const report = {
       table: table.title,
-      generatedAt: new Date().toISOString(),
-      summary: {
-        totalInstitutions: analytics.institutionCount,
-        targetInstitutions: analytics.targetCount,
-        participationRate: `${analytics.participationRate.toFixed(1)}%`,
-        totalResponses: analytics.submitted + analytics.draft,
-        submitted: analytics.submitted,
-        draft: analytics.draft,
-        totalRows: analytics.totalRows,
-      },
-      columnStats: analytics.columnStats,
+      generatedAt: analytics.generated_at,
+      summary: analytics.summary,
+      sectors: analytics.sectors,
+      nonFillingSchools: analytics.non_filling_schools,
     };
 
     const blob = new Blob([JSON.stringify(report, null, 2)], {
@@ -90,14 +79,14 @@ export function TableAnalytics({ table, trigger }: TableAnalyticsProps) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button variant="outline" size="sm" className="gap-1">
+          <Button variant="outline" size="sm" className="gap-1" data-testid="analytics-button">
             <BarChart3 className="h-4 w-4" />
             Analitika
           </Button>
         )}
       </DialogTrigger>
 
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col" data-testid="analytics-dialog">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BarChart3 className="h-5 w-5" />
@@ -113,11 +102,14 @@ export function TableAnalytics({ table, trigger }: TableAnalyticsProps) {
           onValueChange={setActiveTab}
           className="flex-1 flex flex-col"
         >
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="institutions" className="gap-1">
+          <TabsList className="grid w-full grid-cols-3" data-testid="analytics-tabs">
+            <TabsTrigger value="overview" className="gap-1" data-testid="tab-overview">
+              <BarChart3 className="h-4 w-4" /> Ümumi
+            </TabsTrigger>
+            <TabsTrigger value="institutions" className="gap-1" data-testid="tab-institutions">
               <Building2 className="h-4 w-4" /> Müəssisələr
             </TabsTrigger>
-            <TabsTrigger value="non-filling" className="gap-1">
+            <TabsTrigger value="non-filling" className="gap-1" data-testid="tab-non-filling">
               <AlertCircle className="h-4 w-4 text-red-500" /> Doldurmayanlar
             </TabsTrigger>
           </TabsList>
@@ -127,16 +119,24 @@ export function TableAnalytics({ table, trigger }: TableAnalyticsProps) {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
               </div>
-            ) : (
+            ) : analytics ? (
               <>
+                <TabsContent value="overview" className="mt-0">
+                  <AnalyticsOverview analytics={analytics} />
+                </TabsContent>
+
                 <TabsContent value="institutions" className="mt-0">
-                  <AnalyticsInstitutions responses={responses} table={table} />
+                  <AnalyticsInstitutions analytics={analytics} />
                 </TabsContent>
 
                 <TabsContent value="non-filling" className="mt-0">
-                  <AnalyticsNonFillingSchools table={table} responses={responses} />
+                  <AnalyticsNonFillingSchools analytics={analytics} />
                 </TabsContent>
               </>
+            ) : (
+              <div className="text-center py-12 text-gray-500">
+                Analitik məlumatlar əldə edilə bilmədi
+              </div>
             )}
           </div>
         </Tabs>

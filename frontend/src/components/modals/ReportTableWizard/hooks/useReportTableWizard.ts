@@ -30,6 +30,7 @@ export function useReportTableWizard(
         description: editingTable.description ?? '',
         notes: editingTable.notes ?? '',
         columns: editingTable.columns ?? [],
+        fixed_rows: editingTable.fixed_rows ?? null,
         max_rows: editingTable.max_rows ?? 50,
         target_institutions: editingTable.target_institutions ?? [],
         deadline: editingTable.deadline
@@ -166,22 +167,33 @@ export function useReportTableWizard(
 
   // Mutations
   const createMutation = useMutation({
-    mutationFn: () =>
-      reportTableService.createTable({
+    mutationFn: () => {
+      console.log('[createMutation] Calling API with:', {
+        title: formData.title,
+        notes: formData.notes,
+        columnsCount: formData.columns.length
+      });
+      return reportTableService.createTable({
         title: formData.title,
         description: formData.description || undefined,
         notes: formData.notes || undefined,
         columns: formData.columns,
+        fixed_rows: formData.fixed_rows || undefined,
         max_rows: formData.max_rows,
         target_institutions: formData.target_institutions,
         deadline: formData.deadline || undefined,
-      }),
-    onSuccess: () => {
+      });
+    },
+    onSuccess: (data) => {
+      console.log('[createMutation] Success:', data);
       queryClient.invalidateQueries({ queryKey: ['report-tables'] });
       toast.success('Hesabat cədvəli yaradıldı');
       onClose();
     },
-    onError: (err: Error) => toast.error(err.message || 'Xəta baş verdi'),
+    onError: (err: Error) => {
+      console.error('[createMutation] Error:', err);
+      toast.error(err.message || 'Xəta baş verdi');
+    },
   });
 
   const updateMutation = useMutation({
@@ -191,6 +203,7 @@ export function useReportTableWizard(
         description: formData.description || undefined,
         notes: formData.notes || undefined,
         columns: editingTable?.can_edit_columns ? formData.columns : undefined,
+        fixed_rows: editingTable?.can_edit_columns ? (formData.fixed_rows || undefined) : undefined,
         max_rows: formData.max_rows,
         target_institutions: formData.target_institutions,
         deadline: formData.deadline || undefined,
@@ -206,10 +219,13 @@ export function useReportTableWizard(
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
   const createTable = useCallback(async (): Promise<void> => {
+    console.log('[createTable] Starting...', { step1Valid: validation.step1.valid, step2Valid: validation.step2.valid });
     if (!validation.step1.valid || !validation.step2.valid) {
+      console.log('[createTable] Validation failed:', validation);
       toast.error('Zəhmət olmasa, bütün tələb olunan sahələri doldurun');
       return;
     }
+    console.log('[createTable] Validation passed, calling mutation...');
     await createMutation.mutateAsync();
   }, [createMutation, validation]);
 

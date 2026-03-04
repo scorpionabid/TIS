@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Copy, ChevronDown, Eye, EyeOff } from 'lucide-react';
+import { Plus, Copy, ChevronDown, Eye, EyeOff, Grid3X3, List, Trash2 } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -29,6 +29,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover';
+import { Switch } from '@/components/ui/switch';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { StepProps } from '../types';
 import { useColumnManagement } from '../hooks/useColumnManagement';
 import { ColumnEditor } from './ColumnEditor';
@@ -118,7 +121,103 @@ export function Step2Columns({
       {/* Warning for published tables */}
       {isEditing && !canEditColumns && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-700">
-          Dərc edilmiş cədvəlin sütunları dəyişdirilə bilməz.
+          Dərc edilmiş cədvəlin sütunları və sətir strukturu dəyişdirilə bilməz.
+        </div>
+      )}
+
+      {/* Table Type Toggle */}
+      {canEditColumns && (
+        <div className="bg-gray-50 border rounded-lg p-4 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white rounded-lg border">
+                {formData.fixed_rows ? <Grid3X3 className="h-5 w-5 text-emerald-600" /> : <List className="h-5 w-5 text-blue-600" />}
+              </div>
+              <div>
+                <p className="font-medium text-sm">
+                  {formData.fixed_rows ? 'Stabil cədvəl (fixed rows)' : 'Dinamik cədvəl'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  {formData.fixed_rows
+                    ? 'Məktəb yalnız təyin olunmuş sətirləri doldura bilir'
+                    : 'Məktəb özü sətir əlavə edə bilir'}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="stable-mode" className="text-sm text-gray-600">Stabil cədvəl</Label>
+              <Switch
+                id="stable-mode"
+                checked={!!formData.fixed_rows}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    onChange('fixed_rows', [{ id: 'row_1', label: '1-ci sətir' }]);
+                  } else {
+                    onChange('fixed_rows', null);
+                  }
+                }}
+                data-testid="stable-table-toggle"
+              />
+            </div>
+          </div>
+
+          {/* Fixed Rows Editor */}
+          {formData.fixed_rows && (
+            <div className="space-y-2 pt-2 border-t">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium">Sətirlər (əvvəlcədən təyin edilmiş)</Label>
+                <span className="text-xs text-gray-500">{formData.fixed_rows.length} sətir</span>
+              </div>
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {formData.fixed_rows.map((row, idx) => (
+                  <div key={row.id} className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400 w-6">{idx + 1}.</span>
+                    <Input
+                      value={row.label}
+                      onChange={(e) => {
+                        const newRows = [...formData.fixed_rows!];
+                        newRows[idx] = { ...row, label: e.target.value };
+                        onChange('fixed_rows', newRows);
+                      }}
+                      placeholder="Sətir adı (məs: 9-cu sinif)"
+                      className="flex-1 h-8 text-sm"
+                      disabled={!canEditColumns}
+                      data-testid="fixed-row-input"
+                    />
+                    {canEditColumns && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-500"
+                        onClick={() => {
+                          const newRows = formData.fixed_rows!.filter((_, i) => i !== idx);
+                          onChange('fixed_rows', newRows.length > 0 ? newRows : null);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {canEditColumns && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-dashed mt-2"
+                  onClick={() => {
+                    const newRow = {
+                      id: `row_${(formData.fixed_rows?.length ?? 0) + 1}`,
+                      label: '',
+                    };
+                    onChange('fixed_rows', [...(formData.fixed_rows ?? []), newRow]);
+                  }}
+                >
+                  <Plus className="h-4 w-4 mr-1" /> Sətir əlavə et
+                </Button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -250,7 +349,7 @@ export function Step2Columns({
         {showPreview && (
           <div className="border rounded-lg p-4 bg-white">
             <h4 className="text-sm font-medium mb-3 text-gray-700">Preview</h4>
-            <ColumnPreview columns={columns} maxRows={formData.max_rows} />
+            <ColumnPreview columns={columns} maxRows={formData.max_rows} fixedRows={formData.fixed_rows} />
           </div>
         )}
       </div>

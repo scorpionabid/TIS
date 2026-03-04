@@ -35,6 +35,7 @@ import { toast } from 'sonner';
 import { reportTableService } from '@/services/reportTables';
 import { institutionService } from '@/services/institutions';
 import type { ReportTable, ReportTableResponse, ReportTableColumn, RowStatusMeta } from '@/types/reportTable';
+import { formatCellValue } from '@/utils/cellValue';
 import { RowComments } from './RowComments';
 import { PartialReturnDialog } from './PartialReturnDialog';
 
@@ -44,45 +45,7 @@ interface ReportTableResponsesViewProps {
   table: ReportTable;
 }
 
-// ─── Response-level Status Badge ──────────────────────────────────────────────
-
-function StatusBadge({ status }: { status: string }) {
-  if (status === 'submitted') {
-    return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">Göndərilib</Badge>;
-  }
-  return <Badge variant="outline" className="text-gray-500">Qaralama</Badge>;
-}
-
-// ─── Row-level Status Badge ────────────────────────────────────────────────────
-
-function RowStatusBadge({ status, rejectionReason }: { status?: string; rejectionReason?: string }) {
-  if (!status || status === 'draft') {
-    return <span className="text-xs text-gray-400">—</span>;
-  }
-  if (status === 'submitted') {
-    return <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-xs gap-1 whitespace-nowrap">
-      <Clock className="h-3 w-3" /> Gözləyir
-    </Badge>;
-  }
-  if (status === 'approved') {
-    return <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-xs gap-1 whitespace-nowrap">
-      <CheckCircle2 className="h-3 w-3" /> Təsdiqləndi
-    </Badge>;
-  }
-  if (status === 'rejected') {
-    return (
-      <div className="flex flex-col gap-0.5">
-        <Badge className="bg-red-100 text-red-700 border-red-200 text-xs gap-1 whitespace-nowrap">
-          <XCircle className="h-3 w-3" /> Rədd edildi
-        </Badge>
-        {rejectionReason && (
-          <p className="text-xs text-red-500 italic leading-tight max-w-[180px]">{rejectionReason}</p>
-        )}
-      </div>
-    );
-  }
-  return null;
-}
+import { ResponseStatusBadge, RowStatusBadge } from './StatusBadge';
 
 // ─── Row Action Buttons ───────────────────────────────────────────────────────
 
@@ -344,7 +307,7 @@ function ResponseRow({
         <TableCell>
           <span className="text-xs text-gray-400">{response.institution?.parent?.name ?? '-'}</span>
         </TableCell>
-        <TableCell><StatusBadge status={response.status} /></TableCell>
+        <TableCell><ResponseStatusBadge status={response.status} /></TableCell>
         <TableCell className="text-gray-500 text-sm">{rows.length} sətir</TableCell>
         <TableCell className="text-gray-400 text-xs">
           {response.submitted_at
@@ -395,7 +358,7 @@ function ResponseRow({
                             {columns.map((col) => (
                               <td key={col.key} className="px-3 py-2 border-r border-gray-200 text-gray-700">
                                 {row[col.key] !== undefined && row[col.key] !== null && row[col.key] !== ''
-                                  ? String(row[col.key])
+                                  ? formatCellValue(row[col.key], col)
                                   : <span className="text-gray-300">—</span>}
                               </td>
                             ))}
@@ -543,7 +506,7 @@ function FlatView({
                 {columns.map((col) => (
                   <td key={col.key} className="px-3 py-1.5 border-r border-gray-200 text-gray-700">
                     {row[col.key] !== undefined && row[col.key] !== null && row[col.key] !== ''
-                      ? String(row[col.key])
+                      ? formatCellValue(row[col.key], col)
                       : <span className="text-gray-300">—</span>}
                   </td>
                 ))}

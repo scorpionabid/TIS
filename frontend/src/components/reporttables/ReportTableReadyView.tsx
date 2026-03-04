@@ -70,12 +70,6 @@ export function ReportTableReadyView({ tables: propTables, tableId, showAsList =
       const result = await reportTableService.getResponses(tableId);
       const responses = result.data || [];
       
-      // DEBUG: Log the actual response structure
-      console.log('All responses:', responses);
-      if (responses.length > 0) {
-        console.log('First response structure:', JSON.stringify(responses[0], null, 2));
-      }
-      
       // Filter responses that have at least one approved row
       const approved = responses.filter((r: ReportTableResponse) => {
         // Check if response has approved status
@@ -104,7 +98,6 @@ export function ReportTableReadyView({ tables: propTables, tableId, showAsList =
         filteredApproved = approved.filter((r: ApprovedResponse) => r.sector_name === userSectorName);
       }
       
-      console.log('Approved responses (filtered by sector):', filteredApproved);
       return filteredApproved;
     },
     enabled: !!tableId,

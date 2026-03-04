@@ -131,6 +131,7 @@ class ReportTableService
                 'creator_id'          => $user->id,
                 'status'              => 'draft',
                 'columns'             => $data['columns'],
+                'fixed_rows'          => $data['fixed_rows'] ?? null,
                 'max_rows'            => $data['max_rows'] ?? 50,
                 'target_institutions' => $data['target_institutions'] ?? [],
                 'deadline'            => $data['deadline'] ?? null,
@@ -154,12 +155,18 @@ class ReportTableService
             'max_rows'            => $data['max_rows'] ?? null,
             'target_institutions' => $data['target_institutions'] ?? null,
             'deadline'            => $data['deadline'] ?? null,
+            'fixed_rows'          => $data['fixed_rows'] ?? null,
         ], fn ($v) => $v !== null);
 
-        // Sütunlar yalnız draft-da dəyişdirilə bilər
+        // Sütunlar və fixed_rows yalnız draft-da dəyişdirilə bilər
         if (isset($data['columns'])) {
             $this->validateColumns($data['columns']);
             $updateData['columns'] = $data['columns'];
+        }
+
+        if (isset($data['fixed_rows'])) {
+            $this->validateFixedRows($data['fixed_rows']);
+            $updateData['fixed_rows'] = $data['fixed_rows'];
         }
 
         return DB::transaction(function () use ($table, $updateData) {
@@ -368,6 +375,46 @@ class ReportTableService
                     $errors["columns.{$index}.key"] = ["{$pos}. sütunun açar adı unikal olmalıdır."];
                 }
                 $keys[] = $column['key'];
+            }
+        }
+
+        if (! empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    /**
+     * Fixed rows strukturunu yoxlayır.
+     * Format: [{id: 'row_1', label: '9-cu sinif'}, ...]
+     * Əgər null/empty göndərilirsə, cədvəl dinamik (köhnə) rejimdə işləyir.
+     */
+    public function validateFixedRows(?array $fixedRows): void
+    {
+        if (empty($fixedRows)) {
+            return; // null/empty = dinamik rejim
+        }
+
+        $errors = [];
+        $ids = [];
+
+        foreach ($fixedRows as $index => $row) {
+            $pos = $index + 1;
+
+            if (empty($row['id'])) {
+                $errors["fixed_rows.{$index}.id"] = ["{$pos}. sətirin ID-si boş ola bilməz."];
+            } elseif (! preg_match('/^[a-z_][a-z0-9_]*$/', $row['id'])) {
+                $errors["fixed_rows.{$index}.id"] = ["{$pos}. sətirin ID-si yalnız kiçik hərf, rəqəm və alt xəttdən ibarət olmalıdır."];
+            }
+
+            if (empty($row['label'])) {
+                $errors["fixed_rows.{$index}.label"] = ["{$pos}. sətirin adı boş ola bilməz."];
+            }
+
+            if (! empty($row['id'])) {
+                if (in_array($row['id'], $ids, true)) {
+                    $errors["fixed_rows.{$index}.id"] = ["{$pos}. sətirin ID-si unikal olmalıdır."];
+                }
+                $ids[] = $row['id'];
             }
         }
 

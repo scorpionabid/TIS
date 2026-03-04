@@ -51,6 +51,13 @@ export interface RowStatusMeta {
 /** Key = row index as string (e.g. "0", "1", "2") */
 export type RowStatuses = Record<string, RowStatusMeta>;
 
+// ─── Fixed Row (for stable tables) ───────────────────────────────────────────
+
+export interface FixedRow {
+  id: string;
+  label: string;
+}
+
 // ─── Report Table ─────────────────────────────────────────────────────────────
 
 export type ReportTableStatus = 'draft' | 'published' | 'archived' | 'deleted';
@@ -61,6 +68,7 @@ export interface ReportTable extends BaseEntity {
   notes?: string;
   status: ReportTableStatus;
   columns: ReportTableColumn[];
+  fixed_rows?: FixedRow[] | null; // Əgər varsa, stabil cədvəl (dinamik deyil)
   max_rows: number;
   target_institutions?: number[];
   deadline?: string;
@@ -120,6 +128,7 @@ export interface CreateReportTablePayload {
   description?: string;
   notes?: string;
   columns: ReportTableColumn[];
+  fixed_rows?: FixedRow[];
   max_rows?: number;
   target_institutions?: number[];
   deadline?: string;
@@ -130,6 +139,7 @@ export interface UpdateReportTablePayload {
   description?: string;
   notes?: string;
   columns?: ReportTableColumn[];
+  fixed_rows?: FixedRow[];
   max_rows?: number;
   target_institutions?: number[];
   deadline?: string;
@@ -193,4 +203,47 @@ export interface BulkRowActionResult {
   successful: number;
   failed: number;
   errors: Array<{ response_id?: number; row_index?: number; error: string }>;
+}
+
+// ─── Analytics Summary Types ───────────────────────────────────────────────────
+
+export interface AnalyticsSectorStat {
+  id: number;
+  name: string;
+  total_schools: number;
+  responded: number;
+  submitted: number;
+  draft: number;
+}
+
+export interface AnalyticsNonFillingSchool {
+  id: number;
+  name: string;
+  sector: string;
+}
+
+export interface TableAnalyticsSummary {
+  table_id: number;
+  table_title: string;
+  generated_at: string;
+  summary: {
+    target_institutions: number;
+    responded_institutions: number;
+    participation_rate: number;
+    responses: {
+      total: number;
+      draft: number;
+      submitted: number;
+      approved: number;
+    };
+    rows: {
+      total: number;
+      submitted: number;
+      approved: number;
+      rejected: number;
+      pending_approval: number;
+    };
+  };
+  sectors: AnalyticsSectorStat[];
+  non_filling_schools: AnalyticsNonFillingSchool[];
 }

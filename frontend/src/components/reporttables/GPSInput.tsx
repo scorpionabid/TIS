@@ -85,7 +85,7 @@ export function GPSInput({
       if (radius > 0) {
         // TODO: Implement radius validation against a reference point
         // For now, just store the coordinates
-        console.log(`Validating against ${radius}m radius`);
+        // Radius validation will be implemented in future update
       }
 
       onChange(JSON.stringify(coords));

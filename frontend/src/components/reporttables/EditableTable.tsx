@@ -17,138 +17,17 @@ import { FileUploadInput } from './FileUploadInput';
 import { SignatureInput } from './SignatureInput';
 import { GPSInput } from './GPSInput';
 
-// ─── Validation ───────────────────────────────────────────────────────────────
+import { RowStatusBadge } from './StatusBadge';
+import { validateRow, hasValidationErrors, colMinWidth, colTypeLabel } from '@/utils/tableValidation';
+import { parseTSV, isTSVData } from '@/utils/tsvParser';
 
-export function validateRow(
-  row: ReportTableRow,
-  columns: ReportTableColumn[]
-): Record<string, string> {
-  const errors: Record<string, string> = {};
-  columns.forEach((col) => {
-    const val = String(row[col.key] ?? '').trim();
-
-    if (col.required && !val) {
-      errors[col.key] = 'Tələb olunur';
-      return;
-    }
-    if (!val) return;
-
-    if (col.type === 'number') {
-      const n = Number(val);
-      if (isNaN(n)) { errors[col.key] = 'Yalnız rəqəm'; return; }
-      if (col.min !== undefined && n < col.min) { errors[col.key] = `Min: ${col.min}`; return; }
-      if (col.max !== undefined && n > col.max) { errors[col.key] = `Maks: ${col.max}`; return; }
-    }
-
-    if (col.type === 'text') {
-      if (col.min_length && val.length < col.min_length) { errors[col.key] = `Min ${col.min_length} simvol`; return; }
-      if (col.max_length && val.length > col.max_length) { errors[col.key] = `Maks ${col.max_length} simvol`; return; }
-    }
-
-    if (col.type === 'select' && col.options && col.options.length > 0) {
-      if (!col.options.includes(val)) { errors[col.key] = 'Yanlış seçim'; return; }
-    }
-
-    if (col.type === 'boolean') {
-      const valid = ['bəli', 'xeyr', 'true', 'false', '1', '0'];
-      if (!valid.includes(val.toLowerCase())) { errors[col.key] = 'Bəli və ya Xeyr seçin'; return; }
-    }
-  });
-  return errors;
-}
-
-export function hasValidationErrors(
-  rowErrors: Record<number, Record<string, string>>
-): boolean {
-  return Object.values(rowErrors).some((errs) => Object.keys(errs).length > 0);
-}
-
-// ─── TSV Parser ───────────────────────────────────────────────────────────────
-// Handles Excel-style quoted fields: "value with, comma", escaped quotes ""→"
-
-function parseTSV(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = '';
-  let inQuotes = false;
-  let i = 0;
-
-  while (i < text.length) {
-    const ch = text[i];
-    if (inQuotes) {
-      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i += 2; continue; }
-      if (ch === '"') { inQuotes = false; i++; continue; }
-      cell += ch; i++;
-    } else {
-      if (ch === '"') { inQuotes = true; i++; continue; }
-      if (ch === '\t') { row.push(cell); cell = ''; i++; continue; }
-      if (ch === '\n' || (ch === '\r' && text[i + 1] === '\n')) {
-        row.push(cell); cell = '';
-        rows.push(row); row = [];
-        if (ch === '\r') i++;
-        i++; continue;
-      }
-      cell += ch; i++;
-    }
-  }
-  if (row.length > 0 || cell) { row.push(cell); rows.push(row); }
-  return rows.filter((r) => r.some((c) => c.trim() !== ''));
-}
-
-// ─── Column Width Helper ──────────────────────────────────────────────────────
-
-function colMinWidth(type: string): string {
-  switch (type) {
-    case 'number':
-    case 'boolean':
-    case 'calculated': return 'min-w-[110px]';
-    case 'date':       return 'min-w-[140px]';
-    case 'select':     return 'min-w-[150px]';
-    case 'file':
-    case 'signature':  return 'min-w-[180px]';
-    case 'gps':        return 'min-w-[170px]';
-    default:           return 'min-w-[180px]';
-  }
-}
+// Threshold for enabling virtualization (rows)
+const VIRTUALIZATION_THRESHOLD = 100;
 
 // ─── Row Status Helpers ───────────────────────────────────────────────────────
 
 function isRowLocked(status: RowStatusMeta | undefined): boolean {
   return status?.status === 'submitted' || status?.status === 'approved';
-}
-
-function RowStatusBadge({ meta }: { meta: RowStatusMeta | undefined }) {
-  if (!meta || meta.status === 'draft') return null;
-
-  if (meta.status === 'submitted') {
-    return (
-      <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 text-xs shrink-0">
-        <Clock className="h-3 w-3" /> Gözləyir
-      </Badge>
-    );
-  }
-  if (meta.status === 'approved') {
-    return (
-      <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1 text-xs shrink-0">
-        <CheckCircle2 className="h-3 w-3" /> Təsdiqləndi
-      </Badge>
-    );
-  }
-  if (meta.status === 'rejected') {
-    return (
-      <div className="space-y-1">
-        <Badge className="bg-red-100 text-red-700 border-red-200 gap-1 text-xs shrink-0" title={meta.rejection_reason ?? 'Səbəb göstərilməyib'}>
-          <XCircle className="h-3 w-3" /> Rədd edildi
-        </Badge>
-        {meta.rejection_reason && (
-          <p className="text-[10px] text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-100 max-w-[200px] truncate">
-            {meta.rejection_reason}
-          </p>
-        )}
-      </div>
-    );
-  }
-  return null;
 }
 
 // ─── CellInput: Polymorphic per-column-type input ────────────────────────────
@@ -267,6 +146,7 @@ interface DesktopRowProps {
   errors: Record<string, string>;
   canRemove: boolean;
   rowStatus: RowStatusMeta | undefined;
+  fixedRowLabel?: string | null;
   onCellChange: (rowIdx: number, colKey: string, value: string) => void;
   onCellBlur: (rowIdx: number) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
@@ -281,7 +161,7 @@ interface DesktopRowProps {
 }
 
 const DesktopRow = React.memo(function DesktopRow({
-  row, rowIdx, columns, disabled, errors, canRemove, rowStatus,
+  row, rowIdx, columns, disabled, errors, canRemove, rowStatus, fixedRowLabel,
   onCellChange, onCellBlur, onKeyDown, onPaste, onRemove, onDuplicate,
   onRowSubmit, isRowSubmitting, cellRefs, getCellDisplayValue, freezeFirstCol,
 }: DesktopRowProps) {
@@ -303,7 +183,13 @@ const DesktopRow = React.memo(function DesktopRow({
 
   return (
     <tr className={`border-b border-gray-200 hover:bg-gray-50 ${statusColor}`}>
-      <td className={`px-2 py-2 text-center text-gray-400 font-medium${freezeFirstCol ? ' sticky left-0 z-20 bg-white' : ''}`}>{rowIdx + 1}</td>
+      <td className={`px-2 py-2 text-center text-gray-500${freezeFirstCol ? ' sticky left-0 z-20 bg-white' : ''}`}>
+        {fixedRowLabel ? (
+          <span className="text-xs font-medium text-gray-700">{fixedRowLabel}</span>
+        ) : (
+          <span className="text-gray-400">{rowIdx + 1}</span>
+        )}
+      </td>
       {columns.map((col, colIdx) => {
         const err = errors[col.key];
         const displayValue = getCellDisplayValue(row, rowIdx, col);
@@ -340,7 +226,7 @@ const DesktopRow = React.memo(function DesktopRow({
       })}
       <td className="px-2 py-2 text-center whitespace-nowrap">
         <div className="flex items-center gap-1 justify-center">
-          <RowStatusBadge meta={rowStatus} />
+          <RowStatusBadge status={rowStatus?.status} rejectionReason={rowStatus?.rejection_reason} size="sm" />
           {canSubmitRow && (
             <Button
               type="button"
@@ -420,6 +306,7 @@ interface MobileRowProps {
   errors: Record<string, string>;
   canRemove: boolean;
   rowStatus: RowStatusMeta | undefined;
+  fixedRowLabel?: string | null;
   onCellChange: (rowIdx: number, colKey: string, value: string) => void;
   onCellBlur: (rowIdx: number) => void;
   onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
@@ -432,7 +319,7 @@ interface MobileRowProps {
 }
 
 const MobileRow = React.memo(function MobileRow({
-  row, rowIdx, columns, disabled, errors, canRemove, rowStatus,
+  row, rowIdx, columns, disabled, errors, canRemove, rowStatus, fixedRowLabel,
   onCellChange, onCellBlur, onKeyDown, onPaste, onRemove,
   onRowSubmit, isRowSubmitting, cellRefs, getCellDisplayValue,
 }: MobileRowProps) {
@@ -448,8 +335,12 @@ const MobileRow = React.memo(function MobileRow({
     <div className="border border-gray-200 rounded-lg p-3 bg-white space-y-2">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-gray-500">Sətir {rowIdx + 1}</span>
-          <RowStatusBadge meta={rowStatus} />
+          {fixedRowLabel ? (
+            <span className="text-xs font-semibold text-gray-700">{fixedRowLabel}</span>
+          ) : (
+            <span className="text-xs font-semibold text-gray-500">Sətir {rowIdx + 1}</span>
+          )}
+          <RowStatusBadge status={rowStatus?.status} rejectionReason={rowStatus?.rejection_reason} size="sm" />
         </div>
         <div className="flex items-center gap-1">
           {canSubmitRow && (
@@ -532,6 +423,8 @@ interface EditableTableProps {
   disabled: boolean;
   /** Prevent structural changes (add/remove rows) while still allowing editable rows */
   lockStructure?: boolean;
+  /** Fixed rows for stable tables - when set, rows are predefined and cannot be added/removed */
+  fixedRows?: { id: string; label: string }[] | null;
   /** Callback replaces DOM querySelector anti-pattern */
   onValidationChange?: (hasErrors: boolean) => void;
   /** Per-row approval status from backend */
@@ -549,12 +442,14 @@ export const EditableTable = React.memo(function EditableTable({
   onChange,
   disabled,
   lockStructure,
+  fixedRows,
   onValidationChange,
   rowStatuses,
   onRowSubmit,
   isRowSubmitting,
 }: EditableTableProps) {
-  const structureLocked = disabled || lockStructure;
+  const isStableTable = !!fixedRows && fixedRows.length > 0;
+  const structureLocked = disabled || lockStructure || isStableTable;
   const [rowErrors, setRowErrors] = useState<Record<number, Record<string, string>>>({});
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -872,18 +767,6 @@ export const EditableTable = React.memo(function EditableTable({
     (acc, errs) => acc + Object.keys(errs).length, 0
   );
 
-  const colTypeLabel = (col: ReportTableColumn) => {
-    if (col.type === 'number') return 'rəqəm';
-    if (col.type === 'date') return 'tarix';
-    if (col.type === 'select') return 'seçim';
-    if (col.type === 'boolean') return 'bəli/xeyr';
-    if (col.type === 'calculated') return 'hesablama';
-    if (col.type === 'file') return 'fayl';
-    if (col.type === 'signature') return 'imza';
-    if (col.type === 'gps') return 'GPS';
-    return null;
-  };
-
   // ─── Calculated Column Support ─────────────────────────────────────────────
   
   /**
@@ -1170,8 +1053,9 @@ export const EditableTable = React.memo(function EditableTable({
                 columns={columns}
                 disabled={disabled}
                 errors={rowErrors[rowIdx] ?? {}}
-                canRemove={displayRows.length > 1}
+                canRemove={!isStableTable && displayRows.length > 1}
                 rowStatus={rowStatuses?.[String(rowIdx)]}
+                fixedRowLabel={fixedRows?.[rowIdx]?.label ?? null}
                 onCellChange={handleCellChange}
                 onCellBlur={handleCellBlur}
                 onKeyDown={handleKeyDown}
@@ -1183,6 +1067,7 @@ export const EditableTable = React.memo(function EditableTable({
                 cellRefs={cellRefs}
                 getCellDisplayValue={getCellDisplayValue}
                 freezeFirstCol={freezeFirstCol}
+                data-testid="table-row"
               />
             ))}
           </tbody>
@@ -1218,8 +1103,9 @@ export const EditableTable = React.memo(function EditableTable({
             columns={columns}
             disabled={disabled}
             errors={rowErrors[rowIdx] ?? {}}
-            canRemove={!structureLocked && displayRows.length > 1}
+            canRemove={!isStableTable && !structureLocked && displayRows.length > 1}
             rowStatus={rowStatuses?.[String(rowIdx)]}
+            fixedRowLabel={fixedRows?.[rowIdx]?.label ?? null}
             onCellChange={handleCellChange}
             onCellBlur={handleCellBlur}
             onKeyDown={handleKeyDown}
@@ -1233,7 +1119,7 @@ export const EditableTable = React.memo(function EditableTable({
         ))}
       </div>
 
-      {(!disabled || !lockStructure) && (
+      {(!disabled && !isStableTable) && (
         <Button
           type="button"
           variant="outline"
@@ -1241,6 +1127,7 @@ export const EditableTable = React.memo(function EditableTable({
           className="border-dashed w-full"
           onClick={handleAddRow}
           disabled={displayRows.length >= maxRows}
+          data-testid="add-row-button"
         >
           <Plus className="h-4 w-4 mr-1" />
           Sətir əlavə et ({displayRows.length}/{maxRows})

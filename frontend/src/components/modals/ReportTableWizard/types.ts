@@ -16,6 +16,7 @@ export interface FormData {
   description: string;
   notes: string;
   columns: ReportTableColumn[];
+  fixed_rows: { id: string; label: string }[] | null;
   max_rows: number;
   target_institutions: number[];
   deadline: string;

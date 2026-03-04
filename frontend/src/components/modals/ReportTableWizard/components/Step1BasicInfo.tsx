@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { FileText, Eye } from 'lucide-react';
 import type { StepProps } from '../types';
 import { MAX_ROWS_OPTIONS } from '../constants';
 
@@ -72,6 +73,37 @@ export function Step1BasicInfo({
           rows={3}
         />
       </div>
+
+      {/* Instruction Preview - matches SchoolAdmin view */}
+      {formData.notes && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <Eye className="h-3.5 w-3.5" />
+            <span>Məktəb admininin görəcəyi formada preview:</span>
+          </div>
+          <div className="relative overflow-hidden rounded-xl border-l-4 border-amber-500 bg-white shadow-md">
+            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-amber-400 to-orange-500" />
+            <div className="flex gap-4 p-4">
+              <div className="flex-shrink-0">
+                <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl p-2.5 shadow-lg">
+                  <FileText className="h-6 w-6 text-white" />
+                </div>
+              </div>
+              <div className="flex-1 min-w-0 pt-0.5">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full text-xs font-bold border border-amber-300">
+                    📋 TƏLİMAT
+                  </span>
+                  <div className="h-px flex-1 bg-gradient-to-r from-amber-200 to-transparent" />
+                </div>
+                <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">
+                  {formData.notes}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">

@@ -20,6 +20,7 @@ import {
 interface ColumnPreviewProps {
   columns: ReportTableColumn[];
   maxRows: number;
+  fixedRows?: { id: string; label: string }[] | null;
 }
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
@@ -34,48 +35,51 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   gps: <MapPin className="h-3.5 w-3.5" />,
 };
 
-export function ColumnPreview({ columns, maxRows }: ColumnPreviewProps) {
+export function ColumnPreview({ columns, maxRows, fixedRows }: ColumnPreviewProps) {
   // Generate sample data for preview
   const sampleData = React.useMemo(() => {
-    const rows = Math.min(3, maxRows);
+    const isStable = !!fixedRows && fixedRows.length > 0;
+    const rows = isStable ? fixedRows.length : Math.min(3, maxRows);
+    const rowLabels = isStable ? fixedRows!.map(r => r.label) : null;
+    
     return Array.from({ length: rows }, (_, rowIdx) => {
       const row: Record<string, string> = {};
       columns.forEach((col) => {
         switch (col.type) {
           case 'text':
-            row[col.key] = `Mətn ${rowIdx + 1}`;
+            row[col.key] = isStable ? '' : `Mətn ${rowIdx + 1}`;
             break;
           case 'number':
-            row[col.key] = String(rowIdx * 10 + 5);
+            row[col.key] = isStable ? '' : String(rowIdx * 10 + 5);
             break;
           case 'date':
-            row[col.key] = '2024-01-15';
+            row[col.key] = isStable ? '' : '2024-01-15';
             break;
           case 'select':
-            row[col.key] = col.options?.[0] || 'Variant 1';
+            row[col.key] = isStable ? '' : (col.options?.[0] || 'Variant 1');
             break;
           case 'boolean':
-            row[col.key] = rowIdx % 2 === 0 ? 'Bəli' : 'Xeyr';
+            row[col.key] = isStable ? '' : (rowIdx % 2 === 0 ? 'Bəli' : 'Xeyr');
             break;
           case 'calculated':
             row[col.key] = '=SUM(A1:A3)';
             break;
           case 'file':
-            row[col.key] = '📎 Fayl';
+            row[col.key] = isStable ? '' : '📎 Fayl';
             break;
           case 'signature':
-            row[col.key] = '✍️ İmza';
+            row[col.key] = isStable ? '' : '✍️ İmza';
             break;
           case 'gps':
-            row[col.key] = '📍 40.40, 49.86';
+            row[col.key] = isStable ? '' : '📍 40.40, 49.86';
             break;
           default:
             row[col.key] = '-';
         }
       });
-      return row;
+      return { data: row, label: rowLabels?.[rowIdx] ?? null };
     });
-  }, [columns, maxRows]);
+  }, [columns, maxRows, fixedRows]);
 
   if (columns.length === 0) {
     return (
@@ -108,17 +112,23 @@ export function ColumnPreview({ columns, maxRows }: ColumnPreviewProps) {
         <tbody>
           {sampleData.map((row, rowIdx) => (
             <tr key={rowIdx} className="border-b border-gray-50">
-              <td className="px-2 py-1.5 text-gray-400">{rowIdx + 1}</td>
+              <td className="px-2 py-1.5 text-gray-500">
+                {row.label ? (
+                  <span className="text-xs font-medium">{row.label}</span>
+                ) : (
+                  <span className="text-gray-400">{rowIdx + 1}</span>
+                )}
+              </td>
               {columns.map((col, colIdx) => (
                 <td key={col.key || colIdx} className="px-2 py-1.5 text-gray-600">
-                  <div className="truncate max-w-[120px]">{row[col.key]}</div>
+                  <div className="truncate max-w-[120px]">{row.data[col.key]}</div>
                 </td>
               ))}
             </tr>
           ))}
         </tbody>
       </table>
-      {maxRows > 3 && (
+      {!fixedRows && maxRows > 3 && (
         <p className="text-xs text-gray-400 mt-2 text-center">
           ... və daha {maxRows - 3} sətir
         </p>

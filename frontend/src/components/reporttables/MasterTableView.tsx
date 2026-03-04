@@ -3,11 +3,16 @@
  * REFACTORED: Broken down into smaller sub-components for better maintainability
  */
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
 import type { ReportTable } from "@/types/reportTable";
 import { reportTableService } from "@/services/reportTables";
+
+// ─── Bulk Operations ────────────────────────────────────────────────────────
+
+import { BulkOperationsToolbar } from "./BulkOperations";
+import { BulkActionConfirmDialog } from "./BulkActionConfirmDialog";
 
 // ─── Sub-components ─────────────────────────────────────────────────────────
 
@@ -60,9 +65,38 @@ interface MasterTableViewProps {
   ) => void;
 }
 
+// ─── Audit Log Types ───────────────────────────────────────────────────────
+
+interface BulkActionAuditEntry {
+  id: string;
+  timestamp: string;
+  user: string;
+  tableId: number;
+  tableTitle: string;
+  action: 'approve' | 'reject' | 'return';
+  count: number;
+  successful: number;
+  failed: number;
+  details?: string;
+}
+
 // ─── Helper Functions ───────────────────────────────────────────────────────
 
-export function formatCellValue(value: unknown, type?: string): string {
+const AUDIT_LOG_KEY = 'report-table-bulk-actions-audit';
+
+function saveAuditLogEntry(entry: BulkActionAuditEntry) {
+  const existing = JSON.parse(localStorage.getItem(AUDIT_LOG_KEY) || '[]');
+  existing.unshift(entry);
+  // Keep only last 50 entries
+  const trimmed = existing.slice(0, 50);
+  localStorage.setItem(AUDIT_LOG_KEY, JSON.stringify(trimmed));
+}
+
+function getAuditLog(): BulkActionAuditEntry[] {
+  return JSON.parse(localStorage.getItem(AUDIT_LOG_KEY) || '[]');
+}
+
+function formatCellValue(value: unknown, type?: string): string {
   if (value === null || value === undefined || value === "") return "-";
   if (typeof value === "number") {
     if (type === "currency") {
@@ -109,6 +143,13 @@ export function MasterTableView({
   );
   const [viewMode, setViewMode] = useState<ViewMode>("merged");
   const [showStats, setShowStats] = useState(true);
+  const [showAuditLog, setShowAuditLog] = useState(false);
+  const [auditLog, setAuditLog] = useState<BulkActionAuditEntry[]>([]);
+  
+  // ─── Bulk Operations State ────────────────────────────────────────────────
+  
+  const [bulkAction, setBulkAction] = useState<'approve' | 'reject' | 'return' | null>(null);
+  const [isProcessingBulk, setIsProcessingBulk] = useState(false);
 
   // ─── Data Fetching ─────────────────────────────────────────────────────────
 
@@ -172,9 +213,26 @@ export function MasterTableView({
     });
   }, []);
 
+  // ─── Select Search Results ─────────────────────────────────────────────
+
+  const selectSearchResults = useCallback(() => {
+    const searchInstitutions = filteredData.map(i => i.institution_id);
+    setSelectedInstitutions(new Set(searchInstitutions));
+  }, [filteredData]);
+
+  // ─── Load Audit Log on Mount ─────────────────────────────────────────────
+
+  useEffect(() => {
+    setAuditLog(getAuditLog());
+  }, []);
+
   // ─── Export Handler ──────────────────────────────────────────────────────
 
-  const handleExport = useCallback(() => {
+  const handleExport = useCallback((exportSelectedOnly: boolean = false) => {
+    const dataToExport = exportSelectedOnly 
+      ? filteredData.filter(i => selectedInstitutions.has(i.institution_id))
+      : filteredData;
+    
     const headers = [
       "Məktəb",
       "Sektor",
@@ -183,7 +241,7 @@ export function MasterTableView({
       "Sətir sayı",
       ...table.columns.map((c) => c.label),
     ];
-    const rows = filteredData.map((inst) => [
+    const rows = dataToExport.map((inst) => [
       inst.institution_name,
       inst.sector_name || "",
       inst.region_name || "",
@@ -205,9 +263,124 @@ export function MasterTableView({
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `${table.title}-master-view.csv`;
+    link.download = `${table.title}-${exportSelectedOnly ? 'secilmis' : 'master-view'}.csv`;
     link.click();
-  }, [filteredData, table]);
+  }, [filteredData, selectedInstitutions, table]);
+
+  // ─── Filter + Bulk Selection Handlers ────────────────────────────────────
+
+  const selectBySector = useCallback((sectorName: string) => {
+    const sectorInstitutions = filteredData
+      .filter(i => i.sector_name === sectorName)
+      .map(i => i.institution_id);
+    
+    setSelectedInstitutions(prev => {
+      const next = new Set(prev);
+      const allSelected = sectorInstitutions.every(id => next.has(id));
+      
+      if (allSelected) {
+        // Deselect all in this sector
+        sectorInstitutions.forEach(id => next.delete(id));
+      } else {
+        // Select all in this sector
+        sectorInstitutions.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  }, [filteredData]);
+
+  const selectByStatus = useCallback((status: string) => {
+    const statusInstitutions = filteredData
+      .filter(i => i.status === status)
+      .map(i => i.institution_id);
+    
+    setSelectedInstitutions(prev => {
+      const next = new Set(prev);
+      const allSelected = statusInstitutions.every(id => next.has(id));
+      
+      if (allSelected) {
+        statusInstitutions.forEach(id => next.delete(id));
+      } else {
+        statusInstitutions.forEach(id => next.add(id));
+      }
+      return next;
+    });
+  }, [filteredData]);
+
+  // ─── Bulk Action Handlers ────────────────────────────────────────────────
+
+  const handleBulkApprove = useCallback(async (ids: (string | number)[]) => {
+    if (!onBulkAction) return;
+    setIsProcessingBulk(true);
+    try {
+      await onBulkAction(ids as number[], 'approve');
+      // Save audit log entry
+      const entry: BulkActionAuditEntry = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        user: 'Current User', // In real app, get from auth context
+        tableId: table.id,
+        tableTitle: table.title,
+        action: 'approve',
+        count: ids.length,
+        successful: ids.length,
+        failed: 0,
+      };
+      saveAuditLogEntry(entry);
+      setAuditLog(getAuditLog());
+      setSelectedInstitutions(new Set());
+    } finally {
+      setIsProcessingBulk(false);
+    }
+  }, [onBulkAction, table]);
+
+  const handleBulkReject = useCallback(async (ids: (string | number)[]) => {
+    if (!onBulkAction) return;
+    setIsProcessingBulk(true);
+    try {
+      await onBulkAction(ids as number[], 'reject');
+      const entry: BulkActionAuditEntry = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        user: 'Current User',
+        tableId: table.id,
+        tableTitle: table.title,
+        action: 'reject',
+        count: ids.length,
+        successful: ids.length,
+        failed: 0,
+      };
+      saveAuditLogEntry(entry);
+      setAuditLog(getAuditLog());
+      setSelectedInstitutions(new Set());
+    } finally {
+      setIsProcessingBulk(false);
+    }
+  }, [onBulkAction, table]);
+
+  const handleBulkReturn = useCallback(async (ids: (string | number)[]) => {
+    if (!onBulkAction) return;
+    setIsProcessingBulk(true);
+    try {
+      await onBulkAction(ids as number[], 'return');
+      const entry: BulkActionAuditEntry = {
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        user: 'Current User',
+        tableId: table.id,
+        tableTitle: table.title,
+        action: 'return',
+        count: ids.length,
+        successful: ids.length,
+        failed: 0,
+      };
+      saveAuditLogEntry(entry);
+      setAuditLog(getAuditLog());
+      setSelectedInstitutions(new Set());
+    } finally {
+      setIsProcessingBulk(false);
+    }
+  }, [onBulkAction, table]);
 
   // ─── Loading State ───────────────────────────────────────────────────────
 
@@ -254,17 +427,35 @@ export function MasterTableView({
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         selectedCount={selectedInstitutions.size}
+        totalCount={filteredData.length}
         onExport={handleExport}
         onBulkAction={
           onBulkAction
             ? (action) => onBulkAction(Array.from(selectedInstitutions), action)
             : undefined
         }
+        onSelectBySector={selectBySector}
+        onSelectByStatus={selectByStatus}
+        onSelectAllFiltered={toggleSelectAll}
+        onSelectSearchResults={selectSearchResults}
       />
 
       {/* Column Statistics */}
       {showStats && Object.keys(columnStats).length > 0 && (
         <MasterTableColumnStats stats={columnStats} />
+      )}
+
+      {/* Bulk Operations Toolbar */}
+      {filteredData.length > 0 && onBulkAction && (
+        <BulkOperationsToolbar
+          rowIds={filteredData.map((i) => i.institution_id)}
+          selectedIds={selectedInstitutions}
+          onSelectionChange={(ids) => setSelectedInstitutions(ids as Set<number>)}
+          onBulkApprove={handleBulkApprove}
+          onBulkReject={handleBulkReject}
+          onBulkReturn={handleBulkReturn}
+          disabled={isLoading}
+        />
       )}
 
       {/* Main Data Table */}
@@ -292,6 +483,82 @@ export function MasterTableView({
           </div>
         )}
       </div>
+
+      {/* Bulk Action Confirm Dialog */}
+      <BulkActionConfirmDialog
+        isOpen={bulkAction !== null}
+        onClose={() => setBulkAction(null)}
+        onConfirm={async () => {
+          const ids = Array.from(selectedInstitutions);
+          switch (bulkAction) {
+            case 'approve':
+              await handleBulkApprove(ids);
+              break;
+            case 'reject':
+              await handleBulkReject(ids);
+              break;
+            case 'return':
+              await handleBulkReturn(ids);
+              break;
+          }
+          setBulkAction(null);
+        }}
+        action={bulkAction || 'approve'}
+        rowCount={selectedInstitutions.size}
+        isLoading={isProcessingBulk}
+      />
+
+      {/* Audit Log Toggle Button */}
+      <div className="flex justify-end">
+        <button
+          onClick={() => setShowAuditLog(!showAuditLog)}
+          className="text-sm text-blue-600 hover:text-blue-800 underline"
+        >
+          {showAuditLog ? 'Tarixçəni gizlət' : 'Toplu əməliyyat tarixçəsini göstər'}
+        </button>
+      </div>
+
+      {/* Audit Log Panel */}
+      {showAuditLog && (
+        <div className="bg-white border rounded-lg p-4 space-y-3">
+          <h3 className="font-semibold text-gray-800">Son toplu əməliyyatlar</h3>
+          {auditLog.length === 0 ? (
+            <p className="text-sm text-gray-500">Hələ heç bir toplu əməliyyat edilməyib.</p>
+          ) : (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {auditLog.slice(0, 10).map((entry) => (
+                <div
+                  key={entry.id}
+                  className="flex items-center justify-between p-2 bg-gray-50 rounded text-sm"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-2 py-0.5 rounded text-xs ${
+                        entry.action === 'approve'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : entry.action === 'reject'
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-amber-100 text-amber-700'
+                      }`}
+                    >
+                      {entry.action === 'approve'
+                        ? 'Təsdiqləndi'
+                        : entry.action === 'reject'
+                        ? 'Rədd edildi'
+                        : 'Qaytarıldı'}
+                    </span>
+                    <span className="text-gray-600">{entry.tableTitle}</span>
+                    <span className="text-gray-500">({entry.count} sətir)</span>
+                  </div>
+                  <span className="text-xs text-gray-400">
+                    {new Date(entry.timestamp).toLocaleString('az-AZ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

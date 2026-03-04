@@ -54,11 +54,15 @@ import { reportTableService } from '@/services/reportTables';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
 import { ReportTableModal } from '@/components/modals/ReportTableModal';
 import { ReportTableApprovalQueue } from '@/components/reporttables/ReportTableApprovalQueue';
+import { ReportTableApprovalGroupedView } from '@/components/reporttables/ReportTableApprovalGroupedView';
+import { ReportTableReadyGroupedView } from '@/components/reporttables/ReportTableReadyGroupedView';
 import { ReportTableReadyView } from '@/components/reporttables/ReportTableReadyView';
 import { MasterTableView } from '@/components/reporttables/MasterTableView';
 import { TableTemplates } from '@/components/reporttables/TableTemplates';
 import { TableAnalytics } from '@/components/reporttables/TableAnalytics';
+import { ReportTableErrorBoundary } from '@/components/reporttables/ErrorBoundary';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
+import { useURLFilters, useURLPagination } from '@/hooks/useURLState';
 import type { ReportTable, ReportTableStatus } from '@/types/reportTable';
 
 // ─── Status Config ────────────────────────────────────────────────────────────
@@ -124,7 +128,7 @@ function TableCard({
   const pct = target > 0 ? Math.round((submitted / target) * 100) : 0;
 
   return (
-    <div className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-shadow ${isDeleted ? 'opacity-70 border-dashed border-red-200' : ''}`}>
+    <div className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-shadow ${isDeleted ? 'opacity-70 border-dashed border-red-200' : ''}`} data-testid="report-table-card">
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -324,8 +328,12 @@ export default function ReportTables() {
   const canViewMaster = hasPermission('report_tables.view_all');
   const [viewMode, setViewMode] = useState<'tables' | 'approval' | 'ready' | 'master' | 'templates'>('tables');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ReportTableStatus | 'all' | 'deleted'>('all');
-  const [page, setPage] = useState(1);
+  const { filters, setFilter, clearFilters } = useURLFilters({
+    status: undefined as ReportTableStatus | 'all' | 'deleted' | undefined,
+  });
+  const statusFilter = filters.status ?? 'all';
+  
+  const { page, setPage } = useURLPagination(1, 20);
   const [showModal, setShowModal] = useState(false);
   const [editingTable, setEditingTable] = useState<ReportTable | null>(null);
   const [viewingTable, setViewingTable] = useState<ReportTable | null>(null);
@@ -584,7 +592,7 @@ export default function ReportTables() {
                   key={btn.value}
                   variant={statusFilter === btn.value ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setStatusFilter(btn.value)}
+                  onClick={() => setFilter('status', btn.value)}
                   className={
                     statusFilter === btn.value
                       ? btn.value === 'deleted'
@@ -665,89 +673,13 @@ export default function ReportTables() {
           )}
         </div>
       ) : viewMode === 'approval' ? (
-        <ReportTableApprovalQueue />
+        <ReportTableErrorBoundary onReset={() => queryClient.invalidateQueries({ queryKey: ['report-tables'] })}>
+          <ReportTableApprovalGroupedView />
+        </ReportTableErrorBoundary>
       ) : viewMode === 'ready' ? (
-        <div className="flex flex-col lg:flex-row gap-6 h-[calc(100vh-200px)]">
-          {/* Left Panel - Table List */}
-          <div className="lg:w-[380px] shrink-0 space-y-3">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <Input
-                placeholder="Cədvəl axtar..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            <div className="bg-white border rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b bg-gray-50">
-                <p className="text-sm font-medium text-gray-700">Hazır cədvəllər</p>
-                <p className="text-xs text-gray-500">Klik edin və sağ paneldə görün</p>
-              </div>
-              <div className="max-h-[calc(100vh-280px)] overflow-y-auto divide-y">
-                {tables
-                  .filter(t => t.status === 'published' && (t.responses_count ?? 0) > 0)
-                  .filter(t => !search.trim() || t.title.toLowerCase().includes(search.toLowerCase()))
-                  .map((table) => {
-                    const isSelected = readySelectedTableId === table.id;
-                    return (
-                      <button
-                        key={table.id}
-                        type="button"
-                        onClick={() => setReadySelectedTableId(table.id)}
-                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${
-                          isSelected ? 'bg-emerald-50 border-l-4 border-emerald-500' : ''
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="min-w-0 flex-1">
-                            <p className={`font-medium text-sm truncate ${isSelected ? 'text-emerald-700' : 'text-gray-800'}`}>
-                              {table.title}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1.5 text-xs text-gray-500">
-                              <span className="inline-flex items-center gap-1">
-                                <CheckCircle2 className="h-3 w-3 text-emerald-500" />
-                                {table.responses_count} cavab
-                              </span>
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                {tables.filter(t => t.status === 'published' && (t.responses_count ?? 0) > 0).length === 0 && (
-                  <div className="px-4 py-10 text-center text-sm text-gray-500">
-                    Hazır cədvəl tapılmadı.
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Right Panel - Selected Table Data */}
-          <div className="flex-1 min-h-0 overflow-hidden">
-            {readySelectedTableId ? (
-              <div className="h-full overflow-y-auto pr-2">
-                <ReportTableReadyView 
-                  tableId={readySelectedTableId} 
-                  showAsList 
-                />
-              </div>
-            ) : (
-              <div className="h-full flex items-center justify-center border rounded-xl bg-gray-50 text-gray-500">
-                <div className="text-center p-8">
-                  <Table2 className="h-12 w-12 mx-auto mb-3 text-gray-300" />
-                  <p className="font-medium">Cədvəl seçin</p>
-                  <p className="text-sm mt-1">Sol siyahıdan istənilən cədvəli seçərək məlumatları görün.</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+        <ReportTableErrorBoundary onReset={() => queryClient.invalidateQueries({ queryKey: ['report-tables'] })}>
+          <ReportTableReadyGroupedView />
+        </ReportTableErrorBoundary>
       ) : viewMode === 'master' ? (
         <div className="text-center py-16 text-gray-400">
           <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
@@ -813,7 +745,7 @@ export default function ReportTables() {
                   key={btn.value}
                   variant={statusFilter === btn.value ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setStatusFilter(btn.value)}
+                  onClick={() => setFilter('status', btn.value)}
                   className={
                     statusFilter === btn.value
                       ? btn.value === 'deleted'
@@ -998,11 +930,15 @@ export default function ReportTables() {
                 </TabsList>
                 
                 <TabsContent value="tesdiq" className="mt-4">
-                  <ReportTableApprovalQueue tableId={viewingTable.id} />
+                  <ReportTableErrorBoundary onReset={() => queryClient.invalidateQueries({ queryKey: ['report-table-approval', viewingTable.id] })}>
+                    <ReportTableApprovalQueue tableId={viewingTable.id} />
+                  </ReportTableErrorBoundary>
                 </TabsContent>
                 
                 <TabsContent value="hazir" className="mt-4">
-                  <ReportTableReadyView tableId={viewingTable.id} showAsList />
+                  <ReportTableErrorBoundary onReset={() => queryClient.invalidateQueries({ queryKey: ['report-table-ready', viewingTable.id] })}>
+                    <ReportTableReadyView tableId={viewingTable.id} showAsList />
+                  </ReportTableErrorBoundary>
                 </TabsContent>
               </Tabs>
             </div>

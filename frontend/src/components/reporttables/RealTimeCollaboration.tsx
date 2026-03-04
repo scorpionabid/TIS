@@ -52,7 +52,6 @@ class CollaborationWebSocket {
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
-      console.log('WebSocket connected');
       this.reconnectAttempts = 0;
       this.emit('connection', { status: 'connected' });
     };
@@ -68,7 +67,6 @@ class CollaborationWebSocket {
     };
 
     this.ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
       this.emit('error', { error });
     };
   }
@@ -80,14 +78,12 @@ class CollaborationWebSocket {
 
   private attemptReconnect(tableId: number, token: string): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.error('Max reconnect attempts reached');
       this.emit('connection', { status: 'failed' });
       return;
     }
 
     this.reconnectAttempts++;
     setTimeout(() => {
-      console.log(`Reconnecting... attempt ${this.reconnectAttempts}`);
       this.connect(tableId, token);
     }, this.reconnectDelay * this.reconnectAttempts);
   }

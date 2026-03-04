@@ -434,6 +434,192 @@ class ReportTableController extends BaseController
         }
     }
 
+    /**
+     * GET /api/report-tables/{table}/analytics
+     * Cədvəl üçün hesablanmış analytics metrikləri (sürətli summary endpoint)
+     */
+    public function analyticsSummary(ReportTable $table): mixed
+    {
+        try {
+            $user = Auth::user();
+            
+            // İcazə yoxlaması:
+            // - Admin: report_tables.read -> full analytics
+            // - School: report_table_responses.write -> only own institution analytics
+            $canReadAll = $user->hasPermission('report_tables.read');
+            $canSchoolWrite = $user->hasPermission('report_table_responses.write');
+            if (! $canReadAll && ! $canSchoolWrite) {
+                return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
+            }
+
+            $institutionId = $user->institution_id;
+            if (! $canReadAll) {
+                if (! $institutionId) {
+                    return $this->errorResponse('Müəssisə tapılmadı.', 403);
+                }
+            }
+
+            // Hədəf müəssisələri
+            $targetInstitutionIds = $table->target_institutions ?? [];
+            $targetCount = count($targetInstitutionIds);
+            
+            // Cavabları yüklə (yalnız lazım olan sütunlar)
+            $responsesQuery = $table->responses()
+                ->with(['institution:id,name,parent_id', 'institution.parent:id,name'])
+                ->select(['id', 'report_table_id', 'institution_id', 'status', 'rows', 'row_statuses', 'submitted_at'])
+                ;
+
+            if (! $canReadAll) {
+                // School user: only own institution response
+                $responsesQuery->where('institution_id', $institutionId);
+            }
+
+            $responses = $responsesQuery->get();
+
+            // Statistikalar hesabla
+            $institutionIdsWithResponses = $responses->pluck('institution_id')->unique()->toArray();
+            $institutionCount = count($institutionIdsWithResponses);
+            
+            // Status breakdown
+            $submittedCount = $responses->where('status', 'submitted')->count();
+            $draftCount = $responses->where('status', 'draft')->count();
+            $approvedCount = $responses->where('status', 'approved')->count();
+            
+            // Sətir səviyyəsində statistikalar
+            $totalRows = 0;
+            $submittedRows = 0;
+            $approvedRows = 0;
+            $rejectedRows = 0;
+            
+            foreach ($responses as $response) {
+                $rows = $response->rows ?? [];
+                $rowStatuses = $response->row_statuses ?? [];
+                $totalRows += count($rows);
+                
+                foreach ($rowStatuses as $status) {
+                    $statusValue = is_array($status) ? ($status['status'] ?? null) : null;
+                    if ($statusValue === 'submitted') $submittedRows++;
+                    elseif ($statusValue === 'approved') $approvedRows++;
+                    elseif ($statusValue === 'rejected') $rejectedRows++;
+                }
+            }
+            
+            // İştirak faizi
+            if (! $canReadAll) {
+                $targetCount = 1;
+                $participationRate = $institutionCount > 0 ? 100.0 : 0.0;
+            } else {
+                $participationRate = $targetCount > 0 
+                    ? round(($institutionCount / $targetCount) * 100, 1) 
+                    : 0;
+            }
+            
+            // Sektorlar üzrə qruplaşdırma
+            $sectorStats = [];
+            foreach ($responses as $response) {
+                $institution = $response->institution;
+                if (! $institution) continue;
+                
+                $sectorId = $institution->parent_id ?? 0;
+                $sectorName = $institution->parent?->name ?? 'Sektorsuz';
+                
+                if (! isset($sectorStats[$sectorId])) {
+                    $sectorStats[$sectorId] = [
+                        'id' => $sectorId,
+                        'name' => $sectorName,
+                        'total_schools' => 0,
+                        'responded' => 0,
+                        'submitted' => 0,
+                        'draft' => 0,
+                    ];
+                }
+                
+                $sectorStats[$sectorId]['responded']++;
+                if ($response->status === 'submitted') {
+                    $sectorStats[$sectorId]['submitted']++;
+                } elseif ($response->status === 'draft') {
+                    $sectorStats[$sectorId]['draft']++;
+                }
+            }
+            
+            // Hədəf sektorlardakı bütün məktəbləri say (əgər target_institutions varsa)
+            if ($canReadAll && ! empty($targetInstitutionIds)) {
+                $targetInstitutions = \App\Models\Institution::whereIn('id', $targetInstitutionIds)
+                    ->with('parent:id,name')
+                    ->select(['id', 'parent_id'])
+                    ->get();
+                    
+                foreach ($targetInstitutions as $inst) {
+                    $sectorId = $inst->parent_id ?? 0;
+                    if (isset($sectorStats[$sectorId])) {
+                        $sectorStats[$sectorId]['total_schools']++;
+                    } else {
+                        // Hədəf müəssisə cavab verməyibsə, statistikaya əks etdirmək lazımdır
+                        $sectorName = $inst->parent?->name ?? 'Sektorsuz';
+                        $sectorStats[$sectorId] = [
+                            'id' => $sectorId,
+                            'name' => $sectorName,
+                            'total_schools' => 1,
+                            'responded' => 0,
+                            'submitted' => 0,
+                            'draft' => 0,
+                        ];
+                    }
+                }
+            }
+            
+            // Doldurmayan məktəblər
+            $nonFillingSchools = [];
+            if ($canReadAll && ! empty($targetInstitutionIds)) {
+                $respondingIds = $responses->pluck('institution_id')->toArray();
+                $nonFillingIds = array_diff($targetInstitutionIds, $respondingIds);
+                
+                if (! empty($nonFillingIds)) {
+                    $nonFillingSchools = \App\Models\Institution::whereIn('id', $nonFillingIds)
+                        ->with('parent:id,name')
+                        ->select(['id', 'name', 'parent_id'])
+                        ->get()
+                        ->map(fn ($inst) => [
+                            'id' => $inst->id,
+                            'name' => $inst->name,
+                            'sector' => $inst->parent?->name ?? 'Sektorsuz',
+                        ])
+                        ->toArray();
+                }
+            }
+
+            return $this->successResponse([
+                'table_id' => $table->id,
+                'table_title' => $table->title,
+                'generated_at' => now()->toISOString(),
+                'summary' => [
+                    'target_institutions' => $targetCount,
+                    'responded_institutions' => $institutionCount,
+                    'participation_rate' => $participationRate,
+                    'responses' => [
+                        'total' => $responses->count(),
+                        'draft' => $draftCount,
+                        'submitted' => $submittedCount,
+                        'approved' => $approvedCount,
+                    ],
+                    'rows' => [
+                        'total' => $totalRows,
+                        'submitted' => $submittedRows,
+                        'approved' => $approvedRows,
+                        'rejected' => $rejectedRows,
+                        'pending_approval' => $submittedRows - $approvedRows - $rejectedRows,
+                    ],
+                ],
+                'sectors' => array_values($sectorStats),
+                'non_filling_schools' => $nonFillingSchools,
+            ], 'Analytics summary');
+            
+        } catch (\Exception $e) {
+            \Log::error('Analytics summary error: ' . $e->getMessage());
+            return $this->errorResponse('Analytics məlumatları əldə edilə bilmədi: ' . $e->getMessage(), 500);
+        }
+    }
+
     // ─── Template Methods ───────────────────────────────────────────────────
 
     /**

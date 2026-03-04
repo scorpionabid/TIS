@@ -22,6 +22,7 @@ class ReportTable extends Model
         'cloned_from_id',
         'template_category',
         'columns',
+        'fixed_rows',
         'max_rows',
         'target_institutions',
         'deadline',
@@ -33,6 +34,7 @@ class ReportTable extends Model
     {
         return [
             'columns'             => 'array',
+            'fixed_rows'          => 'array',
             'target_institutions' => 'array',
             'deadline'            => 'datetime',
             'published_at'        => 'datetime',
@@ -122,6 +124,7 @@ class ReportTable extends Model
         $clone->is_template = false;
         $clone->cloned_from_id = $this->id;
         $clone->columns = $this->columns;
+        $clone->fixed_rows = $this->fixed_rows; // Stabil cədvəl strukturu kopyalanır
         $clone->max_rows = $this->max_rows;
         $clone->target_institutions = [];
         $clone->deadline = null;

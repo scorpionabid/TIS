@@ -23,6 +23,7 @@ export const DEFAULT_FORM_DATA = {
   description: '',
   notes: '',
   columns: [],
+  fixed_rows: null as { id: string; label: string }[] | null,
   max_rows: 50,
   target_institutions: [],
   deadline: '',

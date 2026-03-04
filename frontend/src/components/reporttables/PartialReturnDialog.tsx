@@ -27,6 +27,8 @@ import {
 } from '@/components/ui/table';
 import { RotateCcw, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatCellValue } from '@/utils/cellValue';
+import { colTypeLabel } from '@/utils/tableValidation';
 import type { ReportTableColumn, ReportTableRow, RowStatusMeta } from '@/types/reportTable';
 import { reportTableService } from '@/services/reportTables';
 
@@ -217,12 +219,12 @@ export function PartialReturnDialog({
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline" className="text-[10px]">
-                            {getColumnTypeLabel(col.type)}
+                            {colTypeLabel(col)}
                           </Badge>
                         </TableCell>
                         <TableCell className="font-mono text-sm text-gray-600">
                           {row[col.key] !== undefined && row[col.key] !== ''
-                            ? String(row[col.key])
+                            ? formatCellValue(row[col.key], col)
                             : <span className="text-gray-300 italic">boş</span>
                           }
                         </TableCell>
@@ -297,15 +299,8 @@ export function PartialReturnDialog({
 }
 
 function getColumnTypeLabel(type: string): string {
-  switch (type) {
-    case 'text': return 'Mətn';
-    case 'number': return 'Rəqəm';
-    case 'date': return 'Tarix';
-    case 'select': return 'Seçim';
-    case 'boolean': return 'Bəli/Xeyr';
-    case 'calculated': return 'Hesablama';
-    default: return type;
-  }
+  // Kept for backward compatibility, use colTypeLabel from tableValidation instead
+  return colTypeLabel({ type, key: '', label: '', required: false });
 }
 
 export default PartialReturnDialog;

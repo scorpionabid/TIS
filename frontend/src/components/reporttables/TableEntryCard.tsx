@@ -20,8 +20,15 @@ interface TableEntryCardProps {
 }
 
 export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
-  // DEBUG: API-dən notes gəlirmi?
-  console.log('[TableEntryCard] table.id:', table.id, 'table.notes:', table.notes);
+  // Fetch table details to get notes field (not included in list view)
+  const { data: tableDetails } = useQuery({
+    queryKey: ['report-table-detail', table.id],
+    queryFn: () => reportTableService.getTable(table.id),
+    enabled: !!table.id,
+  });
+  
+  // Merge table data with details (notes comes from details)
+  const tableWithNotes = tableDetails || table;
   
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<ReportTableRow[]>([]);
@@ -34,6 +41,8 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   const [submittingRowIdx, setSubmittingRowIdx] = useState<number | null>(null);
 
   const initialRowsRef = useRef<string>('');
+  const isSubmittingRef = useRef<boolean>(false);
+  const lastSubmissionTimeRef = useRef<number>(0);
 
   // ─── Load existing response ────────────────────────────────────────────────
 
@@ -49,8 +58,16 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
       setResponseStatus(existingResponse.status);
       initialRowsRef.current = JSON.stringify(existingResponse.rows ?? []);
       onStatusChange?.(table.id, existingResponse.status);
+    } else if (table.fixed_rows && table.fixed_rows.length > 0) {
+      // Initialize stable table with empty rows matching fixed_rows count
+      const emptyRows = table.fixed_rows.map(() => {
+        const row: Record<string, string> = {};
+        table.columns?.forEach((col) => { row[col.key] = ''; });
+        return row;
+      });
+      setRows(emptyRows);
     }
-  }, [existingResponse]);
+  }, [existingResponse, table]);
 
   const rowStatuses = useMemo(() => existingResponse?.row_statuses ?? {}, [existingResponse]);
 
@@ -163,6 +180,7 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   });
 
   // ─── Debounce auto-save (3s after last change) ────────────────────────────
+  // FIX: Prevent auto-save during row submission to avoid race conditions
 
   useEffect(() => {
     const fullyLocked = responseStatus === 'submitted' && !hasEditableRows;
@@ -170,11 +188,21 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
       Object.values(r).some(v => v !== null && v !== '' && v !== undefined)
     );
     if (fullyLocked || !hasUnsaved || !hasNonEmptyRows) return;
+    
+    // Skip auto-save if submission is in progress or recently completed
+    if (isSubmittingRef.current) return;
+    const timeSinceLastSubmission = Date.now() - lastSubmissionTimeRef.current;
+    if (timeSinceLastSubmission < 5000) return; // 5 second cooldown after submission
+    
     const timer = setTimeout(() => {
-      saveMutation.mutate(rows);
+      // Double-check we're not submitting before saving
+      if (!isSubmittingRef.current && !submitRowMutation.isPending) {
+        saveMutation.mutate(rows);
+      }
     }, 3_000);
     return () => clearTimeout(timer);
-  }, [rows, responseStatus, hasEditableRows, hasUnsaved, saveMutation]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, responseStatus, hasEditableRows, hasUnsaved]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -191,7 +219,13 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   }, [tableHasErrors]);
 
   const handleRowSubmit = useCallback((rowIndex: number) => {
-    submitRowMutation.mutate(rowIndex);
+    isSubmittingRef.current = true;
+    lastSubmissionTimeRef.current = Date.now();
+    submitRowMutation.mutate(rowIndex, {
+      onSettled: () => {
+        isSubmittingRef.current = false;
+      }
+    });
   }, [submitRowMutation]);
 
   const isRowSubmitting = useCallback((rowIndex: number) => {
@@ -313,15 +347,15 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
       </div>
 
       {/* Info boxes */}
-      {(table.description || table.notes) && (
+      {(tableWithNotes.description || tableWithNotes.notes) && (
         <div className="px-5 pt-4 space-y-2">
-          {table.description && (
+          {tableWithNotes.description && (
             <div className="flex gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
               <Info className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>{table.description}</p>
+              <p>{tableWithNotes.description}</p>
             </div>
           )}
-          {table.notes && (
+          {tableWithNotes.notes && (
             <div className="relative overflow-hidden rounded-xl border-l-4 border-amber-500 bg-white shadow-md">
               <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-amber-400 to-orange-500"></div>
               <div className="flex gap-4 p-5">
@@ -337,7 +371,7 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
                     </span>
                     <div className="h-px flex-1 bg-gradient-to-r from-amber-200 to-transparent"></div>
                   </div>
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">{table.notes}</p>
+                  <p className="text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">{tableWithNotes.notes}</p>
                 </div>
               </div>
             </div>
@@ -365,6 +399,7 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
             columns={table.columns ?? []}
             rows={rows}
             maxRows={table.max_rows ?? 50}
+            fixedRows={table.fixed_rows ?? null}
             onChange={handleRowsChange}
             disabled={fullyLocked}
             lockStructure={false}

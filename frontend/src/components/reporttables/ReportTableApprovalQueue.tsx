@@ -45,17 +45,7 @@ function parseKey(key: string): { responseId: number; rowIndex: number } {
   return { responseId: Number(r), rowIndex: Number(i) };
 }
 
-// ─── Row Cell Renderer ────────────────────────────────────────────────────────
-
-function cellValue(
-  row: Record<string, string | number | null>,
-  col: ReportTableColumn
-): string {
-  const v = row[col.key];
-  if (v === null || v === undefined || v === '') return '—';
-  if (col.type === 'boolean') return v ? 'Bəli' : 'Xeyr';
-  return String(v);
-}
+import { formatCellValue } from '@/utils/cellValue';
 
 // ─── Bulk Action Dialog ───────────────────────────────────────────────────────
 
@@ -240,7 +230,7 @@ function SchoolBlock({
   onToggleAll,
   onDone,
 }: SchoolBlockProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   const allKeys = response.pending_row_indices.map(i => makeKey(response.id, i));
   const allSelected = allKeys.length > 0 && allKeys.every(k => selected.has(k));
@@ -305,7 +295,7 @@ function SchoolBlock({
                     <td className="px-2 py-1.5 text-muted-foreground">{rowIndex + 1}</td>
                     {columns.map(col => (
                       <td key={col.key} className="px-2 py-1.5 whitespace-nowrap">
-                        {cellValue(row as Record<string, string | number | null>, col)}
+                        {formatCellValue(row[col.key], col)}
                       </td>
                     ))}
                     <td className="px-2 py-1.5">
@@ -340,7 +330,7 @@ interface TableBlockProps {
 }
 
 function TableBlock({ item, selected, onToggleRow, onToggleAll, onToggleTable, onDone }: TableBlockProps) {
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
 
   const allTableKeys = item.responses.flatMap(r =>
     r.pending_row_indices.map(i => makeKey(r.id, i))
@@ -353,7 +343,7 @@ function TableBlock({ item, selected, onToggleRow, onToggleAll, onToggleTable, o
     : null;
 
   return (
-    <div className="border rounded-lg overflow-hidden shadow-sm">
+    <div className="border rounded-lg overflow-hidden shadow-sm" data-testid="approval-queue-table">
       {/* Table Header */}
       <div
         className="flex items-center gap-2 px-4 py-3 bg-muted/20 cursor-pointer hover:bg-muted/30 select-none"
@@ -590,6 +580,7 @@ export function ReportTableApprovalQueue({ tableId }: ReportTableApprovalQueuePr
               size="sm"
               className="bg-green-600 hover:bg-green-700 text-white text-xs gap-1"
               onClick={() => setBulkAction('approve')}
+              data-testid="bulk-approve-button"
             >
               <CheckCircle className="h-3.5 w-3.5" />
               Seçilənləri Təsdiqlə
@@ -599,6 +590,7 @@ export function ReportTableApprovalQueue({ tableId }: ReportTableApprovalQueuePr
               variant="destructive"
               className="text-xs gap-1"
               onClick={() => setBulkAction('reject')}
+              data-testid="bulk-reject-button"
             >
               <XCircle className="h-3.5 w-3.5" />
               Seçilənləri Rədd et
