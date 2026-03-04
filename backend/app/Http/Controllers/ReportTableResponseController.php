@@ -246,6 +246,30 @@ class ReportTableResponseController extends BaseController
     }
 
     /**
+     * GET /api/report-tables/approval-queue/grouped
+     * Reviewer-in hüquqlu olduğu bütün gözləyən (submitted) sətirləri
+     * Cədvəl -> Sektor -> Məktəb qruplamasında qaytarır.
+     */
+    public function approvalQueueGrouped(Request $request): JsonResponse
+    {
+        $data = $this->service->getApprovalQueueGrouped($request->user());
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * GET /api/report-tables/ready/grouped
+     * Reviewer-in hüquqlu olduğu bütün təsdiqlənmiş (approved) sətirləri
+     * Cədvəl -> Sektor -> Məktəb qruplamasında qaytarır.
+     */
+    public function readyGrouped(Request $request): JsonResponse
+    {
+        $data = $this->service->getReadyGrouped($request->user());
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
      * POST /api/report-tables/{table}/responses/bulk-row-action
      * Bir cədvəl üçün seçilmiş sətirləri toplu şəkildə emal edir.
      */
@@ -265,7 +289,9 @@ class ReportTableResponseController extends BaseController
             $request->row_specs,
             $request->action,
             $request->reason,
-            $request->user()
+            $request->user(),
+            $request->ip(),
+            $request->userAgent()
         );
 
         return response()->json([
@@ -274,6 +300,74 @@ class ReportTableResponseController extends BaseController
             'failed'     => $result['failed'],
             'errors'     => $result['errors'],
         ]);
+    }
+
+    /**
+     * GET /api/report-tables/bulk-action-logs
+     * Toplu əməliyyat tarixçəsini qaytarır.
+     */
+    public function bulkActionLogs(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        // Yalnız admin və superadmin görməlidir
+        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin'])) {
+            return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
+        }
+
+        $logs = \App\Models\ReportTableBulkActionLog::with(['user', 'reportTable'])
+            ->orderBy('created_at', 'desc')
+            ->limit(100)
+            ->get()
+            ->map(fn ($log) => [
+                'id' => $log->id,
+                'user' => $log->user?->name ?? 'Unknown',
+                'table_title' => $log->reportTable?->title ?? 'Unknown',
+                'action' => $log->action,
+                'action_label' => $log->action_label,
+                'row_count' => $log->row_count,
+                'successful_count' => $log->successful_count,
+                'failed_count' => $log->failed_count,
+                'created_at' => $log->created_at->toISOString(),
+            ]);
+
+        return response()->json(['data' => $logs]);
+    }
+
+    /**
+     * GET /api/report-tables/{table}/fill-statistics
+     * Bir cədvəl üçün bütün məktəblərin doldurma statistikası.
+     */
+    public function tableFillStatistics(ReportTable $table, Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        // Yalnız admin və superadmin görməlidir
+        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin'])) {
+            return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
+        }
+
+        $data = $this->service->getTableFillStatistics($table, $user);
+
+        return response()->json(['data' => $data]);
+    }
+
+    /**
+     * GET /api/report-tables/school-fill-statistics
+     * Bütün məktəblərin cədvəl doldurma statistikası.
+     */
+    public function schoolFillStatistics(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        
+        // Yalnız admin və superadmin görməlidir
+        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin'])) {
+            return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
+        }
+
+        $data = $this->service->getSchoolFillStatistics($user);
+
+        return response()->json(['data' => $data]);
     }
 
     // ─── Show (admin) ────────────────────────────────────────────────────────

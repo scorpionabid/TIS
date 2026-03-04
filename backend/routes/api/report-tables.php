@@ -20,9 +20,31 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('report-tables/my', [ReportTableController::class, 'my'])
         ->middleware('permission:report_table_responses.write');
 
+    // Analytics summary endpoint
+    // Admin: full analytics (report_tables.read)
+    // School: only own institution analytics (report_table_responses.write)
+    Route::get('report-tables/{table}/analytics', [ReportTableController::class, 'analyticsSummary'])
+        ->middleware('permission:report_tables.read|report_table_responses.write');
+
     // Approval Queue — reviewer-in hüquqlu olduğu bütün gözləyən sətirləri
     Route::get('report-tables/approval-queue', [ReportTableResponseController::class, 'approvalQueue'])
         ->middleware('permission:report_table_responses.review');
+
+     // Grouped Approval Queue — Cədvəl -> Sektor -> Məktəb qruplaması
+     Route::get('report-tables/approval-queue/grouped', [ReportTableResponseController::class, 'approvalQueueGrouped'])
+         ->middleware('permission:report_table_responses.review');
+
+     // Grouped Ready (Approved) — Cədvəl -> Sektor -> Məktəb qruplaması
+     Route::get('report-tables/ready/grouped', [ReportTableResponseController::class, 'readyGrouped'])
+         ->middleware('permission:report_table_responses.review');
+
+     // School Fill Statistics — Bütün məktəblərin cədvəl doldurma statistikası
+     Route::get('report-tables/school-fill-statistics', [ReportTableResponseController::class, 'schoolFillStatistics'])
+         ->middleware('permission:report_tables.read');
+
+     // Table Fill Statistics — Bir cədvəl üçün bütün məktəblərin doldurma statistikası
+     Route::get('report-tables/{table}/fill-statistics', [ReportTableResponseController::class, 'tableFillStatistics'])
+         ->middleware('permission:report_tables.read');
 });
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Read) ───────────────────────────
@@ -31,6 +53,8 @@ Route::middleware('permission:report_tables.read')->group(function () {
     Route::get('report-tables', [ReportTableController::class, 'index']);
     Route::get('report-tables/{table}', [ReportTableController::class, 'show']);
     Route::get('report-tables/{table}/responses', [ReportTableController::class, 'responses']);
+    // Analytics üçün bütün cavablar (paginasyon olmadan)
+    Route::get('report-tables/{table}/responses/all', [ReportTableController::class, 'getAllResponses']);
     Route::get('report-tables/{table}/export', [ReportTableController::class, 'export']);
     // Yalnız təsdiqlənmiş sətirləri export etmək (Hazır tabı üçün)
     Route::get('report-tables/{table}/export/approved', [ReportTableController::class, 'exportApproved']);
@@ -90,6 +114,8 @@ Route::middleware('permission:report_table_responses.review')->group(function ()
     Route::delete('report-tables/{table}/responses/{response}/rows/delete', [ReportTableResponseController::class, 'deleteRow']);
     // Toplu sətir əməliyyatı (approval queue-dən)
     Route::post('report-tables/{table}/responses/bulk-row-action',         [ReportTableResponseController::class, 'bulkRowAction']);
+    // Toplu əməliyyat tarixçəsi
+    Route::get('report-tables/bulk-action-logs', [ReportTableResponseController::class, 'bulkActionLogs']);
 });
 
 // ─── Admin: Tək cavab baxışı ──────────────────────────────────────────────────

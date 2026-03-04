@@ -12,7 +12,44 @@ import {
   ApprovalQueueTable,
   BulkRowSpec,
   BulkRowActionResult,
+  TableAnalyticsSummary,
 } from '../types/reportTable';
+
+type GroupedSectorNode = {
+  sector: { id: number; name: string } | null;
+  pending_count?: number;
+  approved_count?: number;
+  schools: Array<{
+    school: { id: number; name: string };
+    pending_count?: number;
+    approved_count?: number;
+    responses: Array<{
+      id: number;
+      institution_id: number;
+      institution: {
+        id: number;
+        name: string;
+        parent: { id: number; name: string } | null;
+      };
+      rows: unknown[];
+      row_statuses: unknown;
+      pending_row_indices?: number[];
+      approved_row_indices?: number[];
+    }>;
+  }>;
+};
+
+export type ApprovalQueueGroupedTable = {
+  table: Pick<ReportTable, 'id' | 'title' | 'deadline' | 'columns'>;
+  pending_count: number;
+  sectors: GroupedSectorNode[];
+};
+
+export type ReadyGroupedTable = {
+  table: Pick<ReportTable, 'id' | 'title' | 'deadline' | 'columns'>;
+  approved_count: number;
+  sectors: GroupedSectorNode[];
+};
 
 // ─── Local response shape types ───────────────────────────────────────────────
 
@@ -162,7 +199,7 @@ class ReportTableService extends BaseService<ReportTable> {
       window.URL.revokeObjectURL(url);
       
     } catch (error: any) {
-      console.error('Export error:', error);
+      // Error will be thrown with message for handling by caller
       throw new Error(error.message || 'Export zamanı xəta baş verdi');
     }
   }
@@ -248,6 +285,18 @@ class ReportTableService extends BaseService<ReportTable> {
     return result.data ?? [];
   }
 
+  async getApprovalQueueGrouped(): Promise<ApprovalQueueGroupedTable[]> {
+    const response = await this.get<{ data: ApprovalQueueGroupedTable[] }>('report-tables/approval-queue/grouped');
+    const result = response as unknown as { data: ApprovalQueueGroupedTable[] };
+    return result.data ?? [];
+  }
+
+  async getReadyGrouped(): Promise<ReadyGroupedTable[]> {
+    const response = await this.get<{ data: ReadyGroupedTable[] }>('report-tables/ready/grouped');
+    const result = response as unknown as { data: ReadyGroupedTable[] };
+    return result.data ?? [];
+  }
+
   async bulkRowAction(
     tableId: number,
     rowSpecs: BulkRowSpec[],
@@ -269,6 +318,14 @@ class ReportTableService extends BaseService<ReportTable> {
     const response = await this.get<{ data: ReportTableResponse[] }>(`report-tables/${tableId}/responses/all`);
     const result = response as unknown as { data: ReportTableResponse[] };
     return result.data ?? [];
+  }
+
+  // ─── Analytics Summary (efficient computed metrics) ────────────────────────
+
+  async getAnalyticsSummary(tableId: number): Promise<TableAnalyticsSummary> {
+    const response = await this.get<{ data: TableAnalyticsSummary }>(`report-tables/${tableId}/analytics`);
+    const result = response as unknown as { data: TableAnalyticsSummary };
+    return result.data;
   }
 
   // ─── SuperAdmin: Soft delete bərpa / birdəfəlik sil ──────────────────────
@@ -319,7 +376,6 @@ class ReportTableService extends BaseService<ReportTable> {
       window.URL.revokeObjectURL(url);
       
     } catch (error: any) {
-      console.error('Export my response error:', error);
       throw new Error(error.message || 'Export zamanı xəta baş verdi');
     }
   }
@@ -358,7 +414,6 @@ class ReportTableService extends BaseService<ReportTable> {
       window.URL.revokeObjectURL(url);
       
     } catch (error: any) {
-      console.error('Export approved rows error:', error);
       throw new Error(error.message || 'Export zamanı xəta baş verdi');
     }
   }
@@ -384,6 +439,22 @@ class ReportTableService extends BaseService<ReportTable> {
   async removeTemplateStatus(tableId: number): Promise<ReportTable> {
     const response = await this.post<ReportTable>(`report-tables/${tableId}/remove-template`);
     return handleApiResponseWithError<ReportTable>(response, 'ReportTableService.removeTemplateStatus', 'ReportTableService');
+  }
+
+  // ─── School Fill Statistics (for tracking which schools haven't filled tables) ──────────────────
+
+  async getSchoolFillStatistics(): Promise<any[]> {
+    const response = await this.get<{ data: any[] }>('report-tables/school-fill-statistics');
+    const result = response as unknown as { data: any[] };
+    return result.data ?? [];
+  }
+
+  // ─── Table Fill Statistics (for per-table school statistics) ──────────────────
+
+  async getTableFillStatistics(tableId: number): Promise<any> {
+    const response = await this.get<{ data: any }>(`report-tables/${tableId}/fill-statistics`);
+    const result = response as unknown as { data: any };
+    return result.data ?? null;
   }
 }
 

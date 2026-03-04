@@ -83,7 +83,7 @@ class ReportTableResponseService
             }
         }
 
-        $this->validateRows($mergedRows, $table->columns ?? [], $table->max_rows ?? 50);
+        $this->validateRows($mergedRows, $table->columns ?? [], $table->max_rows ?? 50, $table->fixed_rows ?? null);
 
         return DB::transaction(function () use ($response, $mergedRows) {
             $response->rows = $mergedRows;
@@ -119,7 +119,7 @@ class ReportTableResponseService
             ]);
         }
 
-        $this->validateRows($rows, $table->columns ?? [], $table->max_rows ?? 50);
+        $this->validateRows($rows, $table->columns ?? [], $table->max_rows ?? 50, $table->fixed_rows ?? null);
 
         return DB::transaction(function () use ($response) {
             $response->submit();
@@ -331,6 +331,223 @@ class ReportTableResponseService
     }
 
     /**
+     * Reviewer-in hüquqlu olduğu bütün cədvəllərdəki gözləyən (submitted) sətirləri
+     * Cədvəl -> Sektor -> Məktəb qruplamasında qaytarır.
+     */
+    public function getApprovalQueueGrouped(User $user): array
+    {
+        $institutionIds = $this->getReviewableInstitutionIds($user);
+
+        if (empty($institutionIds)) {
+            return [];
+        }
+
+        $responses = ReportTableResponse::with(['reportTable', 'institution.parent'])
+            ->whereIn('institution_id', $institutionIds)
+            ->whereNotNull('row_statuses')
+            ->whereRaw("EXISTS (
+                SELECT 1 FROM (
+                    SELECT jsonb_array_elements(row_statuses) AS element
+                    WHERE jsonb_typeof(row_statuses) = 'array'
+                    UNION ALL
+                    SELECT value AS element FROM jsonb_each(row_statuses)
+                    WHERE jsonb_typeof(row_statuses) = 'object'
+                ) sub
+                WHERE element->>'status' = 'submitted'
+            )")
+            ->whereHas('reportTable', fn ($q) => $q->whereNull('deleted_at')->where('status', 'published'))
+            ->get();
+
+        $tables = [];
+
+        foreach ($responses as $response) {
+            $tableId = $response->report_table_id;
+            $table = $response->reportTable;
+            $institution = $response->institution;
+            $sector = $institution?->parent;
+            $sectorId = $sector?->id;
+            $sectorName = $sector?->name;
+
+            if (! isset($tables[$tableId])) {
+                $tables[$tableId] = [
+                    'table' => [
+                        'id'       => $table->id,
+                        'title'    => $table->title,
+                        'deadline' => $table->deadline?->toISOString(),
+                        'columns'  => $table->columns ?? [],
+                    ],
+                    'pending_count' => 0,
+                    'sectors'       => [],
+                ];
+            }
+
+            $sectorKey = $sectorId ? (string) $sectorId : '0';
+            if (! isset($tables[$tableId]['sectors'][$sectorKey])) {
+                $tables[$tableId]['sectors'][$sectorKey] = [
+                    'sector'        => $sectorId ? ['id' => $sectorId, 'name' => $sectorName] : null,
+                    'pending_count' => 0,
+                    'schools'       => [],
+                ];
+            }
+
+            $schoolKey = (string) $institution->id;
+            if (! isset($tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey])) {
+                $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey] = [
+                    'school'        => ['id' => $institution->id, 'name' => $institution->name],
+                    'pending_count' => 0,
+                    'responses'     => [],
+                ];
+            }
+
+            $pendingIndices = [];
+            foreach (($response->row_statuses ?? []) as $idx => $meta) {
+                if (($meta['status'] ?? null) === 'submitted') {
+                    $pendingIndices[] = (int) $idx;
+                }
+            }
+
+            if (empty($pendingIndices)) {
+                continue;
+            }
+
+            $tables[$tableId]['pending_count'] += count($pendingIndices);
+            $tables[$tableId]['sectors'][$sectorKey]['pending_count'] += count($pendingIndices);
+            $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey]['pending_count'] += count($pendingIndices);
+
+            $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey]['responses'][] = [
+                'id'                  => $response->id,
+                'institution_id'      => $response->institution_id,
+                'institution'         => [
+                    'id'     => $institution->id,
+                    'name'   => $institution->name,
+                    'parent' => $sector ? ['id' => $sector->id, 'name' => $sector->name] : null,
+                ],
+                'rows'                => $response->rows ?? [],
+                'row_statuses'        => $response->row_statuses ?? [],
+                'pending_row_indices' => $pendingIndices,
+            ];
+        }
+
+        // Normalize nested associative arrays to indexed arrays for JSON
+        foreach ($tables as &$t) {
+            foreach ($t['sectors'] as &$sec) {
+                $sec['schools'] = array_values($sec['schools']);
+            }
+            $t['sectors'] = array_values($t['sectors']);
+        }
+
+        return array_values($tables);
+    }
+
+    /**
+     * Reviewer-in hüquqlu olduğu bütün cədvəllərdəki təsdiqlənmiş (approved) sətirləri
+     * Cədvəl -> Sektor -> Məktəb qruplamasında qaytarır.
+     */
+    public function getReadyGrouped(User $user): array
+    {
+        $institutionIds = $this->getReviewableInstitutionIds($user);
+
+        if (empty($institutionIds)) {
+            return [];
+        }
+
+        $responses = ReportTableResponse::with(['reportTable', 'institution.parent'])
+            ->whereIn('institution_id', $institutionIds)
+            ->whereNotNull('row_statuses')
+            ->whereRaw("EXISTS (
+                SELECT 1 FROM (
+                    SELECT jsonb_array_elements(row_statuses) AS element
+                    WHERE jsonb_typeof(row_statuses) = 'array'
+                    UNION ALL
+                    SELECT value AS element FROM jsonb_each(row_statuses)
+                    WHERE jsonb_typeof(row_statuses) = 'object'
+                ) sub
+                WHERE element->>'status' = 'approved'
+            )")
+            ->whereHas('reportTable', fn ($q) => $q->whereNull('deleted_at')->where('status', 'published'))
+            ->get();
+
+        $tables = [];
+
+        foreach ($responses as $response) {
+            $tableId = $response->report_table_id;
+            $table = $response->reportTable;
+            $institution = $response->institution;
+            $sector = $institution?->parent;
+            $sectorId = $sector?->id;
+            $sectorName = $sector?->name;
+
+            if (! isset($tables[$tableId])) {
+                $tables[$tableId] = [
+                    'table' => [
+                        'id'       => $table->id,
+                        'title'    => $table->title,
+                        'deadline' => $table->deadline?->toISOString(),
+                        'columns'  => $table->columns ?? [],
+                    ],
+                    'approved_count' => 0,
+                    'sectors'        => [],
+                ];
+            }
+
+            $sectorKey = $sectorId ? (string) $sectorId : '0';
+            if (! isset($tables[$tableId]['sectors'][$sectorKey])) {
+                $tables[$tableId]['sectors'][$sectorKey] = [
+                    'sector'         => $sectorId ? ['id' => $sectorId, 'name' => $sectorName] : null,
+                    'approved_count' => 0,
+                    'schools'        => [],
+                ];
+            }
+
+            $schoolKey = (string) $institution->id;
+            if (! isset($tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey])) {
+                $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey] = [
+                    'school'         => ['id' => $institution->id, 'name' => $institution->name],
+                    'approved_count' => 0,
+                    'responses'      => [],
+                ];
+            }
+
+            $approvedIndices = [];
+            foreach (($response->row_statuses ?? []) as $idx => $meta) {
+                if (($meta['status'] ?? null) === 'approved') {
+                    $approvedIndices[] = (int) $idx;
+                }
+            }
+
+            if (empty($approvedIndices)) {
+                continue;
+            }
+
+            $tables[$tableId]['approved_count'] += count($approvedIndices);
+            $tables[$tableId]['sectors'][$sectorKey]['approved_count'] += count($approvedIndices);
+            $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey]['approved_count'] += count($approvedIndices);
+
+            $tables[$tableId]['sectors'][$sectorKey]['schools'][$schoolKey]['responses'][] = [
+                'id'                   => $response->id,
+                'institution_id'       => $response->institution_id,
+                'institution'          => [
+                    'id'     => $institution->id,
+                    'name'   => $institution->name,
+                    'parent' => $sector ? ['id' => $sector->id, 'name' => $sector->name] : null,
+                ],
+                'rows'                 => $response->rows ?? [],
+                'row_statuses'         => $response->row_statuses ?? [],
+                'approved_row_indices' => $approvedIndices,
+            ];
+        }
+
+        foreach ($tables as &$t) {
+            foreach ($t['sectors'] as &$sec) {
+                $sec['schools'] = array_values($sec['schools']);
+            }
+            $t['sectors'] = array_values($t['sectors']);
+        }
+
+        return array_values($tables);
+    }
+
+    /**
      * Bir cədvəl üçün seçilmiş sətirləri toplu şəkildə emal edir (approve/reject/return).
      * Hər rowSpec: {response_id, row_indices[]}.
      * Returns: {successful, failed, errors[]}.
@@ -340,10 +557,18 @@ class ReportTableResponseService
         array $rowSpecs,
         string $action,
         ?string $reason,
-        User $reviewer
+        User $reviewer,
+        ?string $ipAddress = null,
+        ?string $userAgent = null
     ): array {
         $successful = 0;
         $errors     = [];
+        $totalRows  = 0;
+
+        // Count total rows first
+        foreach ($rowSpecs as $spec) {
+            $totalRows += count($spec['row_indices'] ?? []);
+        }
 
         DB::transaction(function () use ($table, $rowSpecs, $action, $reason, $reviewer, &$successful, &$errors) {
             foreach ($rowSpecs as $spec) {
@@ -386,6 +611,22 @@ class ReportTableResponseService
                 }
             }
         });
+
+        // Log the bulk action
+        \App\Models\ReportTableBulkActionLog::create([
+            'user_id' => $reviewer->id,
+            'report_table_id' => $table->id,
+            'action' => $action,
+            'row_count' => $totalRows,
+            'successful_count' => $successful,
+            'failed_count' => count($errors),
+            'details' => [
+                'reason' => $reason,
+                'errors' => array_slice($errors, 0, 10), // Store first 10 errors only
+            ],
+            'ip_address' => $ipAddress,
+            'user_agent' => $userAgent,
+        ]);
 
         return ['successful' => $successful, 'failed' => count($errors), 'errors' => $errors];
     }
@@ -485,12 +726,22 @@ class ReportTableResponseService
 
     /**
      * Sətirləri cədvəlin sütun strukturuna uyğun yoxlayır.
+     * Əgər fixed_rows varsa, yalnız həmin row-ların doldurulmasına icazə verir.
      */
-    public function validateRows(array $rows, array $columns, int $maxRows): void
+    public function validateRows(array $rows, array $columns, int $maxRows, ?array $fixedRows = null): void
     {
         $errors = [];
 
-        if (count($rows) > $maxRows) {
+        // Stabil cədvəl yoxlaması
+        if (! empty($fixedRows)) {
+            $expectedCount = count($fixedRows);
+            $actualCount = count($rows);
+            if ($actualCount !== $expectedCount) {
+                throw ValidationException::withMessages([
+                    'rows' => ["Bu cədvəldə dəqiq {$expectedCount} sətir olmalıdır (siz {$actualCount} göndərdiniz)."],
+                ]);
+            }
+        } elseif (count($rows) > $maxRows) {
             throw ValidationException::withMessages([
                 'rows' => ["Maksimum {$maxRows} sətir əlavə edilə bilər."],
             ]);
@@ -568,6 +819,218 @@ class ReportTableResponseService
     }
 
     // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    /**
+     * Bütün məktəblərin cədvəl doldurma statistikası.
+     * Hər məktəb üçün: hansı cədvəlləri doldurub, neçə sətir, statuslar.
+     */
+    public function getSchoolFillStatistics(User $user): array
+    {
+        // İstifadəçinin icazəli olduğu məktəbləri al
+        $allowedInstitutionIds = $this->getReviewableInstitutionIds($user);
+        
+        if (empty($allowedInstitutionIds)) {
+            return [];
+        }
+
+        // Bütün aktiv cədvəlləri al
+        $tables = ReportTable::where('status', 'published')
+            ->whereNull('deleted_at')
+            ->orderBy('title')
+            ->get();
+
+        // Məktəbləri və cavablarını yüklə
+        $institutions = Institution::whereIn('id', $allowedInstitutionIds)
+            ->with(['parent'])
+            ->orderBy('name')
+            ->get();
+
+        $responses = ReportTableResponse::whereIn('institution_id', $allowedInstitutionIds)
+            ->whereIn('report_table_id', $tables->pluck('id'))
+            ->with(['reportTable'])
+            ->get()
+            ->keyBy(fn ($r) => "{$r->institution_id}:{$r->report_table_id}");
+
+        $statistics = [];
+
+        foreach ($institutions as $institution) {
+            $schoolData = [
+                'institution_id' => $institution->id,
+                'institution_name' => $institution->name,
+                'sector_name' => $institution->parent?->name,
+                'tables' => [],
+                'total_tables' => $tables->count(),
+                'filled_tables' => 0,
+                'not_filled_tables' => 0,
+                'total_rows_across_all_tables' => 0,
+            ];
+
+            foreach ($tables as $table) {
+                $key = "{$institution->id}:{$table->id}";
+                $response = $responses[$key] ?? null;
+
+                $rowCount = 0;
+                $approvedCount = 0;
+                $pendingCount = 0;
+                $status = 'not_started';
+                $submittedAt = null;
+
+                if ($response) {
+                    $rows = $response->rows ?? [];
+                    $rowCount = count($rows);
+                    $rowStatuses = $response->row_statuses ?? [];
+                    
+                    foreach ($rowStatuses as $meta) {
+                        $rowStatus = $meta['status'] ?? null;
+                        if ($rowStatus === 'approved') {
+                            $approvedCount++;
+                        } elseif ($rowStatus === 'submitted') {
+                            $pendingCount++;
+                        }
+                    }
+
+                    // Determine overall status
+                    if ($rowCount === 0) {
+                        $status = 'draft';
+                    } elseif ($approvedCount === $rowCount) {
+                        $status = 'submitted'; // All approved
+                    } elseif ($pendingCount > 0) {
+                        $status = 'submitted';
+                    } else {
+                        $status = 'partial';
+                    }
+
+                    $submittedAt = $response->submitted_at;
+                    $schoolData['filled_tables']++;
+                } else {
+                    $schoolData['not_filled_tables']++;
+                }
+
+                $schoolData['tables'][] = [
+                    'table_id' => $table->id,
+                    'table_title' => $table->title,
+                    'row_count' => $rowCount,
+                    'status' => $status,
+                    'submitted_at' => $submittedAt,
+                    'approved_count' => $approvedCount,
+                    'pending_count' => $pendingCount,
+                ];
+
+                $schoolData['total_rows_across_all_tables'] += $rowCount;
+            }
+
+            $statistics[] = $schoolData;
+        }
+
+        return $statistics;
+    }
+
+    /**
+     * Bir cədvəl üçün doldurmayan və dolduran məktəblərin statistikası.
+     * Hər məktəb üçün: neçə sətir doldurub, status, tarix.
+     */
+    public function getTableFillStatistics(ReportTable $table, User $user): array
+    {
+        // İstifadəçinin icazəli olduğu məktəbləri al
+        $allowedInstitutionIds = $this->getReviewableInstitutionIds($user);
+        
+        if (empty($allowedInstitutionIds)) {
+            return [
+                'table_id' => $table->id,
+                'table_title' => $table->title,
+                'total_schools' => 0,
+                'filled_schools' => 0,
+                'not_filled_schools' => 0,
+                'schools' => [],
+            ];
+        }
+
+        // Məktəbləri və cavablarını yüklə
+        $institutions = Institution::whereIn('id', $allowedInstitutionIds)
+            ->with(['parent'])
+            ->orderBy('name')
+            ->get();
+
+        $responses = ReportTableResponse::where('report_table_id', $table->id)
+            ->whereIn('institution_id', $allowedInstitutionIds)
+            ->with(['institution'])
+            ->get()
+            ->keyBy('institution_id');
+
+        $schools = [];
+        $filledCount = 0;
+        $notFilledCount = 0;
+
+        foreach ($institutions as $institution) {
+            $response = $responses[$institution->id] ?? null;
+
+            $rowCount = 0;
+            $approvedCount = 0;
+            $pendingCount = 0;
+            $status = 'not_started';
+            $submittedAt = null;
+
+            if ($response) {
+                $rows = $response->rows ?? [];
+                $rowCount = count($rows);
+                $rowStatuses = $response->row_statuses ?? [];
+                
+                foreach ($rowStatuses as $meta) {
+                    $rowStatus = $meta['status'] ?? null;
+                    if ($rowStatus === 'approved') {
+                        $approvedCount++;
+                    } elseif ($rowStatus === 'submitted') {
+                        $pendingCount++;
+                    }
+                }
+
+                // Determine overall status
+                if ($rowCount === 0) {
+                    $status = 'draft';
+                } elseif ($approvedCount === $rowCount) {
+                    $status = 'completed'; // All approved
+                } elseif ($pendingCount > 0) {
+                    $status = 'pending';
+                } else {
+                    $status = 'partial';
+                }
+
+                $submittedAt = $response->submitted_at;
+                $filledCount++;
+            } else {
+                $notFilledCount++;
+            }
+
+            $schools[] = [
+                'institution_id' => $institution->id,
+                'institution_name' => $institution->name,
+                'sector_name' => $institution->parent?->name,
+                'row_count' => $rowCount,
+                'approved_count' => $approvedCount,
+                'pending_count' => $pendingCount,
+                'status' => $status,
+                'submitted_at' => $submittedAt,
+                'is_filled' => $response !== null,
+            ];
+        }
+
+        // Sort: doldurmayanlar öncə, sonra dolduranlar
+        usort($schools, function ($a, $b) {
+            if ($a['is_filled'] === $b['is_filled']) {
+                return strcmp($a['institution_name'], $b['institution_name']);
+            }
+            return $a['is_filled'] ? 1 : -1;
+        });
+
+        return [
+            'table_id' => $table->id,
+            'table_title' => $table->title,
+            'total_schools' => count($schools),
+            'filled_schools' => $filledCount,
+            'not_filled_schools' => $notFilledCount,
+            'schools' => $schools,
+        ];
+    }
 
     private function isValidDate(string $value): bool
     {
