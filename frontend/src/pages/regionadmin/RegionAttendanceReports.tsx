@@ -475,7 +475,18 @@ export default function RegionAttendanceReports() {
       .slice()
       .sort((a, b) => b.uniform_compliance_rate - a.uniform_compliance_rate)
       .map((s) => ({
-        name: s.name,
+        name: s.name
+          .replace(/Sektor/i, '')
+          .replace(/rayon/i, '')
+          .replace(/şəhər/i, '')
+          .replace(/təhsil/i, '')
+          .replace(/tehsil/i, '')
+          .replace(/mərkəzi/i, '')
+          .replace(/merkezi/i, '')
+          .replace(/bölgə/i, '')
+          .replace(/bolge/i, '')
+          .trim(),
+        fullName: s.name,
         rate: Number(s.uniform_compliance_rate ?? 0),
       }));
 
@@ -498,7 +509,7 @@ export default function RegionAttendanceReports() {
           <div className="space-y-3">
             {data.map((sector, index) => (
               <div key={index} className="flex items-center gap-3">
-                <span className="text-sm font-medium text-slate-600 w-24 truncate" title={sector.name}>
+                <span className="text-sm font-medium text-slate-600 w-20 truncate" title={sector.fullName}>
                   {sector.name}
                 </span>
                 <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
@@ -514,7 +525,7 @@ export default function RegionAttendanceReports() {
                   />
                 </div>
                 <span
-                  className={`text-sm font-bold w-14 text-right ${
+                  className={`text-sm font-bold w-12 text-right ${
                     sector.rate >= 95
                       ? 'text-emerald-600'
                       : sector.rate >= 85
@@ -539,7 +550,18 @@ export default function RegionAttendanceReports() {
       .slice()
       .sort((a, b) => b.average_attendance_rate - a.average_attendance_rate)
       .map((s) => ({
-        name: s.name,
+        name: s.name
+          .replace(/Sektor/i, '')
+          .replace(/rayon/i, '')
+          .replace(/şəhər/i, '')
+          .replace(/təhsil/i, '')
+          .replace(/tehsil/i, '')
+          .replace(/mərkəzi/i, '')
+          .replace(/merkezi/i, '')
+          .replace(/bölgə/i, '')
+          .replace(/bolge/i, '')
+          .trim(),
+        fullName: s.name,
         rate: s.average_attendance_rate,
       }));
 
@@ -562,7 +584,7 @@ export default function RegionAttendanceReports() {
           <div className="space-y-3">
             {data.map((sector, index) => (
               <div key={index} className="flex items-center gap-3">
-                <span className="text-sm font-medium text-slate-600 w-24 truncate" title={sector.name}>
+                <span className="text-sm font-medium text-slate-600 w-20 truncate" title={sector.fullName}>
                   {sector.name}
                 </span>
                 <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
@@ -578,7 +600,7 @@ export default function RegionAttendanceReports() {
                   />
                 </div>
                 <span
-                  className={`text-sm font-bold w-14 text-right ${
+                  className={`text-sm font-bold w-12 text-right ${
                     sector.rate >= 95
                       ? 'text-emerald-600'
                       : sector.rate >= 85
@@ -608,7 +630,7 @@ export default function RegionAttendanceReports() {
     }));
 
     return (
-      <Card className="rounded-2xl shadow-lg border-0 overflow-hidden bg-white md:col-span-2">
+      <Card className="rounded-2xl shadow-lg border-0 overflow-hidden bg-white">
         <CardHeader className="pb-3 pt-4 px-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
