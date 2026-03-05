@@ -49,9 +49,13 @@ Route::middleware('auth:sanctum')->group(function () {
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Read) ───────────────────────────
 
+// show: schooladmin cədvəl detallarını (notes, columns, fixed_rows) görmək üçün
+// report_table_responses.write də kifayətdir — analytics ilə eyni pattern
+Route::get('report-tables/{table}', [ReportTableController::class, 'show'])
+    ->middleware('permission:report_tables.read|report_table_responses.write');
+
 Route::middleware('permission:report_tables.read')->group(function () {
     Route::get('report-tables', [ReportTableController::class, 'index']);
-    Route::get('report-tables/{table}', [ReportTableController::class, 'show']);
     Route::get('report-tables/{table}/responses', [ReportTableController::class, 'responses']);
     // Analytics üçün bütün cavablar (paginasyon olmadan)
     Route::get('report-tables/{table}/responses/all', [ReportTableController::class, 'getAllResponses']);
