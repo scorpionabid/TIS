@@ -4,9 +4,10 @@
  */
 
 import { useMemo } from 'react';
-import { Clock, CheckCircle, Archive, BarChart3, ChevronRight } from 'lucide-react';
+import { Clock, CheckCircle, Archive, BarChart3, ChevronRight, CheckCircle2, Hourglass } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReportTable } from '@/types/reportTable';
+import { Badge } from '@/components/ui/badge';
 
 interface TableEntryCompactCardProps {
   table: ReportTable;
@@ -18,14 +19,43 @@ export function TableEntryCompactCard({ table, isSelected, onClick }: TableEntry
   const status = table.my_response_status;
   const rowStats = table.my_response_row_stats;
   
+  // Calculate percentages for segmented progress bar
+  const stats = useMemo(() => {
+    if (!rowStats || rowStats.total === 0) {
+      return { pending: 0, approved: 0, rejected: 0, completed: 0, total: 0 };
+    }
+    
+    const total = rowStats.total;
+    const submitted = rowStats.submitted || 0;
+    const approved = rowStats.approved || 0;
+    const rejected = rowStats.rejected || 0;
+    // Pending = göndərilmiş amma təsdiq/rədd olunmamış
+    const pending = rowStats.pending || Math.max(0, submitted - approved - rejected);
+    
+    return {
+      pending: Math.round((pending / total) * 100),
+      approved: Math.round((approved / total) * 100),
+      rejected: Math.round((rejected / total) * 100),
+      total,
+      pendingCount: pending,
+      approvedCount: approved,
+      rejectedCount: rejected,
+    };
+  }, [rowStats]);
+
   const fillPercent = useMemo(() => {
     if (!rowStats || rowStats.total === 0) return 0;
     return Math.round((rowStats.completed / rowStats.total) * 100);
   }, [rowStats]);
 
   const isCompleted = status === 'submitted' && fillPercent === 100;
-  const isInProgress = status === 'draft' || (rowStats && rowStats.completed > 0) || (status === 'submitted' && fillPercent < 100);
+  const isInProgress = status === 'submitted' && fillPercent < 100;
   const notStarted = !status && (!rowStats || rowStats.completed === 0);
+  
+  // Check if any rows are pending approval
+  const hasPendingRows = stats.pendingCount > 0;
+  const hasApprovedRows = stats.approvedCount > 0;
+  const hasRejectedRows = stats.rejectedCount > 0;
 
   return (
     <button
@@ -39,15 +69,22 @@ export function TableEntryCompactCard({ table, isSelected, onClick }: TableEntry
           : 'bg-white border-gray-200'
       )}
     >
-      {/* Header - Title & Status */}
-      <div className="flex items-start justify-between gap-2 mb-3">
+      {/* Header - Title & Stabil Badge */}
+      <div className="flex items-start justify-between gap-2 mb-2">
         <h3 className="font-semibold text-gray-800 text-sm leading-tight line-clamp-2 flex-1 min-w-0">
           {table.title}
         </h3>
-        <ChevronRight className={cn(
-          "h-4 w-4 shrink-0 transition-transform",
-          isSelected ? "text-emerald-600 rotate-90" : "text-gray-300 group-hover:text-emerald-400"
-        )} />
+        <div className="flex items-center gap-1">
+          {table.fixed_rows && table.fixed_rows.length > 0 && (
+            <Badge variant="secondary" className="text-[10px] bg-blue-100 text-blue-700 border-blue-200">
+              Stabil
+            </Badge>
+          )}
+          <ChevronRight className={cn(
+            "h-4 w-4 shrink-0 transition-transform",
+            isSelected ? "text-emerald-600 rotate-90" : "text-gray-300 group-hover:text-emerald-400"
+          )} />
+        </div>
       </div>
 
       {/* Description (if exists) */}
@@ -57,30 +94,95 @@ export function TableEntryCompactCard({ table, isSelected, onClick }: TableEntry
         </p>
       )}
 
-      {/* Progress Bar */}
+      {/* Progress Section */}
       {rowStats && rowStats.total > 0 && (
         <div className="mb-3">
+          {/* Stats Row */}
           <div className="flex items-center justify-between text-xs mb-1.5">
             <span className="flex items-center gap-1 text-gray-500">
               <BarChart3 className="h-3 w-3" />
               <span className="font-medium">{rowStats.completed}/{rowStats.total}</span>
             </span>
-            <span className={cn(
-              "font-semibold",
-              fillPercent === 100 ? 'text-emerald-600' : 'text-gray-600'
-            )}>
-              {fillPercent}%
-            </span>
-          </div>
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div 
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                fillPercent === 100 ? 'bg-emerald-500' : 'bg-gradient-to-r from-blue-400 to-blue-500'
+            <div className="flex items-center gap-2">
+              {/* Show pending count if any */}
+              {hasPendingRows && (
+                <span className="flex items-center gap-1 text-amber-600 font-medium">
+                  <Hourglass className="h-3 w-3" />
+                  {stats.pendingCount} gözləyir
+                </span>
               )}
-              style={{ width: `${fillPercent}%` }}
-            />
+              {/* Show approved count if any */}
+              {hasApprovedRows && (
+                <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                  <CheckCircle2 className="h-3 w-3" />
+                  {stats.approvedCount} təsdiq
+                </span>
+              )}
+              {/* Percentage */}
+              <span className={cn(
+                "font-semibold",
+                fillPercent === 100 ? 'text-emerald-600' : 'text-gray-600'
+              )}>
+                {fillPercent}%
+              </span>
+            </div>
           </div>
+          
+          {/* Segmented Progress Bar - Only submitted/approved/rejected */}
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden flex">
+            {/* Pending/Submitted waiting approval - Amber */}
+            {stats.pending > 0 && (
+              <div 
+                className="h-full bg-amber-400 transition-all duration-500"
+                style={{ width: `${stats.pending}%` }}
+                title={`Təsdiq gözləyir: ${stats.pendingCount} sətir`}
+              />
+            )}
+            {/* Approved - Emerald */}
+            {stats.approved > 0 && (
+              <div 
+                className="h-full bg-emerald-500 transition-all duration-500"
+                style={{ width: `${stats.approved}%` }}
+                title={`Təsdiqlənmiş: ${stats.approvedCount} sətir`}
+              />
+            )}
+            {/* Rejected - Red */}
+            {stats.rejected > 0 && (
+              <div 
+                className="h-full bg-red-400 transition-all duration-500"
+                style={{ width: `${stats.rejected}%` }}
+                title={`Rədd edilmiş: ${stats.rejectedCount} sətir`}
+              />
+            )}
+            {/* Empty/Remaining - Gray (unfilled rows) */}
+            {(stats.pending === 0 && stats.approved === 0 && stats.rejected === 0) || (stats.pending + stats.approved + stats.rejected < 100) ? (
+              <div className="h-full bg-gray-100 flex-1" />
+            ) : null}
+          </div>
+          
+          {/* Legend for statuses */}
+          {(hasPendingRows || hasApprovedRows || hasRejectedRows) && (
+            <div className="flex items-center gap-3 mt-2 text-[10px]">
+              {hasPendingRows && (
+                <span className="flex items-center gap-1 text-amber-600">
+                  <div className="w-2 h-2 rounded-full bg-amber-400" />
+                  Gözləyir {stats.pendingCount}
+                </span>
+              )}
+              {hasApprovedRows && (
+                <span className="flex items-center gap-1 text-emerald-600">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                  Təsdiq {stats.approvedCount}
+                </span>
+              )}
+              {hasRejectedRows && (
+                <span className="flex items-center gap-1 text-red-600">
+                  <div className="w-2 h-2 rounded-full bg-red-400" />
+                  Rədd {stats.rejectedCount}
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 

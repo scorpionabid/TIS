@@ -1,10 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { CircularProgress } from '@/components/ui/circular-progress';
 import { CheckCircle2, Table2, Search, Clock, CheckCircle, BarChart3, Filter, Archive, TrendingUp, Layers, Activity, Building2 } from 'lucide-react';
 import { TableEntryCard } from '@/components/reporttables/TableEntryCard';
@@ -14,6 +14,7 @@ import type { ReportTable } from '@/types/reportTable';
 import { cn } from '@/lib/utils';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { USER_ROLES } from '@/constants/roles';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,9 @@ export default function ReportTableEntry() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'inprogress' | 'archived'>('all');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
+
+  const tableEntryRef = useRef<import('@/components/reporttables/TableEntryCard').TableEntryCardHandle | null>(null);
+  const [entryMeta, setEntryMeta] = useState<{ hasUnsaved: boolean; responseStatus: 'draft' | 'submitted' | null; fullyLocked: boolean } | null>(null);
 
   const { isSektorAdmin, isSchoolAdmin, currentUser } = useRoleCheck();
 
@@ -127,6 +131,18 @@ export default function ReportTableEntry() {
     if (!selectedTableId) return null;
     return tables.find((t) => t.id === selectedTableId) ?? null;
   }, [tables, selectedTableId]);
+
+  const handleSave = useCallback(() => {
+    tableEntryRef.current?.save();
+  }, []);
+
+  const handleExport = useCallback(() => {
+    tableEntryRef.current?.export();
+  }, []);
+
+  const handleSubmitAll = useCallback(() => {
+    tableEntryRef.current?.submitAll();
+  }, []);
 
   // Get user role display text
   const userRoleText = useMemo(() => {
@@ -319,16 +335,79 @@ export default function ReportTableEntry() {
               side="right"
               className="w-full sm:w-[75vw] sm:max-w-[75vw] p-0 flex flex-col"
             >
-              <SheetHeader className="px-6 py-4 border-b">
-                <SheetTitle className="flex items-center gap-2">
-                  <Table2 className="h-5 w-5 text-emerald-600" />
-                  {selectedTable?.title ?? 'Cədvəl'}
-                </SheetTitle>
-              </SheetHeader>
-              <div className="flex-1 overflow-y-auto p-6">
+              {/* Header Row - matching screenshot design */}
+              <div className="px-6 py-3 border-b bg-white flex items-center justify-between gap-4">
+                {/* Left - Draft Status */}
+                <div className="flex items-center gap-2">
+                  <span className={cn(
+                    "inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border",
+                    entryMeta?.responseStatus === 'submitted'
+                      ? 'bg-emerald-100 text-emerald-700 border-emerald-200'
+                      : 'bg-gray-100 text-gray-700 border-gray-200'
+                  )}>
+                    <svg className="w-3.5 h-3.5 mr-1.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {entryMeta?.responseStatus === 'submitted' ? 'Göndərildi' : 'Qaralama'}
+                  </span>
+                </div>
+
+                {/* Center - Title (centered) */}
+                <div className="flex-1 flex items-center justify-center gap-2 min-w-0">
+                  <div className="text-center min-w-0">
+                    <div className="text-sm font-semibold text-gray-900 truncate max-w-md">
+                      {selectedTable?.title ?? 'Cədvəl'}
+                    </div>
+                    <div className={cn(
+                      "text-xs",
+                      entryMeta?.hasUnsaved ? 'text-amber-600' : 'text-gray-400'
+                    )}>
+                      {entryMeta?.hasUnsaved ? 'Saxlanmamış dəyişikliklər' : 'Dəyişiklik yoxdur'}
+                    </div>
+                  </div>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="h-7 w-7 rounded-md border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 flex items-center justify-center"
+                          aria-label="Kömək"
+                        >
+                          ?
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-sm">
+                        <div className="text-xs space-y-1">
+                          <div className="font-semibold text-gray-900">Naviqasiya</div>
+                          <div>Excel-kimi naviqasiya aktivdir (↑↓←→, Tab, Enter).</div>
+                          <div>Qısayollar: Ctrl+S (yadda saxla), Ctrl+D (fill down), Ctrl+Del (xananı təmizlə).</div>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                {/* Right - Action Buttons */}
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
+                    onClick={handleExport}
+                  >
+                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 overflow-y-auto bg-gray-50">
                 {selectedTable && (
                   <TableEntryCard
+                    ref={tableEntryRef}
                     table={selectedTable}
+                    onMetaChange={setEntryMeta}
                   />
                 )}
               </div>

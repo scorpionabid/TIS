@@ -354,8 +354,14 @@ export function ReportTableApprovalGroupedView() {
 
   const filteredTables = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return grouped;
-    return grouped.filter(t => t.table.title.toLowerCase().includes(q));
+    let filtered = q ? grouped.filter(t => t.table.title.toLowerCase().includes(q)) : [...grouped];
+    // Sort by deadline (most recent first) or by id (highest first) as fallback
+    return filtered.sort((a, b) => {
+      const aDate = a.table.deadline ? new Date(a.table.deadline).getTime() : 0;
+      const bDate = b.table.deadline ? new Date(b.table.deadline).getTime() : 0;
+      if (aDate && bDate) return bDate - aDate;
+      return b.table.id - a.table.id;
+    });
   }, [grouped, search]);
 
   const selected = useMemo(() => {

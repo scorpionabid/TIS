@@ -74,18 +74,37 @@ class ReportTableController extends BaseController
                 foreach ($responses as $response) {
                     $statusesByTableId[$response->report_table_id] = $response->status;
                     
-                    // Calculate row stats
+                    // Calculate detailed row stats
                     $rowStatuses = $response->row_statuses ?? [];
                     $totalRows = count($rowStatuses);
                     $completedRows = 0;
+                    $submittedRows = 0;
+                    $approvedRows = 0;
+                    $rejectedRows = 0;
+                    
                     foreach ($rowStatuses as $idx => $meta) {
-                        if (($meta['status'] ?? null) === 'submitted' || ($meta['status'] ?? null) === 'approved') {
+                        $status = $meta['status'] ?? null;
+                        if ($status === 'submitted' || $status === 'approved') {
                             $completedRows++;
                         }
+                        if ($status === 'submitted') {
+                            $submittedRows++;
+                        } elseif ($status === 'approved') {
+                            $approvedRows++;
+                        } elseif ($status === 'rejected') {
+                            $rejectedRows++;
+                        }
                     }
+                    
+                    $pendingRows = $submittedRows - $approvedRows - $rejectedRows;
+                    
                     $rowStatsByTableId[$response->report_table_id] = [
                         'total' => $totalRows,
                         'completed' => $completedRows,
+                        'submitted' => $submittedRows,
+                        'approved' => $approvedRows,
+                        'rejected' => $rejectedRows,
+                        'pending' => max(0, $pendingRows),
                     ];
                 }
             }

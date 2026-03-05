@@ -1,37 +1,38 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { 
-  Save, 
-  Send, 
-  CheckCircle2, 
-  Clock, 
   Info, 
   FileText, 
-  Loader2, 
   AlertCircle, 
-  Download, 
   ChevronDown, 
   ChevronUp 
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
-import { az } from 'date-fns/locale';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
 import { EditableTable } from './EditableTable';
 import { reportTableService } from '@/services/reportTables';
-import type { ReportTable, ReportTableResponse, ReportTableRow } from '@/types/reportTable';
+import type { ReportTable, ReportTableResponse, ReportTableResponseStatus, ReportTableRow } from '@/types/reportTable';
 
 // ─── TableEntryCard ───────────────────────────────────────────────────────────
 
 interface TableEntryCardProps {
   table: ReportTable;
   onStatusChange?: (tableId: number, status: 'draft' | 'submitted') => void;
+  onMetaChange?: (meta: { hasUnsaved: boolean; responseStatus: 'draft' | 'submitted' | null; fullyLocked: boolean }) => void;
 }
 
-export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
+export type TableEntryCardHandle = {
+  save: () => void;
+  export: () => void;
+  submitAll: () => void;
+};
+
+export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardProps>(function TableEntryCard(
+  { table, onStatusChange, onMetaChange }: TableEntryCardProps,
+  ref
+) {
   // Fetch table details to get notes field (not included in list view)
   const { data: tableDetails, isLoading: detailsLoading } = useQuery({
     queryKey: ['report-table-detail', table.id],
@@ -74,13 +75,13 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<ReportTableRow[]>([]);
   const [responseId, setResponseId] = useState<number | null>(null);
-  const [responseStatus, setResponseStatus] = useState<'draft' | 'submitted' | null>(null);
+  const [responseStatus, setResponseStatus] = useState<ReportTableResponseStatus | null>(null);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [hasUnsaved, setHasUnsaved] = useState(false);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [tableHasErrors, setTableHasErrors] = useState(false);
   const [submittingRowIdx, setSubmittingRowIdx] = useState<number | null>(null);
-  const [isInstructionsExpanded, setIsInstructionsExpanded] = useState(true);
+  const [isInstructionsExpanded, setIsInstructionsExpanded] = useState(false);
 
   const initialRowsRef = useRef<string>('');
   const isSubmittingRef = useRef<boolean>(false);
@@ -99,7 +100,9 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
       setResponseId(existingResponse.id);
       setResponseStatus(existingResponse.status);
       initialRowsRef.current = JSON.stringify(existingResponse.rows ?? []);
-      onStatusChange?.(table.id, existingResponse.status);
+      if (existingResponse.status === 'draft' || existingResponse.status === 'submitted') {
+        onStatusChange?.(table.id, existingResponse.status);
+      }
     } else if (tableWithNotes.fixed_rows && tableWithNotes.fixed_rows.length > 0) {
       // Initialize stable table with empty rows matching fixed_rows count
       const emptyRows = tableWithNotes.fixed_rows.map(() => {
@@ -281,6 +284,31 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   const isSubmitting = submitMutation.isPending;
   const fullyLocked = isSubmitted && !hasEditableRows;
 
+  useEffect(() => {
+    const statusForMeta = responseStatus === 'submitted' ? 'submitted' : 'draft';
+    onMetaChange?.({ hasUnsaved, responseStatus: responseStatus ? statusForMeta : null, fullyLocked });
+  }, [hasUnsaved, responseStatus, fullyLocked, onMetaChange]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      save: () => {
+        if (fullyLocked || saveMutation.isPending) return;
+        saveMutation.mutate(rows);
+      },
+      export: () => {
+        if (exportMutation.isPending) return;
+        exportMutation.mutate();
+      },
+      submitAll: () => {
+        if (fullyLocked || submitMutation.isPending) return;
+        handleSubmitClick();
+      },
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fullyLocked, rows, handleSubmitClick]
+  );
+
   const deadlineBadge = useMemo(() => {
     if (!table.deadline) return null;
     const days = Math.ceil((new Date(table.deadline).getTime() - Date.now()) / 86400000);
@@ -292,148 +320,54 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-      {/* Header - with Description & Instructions inside */}
-      <div className="px-5 py-4 border-b flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1 flex-wrap">
-            {isSubmitted ? (
-              <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Göndərilib
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-gray-500 gap-1">
-                <Clock className="h-3 w-3" /> Qaralama
-              </Badge>
-            )}
-            {deadlineBadge}
-          </div>
-          <h2 className="font-semibold text-gray-800 leading-snug">{table.title}</h2>
-          
-          {/* Description */}
-          {tableWithNotes.description && (
-            <div className="mt-3 flex gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-              <Info className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>{tableWithNotes.description}</p>
+    <div className="bg-white rounded-xl overflow-hidden">
+      {(table.description || tableWithNotes.notes) && (
+        <div className="border-b bg-white">
+          <button
+            type="button"
+            onClick={() => setIsInstructionsExpanded((v) => !v)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div className="flex items-center gap-2 text-sm font-medium text-gray-800">
+              <Info className="h-4 w-4 text-emerald-600" />
+              Açıqlama və təlimat
+              {!isInstructionsExpanded && (
+                <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700 border border-amber-200">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mr-1.5 animate-pulse" />
+                  Açmaq üçün klikləyin
+                </span>
+              )}
             </div>
-          )}
-          
-          {/* Instructions */}
-          {tableWithNotes.notes && (
-            <div className="mt-3 relative overflow-hidden rounded-xl border-l-4 border-amber-500 bg-white shadow-sm">
-              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-amber-400 to-orange-500"></div>
-              <div className="flex gap-3 p-3">
-                <div className="flex-shrink-0">
-                  <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg p-2 shadow-md">
-                    <FileText className="h-5 w-5 text-white" />
-                  </div>
+            {isInstructionsExpanded ? (
+              <ChevronUp className="h-4 w-4 text-gray-500" />
+            ) : (
+              <ChevronDown className="h-4 w-4 text-gray-500" />
+            )}
+          </button>
+          {isInstructionsExpanded && (
+            <div className="px-4 pb-4 space-y-2">
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-2.5">
+                <div className="flex items-center gap-2 text-xs font-semibold text-gray-700 mb-1">
+                  <FileText className="h-3.5 w-3.5 text-gray-500" />
+                  Açıqlama
                 </div>
-                <div className="flex-1 min-w-0">
-                  <button
-                    onClick={() => setIsInstructionsExpanded(!isInstructionsExpanded)}
-                    className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity"
-                  >
-                    <span className="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full text-xs font-bold border border-amber-300">
-                      📋 TƏLİMAT
-                    </span>
-                    <div className="h-px flex-1 bg-gradient-to-r from-amber-200 to-transparent"></div>
-                    {isInstructionsExpanded ? (
-                      <ChevronUp className="h-4 w-4 text-amber-600" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-amber-600" />
-                    )}
-                  </button>
-                  <div
-                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                      isInstructionsExpanded ? 'max-h-32 opacity-100 mt-2' : 'max-h-0 opacity-0'
-                    }`}
-                  >
-                    <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">
-                      {tableWithNotes.notes}
-                    </p>
-                  </div>
+                <div className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {table.description || 'Açıqlama yoxdur'}
+                </div>
+              </div>
+              <div className="rounded-lg p-2.5 border border-emerald-200 bg-gradient-to-r from-emerald-50 via-amber-50 to-sky-50">
+                <div className="flex items-center gap-2 text-xs font-semibold text-emerald-800 mb-1">
+                  <FileText className="h-3.5 w-3.5 text-gray-500" />
+                  Təlimat
+                </div>
+                <div className="text-sm text-gray-800 whitespace-pre-wrap">
+                  {tableWithNotes.notes || 'Təlimat yoxdur'}
                 </div>
               </div>
             </div>
           )}
         </div>
-
-        {!fullyLocked && (
-          <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
-            {/* Auto-save status */}
-            <div className="text-xs flex items-center gap-1">
-              {isSaving ? (
-                <span className="text-gray-400 flex items-center gap-1">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Saxlanır...
-                </span>
-              ) : lastSaved ? (
-                <span className="text-emerald-600 flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" />
-                  {format(lastSaved, 'HH:mm', { locale: az })}
-                </span>
-              ) : hasUnsaved ? (
-                <span className="text-amber-500">Saxlanmamış dəyişikliklər</span>
-              ) : null}
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => saveMutation.mutate(rows)}
-              disabled={isSaving || !hasUnsaved}
-              className="gap-1"
-            >
-              <Save className="h-3.5 w-3.5" />
-              Saxla
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportMutation.mutate()}
-              disabled={exportMutation.isPending || rows.length === 0}
-              className="gap-1"
-            >
-              {exportMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              Export
-            </Button>
-            {!isSubmitted && (
-              <Button
-                size="sm"
-                onClick={handleSubmitClick}
-                disabled={isSubmitting || rows.length === 0}
-                className="bg-emerald-600 hover:bg-emerald-700 gap-1"
-              >
-                <Send className="h-3.5 w-3.5" />
-                {isSubmitting ? 'Göndərilir...' : 'Hamısını göndər'}
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Export menu for submitted/locked tables */}
-        {fullyLocked && (
-          <div className="flex items-center gap-2 shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => exportMutation.mutate()}
-              disabled={exportMutation.isPending || rows.length === 0}
-              className="gap-1"
-            >
-              {exportMutation.isPending ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              Export
-            </Button>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Table area - full width */}
       <div className="p-4">
@@ -444,7 +378,6 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
           </div>
         )}
 
-        {console.log('DEBUG fixedRows prop:', tableWithNotes.fixed_rows)}
         {(responseLoading || detailsLoading) ? (
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
@@ -457,6 +390,7 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
             rows={rows}
             maxRows={tableWithNotes.max_rows ?? 50}
             fixedRows={tableWithNotes.fixed_rows ?? null}
+            hideKeyboardHelp
             onChange={handleRowsChange}
             disabled={fullyLocked}
             lockStructure={false}
@@ -481,4 +415,4 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
       />
     </div>
   );
-}
+});

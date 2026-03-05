@@ -56,10 +56,12 @@ import { ReportTableModal } from '@/components/modals/ReportTableModal';
 import { ReportTableApprovalQueue } from '@/components/reporttables/ReportTableApprovalQueue';
 import { ReportTableApprovalGroupedView } from '@/components/reporttables/ReportTableApprovalGroupedView';
 import { ReportTableReadyGroupedView } from '@/components/reporttables/ReportTableReadyGroupedView';
+import { ReportTableStatisticsView } from '@/components/reporttables/ReportTableStatisticsView';
 import { ReportTableReadyView } from '@/components/reporttables/ReportTableReadyView';
 import { MasterTableView } from '@/components/reporttables/MasterTableView';
 import { TableTemplates } from '@/components/reporttables/TableTemplates';
 import { TableAnalytics } from '@/components/reporttables/TableAnalytics';
+import { TablePreviewModal } from '@/components/reporttables/TablePreviewModal';
 import { ReportTableErrorBoundary } from '@/components/reporttables/ErrorBoundary';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
 import { useURLFilters, useURLPagination } from '@/hooks/useURLState';
@@ -107,18 +109,20 @@ function DeadlineIndicator({ deadline }: { deadline?: string }) {
 
 // ─── Card Component ───────────────────────────────────────────────────────────
 
-type ConfirmActionType = 'delete' | 'publish' | 'archive' | 'unarchive' | 'clone' | 'restore' | 'forceDelete';
+type ConfirmActionType = 'delete' | 'publish' | 'archive' | 'unarchive' | 'clone' | 'restore' | 'forceDelete' | 'preview';
 
 function TableCard({
   table,
   onEdit,
   onView,
+  onPreview,
   onConfirm,
   isSuperAdmin,
 }: {
   table: ReportTable;
   onEdit: (t: ReportTable) => void;
   onView: (t: ReportTable) => void;
+  onPreview?: (t: ReportTable) => void;
   onConfirm: (type: ConfirmActionType, t: ReportTable) => void;
   isSuperAdmin: boolean;
 }) {
@@ -139,6 +143,9 @@ function TableCard({
             ) : (
               <>
                 <StatusBadge status={table.status} />
+                <Badge className={table.fixed_rows && table.fixed_rows.length > 0 ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-purple-100 text-purple-700 border-purple-200'}>
+                  {table.fixed_rows && table.fixed_rows.length > 0 ? 'Stabil' : 'Dinamik'}
+                </Badge>
                 <DeadlineIndicator deadline={table.deadline} />
               </>
             )}
@@ -205,9 +212,14 @@ function TableCard({
                   <Copy className="h-4 w-4 mr-2" /> Kopyala
                 </DropdownMenuItem>
                 {table.status === 'draft' && (
-                  <DropdownMenuItem onClick={() => onConfirm('publish', table)} className="text-emerald-600">
-                    <Play className="h-4 w-4 mr-2" /> Dərc et
-                  </DropdownMenuItem>
+                  <>
+                    <DropdownMenuItem onClick={() => onPreview?.(table)}>
+                      <Eye className="h-4 w-4 mr-2" /> Nümunəyə bax
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onConfirm('publish', table)} className="text-emerald-600">
+                      <Play className="h-4 w-4 mr-2" /> Dərc et
+                    </DropdownMenuItem>
+                  </>
                 )}
                 {table.status === 'published' && (
                   <>
@@ -226,11 +238,6 @@ function TableCard({
                     }}>
                       <Download className="h-4 w-4 mr-2" /> Export (Excel)
                     </DropdownMenuItem>
-                    <TableAnalytics table={table} trigger={
-                      <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                        <BarChart3 className="h-4 w-4 mr-2" /> Analitika
-                      </DropdownMenuItem>
-                    } />
                   </>
                 )}
                 {table.status === 'archived' && (
@@ -317,6 +324,12 @@ const CONFIRM_CONFIG: Record<ConfirmActionType, {
     type: 'danger',
     label: 'Birdəfəlik sil',
   },
+  preview: {
+    title: 'Nümunəni öncədən gör?',
+    description: 'Cədvəlin hazırkı vəziyyətini yoxlayın.',
+    type: 'info',
+    label: 'Bax',
+  },
 };
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
@@ -326,7 +339,7 @@ export default function ReportTables() {
   const { isSuperAdmin, hasPermission } = useRoleCheck();
   const canReview = hasPermission('report_table_responses.review');
   const canViewMaster = hasPermission('report_tables.view_all');
-  const [viewMode, setViewMode] = useState<'tables' | 'approval' | 'ready' | 'master' | 'templates'>('tables');
+  const [viewMode, setViewMode] = useState<'tables' | 'approval' | 'ready' | 'master' | 'templates' | 'statistics'>('tables');
   const [search, setSearch] = useState('');
   const { filters, setFilter, clearFilters } = useURLFilters({
     status: undefined as ReportTableStatus | 'all' | 'deleted' | undefined,
@@ -341,7 +354,8 @@ export default function ReportTables() {
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [sheetActiveTab, setSheetActiveTab] = useState<'tesdiq' | 'hazir'>('tesdiq');
   const [readySelectedTableId, setReadySelectedTableId] = useState<number | null>(null);
-  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
+  const [previewTable, setPreviewTable] = useState<ReportTable | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
 
   // Reset to page 1 when filters change
   useEffect(() => { setPage(1); }, [search, statusFilter]);
@@ -504,6 +518,17 @@ export default function ReportTables() {
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          {/* Create Button - First */}
+          {viewMode === 'tables' && statusFilter !== 'deleted' && (
+            <Button
+              onClick={() => setShowModal(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Yeni cədvəl
+            </Button>
+          )}
+
           {/* View Mode Buttons */}
           <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
             <Button
@@ -537,6 +562,15 @@ export default function ReportTables() {
                 </Button>
               </>
             )}
+            <Button
+              variant={viewMode === 'statistics' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setViewMode('statistics')}
+              className="gap-1"
+            >
+              <BarChart3 className="h-4 w-4" />
+              <span className="hidden sm:inline">Statistika</span>
+            </Button>
             {canViewMaster && (
               <Button
                 variant={viewMode === 'master' ? 'secondary' : 'ghost'}
@@ -548,26 +582,7 @@ export default function ReportTables() {
                 <span className="hidden sm:inline">Master</span>
               </Button>
             )}
-            <Button
-              variant={viewMode === 'templates' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setViewMode('templates')}
-              className="gap-1"
-            >
-              <LayoutTemplate className="h-4 w-4" />
-              <span className="hidden sm:inline">Şablonlar</span>
-            </Button>
           </div>
-
-          {viewMode === 'tables' && statusFilter !== 'deleted' && (
-            <Button
-              onClick={() => setShowModal(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Yeni cədvəl
-            </Button>
-          )}
         </div>
       </div>
 
@@ -641,6 +656,7 @@ export default function ReportTables() {
                     table={table}
                     onEdit={(t) => { setEditingTable(t); setShowModal(true); }}
                     onView={(t) => { setViewingTable(t); setIsSheetOpen(true); }}
+                    onPreview={(t) => { setPreviewTable(t); setIsPreviewOpen(true); }}
                     onConfirm={(type, t) => setConfirmState({ type, table: t })}
                     isSuperAdmin={isSuperAdmin}
                   />
@@ -653,7 +669,7 @@ export default function ReportTables() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    onClick={() => setPage(page - 1)}
                     disabled={page <= 1}
                   >
                     Əvvəlki
@@ -662,7 +678,7 @@ export default function ReportTables() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+                    onClick={() => setPage(page + 1)}
                     disabled={page >= meta.last_page}
                   >
                     Növbəti
@@ -680,50 +696,15 @@ export default function ReportTables() {
         <ReportTableErrorBoundary onReset={() => queryClient.invalidateQueries({ queryKey: ['report-tables'] })}>
           <ReportTableReadyGroupedView />
         </ReportTableErrorBoundary>
+      ) : viewMode === 'statistics' ? (
+        <ReportTableErrorBoundary onReset={() => queryClient.invalidateQueries({ queryKey: ['report-tables'] })}>
+          <ReportTableStatisticsView />
+        </ReportTableErrorBoundary>
       ) : viewMode === 'master' ? (
         <div className="text-center py-16 text-gray-400">
           <Users className="h-12 w-12 mx-auto mb-3 opacity-30" />
           <p className="text-lg font-medium">Master görünüş hazırlanma mərhələsindədir</p>
           <p className="text-sm mt-1">Bu funksiya tezliklə istifadəyə veriləcək.</p>
-        </div>
-      ) : viewMode === 'templates' ? (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                <LayoutTemplate className="h-5 w-5 text-emerald-600" />
-                Cədvəl şablonları
-              </h2>
-              <p className="text-gray-500 text-sm mt-1">
-                Hazır şablonlardan istifadə edərək yeni cədvəllər yaradın
-              </p>
-            </div>
-            <Button
-              onClick={() => setShowTemplatesDialog(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Şablondan yarat
-            </Button>
-          </div>
-
-          <TableTemplates
-            open={showTemplatesDialog}
-            onOpenChange={setShowTemplatesDialog}
-            onSelectTemplate={(template) => {
-              reportTableService.createTable({
-                title: template.name + ' (Şablon)',
-                description: template.description,
-                columns: template.columns,
-                max_rows: template.max_rows ?? 50,
-                target_institutions: [],
-              }).then(() => {
-                toast.success('Şablondan cədvəl yaradıldı');
-                queryClient.invalidateQueries({ queryKey: ['report-tables'] });
-                setViewMode('tables');
-              });
-            }}
-          />
         </div>
       ) : (
         <>
@@ -826,7 +807,7 @@ export default function ReportTables() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    onClick={() => setPage(page - 1)}
                     disabled={page <= 1}
                   >
                     Əvvəlki
@@ -835,7 +816,7 @@ export default function ReportTables() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setPage((p) => Math.min(meta.last_page, p + 1))}
+                    onClick={() => setPage(page + 1)}
                     disabled={page >= meta.last_page}
                   >
                     Növbəti
@@ -946,7 +927,12 @@ export default function ReportTables() {
         </SheetContent>
       </Sheet>
 
-      {/* Confirm Dialog */}
+      {/* Table Preview Modal for Draft Tables */}
+      <TablePreviewModal
+        table={previewTable}
+        open={isPreviewOpen}
+        onClose={() => { setIsPreviewOpen(false); setPreviewTable(null); }}
+      />
       {confirmState && (
         <ConfirmDialog
           open={!!confirmState}

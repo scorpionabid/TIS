@@ -889,6 +889,18 @@ class ReportTableResponseService
                         }
                     }
 
+                    // Count rejected and returned rows
+                    $rejectedCount = 0;
+                    $returnedCount = 0;
+                    foreach ($rowStatuses as $meta) {
+                        $rowStatus = $meta['status'] ?? null;
+                        if ($rowStatus === 'rejected') {
+                            $rejectedCount++;
+                        } elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) {
+                            $returnedCount++;
+                        }
+                    }
+
                     // Determine overall status
                     if ($rowCount === 0) {
                         $status = 'draft';
@@ -914,6 +926,8 @@ class ReportTableResponseService
                     'submitted_at' => $submittedAt,
                     'approved_count' => $approvedCount,
                     'pending_count' => $pendingCount,
+                    'rejected_count' => $rejectedCount ?? 0,
+                    'returned_count' => $returnedCount ?? 0,
                 ];
 
                 $schoolData['total_rows_across_all_tables'] += $rowCount;
@@ -984,6 +998,18 @@ class ReportTableResponseService
                     }
                 }
 
+                // Count rejected and returned rows
+                $rejectedCount = 0;
+                $returnedCount = 0;
+                foreach ($rowStatuses as $meta) {
+                    $rowStatus = $meta['status'] ?? null;
+                    if ($rowStatus === 'rejected') {
+                        $rejectedCount++;
+                    } elseif ($rowStatus === 'draft' && ($meta['was_returned'] ?? false)) {
+                        $returnedCount++;
+                    }
+                }
+
                 // Determine overall status
                 if ($rowCount === 0) {
                     $status = 'draft';
@@ -1008,6 +1034,8 @@ class ReportTableResponseService
                 'row_count' => $rowCount,
                 'approved_count' => $approvedCount,
                 'pending_count' => $pendingCount,
+                'rejected_count' => $rejectedCount ?? 0,
+                'returned_count' => $returnedCount ?? 0,
                 'status' => $status,
                 'submitted_at' => $submittedAt,
                 'is_filled' => $response !== null,

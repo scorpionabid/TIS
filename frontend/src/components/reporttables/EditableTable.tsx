@@ -421,6 +421,8 @@ interface EditableTableProps {
   maxRows: number;
   onChange: (rows: ReportTableRow[]) => void;
   disabled: boolean;
+  /** Hide keyboard shortcuts / excel navigation banner (parent can show via tooltip elsewhere) */
+  hideKeyboardHelp?: boolean;
   /** Prevent structural changes (add/remove rows) while still allowing editable rows */
   lockStructure?: boolean;
   /** Fixed rows for stable tables - when set, rows are predefined and cannot be added/removed */
@@ -441,6 +443,7 @@ export const EditableTable = React.memo(function EditableTable({
   maxRows,
   onChange,
   disabled,
+  hideKeyboardHelp,
   lockStructure,
   fixedRows,
   onValidationChange,
@@ -893,7 +896,7 @@ export const EditableTable = React.memo(function EditableTable({
   return (
     <div className="space-y-3">
       {/* Keyboard shortcuts toggle */}
-      {!disabled && (
+      {!hideKeyboardHelp && !disabled && (
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <button
             onClick={() => setShowShortcuts(!showShortcuts)}
@@ -930,7 +933,7 @@ export const EditableTable = React.memo(function EditableTable({
       )}
 
       {/* Keyboard shortcuts panel */}
-      {showShortcuts && (
+      {!hideKeyboardHelp && showShortcuts && (
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700">
           <h4 className="font-semibold mb-2 text-slate-800">Klaviatura Qısayolları:</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">

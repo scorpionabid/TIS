@@ -80,6 +80,10 @@ export interface ReportTable extends BaseEntity {
   my_response_row_stats?: {
     total: number;
     completed: number;
+    submitted?: number;
+    approved?: number;
+    rejected?: number;
+    pending?: number;
   };
   creator?: {
     id: number;
