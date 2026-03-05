@@ -14,7 +14,7 @@ import { useModuleAccess } from '@/hooks/useModuleAccess';
 import { useAuth } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/constants/roles';
 import { useQuery } from '@tanstack/react-query';
-import { regionalAttendanceService, SchoolClassBreakdown } from '@/services/regionalAttendance';
+import { regionalAttendanceService, SchoolClassBreakdown, GradeLevelStatsResponse, MissingReportsResponse } from '@/services/regionalAttendance';
 import { format, subDays } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,6 +31,8 @@ import {
   Legend,
   ResponsiveContainer,
   Cell,
+  Area,
+  ReferenceLine,
 } from 'recharts';
 
 const numberFormatter = new Intl.NumberFormat('az');
@@ -82,7 +84,8 @@ export default function RegionAttendanceReports() {
     key: 'name',
     direction: 'asc',
   });
-  const [activeTab, setActiveTab] = useState<'overview' | 'classes'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'classes' | 'gradeLevel' | 'missingReports'>('overview');
+  const [selectedEducationProgram, setSelectedEducationProgram] = useState<string>('all');
   const [pendingRefresh, setPendingRefresh] = useState(false);
 
   const overviewFilters = useMemo(() => {
@@ -191,6 +194,57 @@ export default function RegionAttendanceReports() {
     staleTime: 60 * 1000,
   });
 
+  const gradeLevelFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {
+      start_date: startDate,
+      end_date: endDate,
+    };
+    if (selectedSectorId !== 'all') {
+      filters.sector_id = Number(selectedSectorId);
+    }
+    if (selectedEducationProgram && selectedEducationProgram !== 'all') {
+      filters.education_program = selectedEducationProgram;
+    }
+    return filters;
+  }, [startDate, endDate, selectedSectorId, selectedEducationProgram]);
+
+  const {
+    data: gradeLevelData,
+    isLoading: gradeLevelLoading,
+    isFetching: gradeLevelFetching,
+    error: gradeLevelError,
+    refetch: refetchGradeLevel,
+  } = useQuery<GradeLevelStatsResponse>({
+    queryKey: ['regional-attendance', 'grade-level', gradeLevelFilters],
+    queryFn: () => regionalAttendanceService.getGradeLevelStats(gradeLevelFilters),
+    enabled: hasAccess,
+    staleTime: 60 * 1000,
+  });
+
+  const missingReportsFilters = useMemo(() => {
+    const filters: Record<string, unknown> = {
+      start_date: startDate,
+      end_date: endDate,
+    };
+    if (selectedSectorId !== 'all') {
+      filters.sector_id = Number(selectedSectorId);
+    }
+    return filters;
+  }, [startDate, endDate, selectedSectorId]);
+
+  const {
+    data: missingReportsData,
+    isLoading: missingReportsLoading,
+    isFetching: missingReportsFetching,
+    error: missingReportsError,
+    refetch: refetchMissingReports,
+  } = useQuery<MissingReportsResponse>({
+    queryKey: ['regional-attendance', 'missing-reports', missingReportsFilters],
+    queryFn: () => regionalAttendanceService.getSchoolsWithMissingReports(missingReportsFilters),
+    enabled: hasAccess,
+    staleTime: 60 * 1000,
+  });
+
   const handlePresetChange = (preset: DatePreset) => {
     setDatePreset(preset);
     const now = new Date();
@@ -217,8 +271,10 @@ export default function RegionAttendanceReports() {
     if (!pendingRefresh) return;
     refetchOverview();
     if (selectedSchoolId) refetchClassBreakdown();
+    refetchGradeLevel();
+    refetchMissingReports();
     setPendingRefresh(false);
-  }, [pendingRefresh, refetchOverview, refetchClassBreakdown, selectedSchoolId]);
+  }, [pendingRefresh, refetchOverview, refetchClassBreakdown, refetchGradeLevel, refetchMissingReports, selectedSchoolId]);
 
   const handleExport = async () => {
     try {
@@ -233,6 +289,51 @@ export default function RegionAttendanceReports() {
       document.body.removeChild(a);
     } catch (error) {
       console.error('Export error:', error);
+    }
+  };
+
+  const handleExportGradeLevel = async () => {
+    try {
+      const blob = await regionalAttendanceService.exportGradeLevelStats(gradeLevelFilters);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `sinif_statistikasi_${startDate}_${endDate}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Grade level export error:', error);
+    }
+  };
+
+  const handleExportMissingReports = async () => {
+    try {
+      // Create CSV content for missing reports
+      if (!missingReportsData?.schools?.length) return;
+      
+      const period = `${format(new Date(startDate), 'dd.MM.yyyy')}-${format(new Date(endDate), 'dd.MM.yyyy')}`;
+      const schoolDays = missingReportsData.summary.period.school_days;
+      
+      let csvContent = '\uFEFF'; // BOM for UTF-8
+      csvContent += 'Məktəb adı,Sektor,Hesabat günləri,Təqdim edilməyən gün,Status\n';
+      
+      missingReportsData.schools.forEach((school) => {
+        csvContent += `"${school.name}","${school.sector_name}",${schoolDays} gün,${schoolDays} gün,Hesabat yoxdur\n`;
+      });
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `hesabat_teqdim_etmeyen_mektebler_${startDate}_${endDate}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Missing reports export error:', error);
     }
   };
 
@@ -370,41 +471,61 @@ export default function RegionAttendanceReports() {
   const renderUniformSectorChart = () => {
     if (!sectors.length) return null;
 
-    const data = sectors.map((s) => ({
-      name: s.name.length > 20 ? s.name.substring(0, 20) + '...' : s.name,
-      fullName: s.name,
-      rate: Number(s.uniform_compliance_rate ?? 0),
-    }));
+    const data = sectors
+      .slice()
+      .sort((a, b) => b.uniform_compliance_rate - a.uniform_compliance_rate)
+      .map((s) => ({
+        name: s.name,
+        rate: Number(s.uniform_compliance_rate ?? 0),
+      }));
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Sektor müqayisəsi (Məktəbli forma %)</CardTitle>
+      <Card className="rounded-2xl shadow-lg border-0 overflow-hidden bg-white">
+        <CardHeader className="pb-3 pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
+                <Shirt className="h-4 w-4 text-indigo-600" />
+              </div>
+              <CardTitle className="text-base font-bold text-slate-800">Məktəbli Forma</CardTitle>
+            </div>
+            <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs">
+              Sektor Müqayisəsi
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis
-                  dataKey="name"
-                  angle={-15}
-                  textAnchor="end"
-                  interval={0}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} fontSize={12} />
-                <Tooltip
-                  formatter={(value: number) => [`${value}%`, 'Məktəbli forma']}
-                  labelFormatter={(_, payload) => payload[0]?.payload?.fullName || ''}
-                />
-                <Bar dataKey="rate" radius={[4, 4, 0, 0]} barSize={40}>
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={getChartColor(entry.rate)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+        <CardContent className="p-4 pt-0">
+          <div className="space-y-3">
+            {data.map((sector, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-600 w-24 truncate" title={sector.name}>
+                  {sector.name}
+                </span>
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      sector.rate >= 95
+                        ? 'bg-emerald-500'
+                        : sector.rate >= 85
+                        ? 'bg-amber-500'
+                        : 'bg-red-500'
+                    }`}
+                    style={{ width: `${Math.min(sector.rate, 100)}%` }}
+                  />
+                </div>
+                <span
+                  className={`text-sm font-bold w-14 text-right ${
+                    sector.rate >= 95
+                      ? 'text-emerald-600'
+                      : sector.rate >= 85
+                      ? 'text-amber-600'
+                      : 'text-red-600'
+                  }`}
+                >
+                  {sector.rate.toFixed(1)}%
+                </span>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -414,41 +535,61 @@ export default function RegionAttendanceReports() {
   const renderSectorChart = () => {
     if (!sectors.length) return null;
 
-    const data = sectors.map((s) => ({
-      name: s.name.length > 20 ? s.name.substring(0, 20) + '...' : s.name,
-      fullName: s.name,
-      rate: s.average_attendance_rate,
-    }));
+    const data = sectors
+      .slice()
+      .sort((a, b) => b.average_attendance_rate - a.average_attendance_rate)
+      .map((s) => ({
+        name: s.name,
+        rate: s.average_attendance_rate,
+      }));
 
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Sektor müqayisəsi (Davamiyyət %)</CardTitle>
+      <Card className="rounded-2xl shadow-lg border-0 overflow-hidden bg-white">
+        <CardHeader className="pb-3 pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
+                <Building2 className="h-4 w-4 text-blue-600" />
+              </div>
+              <CardTitle className="text-base font-bold text-slate-800">Davamiyyət</CardTitle>
+            </div>
+            <Badge variant="secondary" className="bg-slate-100 text-slate-600 text-xs">
+              Sektor Müqayisəsi
+            </Badge>
+          </div>
         </CardHeader>
-        <CardContent>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
-                  angle={-15} 
-                  textAnchor="end" 
-                  interval={0}
-                  tick={{ fontSize: 11 }}
-                />
-                <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} fontSize={12} />
-                <Tooltip 
-                  formatter={(value: number) => [`${value}%`, 'Davamiyyət']}
-                  labelFormatter={(_, payload) => payload[0]?.payload?.fullName || ''}
-                />
-                <Bar dataKey="rate" radius={[4, 4, 0, 0]} barSize={40}>
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={getChartColor(entry.rate)} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+        <CardContent className="p-4 pt-0">
+          <div className="space-y-3">
+            {data.map((sector, index) => (
+              <div key={index} className="flex items-center gap-3">
+                <span className="text-sm font-medium text-slate-600 w-24 truncate" title={sector.name}>
+                  {sector.name}
+                </span>
+                <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      sector.rate >= 95
+                        ? 'bg-emerald-500'
+                        : sector.rate >= 85
+                        ? 'bg-amber-500'
+                        : 'bg-red-500'
+                    }`}
+                    style={{ width: `${Math.min(sector.rate, 100)}%` }}
+                  />
+                </div>
+                <span
+                  className={`text-sm font-bold w-14 text-right ${
+                    sector.rate >= 95
+                      ? 'text-emerald-600'
+                      : sector.rate >= 85
+                      ? 'text-amber-600'
+                      : 'text-red-600'
+                  }`}
+                >
+                  {sector.rate.toFixed(1)}%
+                </span>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
@@ -458,34 +599,168 @@ export default function RegionAttendanceReports() {
   const renderTrendChart = () => {
     if (!overview?.trends?.length) return null;
 
+    const targetRate = 92; // Target line at 92%
+    
+    const data = overview.trends.map((t) => ({
+      name: t.short_date,
+      fullDate: t.date,
+      rate: t.reported ? t.rate : null,
+    }));
+
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-semibold">Dinamika (Gündəlik davamiyyət %)</CardTitle>
+      <Card className="rounded-2xl shadow-lg border-0 overflow-hidden bg-white md:col-span-2">
+        <CardHeader className="pb-3 pt-4 px-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-blue-500" />
+              <CardTitle className="text-base font-bold text-slate-800">Gündəlik dinamika</CardTitle>
+            </div>
+            <span className="text-xs text-slate-400">Area + hədəf xətti</span>
+          </div>
+          <p className="text-xs text-slate-500 mt-1">
+            Trendin istiqaməti, dəyişkənlik və hədəfdən sapma bir qrafikdə
+          </p>
         </CardHeader>
-        <CardContent>
-          <div className="h-[300px] w-full">
+        <CardContent className="p-4 pt-0">
+          <div className="h-[280px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={overview.trends} margin={{ top: 10, right: 30, left: 0, bottom: 20 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
+              <LineChart data={data} margin={{ top: 20, right: 60, left: 0, bottom: 20 }}>
+                <defs>
+                  <linearGradient id="colorRate" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.05}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                 <XAxis 
-                  dataKey="short_date" 
+                  dataKey="name" 
                   fontSize={11}
-                  tick={{ fontSize: 11 }}
+                  tick={{ fill: '#94a3b8' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e2e8f0' }}
                 />
-                <YAxis domain={[0, 100]} tickFormatter={(val) => `${val}%`} fontSize={12} />
-                <Tooltip 
-                  formatter={(value: number) => [`${value}%`, 'Davamiyyət']}
+                <YAxis 
+                  domain={[84, 100]} 
+                  tickFormatter={(val) => `${val}%`}
+                  fontSize={11}
+                  tick={{ fill: '#94a3b8' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e2e8f0' }}
                 />
+                {/* Target Line */}
+                <ReferenceLine 
+                  y={targetRate} 
+                  stroke="#f59e0b" 
+                  strokeDasharray="4 4" 
+                  strokeWidth={2}
+                />
+                {/* Area fill */}
+                <Area 
+                  type="monotone" 
+                  dataKey="rate" 
+                  stroke="none" 
+                  fill="url(#colorRate)" 
+                  connectNulls
+                />
+                {/* Main line */}
                 <Line 
                   type="monotone" 
                   dataKey="rate" 
-                  stroke="#2563eb" 
-                  strokeWidth={3}
-                  dot={{ r: 4, fill: "#2563eb", strokeWidth: 2 }}
-                  activeDot={{ r: 6 }}
+                  stroke="#6366f1" 
+                  strokeWidth={2}
+                  dot={{ fill: '#6366f1', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, fill: '#6366f1', stroke: '#fff', strokeWidth: 2 }}
+                  connectNulls
+                />
+                <Tooltip
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    borderRadius: '12px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+                    padding: '12px'
+                  }}
+                  formatter={(value: number) => [
+                    <span className="font-bold text-indigo-600">{value?.toFixed(1) ?? '-'}%</span>, 
+                    'Davamiyyət'
+                  ]}
+                  labelFormatter={(label) => (
+                    <span className="font-semibold text-slate-700">{label}</span>
+                  )}
                 />
               </LineChart>
+            </ResponsiveContainer>
+          </div>
+          {/* Target label */}
+          <div className="flex justify-end items-center gap-2 mt-2 mr-12">
+            <div className="w-4 h-0 border-t-2 border-dashed border-amber-500" />
+            <span className="text-xs font-medium text-amber-600">Hədəf {targetRate}%</span>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderGradeLevelChart = () => {
+    if (!gradeLevelData?.grade_levels?.length) return null;
+
+    const data = gradeLevelData.grade_levels
+      .filter(gl => gl.student_count > 0)
+      .map((gl) => ({
+        name: gl.class_level_display,
+        fullName: `${gl.class_level_display} sinif`,
+        attendance: gl.average_attendance_rate,
+        uniform: gl.uniform_compliance_rate,
+        students: gl.student_count,
+      }));
+
+    return (
+      <Card className="rounded-2xl shadow-lg border-0 overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-amber-500 to-orange-600 pb-4">
+          <CardTitle className="text-base font-bold text-white flex items-center gap-2">
+            <SchoolIcon className="h-5 w-5" />
+            Siniflər üzrə Davamiyyət
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="h-[280px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: 20 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis 
+                  dataKey="name" 
+                  interval={0}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                />
+                <YAxis 
+                  domain={[0, 100]} 
+                  tickFormatter={(val) => `${val}%`}
+                  fontSize={11}
+                  tick={{ fill: '#64748b' }}
+                  tickLine={false}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: 'white', 
+                    borderRadius: '12px', 
+                    border: 'none', 
+                    boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+                    padding: '12px'
+                  }}
+                  formatter={(value: number, name: string, props: any) => [
+                    <span className="font-bold">{value.toFixed(1)}%</span>, 
+                    name === 'attendance' ? 'Davamiyyət' : 'Məktəbli forma'
+                  ]}
+                  labelFormatter={(label, payload) => (
+                    <span className="font-semibold text-slate-700">{payload[0]?.payload?.fullName}</span>
+                  )}
+                />
+                <Bar dataKey="attendance" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={20} name="Davamiyyət" />
+                <Bar dataKey="uniform" fill="#8b5cf6" radius={[4, 4, 0, 0]} barSize={20} name="Məktəbli forma" />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </CardContent>
@@ -523,11 +798,11 @@ export default function RegionAttendanceReports() {
         ) : null}
       </div>
 
-      {(overviewError || classError) && (
+      {(overviewError || classError || gradeLevelError || missingReportsError) && (
         <Alert variant="destructive">
           <AlertTitle>Hesabat yüklənmədi</AlertTitle>
           <AlertDescription>
-            {getErrorMessage(overviewError || classError)}
+            {getErrorMessage(overviewError || classError || gradeLevelError || missingReportsError)}
           </AlertDescription>
         </Alert>
       )}
@@ -609,6 +884,21 @@ export default function RegionAttendanceReports() {
                       {sector.name}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1 flex-1 min-w-[200px]">
+              <Label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Təhsil proqramı</Label>
+              <Select value={selectedEducationProgram} onValueChange={(value) => setSelectedEducationProgram(value)}>
+                <SelectTrigger className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700">
+                  <SelectValue placeholder="Təhsil proqramı seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Bütün proqramlar</SelectItem>
+                  <SelectItem value="umumi">Ümumi təhsil</SelectItem>
+                  <SelectItem value="xususi">Xüsusi təhsil</SelectItem>
+                  <SelectItem value="mektebde_ferdi">Məktəbdə fərdi təhsil</SelectItem>
+                  <SelectItem value="evde_ferdi">Evdə fərdi təhsil</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -700,7 +990,7 @@ export default function RegionAttendanceReports() {
                         <Target className="h-4 w-4 text-white" />
                       </div>
                     </div>
-                    <p className="text-[10px] text-slate-400 mt-1">{overview.summary.reported_days} gün üzrə</p>
+                    <p className="text-[10px] text-slate-400 mt-1">{overview.summary.period.school_days} gün üzrə</p>
                   </CardContent>
                 </Card>
 
@@ -741,7 +1031,7 @@ export default function RegionAttendanceReports() {
         </CardContent>
       </Card>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'classes')}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'overview' | 'classes' | 'gradeLevel' | 'missingReports')}>
         <TabsList className="inline-flex w-full sm:w-auto rounded-2xl bg-slate-100 p-1 gap-1 h-auto">
           <TabsTrigger
             value="overview"
@@ -755,6 +1045,18 @@ export default function RegionAttendanceReports() {
           >
             Məktəb &amp; Sinif nəzarəti
           </TabsTrigger>
+          <TabsTrigger
+            value="gradeLevel"
+            className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:bg-white/60 hover:text-slate-900 transition data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200"
+          >
+            Sinif üzrə statistika
+          </TabsTrigger>
+          <TabsTrigger
+            value="missingReports"
+            className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:bg-white/60 hover:text-slate-900 transition data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200"
+          >
+            Doldurmayan məktəblər
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -762,6 +1064,7 @@ export default function RegionAttendanceReports() {
             {renderSectorChart()}
             {renderUniformSectorChart()}
             {renderTrendChart()}
+            {renderGradeLevelChart()}
           </div>
 
           <div className="grid gap-4 lg:grid-cols-3">
@@ -1207,6 +1510,381 @@ export default function RegionAttendanceReports() {
               </Card>
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="gradeLevel" className="space-y-6">
+          {/* Summary Cards for Grade Level Stats */}
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+            {gradeLevelLoading || gradeLevelFetching ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-20 w-full" />
+              ))
+            ) : gradeLevelData?.summary ? (
+              <>
+                <Card className="relative overflow-hidden rounded-xl shadow-none border border-slate-100 bg-gradient-to-br from-blue-50 to-white">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase">Ümumi şagird</p>
+                        <p className="text-xl font-bold text-blue-600">{numberFormatter.format(gradeLevelData.summary.total_students)}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                        <Users className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Bütün siniflər üzrə</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="relative overflow-hidden rounded-xl shadow-none border border-slate-100 bg-gradient-to-br from-emerald-50 to-white">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase">Orta davamiyyət</p>
+                        <p className="text-xl font-bold text-emerald-600">{gradeLevelData.summary.overall_average_attendance.toFixed(1)}%</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                        <Target className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Ümumi orta göstərici</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="relative overflow-hidden rounded-xl shadow-none border border-slate-100 bg-gradient-to-br from-violet-50 to-white">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-violet-500" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase">Məktəb sayı</p>
+                        <p className="text-xl font-bold text-violet-600">{numberFormatter.format(gradeLevelData.summary.total_schools)}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-violet-600 flex items-center justify-center">
+                        <Building2 className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Hesabat əhatəsi</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="relative overflow-hidden rounded-xl shadow-none border border-slate-100 bg-gradient-to-br from-amber-50 to-white">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase">Sinif sayı</p>
+                        <p className="text-xl font-bold text-amber-600">{gradeLevelData.grade_levels.length}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                        <SchoolIcon className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">I-XI siniflər</p>
+                  </CardContent>
+                </Card>
+              </>
+            ) : null}
+          </div>
+
+          {/* Grade Level Statistics Table */}
+          <Card>
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between space-y-0">
+              <div>
+                <CardTitle>Siniflər üzrə statistika</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Sinif səviyyələri üzrə davamiyyət və məktəbli forma statistikası
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleExportGradeLevel}
+                disabled={gradeLevelLoading || !gradeLevelData}
+                className="h-9 px-4 rounded-xl border-[1.4px] border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+              >
+                <FileDown className="mr-1.5 h-4 w-4" />
+                Eksport (Excel)
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {gradeLevelLoading ? (
+                <Skeleton className="h-48 w-full" />
+              ) : gradeLevelData?.grade_levels?.length ? (
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-center">Sinif</TableHead>
+                        <TableHead className="text-center">Şagird sayı</TableHead>
+                        <TableHead className="text-center">Məktəb sayı</TableHead>
+                        <TableHead className="text-center">Orta davamiyyət</TableHead>
+                        <TableHead className="text-center">Məktəbli forma</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {gradeLevelData.grade_levels
+                        .filter(gl => gl.student_count > 0)
+                        .map((gradeLevel) => (
+                        <TableRow key={gradeLevel.class_level}>
+                          <TableCell className="text-center">
+                            <div className="font-bold text-lg">{gradeLevel.class_level_display}</div>
+                            <p className="text-xs text-muted-foreground">{gradeLevel.class_level}-ci sinif</p>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {numberFormatter.format(gradeLevel.student_count)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {numberFormatter.format(gradeLevel.school_count)}
+                          </TableCell>
+                          <TableCell className="text-center font-semibold">
+                            <span className={
+                              gradeLevel.average_attendance_rate >= 95
+                                ? 'text-emerald-600'
+                                : gradeLevel.average_attendance_rate >= 85
+                                ? 'text-amber-600'
+                                : 'text-red-600'
+                            }>
+                              {formatPercent(gradeLevel.average_attendance_rate)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-center font-semibold">
+                            <span className={
+                              gradeLevel.uniform_compliance_rate >= 95
+                                ? 'text-emerald-600'
+                                : gradeLevel.uniform_compliance_rate >= 85
+                                ? 'text-amber-600'
+                                : 'text-red-600'
+                            }>
+                              {formatPercent(gradeLevel.uniform_compliance_rate)}
+                            </span>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Sinif statistikası tapılmadı.</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="missingReports" className="space-y-6">
+          {/* Summary Cards for Missing Reports */}
+          <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
+            {missingReportsLoading || missingReportsFetching ? (
+              Array.from({ length: 4 }).map((_, index) => (
+                <Skeleton key={index} className="h-20 w-full" />
+              ))
+            ) : missingReportsData?.summary ? (
+              <>
+                <Card className="relative overflow-hidden rounded-xl shadow-none border border-slate-100 bg-gradient-to-br from-blue-50 to-white">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-blue-500" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase">Ümumi məktəb</p>
+                        <p className="text-xl font-bold text-blue-600">{numberFormatter.format(missingReportsData.summary.total_schools)}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                        <Building2 className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Seçilmiş dövr üzrə</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="relative overflow-hidden rounded-xl shadow-none border border-slate-100 bg-gradient-to-br from-emerald-50 to-white">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-emerald-500" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase">Hesabat göndərən</p>
+                        <p className="text-xl font-bold text-emerald-600">{numberFormatter.format(missingReportsData.summary.schools_with_reports)}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center">
+                        <Target className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Məktəb</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="relative overflow-hidden rounded-xl shadow-none border border-slate-100 bg-gradient-to-br from-red-50 to-white">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-red-500" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase">Hesabat yoxdur</p>
+                        <p className="text-xl font-bold text-red-600">{numberFormatter.format(missingReportsData.summary.schools_missing_reports)}</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center">
+                        <AlertTriangle className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Məktəb</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="relative overflow-hidden rounded-xl shadow-none border border-slate-100 bg-gradient-to-br from-amber-50 to-white">
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-amber-500" />
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-semibold text-slate-500 uppercase">Hesabat olmayan</p>
+                        <p className="text-xl font-bold text-amber-600">{missingReportsData.summary.missing_percentage.toFixed(1)}%</p>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500 to-amber-600 flex items-center justify-center">
+                        <BarChart3 className="h-4 w-4 text-white" />
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">Faiz</p>
+                  </CardContent>
+                </Card>
+              </>
+            ) : null}
+          </div>
+
+          {/* Missing Reports by Sector Chart */}
+          {missingReportsData?.sectors && missingReportsData.sectors.length > 0 && (
+            <Card className="rounded-2xl shadow-lg border-0 overflow-hidden">
+              <CardHeader className="bg-gradient-to-r from-red-500 to-orange-600 pb-4">
+                <CardTitle className="text-base font-bold text-white flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Sektorlar üzrə hesabat olmayan məktəblər
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-4">
+                <div className="h-[280px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart 
+                      data={missingReportsData.sectors.filter(s => s.schools_missing > 0)} 
+                      margin={{ top: 20, right: 20, left: 0, bottom: 40 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                      <XAxis
+                        dataKey="sector_name"
+                        angle={-35}
+                        textAnchor="end"
+                        interval={0}
+                        tick={{ fontSize: 10, fill: '#64748b' }}
+                        tickLine={false}
+                        axisLine={{ stroke: '#e2e8f0' }}
+                      />
+                      <YAxis 
+                        tickFormatter={(val) => `${val}`}
+                        fontSize={11}
+                        tick={{ fill: '#64748b' }}
+                        tickLine={false}
+                        axisLine={{ stroke: '#e2e8f0' }}
+                      />
+                      <Tooltip
+                        contentStyle={{ 
+                          backgroundColor: 'white', 
+                          borderRadius: '12px', 
+                          border: 'none', 
+                          boxShadow: '0 10px 40px rgba(0,0,0,0.15)',
+                          padding: '12px'
+                        }}
+                        formatter={(value: number) => [
+                          <span className="font-bold text-red-600">{value} məktəb</span>, 
+                          'Hesabat yoxdur'
+                        ]}
+                        labelFormatter={(label) => (
+                          <span className="font-semibold text-slate-700">{label}</span>
+                        )}
+                      />
+                      <Bar dataKey="schools_missing" fill="#ef4444" radius={[8, 8, 0, 0]} barSize={32} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Missing Reports Table */}
+          <Card>
+            <CardHeader className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between space-y-0">
+              <div>
+                <CardTitle>Hesabat göndərməyən məktəblər</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Hesabat dövrü: {format(new Date(startDate), 'dd.MM.yyyy')} - {format(new Date(endDate), 'dd.MM.yyyy')}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleExportMissingReports}
+                disabled={missingReportsLoading || !missingReportsData?.schools?.length}
+                className="h-9 px-4 rounded-xl border-[1.4px] border-slate-200 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700"
+              >
+                <FileDown className="mr-1.5 h-4 w-4" />
+                Eksport (Excel)
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {missingReportsLoading ? (
+                <Skeleton className="h-48 w-full" />
+              ) : missingReportsData?.schools && missingReportsData.schools.length > 0 ? (
+                <div className="rounded-md border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Məktəb</TableHead>
+                        <TableHead className="text-center">Sektor</TableHead>
+                        <TableHead className="text-center">Hesabat günləri</TableHead>
+                        <TableHead className="text-center">Təqdim edilməyən gün</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {missingReportsData.schools.map((school) => {
+                        const schoolDays = missingReportsData.summary.period.school_days;
+                        const missingDays = schoolDays; // All days are missing since no reports
+                        return (
+                          <TableRow key={school.school_id}>
+                            <TableCell>
+                              <div className="font-medium flex items-center gap-2">
+                                <SchoolIcon className="h-4 w-4 text-muted-foreground" />
+                                {school.name}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                                {school.sector_name}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-slate-600 font-medium">{schoolDays} gün</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <span className="text-red-600 font-bold">{missingDays} gün</span>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Badge variant="destructive">
+                                Hesabat yoxdur
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mb-4">
+                    <Target className="h-8 w-8 text-emerald-500" />
+                  </div>
+                  <p className="text-lg font-semibold text-slate-700">Bütün məktəblər hesabat göndərib!</p>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Seçilmiş tarix aralığında ({format(new Date(startDate), 'dd.MM.yyyy')} - {format(new Date(endDate), 'dd.MM.yyyy')}) bütün məktəblər hesabat təqdim edib.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

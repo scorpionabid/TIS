@@ -830,4 +830,464 @@ class RegionalAttendanceService
             ],
         ];
     }
+
+    /**
+     * Get grade level attendance statistics aggregated by class level (1-11).
+     * Supports filtering by education program.
+     */
+    public function getGradeLevelStats(User $user, array $filters = []): array
+    {
+        [$startDate, $endDate] = $this->resolveDateRange($filters);
+
+        $scope = $this->resolveInstitutionScope($user, $filters, $startDate, $endDate);
+        $schoolIds = $scope['school_ids'];
+
+        if (empty($schoolIds)) {
+            return $this->formatEmptyGradeLevelStats($scope, $startDate, $endDate);
+        }
+
+        // Get education program filter
+        $educationProgram = $filters['education_program'] ?? null;
+
+        // Build grade query with optional education program filter
+        $gradeQuery = Grade::query()
+            ->whereIn('institution_id', $schoolIds)
+            ->where('is_active', true);
+
+        if ($educationProgram && $educationProgram !== 'all') {
+            $gradeQuery->where('education_program', $educationProgram);
+        }
+
+        $grades = $gradeQuery->get(['id', 'institution_id', 'name', 'class_level', 'student_count', 'education_program']);
+
+        // Get attendance records for these grades
+        $gradeIds = $grades->pluck('id')->toArray();
+
+        $attendanceRecords = ClassBulkAttendance::query()
+            ->whereIn('institution_id', $schoolIds)
+            ->whereIn('grade_id', $gradeIds)
+            ->whereDate('attendance_date', '>=', $startDate)
+            ->whereDate('attendance_date', '<=', $endDate)
+            ->get([
+                'grade_id',
+                'attendance_date',
+                'morning_present',
+                'evening_present',
+                'morning_excused',
+                'morning_unexcused',
+                'evening_excused',
+                'evening_unexcused',
+                'uniform_violation',
+                'daily_attendance_rate',
+                'total_students',
+                'morning_recorded_at',
+                'evening_recorded_at',
+            ]);
+
+        // Group grades by class level
+        $gradesByLevel = $grades->groupBy('class_level');
+
+        // Initialize stats for all class levels 1-11
+        $gradeLevelStats = [];
+        for ($level = 1; $level <= 11; $level++) {
+            $gradeLevelStats[$level] = [
+                'class_level' => $level,
+                'class_level_display' => $this->getRomanNumeral($level),
+                'student_count' => 0,
+                'school_count' => 0,
+                'average_attendance_rate' => 0,
+                'uniform_compliance_rate' => 0,
+                'total_uniform_violations' => 0,
+                'present_total' => 0,
+                'schools' => [],
+            ];
+        }
+
+        // Calculate student counts and schools per level
+        foreach ($gradesByLevel as $level => $levelGrades) {
+            if (!isset($gradeLevelStats[$level])) {
+                continue;
+            }
+
+            $gradeLevelStats[$level]['student_count'] = $levelGrades->sum('student_count');
+            $gradeLevelStats[$level]['school_count'] = $levelGrades->pluck('institution_id')->unique()->count();
+
+            // Track which schools have this grade level
+            foreach ($levelGrades as $grade) {
+                $schoolId = $grade->institution_id;
+                if (!isset($gradeLevelStats[$level]['schools'][$schoolId])) {
+                    $gradeLevelStats[$level]['schools'][$schoolId] = [
+                        'school_id' => $schoolId,
+                        'grade_ids' => [],
+                        'student_count' => 0,
+                    ];
+                }
+                $gradeLevelStats[$level]['schools'][$schoolId]['grade_ids'][] = $grade->id;
+                $gradeLevelStats[$level]['schools'][$schoolId]['student_count'] += $grade->student_count;
+            }
+        }
+
+        // Aggregate attendance data by class level
+        $attendanceByGrade = $attendanceRecords->groupBy('grade_id');
+
+        foreach ($gradesByLevel as $level => $levelGrades) {
+            $levelGradeIds = $levelGrades->pluck('id')->toArray();
+            $levelRecords = collect();
+
+            foreach ($levelGradeIds as $gradeId) {
+                if ($attendanceByGrade->has($gradeId)) {
+                    $levelRecords = $levelRecords->merge($attendanceByGrade[$gradeId]);
+                }
+            }
+
+            if ($levelRecords->isEmpty()) {
+                continue;
+            }
+
+            // Calculate weighted attendance rate
+            $totalWeightedRate = 0;
+            $totalWeight = 0;
+            $totalUniformViolations = 0;
+            $totalPresent = 0;
+
+            foreach ($levelRecords as $record) {
+                $grade = $grades->firstWhere('id', $record->grade_id);
+                $studentCount = $grade ? $grade->student_count : $record->total_students;
+                $weight = max($studentCount, 1);
+
+                // Effective present calculation
+                $morningPresent = (int) $record->morning_present;
+                $eveningPresent = (int) $record->evening_present;
+                $hasMorning = $record->morning_recorded_at !== null;
+                $hasEvening = $record->evening_recorded_at !== null;
+
+                $classTotal = max($studentCount, 1);
+                $noMorningChanges = $morningPresent === 0
+                    && (int) $record->morning_excused === 0
+                    && (int) $record->morning_unexcused === 0
+                    && $hasMorning;
+                $noEveningChanges = $eveningPresent === 0
+                    && (int) $record->evening_excused === 0
+                    && (int) $record->evening_unexcused === 0
+                    && $hasEvening;
+
+                $effMorning = $noMorningChanges ? $classTotal : $morningPresent;
+                $effEvening = $noEveningChanges ? $classTotal : $eveningPresent;
+
+                if ($hasMorning) {
+                    $totalPresent += $effMorning;
+                }
+                if ($hasEvening) {
+                    $totalPresent += $effEvening;
+                }
+
+                $dailyRate = $record->daily_attendance_rate ?? 0;
+                $totalWeightedRate += $dailyRate * $weight;
+                $totalWeight += $weight;
+                $totalUniformViolations += (int) ($record->uniform_violation ?? 0);
+            }
+
+            $avgRate = $totalWeight > 0 ? round($totalWeightedRate / $totalWeight, 2) : 0;
+
+            // Calculate uniform compliance
+            if ($totalPresent > 0) {
+                $totalUniformViolations = min($totalUniformViolations, $totalPresent);
+            }
+            $uniformViolationRate = $totalPresent > 0
+                ? round(($totalUniformViolations / $totalPresent) * 100, 2)
+                : 0.0;
+            $uniformComplianceRate = $totalPresent > 0
+                ? round(100 - $uniformViolationRate, 2)
+                : 0.0;
+
+            $gradeLevelStats[$level]['average_attendance_rate'] = $avgRate;
+            $gradeLevelStats[$level]['uniform_compliance_rate'] = $uniformComplianceRate;
+            $gradeLevelStats[$level]['total_uniform_violations'] = $totalUniformViolations;
+            $gradeLevelStats[$level]['present_total'] = $totalPresent;
+        }
+
+        // Convert schools array to sequential array
+        foreach ($gradeLevelStats as &$stat) {
+            $stat['schools'] = array_values($stat['schools']);
+        }
+
+        // Build summary
+        $totalStudents = array_sum(array_column($gradeLevelStats, 'student_count'));
+        $totalSchools = count($schoolIds);
+
+        // Calculate overall average attendance weighted by student count
+        $overallWeightedRate = 0;
+        $overallWeight = 0;
+        foreach ($gradeLevelStats as $stat) {
+            if ($stat['average_attendance_rate'] > 0 && $stat['student_count'] > 0) {
+                $overallWeightedRate += $stat['average_attendance_rate'] * $stat['student_count'];
+                $overallWeight += $stat['student_count'];
+            }
+        }
+        $overallAvgRate = $overallWeight > 0 ? round($overallWeightedRate / $overallWeight, 2) : 0;
+
+        return [
+            'summary' => [
+                'total_students' => $totalStudents,
+                'total_schools' => $totalSchools,
+                'overall_average_attendance' => $overallAvgRate,
+                'period' => [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'school_days' => $scope['school_days'],
+                ],
+            ],
+            'grade_levels' => array_values($gradeLevelStats),
+            'filters' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'sector_id' => $scope['active_sector']?->id ?? $filters['sector_id'] ?? null,
+                'education_program' => $educationProgram,
+            ],
+            'context' => [
+                'region' => $scope['region'] ? [
+                    'id' => $scope['region']->id,
+                    'name' => $scope['region']->name,
+                ] : null,
+                'active_sector' => $scope['active_sector'] ? [
+                    'id' => $scope['active_sector']->id,
+                    'name' => $scope['active_sector']->name,
+                ] : null,
+            ],
+        ];
+    }
+
+    /**
+     * Format empty grade level stats response.
+     */
+    private function formatEmptyGradeLevelStats(array $scope, string $startDate, string $endDate): array
+    {
+        $gradeLevels = [];
+        for ($level = 1; $level <= 11; $level++) {
+            $gradeLevels[] = [
+                'class_level' => $level,
+                'class_level_display' => $this->getRomanNumeral($level),
+                'student_count' => 0,
+                'school_count' => 0,
+                'average_attendance_rate' => 0,
+                'uniform_compliance_rate' => 0,
+                'total_uniform_violations' => 0,
+                'present_total' => 0,
+                'schools' => [],
+            ];
+        }
+
+        return [
+            'summary' => [
+                'total_students' => 0,
+                'total_schools' => 0,
+                'overall_average_attendance' => 0,
+                'period' => [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'school_days' => $scope['school_days'],
+                ],
+            ],
+            'grade_levels' => $gradeLevels,
+            'filters' => [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ],
+            'context' => [
+                'region' => $scope['region'] ? [
+                    'id' => $scope['region']->id,
+                    'name' => $scope['region']->name,
+                ] : null,
+            ],
+        ];
+    }
+
+    /**
+     * Convert number to Roman numeral (1-11).
+     */
+    private function getRomanNumeral(int $number): string
+    {
+        $numerals = [
+            1 => 'I',
+            2 => 'II',
+            3 => 'III',
+            4 => 'IV',
+            5 => 'V',
+            6 => 'VI',
+            7 => 'VII',
+            8 => 'VIII',
+            9 => 'IX',
+            10 => 'X',
+            11 => 'XI',
+        ];
+
+        return $numerals[$number] ?? (string) $number;
+    }
+
+    /**
+     * Export grade level statistics as array for Excel generation.
+     */
+    public function exportGradeLevelStats(User $user, array $filters = []): array
+    {
+        $data = $this->getGradeLevelStats($user, $filters);
+
+        $rows = [];
+        $rows[] = ['Sinif', 'Şagird sayı', 'Məktəb sayı', 'Orta davamiyyət (%)', 'Məktəbli forma (%)'];
+
+        foreach ($data['grade_levels'] as $level) {
+            if ($level['student_count'] > 0) {
+                $rows[] = [
+                    $level['class_level_display'],
+                    $level['student_count'],
+                    $level['school_count'],
+                    $level['average_attendance_rate'],
+                    $level['uniform_compliance_rate'],
+                ];
+            }
+        }
+
+        // Add summary row
+        $rows[] = [];
+        $rows[] = ['Ümumi məlumat', '', '', '', ''];
+        $rows[] = ['Ümumi şagird sayı', $data['summary']['total_students'], '', '', ''];
+        $rows[] = ['Məktəb sayı', $data['summary']['total_schools'], '', '', ''];
+        $rows[] = ['Orta davamiyyət', $data['summary']['overall_average_attendance'] . '%', '', '', ''];
+        $rows[] = ['Hesabat dövrü', $data['summary']['period']['start_date'] . ' - ' . $data['summary']['period']['end_date'], '', '', ''];
+
+        return [
+            'filename' => 'sinif_statistikasi_' . $data['summary']['period']['start_date'] . '_' . $data['summary']['period']['end_date'] . '.xlsx',
+            'data' => $rows,
+            'raw' => $data,
+        ];
+    }
+
+    /**
+     * Get schools that have not submitted attendance reports for the given date range.
+     * Groups results by sector for better organization.
+     */
+    public function getSchoolsWithMissingReports(User $user, array $filters = []): array
+    {
+        [$startDate, $endDate] = $this->resolveDateRange($filters);
+
+        $scope = $this->resolveInstitutionScope($user, $filters, $startDate, $endDate);
+        $schoolIds = $scope['school_ids'];
+
+        if (empty($schoolIds)) {
+            return [
+                'summary' => [
+                    'total_schools' => 0,
+                    'schools_with_reports' => 0,
+                    'schools_missing_reports' => 0,
+                    'missing_percentage' => 0,
+                    'period' => [
+                        'start_date' => $startDate,
+                        'end_date' => $endDate,
+                        'school_days' => $scope['school_days'],
+                    ],
+                ],
+                'sectors' => [],
+                'schools' => [],
+            ];
+        }
+
+        // Get schools that have submitted reports in the date range
+        $schoolsWithReports = ClassBulkAttendance::whereIn('institution_id', $schoolIds)
+            ->whereDate('attendance_date', '>=', $startDate)
+            ->whereDate('attendance_date', '<=', $endDate)
+            ->distinct()
+            ->pluck('institution_id')
+            ->toArray();
+
+        // Get all schools with their sector info
+        $allSchools = collect($scope['schools']);
+        $sectorNamesById = collect($scope['sectors'])->pluck('name', 'id');
+
+        // Build missing reports data
+        $missingSchools = [];
+        $sectorStats = [];
+
+        foreach ($scope['sectors'] as $sector) {
+            $sectorStats[$sector->id] = [
+                'sector_id' => $sector->id,
+                'sector_name' => $sector->name,
+                'total_schools' => 0,
+                'schools_with_reports' => 0,
+                'schools_missing' => 0,
+                'missing_percentage' => 0,
+                'schools' => [],
+            ];
+        }
+
+        foreach ($allSchools as $school) {
+            $sectorId = $school->parent_id;
+            $hasReports = in_array($school->id, $schoolsWithReports, true);
+
+            if (!isset($sectorStats[$sectorId])) {
+                continue;
+            }
+
+            $sectorStats[$sectorId]['total_schools']++;
+
+            if ($hasReports) {
+                $sectorStats[$sectorId]['schools_with_reports']++;
+            } else {
+                $sectorStats[$sectorId]['schools_missing']++;
+                $sectorStats[$sectorId]['schools'][] = [
+                    'school_id' => $school->id,
+                    'name' => $school->name,
+                    'sector_id' => $sectorId,
+                    'sector_name' => $sectorNamesById->get($sectorId, 'Naməlum'),
+                    'last_report_date' => $this->getLastReportDate($school->id, $startDate),
+                ];
+
+                $missingSchools[] = [
+                    'school_id' => $school->id,
+                    'name' => $school->name,
+                    'sector_id' => $sectorId,
+                    'sector_name' => $sectorNamesById->get($sectorId, 'Naməlum'),
+                    'last_report_date' => $this->getLastReportDate($school->id, $startDate),
+                ];
+            }
+        }
+
+        // Calculate percentages for sectors
+        foreach ($sectorStats as &$stat) {
+            if ($stat['total_schools'] > 0) {
+                $stat['missing_percentage'] = round(($stat['schools_missing'] / $stat['total_schools']) * 100, 2);
+            }
+        }
+
+        $totalSchools = count($schoolIds);
+        $schoolsWithReportsCount = count($schoolsWithReports);
+        $schoolsMissingCount = $totalSchools - $schoolsWithReportsCount;
+
+        return [
+            'summary' => [
+                'total_schools' => $totalSchools,
+                'schools_with_reports' => $schoolsWithReportsCount,
+                'schools_missing_reports' => $schoolsMissingCount,
+                'missing_percentage' => $totalSchools > 0 ? round(($schoolsMissingCount / $totalSchools) * 100, 2) : 0,
+                'period' => [
+                    'start_date' => $startDate,
+                    'end_date' => $endDate,
+                    'school_days' => $scope['school_days'],
+                ],
+            ],
+            'sectors' => array_values($sectorStats),
+            'schools' => $missingSchools,
+        ];
+    }
+
+    /**
+     * Get the last report date for a school before the given date.
+     */
+    private function getLastReportDate(int $schoolId, string $beforeDate): ?string
+    {
+        $lastRecord = ClassBulkAttendance::where('institution_id', $schoolId)
+            ->whereDate('attendance_date', '<', $beforeDate)
+            ->orderBy('attendance_date', 'desc')
+            ->first();
+
+        return $lastRecord?->attendance_date?->format('Y-m-d');
+    }
 }

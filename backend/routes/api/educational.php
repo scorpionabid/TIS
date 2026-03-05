@@ -19,8 +19,9 @@ use App\Http\Controllers\ScheduleControllerRefactored as ScheduleController;
 use App\Http\Controllers\SchoolAssessmentController;
 use App\Http\Controllers\SchoolAssessmentReportController;
 use App\Http\Controllers\SchoolEventController;
-use App\Http\Controllers\StudentControllerRefactored as StudentController;
-use App\Http\Controllers\TeacherPerformanceController;
+use App\Http\Controllers\StudentAssessmentController;
+use App\Http\Controllers\AssessmentConfigurationController;
+use App\Http\Controllers\SchoolStudentController;
 use App\Http\Controllers\UnifiedAssessmentController;
 use Illuminate\Support\Facades\Route;
 
@@ -123,6 +124,9 @@ Route::prefix('regional-attendance')->middleware(['auth:sanctum', 'role:superadm
     Route::get('/overview', [RegionalAttendanceController::class, 'overview']);
     Route::get('/export', [RegionalAttendanceController::class, 'export']);
     Route::get('/schools/{school}/classes', [RegionalAttendanceController::class, 'schoolClasses']);
+    Route::get('/grade-level-stats', [RegionalAttendanceController::class, 'gradeLevelStats']);
+    Route::get('/grade-level-stats/export', [RegionalAttendanceController::class, 'exportGradeLevelStats']);
+    Route::get('/missing-reports', [RegionalAttendanceController::class, 'getSchoolsWithMissingReports']);
 });
 
 // Schedule Management Routes
@@ -604,4 +608,79 @@ Route::prefix('teacher-approvals')->middleware(['auth:sanctum', 'role:sektoradmi
     Route::post('/{id}/approve', [App\Http\Controllers\API\TeacherApprovalController::class, 'approve']);
     Route::post('/{id}/reject', [App\Http\Controllers\API\TeacherApprovalController::class, 'reject']);
     Route::post('/bulk-approve', [App\Http\Controllers\API\TeacherApprovalController::class, 'bulkApprove']);
+});
+
+// Student Assessment Management Routes
+Route::prefix('student-assessments')->middleware('auth:sanctum')->group(function () {
+    // CRUD
+    Route::get('/', [StudentAssessmentController::class, 'index'])->middleware('permission:student_assessments.read');
+    Route::post('/', [StudentAssessmentController::class, 'store'])->middleware('permission:student_assessments.write');
+    Route::get('/{id}', [StudentAssessmentController::class, 'show'])->middleware('permission:student_assessments.read');
+    Route::put('/{id}', [StudentAssessmentController::class, 'update'])->middleware('permission:student_assessments.write');
+    Route::delete('/{id}', [StudentAssessmentController::class, 'destroy'])->middleware('permission:student_assessments.delete');
+
+    // Bulk operations
+    Route::post('/bulk', [StudentAssessmentController::class, 'bulkCreate'])->middleware('permission:student_assessments.bulk');
+    Route::put('/bulk', [StudentAssessmentController::class, 'bulkUpdate'])->middleware('permission:student_assessments.bulk');
+
+    // Import/Export
+    Route::post('/import', [StudentAssessmentController::class, 'importFromExcel'])->middleware('permission:student_assessments.import');
+    Route::get('/export', [StudentAssessmentController::class, 'exportToExcel'])->middleware('permission:student_assessments.export');
+
+    // Workflow
+    Route::post('/{id}/submit', [StudentAssessmentController::class, 'submitForReview'])->middleware('permission:student_assessments.submit');
+    Route::post('/{id}/approve', [StudentAssessmentController::class, 'approve'])->middleware('permission:student_assessments.approve');
+    Route::post('/{id}/reject', [StudentAssessmentController::class, 'reject'])->middleware('permission:student_assessments.reject');
+    Route::post('/{id}/return', [StudentAssessmentController::class, 'returnForCorrection'])->middleware('permission:student_assessments.return');
+
+    // Table data
+    Route::get('/table/data', [StudentAssessmentController::class, 'getTableData'])->middleware('permission:student_assessments.read');
+    Route::get('/table/comparison', [StudentAssessmentController::class, 'getComparisonData'])->middleware('permission:student_assessments.read');
+
+    // Student results
+    Route::get('/student/{studentId}', [StudentAssessmentController::class, 'getStudentResults'])->middleware('permission:student_assessments.read');
+});
+
+// Assessment Configuration Routes
+Route::prefix('assessment-configurations')->middleware('auth:sanctum')->group(function () {
+    // CRUD
+    Route::get('/', [AssessmentConfigurationController::class, 'index'])->middleware('permission:assessment_config.read');
+    Route::post('/', [AssessmentConfigurationController::class, 'store'])->middleware('permission:assessment_config.write');
+    Route::get('/{id}', [AssessmentConfigurationController::class, 'show'])->middleware('permission:assessment_config.read');
+    Route::put('/{id}', [AssessmentConfigurationController::class, 'update'])->middleware('permission:assessment_config.write');
+    Route::delete('/{id}', [AssessmentConfigurationController::class, 'destroy'])->middleware('permission:assessment_config.delete');
+
+    // Configuration helpers
+    Route::post('/set', [AssessmentConfigurationController::class, 'setConfiguration'])->middleware('permission:assessment_config.write');
+    Route::get('/get', [AssessmentConfigurationController::class, 'getConfiguration'])->middleware('permission:assessment_config.read');
+    Route::get('/validate', [AssessmentConfigurationController::class, 'validateConfiguration'])->middleware('permission:assessment_config.read');
+
+    // Bulk operations
+    Route::post('/bulk', [AssessmentConfigurationController::class, 'bulkCreate'])->middleware('permission:assessment_config.bulk');
+
+    // Institution configurations
+    Route::get('/institution/{institutionId}', [AssessmentConfigurationController::class, 'getForInstitution'])->middleware('permission:assessment_config.read');
+
+    // Toggle status
+    Route::post('/{id}/toggle-active', [AssessmentConfigurationController::class, 'toggleActive'])->middleware('permission:assessment_config.write');
+    Route::post('/{id}/toggle-lock', [AssessmentConfigurationController::class, 'toggleLock'])->middleware('permission:assessment_config.write');
+
+    // Defaults
+    Route::get('/defaults', [AssessmentConfigurationController::class, 'getDefaults'])->middleware('permission:assessment_config.read');
+});
+
+// School Student Management Routes (for schools to manage their own students)
+Route::prefix('school-students')->middleware('auth:sanctum')->group(function () {
+    // CRUD operations
+    Route::get('/', [SchoolStudentController::class, 'index'])->middleware('permission:students.read');
+    Route::post('/', [SchoolStudentController::class, 'store'])->middleware('permission:students.write');
+    Route::get('/{id}', [SchoolStudentController::class, 'show'])->middleware('permission:students.read');
+    Route::put('/{id}', [SchoolStudentController::class, 'update'])->middleware('permission:students.write');
+    Route::delete('/{id}', [SchoolStudentController::class, 'destroy'])->middleware('permission:students.delete');
+
+    // Bulk import
+    Route::post('/bulk-import', [SchoolStudentController::class, 'bulkImport'])->middleware('permission:students.bulk');
+
+    // Get by grade level
+    Route::get('/by-grade/{gradeLevel}', [SchoolStudentController::class, 'getByGrade'])->middleware('permission:students.read');
 });

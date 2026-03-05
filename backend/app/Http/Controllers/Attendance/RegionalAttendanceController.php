@@ -68,4 +68,78 @@ class RegionalAttendanceController extends BaseController
             'data' => $data,
         ]);
     }
+
+    /**
+     * Get grade level statistics for attendance.
+     */
+    public function gradeLevelStats(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
+        ]);
+
+        $data = $this->attendanceService->getGradeLevelStats($request->user(), $validated);
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
+    }
+
+    /**
+     * Export grade level statistics to Excel.
+     */
+    public function exportGradeLevelStats(Request $request): BinaryFileResponse
+    {
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'education_program' => ['nullable', 'string', 'in:umumi,xususi,mektebde_ferdi,evde_ferdi,all'],
+        ]);
+
+        $exportData = $this->attendanceService->exportGradeLevelStats($request->user(), $validated);
+
+        // Create a simple array export
+        $export = new class($exportData['data']) implements \Maatwebsite\Excel\Concerns\FromArray {
+            private array $data;
+
+            public function __construct(array $data)
+            {
+                $this->data = $data;
+            }
+
+            public function array(): array
+            {
+                return $this->data;
+            }
+        };
+
+        return Excel::download($export, $exportData['filename']);
+    }
+
+    /**
+     * Get schools that have not submitted attendance reports.
+     */
+    public function getSchoolsWithMissingReports(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'start_date' => ['nullable', 'date'],
+            'end_date' => ['nullable', 'date'],
+            'region_id' => ['nullable', 'integer', 'exists:institutions,id'],
+            'sector_id' => ['nullable', 'integer', 'exists:institutions,id'],
+        ]);
+
+        $data = $this->attendanceService->getSchoolsWithMissingReports($request->user(), $validated);
+
+        return response()->json([
+            'success' => true,
+            'data' => $data,
+        ]);
+    }
 }

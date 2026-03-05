@@ -142,6 +142,80 @@ export interface SchoolClassBreakdown {
   };
 }
 
+export interface GradeLevelStat {
+  class_level: number;
+  class_level_display: string;
+  student_count: number;
+  school_count: number;
+  average_attendance_rate: number;
+  uniform_compliance_rate: number;
+  total_uniform_violations: number;
+  present_total: number;
+  schools: Array<{
+    school_id: number;
+    grade_ids: number[];
+    student_count: number;
+  }>;
+}
+
+export interface GradeLevelStatsResponse {
+  summary: {
+    total_students: number;
+    total_schools: number;
+    overall_average_attendance: number;
+    period: {
+      start_date: string;
+      end_date: string;
+      school_days: number;
+    };
+  };
+  grade_levels: GradeLevelStat[];
+  filters: {
+    start_date: string;
+    end_date: string;
+    sector_id?: number;
+    education_program?: string;
+  };
+  context?: {
+    region?: { id: number; name: string } | null;
+    active_sector?: { id: number; name: string } | null;
+  };
+}
+
+export interface MissingReportSchool {
+  school_id: number;
+  name: string;
+  sector_id: number;
+  sector_name: string;
+  last_report_date: string | null;
+}
+
+export interface MissingReportSector {
+  sector_id: number;
+  sector_name: string;
+  total_schools: number;
+  schools_with_reports: number;
+  schools_missing: number;
+  missing_percentage: number;
+  schools: MissingReportSchool[];
+}
+
+export interface MissingReportsResponse {
+  summary: {
+    total_schools: number;
+    schools_with_reports: number;
+    schools_missing_reports: number;
+    missing_percentage: number;
+    period: {
+      start_date: string;
+      end_date: string;
+      school_days: number;
+    };
+  };
+  sectors: MissingReportSector[];
+  schools: MissingReportSchool[];
+}
+
 const unwrap = <T>(payload: any): T => {
   if (payload && typeof payload === "object" && "data" in payload) {
     return payload.data as T;
@@ -176,6 +250,37 @@ export class RegionalAttendanceService {
       { responseType: "blob" }
     );
     return unwrap<Blob>(response);
+  }
+
+  async getGradeLevelStats(
+    filters: RegionalAttendanceFilters & { education_program?: string }
+  ): Promise<GradeLevelStatsResponse> {
+    const response = await apiClient.get<GradeLevelStatsResponse>(
+      "/regional-attendance/grade-level-stats",
+      filters
+    );
+    return unwrap<GradeLevelStatsResponse>(response);
+  }
+
+  async exportGradeLevelStats(
+    filters: RegionalAttendanceFilters & { education_program?: string }
+  ): Promise<Blob> {
+    const response = await apiClient.get<Blob>(
+      "/regional-attendance/grade-level-stats/export",
+      filters,
+      { responseType: "blob" }
+    );
+    return unwrap<Blob>(response);
+  }
+
+  async getSchoolsWithMissingReports(
+    filters: RegionalAttendanceFilters
+  ): Promise<MissingReportsResponse> {
+    const response = await apiClient.get<MissingReportsResponse>(
+      "/regional-attendance/missing-reports",
+      filters
+    );
+    return unwrap<MissingReportsResponse>(response);
   }
 }
 
