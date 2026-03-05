@@ -370,6 +370,69 @@ class ReportTableResponseController extends BaseController
         return response()->json(['data' => $data]);
     }
 
+    /**
+     * GET /api/report-tables/{table}/statistics/export
+     * Cədvəl doldurma statistikalarını Excel formatında export etmək.
+     */
+    public function exportStatistics(ReportTable $table, Request $request)
+    {
+        $user = $request->user();
+        
+        // Yalnız admin və superadmin export edə bilər
+        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin'])) {
+            return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
+        }
+
+        $data = $this->service->getTableFillStatistics($table, $user);
+        
+        // Generate Excel file
+        $exportData = [];
+        $exportData[] = ['Məktəb', 'Sektor', 'Status', 'Sətir sayı', 'Təsdiqlənib', 'Gözləyir'];
+        
+        foreach ($data['schools'] as $school) {
+            $statusMap = [
+                'not_started' => 'Başlanmayıb',
+                'draft' => 'Qaralama',
+                'pending' => 'Gözləyir',
+                'partial' => 'Qismən',
+                'completed' => 'Tamamlanıb',
+            ];
+            
+            $exportData[] = [
+                $school['institution_name'],
+                $school['sector_name'] ?? 'Sektor yoxdur',
+                $statusMap[$school['status']] ?? $school['status'],
+                $school['row_count'],
+                $school['approved_count'],
+                $school['pending_count'],
+            ];
+        }
+        
+        // Create simple CSV/Excel response
+        $filename = $table->title . '_statistika_' . date('Y-m-d') . '.xlsx';
+        
+        // Use Laravel Excel package if available, otherwise return CSV
+        if (class_exists('Maatwebsite\Excel\Facades\Excel')) {
+            $export = new class($exportData) implements \Maatwebsite\Excel\Concerns\FromArray {
+                private $data;
+                public function __construct($data) { $this->data = $data; }
+                public function array(): array { return $this->data; }
+            };
+            
+            return \Maatwebsite\Excel\Facades\Excel::download($export, $filename);
+        }
+        
+        // Fallback to CSV
+        $csv = '';
+        foreach ($exportData as $row) {
+            $csv .= implode(',', array_map(fn($item) => '"' . str_replace('"', '""', $item) . '"', $row)) . "\n";
+        }
+        
+        return response($csv)
+            ->header('Content-Type', 'text/csv; charset=utf-8')
+            ->header('Content-Disposition', 'attachment; filename="' . str_replace('.xlsx', '.csv', $filename) . '"');
+    }
+
     // ─── Show (admin) ────────────────────────────────────────────────────────
 
     /**

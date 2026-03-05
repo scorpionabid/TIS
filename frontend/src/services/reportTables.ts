@@ -456,6 +456,46 @@ class ReportTableService extends BaseService<ReportTable> {
     const result = response as unknown as { data: any };
     return result.data ?? null;
   }
+
+  // ─── Export Statistics (Excel format) ───────────────────────────────────────
+
+  async exportStatistics(tableId: number, title?: string): Promise<void> {
+    try {
+      const response = await apiClient.get<Blob>(
+        `report-tables/${tableId}/statistics/export`,
+        {},
+        { responseType: 'blob' }
+      );
+      
+      // Handle different response structures
+      let blob: Blob | null = null;
+      
+      if (response && typeof response === 'object') {
+        if ('data' in response && response.data instanceof Blob) {
+          blob = response.data;
+        } else if (response instanceof Blob) {
+          blob = response;
+        }
+      }
+      
+      if (!blob) {
+        throw new Error('Fayl məlumatları alınmadı');
+      }
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `${title || 'Statistika'}_export.xlsx`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      
+    } catch (error: any) {
+      throw new Error(error.message || 'Export zamanı xəta baş verdi');
+    }
+  }
 }
 
 export const reportTableService = new ReportTableService();

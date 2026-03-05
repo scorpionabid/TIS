@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search, Building2, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, XCircle, Clock, BarChart3 } from 'lucide-react';
+import { Search, Building2, ChevronDown, ChevronRight, CheckCircle2, AlertCircle, XCircle, Clock, BarChart3, Download } from 'lucide-react';
 import { reportTableService } from '@/services/reportTables';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -91,6 +91,15 @@ export function ReportTableStatisticsView() {
       else next.add(sectorKey);
       return next;
     });
+  };
+
+  const handleExportStatistics = async () => {
+    if (!selectedTable) return;
+    try {
+      await reportTableService.exportStatistics(selectedTable.id, selectedTable.title);
+    } catch (error: any) {
+      // Error is handled by the service
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -187,6 +196,15 @@ export function ReportTableStatisticsView() {
                   </div>
                 )}
               </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportStatistics}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export (Excel)
+              </Button>
             </div>
 
             {/* Schools List */}

@@ -45,6 +45,10 @@ Route::middleware('auth:sanctum')->group(function () {
      // Table Fill Statistics — Bir cədvəl üçün bütün məktəblərin doldurma statistikası
      Route::get('report-tables/{table}/fill-statistics', [ReportTableResponseController::class, 'tableFillStatistics'])
          ->middleware('permission:report_tables.read');
+
+     // Table Fill Statistics Export — Statistikaları Excel formatında export etmək
+     Route::get('report-tables/{table}/statistics/export', [ReportTableResponseController::class, 'exportStatistics'])
+         ->middleware('permission:report_tables.read');
 });
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Read) ───────────────────────────
