@@ -3,7 +3,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Save, Send, CheckCircle2, Clock, Info, FileText, Loader2, AlertCircle, Download } from 'lucide-react';
+import { 
+  Save, 
+  Send, 
+  CheckCircle2, 
+  Clock, 
+  Info, 
+  FileText, 
+  Loader2, 
+  AlertCircle, 
+  Download, 
+  ChevronDown, 
+  ChevronUp 
+} from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { az } from 'date-fns/locale';
@@ -21,14 +33,43 @@ interface TableEntryCardProps {
 
 export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   // Fetch table details to get notes field (not included in list view)
-  const { data: tableDetails } = useQuery({
+  const { data: tableDetails, isLoading: detailsLoading } = useQuery({
     queryKey: ['report-table-detail', table.id],
-    queryFn: () => reportTableService.getTable(table.id),
+    queryFn: async () => {
+      // Bypass cache by adding timestamp
+      const result = await reportTableService.getTable(table.id, { _t: Date.now() });
+      console.log('DEBUG API Response:', result);
+      return result;
+    },
     enabled: !!table.id,
+    staleTime: 0,
+    gcTime: 0,
+    refetchOnMount: true,
   });
   
-  // Merge table data with details (notes comes from details)
-  const tableWithNotes = tableDetails || table;
+  // Merge table data with details (notes comes from either source)
+  const tableWithNotes = useMemo(() => {
+    // Priority: tableDetails.notes > table.notes
+    const notes = tableDetails?.notes ?? table.notes;
+    const fixedRows = tableDetails?.fixed_rows ?? table.fixed_rows;
+    
+    // DEBUG: Log fixed_rows information
+    console.log('DEBUG fixed_rows VALUE:', {
+      tableId: table.id,
+      tableFixedRows: table.fixed_rows,
+      tableDetailsFixedRows: tableDetails?.fixed_rows,
+      finalFixedRows: fixedRows,
+      hasTableDetails: !!tableDetails,
+      tableDetailsKeys: tableDetails ? Object.keys(tableDetails) : null,
+    });
+    
+    return {
+      ...table,
+      ...tableDetails,
+      notes,
+      fixed_rows: fixedRows,
+    };
+  }, [tableDetails, table]);
   
   const queryClient = useQueryClient();
   const [rows, setRows] = useState<ReportTableRow[]>([]);
@@ -39,6 +80,7 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [tableHasErrors, setTableHasErrors] = useState(false);
   const [submittingRowIdx, setSubmittingRowIdx] = useState<number | null>(null);
+  const [isInstructionsExpanded, setIsInstructionsExpanded] = useState(true);
 
   const initialRowsRef = useRef<string>('');
   const isSubmittingRef = useRef<boolean>(false);
@@ -58,16 +100,16 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
       setResponseStatus(existingResponse.status);
       initialRowsRef.current = JSON.stringify(existingResponse.rows ?? []);
       onStatusChange?.(table.id, existingResponse.status);
-    } else if (table.fixed_rows && table.fixed_rows.length > 0) {
+    } else if (tableWithNotes.fixed_rows && tableWithNotes.fixed_rows.length > 0) {
       // Initialize stable table with empty rows matching fixed_rows count
-      const emptyRows = table.fixed_rows.map(() => {
+      const emptyRows = tableWithNotes.fixed_rows.map(() => {
         const row: Record<string, string> = {};
-        table.columns?.forEach((col) => { row[col.key] = ''; });
+        tableWithNotes.columns?.forEach((col) => { row[col.key] = ''; });
         return row;
       });
       setRows(emptyRows);
     }
-  }, [existingResponse, table]);
+  }, [existingResponse, tableWithNotes, table.id, onStatusChange]);
 
   const rowStatuses = useMemo(() => existingResponse?.row_statuses ?? {}, [existingResponse]);
 
@@ -251,8 +293,8 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
 
   return (
     <div className="bg-white border rounded-xl overflow-hidden shadow-sm">
-      {/* Header */}
-      <div className="px-5 py-4 border-b bg-gray-50 flex items-start justify-between gap-3">
+      {/* Header - with Description & Instructions inside */}
+      <div className="px-5 py-4 border-b flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             {isSubmitted ? (
@@ -267,6 +309,53 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
             {deadlineBadge}
           </div>
           <h2 className="font-semibold text-gray-800 leading-snug">{table.title}</h2>
+          
+          {/* Description */}
+          {tableWithNotes.description && (
+            <div className="mt-3 flex gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
+              <Info className="h-4 w-4 shrink-0 mt-0.5" />
+              <p>{tableWithNotes.description}</p>
+            </div>
+          )}
+          
+          {/* Instructions */}
+          {tableWithNotes.notes && (
+            <div className="mt-3 relative overflow-hidden rounded-xl border-l-4 border-amber-500 bg-white shadow-sm">
+              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-amber-400 to-orange-500"></div>
+              <div className="flex gap-3 p-3">
+                <div className="flex-shrink-0">
+                  <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg p-2 shadow-md">
+                    <FileText className="h-5 w-5 text-white" />
+                  </div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <button
+                    onClick={() => setIsInstructionsExpanded(!isInstructionsExpanded)}
+                    className="flex items-center gap-2 w-full text-left hover:opacity-80 transition-opacity"
+                  >
+                    <span className="bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full text-xs font-bold border border-amber-300">
+                      📋 TƏLİMAT
+                    </span>
+                    <div className="h-px flex-1 bg-gradient-to-r from-amber-200 to-transparent"></div>
+                    {isInstructionsExpanded ? (
+                      <ChevronUp className="h-4 w-4 text-amber-600" />
+                    ) : (
+                      <ChevronDown className="h-4 w-4 text-amber-600" />
+                    )}
+                  </button>
+                  <div
+                    className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                      isInstructionsExpanded ? 'max-h-32 opacity-100 mt-2' : 'max-h-0 opacity-0'
+                    }`}
+                  >
+                    <p className="text-gray-800 text-sm leading-relaxed whitespace-pre-wrap">
+                      {tableWithNotes.notes}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {!fullyLocked && (
@@ -346,41 +435,8 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
         )}
       </div>
 
-      {/* Info boxes */}
-      {(tableWithNotes.description || tableWithNotes.notes) && (
-        <div className="px-5 pt-4 space-y-2">
-          {tableWithNotes.description && (
-            <div className="flex gap-2 bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-700">
-              <Info className="h-4 w-4 shrink-0 mt-0.5" />
-              <p>{tableWithNotes.description}</p>
-            </div>
-          )}
-          {tableWithNotes.notes && (
-            <div className="relative overflow-hidden rounded-xl border-l-4 border-amber-500 bg-white shadow-md">
-              <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-amber-400 to-orange-500"></div>
-              <div className="flex gap-4 p-5">
-                <div className="flex-shrink-0">
-                  <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl p-3 shadow-lg">
-                    <FileText className="h-7 w-7 text-white" />
-                  </div>
-                </div>
-                <div className="flex-1 min-w-0 pt-1">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-bold border border-amber-300">
-                      📋 TƏLİMAT
-                    </span>
-                    <div className="h-px flex-1 bg-gradient-to-r from-amber-200 to-transparent"></div>
-                  </div>
-                  <p className="text-gray-800 leading-relaxed whitespace-pre-wrap font-medium">{tableWithNotes.notes}</p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Table area */}
-      <div className="p-5">
+      {/* Table area - full width */}
+      <div className="p-4">
         {tableHasErrors && !isSubmitted && (
           <div className="mb-3 flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
             <AlertCircle className="h-4 w-4 shrink-0" />
@@ -388,7 +444,8 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
           </div>
         )}
 
-        {responseLoading ? (
+        {console.log('DEBUG fixedRows prop:', tableWithNotes.fixed_rows)}
+        {(responseLoading || detailsLoading) ? (
           <div className="space-y-2">
             <Skeleton className="h-10 w-full" />
             <Skeleton className="h-10 w-full" />
@@ -396,10 +453,10 @@ export function TableEntryCard({ table, onStatusChange }: TableEntryCardProps) {
           </div>
         ) : (
           <EditableTable
-            columns={table.columns ?? []}
+            columns={tableWithNotes.columns ?? []}
             rows={rows}
-            maxRows={table.max_rows ?? 50}
-            fixedRows={table.fixed_rows ?? null}
+            maxRows={tableWithNotes.max_rows ?? 50}
+            fixedRows={tableWithNotes.fixed_rows ?? null}
             onChange={handleRowsChange}
             disabled={fullyLocked}
             lockStructure={false}

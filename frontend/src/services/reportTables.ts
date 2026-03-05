@@ -94,8 +94,8 @@ class ReportTableService extends BaseService<ReportTable> {
 
   // ─── Show ─────────────────────────────────────────────────────────────────
 
-  async getTable(id: number): Promise<ReportTable> {
-    const response = await this.get<ReportTable>(`report-tables/${id}`);
+  async getTable(id: number, params?: Record<string, unknown>): Promise<ReportTable> {
+    const response = await this.get<ReportTable>(`report-tables/${id}`, params);
     return handleApiResponseWithError<ReportTable>(response, 'ReportTableService.getTable', 'ReportTableService');
   }
 

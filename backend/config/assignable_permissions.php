@@ -325,6 +325,24 @@ return [
                 ['key' => 'reports.custom', 'label' => 'Xüsusi hesabat', 'description' => 'Özəl hesabat yaratmaq'],
             ],
         ],
+        'report_tables' => [
+            'key' => 'report_tables',
+            'label' => 'Hesabat Cədvəlləri',
+            'description' => 'Hesabat cədvəllərinin yaradılması və idarə olunması',
+            'roles' => ['regionoperator', 'sektoradmin', 'schooladmin'],
+            'defaults' => ['report_tables.read'],
+            'dependencies' => [
+                'report_tables.write' => ['report_tables.read'],
+                'report_table_responses.write' => ['report_tables.read'],
+                'report_table_responses.review' => ['report_tables.read'],
+            ],
+            'permissions' => [
+                ['key' => 'report_tables.read', 'label' => 'Cədvəlləri gör', 'description' => 'Hesabat cədvəllərini oxumaq'],
+                ['key' => 'report_tables.write', 'label' => 'Cədvəl idarə et', 'description' => 'Cədvəl yaratmaq və redaktə etmək'],
+                ['key' => 'report_table_responses.write', 'label' => 'Cavab yaz', 'description' => 'Cədvəl cavablarını doldurmaq'],
+                ['key' => 'report_table_responses.review', 'label' => 'Cavabları təsdiqlə', 'description' => 'Cədvəl cavablarını review etmək'],
+            ],
+        ],
         'region_operator_legacy' => [
             'key' => 'region_operator_legacy',
             'label' => 'RegionOperator Legacy Permissions',
