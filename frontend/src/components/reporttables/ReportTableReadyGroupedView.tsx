@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2, ChevronRight, ChevronDown, Inbox, Search, Download } from 'lucide-react';
+import { CheckCircle2, ChevronRight, ChevronDown, Inbox, Search, Download, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { reportTableService, type ReadyGroupedTable } from '@/services/reportTables';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useRoleCheck } from '@/hooks/useRoleCheck';
 
 import { formatCellValue } from '@/utils/cellValue';
 
@@ -22,6 +23,7 @@ function makeKey(responseId: number, rowIndex: number): string {
 
 export function ReportTableReadyGroupedView() {
   const queryClient = useQueryClient();
+  const { isSektorAdmin } = useRoleCheck();
   const [search, setSearch] = useState('');
   const [selectedTableId, setSelectedTableId] = useState<number | null>(null);
   const [expandedSectors, setExpandedSectors] = useState<Record<string, boolean>>({});
@@ -53,6 +55,45 @@ export function ReportTableReadyGroupedView() {
       toast.success('Təsdiqlənmiş sətirlər export edildi');
     } catch {
       toast.error('Export zamanı xəta baş verdi');
+    }
+  };
+
+  const handleReturnSelected = async () => {
+    if (!selected || selectedCount === 0) return;
+    
+    // Group selected rows by response_id
+    const rowsByResponse = new Map<number, number[]>();
+    selectedRows.forEach(key => {
+      const [responseId, rowIndex] = key.split(':').map(Number);
+      if (!rowsByResponse.has(responseId)) {
+        rowsByResponse.set(responseId, []);
+      }
+      rowsByResponse.get(responseId)!.push(rowIndex);
+    });
+    
+    // Convert to row_specs format expected by backend
+    const rowSpecs = Array.from(rowsByResponse.entries()).map(([response_id, row_indices]) => ({
+      response_id,
+      row_indices,
+    }));
+    
+    if (rowSpecs.length === 0) return;
+    
+    try {
+      await reportTableService.bulkRowAction(
+        selected.table.id,
+        rowSpecs,
+        'return'
+      );
+      toast.success(`${selectedCount} sətir geri qaytarıldı`);
+      setSelectedRows(new Set());
+      // Force immediate refetch
+      await queryClient.refetchQueries({ 
+        queryKey: ['report-table-ready-grouped'],
+        type: 'active'
+      });
+    } catch {
+      toast.error('Sətirləri geri qaytararkən xəta baş verdi');
     }
   };
 
@@ -209,14 +250,27 @@ export function ReportTableReadyGroupedView() {
 
               <div className="flex items-center gap-2">
                 {selectedCount > 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setSelectedRows(new Set())}
-                    className="text-xs"
-                  >
-                    Seçimi ləğv et
-                  </Button>
+                  <>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setSelectedRows(new Set())}
+                      className="text-xs"
+                    >
+                      Seçimi ləğv et
+                    </Button>
+                    {!isSektorAdmin && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={handleReturnSelected}
+                        className="gap-2 text-amber-600 border-amber-200 hover:bg-amber-50"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        Geri qaytar ({selectedCount})
+                      </Button>
+                    )}
+                  </>
                 )}
                 <Button
                   size="sm"

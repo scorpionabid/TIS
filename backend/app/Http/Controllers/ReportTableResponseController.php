@@ -342,8 +342,13 @@ class ReportTableResponseController extends BaseController
     {
         $user = $request->user();
         
-        // Yalnız admin və superadmin görməlidir
-        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin'])) {
+        // DEBUG: Log user roles
+        $userRoles = $user->getRoleNames()->toArray();
+        Log::info('tableFillStatistics - User roles: ' . json_encode($userRoles));
+        
+        // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator görməlidir
+        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin', 'regionoperator'])) {
+            Log::warning('tableFillStatistics - Permission denied for user: ' . $user->id . ' with roles: ' . json_encode($userRoles));
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
@@ -360,8 +365,8 @@ class ReportTableResponseController extends BaseController
     {
         $user = $request->user();
         
-        // Yalnız admin və superadmin görməlidir
-        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin'])) {
+        // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator görməlidir
+        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin', 'regionoperator'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
@@ -378,8 +383,8 @@ class ReportTableResponseController extends BaseController
     {
         $user = $request->user();
         
-        // Yalnız admin və superadmin export edə bilər
-        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin'])) {
+        // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator export edə bilər
+        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin', 'regionoperator'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 

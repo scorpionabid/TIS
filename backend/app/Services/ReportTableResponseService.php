@@ -592,7 +592,18 @@ class ReportTableResponseService
                     $idx    = (int) $rowIndex;
                     $status = $response->getRowStatus($idx)['status'] ?? null;
 
-                    if ($status !== 'submitted') {
+                    // For return action, allow both 'submitted' and 'approved' statuses
+                    $allowedStatusesForReturn = ['submitted', 'approved'];
+                    if ($action === 'return') {
+                        if (! in_array($status, $allowedStatusesForReturn, true)) {
+                            $errors[] = [
+                                'response_id' => $responseId,
+                                'row_index'   => $idx,
+                                'error'       => "Sətir geri qaytarıla bilməz (status: {$status})",
+                            ];
+                            continue;
+                        }
+                    } elseif ($status !== 'submitted') {
                         $errors[] = [
                             'response_id' => $responseId,
                             'row_index'   => $idx,
