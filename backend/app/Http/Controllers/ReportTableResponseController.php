@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\ReportTable;
 use App\Models\ReportTableResponse;
+use App\Services\ReportTableApprovalService;
 use App\Services\ReportTableResponseService;
+use App\Services\ReportTableStatisticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -15,6 +17,8 @@ class ReportTableResponseController extends BaseController
 {
     public function __construct(
         private readonly ReportTableResponseService $service,
+        private readonly ReportTableApprovalService $approvalService,
+        private readonly ReportTableStatisticsService $statisticsService,
     ) {}
 
     // ─── Start or Get ─────────────────────────────────────────────────────────
@@ -159,7 +163,7 @@ class ReportTableResponseController extends BaseController
         ]);
 
         try {
-            $updated = $this->service->approveRow($response, $validated['row_index'], Auth::user());
+            $updated = $this->approvalService->approveRow($response, $validated['row_index'], Auth::user());
 
             return $this->successResponse($this->formatResponse($updated), 'Sətir uğurla təsdiqləndi.');
         } catch (\InvalidArgumentException $e) {
@@ -181,7 +185,7 @@ class ReportTableResponseController extends BaseController
         ]);
 
         try {
-            $updated = $this->service->rejectRow($response, $validated['row_index'], Auth::user(), $validated['reason']);
+            $updated = $this->approvalService->rejectRow($response, $validated['row_index'], Auth::user(), $validated['reason']);
 
             return $this->successResponse($this->formatResponse($updated), 'Sətir rədd edildi.');
         } catch (\InvalidArgumentException $e) {
@@ -202,7 +206,7 @@ class ReportTableResponseController extends BaseController
         ]);
 
         try {
-            $updated = $this->service->returnRowToDraft($response, $validated['row_index'], Auth::user());
+            $updated = $this->approvalService->returnRowToDraft($response, $validated['row_index'], Auth::user());
 
             return $this->successResponse($this->formatResponse($updated), 'Sətir redaktəyə qaytarıldı.');
         } catch (\InvalidArgumentException $e) {
@@ -223,7 +227,7 @@ class ReportTableResponseController extends BaseController
         ]);
 
         try {
-            $updated = $this->service->deleteRow($response, $validated['row_index'], Auth::user());
+            $updated = $this->approvalService->deleteRow($response, $validated['row_index'], Auth::user());
 
             return $this->successResponse($this->formatResponse($updated), 'Sətir uğurla silindi.');
         } catch (\InvalidArgumentException $e) {
@@ -241,7 +245,7 @@ class ReportTableResponseController extends BaseController
      */
     public function approvalQueue(Request $request): JsonResponse
     {
-        $data = $this->service->getApprovalQueue($request->user());
+        $data = $this->approvalService->getApprovalQueue($request->user());
 
         return response()->json(['data' => $data]);
     }
@@ -253,7 +257,7 @@ class ReportTableResponseController extends BaseController
      */
     public function approvalQueueGrouped(Request $request): JsonResponse
     {
-        $data = $this->service->getApprovalQueueGrouped($request->user());
+        $data = $this->approvalService->getApprovalQueueGrouped($request->user());
 
         return response()->json(['data' => $data]);
     }
@@ -265,7 +269,7 @@ class ReportTableResponseController extends BaseController
      */
     public function readyGrouped(Request $request): JsonResponse
     {
-        $data = $this->service->getReadyGrouped($request->user());
+        $data = $this->approvalService->getReadyGrouped($request->user());
 
         return response()->json(['data' => $data]);
     }
@@ -285,7 +289,7 @@ class ReportTableResponseController extends BaseController
             'reason'                     => 'required_if:action,reject|nullable|string|max:500',
         ]);
 
-        $result = $this->service->bulkRowAction(
+        $result = $this->approvalService->bulkRowAction(
             $table,
             $request->row_specs,
             $request->action,
@@ -353,7 +357,7 @@ class ReportTableResponseController extends BaseController
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
-        $data = $this->service->getTableFillStatistics($table, $user);
+        $data = $this->statisticsService->getTableFillStatistics($table, $user);
 
         return response()->json(['data' => $data]);
     }
@@ -365,13 +369,13 @@ class ReportTableResponseController extends BaseController
     public function schoolFillStatistics(Request $request): JsonResponse
     {
         $user = $request->user();
-        
+
         // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator görməlidir
         if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin', 'regionoperator'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
-        $data = $this->service->getSchoolFillStatistics($user);
+        $data = $this->statisticsService->getSchoolFillStatistics($user);
 
         return response()->json(['data' => $data]);
     }
@@ -389,8 +393,8 @@ class ReportTableResponseController extends BaseController
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
-        $data = $this->service->getTableFillStatistics($table, $user);
-        
+        $data = $this->statisticsService->getTableFillStatistics($table, $user);
+
         // Generate Excel file
         $exportData = [];
         $exportData[] = ['Məktəb', 'Sektor', 'Status', 'Sətir sayı', 'Təsdiqlənib', 'Gözləyir'];

@@ -1,417 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Badge } from '@/components/ui/badge';
-import { Keyboard, Plus, Trash2, AlertCircle, Send, Loader2, CheckCircle2, Clock, XCircle, HelpCircle, Layers, Sigma, Columns } from 'lucide-react';
-import { toast } from 'sonner';
-import type { ReportTableRow, ReportTableColumn, RowStatuses, RowStatusMeta } from '@/types/reportTable';
-import { FormulaEngine, CellContext } from '@/lib/formulaEngine';
-import { FileUploadInput } from './FileUploadInput';
-import { SignatureInput } from './SignatureInput';
-import { GPSInput } from './GPSInput';
-
-import { RowStatusBadge } from './StatusBadge';
+import { Keyboard, Plus, AlertCircle, Sigma, Columns, HelpCircle } from 'lucide-react';
+import type { ReportTableRow, ReportTableColumn, RowStatuses } from '@/types/reportTable';
 import { validateRow, hasValidationErrors, colMinWidth, colTypeLabel } from '@/utils/tableValidation';
-import { parseTSV, isTSVData } from '@/utils/tsvParser';
 
-// Threshold for enabling virtualization (rows)
-const VIRTUALIZATION_THRESHOLD = 100;
-
-// ─── Row Status Helpers ───────────────────────────────────────────────────────
-
-function isRowLocked(status: RowStatusMeta | undefined): boolean {
-  return status?.status === 'submitted' || status?.status === 'approved';
-}
-
-// ─── CellInput: Polymorphic per-column-type input ────────────────────────────
-
-interface CellInputProps {
-  col: ReportTableColumn;
-  value: string;
-  onChange: (v: string) => void;
-  onBlur: () => void;
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
-  onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
-  disabled: boolean;
-  error: boolean;
-  inputRef?: (el: HTMLInputElement | null) => void;
-}
-
-const CellInput = React.memo(function CellInput({
-  col, value, onChange, onBlur, onKeyDown, onPaste, disabled, error, inputRef,
-}: CellInputProps) {
-  // Handle file upload columns
-  if (col.type === 'file') {
-    return (
-      <FileUploadInput
-        value={value || null}
-        onChange={(v) => onChange(v || '')}
-        disabled={disabled}
-        acceptedTypes={col.accepted_types}
-        maxSizeMB={col.max_file_size}
-      />
-    );
-  }
-
-  // Handle signature columns
-  if (col.type === 'signature') {
-    return (
-      <SignatureInput
-        value={value || null}
-        onChange={(v) => onChange(v || '')}
-        disabled={disabled}
-        width={col.signature_width}
-        height={col.signature_height}
-      />
-    );
-  }
-
-  // Handle GPS columns
-  if (col.type === 'gps') {
-    return (
-      <GPSInput
-        value={value || null}
-        onChange={(v) => onChange(v || '')}
-        disabled={disabled}
-        precision={col.gps_precision}
-        radius={col.gps_radius}
-      />
-    );
-  }
-
-  if (col.type === 'select') {
-    return (
-      <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger
-          className={`h-9 text-sm ${error ? 'border-red-400 focus:ring-red-300' : ''}`}
-        >
-          <SelectValue placeholder="Seçin..." />
-        </SelectTrigger>
-        <SelectContent>
-          {(col.options ?? []).map((opt) => (
-            <SelectItem key={opt} value={opt}>{opt}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    );
-  }
-
-  if (col.type === 'boolean') {
-    return (
-      <Select value={value || ''} onValueChange={onChange} disabled={disabled}>
-        <SelectTrigger
-          className={`h-9 text-sm ${error ? 'border-red-400 focus:ring-red-300' : ''}`}
-        >
-          <SelectValue placeholder="Seçin..." />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="bəli">Bəli</SelectItem>
-          <SelectItem value="xeyr">Xeyr</SelectItem>
-        </SelectContent>
-      </Select>
-    );
-  }
-
-  return (
-    <Input
-      ref={inputRef}
-      type={col.type === 'date' ? 'date' : col.type === 'number' ? 'number' : 'text'}
-      inputMode={col.type === 'number' ? 'decimal' : undefined}
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      onBlur={onBlur}
-      onKeyDown={onKeyDown}
-      onPaste={onPaste}
-      disabled={disabled}
-      placeholder={col.hint || col.label}
-      className={`h-9 text-sm ${error ? 'border-red-400 focus-visible:ring-red-300' : ''}`}
-    />
-  );
-});
-
-// ─── Memoized Desktop Row ─────────────────────────────────────────────────────
-
-interface DesktopRowProps {
-  row: ReportTableRow;
-  rowIdx: number;
-  columns: ReportTableColumn[];
-  disabled: boolean;
-  errors: Record<string, string>;
-  canRemove: boolean;
-  rowStatus: RowStatusMeta | undefined;
-  fixedRowLabel?: string | null;
-  onCellChange: (rowIdx: number, colKey: string, value: string) => void;
-  onCellBlur: (rowIdx: number) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
-  onPaste: (e: React.ClipboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
-  onRemove: (rowIdx: number) => void;
-  onDuplicate: (rowIdx: number) => void;
-  onRowSubmit?: (rowIdx: number) => void;
-  isRowSubmitting?: boolean;
-  cellRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
-  getCellDisplayValue: (row: ReportTableRow, rowIdx: number, col: ReportTableColumn) => string;
-  freezeFirstCol: boolean;
-}
-
-const DesktopRow = React.memo(function DesktopRow({
-  row, rowIdx, columns, disabled, errors, canRemove, rowStatus, fixedRowLabel,
-  onCellChange, onCellBlur, onKeyDown, onPaste, onRemove, onDuplicate,
-  onRowSubmit, isRowSubmitting, cellRefs, getCellDisplayValue, freezeFirstCol,
-}: DesktopRowProps) {
-  const locked = isRowLocked(rowStatus) || disabled;
-  const rowHasContent = Object.values(row).some((v) => v !== null && v !== '');
-  const canSubmitRow = !locked && !disabled && onRowSubmit && rowHasContent &&
-    (!rowStatus || rowStatus.status === 'rejected' || rowStatus.status === 'draft');
-  
-  // Row can only be removed if it's not locked (submitted/approved) and general canRemove is true
-  const canRemoveRow = canRemove && !isRowLocked(rowStatus);
-
-  const statusColor = rowStatus?.status === 'approved'
-    ? 'bg-emerald-50'
-    : rowStatus?.status === 'submitted'
-    ? 'bg-amber-50'
-    : rowStatus?.status === 'rejected'
-    ? 'bg-red-50'
-    : '';
-
-  return (
-    <tr className={`border-b border-gray-200 hover:bg-gray-50 ${statusColor}`}>
-      <td className={`px-2 py-2 text-center text-gray-500${freezeFirstCol ? ' sticky left-0 z-20 bg-white' : ''}`}>
-        {fixedRowLabel ? (
-          <span className="text-xs font-medium text-gray-700">{fixedRowLabel}</span>
-        ) : (
-          <span className="text-gray-400">{rowIdx + 1}</span>
-        )}
-      </td>
-      {columns.map((col, colIdx) => {
-        const err = errors[col.key];
-        const displayValue = getCellDisplayValue(row, rowIdx, col);
-        const isCalculated = col.type === 'calculated';
-        
-        return (
-          <td key={col.key} className={[
-            'px-1 py-1',
-            freezeFirstCol && colIdx === 0 ? 'sticky left-10 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : '',
-            freezeFirstCol && colIdx === 0 ? (isCalculated ? 'bg-slate-50' : 'bg-white') : (isCalculated ? 'bg-slate-50' : ''),
-          ].filter(Boolean).join(' ')}>
-            {isCalculated ? (
-              <div className="h-9 px-3 py-2 text-sm text-slate-600 flex items-center">
-                <span className={displayValue.startsWith('#ERROR') ? 'text-red-500' : ''}>
-                  {displayValue}
-                </span>
-              </div>
-            ) : (
-              <CellInput
-                col={col}
-                value={String(row[col.key] ?? '')}
-                onChange={(v) => onCellChange(rowIdx, col.key, v)}
-                onBlur={() => onCellBlur(rowIdx)}
-                onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx)}
-                onPaste={(e) => onPaste(e, rowIdx, colIdx)}
-                disabled={locked}
-                error={!!err}
-                inputRef={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
-              />
-            )}
-            {err && <p className="text-xs text-red-500 mt-0.5 px-1">{err}</p>}
-          </td>
-        );
-      })}
-      <td className="px-2 py-2 text-center whitespace-nowrap">
-        <div className="flex items-center gap-1 justify-center">
-          <RowStatusBadge status={rowStatus?.status} rejectionReason={rowStatus?.rejection_reason} size="sm" />
-          {canSubmitRow && (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs gap-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-              onClick={() => onRowSubmit(rowIdx)}
-              disabled={isRowSubmitting}
-            >
-              {isRowSubmitting ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Send className="h-3 w-3" />
-              )}
-              Təsdiq et
-            </Button>
-          )}
-          {!locked && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onDuplicate(rowIdx)}
-              className="h-8 w-8 p-0 text-gray-400 hover:text-blue-500"
-              title="Kopyala"
-            >
-              <Layers className="h-4 w-4" />
-            </Button>
-          )}
-          {!locked && !onRowSubmit && canRemoveRow && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onRemove(rowIdx)}
-              className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-          {!locked && onRowSubmit && canRemoveRow && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onRemove(rowIdx)}
-              className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-          {locked && !disabled && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onRemove(rowIdx)}
-              disabled
-              className="h-8 w-8 p-0 text-gray-200"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
-});
-
-// ─── Memoized Mobile Card Row ─────────────────────────────────────────────────
-
-interface MobileRowProps {
-  row: ReportTableRow;
-  rowIdx: number;
-  columns: ReportTableColumn[];
-  disabled: boolean;
-  errors: Record<string, string>;
-  canRemove: boolean;
-  rowStatus: RowStatusMeta | undefined;
-  fixedRowLabel?: string | null;
-  onCellChange: (rowIdx: number, colKey: string, value: string) => void;
-  onCellBlur: (rowIdx: number) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
-  onPaste: (e: React.ClipboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
-  onRemove: (rowIdx: number) => void;
-  onRowSubmit?: (rowIdx: number) => void;
-  isRowSubmitting?: boolean;
-  cellRefs: React.MutableRefObject<Record<string, HTMLInputElement | null>>;
-  getCellDisplayValue: (row: ReportTableRow, rowIdx: number, col: ReportTableColumn) => string;
-}
-
-const MobileRow = React.memo(function MobileRow({
-  row, rowIdx, columns, disabled, errors, canRemove, rowStatus, fixedRowLabel,
-  onCellChange, onCellBlur, onKeyDown, onPaste, onRemove,
-  onRowSubmit, isRowSubmitting, cellRefs, getCellDisplayValue,
-}: MobileRowProps) {
-  const locked = isRowLocked(rowStatus) || disabled;
-  const rowHasContent = Object.values(row).some((v) => v !== null && v !== '');
-  const canSubmitRow = !locked && !disabled && onRowSubmit && rowHasContent &&
-    (!rowStatus || rowStatus.status === 'rejected' || rowStatus.status === 'draft');
-  
-  // Row can only be removed if it's not locked (submitted/approved) and general canRemove is true
-  const canRemoveRow = canRemove && !isRowLocked(rowStatus);
-
-  return (
-    <div className="border border-gray-200 rounded-lg p-3 bg-white space-y-2">
-      <div className="flex items-center justify-between mb-1">
-        <div className="flex items-center gap-2">
-          {fixedRowLabel ? (
-            <span className="text-xs font-semibold text-gray-700">{fixedRowLabel}</span>
-          ) : (
-            <span className="text-xs font-semibold text-gray-500">Sətir {rowIdx + 1}</span>
-          )}
-          <RowStatusBadge status={rowStatus?.status} rejectionReason={rowStatus?.rejection_reason} size="sm" />
-        </div>
-        <div className="flex items-center gap-1">
-          {canSubmitRow && (
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="h-7 text-xs gap-1 text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-              onClick={() => onRowSubmit(rowIdx)}
-              disabled={isRowSubmitting}
-            >
-              {isRowSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3 w-3" />}
-              Təsdiq et
-            </Button>
-          )}
-          {!locked && canRemoveRow && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onRemove(rowIdx)}
-              className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
-      </div>
-      {columns.map((col, colIdx) => {
-        const err = errors[col.key];
-        const displayValue = getCellDisplayValue(row, rowIdx, col);
-        const isCalculated = col.type === 'calculated';
-        
-        return (
-          <div key={col.key} className={isCalculated ? 'bg-slate-50 rounded p-1' : ''}>
-            <label className="text-xs text-gray-500 mb-1 block">
-              {col.required && <span className="text-red-500 mr-0.5">*</span>}
-              {col.label}
-              {col.type === 'number' && <span className="ml-1 text-gray-400">(rəqəm)</span>}
-              {col.type === 'date' && <span className="ml-1 text-gray-400">(tarix)</span>}
-              {isCalculated && <span className="ml-1 text-gray-400">(hesablama)</span>}
-              {col.type === 'file' && <span className="ml-1 text-gray-400">(fayl)</span>}
-              {col.type === 'signature' && <span className="ml-1 text-gray-400">(imza)</span>}
-              {col.type === 'gps' && <span className="ml-1 text-gray-400">(GPS)</span>}
-            </label>
-            {isCalculated ? (
-              <div className="h-9 px-3 py-2 text-sm text-slate-600 flex items-center border border-slate-200 rounded">
-                <span className={displayValue.startsWith('#ERROR') ? 'text-red-500' : ''}>
-                  {displayValue}
-                </span>
-              </div>
-            ) : (
-              <CellInput
-                col={col}
-                value={String(row[col.key] ?? '')}
-                onChange={(v) => onCellChange(rowIdx, col.key, v)}
-                onBlur={() => onCellBlur(rowIdx)}
-                onKeyDown={(e) => onKeyDown(e, rowIdx, colIdx)}
-                onPaste={(e) => onPaste(e, rowIdx, colIdx)}
-                disabled={locked}
-                error={!!err}
-                inputRef={(el) => { cellRefs.current[`${rowIdx}-${colIdx}`] = el; }}
-              />
-            )}
-            {err && <p className="text-xs text-red-500 mt-0.5">{err}</p>}
-          </div>
-        );
-      })}
-    </div>
-  );
-});
+import { DesktopRow } from './DesktopRow';
+import { MobileRow } from './MobileRow';
+import { useTableKeyboardNavigation } from './hooks/useTableKeyboardNavigation';
+import { useCalculatedColumns } from './hooks/useCalculatedColumns';
+import { useRowOperations } from './hooks/useRowOperations';
+import { useTablePaste } from './hooks/useTablePaste';
 
 // ─── EditableTable Component ──────────────────────────────────────────────────
 
@@ -456,7 +54,6 @@ export const EditableTable = React.memo(function EditableTable({
   const [rowErrors, setRowErrors] = useState<Record<number, Record<string, string>>>({});
   const cellRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
-  // Notify parent of validation state via callback — no DOM needed
   useEffect(() => {
     onValidationChange?.(hasValidationErrors(rowErrors));
   }, [rowErrors, onValidationChange]);
@@ -473,7 +70,6 @@ export const EditableTable = React.memo(function EditableTable({
     cellRefs.current[`${rowIdx}-${colIdx}`]?.focus();
   };
 
-  // Stable callbacks for memoized row components
   const handleCellChange = useCallback((rowIdx: number, colKey: string, value: string) => {
     const current = rows.length > 0 ? rows : [createEmptyRow()];
     const newRows = current.map((r, i) =>
@@ -493,267 +89,35 @@ export const EditableTable = React.memo(function EditableTable({
     setRowErrors((prev) => ({ ...prev, [rowIdx]: errs }));
   }, [rows, columns, createEmptyRow]);
 
-  const handleKeyDown = useCallback((
-    e: React.KeyboardEvent<HTMLInputElement>,
-    rowIdx: number,
-    colIdx: number
-  ) => {
-    const totalRows = displayRows.length;
-    const totalCols = columns.length;
-    
-    switch (e.key) {
-      case 'Tab':
-        e.preventDefault();
-        if (e.shiftKey) {
-          // Shift+Tab - move backwards
-          if (colIdx > 0) {
-            focusCell(rowIdx, colIdx - 1);
-          } else if (rowIdx > 0) {
-            focusCell(rowIdx - 1, totalCols - 1);
-          }
-        } else {
-          // Tab - move forwards
-          if (colIdx + 1 < totalCols) {
-            focusCell(rowIdx, colIdx + 1);
-          } else if (rowIdx + 1 < totalRows) {
-            focusCell(rowIdx + 1, 0);
-          }
-        }
-        break;
-        
-      case 'Enter':
-        e.preventDefault();
-        // Move to next row, same column
-        if (rowIdx + 1 < totalRows) {
-          focusCell(rowIdx + 1, colIdx);
-        } else if (totalRows < maxRows) {
-          // If at last row and we can add more, create new row and focus it
-          handleAddRowRef.current?.();
-          setTimeout(() => focusCell(rowIdx + 1, colIdx), 0);
-        }
-        break;
-        
-      case 'ArrowUp':
-        e.preventDefault();
-        if (rowIdx > 0) {
-          focusCell(rowIdx - 1, colIdx);
-        }
-        break;
-        
-      case 'ArrowDown':
-        e.preventDefault();
-        if (rowIdx + 1 < totalRows) {
-          focusCell(rowIdx + 1, colIdx);
-        } else if (totalRows < maxRows) {
-          // Create new row at end
-          handleAddRowRef.current?.();
-          setTimeout(() => focusCell(rowIdx + 1, colIdx), 0);
-        }
-        break;
-        
-      case 'ArrowLeft':
-        // Only move left if at beginning of input
-        if ((e.target as HTMLInputElement).selectionStart === 0) {
-          e.preventDefault();
-          if (colIdx > 0) {
-            focusCell(rowIdx, colIdx - 1);
-          }
-        }
-        break;
-        
-      case 'ArrowRight':
-        // Only move right if at end of input
-        const input = e.target as HTMLInputElement;
-        if (input.selectionStart === input.value.length) {
-          e.preventDefault();
-          if (colIdx + 1 < totalCols) {
-            focusCell(rowIdx, colIdx + 1);
-          }
-        }
-        break;
-        
-      case 'Home':
-        e.preventDefault();
-        if (e.ctrlKey || e.metaKey) {
-          // Ctrl+Home - go to first cell of table
-          focusCell(0, 0);
-        } else {
-          // Home - go to first cell of current row
-          focusCell(rowIdx, 0);
-        }
-        break;
-        
-      case 'End':
-        e.preventDefault();
-        if (e.ctrlKey || e.metaKey) {
-          // Ctrl+End - go to last populated cell
-          const lastRow = totalRows - 1;
-          const lastCol = totalCols - 1;
-          focusCell(lastRow, lastCol);
-        } else {
-          // End - go to last cell of current row
-          focusCell(rowIdx, totalCols - 1);
-        }
-        break;
-        
-      case 'PageUp':
-        e.preventDefault();
-        const upRows = Math.min(5, rowIdx); // Move up 5 rows or to top
-        if (upRows > 0) {
-          focusCell(rowIdx - upRows, colIdx);
-        }
-        break;
-        
-      case 'PageDown':
-        e.preventDefault();
-        const downRows = Math.min(5, totalRows - rowIdx - 1);
-        if (downRows > 0) {
-          focusCell(rowIdx + downRows, colIdx);
-        } else if (totalRows < maxRows) {
-          // Add rows if needed
-          handleAddRowRef.current?.();
-          setTimeout(() => focusCell(rowIdx + 1, colIdx), 0);
-        }
-        break;
-        
-      case 'Escape':
-        e.preventDefault();
-        // Blur the current input to exit edit mode
-        (e.target as HTMLInputElement).blur();
-        break;
-        
-      case 'Delete':
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          // Ctrl+Delete - clear current cell
-          const colKey = columns[colIdx].key;
-          handleCellChange(rowIdx, colKey, '');
-        }
-        break;
-        
-      case 'F2':
-        e.preventDefault();
-        // F2 - Enter edit mode (select all text)
-        const targetInput = e.target as HTMLInputElement;
-        targetInput.select();
-        break;
-        
-      case 's':
-      case 'S':
-        if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
-          e.preventDefault();
-          // Ctrl+S - trigger save (parent component handles actual save)
-          // Just trigger blur to save current cell
-          (e.target as HTMLInputElement).blur();
-        }
-        break;
+  // ─── Hooks ────────────────────────────────────────────────────────────────
 
-      case 'd':
-      case 'D':
-        if (e.ctrlKey || e.metaKey) {
-          e.preventDefault();
-          if (rowIdx > 0) {
-            const fillCol = columns[colIdx];
-            if (fillCol && fillCol.type !== 'calculated') {
-              const currentRows = rows.length > 0 ? rows : [createEmptyRow()];
-              const valueAbove = currentRows[rowIdx - 1]?.[fillCol.key];
-              if (valueAbove !== undefined && valueAbove !== '') {
-                handleCellChange(rowIdx, fillCol.key, String(valueAbove));
-              }
-            }
-          }
-        }
-        break;
-    }
-  }, [columns, displayRows.length, maxRows, handleCellChange, rows, createEmptyRow]);
+  const { getCellDisplayValue, circularErrors } = useCalculatedColumns({ columns, displayRows });
 
-  // Proper TSV parser with quoted field support
-  const handleCellPaste = useCallback((
-    e: React.ClipboardEvent<HTMLInputElement>,
-    startRowIdx: number,
-    startColIdx: number
-  ) => {
-    const text = e.clipboardData.getData('text/plain');
+  const { handleAddRow, handleRemoveRow, handleDuplicateRow, addRowRef } = useRowOperations({
+    rows, maxRows, columns, onChange, rowErrors, setRowErrors, createEmptyRow,
+  });
 
-    // Single value with no tabs/newlines — let browser handle default paste
-    if (!text.includes('\t') && !text.includes('\n')) return;
+  const { handleCellPaste } = useTablePaste({ rows, maxRows, columns, onChange, createEmptyRow });
 
-    e.preventDefault();
-    const pastedData = parseTSV(text);
-    if (pastedData.length === 0) return;
+  const { handleKeyDown } = useTableKeyboardNavigation({
+    columns,
+    displayRowsLength: displayRows.length,
+    maxRows,
+    focusCell,
+    handleCellChange,
+    addRowRef,
+    rows,
+    createEmptyRow,
+  });
 
-    const current = rows.length > 0 ? rows : [createEmptyRow()];
-    const newRows = [...current];
-
-    pastedData.forEach((pastedRow, ri) => {
-      const targetRow = startRowIdx + ri;
-      if (targetRow >= maxRows) return;
-      while (newRows.length <= targetRow) newRows.push(createEmptyRow());
-      pastedRow.forEach((cell, ci) => {
-        const targetCol = startColIdx + ci;
-        if (targetCol < columns.length) {
-          newRows[targetRow] = { ...newRows[targetRow], [columns[targetCol].key]: cell.trim() };
-        }
-      });
-    });
-
-    onChange(newRows);
-    toast.info(`${pastedData.length} sətir yapışdırıldı.`);
-  }, [rows, maxRows, columns, onChange, createEmptyRow]);
-
-  // Add row ref for use in keyboard handler
-  const handleAddRowRef = useRef<() => void>();
-  
-  const handleAddRow = useCallback(() => {
-    const current = rows.length > 0 ? rows : [createEmptyRow()];
-    if (current.length >= maxRows) {
-      toast.warning(`Maksimum ${maxRows} sətir əlavə edilə bilər.`);
-      return;
-    }
-    onChange([...current, createEmptyRow()]);
-  }, [rows, maxRows, onChange, createEmptyRow]);
-
-  // Keep ref in sync
-  useEffect(() => {
-    handleAddRowRef.current = handleAddRow;
-  }, [handleAddRow]);
-
-  const handleRemoveRow = useCallback((idx: number) => {
-    const current = rows.length > 0 ? rows : [createEmptyRow()];
-    if (current.length <= 1) return;
-    onChange(current.filter((_, i) => i !== idx));
-    setRowErrors((prev) => {
-      const updated: Record<number, Record<string, string>> = {};
-      Object.entries(prev).forEach(([k, v]) => {
-        const ki = Number(k);
-        if (ki < idx) updated[ki] = v;
-        else if (ki > idx) updated[ki - 1] = v;
-      });
-      return updated;
-    });
-  }, [rows, onChange, createEmptyRow]);
-
-  const handleDuplicateRow = useCallback((idx: number) => {
-    const current = rows.length > 0 ? rows : [createEmptyRow()];
-    if (current.length >= maxRows) {
-      toast.warning(`Maksimum ${maxRows} sətir əlavə edilə bilər.`);
-      return;
-    }
-    const copy = { ...current[idx] };
-    const newRows = [
-      ...current.slice(0, idx + 1),
-      copy,
-      ...current.slice(idx + 1),
-    ];
-    onChange(newRows);
-  }, [rows, maxRows, onChange, createEmptyRow]);
+  // ─── Error navigation ─────────────────────────────────────────────────────
 
   const navigateToFirstError = useCallback(() => {
     for (const [rowIdxStr, colErrors] of Object.entries(rowErrors)) {
       const colKeys = Object.keys(colErrors);
       if (colKeys.length > 0) {
         const rowIdx = Number(rowIdxStr);
-        const colIdx = columns.findIndex(c => c.key === colKeys[0]);
+        const colIdx = columns.findIndex((c) => c.key === colKeys[0]);
         if (colIdx >= 0) {
           const el = cellRefs.current[`${rowIdx}-${colIdx}`];
           if (el) {
@@ -770,111 +134,21 @@ export const EditableTable = React.memo(function EditableTable({
     (acc, errs) => acc + Object.keys(errs).length, 0
   );
 
-  // ─── Calculated Column Support ─────────────────────────────────────────────
-  
-  /**
-   * Build cell context for formula evaluation from a row
-   * Column keys map to cell refs: col_0 -> A1, col_1 -> B1, etc.
-   */
-  const buildCellContext = useCallback((row: ReportTableRow, rowIdx: number): CellContext => {
-    const context: CellContext = {};
-    columns.forEach((col, colIdx) => {
-      // Map column key to Excel-style reference (A1, B1, etc.)
-      const colLetter = String.fromCharCode(65 + colIdx); // A, B, C...
-      const cellRef = `${colLetter}${rowIdx + 1}`;
-      const value = row[col.key];
-      // Convert to appropriate type for formula engine
-      if (col.type === 'number' && value !== '' && value !== null) {
-        context[cellRef] = parseFloat(String(value)) || 0;
-      } else if (col.type === 'boolean') {
-        const lower = String(value).toLowerCase();
-        context[cellRef] = lower === 'bəli' || lower === 'true' || lower === '1';
-      } else {
-        context[cellRef] = value ?? '';
-      }
-      // Also store by column key for direct reference
-      context[col.key] = context[cellRef];
-    });
-    return context;
-  }, [columns]);
+  // ─── UI state ─────────────────────────────────────────────────────────────
 
-  /**
-   * Compute value for a calculated column
-   */
-  const computeCalculatedValue = useCallback((
-    row: ReportTableRow,
-    rowIdx: number,
-    col: ReportTableColumn
-  ): string => {
-    if (!col.formula) return '';
-    const context = buildCellContext(row, rowIdx);
-    const result = FormulaEngine.evaluate(col.formula, context);
-    if (result.error) return `#ERROR: ${result.error}`;
-    if (result.value === null) return '';
-    
-    // Format based on column settings
-    let value = result.value;
-    if (typeof value === 'number') {
-      if (col.format === 'currency') {
-        return value.toLocaleString('az-AZ', { style: 'currency', currency: 'AZN' });
-      } else if (col.format === 'percent') {
-        return `${(value * 100).toFixed(col.decimals ?? 0)}%`;
-      } else {
-        return value.toFixed(col.decimals ?? 2);
-      }
-    }
-    return String(value);
-  }, [buildCellContext]);
-
-  /**
-   * Get display value for a cell - handles calculated columns
-   */
-  const getCellDisplayValue = useCallback((
-    row: ReportTableRow,
-    rowIdx: number,
-    col: ReportTableColumn
-  ): string => {
-    if (col.type === 'calculated') {
-      return computeCalculatedValue(row, rowIdx, col);
-    }
-    return String(row[col.key] ?? '');
-  }, [computeCalculatedValue]);
-
-  /**
-   * Get all calculated columns
-   */
-  const calculatedColumns = useMemo(() => 
-    columns.filter(col => col.type === 'calculated'),
-  [columns]);
-
-  /**
-   * Check if calculated columns have circular references
-   */
-  const circularErrors = useMemo(() => {
-    if (calculatedColumns.length === 0) return [];
-    const dependencies: Record<string, string[]> = {};
-    calculatedColumns.forEach(col => {
-      if (col.formula) {
-        dependencies[col.key] = FormulaEngine.getDependencies(col.formula);
-      }
-    });
-    return FormulaEngine.detectCircular(dependencies);
-  }, [calculatedColumns]);
-
-  // Keyboard shortcuts help state
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showTotals, setShowTotals] = useState(false);
   const [freezeFirstCol, setFreezeFirstCol] = useState(false);
 
   const hasNumericCols = useMemo(
-    () => columns.some(c => c.type === 'number' || c.type === 'calculated'),
+    () => columns.some((c) => c.type === 'number' || c.type === 'calculated'),
     [columns]
   );
 
   const columnTotals = useMemo(() => {
     if (!showTotals || displayRows.length <= 1) return {} as Record<string, number>;
     const totals: Record<string, number> = {};
-    columns.forEach(col => {
+    columns.forEach((col) => {
       if (col.type === 'number') {
         totals[col.key] = displayRows.reduce((acc, row) => {
           const val = parseFloat(String(row[col.key] ?? ''));
@@ -892,6 +166,8 @@ export const EditableTable = React.memo(function EditableTable({
     });
     return totals;
   }, [columns, displayRows, showTotals, getCellDisplayValue]);
+
+  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-3">
@@ -937,61 +213,30 @@ export const EditableTable = React.memo(function EditableTable({
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 text-xs text-slate-700">
           <h4 className="font-semibold mb-2 text-slate-800">Klaviatura Qısayolları:</h4>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">↑↓←→</kbd>
-              <span>Xanalar arasında hərəkət</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Tab</kbd>
-              <span>Növbəti xanaya</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Shift+Tab</kbd>
-              <span>Əvvəlki xanaya</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Enter</kbd>
-              <span>Növbəti sətirə</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Home / End</kbd>
-              <span>Sətirin əvvəli/sonu</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+Home</kbd>
-              <span>Cədvəlin əvvəlinə</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+End</kbd>
-              <span>Cədvəlin sonuna</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">PgUp / PgDn</kbd>
-              <span>5 sətir yuxarı/aşağı</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">F2</kbd>
-              <span>Redaktə rejimi (hamısını seç)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Esc</kbd>
-              <span>Redaktədən çıx</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+Del</kbd>
-              <span>Xananı təmizlə</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+S</kbd>
-              <span>Yadda saxla</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">Ctrl+D</kbd>
-              <span>Yuxarı xananı kopyala (Fill Down)</span>
-            </div>
+            {[
+              ['↑↓←→', 'Xanalar arasında hərəkət'],
+              ['Tab', 'Növbəti xanaya'],
+              ['Shift+Tab', 'Əvvəlki xanaya'],
+              ['Enter', 'Növbəti sətirə'],
+              ['Home / End', 'Sətirin əvvəli/sonu'],
+              ['Ctrl+Home', 'Cədvəlin əvvəlinə'],
+              ['Ctrl+End', 'Cədvəlin sonuna'],
+              ['PgUp / PgDn', '5 sətir yuxarı/aşağı'],
+              ['F2', 'Redaktə rejimi (hamısını seç)'],
+              ['Esc', 'Redaktədən çıx'],
+              ['Ctrl+Del', 'Xananı təmizlə'],
+              ['Ctrl+S', 'Yadda saxla'],
+              ['Ctrl+D', 'Yuxarı xananı kopyala (Fill Down)'],
+            ].map(([key, desc]) => (
+              <div key={key} className="flex items-center gap-2">
+                <kbd className="px-1.5 py-0.5 bg-white border border-slate-300 rounded text-[10px] font-mono">{key}</kbd>
+                <span>{desc}</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
+
       {circularErrors.length > 0 && (
         <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -1005,6 +250,7 @@ export const EditableTable = React.memo(function EditableTable({
           </div>
         </div>
       )}
+
       {errorCount > 0 && (
         <button
           onClick={navigateToFirstError}
@@ -1070,7 +316,6 @@ export const EditableTable = React.memo(function EditableTable({
                 cellRefs={cellRefs}
                 getCellDisplayValue={getCellDisplayValue}
                 freezeFirstCol={freezeFirstCol}
-                data-testid="table-row"
               />
             ))}
           </tbody>
