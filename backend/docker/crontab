@@ -1,0 +1,45 @@
+# ATİS Laravel Scheduler Crontab
+# Runs Laravel's task scheduler every minute
+* * * * * cd /var/www && php artisan schedule:run >> /var/www/storage/logs/cron.log 2>&1
+
+# Database backup every day at 2 AM
+0 2 * * * cd /var/www && php artisan backup:run >> /var/www/storage/logs/backup.log 2>&1
+
+# Clean up old logs every day at 3 AM
+0 3 * * * find /var/www/storage/logs -name "*.log" -mtime +30 -delete
+
+# Clear expired sessions every day at 4 AM
+0 4 * * * cd /var/www && php artisan session:gc >> /var/www/storage/logs/session-cleanup.log 2>&1
+
+# Update statistics every hour
+0 * * * * cd /var/www && php artisan statistics:update >> /var/www/storage/logs/statistics.log 2>&1
+
+# Send deadline notifications every day at 9 AM
+0 9 * * * cd /var/www && php artisan notifications:send-deadlines >> /var/www/storage/logs/deadline-notifications.log 2>&1
+
+# Generate daily reports every day at 6 AM
+0 6 * * * cd /var/www && php artisan reports:generate-daily >> /var/www/storage/logs/daily-reports.log 2>&1
+
+# System health check every 5 minutes
+*/5 * * * * cd /var/www && php artisan health:check >> /var/www/storage/logs/health-check-cron.log 2>&1
+
+# Clear old audit logs (older than 1 year) every week on Sunday at 1 AM
+0 1 * * 0 cd /var/www && php artisan audit:cleanup --days=365 >> /var/www/storage/logs/audit-cleanup.log 2>&1
+
+# Update search indexes every day at 5 AM
+0 5 * * * cd /var/www && php artisan search:index >> /var/www/storage/logs/search-index.log 2>&1
+
+# Generate compliance reports every Monday at 7 AM
+0 7 * * 1 cd /var/www && php artisan compliance:generate-reports >> /var/www/storage/logs/compliance-reports.log 2>&1
+
+# Process attendance patterns every day at 1 AM
+0 1 * * * cd /var/www && php artisan attendance:analyze-patterns >> /var/www/storage/logs/attendance-analysis.log 2>&1
+
+# Update academic calendars every day at midnight
+0 0 * * * cd /var/www && php artisan calendar:update >> /var/www/storage/logs/calendar-update.log 2>&1
+
+# Archive old survey responses every first day of the month at 2 AM
+0 2 1 * * cd /var/www && php artisan surveys:archive-old >> /var/www/storage/logs/survey-archive.log 2>&1
+
+# Clear application cache every Sunday at 3 AM
+0 3 * * 0 cd /var/www && php artisan cache:clear && php artisan config:cache && php artisan route:cache >> /var/www/storage/logs/cache-refresh.log 2>&1

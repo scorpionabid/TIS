@@ -1,0 +1,43 @@
+# Platform-Specific Docker Compose Override for macOS
+#
+# USAGE:
+# 1. Copy this file: cp docker-compose.mac.example.yml docker-compose.override.yml
+# 2. Customize as needed for your local macOS environment
+# 3. docker-compose automatically uses override file
+#
+# NOTE: docker-compose.override.yml is gitignored, so your local changes won't affect others
+
+version: '3.8'
+
+services:
+  backend:
+    # macOS-specific volume optimization (osxfs/VirtioFS)
+    volumes:
+      # Use delegated consistency for better performance on macOS
+      - ./backend/database:/var/www/html/database:delegated
+      - ./backend/storage:/var/www/html/storage:delegated
+      - ./backend/app:/var/www/html/app:cached
+      - ./backend/routes:/var/www/html/routes:cached
+      - ./backend/config:/var/www/html/config:cached
+    environment:
+      # macOS-specific settings
+      - DOCKER_DEFAULT_PLATFORM=linux/amd64
+
+  frontend:
+    # macOS-specific optimizations
+    volumes:
+      - ./frontend/src:/app/src:cached
+      - ./frontend/public:/app/public:cached
+      - ./frontend/index.html:/app/index.html:cached
+    environment:
+      # Optimize file watching on macOS
+      - CHOKIDAR_USEPOLLING=false
+
+  redis:
+    # macOS-specific Redis configuration
+    volumes:
+      - redis_data_mac:/data:delegated
+
+volumes:
+  redis_data_mac:
+    driver: local

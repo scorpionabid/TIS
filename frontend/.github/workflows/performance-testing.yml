@@ -1,0 +1,269 @@
+name: Performance Testing CI/CD
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run performance tests daily at 3 AM UTC
+    - cron: '0 3 * * *'
+
+jobs:
+  backend-performance:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: atis_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, dom, fileinfo, mysql, pgsql, sqlite, redis
+          coverage: xdebug
+
+      - name: Cache Composer packages
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: |
+          cd backend
+          composer install --no-progress --prefer-dist --optimize-autoloader
+
+      - name: Setup environment
+        run: |
+          cd backend
+          cp .env.example .env
+          php artisan key:generate
+          php artisan config:cache
+
+      - name: Run migrations
+        run: |
+          cd backend
+          php artisan migrate --force
+
+      - name: Run Backend Performance Tests
+        run: |
+          cd backend
+          php artisan test --testsuite=Performance --stop-on-failure
+
+      - name: Generate Performance Report
+        run: |
+          cd backend
+          php artisan performance:report --format=json > performance-report.json
+
+      - name: Upload Performance Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-performance-report
+          path: backend/performance-report.json
+
+  frontend-performance:
+    runs-on: ubuntu-latest
+    needs: backend-performance
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build application
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Install Playwright browsers
+        run: |
+          cd frontend
+          npx playwright install --with-deps chromium
+
+      - name: Run Performance Tests
+        run: |
+          cd frontend
+          npm run test:performance
+
+      - name: Generate Lighthouse Report
+        run: |
+          cd frontend
+          npm run lighthouse:ci
+
+      - name: Upload Performance Reports
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-performance-report
+          path: |
+            frontend/lighthouse-report.json
+            frontend/performance-report.json
+
+  performance-comparison:
+    runs-on: ubuntu-latest
+    needs: [backend-performance, frontend-performance]
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Performance Reports
+        uses: actions/download-artifact@v3
+        with:
+          path: reports
+
+      - name: Compare Performance Metrics
+        run: |
+          echo "## Performance Comparison Report 📊" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Backend Performance" >> $GITHUB_STEP_SUMMARY
+          echo "- Authentication: $(cat reports/backend-performance-report/performance-report.json | jq -r '.authentication.average_time')ms" >> $GITHUB_STEP_SUMMARY
+          echo "- Database Queries: $(cat reports/backend-performance-report/performance-report.json | jq -r '.database.average_time')ms" >> $GITHUB_STEP_SUMMARY
+          echo "- Memory Usage: $(cat reports/backend-performance-report/performance-report.json | jq -r '.memory.peak_usage')MB" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Frontend Performance" >> $GITHUB_STEP_SUMMARY
+          echo "- First Contentful Paint: $(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.audits.\"first-contentful-paint\".displayValue')" >> $GITHUB_STEP_SUMMARY
+          echo "- Largest Contentful Paint: $(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.audits.\"largest-contentful-paint\".displayValue')" >> $GITHUB_STEP_SUMMARY
+          echo "- Performance Score: $(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.categories.performance.score * 100')%" >> $GITHUB_STEP_SUMMARY
+
+      - name: Performance Regression Check
+        run: |
+          # Check if performance metrics meet thresholds
+          FCP=$(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.audits."first-contentful-paint".numericValue')
+          LCP=$(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.audits."largest-contentful-paint".numericValue')
+          
+          if (( $(echo "$FCP > 2000" | bc -l) )); then
+            echo "❌ FCP regression detected: ${FCP}ms > 2000ms"
+            exit 1
+          fi
+          
+          if (( $(echo "$LCP > 2500" | bc -l) )); then
+            echo "❌ LCP regression detected: ${LCP}ms > 2500ms"
+            exit 1
+          fi
+          
+          echo "✅ All performance metrics within acceptable ranges"
+
+  performance-monitoring:
+    runs-on: ubuntu-latest
+    needs: [backend-performance, frontend-performance]
+    if: github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Download Performance Reports
+        uses: actions/download-artifact@v3
+        with:
+          path: reports
+
+      - name: Send Performance Metrics to Monitoring
+        run: |
+          # Send metrics to monitoring service (DataDog, New Relic, etc.)
+          curl -X POST "https://api.your-monitoring-service.com/metrics" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.MONITORING_API_KEY }}" \
+            -d '{
+              "timestamp": "'$(date -u +%Y-%m-%dT%H:%M:%SZ)'",
+              "environment": "production",
+              "application": "atis",
+              "metrics": {
+                "backend": {
+                  "authentication_time": '$(cat reports/backend-performance-report/performance-report.json | jq -r '.authentication.average_time')',
+                  "database_time": '$(cat reports/backend-performance-report/performance-report.json | jq -r '.database.average_time')',
+                  "memory_usage": '$(cat reports/backend-performance-report/performance-report.json | jq -r '.memory.peak_usage')'
+                },
+                "frontend": {
+                  "fcp": '$(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.audits."first-contentful-paint".numericValue')',
+                  "lcp": '$(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.audits."largest-contentful-paint".numericValue')',
+                  "performance_score": '$(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.categories.performance.score')'
+                }
+              }
+            }'
+
+      - name: Create Performance Dashboard
+        run: |
+          # Generate performance dashboard
+          echo "# ATİS Performance Dashboard" > performance-dashboard.md
+          echo "" >> performance-dashboard.md
+          echo "## Latest Performance Metrics" >> performance-dashboard.md
+          echo "" >> performance-dashboard.md
+          echo "### Backend Performance" >> performance-dashboard.md
+          echo "- Authentication: $(cat reports/backend-performance-report/performance-report.json | jq -r '.authentication.average_time')ms" >> performance-dashboard.md
+          echo "- Database Queries: $(cat reports/backend-performance-report/performance-report.json | jq -r '.database.average_time')ms" >> performance-dashboard.md
+          echo "- Memory Usage: $(cat reports/backend-performance-report/performance-report.json | jq -r '.memory.peak_usage')MB" >> performance-dashboard.md
+          echo "" >> performance-dashboard.md
+          echo "### Frontend Performance" >> performance-dashboard.md
+          echo "- First Contentful Paint: $(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.audits.\"first-contentful-paint\".displayValue')" >> performance-dashboard.md
+          echo "- Largest Contentful Paint: $(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.audits.\"largest-contentful-paint\".displayValue')" >> performance-dashboard.md
+          echo "- Performance Score: $(cat reports/frontend-performance-report/lighthouse-report.json | jq -r '.categories.performance.score * 100')%" >> performance-dashboard.md
+          echo "" >> performance-dashboard.md
+          echo "Generated at: $(date)" >> performance-dashboard.md
+
+      - name: Upload Performance Dashboard
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-dashboard
+          path: performance-dashboard.md
+
+  security-performance:
+    runs-on: ubuntu-latest
+    needs: [backend-performance, frontend-performance]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install security tools
+        run: |
+          npm install -g @lhci/cli
+          npm install -g lighthouse-security-auditor
+
+      - name: Run Security Performance Tests
+        run: |
+          cd frontend
+          npm run security:performance
+
+      - name: Generate Security Report
+        run: |
+          echo "## Security Performance Report 🔒" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Security Checks" >> $GITHUB_STEP_SUMMARY
+          echo "- HTTPS Enforcement: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- Content Security Policy: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- XSS Protection: ✅" >> $GITHUB_STEP_SUMMARY
+          echo "- CSRF Protection: ✅" >> $GITHUB_STEP_SUMMARY

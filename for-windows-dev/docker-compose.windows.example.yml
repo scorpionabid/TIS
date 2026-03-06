@@ -1,0 +1,47 @@
+# Platform-Specific Docker Compose Override for Windows
+#
+# USAGE:
+# 1. Copy this file: cp docker-compose.windows.example.yml docker-compose.override.yml
+# 2. Customize as needed for your local Windows environment
+# 3. docker-compose automatically uses override file
+#
+# NOTE: docker-compose.override.yml is gitignored, so your local changes won't affect others
+
+version: '3.8'
+
+services:
+  backend:
+    # Windows-specific volume optimization
+    volumes:
+      # Use named volumes for performance on Windows
+      - backend_vendor:/var/www/html/vendor
+      - backend_storage:/var/www/html/storage
+    environment:
+      # Windows-specific environment variables
+      - COMPOSE_CONVERT_WINDOWS_PATHS=1
+      # Uncomment for debugging
+      # - APP_DEBUG=true
+      # - LOG_LEVEL=debug
+
+  frontend:
+    # Windows-specific optimizations
+    environment:
+      # Faster file watching on Windows
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    # Uncomment for Windows WSL2 networking issues
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+
+  redis:
+    # Windows-specific Redis configuration
+    volumes:
+      - redis_data_windows:/data
+
+volumes:
+  backend_vendor:
+    driver: local
+  backend_storage:
+    driver: local
+  redis_data_windows:
+    driver: local

@@ -1,0 +1,34 @@
+name: Branch Protection
+
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  branch-protection:
+    name: Enforce Branch Protection
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Check branch naming
+      run: |
+        BRANCH_NAME="${{ github.head_ref }}"
+        if [[ ! "$BRANCH_NAME" =~ ^(feature|bugfix|hotfix|release)/.+ ]]; then
+          echo "❌ Branch adı düzgün deyil. Format: feature/description, bugfix/description, hotfix/description"
+          exit 1
+        fi
+        echo "✅ Branch adı düzgündür: $BRANCH_NAME"
+
+    - name: Check commit message format
+      uses: actions/checkout@v4
+      
+    - name: Validate commit messages
+      run: |
+        git log --pretty=format:"%s" ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }} | while read msg; do
+          if [[ ! "$msg" =~ ^(feat|fix|docs|style|refactor|test|chore)(\(.+\))?:\ .+ ]]; then
+            echo "❌ Commit mesajı formatı düzgün deyil: $msg"
+            echo "Format: feat: description, fix: description, docs: description"
+            exit 1
+          fi
+        done
+        echo "✅ Bütün commit mesajları düzgündür"

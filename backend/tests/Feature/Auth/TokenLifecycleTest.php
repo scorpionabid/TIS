@@ -1,0 +1,59 @@
+<?php
+
+namespace Tests\Feature\Auth;
+
+use Tests\Support\SeedsDefaultRolesAndPermissions;
+use Tests\TestCase;
+
+class TokenLifecycleTest extends TestCase
+{
+    use SeedsDefaultRolesAndPermissions;
+
+    public function test_authenticated_user_can_logout_and_token_is_revoked(): void
+    {
+        $user = $this->createUserWithRole();
+        $token = $user->createToken('api-device')->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/logout');
+
+        $response->assertOk()
+            ->assertJsonPath('message', 'Uğurla çıxış edildi');
+
+        $this->assertDatabaseCount('personal_access_tokens', 0);
+    }
+
+    public function test_token_refresh_replaces_current_token(): void
+    {
+        $user = $this->createUserWithRole();
+        $token = $user->createToken('api-device')->plainTextToken;
+
+        $response = $this->withHeader('Authorization', "Bearer {$token}")
+            ->postJson('/api/refresh-token', [
+                'remember' => true,
+                'device_name' => 'phpunit-device',
+            ]);
+
+        $response->assertOk()
+            ->assertJsonPath('code', 'TOKEN_REFRESHED')
+            ->assertJsonStructure([
+                'message',
+                'code',
+                'data' => [
+                    'token',
+                    'session_id',
+                    'expires_at',
+                    'remember',
+                ],
+            ])
+            ->assertJsonPath('message', 'Token refreshed successfully')
+            ->assertJsonPath('data.remember', true);
+
+        $newToken = $response->json('data.token');
+        $this->assertNotEmpty($newToken);
+        $this->assertNotSame($token, $newToken);
+
+        // Old token should be removed, leaving exactly one active token
+        $this->assertDatabaseCount('personal_access_tokens', 1);
+    }
+}

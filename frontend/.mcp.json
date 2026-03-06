@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
+      "command": "mcp-server-filesystem",
+      "args": [
+        "/Users/home/Desktop/ATİS"
+      ],
+      "env": {}
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "mcp-server-memory",
+      "args": [],
+      "env": {}
+    }
+  }
+}
