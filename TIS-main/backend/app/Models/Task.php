@@ -1,0 +1,717 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Task extends Model
+{
+    use HasFactory;
+
+    protected $fillable = [
+        'title',
+        'description',
+        'category',
+        'source',           // NEW: dms, email, whatsapp, other
+        'priority',
+        'status',
+        'progress',
+        'deadline',
+        'deadline_time',    // NEW: HH:MM format
+        'started_at',
+        'completed_at',
+        'created_by',
+        'assigned_to',
+        'assigned_to_institution_id',
+        'target_institutions',
+        'target_departments',
+        'target_roles',
+        'target_scope',
+        'origin_scope',
+        'notes',
+        'completion_notes',
+        'attachments',
+        'requires_approval',
+        'approval_status',
+        'submitted_for_approval_at',
+        'approval_notes',
+        'approved_by',
+        'approved_at',
+        // Subtask support
+        'parent_id',
+        'position',
+        'is_milestone',
+    ];
+
+    protected $casts = [
+        'deadline' => 'datetime',
+        'started_at' => 'datetime',
+        'completed_at' => 'datetime',
+        'submitted_for_approval_at' => 'datetime',
+        'approved_at' => 'datetime',
+        'target_institutions' => 'array',
+        'target_departments' => 'array',
+        'target_roles' => 'array',
+        'attachments' => 'array',
+        'requires_approval' => 'boolean',
+        'progress' => 'integer',
+        // Subtask support
+        'parent_id' => 'integer',
+        'position' => 'integer',
+        'is_milestone' => 'boolean',
+    ];
+
+    protected $appends = [
+        'category_label',
+        'source_label',
+        'priority_label',
+        'status_label',
+        'origin_scope_label',
+    ];
+
+    // Constants for enums - Updated to English for consistency
+    const CATEGORIES = [
+        'report' => 'Report Preparation',
+        'maintenance' => 'Maintenance and Infrastructure',
+        'event' => 'Event Organization and Coordination',
+        'audit' => 'Audit and Control Tasks',
+        'instruction' => 'Instructions and Methodical Materials',
+        'other' => 'Other Tasks',
+    ];
+
+    const SOURCES = [
+        'dms' => 'DMS',
+        'email' => 'E-poçt',
+        'whatsapp' => 'WhatsApp',
+        'other' => 'Digər',
+    ];
+
+    const PRIORITIES = [
+        'low' => 'Low',
+        'medium' => 'Medium',
+        'high' => 'High',
+        'urgent' => 'Urgent',
+    ];
+
+    const STATUSES = [
+        'pending' => 'Gözləyir',
+        'in_progress' => 'İcradadır',
+        'review' => 'Yoxlanılır',
+        'completed' => 'Tamamlandı',
+        'cancelled' => 'Ləğv edildi',
+    ];
+
+    const TARGET_SCOPES = [
+        'specific' => 'Xüsusi seçim',
+        'regional' => 'Regional',
+        'sector' => 'Sektor',
+        'institutional' => 'Müəssisə',
+        'all' => 'Hamısı',
+    ];
+
+    const ORIGIN_SCOPES = [
+        'region' => 'Regional Task',
+        'sector' => 'Sector Task',
+    ];
+
+    /**
+     * Task creator relationship
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * Task assignee relationship
+     */
+    public function assignee(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_to');
+    }
+
+    /**
+     * Assigned institution relationship
+     */
+    public function assignedInstitution(): BelongsTo
+    {
+        return $this->belongsTo(Institution::class, 'assigned_to_institution_id');
+    }
+
+    /**
+     * Task approver relationship
+     */
+    public function approver(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+
+    /**
+     * Task comments relationship
+     */
+    public function comments(): HasMany
+    {
+        return $this->hasMany(TaskComment::class);
+    }
+
+    /**
+     * Task progress logs relationship
+     */
+    public function progressLogs(): HasMany
+    {
+        return $this->hasMany(TaskProgressLog::class);
+    }
+
+    /**
+     * Task notifications relationship
+     */
+    public function notifications(): HasMany
+    {
+        return $this->hasMany(TaskNotification::class);
+    }
+
+    /**
+     * Task assignments relationship
+     */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(TaskAssignment::class);
+    }
+
+    /**
+     * Task delegation history
+     */
+    public function delegationHistory(): HasMany
+    {
+        return $this->hasMany(TaskDelegationHistory::class);
+    }
+
+    /**
+     * Task sub-delegations relationship
+     */
+    public function subDelegations(): HasMany
+    {
+        return $this->hasMany(TaskSubDelegation::class);
+    }
+
+    /**
+     * Parent task relationship (for subtasks)
+     */
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(Task::class, 'parent_id');
+    }
+
+    /**
+     * Subtasks relationship
+     */
+    public function subtasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'parent_id')->orderBy('position');
+    }
+
+    /**
+     * Get all subtasks including nested ones (recursive)
+     */
+    public function allSubtasks(): HasMany
+    {
+        return $this->hasMany(Task::class, 'parent_id')->with('allSubtasks');
+    }
+
+    /**
+     * Check if this task is a subtask
+     */
+    public function isSubtask(): bool
+    {
+        return $this->parent_id !== null;
+    }
+
+    /**
+     * Check if this task has subtasks
+     */
+    public function hasSubtasks(): bool
+    {
+        return $this->subtasks()->exists();
+    }
+
+    /**
+     * Get the root parent task
+     */
+    public function getRootTask(): Task
+    {
+        if (! $this->parent_id) {
+            return $this;
+        }
+
+        return $this->parent->getRootTask();
+    }
+
+    /**
+     * Calculate progress based on subtask completion
+     */
+    public function calculateSubtaskProgress(): int
+    {
+        $subtasks = $this->subtasks;
+
+        if ($subtasks->isEmpty()) {
+            return $this->progress ?? 0;
+        }
+
+        $totalProgress = $subtasks->sum('progress');
+
+        return (int) round($totalProgress / $subtasks->count());
+    }
+
+    /**
+     * Get subtask completion stats
+     */
+    public function getSubtaskStats(): array
+    {
+        $subtasks = $this->subtasks;
+
+        if ($subtasks->isEmpty()) {
+            return [
+                'total' => 0,
+                'completed' => 0,
+                'in_progress' => 0,
+                'pending' => 0,
+                'completion_percentage' => 0,
+            ];
+        }
+
+        return [
+            'total' => $subtasks->count(),
+            'completed' => $subtasks->where('status', 'completed')->count(),
+            'in_progress' => $subtasks->where('status', 'in_progress')->count(),
+            'pending' => $subtasks->where('status', 'pending')->count(),
+            'completion_percentage' => $this->calculateSubtaskProgress(),
+        ];
+    }
+
+    /**
+     * Checklist items relationship
+     */
+    public function checklistItems(): HasMany
+    {
+        return $this->hasMany(TaskChecklistItem::class)->orderBy('position');
+    }
+
+    /**
+     * Get checklist completion stats
+     */
+    public function getChecklistStats(): array
+    {
+        $items = $this->checklistItems;
+
+        if ($items->isEmpty()) {
+            return [
+                'total' => 0,
+                'completed' => 0,
+                'completion_percentage' => 0,
+            ];
+        }
+
+        $completed = $items->where('is_completed', true)->count();
+        $total = $items->count();
+
+        return [
+            'total' => $total,
+            'completed' => $completed,
+            'completion_percentage' => (int) round(($completed / $total) * 100),
+        ];
+    }
+
+    /**
+     * Task dependencies (tasks this task depends on)
+     */
+    public function dependencies(): HasMany
+    {
+        return $this->hasMany(TaskDependency::class);
+    }
+
+    /**
+     * Tasks that depend on this task
+     */
+    public function dependents(): HasMany
+    {
+        return $this->hasMany(TaskDependency::class, 'depends_on_task_id');
+    }
+
+    /**
+     * Scope: Filter by status
+     */
+    public function scopeByStatus(Builder $query, string $status): Builder
+    {
+        return $query->where('status', $status);
+    }
+
+    /**
+     * Scope: Filter by priority
+     */
+    public function scopeByPriority(Builder $query, string $priority): Builder
+    {
+        return $query->where('priority', $priority);
+    }
+
+    /**
+     * Scope: Filter by category
+     */
+    public function scopeByCategory(Builder $query, string $category): Builder
+    {
+        return $query->where('category', $category);
+    }
+
+    /**
+     * Scope: Filter by assigned user
+     */
+    public function scopeAssignedTo(Builder $query, int $userId): Builder
+    {
+        return $query->where('assigned_to', $userId);
+    }
+
+    /**
+     * Scope: Filter by creator
+     */
+    public function scopeCreatedBy(Builder $query, int $userId): Builder
+    {
+        return $query->where('created_by', $userId);
+    }
+
+    /**
+     * Scope: Filter by deadline approaching (within days)
+     */
+    public function scopeDeadlineApproaching(Builder $query, int $days = 3): Builder
+    {
+        return $query->where('deadline', '<=', now()->addDays($days))
+            ->where('status', '!=', 'completed')
+            ->where('status', '!=', 'cancelled');
+    }
+
+    /**
+     * Scope: Filter overdue tasks
+     */
+    public function scopeOverdue(Builder $query): Builder
+    {
+        return $query->where('deadline', '<', now())
+            ->where('status', '!=', 'completed')
+            ->where('status', '!=', 'cancelled');
+    }
+
+    /**
+     * Scope: Filter by institution access (including hierarchical targeting)
+     */
+    public function scopeForInstitution(Builder $query, int $institutionId): Builder
+    {
+        return $query->where(function ($q) use ($institutionId) {
+            // Direct assignment
+            $q->where('assigned_to_institution_id', $institutionId)
+              // Direct targeting
+                ->orWhereJsonContains('target_institutions', $institutionId)
+              // Global scope
+                ->orWhere('target_scope', 'all')
+              // Hierarchical targeting: institution is a child of a targeted institution
+                ->orWhere(function ($subQ) use ($institutionId) {
+                    $institution = Institution::find($institutionId);
+                    if ($institution && $institution->parent_id) {
+                        $subQ->whereJsonContains('target_institutions', $institution->parent_id);
+                    }
+                });
+        });
+    }
+
+    /**
+     * Check if task is overdue
+     */
+    public function isOverdue(): bool
+    {
+        return $this->deadline &&
+               $this->deadline < now() &&
+               ! in_array($this->status, ['completed', 'cancelled']);
+    }
+
+    /**
+     * Check if deadline is approaching (within 3 days)
+     */
+    public function isDeadlineApproaching(int $days = 3): bool
+    {
+        return $this->deadline &&
+               $this->deadline <= now()->addDays($days) &&
+               ! in_array($this->status, ['completed', 'cancelled']);
+    }
+
+    /**
+     * Get category label
+     */
+    public function getCategoryLabelAttribute(): string
+    {
+        return self::CATEGORIES[$this->category] ?? $this->category;
+    }
+
+    /**
+     * Get source label
+     */
+    public function getSourceLabelAttribute(): ?string
+    {
+        return $this->source ? (self::SOURCES[$this->source] ?? $this->source) : null;
+    }
+
+    /**
+     * Get priority label
+     */
+    public function getPriorityLabelAttribute(): string
+    {
+        return self::PRIORITIES[$this->priority] ?? $this->priority;
+    }
+
+    /**
+     * Get status label
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        return self::STATUSES[$this->status] ?? $this->status;
+    }
+
+    /**
+     * Get origin scope label
+     */
+    public function getOriginScopeLabelAttribute(): ?string
+    {
+        $origin = $this->origin_scope ?? $this->inferOriginScope();
+
+        return $origin ? (self::ORIGIN_SCOPES[$origin] ?? ucfirst($origin)) : null;
+    }
+
+    /**
+     * Infer origin scope when explicit column empty
+     */
+    private function inferOriginScope(): ?string
+    {
+        if ($this->origin_scope) {
+            return $this->origin_scope;
+        }
+
+        if ($this->target_scope === 'regional') {
+            return 'region';
+        }
+
+        if ($this->target_scope === 'sector') {
+            return 'sector';
+        }
+
+        return null;
+    }
+
+    /**
+     * HIERARCHICAL AUTHORITY METHODS
+     */
+
+    /**
+     * Check if user can create tasks for given target institutions
+     */
+    public static function canCreateTaskForTargets(User $user, array $targetInstitutionIds): bool
+    {
+        $userRole = $user->roles->first();
+        if (! $userRole) {
+            return false;
+        }
+
+        $userInstitution = $user->institution;
+        if (! $userInstitution) {
+            return false;
+        }
+
+        foreach ($targetInstitutionIds as $targetId) {
+            if (! self::canUserTargetInstitution($user, $userRole, $targetId)) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if user can target specific institution based on hierarchical authority
+     */
+    private static function canUserTargetInstitution(User $user, $userRole, int $targetInstitutionId): bool
+    {
+        $userInstitution = $user->institution;
+        $targetInstitution = Institution::find($targetInstitutionId);
+
+        if (! $targetInstitution) {
+            return false;
+        }
+
+        // SuperAdmin can target anyone
+        if ($userRole->name === 'superadmin') {
+            return true;
+        }
+
+        // RegionAdmin can target own region and below
+        if ($userRole->name === 'regionadmin') {
+            return self::isInstitutionInRegionalHierarchy($userInstitution, $targetInstitution);
+        }
+
+        // SektorAdmin can target own sector and below
+        if ($userRole->name === 'sektoradmin') {
+            return self::isInstitutionInSectorHierarchy($userInstitution, $targetInstitution);
+        }
+
+        // RegionOperator can target schools in their region
+        if ($userRole->name === 'regionoperator') {
+            return self::isInstitutionInRegionalHierarchy($userInstitution, $targetInstitution) &&
+                   $targetInstitution->type === 'school';
+        }
+
+        // SektorOperator can target schools in their sector
+        if ($userRole->name === 'sektoroperator') {
+            return self::isInstitutionInSectorHierarchy($userInstitution, $targetInstitution) &&
+                   $targetInstitution->type === 'school';
+        }
+
+        // School-level roles can only target their own institution
+        if (in_array($userRole->name, ['schooladmin', 'deputy', 'teacher'])) {
+            return $userInstitution->id === $targetInstitution->id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if target institution is within user's regional hierarchy
+     */
+    private static function isInstitutionInRegionalHierarchy(Institution $userInstitution, Institution $targetInstitution): bool
+    {
+        // If user is at region level
+        if ($userInstitution->type === 'region') {
+            // Target must be in same region or be the region itself
+            return $targetInstitution->region_code === $userInstitution->region_code;
+        }
+
+        // If user is at sector level, get their region and check
+        if ($userInstitution->type === 'sektor') {
+            $userRegion = $userInstitution->parent;
+
+            return $userRegion && $targetInstitution->region_code === $userRegion->region_code;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if target institution is within user's sector hierarchy
+     */
+    private static function isInstitutionInSectorHierarchy(Institution $userInstitution, Institution $targetInstitution): bool
+    {
+        // If user is at sector level
+        if ($userInstitution->type === 'sektor') {
+            // Target must be within this sector (schools under this sector)
+            return $targetInstitution->parent_id === $userInstitution->id ||
+                   $targetInstitution->id === $userInstitution->id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get allowed target roles for a user
+     */
+    public static function getAllowedTargetRoles(User $user): array
+    {
+        $userRole = $user->roles->first();
+        if (! $userRole) {
+            return [];
+        }
+
+        $allowedRoles = [
+            'superadmin' => ['regionadmin', 'regionoperator', 'sektoradmin', 'sektoroperator', 'schooladmin', 'deputy', 'teacher'],
+            'regionadmin' => ['regionoperator', 'sektoradmin', 'sektoroperator', 'schooladmin', 'deputy', 'teacher'],
+            'regionoperator' => ['schooladmin', 'deputy', 'teacher'],
+            'sektoradmin' => ['sektoroperator', 'schooladmin', 'deputy', 'teacher'],
+            'sektoroperator' => ['schooladmin', 'deputy', 'teacher'],
+            'schooladmin' => ['deputy', 'teacher'],
+            'deputy' => ['teacher'],
+        ];
+
+        return $allowedRoles[$userRole->name] ?? [];
+    }
+
+    /**
+     * Get institutions user can create tasks for
+     */
+    public static function getUserTargetableInstitutions(User $user): array
+    {
+        $userRole = $user->roles->first();
+        if (! $userRole) {
+            return [];
+        }
+
+        $userInstitution = $user->institution;
+        if (! $userInstitution) {
+            return [];
+        }
+
+        // SuperAdmin can target all active institutions
+        if ($userRole->name === 'superadmin') {
+            return Institution::where('is_active', true)->pluck('id')->toArray();
+        }
+
+        // RegionAdmin can target all institutions in their region
+        if ($userRole->name === 'regionadmin') {
+            return Institution::where('region_code', $userInstitution->region_code)
+                ->where('is_active', true)
+                ->pluck('id')->toArray();
+        }
+
+        // SektorAdmin can target their sector and schools under it
+        if ($userRole->name === 'sektoradmin') {
+            return Institution::where(function ($q) use ($userInstitution) {
+                $q->where('id', $userInstitution->id)
+                    ->orWhere('parent_id', $userInstitution->id);
+            })->where('is_active', true)->pluck('id')->toArray();
+        }
+
+        // Operators can target schools
+        if (in_array($userRole->name, ['regionoperator', 'sektoroperator'])) {
+            $query = Institution::where('type', 'school')->where('is_active', true);
+
+            if ($userRole->name === 'regionoperator') {
+                $query->where('region_code', $userInstitution->region_code);
+            } else {
+                $userSector = $userInstitution->type === 'sektor' ? $userInstitution : $userInstitution->parent;
+                if ($userSector) {
+                    $query->where('parent_id', $userSector->id);
+                }
+            }
+
+            return $query->pluck('id')->toArray();
+        }
+
+        // School-level roles can only target their own institution
+        if (in_array($userRole->name, ['schooladmin', 'deputy', 'teacher'])) {
+            return [$userInstitution->id];
+        }
+
+        return [];
+    }
+
+    /**
+     * Auto-set started_at when status changes to in_progress
+     */
+    protected static function booted()
+    {
+        static::updating(function ($task) {
+            if ($task->isDirty('status')) {
+                if ($task->status === 'in_progress' && ! $task->started_at) {
+                    $task->started_at = now();
+                } elseif ($task->status === 'completed' && ! $task->completed_at) {
+                    $task->completed_at = now();
+                    $task->progress = 100;
+                }
+            }
+        });
+    }
+}

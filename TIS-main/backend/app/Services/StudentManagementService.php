@@ -1,0 +1,582 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\AcademicYear;
+use App\Models\Grade;
+use App\Models\Role;
+use App\Models\StudentEnrollment;
+use App\Models\User;
+use Carbon\Carbon;
+use Exception;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+
+class StudentManagementService extends BaseService
+{
+    /**
+     * Get students list with filtering and pagination
+     */
+    public function getStudents(Request $request, $user)
+    {
+        $query = User::with(['profile', 'institution', 'studentEnrollments.grade'])
+            ->whereHas('role', function ($q) {
+                $q->where('name', 'şagird');
+            });
+
+        // Apply user-based access control
+        if (! $user->hasRole('superadmin')) {
+            $query = $this->applyUserAccessControl($query, $user);
+        }
+
+        // Apply filters
+        $query = $this->applyFilters($query, $request);
+
+        // Apply search
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('username', 'like', "%{$search}%")
+                    ->orWhere('email', 'like', "%{$search}%")
+                    ->orWhereHas('profile', function ($pq) use ($search) {
+                        $pq->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%")
+                            ->orWhere('national_id', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        // Apply sorting
+        $sortField = $request->get('sort', 'created_at');
+        $direction = $request->get('direction', 'desc');
+
+        if ($sortField === 'name') {
+            $query->join('user_profiles', 'users.id', '=', 'user_profiles.user_id')
+                ->orderBy('user_profiles.first_name', $direction)
+                ->orderBy('user_profiles.last_name', $direction)
+                ->select('users.*');
+        } else {
+            $query->orderBy($sortField, $direction);
+        }
+
+        // Paginate results
+        $perPage = $request->get('per_page', 15);
+        $students = $query->paginate($perPage);
+
+        return [
+            'students' => $students,
+            'total' => $students->total(),
+            'current_page' => $students->currentPage(),
+            'last_page' => $students->lastPage(),
+            'per_page' => $students->perPage(),
+        ];
+    }
+
+    /**
+     * Create new student
+     */
+    public function createStudent(array $data, $user)
+    {
+        return DB::transaction(function () use ($data) {
+            // Get student role
+            $studentRole = Role::where('name', 'şagird')->firstOrFail();
+
+            // Generate username and email if not provided
+            if (empty($data['username'])) {
+                $data['username'] = $this->generateStudentUsername($data['first_name'], $data['last_name']);
+            }
+
+            if (empty($data['email'])) {
+                $data['email'] = $this->generateStudentEmail($data['first_name'], $data['last_name']);
+            }
+
+            // Create user
+            $userData = [
+                'username' => $data['username'],
+                'email' => $data['email'],
+                'password' => Hash::make($data['password'] ?? 'student123'),
+                'role_id' => $studentRole->id,
+                'institution_id' => $data['institution_id'],
+                'is_active' => $data['is_active'] ?? true,
+                'email_verified_at' => now(),
+            ];
+
+            $student = User::create($userData);
+
+            // Create profile
+            $profileData = $this->prepareProfileData(array_merge($data, ['user_id' => $student->id]), true);
+
+            $student->profile()->create($profileData);
+
+            // Create enrollment if class/grade is specified
+            if (! empty($data['class_id'])) {
+                $this->enrollStudent($student, $data['class_id'], $data);
+            }
+
+            return $student->load(['profile', 'institution', 'studentEnrollments.grade']);
+        });
+    }
+
+    /**
+     * Update student
+     */
+    public function updateStudent($student, array $data, $user)
+    {
+        if (! $this->canAccessStudent($user, $student)) {
+            throw new Exception('Bu şagirdə giriş icazəniz yoxdur', 403);
+        }
+
+        return DB::transaction(function () use ($student, $data) {
+            // Update user data
+            $userData = array_filter([
+                'username' => $data['username'] ?? null,
+                'email' => $data['email'] ?? null,
+                'institution_id' => $data['institution_id'] ?? null,
+                'is_active' => $data['is_active'] ?? null,
+            ], function ($value) {
+                return $value !== null;
+            });
+
+            if (! empty($userData)) {
+                $student->update($userData);
+            }
+
+            // Update password if provided
+            if (! empty($data['password'])) {
+                $student->update(['password' => Hash::make($data['password'])]);
+            }
+
+            // Update profile
+            $profileData = $this->prepareProfileData($data);
+
+            if (! empty($profileData) && $student->profile) {
+                $student->profile->update($profileData);
+            }
+
+            return $student->fresh(['profile', 'institution', 'studentEnrollments.grade']);
+        });
+    }
+
+    /**
+     * Prepare user profile data for create or update operations.
+     */
+    private function prepareProfileData(array $data, bool $includeNulls = false): array
+    {
+        $fields = [
+            'first_name',
+            'last_name',
+            'patronymic',
+            'birth_date',
+            'gender',
+            'national_id',
+            'contact_phone',
+            'address',
+            'emergency_contact',
+            'emergency_contact_name',
+            'emergency_contact_phone',
+            'emergency_contact_email',
+            'notes',
+        ];
+
+        $payload = [];
+
+        foreach ($fields as $field) {
+            $provided = array_key_exists($field, $data);
+            $value = $data[$field] ?? null;
+
+            if ($field === 'address') {
+                $value = $this->normalizeAddress($value);
+            }
+
+            if ($field === 'emergency_contact') {
+                $value = $data['emergency_contact'] ?? ($data['emergency_contact_phone'] ?? null);
+            }
+
+            if (is_string($value)) {
+                $value = trim($value);
+                if ($value === '') {
+                    $value = null;
+                }
+            }
+
+            if (in_array($field, ['contact_phone', 'emergency_contact_phone'], true) && is_string($value)) {
+                $value = preg_replace('/\s+/', '', $value);
+            }
+
+            if ($this->shouldIncludeProfileValue($value, $includeNulls, $provided)) {
+                $payload[$field] = $value;
+            }
+        }
+
+        if (isset($data['user_id'])) {
+            $payload['user_id'] = $data['user_id'];
+        }
+
+        return $payload;
+    }
+
+    private function normalizeAddress($value): ?array
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        if (is_array($value)) {
+            return $value;
+        }
+
+        return ['formatted' => $value];
+    }
+
+    private function shouldIncludeProfileValue($value, bool $includeNulls, bool $provided): bool
+    {
+        if ($includeNulls) {
+            return $provided || $value !== null;
+        }
+
+        return $provided && $value !== null;
+    }
+
+    /**
+     * Delete student
+     */
+    public function deleteStudent($student, $user)
+    {
+        if (! $this->canAccessStudent($user, $student)) {
+            throw new Exception('Bu şagirdə giriş icazəniz yoxdur', 403);
+        }
+
+        return DB::transaction(function () use ($student) {
+            // Check if student has enrollments
+            if ($student->studentEnrollments()->count() > 0) {
+                throw new Exception('Bu şagirdin aktiv qeydiyyatları var. Əvvəlcə qeydiyyatları ləğv edin.', 422);
+            }
+
+            // Delete profile first
+            if ($student->profile) {
+                $student->profile->delete();
+            }
+
+            // Delete tokens
+            $student->tokens()->delete();
+
+            // Soft delete user
+            $student->delete();
+
+            return true;
+        });
+    }
+
+    /**
+     * Enroll student in class/grade
+     */
+    public function enrollStudent($student, $gradeId, array $additionalData = [])
+    {
+        $grade = Grade::findOrFail($gradeId);
+        $currentAcademicYear = AcademicYear::current()->first();
+
+        if (! $currentAcademicYear) {
+            throw new Exception('Hazırda aktiv tədris ili yoxdur', 422);
+        }
+
+        // Check if student is already enrolled in this grade for current year
+        $existingEnrollment = StudentEnrollment::where('student_id', $student->id)
+            ->where('grade_id', $gradeId)
+            ->where('academic_year_id', $currentAcademicYear->id)
+            ->where('is_active', true)
+            ->first();
+
+        if ($existingEnrollment) {
+            throw new Exception('Şagird artıq bu sinifə qeydiyyatdan keçmişdir', 422);
+        }
+
+        // Create enrollment
+        $enrollmentData = [
+            'student_id' => $student->id,
+            'grade_id' => $gradeId,
+            'academic_year_id' => $currentAcademicYear->id,
+            'enrollment_date' => $additionalData['enrollment_date'] ?? now(),
+            'student_number' => $additionalData['student_number'] ?? $this->generateStudentNumber($grade),
+            'is_active' => true,
+            'notes' => $additionalData['enrollment_notes'] ?? null,
+        ];
+
+        return StudentEnrollment::create($enrollmentData);
+    }
+
+    /**
+     * Get student performance data
+     */
+    public function getStudentPerformance($student, $user)
+    {
+        if (! $this->canAccessStudent($user, $student)) {
+            throw new Exception('Bu şagirdə giriş icazəniz yoxdur', 403);
+        }
+
+        $currentYear = AcademicYear::current()->first();
+        if (! $currentYear) {
+            return;
+        }
+
+        // Get current enrollment
+        $enrollment = $student->studentEnrollments()
+            ->where('academic_year_id', $currentYear->id)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $enrollment) {
+            return;
+        }
+
+        // Get assessments and grades
+        $assessments = $student->academicAssessments()
+            ->where('academic_year_id', $currentYear->id)
+            ->with(['subject', 'teacher'])
+            ->get();
+
+        // Calculate average grades by subject
+        $subjectAverages = $assessments->groupBy('subject_id')
+            ->map(function ($subjectAssessments) {
+                $totalScore = $subjectAssessments->sum('score');
+                $count = $subjectAssessments->count();
+
+                return $count > 0 ? round($totalScore / $count, 2) : 0;
+            });
+
+        // Overall average
+        $overallAverage = $subjectAverages->count() > 0 ?
+            round($subjectAverages->sum() / $subjectAverages->count(), 2) : 0;
+
+        return [
+            'enrollment' => $enrollment,
+            'assessments' => $assessments,
+            'subject_averages' => $subjectAverages,
+            'overall_average' => $overallAverage,
+            'total_assessments' => $assessments->count(),
+        ];
+    }
+
+    /**
+     * Apply user-based access control
+     */
+    private function applyUserAccessControl($query, $user)
+    {
+        if ($user->hasRole('regionadmin')) {
+            $regionInstitution = $user->institution;
+            if ($regionInstitution && $regionInstitution->level == 2) {
+                $childIds = $regionInstitution->getAllChildrenIds();
+                $query->whereIn('institution_id', $childIds);
+            }
+        } elseif ($user->hasRole('sektoradmin')) {
+            $sectorInstitution = $user->institution;
+            if ($sectorInstitution && $sectorInstitution->level == 3) {
+                $childIds = $sectorInstitution->getAllChildrenIds();
+                $query->whereIn('institution_id', $childIds);
+            }
+        } elseif ($user->hasRole('schooladmin') || $user->hasRole('müəllim')) {
+            $schoolInstitution = $user->institution;
+            if ($schoolInstitution) {
+                $query->where('institution_id', $schoolInstitution->id);
+            }
+        }
+
+        return $query;
+    }
+
+    /**
+     * Apply request filters to query
+     */
+    protected function applyRequestFilters($query, $request)
+    {
+        if (! empty($filters['institution_id'])) {
+            $query->where('institution_id', $filters['institution_id']);
+        }
+
+        if (! empty($filters['class_id'])) {
+            $query->whereHas('studentEnrollments', function ($q) use ($filters) {
+                $q->where('grade_id', $filters['class_id'])->where('is_active', true);
+            });
+        }
+
+        if (! empty($filters['grade_level'])) {
+            $query->whereHas('studentEnrollments.grade', function ($q) use ($filters) {
+                $q->where('grade_level', $filters['grade_level']);
+            });
+        }
+
+        if (! empty($filters['academic_year_id'])) {
+            $query->whereHas('studentEnrollments', function ($q) use ($filters) {
+                $q->where('academic_year_id', $filters['academic_year_id']);
+            });
+        }
+
+        if (! empty($filters['enrollment_status'])) {
+            $isActive = $filters['enrollment_status'] === 'active';
+            $query->whereHas('studentEnrollments', function ($q) use ($isActive) {
+                $q->where('is_active', $isActive);
+            });
+        }
+
+        if ($request->filled('status')) {
+            $isActive = $request->status === 'active';
+            $query->where('is_active', $isActive);
+        }
+
+        if ($request->filled('age_range')) {
+            $ageRange = explode('-', $request->age_range);
+            if (count($ageRange) === 2) {
+                $minAge = (int) $ageRange[0];
+                $maxAge = (int) $ageRange[1];
+                $maxDate = Carbon::now()->subYears($minAge)->format('Y-m-d');
+                $minDate = Carbon::now()->subYears($maxAge + 1)->format('Y-m-d');
+
+                $query->whereHas('profile', function ($q) use ($minDate, $maxDate) {
+                    $q->whereBetween('birth_date', [$minDate, $maxDate]);
+                });
+            }
+        }
+
+        if ($request->filled('gender')) {
+            $query->whereHas('profile', function ($q) use ($request) {
+                $q->where('gender', $request->gender);
+            });
+        }
+
+        return $query;
+    }
+
+    /**
+     * Check if user can access student
+     */
+    private function canAccessStudent($user, $student): bool
+    {
+        if (! $user || ! $student) {
+            return false;
+        }
+
+        // SuperAdmin has access to all
+        if ($user->hasRole('superadmin')) {
+            return true;
+        }
+
+        $userInstitution = $user->institution;
+        if (! $userInstitution) {
+            return false;
+        }
+
+        // RegionAdmin can access students in their region
+        if ($user->hasRole('regionadmin') && $userInstitution->level == 2) {
+            $allowedIds = $userInstitution->getAllChildrenIds();
+
+            return in_array($student->institution_id, $allowedIds);
+        }
+
+        // SektorAdmin can access students in their sector
+        if ($user->hasRole('sektoradmin') && $userInstitution->level == 3) {
+            $allowedIds = $userInstitution->getAllChildrenIds();
+
+            return in_array($student->institution_id, $allowedIds);
+        }
+
+        // SchoolAdmin and teachers can access students in their school
+        if ($user->hasRole(['schooladmin', 'müəllim'])) {
+            return $userInstitution->id === $student->institution_id;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine if the given user can manage students for a specific institution.
+     */
+    public function canManageStudentsInInstitution($user, int $institutionId): bool
+    {
+        $studentStub = (object) ['institution_id' => $institutionId];
+
+        return $this->canAccessStudent($user, $studentStub);
+    }
+
+    /**
+     * Generate unique student username
+     */
+    private function generateStudentUsername($firstName, $lastName): string
+    {
+        $baseUsername = strtolower(
+            $this->transliterate($firstName) . '.' . $this->transliterate($lastName)
+        );
+
+        $username = $baseUsername;
+        $counter = 1;
+
+        while (User::where('username', $username)->exists()) {
+            $username = $baseUsername . $counter;
+            $counter++;
+        }
+
+        return $username;
+    }
+
+    /**
+     * Generate student email
+     */
+    private function generateStudentEmail($firstName, $lastName): string
+    {
+        $baseEmail = strtolower(
+            $this->transliterate($firstName) . '.' . $this->transliterate($lastName)
+        );
+
+        $email = $baseEmail . '@student.edu.az';
+        $counter = 1;
+
+        while (User::where('email', $email)->exists()) {
+            $email = $baseEmail . $counter . '@student.edu.az';
+            $counter++;
+        }
+
+        return $email;
+    }
+
+    /**
+     * Generate student number for grade
+     */
+    private function generateStudentNumber($grade): string
+    {
+        $currentYear = date('Y');
+        $gradeLevel = str_pad($grade->grade_level, 2, '0', STR_PAD_LEFT);
+
+        // Get last student number for this grade in current year
+        $lastEnrollment = StudentEnrollment::where('grade_id', $grade->id)
+            ->whereYear('created_at', $currentYear)
+            ->orderBy('student_number', 'desc')
+            ->first();
+
+        $lastNumber = 0;
+        if ($lastEnrollment && preg_match('/(\d+)$/', $lastEnrollment->student_number, $matches)) {
+            $lastNumber = (int) $matches[1];
+        }
+
+        $nextNumber = str_pad($lastNumber + 1, 3, '0', STR_PAD_LEFT);
+
+        return $currentYear . $gradeLevel . $nextNumber;
+    }
+
+    /**
+     * Transliterate Azerbaijani characters to Latin
+     */
+    private function transliterate($text): string
+    {
+        $azToLatin = [
+            'ə' => 'a', 'Ə' => 'A',
+            'ı' => 'i', 'I' => 'I',
+            'İ' => 'I', 'i' => 'i',
+            'ö' => 'o', 'Ö' => 'O',
+            'ü' => 'u', 'Ü' => 'U',
+            'ç' => 'c', 'Ç' => 'C',
+            'ğ' => 'g', 'Ğ' => 'G',
+            'ş' => 's', 'Ş' => 'S',
+        ];
+
+        return strtr($text, $azToLatin);
+    }
+}

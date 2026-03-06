@@ -1,0 +1,11 @@
+Database Statistics:
+===================
+File size: 701.09 MB
+Page size: 4096 bytes
+Page count: 179,480
+Encoding: UTF-8
+
+Tables: 157
+
+Top 10 tables by row count:
+  activity_logs                           : 26,324 rows\n  survey_audit_logs                       : 21,422 rows\n  security_events                         : 13,183 rows\n  link_access_logs                        : 12,029 rows\n  grades                                  : 5,443 rows\n  personal_access_tokens                  : 4,705 rows\n  notifications                           : 3,914 rows\n  survey_responses                        : 3,128 rows\n  data_approval_requests                  : 2,526 rows\n  document_access_logs                    : 2,079 rows\n

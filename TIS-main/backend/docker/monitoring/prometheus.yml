@@ -1,0 +1,217 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - "alert_rules.yml"
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          - alertmanager:9093
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ATİS Application metrics
+  - job_name: 'atis-app'
+    static_configs:
+      - targets: ['app:9000']
+    metrics_path: /metrics
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # PostgreSQL metrics
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['db:5432']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Redis metrics
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: /metrics
+    scrape_interval: 30s
+
+  # Nginx metrics
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    metrics_path: /nginx_status
+    scrape_interval: 30s
+
+  # Node Exporter (system metrics)
+  - job_name: 'node'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+
+  # Laravel specific metrics
+  - job_name: 'laravel-metrics'
+    static_configs:
+      - targets: ['app:9001']
+    metrics_path: /api/metrics
+    scrape_interval: 60s
+    bearer_token_file: /etc/prometheus/laravel-token
+
+  # Queue metrics
+  - job_name: 'laravel-queues'
+    static_configs:
+      - targets: ['app:9002']
+    metrics_path: /api/queue-metrics
+    scrape_interval: 30s
+
+  # Business metrics
+  - job_name: 'atis-business'
+    static_configs:
+      - targets: ['app:9003']
+    metrics_path: /api/business-metrics
+    scrape_interval: 300s  # 5 minutes for business metrics
+
+  # Security metrics
+  - job_name: 'atis-security'
+    static_configs:
+      - targets: ['app:9004']
+    metrics_path: /api/security-metrics
+    scrape_interval: 60s
+
+# Custom metric collection rules
+recording_rules:
+  - name: atis_application_rules
+    rules:
+      # HTTP request rate
+      - record: atis:http_requests_per_second
+        expr: rate(http_requests_total[5m])
+
+      # Response time percentiles
+      - record: atis:http_request_duration_p95
+        expr: histogram_quantile(0.95, rate(http_request_duration_seconds_bucket[5m]))
+
+      - record: atis:http_request_duration_p99
+        expr: histogram_quantile(0.99, rate(http_request_duration_seconds_bucket[5m]))
+
+      # Error rate
+      - record: atis:http_error_rate
+        expr: rate(http_requests_total{status=~"5.."}[5m]) / rate(http_requests_total[5m])
+
+      # Database connection pool usage
+      - record: atis:db_connections_used_percentage
+        expr: (db_connections_active / db_connections_max) * 100
+
+      # Queue processing rate
+      - record: atis:queue_jobs_per_second
+        expr: rate(queue_jobs_total[5m])
+
+      # Active user sessions
+      - record: atis:active_sessions
+        expr: redis_connected_clients{job="redis"}
+
+  - name: atis_business_rules
+    rules:
+      # Daily active users
+      - record: atis:daily_active_users
+        expr: increase(user_logins_total[24h])
+
+      # Survey completion rate
+      - record: atis:survey_completion_rate
+        expr: (survey_responses_completed / survey_responses_started) * 100
+
+      # Document upload rate
+      - record: atis:document_uploads_per_hour
+        expr: rate(document_uploads_total[1h]) * 3600
+
+      # Attendance tracking efficiency
+      - record: atis:attendance_tracking_rate
+        expr: (attendance_records_automated / attendance_records_total) * 100
+
+# Alerting rules
+alerting_rules:
+  - name: atis_critical_alerts
+    rules:
+      # High error rate
+      - alert: HighErrorRate
+        expr: atis:http_error_rate > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate detected"
+          description: "Error rate is {{ $value | humanizePercentage }} for 5 minutes"
+
+      # Database connection issues
+      - alert: DatabaseConnectionsHigh
+        expr: atis:db_connections_used_percentage > 80
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Database connections usage high"
+          description: "Database connection usage is {{ $value }}%"
+
+      # Queue processing lag
+      - alert: QueueProcessingLag
+        expr: queue_jobs_waiting > 1000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Queue processing lag detected"
+          description: "{{ $value }} jobs waiting in queue"
+
+      # Disk space low
+      - alert: DiskSpaceLow
+        expr: (1 - (node_filesystem_avail_bytes / node_filesystem_size_bytes)) * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space low"
+          description: "Disk usage is {{ $value | humanizePercentage }}"
+
+      # High response time
+      - alert: HighResponseTime
+        expr: atis:http_request_duration_p95 > 2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High response time"
+          description: "95th percentile response time is {{ $value }}s"
+
+      # Security: Multiple failed logins
+      - alert: MultipleFailedLogins
+        expr: rate(failed_login_attempts_total[5m]) > 10
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Multiple failed login attempts"
+          description: "{{ $value }} failed login attempts per second"
+
+  - name: atis_business_alerts
+    rules:
+      # Low survey response rate
+      - alert: LowSurveyResponseRate
+        expr: atis:survey_completion_rate < 30
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "Low survey response rate"
+          description: "Survey completion rate is {{ $value | humanizePercentage }}"
+
+      # System not used (no active users)
+      - alert: NoActiveUsers
+        expr: atis:active_sessions == 0
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No active users"
+          description: "No active user sessions detected for 30 minutes"

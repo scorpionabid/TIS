@@ -1,0 +1,21 @@
+{
+    "preset": "laravel",
+    "rules": {
+        "simplified_null_return": true,
+        "braces": true,
+        "concat_space": {
+            "spacing": "one"
+        },
+        "method_chaining_indentation": true,
+        "no_unused_imports": true,
+        "no_useless_else": true,
+        "phpdoc_align": true,
+        "single_quote": true,
+        "trailing_comma_in_multiline": true
+    },
+    "exclude": [
+        "vendor",
+        "storage",
+        "bootstrap/cache"
+    ]
+}

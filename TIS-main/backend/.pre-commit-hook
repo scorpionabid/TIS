@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# Pre-commit hook to prevent controller duplication
+
+echo "🔍 Checking for controller duplicates..."
+
+# Check for Refactored controllers
+REFACTORED_COUNT=$(find app/Http/Controllers/ -name "*Refactored*" -type f 2>/dev/null | wc -l | tr -d ' ')
+
+if [ "$REFACTORED_COUNT" -gt 0 ]; then
+    echo "❌ ERROR: Found $REFACTORED_COUNT refactored controller duplicates!"
+    echo "Please use original controllers instead of creating duplicates."
+    echo "Blocked files:"
+    find app/Http/Controllers/ -name "*Refactored*" -type f
+    exit 1
+fi
+
+# Check for backup controllers
+BACKUP_COUNT=$(find app/Http/Controllers/ -name "*.backup" -type f 2>/dev/null | wc -l | tr -d ' ')
+
+if [ "$BACKUP_COUNT" -gt 0 ]; then
+    echo "❌ ERROR: Found $BACKUP_COUNT backup controllers!"
+    echo "Please clean up backup files before committing."
+    find app/Http/Controllers/ -name "*.backup" -type f
+    exit 1
+fi
+
+# Check for multiple versions of core controllers
+declare -a CORE_CONTROLLERS=("UserController" "InstitutionController" "TaskController" "DocumentController")
+
+for controller in "${CORE_CONTROLLERS[@]}"; do
+    COUNT=$(find app/Http/Controllers/ -name "${controller}*.php" -not -path "*/Refactored/*" -type f | wc -l | tr -d ' ')
+    if [ "$COUNT" -gt 1 ]; then
+        echo "❌ ERROR: Found multiple versions of $controller!"
+        echo "Files found:"
+        find app/Http/Controllers/ -name "${controller}*.php" -not -path "*/Refactored/*" -type f
+        echo "Please keep only one version."
+        exit 1
+    fi
+done
+
+echo "✅ No controller duplicates found. Commit allowed."
+exit 0
