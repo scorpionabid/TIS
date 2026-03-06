@@ -49,6 +49,10 @@ Route::middleware('auth:sanctum')->group(function () {
      // Table Fill Statistics Export — Statistikaları Excel formatında export etmək
      Route::get('report-tables/{table}/statistics/export', [ReportTableResponseController::class, 'exportStatistics'])
          ->middleware('permission:report_tables.read');
+
+     // Toplu əməliyyat tarixçəsi — MUST be before {table} dynamic routes to avoid route conflict
+     Route::get('report-tables/bulk-action-logs', [ReportTableResponseController::class, 'bulkActionLogs'])
+         ->middleware('permission:report_table_responses.review');
 });
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Read) ───────────────────────────
@@ -122,8 +126,6 @@ Route::middleware('permission:report_table_responses.review')->group(function ()
     Route::delete('report-tables/{table}/responses/{response}/rows/delete', [ReportTableResponseController::class, 'deleteRow']);
     // Toplu sətir əməliyyatı (approval queue-dən)
     Route::post('report-tables/{table}/responses/bulk-row-action',         [ReportTableResponseController::class, 'bulkRowAction']);
-    // Toplu əməliyyat tarixçəsi
-    Route::get('report-tables/bulk-action-logs', [ReportTableResponseController::class, 'bulkActionLogs']);
 });
 
 // ─── Admin: Tək cavab baxışı ──────────────────────────────────────────────────
