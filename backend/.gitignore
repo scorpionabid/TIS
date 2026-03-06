@@ -33,3 +33,4 @@ Thumbs.db
 database/database.sqlite
 database/snapshots/
 cookies.txt
+.env.sqlite_backup*
