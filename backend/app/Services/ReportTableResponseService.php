@@ -116,7 +116,21 @@ class ReportTableResponseService
 
         $this->validateRows($rows, $table->columns ?? [], $table->max_rows ?? 50, $table->fixed_rows ?? null);
 
-        return DB::transaction(function () use ($response) {
+        return DB::transaction(function () use ($response, $rows, $user) {
+            // Bütün qaralama/rejected sətirləri 'submitted' kimi işarələ.
+            // Artıq 'submitted' və ya 'approved' olanları toxunma.
+            $statuses = $response->row_statuses ?? [];
+            foreach ($rows as $idx => $row) {
+                $current = $statuses[$idx]['status'] ?? null;
+                if (! in_array($current, ['submitted', 'approved'], true)) {
+                    $statuses[$idx] = [
+                        'status'       => 'submitted',
+                        'submitted_by' => $user->id,
+                        'submitted_at' => now()->toISOString(),
+                    ];
+                }
+            }
+            $response->row_statuses = $statuses;
             $response->submit();
 
             return $response->fresh(['reportTable', 'institution', 'respondent']);
@@ -184,6 +198,24 @@ class ReportTableResponseService
         $query->orderBy('updated_at', 'desc');
 
         return $query->paginate($perPage);
+    }
+
+    /**
+     * Analytics/ready-view üçün bütün cavabları qaytarır (paginate yoxdur).
+     * SektorAdmin yalnız öz sektorunun məktəblərini görür.
+     */
+    public function getAllResponsesForTable(ReportTable $table, User $user): \Illuminate\Database\Eloquent\Collection
+    {
+        $query = ReportTableResponse::with(['institution.parent', 'respondent.profile'])
+            ->where('report_table_id', $table->id);
+
+        if ($user->hasRole('sektoradmin')) {
+            $approvalService = app(ReportTableApprovalService::class);
+            $allowedIds = $approvalService->getReviewableInstitutionIds($user);
+            $query->whereIn('institution_id', $allowedIds ?: [-1]);
+        }
+
+        return $query->orderBy('institution_id')->get();
     }
 
     /**

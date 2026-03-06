@@ -66,24 +66,13 @@ export function ReportTableReadyView({ tables: propTables, tableId, showAsList =
     queryKey: ['approved-responses', tableId],
     queryFn: async () => {
       if (!tableId) return [];
-      // Get all responses for the table using the correct method
-      const result = await reportTableService.getResponses(tableId);
-      const responses = result.data || [];
-      
+      // Get all responses for the table (no pagination)
+      const responses = await reportTableService.getAllResponses(tableId);
+
       // Filter responses that have at least one approved row
       const approved = responses.filter((r: ReportTableResponse) => {
-        // Check if response has approved status
-        if (r.status === 'approved') return true;
-        
-        // Check if any row is approved (using row_statuses object)
         const rowStatuses = r.row_statuses ?? {};
-        for (const [idx, meta] of Object.entries(rowStatuses)) {
-          if (meta.status === 'approved') {
-            return true;
-          }
-        }
-        
-        return false;
+        return Object.values(rowStatuses).some((meta: any) => meta?.status === 'approved');
       }).map((r: ReportTableResponse) => ({
         ...r,
         // Müəssisə adını düzgün götür - institution.name istifadə et
