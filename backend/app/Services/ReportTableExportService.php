@@ -62,12 +62,17 @@ class ReportTableExportService
                 ->with('institution')
                 ->first();
 
-            $responses = $response ? collect([$response]) : collect([]);
-
-            // Əgər cavab yoxdursa, xəta qaytar
-            if ($responses->isEmpty()) {
-                throw new \Exception('Bu cədvəl üçün cavab tapılmadı.');
+            // Əgər cavab yoxdursa xəta qaytar
+            if (! $response) {
+                throw new \Exception('Bu cədvəl üçün hələ heç bir məlumat daxil edilməyib.');
             }
+
+            // Əgər data sətirləri boşdursa xəta qaytar
+            if (empty($response->rows)) {
+                throw new \Exception('Cədvəldə export ediləcək məlumat yoxdur. Zəhmət olmasa əvvəlcə məlumat daxil edin.');
+            }
+
+            $responses = collect([$response]);
 
             $safeTitle = mb_substr(
                 trim(preg_replace('/\s+/', '_', preg_replace('/[^\w\s-]/u', '', $table->title ?? 'Hesabat'))),
@@ -79,9 +84,10 @@ class ReportTableExportService
             $safeInstitution = mb_substr(trim(preg_replace('/\s+/', '_', preg_replace('/[^\w\s-]/u', '', $institutionName))), 0, 20);
 
             $filename = "ATIS_Cedvel_{$safeTitle}_{$safeInstitution}_" . date('Y-m-d') . '.xlsx';
-            
-            $export = new ReportTableExport($table, $responses);
-            
+
+            // Məktəbin öz export-unda bütün sətirləri göstər (draft daxil).
+            $export = new ReportTableExport($table, $responses, filterByStatus: false);
+
             return Excel::download($export, $filename);
             
         } catch (\Exception $e) {

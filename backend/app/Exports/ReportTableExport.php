@@ -34,6 +34,7 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
     public function __construct(
         protected ReportTable $table,
         protected Collection $responses,
+        protected bool $filterByStatus = true,
     ) {
         $this->columns = $table->columns ?? [];
     }
@@ -66,10 +67,13 @@ class ReportTableExport implements FromCollection, WithColumnFormatting, WithCol
                     continue;
                 }
 
-                // Təsdiqlənmiş və göndərilmiş sətirləri export et
-                $rowStatus = $response->getRowStatus($rowIndex)['status'] ?? null;
-                if (!in_array($rowStatus, ['approved', 'submitted'], true)) {
-                    continue;
+                // Status filteri: admin export üçün yalnız submitted/approved;
+                // məktəbin öz export-unda bütün sətirləri göstər (draft daxil).
+                if ($this->filterByStatus) {
+                    $rowStatus = $response->getRowStatus($rowIndex)['status'] ?? null;
+                    if (! in_array($rowStatus, ['approved', 'submitted'], true)) {
+                        continue;
+                    }
                 }
 
                 $excelRow = [
