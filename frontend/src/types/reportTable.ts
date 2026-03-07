@@ -70,6 +70,7 @@ export interface ReportTable extends BaseEntity {
   columns: ReportTableColumn[];
   fixed_rows?: FixedRow[] | null; // Əgər varsa, stabil cədvəl (dinamik deyil)
   max_rows: number;
+  allow_additional_rows_after_confirmation?: boolean; // RegionAdmin tərəfindən idarə olunur
   target_institutions?: number[];
   deadline?: string;
   published_at?: string;
@@ -91,6 +92,11 @@ export interface ReportTable extends BaseEntity {
   };
   // Computed
   responses_count?: number;
+  responses_submitted_count?: number;
+  responses_approved_count?: number;
+  responses_pending_count?: number; // Təsdiq gözləyən
+  responses_rejected_count?: number;
+  not_responded_count?: number; // Göndərməyən məktəblər
   can_edit?: boolean;
   can_edit_columns?: boolean;
 }

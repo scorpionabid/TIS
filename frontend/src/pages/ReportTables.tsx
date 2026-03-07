@@ -117,19 +117,77 @@ function TableCard({
   onView,
   onPreview,
   onConfirm,
+  onToggleAdditionalRows,
   isSuperAdmin,
+  canManageAdditionalRows,
 }: {
   table: ReportTable;
   onEdit: (t: ReportTable) => void;
   onView: (t: ReportTable) => void;
   onPreview?: (t: ReportTable) => void;
   onConfirm: (type: ConfirmActionType, t: ReportTable) => void;
+  onToggleAdditionalRows?: (t: ReportTable) => void;
   isSuperAdmin: boolean;
+  canManageAdditionalRows?: boolean;
 }) {
   const isDeleted = table.is_deleted ?? false;
   const target = table.target_institutions?.length ?? 0;
-  const submitted = table.responses_count ?? 0;
+  const submitted = table.responses_submitted_count ?? table.responses_count ?? 0;
+  const approved = table.responses_approved_count ?? 0;
+  const pending = table.responses_pending_count ?? 0;
+  const rejected = table.responses_rejected_count ?? 0;
+  const notResponded = table.not_responded_count ?? Math.max(0, target - submitted);
   const pct = target > 0 ? Math.round((submitted / target) * 100) : 0;
+
+  // Export non-responding schools as XLSX
+  const exportNonResponding = async () => {
+    try {
+      const data = await reportTableService.getNonRespondingSchools(table.id);
+      if (!data || data.length === 0) {
+        toast.info('Doldurmayan məktəb yoxdur');
+        return;
+      }
+      
+      // Create Excel XML content
+      const headers = ['Məktəb', 'Sektor', 'Status'];
+      const rows = data.map((s: any) => [
+        s.name,
+        s.sector || '-',
+        'Göndərməyib'
+      ]);
+      
+      // Create HTML table for Excel export
+      const htmlTable = `
+        <table>
+          <thead>
+            <tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+          </thead>
+          <tbody>
+            ${rows.map((r: string[]) => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}
+          </tbody>
+        </table>
+      `;
+      
+      const blob = new Blob([
+        `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/1999/xhtml">
+          <head>
+            <meta charset="UTF-8"/>
+            <style>table { border-collapse: collapse; } th, td { border: 1px solid #ccc; padding: 8px; text-align: left; } th { background-color: #f0f0f0; font-weight: bold; }</style>
+          </head>
+          <body>${htmlTable}</body>
+        </html>`
+      ], { type: 'application/vnd.ms-excel;charset=utf-8' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `${table.title}-doldurmayanlar.xls`;
+      link.click();
+      
+      toast.success(`${data.length} məktəb Excel formatında yükləndi`);
+    } catch (error) {
+      toast.error('Export zamanı xəta baş verdi');
+    }
+  };
 
   return (
     <div className={`bg-white border rounded-xl p-4 hover:shadow-sm transition-shadow ${isDeleted ? 'opacity-70 border-dashed border-red-200' : ''}`} data-testid="report-table-card">
@@ -152,24 +210,69 @@ function TableCard({
           </div>
           <h3 className="font-semibold text-gray-800 leading-tight truncate">{table.title}</h3>
           {table.description && (
-            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{table.description}</p>
+            <p className="text-sm text-gray-500 mt-0.5 line-clamp-1">{table.description}</p>
           )}
-          <div className="flex flex-wrap gap-2 mt-2 text-xs text-gray-400">
-            <span>{table.columns?.length ?? 0} sütun</span>
-            <span>·</span>
-            <span>Maks. {table.max_rows} sətir</span>
-          </div>
 
-          {/* Response progress (only for non-deleted published tables) */}
-          {!isDeleted && table.status === 'published' && target > 0 && (
-            <div className="mt-3">
-              <div className="flex items-center justify-between text-xs text-gray-500 mb-1">
+          {/* Detailed Response Statistics - MOVED UP right under title */}
+          {!isDeleted && table.status === 'published' && target > 0 && canManageAdditionalRows && (
+            <div className="mt-2 space-y-1">
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>Cavablar</span>
+                <span className="font-medium">{submitted}/{target} göndərilib ({pct}%)</span>
+              </div>
+              {/* Colorful segmented progress bar */}
+              <div className="h-1 w-full rounded-full overflow-hidden flex">
+                <div className="h-full bg-emerald-500" style={{ width: `${target > 0 ? (approved / target) * 100 : 0}%` }} />
+                <div className="h-full bg-blue-500" style={{ width: `${target > 0 ? (pending / target) * 100 : 0}%` }} />
+                <div className="h-full bg-red-500" style={{ width: `${target > 0 ? (rejected / target) * 100 : 0}%` }} />
+                <div className="h-full bg-gray-200" style={{ width: `${target > 0 ? (notResponded / target) * 100 : 0}%` }} />
+              </div>
+              {/* Compact Stats Row */}
+              <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-emerald-50 text-emerald-700">
+                  <span className="w-1 h-1 rounded-full bg-emerald-500" />Təsdiqləndi: <strong>{approved}</strong>
+                </span>
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-blue-50 text-blue-700">
+                  <span className="w-1 h-1 rounded-full bg-blue-500" />Gözləyir: <strong>{pending}</strong>
+                </span>
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-red-50 text-red-700">
+                  <span className="w-1 h-1 rounded-full bg-red-500" />Rədd: <strong>{rejected}</strong>
+                </span>
+                <span className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded bg-gray-50 text-gray-600">
+                  <span className="w-1 h-1 rounded-full bg-gray-400" />Göndərməyib: <strong>{notResponded}</strong>
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Simple Response progress for non-admin */}
+          {!isDeleted && table.status === 'published' && target > 0 && !canManageAdditionalRows && (
+            <div className="mt-2">
+              <div className="flex items-center justify-between text-xs text-gray-500 mb-0.5">
                 <span>Cavablar</span>
                 <span className="font-medium">{submitted}/{target} göndərilib</span>
               </div>
-              <Progress value={pct} className="h-1.5" />
+              <div className="h-1 w-full rounded-full overflow-hidden flex">
+                <div className="h-full bg-emerald-500" style={{ width: `${pct}%` }} />
+                <div className="h-full bg-gray-200" style={{ width: `${100 - pct}%` }} />
+              </div>
             </div>
           )}
+
+          {/* Meta info and Additional rows indicator - SINGLE LINE */}
+          <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px] text-gray-400">
+            <span>{table.columns?.length ?? 0} sütun</span>
+            <span>·</span>
+            <span>Maks. {table.max_rows} sətir</span>
+            {canManageAdditionalRows && table.status === 'published' && (
+              <>
+                <span>·</span>
+                <span className={table.allow_additional_rows_after_confirmation ? 'text-emerald-600' : 'text-gray-500'}>
+                  {table.allow_additional_rows_after_confirmation ? 'Əlavə sətir açıq' : 'Əlavə sətir bağlı'}
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
         <DropdownMenu>
@@ -223,6 +326,25 @@ function TableCard({
                 )}
                 {table.status === 'published' && (
                   <>
+                    {/* RegionAdmin: Toggle additional rows permission */}
+                    {canManageAdditionalRows && onToggleAdditionalRows && (
+                      <DropdownMenuItem 
+                        onClick={() => onToggleAdditionalRows(table)}
+                        className={table.allow_additional_rows_after_confirmation ? 'text-orange-600' : 'text-emerald-600'}
+                      >
+                        {table.allow_additional_rows_after_confirmation ? (
+                          <><X className="h-4 w-4 mr-2" /> Əlavə sətri bağla</>
+                        ) : (
+                          <><CheckCircle2 className="h-4 w-4 mr-2" /> Əlavə sətri aç</>
+                        )}
+                      </DropdownMenuItem>
+                    )}
+                    {/* Export non-responding schools - RegionAdmin only */}
+                    {canManageAdditionalRows && notResponded > 0 && (
+                      <DropdownMenuItem onClick={exportNonResponding}>
+                        <Download className="h-4 w-4 mr-2" /> Doldurmayanları export et ({notResponded})
+                      </DropdownMenuItem>
+                    )}
                     <DropdownMenuItem onClick={() => onConfirm('archive', table)} className="text-orange-600">
                       <Archive className="h-4 w-4 mr-2" /> Arxivlə
                     </DropdownMenuItem>
@@ -456,6 +578,19 @@ export default function ReportTables() {
     onError: (err: Error) => toast.error(err.message),
   });
 
+  // RegionAdmin üçün: əlavə sətir icazəsini aç/bağla
+  const toggleAdditionalRowsMutation = useMutation({
+    mutationFn: (table: ReportTable) => reportTableService.toggleAllowAdditionalRows(table.id),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['report-tables'] });
+      toast.success(data.allow_additional_rows_after_confirmation
+        ? 'Məktəblər artıq təsdiqləndikdən sonra əlavə sətir göndərə biləcək.'
+        : 'Məktəblər təsdiqləndikdən sonra əlavə sətir göndərə bilməyəcək.'
+      );
+    },
+    onError: (err: Error) => toast.error(err.message),
+  });
+
   // ─── Confirm handler ────────────────────────────────────────────────────────
 
   const handleConfirmAction = () => {
@@ -658,7 +793,9 @@ export default function ReportTables() {
                     onView={(t) => { setViewingTable(t); setIsSheetOpen(true); }}
                     onPreview={(t) => { setPreviewTable(t); setIsPreviewOpen(true); }}
                     onConfirm={(type, t) => setConfirmState({ type, table: t })}
+                    onToggleAdditionalRows={(t) => toggleAdditionalRowsMutation.mutate(t)}
                     isSuperAdmin={isSuperAdmin}
+                    canManageAdditionalRows={canReview}
                   />
                 ))}
               </div>
@@ -796,7 +933,9 @@ export default function ReportTables() {
                     onEdit={(t) => { setEditingTable(t); setShowModal(true); }}
                     onView={setViewingTable}
                     onConfirm={(type, t) => setConfirmState({ type, table: t })}
+                    onToggleAdditionalRows={(t) => toggleAdditionalRowsMutation.mutate(t)}
                     isSuperAdmin={isSuperAdmin}
+                    canManageAdditionalRows={canReview}
                   />
                 ))}
               </div>

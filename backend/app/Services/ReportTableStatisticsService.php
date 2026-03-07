@@ -225,4 +225,43 @@ class ReportTableStatisticsService
             'schools'           => $schools,
         ];
     }
+
+    // ─── Get Non-Responding Schools ───────────────────────────────────────────
+
+    /**
+     * Bir cədvəl üçün doldurmayan (göndərməyən) məktəblərin siyahısı.
+     */
+    public function getNonRespondingSchools(ReportTable $table, User $user): array
+    {
+        $allowedInstitutionIds = $this->approvalService->getReviewableInstitutionIds($user);
+
+        if (empty($allowedInstitutionIds)) {
+            return [];
+        }
+
+        $institutions = Institution::whereIn('id', $allowedInstitutionIds)
+            ->with(['parent'])
+            ->orderBy('name')
+            ->get();
+
+        $responses = ReportTableResponse::where('report_table_id', $table->id)
+            ->whereIn('institution_id', $allowedInstitutionIds)
+            ->get()
+            ->keyBy('institution_id');
+
+        $nonRespondingSchools = [];
+
+        foreach ($institutions as $institution) {
+            if (!isset($responses[$institution->id])) {
+                $nonRespondingSchools[] = [
+                    'id'        => $institution->id,
+                    'name'      => $institution->name,
+                    'sector'    => $institution->parent?->name,
+                    'sector_id' => $institution->parent_id,
+                ];
+            }
+        }
+
+        return $nonRespondingSchools;
+    }
 }

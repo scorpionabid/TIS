@@ -49,7 +49,7 @@ export function ReportTableWizard({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && !isLoading && onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>
             {isEditing ? 'Hesabat cədvəlini redaktə et' : 'Yeni hesabat cədvəli'}

@@ -7,6 +7,7 @@ use App\Models\ReportTable;
 use App\Services\ReportTableExportService;
 use App\Services\ReportTableResponseService;
 use App\Services\ReportTableService;
+use App\Services\ReportTableStatisticsService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -18,6 +19,7 @@ class ReportTableController extends BaseController
         private readonly ReportTableService $service,
         private readonly ReportTableResponseService $responseService,
         private readonly ReportTableExportService $exportService,
+        private readonly ReportTableStatisticsService $statisticsService,
     ) {}
 
     // ─── Admin: Siyahı ────────────────────────────────────────────────────────
@@ -731,6 +733,61 @@ class ReportTableController extends BaseController
         }
     }
 
+    /**
+     * POST /api/report-tables/{table}/toggle-additional-rows
+     * RegionAdmin üçün: Təsdiqləndikdən sonra əlavə sətir əlavə etmə icazəsini aç/bağla
+     */
+    public function toggleAllowAdditionalRows(ReportTable $table): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (! $user->hasAnyRole(['regionadmin', 'superadmin'])) {
+            return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
+        }
+
+        if (! $table->isPublished()) {
+            return $this->errorResponse('Bu parametri yalnız dərc edilmiş cədvəllərdə dəyişmək olar.', 400);
+        }
+
+        try {
+            $newValue = ! $table->allow_additional_rows_after_confirmation;
+            $table->setAllowAdditionalRows($newValue);
+
+            return $this->successResponse(
+                [
+                    'id' => $table->id,
+                    'allow_additional_rows_after_confirmation' => $newValue,
+                ],
+                $newValue
+                    ? 'Məktəblər artıq təsdiqləndikdən sonra əlavə sətir göndərə biləcək.'
+                    : 'Məktəblər təsdiqləndikdən sonra əlavə sətir göndərə bilməyəcək.'
+            );
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * GET /api/report-tables/{table}/non-responding-schools
+     * Bir cədvəl üçün doldurmayan məktəblərin siyahısı (export üçün).
+     */
+    public function nonRespondingSchools(ReportTable $table): JsonResponse
+    {
+        $user = Auth::user();
+
+        if (! $user->hasAnyRole(['regionadmin', 'superadmin', 'admin', 'regionoperator'])) {
+            return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
+        }
+
+        try {
+            $data = $this->statisticsService->getNonRespondingSchools($table, $user);
+
+            return $this->successResponse($data, 'Doldurmayan məktəblər siyahısı.');
+        } catch (\Exception $e) {
+            return $this->errorResponse($e->getMessage(), 500);
+        }
+    }
+
     // ─── Formatters ──────────────────────────────────────────────────────────
 
     private function formatTable(ReportTable $table): array
@@ -753,6 +810,7 @@ class ReportTableController extends BaseController
             'archived_at'         => $table->archived_at,
             'deleted_at'          => $table->deleted_at?->toISOString(),
             'is_deleted'          => $table->trashed(),
+            'allow_additional_rows_after_confirmation' => $table->allow_additional_rows_after_confirmation,
             'creator'             => $table->creator ? [
                 'id'   => $table->creator->id,
                 'name' => $table->creator->profile?->full_name ?? $table->creator->username,
@@ -764,10 +822,48 @@ class ReportTableController extends BaseController
 
     private function formatTableDetailed(ReportTable $table): array
     {
+        // Load responses with their statuses for accurate counting
+        $responses = $table->responses()
+            ->select(['id', 'status', 'row_statuses'])
+            ->get();
+
+        $submittedCount = 0;
+        $approvedCount  = 0;
+        $pendingCount   = 0;
+        $rejectedCount  = 0;
+
+        foreach ($responses as $response) {
+            if ($response->status === 'submitted') {
+                $submittedCount++;
+            } elseif ($response->status === 'approved') {
+                $approvedCount++;
+            }
+
+            $rowStatuses = $response->row_statuses ?? [];
+            foreach ($rowStatuses as $meta) {
+                $rowStatus = is_array($meta) ? ($meta['status'] ?? null) : null;
+                if ($rowStatus === 'submitted') {
+                    $pendingCount++;
+                } elseif ($rowStatus === 'approved') {
+                    $approvedCount++;
+                } elseif ($rowStatus === 'rejected') {
+                    $rejectedCount++;
+                }
+            }
+        }
+
+        $targetCount      = count($table->target_institutions ?? []);
+        $notRespondedCount = max(0, $targetCount - $responses->count());
+
         return array_merge($this->formatTable($table), [
-            'responses_count' => $table->responses_count ?? null,
-            'can_edit'        => $table->canEdit(),
-            'can_edit_columns'=> $table->canEditColumns(),
+            'responses_count'          => $responses->count(),
+            'responses_submitted_count' => $submittedCount,
+            'responses_approved_count'  => $approvedCount,
+            'responses_pending_count'   => $pendingCount,
+            'responses_rejected_count'  => $rejectedCount,
+            'not_responded_count'       => $notRespondedCount,
+            'can_edit'                  => $table->canEdit(),
+            'can_edit_columns'          => $table->canEditColumns(),
         ]);
     }
 }
