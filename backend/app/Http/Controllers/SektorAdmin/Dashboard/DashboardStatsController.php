@@ -232,9 +232,9 @@ class DashboardStatsController extends Controller
         }
 
         // Get recent tasks - FILTERED BY SECTOR
-        $recentTasks = Task::where(function ($query) use ($userSector, $schoolIds) {
-                $query->where('assigned_to_institution_id', $userSector->id)
-                    ->orWhereJsonContains('target_institutions', $userSector->id)
+        $recentTasks = Task::where(function ($query) use ($sector, $schoolIds) {
+                $query->where('assigned_to_institution_id', $sector->id)
+                    ->orWhereJsonContains('target_institutions', $sector->id)
                     ->orWhere(function ($q) use ($schoolIds) {
                         foreach ($schoolIds as $schoolId) {
                             $q->orWhereJsonContains('target_institutions', $schoolId)

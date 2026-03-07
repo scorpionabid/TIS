@@ -931,6 +931,10 @@ class RegionalAttendanceService
         $attendanceByGrade = $attendanceRecords->groupBy('grade_id');
 
         foreach ($gradesByLevel as $level => $levelGrades) {
+            if (!isset($gradeLevelStats[$level])) {
+                continue;
+            }
+
             $levelGradeIds = $levelGrades->pluck('id')->toArray();
             $levelRecords = collect();
 

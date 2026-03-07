@@ -775,7 +775,7 @@ class ReportTableController extends BaseController
     {
         $user = Auth::user();
 
-        if (! $user->hasAnyRole(['regionadmin', 'superadmin', 'admin', 'regionoperator'])) {
+        if (! $user->hasAnyRole(['regionadmin', 'superadmin', 'admin', 'regionoperator', 'sektoradmin'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 

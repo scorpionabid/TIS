@@ -70,6 +70,8 @@ Route::middleware('permission:report_tables.read')->group(function () {
     Route::get('report-tables/{table}/export', [ReportTableController::class, 'export']);
     // Yalnız təsdiqlənmiş sətirləri export etmək (Hazır tabı üçün)
     Route::get('report-tables/{table}/export/approved', [ReportTableController::class, 'exportApproved']);
+    // Doldurmayan məktəbləri əldə etmək (export üçün)
+    Route::get('report-tables/{table}/non-responding-schools', [ReportTableController::class, 'nonRespondingSchools']);
 });
 
 // ─── Admin: Hesabat cədvəllərini idarə etmək (Write) ──────────────────────────
@@ -90,8 +92,6 @@ Route::middleware('permission:report_tables.write')->group(function () {
     // RegionAdmin: Təsdiqləndikdən sonra əlavə sətir əlavə etmə icazəsini aç/bağla
     Route::post('report-tables/{table}/toggle-additional-rows', [ReportTableController::class, 'toggleAllowAdditionalRows']);
 
-    // RegionAdmin: Doldurmayan məktəbləri əldə etmək (export üçün)
-    Route::get('report-tables/{table}/non-responding-schools', [ReportTableController::class, 'nonRespondingSchools']);
 });
 
 // ─── Admin: Template siyahısı (Read) ─────────────────────────────────────────
