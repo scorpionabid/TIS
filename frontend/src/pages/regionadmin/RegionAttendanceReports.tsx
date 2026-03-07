@@ -1492,7 +1492,7 @@ export default function RegionAttendanceReports() {
                       </TableHeader>
                       <TableBody>
                         {classBreakdown?.classes?.map((classStat) => (
-                          <TableRow key={classStat.grade_id ?? classStat.name}>
+                          <TableRow key={classStat.grade_id ?? `${classStat.class_level}-${classStat.name}`}>
                             <TableCell>
                               <div className="font-medium flex items-center gap-2">
                                 <SchoolIcon className="h-4 w-4 text-muted-foreground" />
@@ -1649,10 +1649,10 @@ export default function RegionAttendanceReports() {
                       {gradeLevelData.grade_levels
                         .filter(gl => gl.student_count > 0)
                         .map((gradeLevel) => (
-                        <TableRow key={gradeLevel.class_level}>
+                        <TableRow key={`grade-${gradeLevel.class_level}`}>
                           <TableCell className="text-center">
                             <div className="font-bold text-lg">{gradeLevel.class_level_display}</div>
-                            <p className="text-xs text-muted-foreground">{gradeLevel.class_level}-ci sinif</p>
+                            <p className="text-xs text-muted-foreground">{gradeLevel.class_level_display} sinif</p>
                           </TableCell>
                           <TableCell className="text-center">
                             {numberFormatter.format(gradeLevel.student_count)}

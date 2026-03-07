@@ -1014,6 +1014,7 @@ class RegionalAttendanceService
         foreach ($gradeLevelStats as &$stat) {
             $stat['schools'] = array_values($stat['schools']);
         }
+        unset($stat);
 
         // Build summary
         $totalStudents = array_sum(array_column($gradeLevelStats, 'student_count'));
