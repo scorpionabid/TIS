@@ -486,6 +486,7 @@ export default function RegionAttendanceReports() {
           .replace(/merkezi/i, '')
           .replace(/bölgə/i, '')
           .replace(/bolge/i, '')
+          .replace(/ u$/, '')
           .trim(),
         fullName: s.name,
         rate: Number(s.uniform_compliance_rate ?? 0),
@@ -561,6 +562,7 @@ export default function RegionAttendanceReports() {
           .replace(/merkezi/i, '')
           .replace(/bölgə/i, '')
           .replace(/bolge/i, '')
+          .replace(/ u$/, '')
           .trim(),
         fullName: s.name,
         rate: s.average_attendance_rate,
@@ -1815,6 +1817,7 @@ export default function RegionAttendanceReports() {
                             .replace(/merkezi/i, '')
                             .replace(/bölgə/i, '')
                             .replace(/bolge/i, '')
+                            .replace(/ u$/, '')
                             .trim()
                         }))} 
                       margin={{ top: 40, right: 20, left: 0, bottom: 20 }}
