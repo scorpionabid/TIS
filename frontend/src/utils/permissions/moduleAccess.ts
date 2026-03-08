@@ -1,19 +1,26 @@
-import { USER_ROLES } from '@/constants/roles';
-import { User } from '@/types/user';
-import regionOperatorPermissions from '@/shared/region-operator-permissions.json';
+import { USER_ROLES } from "@/constants/roles";
+import { User } from "@/types/user";
+import regionOperatorPermissions from "@/shared/region-operator-permissions.json";
 
 export type ModuleKey =
-  | 'surveys'
-  | 'tasks'
-  | 'documents'
-  | 'folders'
-  | 'links'
-  | 'attendance'
-  | 'reports'
-  | 'analytics'
-  | 'approvals';
+  | "surveys"
+  | "tasks"
+  | "documents"
+  | "folders"
+  | "links"
+  | "attendance"
+  | "reports"
+  | "analytics"
+  | "approvals";
 
-type ModuleAction = 'view' | 'create' | 'edit' | 'delete' | 'publish' | 'manage' | 'share';
+type ModuleAction =
+  | "view"
+  | "create"
+  | "edit"
+  | "delete"
+  | "publish"
+  | "manage"
+  | "share";
 
 type ActionRule = {
   roles?: string[];
@@ -24,13 +31,13 @@ type ActionRule = {
 type ModuleRuleConfig = Partial<Record<ModuleAction, ActionRule>>;
 
 const ACTION_PROP_MAP: Record<ModuleAction, string> = {
-  view: 'canView',
-  create: 'canCreate',
-  edit: 'canEdit',
-  delete: 'canDelete',
-  publish: 'canPublish',
-  manage: 'canManage',
-  share: 'canShare',
+  view: "canView",
+  create: "canCreate",
+  edit: "canEdit",
+  delete: "canDelete",
+  publish: "canPublish",
+  manage: "canManage",
+  share: "canShare",
 };
 
 const ADMIN_ROLES = {
@@ -55,7 +62,7 @@ type RegionOperatorModuleKey = keyof typeof regionOperatorPermissions.modules;
 
 const getRegionOperatorFlags = (
   moduleKey: RegionOperatorModuleKey,
-  action: ModuleAction
+  action: ModuleAction,
 ): string[] | undefined => {
   const modules = regionOperatorPermissions.modules as RegionOperatorModuleMap;
   const moduleConfig = modules[moduleKey];
@@ -72,8 +79,8 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['surveys.read', 'surveys.manage'],
-      regionOperatorFlags: getRegionOperatorFlags('surveys', 'view'),
+      permissions: ["surveys.read", "surveys.manage"],
+      regionOperatorFlags: getRegionOperatorFlags("surveys", "view"),
     },
     create: {
       roles: [
@@ -82,50 +89,66 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['surveys.create', 'surveys.write', 'surveys.manage'],
-      regionOperatorFlags: getRegionOperatorFlags('surveys', 'create'),
+      permissions: ["surveys.create", "surveys.write", "surveys.manage"],
+      regionOperatorFlags: getRegionOperatorFlags("surveys", "create"),
     },
     edit: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
-      permissions: ['surveys.update', 'surveys.write', 'surveys.manage'],
-      regionOperatorFlags: getRegionOperatorFlags('surveys', 'edit'),
+      permissions: ["surveys.update", "surveys.write", "surveys.manage"],
+      regionOperatorFlags: getRegionOperatorFlags("surveys", "edit"),
     },
     delete: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
-      permissions: ['surveys.delete', 'surveys.write', 'surveys.manage'],
-      regionOperatorFlags: getRegionOperatorFlags('surveys', 'delete'),
+      permissions: ["surveys.delete", "surveys.write", "surveys.manage"],
+      regionOperatorFlags: getRegionOperatorFlags("surveys", "delete"),
     },
     publish: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
-      permissions: ['surveys.publish', 'surveys.write', 'surveys.manage'],
-      regionOperatorFlags: getRegionOperatorFlags('surveys', 'publish'),
+      permissions: ["surveys.publish", "surveys.write", "surveys.manage"],
+      regionOperatorFlags: getRegionOperatorFlags("surveys", "publish"),
     },
   },
   tasks: {
     view: {
-      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin, ADMIN_ROLES.sektoradmin],
-      permissions: ['tasks.read', 'tasks.analytics'],
-      regionOperatorFlags: getRegionOperatorFlags('tasks', 'view'),
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+      ],
+      permissions: ["tasks.read", "tasks.analytics"],
+      regionOperatorFlags: getRegionOperatorFlags("tasks", "view"),
     },
     create: {
-      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin, ADMIN_ROLES.sektoradmin],
-      permissions: ['tasks.create', 'tasks.bulk'],
-      regionOperatorFlags: getRegionOperatorFlags('tasks', 'create'),
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+      ],
+      permissions: ["tasks.create", "tasks.bulk"],
+      regionOperatorFlags: getRegionOperatorFlags("tasks", "create"),
     },
     edit: {
-      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin, ADMIN_ROLES.sektoradmin],
-      permissions: ['tasks.update', 'tasks.bulk'],
-      regionOperatorFlags: getRegionOperatorFlags('tasks', 'edit'),
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+      ],
+      permissions: ["tasks.update", "tasks.bulk"],
+      regionOperatorFlags: getRegionOperatorFlags("tasks", "edit"),
     },
     delete: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
-      permissions: ['tasks.delete', 'tasks.bulk'],
-      regionOperatorFlags: getRegionOperatorFlags('tasks', 'delete'),
+      permissions: ["tasks.delete", "tasks.bulk"],
+      regionOperatorFlags: getRegionOperatorFlags("tasks", "delete"),
     },
     manage: {
-      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin, ADMIN_ROLES.sektoradmin],
-      permissions: ['tasks.bulk', 'tasks.analytics'],
-      regionOperatorFlags: getRegionOperatorFlags('tasks', 'manage'),
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+      ],
+      permissions: ["tasks.bulk", "tasks.analytics"],
+      regionOperatorFlags: getRegionOperatorFlags("tasks", "manage"),
     },
   },
   documents: {
@@ -136,8 +159,8 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['documents.read', 'documents.analytics'],
-      regionOperatorFlags: getRegionOperatorFlags('documents', 'view'),
+      permissions: ["documents.read", "documents.analytics"],
+      regionOperatorFlags: getRegionOperatorFlags("documents", "view"),
     },
     create: {
       roles: [
@@ -146,8 +169,8 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['documents.create', 'documents.bulk'],
-      regionOperatorFlags: getRegionOperatorFlags('documents', 'create'),
+      permissions: ["documents.create", "documents.bulk"],
+      regionOperatorFlags: getRegionOperatorFlags("documents", "create"),
     },
     edit: {
       roles: [
@@ -156,13 +179,17 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['documents.update', 'documents.bulk'],
-      regionOperatorFlags: getRegionOperatorFlags('documents', 'edit'),
+      permissions: ["documents.update", "documents.bulk"],
+      regionOperatorFlags: getRegionOperatorFlags("documents", "edit"),
     },
     delete: {
-      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin, ADMIN_ROLES.sektoradmin],
-      permissions: ['documents.delete', 'documents.bulk'],
-      regionOperatorFlags: getRegionOperatorFlags('documents', 'delete'),
+      roles: [
+        ADMIN_ROLES.superadmin,
+        ADMIN_ROLES.regionadmin,
+        ADMIN_ROLES.sektoradmin,
+      ],
+      permissions: ["documents.delete", "documents.bulk"],
+      regionOperatorFlags: getRegionOperatorFlags("documents", "delete"),
     },
     share: {
       roles: [
@@ -171,35 +198,35 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['documents.share', 'documents.update'],
-      regionOperatorFlags: getRegionOperatorFlags('documents', 'share'),
+      permissions: ["documents.share", "documents.update"],
+      regionOperatorFlags: getRegionOperatorFlags("documents", "share"),
     },
   },
   folders: {
     view: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
-      permissions: ['documents.read'],
-      regionOperatorFlags: getRegionOperatorFlags('folders', 'view'),
+      permissions: ["documents.read"],
+      regionOperatorFlags: getRegionOperatorFlags("folders", "view"),
     },
     create: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
-      permissions: ['documents.create'],
-      regionOperatorFlags: getRegionOperatorFlags('folders', 'create'),
+      permissions: ["documents.create"],
+      regionOperatorFlags: getRegionOperatorFlags("folders", "create"),
     },
     edit: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
-      permissions: ['documents.update'],
-      regionOperatorFlags: getRegionOperatorFlags('folders', 'edit'),
+      permissions: ["documents.update"],
+      regionOperatorFlags: getRegionOperatorFlags("folders", "edit"),
     },
     delete: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
-      permissions: ['documents.delete'],
-      regionOperatorFlags: getRegionOperatorFlags('folders', 'delete'),
+      permissions: ["documents.delete"],
+      regionOperatorFlags: getRegionOperatorFlags("folders", "delete"),
     },
     manage: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
-      permissions: ['documents.update'],
-      regionOperatorFlags: getRegionOperatorFlags('folders', 'manage'),
+      permissions: ["documents.update"],
+      regionOperatorFlags: getRegionOperatorFlags("folders", "manage"),
     },
   },
   links: {
@@ -210,8 +237,8 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['links.read', 'links.analytics'],
-      regionOperatorFlags: getRegionOperatorFlags('links', 'view'),
+      permissions: ["links.read", "links.analytics"],
+      regionOperatorFlags: getRegionOperatorFlags("links", "view"),
     },
     create: {
       roles: [
@@ -220,8 +247,8 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['links.create', 'links.bulk'],
-      regionOperatorFlags: getRegionOperatorFlags('links', 'create'),
+      permissions: ["links.create", "links.bulk"],
+      regionOperatorFlags: getRegionOperatorFlags("links", "create"),
     },
     edit: {
       roles: [
@@ -230,8 +257,8 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['links.update', 'links.bulk'],
-      regionOperatorFlags: getRegionOperatorFlags('links', 'edit'),
+      permissions: ["links.update", "links.bulk"],
+      regionOperatorFlags: getRegionOperatorFlags("links", "edit"),
     },
     delete: {
       roles: [
@@ -240,8 +267,8 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['links.delete', 'links.bulk'],
-      regionOperatorFlags: getRegionOperatorFlags('links', 'delete'),
+      permissions: ["links.delete", "links.bulk"],
+      regionOperatorFlags: getRegionOperatorFlags("links", "delete"),
     },
     share: {
       roles: [
@@ -250,8 +277,8 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.sektoradmin,
         ADMIN_ROLES.schooladmin,
       ],
-      permissions: ['links.share', 'links.update'],
-      regionOperatorFlags: getRegionOperatorFlags('links', 'share'),
+      permissions: ["links.share", "links.update"],
+      regionOperatorFlags: getRegionOperatorFlags("links", "share"),
     },
   },
   attendance: {
@@ -263,35 +290,33 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.schooladmin,
         ADMIN_ROLES.regionoperator,
       ],
-      permissions: ['attendance.read', 'students.attendance'],
+      permissions: ["attendance.read", "students.attendance"],
     },
     create: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.schooladmin],
-      permissions: ['attendance.create', 'attendance.update'],
+      permissions: ["attendance.create", "attendance.update"],
     },
     edit: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.schooladmin],
-      permissions: ['attendance.update'],
+      permissions: ["attendance.update"],
     },
     delete: {
       roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.schooladmin],
-      permissions: ['attendance.delete'],
+      permissions: ["attendance.delete"],
     },
     manage: {
-      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin, ADMIN_ROLES.sektoradmin],
-      permissions: ['attendance.manage'],
-    },
-  },
-  reports: {
-    view: {
       roles: [
         ADMIN_ROLES.superadmin,
         ADMIN_ROLES.regionadmin,
         ADMIN_ROLES.sektoradmin,
-        ADMIN_ROLES.schooladmin,
-        ADMIN_ROLES.regionoperator,
       ],
-      permissions: ['reports.read'],
+      permissions: ["attendance.manage"],
+    },
+  },
+  reports: {
+    view: {
+      roles: [ADMIN_ROLES.superadmin, ADMIN_ROLES.regionadmin],
+      permissions: ["reports.read"],
     },
   },
   analytics: {
@@ -303,7 +328,7 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.schooladmin,
         ADMIN_ROLES.regionoperator,
       ],
-      permissions: ['analytics.view', 'reports.read'],
+      permissions: ["analytics.view", "reports.read"],
     },
   },
   approvals: {
@@ -315,7 +340,7 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.schooladmin,
         ADMIN_ROLES.regionoperator,
       ],
-      permissions: ['approvals.read', 'survey_responses.read'],
+      permissions: ["approvals.read", "survey_responses.read"],
     },
     manage: {
       roles: [
@@ -323,7 +348,7 @@ const MODULE_ACCESS_RULES: Record<ModuleKey, ModuleRuleConfig> = {
         ADMIN_ROLES.regionadmin,
         ADMIN_ROLES.sektoradmin,
       ],
-      permissions: ['approvals.approve', 'survey_responses.approve'],
+      permissions: ["approvals.approve", "survey_responses.approve"],
     },
   },
 };
@@ -350,13 +375,14 @@ const defaultAccess: ModuleAccessResult = {
   hasAccess: false,
 };
 
-const normalizeRole = (role?: string | null) => role?.toString().toLowerCase() ?? '';
+const normalizeRole = (role?: string | null) =>
+  role?.toString().toLowerCase() ?? "";
 
 const evaluateRule = (
   user: User | null,
   rule: ActionRule | undefined,
   normalizedRole: string,
-  hasPermission?: (perm: string) => boolean
+  hasPermission?: (perm: string) => boolean,
 ): boolean => {
   if (!user || !rule) return false;
 
@@ -364,14 +390,20 @@ const evaluateRule = (
     return true;
   }
 
-  if (rule.permissions && hasPermission && rule.permissions.some(perm => hasPermission(perm))) {
+  if (
+    rule.permissions &&
+    hasPermission &&
+    rule.permissions.some((perm) => hasPermission(perm))
+  ) {
     return true;
   }
 
   if (
-    normalizedRole === 'regionoperator' &&
+    normalizedRole === "regionoperator" &&
     rule.regionOperatorFlags &&
-    rule.regionOperatorFlags.some(flag => user.region_operator_permissions?.[flag])
+    rule.regionOperatorFlags.some(
+      (flag) => user.region_operator_permissions?.[flag],
+    )
   ) {
     return true;
   }
@@ -382,7 +414,7 @@ const evaluateRule = (
 export const buildModuleAccess = (
   user: User | null,
   module: ModuleKey,
-  hasPermission?: (perm: string) => boolean
+  hasPermission?: (perm: string) => boolean,
 ): ModuleAccessResult => {
   if (!user) {
     return { ...defaultAccess };
@@ -395,7 +427,12 @@ export const buildModuleAccess = (
 
   Object.entries(ACTION_PROP_MAP).forEach(([action, propName]) => {
     const actionRule = moduleRule[action as ModuleAction];
-    (result as any)[propName] = evaluateRule(user, actionRule, normalizedRole, hasPermission);
+    (result as any)[propName] = evaluateRule(
+      user,
+      actionRule,
+      normalizedRole,
+      hasPermission,
+    );
   });
 
   return {
