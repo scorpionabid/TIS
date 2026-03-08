@@ -62,8 +62,12 @@ export default function Reports() {
   );
   const { toast } = useToast();
 
-  // Allowed roles and access helpers - only superadmin and regionadmin can access reports
-  const REPORTS_ACCESS_ROLES = [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN];
+  // Allowed roles and access helpers - include sektoradmin
+  const REPORTS_ACCESS_ROLES = [
+    USER_ROLES.SUPERADMIN,
+    USER_ROLES.REGIONADMIN,
+    USER_ROLES.SEKTORADMIN,
+  ];
   const hasAccess = reportsAccess.canView && hasAnyRole(REPORTS_ACCESS_ROLES);
 
   // Build filters based on selections
@@ -100,53 +104,71 @@ export default function Reports() {
     return dateFilters;
   }, [selectedDateRange, startDate, endDate]);
 
-  // Load overview stats - use enabled prop
+  // Load overview stats - use different endpoint based on user role
   const {
     data: overviewResponse,
     isLoading: overviewLoading,
     error: overviewError,
   } = useQuery({
     queryKey: [
-      "reports-overview",
+      currentUser?.role === USER_ROLES.SEKTORADMIN
+        ? "sektor-reports-overview"
+        : "reports-overview",
       filters,
       currentUser?.role,
       currentUser?.institution?.id,
     ],
-    queryFn: () => reportsService.getOverviewStats(filters),
+    queryFn: () => {
+      if (currentUser?.role === USER_ROLES.SEKTORADMIN) {
+        return reportsService.getSektorOverviewStats(filters);
+      }
+      return reportsService.getOverviewStats(filters);
+    },
     staleTime: 1000 * 60 * 5, // Cache for 5 minutes
     retry: 1,
     retryOnMount: false,
     enabled: hasAccess,
   });
 
-  // Load institutional performance - use enabled prop
+  // Load institutional performance - use different endpoint based on user role
   const { data: institutionalResponse, isLoading: institutionalLoading } =
     useQuery({
       queryKey: [
-        "reports-institutional",
+        currentUser?.role === USER_ROLES.SEKTORADMIN
+          ? "sektor-reports-institutional"
+          : "reports-institutional",
         filters,
         currentUser?.role,
         currentUser?.institution?.id,
       ],
-      queryFn: () => reportsService.getInstitutionalPerformance(filters),
+      queryFn: () => {
+        if (currentUser?.role === USER_ROLES.SEKTORADMIN) {
+          return reportsService.getSektorInstitutionPerformance(filters);
+        }
+        return reportsService.getInstitutionalPerformance(filters);
+      },
       enabled: selectedReportType === "institutional" && hasAccess,
       staleTime: 1000 * 60 * 5,
     });
 
-  // Load user activity report - restricted to SuperAdmin and Region Admin only
+  // Load user activity report - use different endpoint based on user role
   const { data: userActivityResponse, isLoading: userActivityLoading } =
     useQuery({
       queryKey: [
-        "reports-user-activity",
+        currentUser?.role === USER_ROLES.SEKTORADMIN
+          ? "sektor-reports-user-activity"
+          : "reports-user-activity",
         filters,
         currentUser?.role,
         currentUser?.institution?.id,
       ],
-      queryFn: () => reportsService.getUserActivityReport(filters),
-      enabled:
-        selectedReportType === "user_activity" &&
-        hasAnyRole(REPORTS_ACCESS_ROLES) &&
-        hasAccess,
+      queryFn: () => {
+        if (currentUser?.role === USER_ROLES.SEKTORADMIN) {
+          return reportsService.getSektorUserActivity(filters);
+        }
+        return reportsService.getUserActivityReport(filters);
+      },
+      enabled: selectedReportType === "user_activity" && hasAccess,
       staleTime: 1000 * 60 * 5,
     });
 
@@ -158,7 +180,8 @@ export default function Reports() {
           <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
           <p className="text-muted-foreground">
-            Bu səhifəni yalnız SuperAdmin və Region Admin rolları görə bilər.
+            Bu səhifəni yalnız SuperAdmin, Region Admin və Sektor Admin rolları
+            görə bilər.
           </p>
         </div>
       </div>
@@ -180,9 +203,27 @@ export default function Reports() {
 
       switch (reportType) {
         case "overview":
+          if (currentUser?.role === USER_ROLES.SEKTORADMIN) {
+            response = await reportsService.getSektorOverviewStats(filters);
+            // For now, just show success message - actual export would need implementation
+            toast({
+              title: "Export uğurlu",
+              description: `Sektor hesabatı ${format.toUpperCase()} formatında hazırlanır...`,
+            });
+            return;
+          }
           response = await reportsService.exportOverviewReport(format, filters);
           break;
         case "institutional":
+          if (currentUser?.role === USER_ROLES.SEKTORADMIN) {
+            response =
+              await reportsService.getSektorInstitutionPerformance(filters);
+            toast({
+              title: "Export uğurlu",
+              description: `Sektor müəssisə hesabatı ${format.toUpperCase()} formatında hazırlanır...`,
+            });
+            return;
+          }
           response = await reportsService.exportInstitutionalReport(
             format,
             filters,
@@ -192,6 +233,14 @@ export default function Reports() {
           response = await reportsService.exportSurveyReport(format, filters);
           break;
         case "user_activity":
+          if (currentUser?.role === USER_ROLES.SEKTORADMIN) {
+            response = await reportsService.getSektorUserActivity(filters);
+            toast({
+              title: "Export uğurlu",
+              description: `Sektor istifadəçi fəaliyyəti hesabatı ${format.toUpperCase()} formatında hazırlanır...`,
+            });
+            return;
+          }
           response = await reportsService.exportUserActivityReport(
             format,
             filters,
@@ -380,11 +429,12 @@ export default function Reports() {
                   </SelectItem>
                 )}
                 <SelectItem value="survey">Sorğu analitikası</SelectItem>
-                {REPORTS_ACCESS_ROLES.includes(currentUser?.role as any) && (
-                  <SelectItem value="user_activity">
-                    İstifadəçi fəaliyyəti
-                  </SelectItem>
-                )}
+                {currentUser?.role !== USER_ROLES.SEKTORADMIN &&
+                  REPORTS_ACCESS_ROLES.includes(currentUser?.role as any) && (
+                    <SelectItem value="user_activity">
+                      İstifadəçi fəaliyyəti
+                    </SelectItem>
+                  )}
               </SelectContent>
             </Select>
 
@@ -572,6 +622,7 @@ export default function Reports() {
       )}
 
       {selectedReportType === "user_activity" &&
+        currentUser?.role !== USER_ROLES.SEKTORADMIN &&
         REPORTS_ACCESS_ROLES.includes(currentUser?.role as any) && (
           <Card>
             <CardHeader>

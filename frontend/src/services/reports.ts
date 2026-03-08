@@ -1,4 +1,4 @@
-import { BaseService } from './BaseService';
+import { BaseService } from "./BaseService";
 
 export interface ReportOverviewStats {
   user_statistics: {
@@ -154,88 +154,124 @@ export interface ReportFilters {
 }
 
 export interface ExportReportRequest {
-  report_type: 'overview' | 'institutional' | 'survey' | 'user_activity';
-  format: 'pdf' | 'excel' | 'csv';
+  report_type: "overview" | "institutional" | "survey" | "user_activity";
+  format: "pdf" | "excel" | "csv";
   filters?: ReportFilters;
   include_charts?: boolean;
   include_raw_data?: boolean;
 }
 
-class ReportsService extends BaseService {
+class ReportsService extends BaseService<any> {
   constructor() {
-    super('/reports');
+    super("/reports");
   }
 
-  async getOverviewStats(filters?: ReportFilters): Promise<{ 
-    status: string; 
+  async getOverviewStats(filters?: ReportFilters): Promise<{
+    status: string;
     data: ReportOverviewStats;
     date_range: { start_date: string; end_date: string };
     generated_at: string;
   }> {
-    console.log('🔍 ReportsService.getOverviewStats called with filters:', filters);
+    console.log(
+      "🔍 ReportsService.getOverviewStats called with filters:",
+      filters,
+    );
     try {
       const response = await this.get<{
-        status: string; 
+        status: string;
         data: ReportOverviewStats;
         date_range: { start_date: string; end_date: string };
         generated_at: string;
-      }>(`${this.baseUrl}/overview`, filters);
-      console.log('✅ ReportsService.getOverviewStats successful:', response);
-      return response;
+      }>(`${this.baseUrl}/overview`, filters as Record<string, unknown>);
+      console.log("✅ ReportsService.getOverviewStats successful:", response);
+      return response.data;
     } catch (error) {
-      console.error('❌ ReportsService.getOverviewStats failed:', error);
+      console.error("❌ ReportsService.getOverviewStats failed:", error);
       throw error;
     }
   }
 
-  async getInstitutionalPerformance(filters?: ReportFilters): Promise<{ 
+  async getInstitutionalPerformance(filters?: ReportFilters): Promise<{
     success: boolean;
     data: InstitutionalPerformanceReport[];
   }> {
-    console.log('🔍 ReportsService.getInstitutionalPerformance called with filters:', filters);
+    console.log(
+      "🔍 ReportsService.getInstitutionalPerformance called with filters:",
+      filters,
+    );
     try {
-      const response = await this.get<InstitutionalPerformanceReport[]>(`${this.baseUrl}/institutional-performance`, filters);
-      console.log('✅ ReportsService.getInstitutionalPerformance successful:', response);
-      return response as { success: boolean; data: InstitutionalPerformanceReport[] };
+      const response = await this.get<InstitutionalPerformanceReport[]>(
+        `${this.baseUrl}/institutional-performance`,
+        (filters || {}) as Record<string, unknown>,
+      );
+      console.log(
+        "✅ ReportsService.getInstitutionalPerformance successful:",
+        response,
+      );
+      return response as {
+        success: boolean;
+        data: InstitutionalPerformanceReport[];
+      };
     } catch (error) {
-      console.error('❌ ReportsService.getInstitutionalPerformance failed:', error);
+      console.error(
+        "❌ ReportsService.getInstitutionalPerformance failed:",
+        error,
+      );
       throw error;
     }
   }
 
-  async getSurveyAnalytics(filters?: ReportFilters & { survey_id?: number }): Promise<{ 
+  async getSurveyAnalytics(
+    filters?: ReportFilters & { survey_id?: number },
+  ): Promise<{
     success: boolean;
     data: SurveyAnalyticsReport[];
   }> {
-    console.log('🔍 ReportsService.getSurveyAnalytics called with filters:', filters);
+    console.log(
+      "🔍 ReportsService.getSurveyAnalytics called with filters:",
+      filters,
+    );
     try {
-      const response = await this.get<SurveyAnalyticsReport[]>(`${this.baseUrl}/survey-analytics`, filters);
-      console.log('✅ ReportsService.getSurveyAnalytics successful:', response);
+      const filtersWithSurvey = { ...filters, survey_id: filters?.survey_id };
+      const response = await this.get<SurveyAnalyticsReport[]>(
+        `${this.baseUrl}/survey-analytics`,
+        filtersWithSurvey as Record<string, unknown>,
+      );
+      console.log("✅ ReportsService.getSurveyAnalytics successful:", response);
       return response as { success: boolean; data: SurveyAnalyticsReport[] };
     } catch (error) {
-      console.error('❌ ReportsService.getSurveyAnalytics failed:', error);
+      console.error("❌ ReportsService.getSurveyAnalytics failed:", error);
       throw error;
     }
   }
 
-  async getUserActivityReport(filters?: ReportFilters): Promise<{ 
+  async getUserActivityReport(filters?: ReportFilters): Promise<{
     success: boolean;
     data: UserActivityReport;
   }> {
-    console.log('🔍 ReportsService.getUserActivityReport called with filters:', filters);
+    console.log(
+      "🔍 ReportsService.getUserActivityReport called with filters:",
+      filters,
+    );
     try {
-      const response = await this.get<UserActivityReport>(`${this.baseUrl}/user-activity`, filters);
-      console.log('✅ ReportsService.getUserActivityReport successful:', response);
+      const response = await this.get<UserActivityReport>(
+        `${this.baseUrl}/user-activity`,
+        (filters || {}) as Record<string, unknown>,
+      );
+      console.log(
+        "✅ ReportsService.getUserActivityReport successful:",
+        response,
+      );
       return response as { success: boolean; data: UserActivityReport };
     } catch (error) {
-      console.error('❌ ReportsService.getUserActivityReport failed:', error);
+      console.error("❌ ReportsService.getUserActivityReport failed:", error);
       throw error;
     }
   }
 
-  async exportReport(request: ExportReportRequest): Promise<{ 
+  async exportReport(request: ExportReportRequest): Promise<{
     success: boolean;
-    data: { 
+    data: {
       download_url: string;
       file_name: string;
       file_size: number;
@@ -243,18 +279,21 @@ class ReportsService extends BaseService {
     };
     message: string;
   }> {
-    console.log('🔍 ReportsService.exportReport called with request:', request);
+    console.log("🔍 ReportsService.exportReport called with request:", request);
     try {
-      const response = await this.post<{ 
+      const response = await this.post<{
         download_url: string;
         file_name: string;
         file_size: number;
         expires_at: string;
-      }>(`${this.baseUrl}/export`, request);
-      console.log('✅ ReportsService.exportReport successful:', response);
-      return response as { 
+      }>(
+        `${this.baseUrl}/export`,
+        request as unknown as Record<string, unknown>,
+      );
+      console.log("✅ ReportsService.exportReport successful:", response);
+      return response as {
         success: boolean;
-        data: { 
+        data: {
           download_url: string;
           file_name: string;
           file_size: number;
@@ -263,66 +302,191 @@ class ReportsService extends BaseService {
         message: string;
       };
     } catch (error) {
-      console.error('❌ ReportsService.exportReport failed:', error);
+      console.error("❌ ReportsService.exportReport failed:", error);
       throw error;
     }
   }
 
   // Convenience methods for specific report types
-  async exportOverviewReport(format: 'pdf' | 'excel' | 'csv', filters?: ReportFilters): Promise<{ 
+  async exportOverviewReport(
+    format: "pdf" | "excel" | "csv",
+    filters?: ReportFilters,
+  ): Promise<{
     success: boolean;
     data: { download_url: string };
     message: string;
   }> {
     return this.exportReport({
-      report_type: 'overview',
+      report_type: "overview",
       format,
       filters,
       include_charts: true,
-      include_raw_data: format !== 'pdf'
+      include_raw_data: format !== "pdf",
     });
   }
 
-  async exportInstitutionalReport(format: 'pdf' | 'excel' | 'csv', filters?: ReportFilters): Promise<{ 
+  async exportInstitutionalReport(
+    format: "pdf" | "excel" | "csv",
+    filters?: ReportFilters,
+  ): Promise<{
     success: boolean;
     data: { download_url: string };
     message: string;
   }> {
     return this.exportReport({
-      report_type: 'institutional',
+      report_type: "institutional",
       format,
       filters,
       include_charts: true,
-      include_raw_data: true
+      include_raw_data: true,
     });
   }
 
-  async exportSurveyReport(format: 'pdf' | 'excel' | 'csv', filters?: ReportFilters): Promise<{ 
+  async exportSurveyReport(
+    format: "pdf" | "excel" | "csv",
+    filters?: ReportFilters,
+  ): Promise<{
     success: boolean;
     data: { download_url: string };
     message: string;
   }> {
     return this.exportReport({
-      report_type: 'survey',
+      report_type: "survey",
       format,
       filters,
       include_charts: true,
-      include_raw_data: format === 'excel'
+      include_raw_data: format === "excel",
     });
   }
 
-  async exportUserActivityReport(format: 'pdf' | 'excel' | 'csv', filters?: ReportFilters): Promise<{ 
+  async exportUserActivityReport(
+    format: "pdf" | "excel" | "csv",
+    filters?: ReportFilters,
+  ): Promise<{
     success: boolean;
     data: { download_url: string };
     message: string;
   }> {
     return this.exportReport({
-      report_type: 'user_activity',
+      report_type: "user_activity",
       format,
       filters,
-      include_charts: format === 'pdf',
-      include_raw_data: true
+      include_charts: format === "pdf",
+      include_raw_data: true,
     });
+  }
+
+  // SektorAdmin specific methods
+  async getSektorOverviewStats(filters?: ReportFilters): Promise<{
+    status: string;
+    data: ReportOverviewStats;
+    date_range: { start_date: string; end_date: string };
+    generated_at: string;
+  }> {
+    console.log(
+      "🔍 ReportsService.getSektorOverviewStats called with filters:",
+      filters,
+    );
+    try {
+      const response = await this.get<{
+        status: string;
+        data: ReportOverviewStats;
+        date_range: { start_date: string; end_date: string };
+        generated_at: string;
+      }>(
+        `/api/sektoradmin/reports/overview`,
+        filters as Record<string, unknown>,
+      );
+      console.log(
+        "✅ ReportsService.getSektorOverviewStats successful:",
+        response,
+      );
+      return response.data;
+    } catch (error) {
+      console.error("❌ ReportsService.getSektorOverviewStats failed:", error);
+      throw error;
+    }
+  }
+
+  async getSektorInstitutionPerformance(filters?: ReportFilters): Promise<{
+    success: boolean;
+    data: InstitutionalPerformanceReport[];
+  }> {
+    console.log(
+      "🔍 ReportsService.getSektorInstitutionPerformance called with filters:",
+      filters,
+    );
+    try {
+      const response = await this.get<InstitutionalPerformanceReport[]>(
+        `/api/sektoradmin/reports/institutions`,
+        (filters || {}) as Record<string, unknown>,
+      );
+      console.log(
+        "✅ ReportsService.getSektorInstitutionPerformance successful:",
+        response,
+      );
+      return response as {
+        success: boolean;
+        data: InstitutionalPerformanceReport[];
+      };
+    } catch (error) {
+      console.error(
+        "❌ ReportsService.getSektorInstitutionPerformance failed:",
+        error,
+      );
+      throw error;
+    }
+  }
+
+  async getSektorUserActivity(filters?: ReportFilters): Promise<{
+    success: boolean;
+    data: UserActivityReport;
+  }> {
+    console.log(
+      "🔍 ReportsService.getSektorUserActivity called with filters:",
+      filters,
+    );
+    try {
+      const response = await this.get<UserActivityReport>(
+        `/api/sektoradmin/reports/user-activity`,
+        (filters || {}) as Record<string, unknown>,
+      );
+      console.log(
+        "✅ ReportsService.getSektorUserActivity successful:",
+        response,
+      );
+      return response as { success: boolean; data: UserActivityReport };
+    } catch (error) {
+      console.error("❌ ReportsService.getSektorUserActivity failed:", error);
+      throw error;
+    }
+  }
+
+  async getSektorSurveyAnalytics(filters?: ReportFilters): Promise<{
+    success: boolean;
+    data: SurveyAnalyticsReport[];
+  }> {
+    console.log(
+      "🔍 ReportsService.getSektorSurveyAnalytics called with filters:",
+      filters,
+    );
+    try {
+      const response = await this.get<SurveyAnalyticsReport[]>(
+        `/api/sektoradmin/reports/survey-analytics`,
+        (filters || {}) as Record<string, unknown>,
+      );
+      console.log(
+        "✅ ReportsService.getSektorSurveyAnalytics successful:",
+        response,
+      );
+      return response as { success: boolean; data: SurveyAnalyticsReport[] };
+    } catch (error) {
+      console.error(
+        "❌ ReportsService.getSektorSurveyAnalytics failed:",
+        error,
+      );
+      throw error;
+    }
   }
 
   // Mock data for development/fallback
@@ -334,35 +498,35 @@ class ReportsService extends BaseService {
         new_users: 85,
         user_growth_rate: 12.5,
         users_by_role: [
-          { role: 'Müəllim', count: 650, percentage: 52 },
-          { role: 'Məktəb Admini', count: 280, percentage: 22.4 },
-          { role: 'Sektor Admini', count: 150, percentage: 12 },
-          { role: 'Region Admini', count: 85, percentage: 6.8 },
-          { role: 'SuperAdmin', count: 85, percentage: 6.8 }
-        ]
+          { role: "Müəllim", count: 650, percentage: 52 },
+          { role: "Məktəb Admini", count: 280, percentage: 22.4 },
+          { role: "Sektor Admini", count: 150, percentage: 12 },
+          { role: "Region Admini", count: 85, percentage: 6.8 },
+          { role: "SuperAdmin", count: 85, percentage: 6.8 },
+        ],
       },
       institution_statistics: {
         total_institutions: 485,
         active_institutions: 465,
         institutions_by_type: [
-          { type: 'Tam orta məktəb', count: 285, percentage: 58.8 },
-          { type: 'İbtidai məktəb', count: 95, percentage: 19.6 },
-          { type: 'Lisey', count: 65, percentage: 13.4 },
-          { type: 'Gimnaziya', count: 40, percentage: 8.2 }
+          { type: "Tam orta məktəb", count: 285, percentage: 58.8 },
+          { type: "İbtidai məktəb", count: 95, percentage: 19.6 },
+          { type: "Lisey", count: 65, percentage: 13.4 },
+          { type: "Gimnaziya", count: 40, percentage: 8.2 },
         ],
         regional_distribution: [
-          { region: 'Bakı', count: 125 },
-          { region: 'Gəncə-Qazax', count: 85 },
-          { region: 'Şəki-Zaqatala', count: 75 },
-          { region: 'Lənkəran', count: 65 }
-        ]
+          { region: "Bakı", count: 125 },
+          { region: "Gəncə-Qazax", count: 85 },
+          { region: "Şəki-Zaqatala", count: 75 },
+          { region: "Lənkəran", count: 65 },
+        ],
       },
       survey_statistics: {
         total_surveys: 156,
         active_surveys: 24,
         completed_surveys: 132,
         total_responses: 12480,
-        response_rate: 78.5
+        response_rate: 78.5,
       },
       system_activity: {
         daily_active_users: 1245,
@@ -371,29 +535,29 @@ class ReportsService extends BaseService {
         most_active_hours: [
           { hour: 9, activity_count: 1250 },
           { hour: 10, activity_count: 1180 },
-          { hour: 14, activity_count: 1050 }
-        ]
+          { hour: 14, activity_count: 1050 },
+        ],
       },
       performance_metrics: {
         average_response_time: 285,
         system_uptime: 99.7,
         error_rate: 0.03,
-        user_satisfaction_score: 4.6
+        user_satisfaction_score: 4.6,
       },
       growth_trends: {
         user_growth: [
-          { date: '2024-01', count: 1050 },
-          { date: '2024-02', count: 1120 },
-          { date: '2024-03', count: 1185 },
-          { date: '2024-04', count: 1250 }
+          { date: "2024-01", count: 1050 },
+          { date: "2024-02", count: 1120 },
+          { date: "2024-03", count: 1185 },
+          { date: "2024-04", count: 1250 },
         ],
         activity_trends: [
-          { date: '2024-01', activity_count: 15240 },
-          { date: '2024-02', activity_count: 16890 },
-          { date: '2024-03', activity_count: 18560 },
-          { date: '2024-04', activity_count: 19750 }
-        ]
-      }
+          { date: "2024-01", activity_count: 15240 },
+          { date: "2024-02", activity_count: 16890 },
+          { date: "2024-03", activity_count: 18560 },
+          { date: "2024-04", activity_count: 19750 },
+        ],
+      },
     };
   }
 }

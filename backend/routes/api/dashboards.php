@@ -206,6 +206,14 @@ Route::prefix('sektoradmin')->middleware(['role:sektoradmin', 'regional.access:s
     Route::get('assessments/comparative', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'getComparativeAnalysis']);
     Route::get('assessments/trends', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'getAssessmentTrends']);
     Route::get('assessments/export', [App\Http\Controllers\SektorAdmin\SektorAssessmentController::class, 'exportAssessmentData']);
+
+    // Reports Management
+    Route::prefix('reports')->group(function () {
+        Route::get('overview', [App\Http\Controllers\SektorAdmin\SektorAdminReportsController::class, 'getSectorOverviewStats']);
+        Route::get('institutions', [App\Http\Controllers\SektorAdmin\SektorAdminReportsController::class, 'getSectorInstitutionPerformance']);
+        Route::get('user-activity', [App\Http\Controllers\SektorAdmin\SektorAdminReportsController::class, 'getSectorUserActivity']);
+        Route::get('survey-analytics', [App\Http\Controllers\SektorAdmin\SektorAdminReportsController::class, 'getSectorSurveyAnalytics']);
+    });
 });
 
 // Teacher Dashboard Routes
