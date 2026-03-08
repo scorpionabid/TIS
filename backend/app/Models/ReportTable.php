@@ -28,6 +28,7 @@ class ReportTable extends Model
         'deadline',
         'published_at',
         'archived_at',
+        'allow_additional_rows_after_confirmation',
     ];
 
     protected function casts(): array
@@ -40,7 +41,8 @@ class ReportTable extends Model
             'published_at'        => 'datetime',
             'archived_at'         => 'datetime',
             'deleted_at'          => 'datetime',
-            'is_template'         => 'boolean',
+            'is_template'                          => 'boolean',
+            'allow_additional_rows_after_confirmation' => 'boolean',
         ];
     }
 
@@ -184,6 +186,23 @@ class ReportTable extends Model
     public function canEdit(): bool
     {
         return $this->isDraft();
+    }
+
+    /**
+     * Təsdiqlənmiş cavablardan sonra əlavə sətir əlavə edilməsinə icazə veriləcəyini yoxlayır.
+     */
+    public function canAddRowsAfterConfirmation(): bool
+    {
+        return $this->allow_additional_rows_after_confirmation === true;
+    }
+
+    /**
+     * Əlavə sətir əlavə etmə parametri yeniləyir (RegionAdmin üçün).
+     */
+    public function setAllowAdditionalRows(bool $allow): void
+    {
+        $this->allow_additional_rows_after_confirmation = $allow;
+        $this->save();
     }
 
     // ─── Scopes ───────────────────────────────────────────────────────────────

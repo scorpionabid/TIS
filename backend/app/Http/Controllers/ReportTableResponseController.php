@@ -316,7 +316,7 @@ class ReportTableResponseController extends BaseController
         $user = $request->user();
         
         // Yalnız admin və superadmin görməlidir
-        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin'])) {
+        if (!$user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
@@ -352,7 +352,7 @@ class ReportTableResponseController extends BaseController
         Log::info('tableFillStatistics - User roles: ' . json_encode($userRoles));
         
         // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator görməlidir
-        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin', 'regionoperator'])) {
+        if (!$user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
             Log::warning('tableFillStatistics - Permission denied for user: ' . $user->id . ' with roles: ' . json_encode($userRoles));
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
@@ -371,7 +371,7 @@ class ReportTableResponseController extends BaseController
         $user = $request->user();
 
         // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator görməlidir
-        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin', 'regionoperator'])) {
+        if (!$user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 
@@ -389,7 +389,7 @@ class ReportTableResponseController extends BaseController
         $user = $request->user();
         
         // Yalnız admin, superadmin, sektoradmin, regionadmin və regionoperator export edə bilər
-        if (!$user->hasRole(['superadmin', 'admin', 'sectoradmin', 'regionadmin', 'regionoperator'])) {
+        if (!$user->hasRole(['superadmin', 'admin', 'sektoradmin', 'regionadmin', 'regionoperator'])) {
             return $this->errorResponse('Bu əməliyyat üçün icazəniz yoxdur.', 403);
         }
 

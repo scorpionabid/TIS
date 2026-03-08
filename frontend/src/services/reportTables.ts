@@ -441,6 +441,13 @@ class ReportTableService extends BaseService<ReportTable> {
     return handleApiResponseWithError<ReportTable>(response, 'ReportTableService.removeTemplateStatus', 'ReportTableService');
   }
 
+  // ─── RegionAdmin: Təsdiqləndikdən sonra əlavə sətir əlavə etmə icazəsini aç/bağla ───────────
+
+  async toggleAllowAdditionalRows(tableId: number): Promise<{ id: number; allow_additional_rows_after_confirmation: boolean }> {
+    const response = await this.post<{ id: number; allow_additional_rows_after_confirmation: boolean }>(`report-tables/${tableId}/toggle-additional-rows`);
+    return handleApiResponseWithError<{ id: number; allow_additional_rows_after_confirmation: boolean }>(response, 'ReportTableService.toggleAllowAdditionalRows', 'ReportTableService');
+  }
+
   // ─── School Fill Statistics (for tracking which schools haven't filled tables) ──────────────────
 
   async getSchoolFillStatistics(): Promise<any[]> {
@@ -455,6 +462,14 @@ class ReportTableService extends BaseService<ReportTable> {
     const response = await this.get<{ data: any }>(`report-tables/${tableId}/fill-statistics`);
     const result = response as unknown as { data: any };
     return result.data ?? null;
+  }
+
+  // ─── Get Non-Responding Schools (for exporting schools that haven't filled the table) ────────────
+
+  async getNonRespondingSchools(tableId: number): Promise<any[]> {
+    const response = await this.get<{ data: any[] }>(`report-tables/${tableId}/non-responding-schools`);
+    const result = response as unknown as { data: any[] };
+    return result.data ?? [];
   }
 
   // ─── Export Statistics (Excel format) ───────────────────────────────────────

@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { CircularProgress } from '@/components/ui/circular-progress';
-import { CheckCircle2, Table2, Search, Clock, CheckCircle, BarChart3, Filter, Archive, TrendingUp, Layers, Activity, Building2 } from 'lucide-react';
+import { CheckCircle2, Table2, Search, Clock, CheckCircle, BarChart3, Filter, Archive, TrendingUp, Layers, Activity, Building2, Download } from 'lucide-react';
 import { TableEntryCard } from '@/components/reporttables/TableEntryCard';
 import { TableEntryCompactCard } from '@/components/reporttables/TableEntryCompactCard';
 import { reportTableService } from '@/services/reportTables';
@@ -335,10 +335,10 @@ export default function ReportTableEntry() {
               side="right"
               className="w-full sm:w-[75vw] sm:max-w-[75vw] p-0 flex flex-col"
             >
-              {/* Header Row - matching screenshot design */}
+              {/* Header Row */}
               <div className="px-6 py-3 border-b bg-white flex items-center justify-between gap-4">
-                {/* Left - Draft Status */}
-                <div className="flex items-center gap-2">
+                {/* Left - Status only */}
+                <div className="flex items-center gap-2 flex-shrink-0 w-[120px]">
                   <span className={cn(
                     "inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border",
                     entryMeta?.responseStatus === 'submitted'
@@ -365,12 +365,27 @@ export default function ReportTableEntry() {
                       {entryMeta?.hasUnsaved ? 'Saxlanmamış dəyişikliklər' : 'Dəyişiklik yoxdur'}
                     </div>
                   </div>
+                </div>
+
+                {/* Right - Actions: Export, Help, X space */}
+                <div className="flex items-center gap-2 flex-shrink-0 w-[120px] justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleExport}
+                    className="gap-1.5 h-8"
+                  >
+                    <Download className="h-4 w-4" />
+                    Export
+                  </Button>
+                  
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <button
                           type="button"
-                          className="h-7 w-7 rounded-md border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 flex items-center justify-center"
+                          className="h-8 w-8 rounded-md border border-gray-200 text-gray-500 hover:text-gray-800 hover:bg-gray-50 flex items-center justify-center"
                           aria-label="Kömək"
                         >
                           ?
@@ -385,20 +400,9 @@ export default function ReportTableEntry() {
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                </div>
-
-                {/* Right - Action Buttons */}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
-                    onClick={handleExport}
-                  >
-                    <svg className="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                    </svg>
-                    Export
-                  </button>
+                  
+                  {/* X close button space - Sheet component handles this */}
+                  <div className="w-6" />
                 </div>
               </div>
 

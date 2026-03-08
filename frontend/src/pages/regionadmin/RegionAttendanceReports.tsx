@@ -15,7 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { USER_ROLES } from '@/constants/roles';
 import { useQuery } from '@tanstack/react-query';
 import { regionalAttendanceService, SchoolClassBreakdown, GradeLevelStatsResponse, MissingReportsResponse } from '@/services/regionalAttendance';
-import { format, subDays } from 'date-fns';
+import { format, subDays, isValid } from 'date-fns';
 import { az } from 'date-fns/locale';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -313,7 +313,8 @@ export default function RegionAttendanceReports() {
       // Create CSV content for missing reports
       if (!missingReportsData?.schools?.length) return;
       
-      const period = `${format(new Date(startDate), 'dd.MM.yyyy')}-${format(new Date(endDate), 'dd.MM.yyyy')}`;
+      const startD316 = new Date(startDate); const endD316 = new Date(endDate);
+      const period = `${isValid(startD316) ? format(startD316, 'dd.MM.yyyy') : startDate}-${isValid(endD316) ? format(endD316, 'dd.MM.yyyy') : endDate}`;
       const schoolDays = missingReportsData.summary.period.school_days;
       
       let csvContent = '\uFEFF'; // BOM for UTF-8
@@ -1491,7 +1492,7 @@ export default function RegionAttendanceReports() {
                       </TableHeader>
                       <TableBody>
                         {classBreakdown?.classes?.map((classStat) => (
-                          <TableRow key={classStat.grade_id ?? classStat.name}>
+                          <TableRow key={classStat.grade_id ?? `${classStat.class_level}-${classStat.name}`}>
                             <TableCell>
                               <div className="font-medium flex items-center gap-2">
                                 <SchoolIcon className="h-4 w-4 text-muted-foreground" />
@@ -1648,10 +1649,10 @@ export default function RegionAttendanceReports() {
                       {gradeLevelData.grade_levels
                         .filter(gl => gl.student_count > 0)
                         .map((gradeLevel) => (
-                        <TableRow key={gradeLevel.class_level}>
+                        <TableRow key={`grade-${gradeLevel.class_level}`}>
                           <TableCell className="text-center">
                             <div className="font-bold text-lg">{gradeLevel.class_level_display}</div>
-                            <p className="text-xs text-muted-foreground">{gradeLevel.class_level}-ci sinif</p>
+                            <p className="text-xs text-muted-foreground">{gradeLevel.class_level_display} sinif</p>
                           </TableCell>
                           <TableCell className="text-center">
                             {numberFormatter.format(gradeLevel.student_count)}
@@ -1832,7 +1833,7 @@ export default function RegionAttendanceReports() {
               <div>
                 <CardTitle>Hesabat göndərməyən məktəblər</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Hesabat dövrü: {format(new Date(startDate), 'dd.MM.yyyy')} - {format(new Date(endDate), 'dd.MM.yyyy')}
+                  Hesabat dövrü: {isValid(new Date(startDate)) ? format(new Date(startDate), 'dd.MM.yyyy') : startDate} - {isValid(new Date(endDate)) ? format(new Date(endDate), 'dd.MM.yyyy') : endDate}
                 </p>
               </div>
               <Button
@@ -1901,7 +1902,7 @@ export default function RegionAttendanceReports() {
                   </div>
                   <p className="text-lg font-semibold text-slate-700">Bütün məktəblər hesabat göndərib!</p>
                   <p className="text-sm text-slate-500 mt-1">
-                    Seçilmiş tarix aralığında ({format(new Date(startDate), 'dd.MM.yyyy')} - {format(new Date(endDate), 'dd.MM.yyyy')}) bütün məktəblər hesabat təqdim edib.
+                    Seçilmiş tarix aralığında ({isValid(new Date(startDate)) ? format(new Date(startDate), 'dd.MM.yyyy') : startDate} - {isValid(new Date(endDate)) ? format(new Date(endDate), 'dd.MM.yyyy') : endDate}) bütün məktəblər hesabat təqdim edib.
                   </p>
                 </div>
               )}

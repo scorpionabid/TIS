@@ -931,6 +931,10 @@ class RegionalAttendanceService
         $attendanceByGrade = $attendanceRecords->groupBy('grade_id');
 
         foreach ($gradesByLevel as $level => $levelGrades) {
+            if (!isset($gradeLevelStats[$level])) {
+                continue;
+            }
+
             $levelGradeIds = $levelGrades->pluck('id')->toArray();
             $levelRecords = collect();
 
@@ -1010,6 +1014,7 @@ class RegionalAttendanceService
         foreach ($gradeLevelStats as &$stat) {
             $stat['schools'] = array_values($stat['schools']);
         }
+        unset($stat);
 
         // Build summary
         $totalStudents = array_sum(array_column($gradeLevelStats, 'student_count'));

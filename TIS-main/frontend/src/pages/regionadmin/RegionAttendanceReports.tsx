@@ -33,6 +33,7 @@ import {
   Cell,
   Area,
   ReferenceLine,
+  LabelList,
 } from 'recharts';
 
 const numberFormatter = new Intl.NumberFormat('az');
@@ -485,6 +486,7 @@ export default function RegionAttendanceReports() {
           .replace(/merkezi/i, '')
           .replace(/bölgə/i, '')
           .replace(/bolge/i, '')
+          .replace(/ u$/, '')
           .trim(),
         fullName: s.name,
         rate: Number(s.uniform_compliance_rate ?? 0),
@@ -560,6 +562,7 @@ export default function RegionAttendanceReports() {
           .replace(/merkezi/i, '')
           .replace(/bölgə/i, '')
           .replace(/bolge/i, '')
+          .replace(/ u$/, '')
           .trim(),
         fullName: s.name,
         rate: s.average_attendance_rate,
@@ -873,8 +876,17 @@ export default function RegionAttendanceReports() {
                 value={startDate}
                 max={new Date().toISOString().split('T')[0]}
                 onChange={(event) => {
-                  setDatePreset('custom');
-                  setStartDate(event.target.value);
+                  const value = event.target.value;
+                  if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                    setDatePreset('custom');
+                    setStartDate(value);
+                  }
+                }}
+                onBlur={(event) => {
+                  const value = event.target.value;
+                  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                    setStartDate(format(new Date(), 'yyyy-MM-dd'));
+                  }
                 }}
                 className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
               />
@@ -887,8 +899,17 @@ export default function RegionAttendanceReports() {
                 min={startDate}
                 max={new Date().toISOString().split('T')[0]}
                 onChange={(event) => {
-                  setDatePreset('custom');
-                  setEndDate(event.target.value);
+                  const value = event.target.value;
+                  if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                    setDatePreset('custom');
+                    setEndDate(value);
+                  }
+                }}
+                onBlur={(event) => {
+                  const value = event.target.value;
+                  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+                    setEndDate(format(new Date(), 'yyyy-MM-dd'));
+                  }
                 }}
                 className="h-10 rounded-xl border-[1.4px] border-slate-200 text-slate-700 text-sm"
               />
@@ -1779,19 +1800,33 @@ export default function RegionAttendanceReports() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-4">
-                <div className="h-[280px] w-full">
+                <div className="h-[320px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart 
-                      data={missingReportsData.sectors.filter(s => s.schools_missing > 0)} 
-                      margin={{ top: 20, right: 20, left: 0, bottom: 40 }}
+                      data={missingReportsData.sectors
+                        .filter(s => s.schools_missing > 0)
+                        .map(s => ({
+                          ...s,
+                          sector_name: s.sector_name
+                            .replace(/Sektor/i, '')
+                            .replace(/rayon/i, '')
+                            .replace(/şəhər/i, '')
+                            .replace(/təhsil/i, '')
+                            .replace(/tehsil/i, '')
+                            .replace(/mərkəzi/i, '')
+                            .replace(/merkezi/i, '')
+                            .replace(/bölgə/i, '')
+                            .replace(/bolge/i, '')
+                            .replace(/ u$/, '')
+                            .trim()
+                        }))} 
+                      margin={{ top: 40, right: 20, left: 0, bottom: 20 }}
                     >
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                       <XAxis
                         dataKey="sector_name"
-                        angle={-35}
-                        textAnchor="end"
                         interval={0}
-                        tick={{ fontSize: 10, fill: '#64748b' }}
+                        tick={{ fontSize: 11, fill: '#64748b' }}
                         tickLine={false}
                         axisLine={{ stroke: '#e2e8f0' }}
                       />
@@ -1818,7 +1853,14 @@ export default function RegionAttendanceReports() {
                           <span className="font-semibold text-slate-700">{label}</span>
                         )}
                       />
-                      <Bar dataKey="schools_missing" fill="#ef4444" radius={[8, 8, 0, 0]} barSize={32} />
+                      <Bar dataKey="schools_missing" fill="#ef4444" radius={[8, 8, 0, 0]} barSize={40}>
+                        <LabelList dataKey="schools_missing" position="top" className="fill-red-600 font-bold text-sm" />
+                        {missingReportsData.sectors
+                          .filter(s => s.schools_missing > 0)
+                          .map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill="#ef4444" />
+                          ))}
+                      </Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>

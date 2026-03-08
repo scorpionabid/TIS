@@ -7,7 +7,12 @@ import {
   FileText, 
   AlertCircle, 
   ChevronDown, 
-  ChevronUp 
+  ChevronUp,
+  CheckCircle2,
+  Clock,
+  XCircle,
+  AlertTriangle,
+  Circle
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
@@ -128,9 +133,10 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
 
   useEffect(() => {
     const current = JSON.stringify(rows);
-    const fullyLocked = responseStatus === 'submitted' && !hasEditableRows;
+    const canAddRowsAfterConfirmation = table.allow_additional_rows_after_confirmation === true;
+    const fullyLocked = responseStatus === 'submitted' && !hasEditableRows && !canAddRowsAfterConfirmation;
     setHasUnsaved(current !== initialRowsRef.current && !fullyLocked);
-  }, [rows, responseStatus, hasEditableRows]);
+  }, [rows, responseStatus, hasEditableRows, table.allow_additional_rows_after_confirmation]);
 
   // ─── Warn on navigation with unsaved changes ───────────────────────────────
 
@@ -228,7 +234,8 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
   // FIX: Prevent auto-save during row submission to avoid race conditions
 
   useEffect(() => {
-    const fullyLocked = responseStatus === 'submitted' && !hasEditableRows;
+    const canAddRowsAfterConfirmation = table.allow_additional_rows_after_confirmation === true;
+    const fullyLocked = responseStatus === 'submitted' && !hasEditableRows && !canAddRowsAfterConfirmation;
     const hasNonEmptyRows = rows.some(r =>
       Object.values(r).some(v => v !== null && v !== '' && v !== undefined)
     );
@@ -247,7 +254,7 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
     }, 3_000);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, responseStatus, hasEditableRows, hasUnsaved]);
+  }, [rows, responseStatus, hasEditableRows, hasUnsaved, table.allow_additional_rows_after_confirmation]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
 
@@ -282,7 +289,8 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
   const isSubmitted = responseStatus === 'submitted';
   const isSaving = saveMutation.isPending;
   const isSubmitting = submitMutation.isPending;
-  const fullyLocked = isSubmitted && !hasEditableRows;
+  const canAddRowsAfterConfirmation = table.allow_additional_rows_after_confirmation === true;
+  const fullyLocked = isSubmitted && !hasEditableRows && !canAddRowsAfterConfirmation;
 
   useEffect(() => {
     const statusForMeta = responseStatus === 'submitted' ? 'submitted' : 'draft';
@@ -316,6 +324,62 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
     if (days <= 3) return <Badge className="bg-orange-100 text-orange-700 border-orange-200 text-xs">{days} gün qalıb</Badge>;
     return <span className="text-xs text-gray-400">Son tarix: {new Date(table.deadline).toLocaleDateString('az-AZ')}</span>;
   }, [table.deadline]);
+
+  // ─── Row Status Summary ─────────────────────────────────────────────────────
+
+  const rowStatusSummary = useMemo(() => {
+    if (!existingResponse || rows.length === 0) return null;
+    
+    const stats = {
+      approved: 0,
+      submitted: 0,
+      rejected: 0,
+      draft: 0,
+      empty: 0,
+    };
+    
+    rows.forEach((row, idx) => {
+      const status = rowStatuses[String(idx)]?.status;
+      const isEmpty = Object.values(row).every(v => v === '' || v === null || v === undefined);
+      
+      if (isEmpty) {
+        stats.empty++;
+      } else if (status === 'approved') {
+        stats.approved++;
+      } else if (status === 'submitted') {
+        stats.submitted++;
+      } else if (status === 'rejected') {
+        stats.rejected++;
+      } else {
+        stats.draft++;
+      }
+    });
+    
+    const total = rows.length;
+    const filled = total - stats.empty;
+    
+    return { ...stats, total, filled };
+  }, [rows, rowStatuses, existingResponse]);
+
+  const StatusBadgeItem = ({ 
+    icon: Icon, 
+    count, 
+    label, 
+    colorClass 
+  }: { 
+    icon: React.ElementType; 
+    count: number; 
+    label: string; 
+    colorClass: string;
+  }) => {
+    if (count === 0) return null;
+    return (
+      <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium ${colorClass}`}>
+        <Icon className="h-3.5 w-3.5" />
+        <span>{count} {label}</span>
+      </div>
+    );
+  };
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -385,20 +449,57 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
             <Skeleton className="h-10 w-full" />
           </div>
         ) : (
-          <EditableTable
-            columns={tableWithNotes.columns ?? []}
-            rows={rows}
-            maxRows={tableWithNotes.max_rows ?? 50}
-            fixedRows={tableWithNotes.fixed_rows ?? null}
-            hideKeyboardHelp
-            onChange={handleRowsChange}
-            disabled={fullyLocked}
-            lockStructure={false}
-            onValidationChange={setTableHasErrors}
-            rowStatuses={rowStatuses}
-            onRowSubmit={handleRowSubmit}
-            isRowSubmitting={isRowSubmitting}
-          />
+          <>
+            {/* Row Status Summary */}
+            {rowStatusSummary && rowStatusSummary.filled > 0 && (
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <StatusBadgeItem 
+                  icon={CheckCircle2} 
+                  count={rowStatusSummary.approved} 
+                  label="təsdiqləndi" 
+                  colorClass="bg-emerald-100 text-emerald-700 border border-emerald-200" 
+                />
+                <StatusBadgeItem 
+                  icon={Clock} 
+                  count={rowStatusSummary.submitted} 
+                  label="gözləyir" 
+                  colorClass="bg-blue-100 text-blue-700 border border-blue-200" 
+                />
+                <StatusBadgeItem 
+                  icon={XCircle} 
+                  count={rowStatusSummary.rejected} 
+                  label="rədd edildi" 
+                  colorClass="bg-red-100 text-red-700 border border-red-200" 
+                />
+                <StatusBadgeItem 
+                  icon={Circle} 
+                  count={rowStatusSummary.draft} 
+                  label="qaralama" 
+                  colorClass="bg-gray-100 text-gray-700 border border-gray-200" 
+                />
+                <StatusBadgeItem 
+                  icon={AlertTriangle} 
+                  count={rowStatusSummary.empty} 
+                  label="boş" 
+                  colorClass="bg-amber-50 text-amber-600 border border-amber-200" 
+                />
+              </div>
+            )}
+            <EditableTable
+              columns={tableWithNotes.columns ?? []}
+              rows={rows}
+              maxRows={tableWithNotes.max_rows ?? 50}
+              fixedRows={tableWithNotes.fixed_rows ?? null}
+              hideKeyboardHelp
+              onChange={handleRowsChange}
+              disabled={fullyLocked}
+              lockStructure={false}
+              onValidationChange={setTableHasErrors}
+              rowStatuses={rowStatuses}
+              onRowSubmit={handleRowSubmit}
+              isRowSubmitting={isRowSubmitting}
+            />
+          </>
         )}
       </div>
 

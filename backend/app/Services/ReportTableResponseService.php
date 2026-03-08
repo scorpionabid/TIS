@@ -61,12 +61,18 @@ class ReportTableResponseService
             throw new \InvalidArgumentException('Yalnız öz cavabınızı yeniləyə bilərsiniz.');
         }
 
-        if (! in_array($response->status, ['draft', 'submitted'], true)) {
-            throw new \InvalidArgumentException('Cavab statusu dəyişdirilə bilmir.');
-        }
-
         $response->loadMissing(['reportTable']);
         $table = $response->reportTable;
+
+        // Status yoxlaması: əgər əlavə sətir icazəsi varsa, submitted status-da da saxlamağa icazə ver
+        $canAddRowsAfterConfirmation = $table && $table->canAddRowsAfterConfirmation();
+
+        if (! in_array($response->status, ['draft', 'submitted'], true)) {
+            // Əgər əlavə sətir icazəsi varsa və status submitted-dirsə, icazə ver
+            if (! ($canAddRowsAfterConfirmation && $response->status === 'submitted')) {
+                throw new \InvalidArgumentException('Cavab statusu dəyişdirilə bilmir.');
+            }
+        }
 
         $existingStatuses = $response->row_statuses ?? [];
         $existingRows     = $response->rows ?? [];
