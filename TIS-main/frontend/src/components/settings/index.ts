@@ -1,1 +1,0 @@
-export { UserNotificationSettings } from "./UserNotificationSettings";
