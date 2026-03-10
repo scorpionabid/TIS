@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\ClassBulkAttendance;
+use App\Models\Grade;
 use App\Models\Institution;
 use App\Models\Notification;
 use App\Models\User;
@@ -53,7 +54,7 @@ class SendAttendanceReminders extends Command
 
         // Aktiv məktəbləri tap (type = 'school' yaxud altında siniflər olanlar)
         $schoolQuery = Institution::query()
-            ->whereIn('type', ['school', 'məktəb'])
+            ->whereIn('type', ['school', 'məktəb', 'secondary_school'])
             ->where('is_active', true);
 
         if ($onlySchool) {
@@ -147,12 +148,12 @@ class SendAttendanceReminders extends Command
         // ClassBulkAttendance üzərindən yoxla
         // morning_recorded_at null-dursa, həmin gün davamiyyət qeyd edilməyib
         $recorded = ClassBulkAttendance::where('institution_id', $institutionId)
-            ->whereDate('date', $date->toDateString())
+            ->whereDate('attendance_date', $date->toDateString())
             ->whereNotNull('morning_recorded_at')
             ->count();
 
         // Məktəbdəki aktiv sinif sayı
-        $totalClasses = \App\Models\SchoolClass::where('institution_id', $institutionId)
+        $totalClasses = Grade::where('institution_id', $institutionId)
             ->where('is_active', true)
             ->count();
 

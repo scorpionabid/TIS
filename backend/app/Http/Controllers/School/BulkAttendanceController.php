@@ -6,10 +6,12 @@ use App\Http\Controllers\BaseController;
 use App\Models\AcademicYear;
 use App\Models\ClassBulkAttendance;
 use App\Models\Grade;
+use App\Models\Notification;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 
@@ -265,6 +267,27 @@ class BulkAttendanceController extends BaseController
             };
 
             $httpStatus = $status === 'completed' ? 200 : 207;
+
+            // Bütün siniflərin davamiyyəti qeyd edilibsə, bu günün xatırlatmasını oxunmuş işarələ
+            if (count($savedRecords) > 0) {
+                $totalGrades = Grade::where('institution_id', $school->id)
+                    ->where('is_active', true)
+                    ->count();
+                $recordedToday = ClassBulkAttendance::where('institution_id', $school->id)
+                    ->whereDate('attendance_date', $attendanceDate->toDateString())
+                    ->whereNotNull('morning_recorded_at')
+                    ->count();
+
+                if ($totalGrades > 0 && $recordedToday >= $totalGrades) {
+                    Notification::where('type', 'attendance_reminder')
+                        ->where('user_id', $user->id)
+                        ->where('is_read', false)
+                        ->whereJsonContains('metadata->institution_id', $school->id)
+                        ->update(['is_read' => true, 'read_at' => now()]);
+
+                    Cache::forget('notification_badges_' . $user->id);
+                }
+            }
 
             return response()->json([
                 'success' => $status === 'completed',

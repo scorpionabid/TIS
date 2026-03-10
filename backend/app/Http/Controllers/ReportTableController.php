@@ -43,7 +43,7 @@ class ReportTableController extends BaseController
             $tables = $this->service->getPaginatedList($filters, $user, $perPage);
 
             // Məlumatları formatlayırıq ki, can_edit kimi attributlar gəlsin
-            $tables->getCollection()->transform(fn ($table) => $this->formatTableDetailed($table));
+            $tables->getCollection()->transform(fn ($table) => $this->formatTableDetailed($table, $user));
 
             return $this->paginatedResponse($tables, 'Hesabat cədvəlləri uğurla alındı.');
         } catch (\Exception $e) {
@@ -820,12 +820,18 @@ class ReportTableController extends BaseController
         ];
     }
 
-    private function formatTableDetailed(ReportTable $table): array
+    private function formatTableDetailed(ReportTable $table, ?\App\Models\User $user = null): array
     {
-        // Load responses with their statuses for accurate counting
-        $responses = $table->responses()
-            ->select(['id', 'status', 'row_statuses'])
-            ->get();
+        $responsesQuery = $table->responses()
+            ->select(['id', 'institution_id', 'status', 'row_statuses']);
+
+        // Rol əsasında responses-i filtrləyirik
+        $scopedIds = $user ? $this->getUserScopeIds($user) : null;
+        if ($scopedIds !== null) {
+            $responsesQuery->whereIn('institution_id', $scopedIds);
+        }
+
+        $responses = $responsesQuery->get();
 
         $submittedCount = 0;
         $approvedCount  = 0;
@@ -852,11 +858,16 @@ class ReportTableController extends BaseController
             }
         }
 
-        $targetCount      = count($table->target_institutions ?? []);
+        // not_responded_count: yalnız istifadəçinin scope-undakı hədəf müəssisələr
+        $targetInstitutions = $table->target_institutions ?? [];
+        if ($scopedIds !== null) {
+            $targetInstitutions = array_values(array_intersect($targetInstitutions, $scopedIds));
+        }
+        $targetCount       = count($targetInstitutions);
         $notRespondedCount = max(0, $targetCount - $responses->count());
 
         return array_merge($this->formatTable($table), [
-            'responses_count'          => $responses->count(),
+            'responses_count'           => $responses->count(),
             'responses_submitted_count' => $submittedCount,
             'responses_approved_count'  => $approvedCount,
             'responses_pending_count'   => $pendingCount,
@@ -865,5 +876,38 @@ class ReportTableController extends BaseController
             'can_edit'                  => $table->canEdit(),
             'can_edit_columns'          => $table->canEditColumns(),
         ]);
+    }
+
+    /**
+     * İstifadəçinin görə biləcəyi müəssisə ID-lərini qaytarır.
+     * superadmin üçün null qaytarır (filter yoxdur).
+     */
+    private function getUserScopeIds(\App\Models\User $user): ?array
+    {
+        if ($user->hasRole('superadmin')) {
+            return null;
+        }
+
+        $institutionId = $user->institution_id;
+        if (! $institutionId) {
+            return [];
+        }
+
+        if ($user->hasRole(['regionadmin', 'regionoperator'])) {
+            $institution = \App\Models\Institution::find($institutionId);
+            $ids = $institution ? $institution->getAllChildrenIds() : [];
+            $ids[] = $institutionId;
+            return array_unique($ids);
+        }
+
+        if ($user->hasRole('sektoradmin')) {
+            $schoolIds = \App\Models\Institution::where('parent_id', $institutionId)
+                ->pluck('id')
+                ->toArray();
+            return array_unique(array_merge([$institutionId], $schoolIds));
+        }
+
+        // schooladmin, müəllim — yalnız öz müəssisəsi
+        return [$institutionId];
     }
 }

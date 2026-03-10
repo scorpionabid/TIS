@@ -51,7 +51,7 @@ export interface MenuItem {
   permissions?: string[];
   permissionMatch?: "any" | "all";
   /** Sidebar badge key — maps to unread notification count category */
-  badgeKey?: 'tasks' | 'surveys' | 'documents' | 'report_tables' | 'attendance';
+  badgeKey?: 'tasks' | 'tasks_assigned' | 'surveys' | 'documents' | 'report_tables' | 'attendance';
 }
 
 export interface MenuGroup {
@@ -205,7 +205,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Təyin olunmuş Tapşırıqlar",
         path: "/tasks/assigned",
         icon: CheckCircle,
-        badgeKey: "tasks",
+        badgeKey: "tasks_assigned",
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
@@ -219,14 +219,11 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Mənim Yönləndirmələrim",
         path: "/my-delegations",
         icon: Users,
-        badgeKey: "tasks",
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
           USER_ROLES.REGIONOPERATOR,
           USER_ROLES.SEKTORADMIN,
-          USER_ROLES.SCHOOLADMIN,
-          USER_ROLES.MUELLIM,
         ],
       },
       {

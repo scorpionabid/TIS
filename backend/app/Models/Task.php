@@ -713,5 +713,11 @@ class Task extends Model
                 }
             }
         });
+
+        static::deleted(function ($task) {
+            Notification::where('related_type', 'App\\Models\\Task')
+                ->where('related_id', $task->id)
+                ->delete();
+        });
     }
 }

@@ -72,6 +72,7 @@ export interface NotificationFilters {
 /** Unread notification counts grouped by sidebar page category */
 export interface PageBadgeCounts {
   tasks: number;
+  tasks_assigned: number;
   surveys: number;
   documents: number;
   report_tables: number;

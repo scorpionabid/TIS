@@ -11,6 +11,7 @@ const POLL_INTERVAL = 60_000; // 60 seconds
 
 const EMPTY_COUNTS: PageBadgeCounts = {
   tasks: 0,
+  tasks_assigned: 0,
   surveys: 0,
   documents: 0,
   report_tables: 0,

@@ -529,8 +529,18 @@ class NotificationService
             //      bu yüzden surveys bucket-ə daxil edirik.
             $rows = Notification::forUser($userId)
                 ->unread()
+                ->where(function ($q) {
+                    // Task notification-larında silinmiş tapşırıqlara aid olanları say
+                    $q->where(function ($inner) {
+                        $inner->whereNull('related_type')
+                              ->orWhere('related_type', '!=', 'App\\Models\\Task');
+                    })->orWhereRaw(
+                        "EXISTS (SELECT 1 FROM tasks WHERE tasks.id = notifications.related_id)"
+                    );
+                })
                 ->selectRaw("
                     CASE
+                        WHEN type = 'task_assigned' THEN 'tasks_assigned'
                         WHEN type LIKE 'task_%' THEN 'tasks'
                         WHEN type LIKE 'survey_%'
                              OR type IN ('approval_completed', 'revision_required') THEN 'surveys'
@@ -543,6 +553,7 @@ class NotificationService
                 ")
                 ->groupByRaw("
                     CASE
+                        WHEN type = 'task_assigned' THEN 'tasks_assigned'
                         WHEN type LIKE 'task_%' THEN 'tasks'
                         WHEN type LIKE 'survey_%'
                              OR type IN ('approval_completed', 'revision_required') THEN 'surveys'
@@ -556,6 +567,7 @@ class NotificationService
 
             return [
                 'tasks'         => (int) ($rows['tasks'] ?? 0),
+                'tasks_assigned' => (int) ($rows['tasks_assigned'] ?? 0),
                 'surveys'       => (int) ($rows['surveys'] ?? 0),
                 'documents'     => (int) ($rows['documents'] ?? 0),
                 'report_tables' => (int) ($rows['report_tables'] ?? 0),
