@@ -31,6 +31,8 @@ services:
       - ./backend/routes:/var/www/html/routes
       - ./backend/config:/var/www/html/config
       - ./backend/tests:/var/www/html/tests
+      - ./backend/public:/var/www/html/public
+      - ./backend/bootstrap:/var/www/html/bootstrap
     depends_on:
       postgres_v2:
         condition: service_healthy

@@ -33,12 +33,28 @@ check_docker() {
 
     if ! "$DOCKER_BIN" info >/dev/null 2>&1; then
         print_warning "Docker daemon işləmir, başladılır..."
-        open -a Docker 2>/dev/null || true
-        sleep 5
-        if ! "$DOCKER_BIN" info >/dev/null 2>&1; then
-            print_error "Docker başlatmaq olmur!"
-            exit 1
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            open -a Docker 2>/dev/null || true
+        elif [[ "$OSTYPE" == "linux-gnu"* ]] && grep -q "Microsoft" /proc/version; then
+            # Windows/WSL2
+            "/mnt/c/Program Files/Docker/Docker/Docker Desktop.exe" 2>/dev/null &
         fi
+        
+        # Wait and check again
+        local max_attempts=12
+        local attempt=1
+        while [ $attempt -le $max_attempts ]; do
+            if "$DOCKER_BIN" info >/dev/null 2>&1; then
+                print_success "Docker başlatıldı."
+                return 0
+            fi
+            echo -n "."
+            sleep 5
+            ((attempt++))
+        done
+        
+        print_error "Docker başlatmaq olmur! Zəhmət olmasa Docker Desktop-u manual başladın."
+        exit 1
     fi
 }
 
@@ -48,6 +64,7 @@ resolve_docker() {
         "/usr/local/bin/docker"
         "/opt/homebrew/bin/docker"
         "/Applications/Docker.app/Contents/Resources/bin/docker"
+        "/mnt/c/Program Files/Docker/Docker/resources/bin/docker.exe"
     )
 
     for candidate in "${candidates[@]}"; do
@@ -85,10 +102,19 @@ cleanup_ports() {
 
     # Kill processes on our ports
     for port in 3000 8000 8001 8002; do
-        local pid=$(lsof -ti:$port 2>/dev/null || echo "")
-        if [ ! -z "$pid" ]; then
-            print_warning "Port $port məşğuldur, təmizlənir..."
-            kill -9 $pid 2>/dev/null || true
+        if command -v lsof >/dev/null 2>&1; then
+            local pid=$(lsof -ti:$port 2>/dev/null || echo "")
+            if [ ! -z "$pid" ]; then
+                print_warning "Port $port məşğuldur, təmizlənir..."
+                kill -9 $pid 2>/dev/null || true
+            fi
+        elif command -v netstat >/dev/null 2>&1 && [[ "$OSTYPE" == "linux-gnu"* ]]; then
+            # WSL/Linux approach
+            local pid=$(netstat -tulpn 2>/dev/null | grep ":$port" | awk '{print $7}' | cut -d/ -f1 | head -n1)
+            if [ ! -z "$pid" ] && [ "$pid" != "-" ]; then
+                print_warning "Port $port məşğuldur (PID: $pid), təmizlənir..."
+                kill -9 $pid 2>/dev/null || true
+            fi
         fi
     done
 
@@ -106,6 +132,12 @@ setup_env() {
         if [ -f backend/.env.example ]; then
             cp backend/.env.example backend/.env
             print_success "backend/.env yaradıldı"
+            # Set a random APP_KEY if it's empty
+            if grep -q "APP_KEY=$" backend/.env || ! grep -q "APP_KEY=" backend/.env; then
+                print_status "APP_KEY yaradılır..."
+                # Use a dummy key for now, we'll run key:generate in container later
+                sed -i 's/APP_KEY=.*/APP_KEY=base64:IcNxbQiy6sWLjfrgaSlGkm4S2utYBz+DXj4u/Rt7g0k=/' backend/.env
+            fi
         else
             print_error "backend/.env.example tapılmadı!"
             exit 1
@@ -129,11 +161,18 @@ start_services() {
     # Clean up build cache
     rm -rf frontend/dist frontend/.vite 2>/dev/null || true
 
+    # Check for docker-compose.override.yml
+    local compose_files=("-f" "docker-compose.yml")
+    if [ -f "docker-compose.override.yml" ]; then
+        print_status "Lokal optimizasiyalar aktiv edilir (override file)..."
+        compose_files+=("-f" "docker-compose.override.yml")
+    fi
+
     # Start services with proper error handling
     print_status "Konteynerləri qur və başlat..."
-    if ! "${DOCKER_COMPOSE_CMD[@]}" up --build -d 2>/dev/null; then
+    if ! "${DOCKER_COMPOSE_CMD[@]}" "${compose_files[@]}" up --build -d 2>/dev/null; then
         print_warning "Build problemi, mövcud image-lərlə başladır..."
-        if ! "${DOCKER_COMPOSE_CMD[@]}" up -d; then
+        if ! "${DOCKER_COMPOSE_CMD[@]}" "${compose_files[@]}" up -d; then
             print_error "Docker konteynerləri başlatmaq olmur!"
             print_status "Logları yoxla: docker compose logs"
             exit 1
@@ -141,7 +180,17 @@ start_services() {
     fi
 
     print_status "Servislər hazır olmasını gözlə..."
-    sleep 20
+    # Faster wait if healthy
+    local max_wait=30
+    local waited=0
+    while [ $waited -lt $max_wait ]; do
+        if "$DOCKER_BIN" inspect atis_postgres --format '{{.State.Health.Status}}' 2>/dev/null | grep -q "healthy"; then
+            print_success "Bazadan cavab gəldi, davam edirik..."
+            break
+        fi
+        sleep 5
+        ((waited+=5))
+    done
 }
 
 # Health checks
@@ -195,17 +244,22 @@ setup_database() {
     # Check if database has data to avoid accidental resets
     local user_count=0
     local check_output
-    check_output=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n')
+    check_output=$("$DOCKER_BIN" exec atis_backend php artisan tinker --execute="echo App\\Models\\User::count();" 2>/dev/null | tail -1 | tr -d '\r\n ')
     
     if [[ "$check_output" =~ ^[0-9]+$ ]]; then
         user_count=$check_output
     else
         # If tinker check fails, try a direct psql check as fallback
-        user_count=$("$DOCKER_BIN" exec atis_postgres psql -U atis_dev_user -d atis_dev -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' ' || echo "0")
+        check_output=$("$DOCKER_BIN" exec atis_postgres psql -U atis_dev_user -d atis_dev -t -c "SELECT COUNT(*) FROM users;" 2>/dev/null | tr -d ' \r\n')
+        if [[ "$check_output" =~ ^[0-9]+$ ]]; then
+            user_count=$check_output
+        else
+            user_count=0
+        fi
     fi
 
     # Read AUTO_RESTORE_ON_START setting from .env file
-    local auto_restore=$(grep "^AUTO_RESTORE_ON_START=" backend/.env 2>/dev/null | cut -d '=' -f2 | tr -d '\r')
+    local auto_restore=$(grep "^AUTO_RESTORE_ON_START=" backend/.env 2>/dev/null | cut -d '=' -f2 | tr -d '\r\n ')
     
     # If we have data AND auto-restore is not enabled, we SKIP restoration
     if [ "$user_count" -gt 0 ] && [ "$auto_restore" != "true" ]; then
@@ -304,7 +358,9 @@ main() {
     setup_env
     start_services
     setup_frontend_deps
-    setup_database
+    if [ "$SKIP_DB_SETUP" != "true" ]; then
+        setup_database
+    fi
     check_health
     show_info
 }

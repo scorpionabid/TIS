@@ -112,16 +112,13 @@ class LoginService
             ];
         } catch (ValidationException $e) {
             throw $e;
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             logger()->error('Login attempt failed with exception', [
                 'identifier_hash' => $identifierHash,
                 'error' => $e->getMessage(),
             ]);
 
-            throw ValidationException::withMessages([
-                'login' => ['Giriş zamanı xəta baş verdi. Zəhmət olmasa yenidən cəhd edin.'],
-                'code' => ['AUTH_GENERAL'],
-            ]);
+            throw $e;
         }
     }
 
