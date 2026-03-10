@@ -41,34 +41,15 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
   // Fetch table details to get notes field (not included in list view)
   const { data: tableDetails, isLoading: detailsLoading } = useQuery({
     queryKey: ['report-table-detail', table.id],
-    queryFn: async () => {
-      // Bypass cache by adding timestamp
-      const result = await reportTableService.getTable(table.id, { _t: Date.now() });
-      console.log('DEBUG API Response:', result);
-      return result;
-    },
+    queryFn: () => reportTableService.getTable(table.id),
     enabled: !!table.id,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: true,
+    staleTime: 30_000,
   });
-  
+
   // Merge table data with details (notes comes from either source)
   const tableWithNotes = useMemo(() => {
-    // Priority: tableDetails.notes > table.notes
     const notes = tableDetails?.notes ?? table.notes;
     const fixedRows = tableDetails?.fixed_rows ?? table.fixed_rows;
-    
-    // DEBUG: Log fixed_rows information
-    console.log('DEBUG fixed_rows VALUE:', {
-      tableId: table.id,
-      tableFixedRows: table.fixed_rows,
-      tableDetailsFixedRows: tableDetails?.fixed_rows,
-      finalFixedRows: fixedRows,
-      hasTableDetails: !!tableDetails,
-      tableDetailsKeys: tableDetails ? Object.keys(tableDetails) : null,
-    });
-    
     return {
       ...table,
       ...tableDetails,
@@ -91,25 +72,42 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
   const initialRowsRef = useRef<string>('');
   const isSubmittingRef = useRef<boolean>(false);
   const lastSubmissionTimeRef = useRef<number>(0);
+  // Tracks whether rows have been initialized from existingResponse.
+  // Prevents tableWithNotes loading from resetting user edits.
+  const hasInitializedRowsRef = useRef<boolean>(false);
 
   // ─── Load existing response ────────────────────────────────────────────────
 
   const { data: existingResponse, isLoading: responseLoading } = useQuery({
     queryKey: ['report-table-my-response', table.id],
     queryFn: () => reportTableService.getMyResponse(table.id),
+    refetchInterval: 60_000,
   });
 
+  // Effect A: sync rows only on initial load from existingResponse.
+  // Subsequent re-fetches (after cache invalidation) update metadata only,
+  // never overwriting user edits in the rows state.
   useEffect(() => {
-    if (existingResponse) {
+    if (!existingResponse) return;
+
+    setResponseId(existingResponse.id);
+    setResponseStatus(existingResponse.status);
+    if (existingResponse.status === 'draft' || existingResponse.status === 'submitted') {
+      onStatusChange?.(table.id, existingResponse.status);
+    }
+
+    if (!hasInitializedRowsRef.current) {
       setRows(existingResponse.rows ?? []);
-      setResponseId(existingResponse.id);
-      setResponseStatus(existingResponse.status);
       initialRowsRef.current = JSON.stringify(existingResponse.rows ?? []);
-      if (existingResponse.status === 'draft' || existingResponse.status === 'submitted') {
-        onStatusChange?.(table.id, existingResponse.status);
-      }
-    } else if (tableWithNotes.fixed_rows && tableWithNotes.fixed_rows.length > 0) {
-      // Initialize stable table with empty rows matching fixed_rows count
+      hasInitializedRowsRef.current = true;
+    }
+  }, [existingResponse, table.id, onStatusChange]);
+
+  // Effect B: initialize empty rows for stable (fixed_rows) tables,
+  // only when there is no existing response yet.
+  useEffect(() => {
+    if (hasInitializedRowsRef.current || existingResponse) return;
+    if (tableWithNotes.fixed_rows && tableWithNotes.fixed_rows.length > 0) {
       const emptyRows = tableWithNotes.fixed_rows.map(() => {
         const row: Record<string, string> = {};
         tableWithNotes.columns?.forEach((col) => { row[col.key] = ''; });
@@ -117,7 +115,7 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
       });
       setRows(emptyRows);
     }
-  }, [existingResponse, tableWithNotes, table.id, onStatusChange]);
+  }, [tableWithNotes.fixed_rows, tableWithNotes.columns, existingResponse]);
 
   const rowStatuses = useMemo(() => existingResponse?.row_statuses ?? {}, [existingResponse]);
 
@@ -166,9 +164,16 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
     onSuccess: (data: ReportTableResponse) => {
       setLastSaved(new Date());
       setResponseId(data.id);
+      // Sync the baseline so hasUnsaved becomes false.
+      // Do NOT call invalidateQueries here — the Effect A guard means any
+      // re-fetch would skip overwriting rows, but the extra network round-trip
+      // is unnecessary since we already have the latest data from the save response.
       initialRowsRef.current = JSON.stringify(rows);
       setHasUnsaved(false);
-      queryClient.invalidateQueries({ queryKey: ['report-table-my-response', table.id] });
+      // Update respondentId in case this was the first save (response just created)
+      if (!responseId) {
+        hasInitializedRowsRef.current = true;
+      }
     },
     onError: () => toast.error('Saxlamaq mümkün olmadı.'),
   });
@@ -231,21 +236,19 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
   });
 
   // ─── Debounce auto-save (3s after last change) ────────────────────────────
-  // FIX: Prevent auto-save during row submission to avoid race conditions
+  // Prevent auto-save during row submission to avoid race conditions.
+  // Note: hasNonEmptyRows check removed — deletions must also be persisted.
 
   useEffect(() => {
     const canAddRowsAfterConfirmation = table.allow_additional_rows_after_confirmation === true;
     const fullyLocked = responseStatus === 'submitted' && !hasEditableRows && !canAddRowsAfterConfirmation;
-    const hasNonEmptyRows = rows.some(r =>
-      Object.values(r).some(v => v !== null && v !== '' && v !== undefined)
-    );
-    if (fullyLocked || !hasUnsaved || !hasNonEmptyRows) return;
-    
+    if (fullyLocked || !hasUnsaved) return;
+
     // Skip auto-save if submission is in progress or recently completed
     if (isSubmittingRef.current) return;
     const timeSinceLastSubmission = Date.now() - lastSubmissionTimeRef.current;
     if (timeSinceLastSubmission < 5000) return; // 5 second cooldown after submission
-    
+
     const timer = setTimeout(() => {
       // Double-check we're not submitting before saving
       if (!isSubmittingRef.current && !submitRowMutation.isPending) {
@@ -282,6 +285,17 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
   const isRowSubmitting = useCallback((rowIndex: number) => {
     return submittingRowIdx === rowIndex && submitRowMutation.isPending;
   }, [submittingRowIdx, submitRowMutation.isPending]);
+
+  // Called by EditableTable after a row is removed locally.
+  // Triggers an immediate save so the deletion is persisted without waiting for auto-save.
+  const handleRowRemoved = useCallback(() => {
+    if (fullyLocked || saveMutation.isPending) return;
+    // Use functional form to access the latest rows state after the state flush
+    setRows((latestRows) => {
+      saveMutation.mutate(latestRows);
+      return latestRows;
+    });
+  }, [fullyLocked, saveMutation]);
 
   // ─── Derived state ─────────────────────────────────────────────────────────
 
@@ -496,6 +510,7 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
               rowStatuses={rowStatuses}
               onRowSubmit={handleRowSubmit}
               isRowSubmitting={isRowSubmitting}
+              onRowRemoved={handleRowRemoved}
             />
           </>
         )}

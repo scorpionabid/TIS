@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, Layers, Trash2 } from 'lucide-react';
+import { Loader2, Send, Layers, Trash2, Check, X } from 'lucide-react';
 import type { ReportTableRow, ReportTableColumn, RowStatusMeta } from '@/types/reportTable';
 import { RowStatusBadge } from './StatusBadge';
 import { colMinWidth } from '@/utils/tableValidation';
@@ -38,6 +38,15 @@ export const DesktopRow = React.memo(function DesktopRow({
   const canSubmitRow = !locked && !disabled && onRowSubmit && rowHasContent &&
     (!rowStatus || rowStatus.status === 'rejected' || rowStatus.status === 'draft');
   const canRemoveRow = canRemove && !isRowLocked(rowStatus);
+
+  // Inline two-step confirmation for row deletion
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const handleDeleteClick = useCallback(() => setConfirmingDelete(true), []);
+  const handleDeleteConfirm = useCallback(() => {
+    setConfirmingDelete(false);
+    onRemove(rowIdx);
+  }, [onRemove, rowIdx]);
+  const handleDeleteCancel = useCallback(() => setConfirmingDelete(false), []);
 
   const statusColor = rowStatus?.status === 'approved'
     ? 'bg-emerald-50'
@@ -123,22 +132,47 @@ export const DesktopRow = React.memo(function DesktopRow({
             </Button>
           )}
           {!locked && canRemoveRow && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onRemove(rowIdx)}
-              className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
+            confirmingDelete ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteConfirm}
+                  className="h-8 w-8 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  title="Bəli, sil"
+                >
+                  <Check className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteCancel}
+                  className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600"
+                  title="Ləğv et"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleDeleteClick}
+                className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                title="Sətiri sil"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )
           )}
           {locked && !disabled && (
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => onRemove(rowIdx)}
               disabled
               className="h-8 w-8 p-0 text-gray-200"
             >

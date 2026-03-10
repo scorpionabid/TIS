@@ -393,11 +393,13 @@ class ReportTableApprovalService
             }
         }
 
-        $response->rows = $rows;
-        $response->row_statuses = $newRowStatuses;
-        $response->save();
+        return DB::transaction(function () use ($response, $rows, $newRowStatuses) {
+            $response->rows = $rows;
+            $response->row_statuses = $newRowStatuses;
+            $response->save();
 
-        return $response->fresh(['reportTable', 'institution', 'respondent']);
+            return $response->fresh(['reportTable', 'institution', 'respondent']);
+        });
     }
 
     // ─── Bulk Action ─────────────────────────────────────────────────────────

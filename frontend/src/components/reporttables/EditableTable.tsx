@@ -33,6 +33,8 @@ interface EditableTableProps {
   onRowSubmit?: (rowIndex: number) => void;
   /** Whether a specific row's submit button is loading */
   isRowSubmitting?: (rowIndex: number) => boolean;
+  /** Called after a row is removed, so parent can immediately persist */
+  onRowRemoved?: () => void;
 }
 
 export const EditableTable = React.memo(function EditableTable({
@@ -48,6 +50,7 @@ export const EditableTable = React.memo(function EditableTable({
   rowStatuses,
   onRowSubmit,
   isRowSubmitting,
+  onRowRemoved,
 }: EditableTableProps) {
   const isStableTable = !!fixedRows && fixedRows.length > 0;
   const structureLocked = disabled || lockStructure || isStableTable;
@@ -94,7 +97,7 @@ export const EditableTable = React.memo(function EditableTable({
   const { getCellDisplayValue, circularErrors } = useCalculatedColumns({ columns, displayRows });
 
   const { handleAddRow, handleRemoveRow, handleDuplicateRow, addRowRef } = useRowOperations({
-    rows, maxRows, columns, onChange, rowErrors, setRowErrors, createEmptyRow,
+    rows, maxRows, columns, onChange, rowErrors, setRowErrors, createEmptyRow, onRowRemoved,
   });
 
   const { handleCellPaste } = useTablePaste({ rows, maxRows, columns, onChange, createEmptyRow });

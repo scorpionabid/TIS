@@ -10,6 +10,7 @@ interface UseRowOperationsParams {
   rowErrors: Record<number, Record<string, string>>;
   setRowErrors: React.Dispatch<React.SetStateAction<Record<number, Record<string, string>>>>;
   createEmptyRow: () => ReportTableRow;
+  onRowRemoved?: () => void;
 }
 
 export function useRowOperations({
@@ -19,6 +20,7 @@ export function useRowOperations({
   rowErrors,
   setRowErrors,
   createEmptyRow,
+  onRowRemoved,
 }: UseRowOperationsParams) {
   const addRowRef = useRef<() => void>();
 
@@ -48,7 +50,12 @@ export function useRowOperations({
       });
       return updated;
     });
-  }, [rows, onChange, createEmptyRow, setRowErrors]);
+    // Notify parent to immediately persist the deletion.
+    // Use setTimeout(0) to let the state update flush before the parent saves.
+    if (onRowRemoved) {
+      setTimeout(() => onRowRemoved(), 0);
+    }
+  }, [rows, onChange, createEmptyRow, setRowErrors, onRowRemoved]);
 
   const handleDuplicateRow = useCallback((idx: number) => {
     const current = rows.length > 0 ? rows : [createEmptyRow()];

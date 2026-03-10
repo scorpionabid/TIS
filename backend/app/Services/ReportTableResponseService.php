@@ -78,12 +78,30 @@ class ReportTableResponseService
         $existingRows     = $response->rows ?? [];
         $mergedRows       = $rows;
 
+        // Protect submitted/approved rows within the incoming payload range.
         foreach ($rows as $idx => $row) {
             $rowStatus = $existingStatuses[$idx]['status'] ?? null;
             if (in_array($rowStatus, ['submitted', 'approved'], true)) {
                 $mergedRows[$idx] = $existingRows[$idx] ?? $row;
             }
         }
+
+        // Also restore submitted/approved rows that exist in DB but are missing
+        // from the incoming payload (e.g. stale frontend state sent fewer rows).
+        foreach ($existingStatuses as $idx => $statusMeta) {
+            $idxInt = (int) $idx;
+            if (array_key_exists($idxInt, $mergedRows)) {
+                continue; // already handled above
+            }
+            $rowStatus = $statusMeta['status'] ?? null;
+            if (in_array($rowStatus, ['submitted', 'approved'], true) && isset($existingRows[$idxInt])) {
+                $mergedRows[$idxInt] = $existingRows[$idxInt];
+            }
+        }
+
+        // Re-sort by index to maintain sequential order.
+        ksort($mergedRows);
+        $mergedRows = array_values($mergedRows);
 
         $this->validateRows($mergedRows, $table->columns ?? [], $table->max_rows ?? 50, $table->fixed_rows ?? null);
 

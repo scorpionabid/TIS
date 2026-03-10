@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Send, Trash2 } from 'lucide-react';
+import { Loader2, Send, Trash2, Check, X } from 'lucide-react';
 import type { ReportTableRow, ReportTableColumn, RowStatusMeta } from '@/types/reportTable';
 import { RowStatusBadge } from './StatusBadge';
 import { CellInput, isRowLocked } from './CellInput';
@@ -36,6 +36,14 @@ export const MobileRow = React.memo(function MobileRow({
     (!rowStatus || rowStatus.status === 'rejected' || rowStatus.status === 'draft');
   const canRemoveRow = canRemove && !isRowLocked(rowStatus);
 
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const handleDeleteClick = useCallback(() => setConfirmingDelete(true), []);
+  const handleDeleteConfirm = useCallback(() => {
+    setConfirmingDelete(false);
+    onRemove(rowIdx);
+  }, [onRemove, rowIdx]);
+  const handleDeleteCancel = useCallback(() => setConfirmingDelete(false), []);
+
   return (
     <div className="border border-gray-200 rounded-lg p-3 bg-white space-y-2">
       <div className="flex items-center justify-between mb-1">
@@ -62,15 +70,41 @@ export const MobileRow = React.memo(function MobileRow({
             </Button>
           )}
           {!locked && canRemoveRow && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => onRemove(rowIdx)}
-              className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
-            >
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
+            confirmingDelete ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteConfirm}
+                  className="h-7 w-7 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  title="Bəli, sil"
+                >
+                  <Check className="h-3.5 w-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeleteCancel}
+                  className="h-7 w-7 p-0 text-gray-400 hover:text-gray-600"
+                  title="Ləğv et"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            ) : (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={handleDeleteClick}
+                className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+                title="Sətiri sil"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )
           )}
         </div>
       </div>
