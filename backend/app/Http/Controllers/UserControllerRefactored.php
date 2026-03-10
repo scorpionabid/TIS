@@ -512,6 +512,7 @@ class UserControllerRefactored extends BaseController
             'updated_at' => $user->updated_at,
             'first_name' => $this->cleanUtf8($user->profile?->first_name ?? null),
             'last_name' => $this->cleanUtf8($user->profile?->last_name ?? null),
+            'contact_phone' => $user->profile?->contact_phone ?? null,
         ];
     }
 
