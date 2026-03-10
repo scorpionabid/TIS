@@ -286,6 +286,14 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
     return submittingRowIdx === rowIndex && submitRowMutation.isPending;
   }, [submittingRowIdx, submitRowMutation.isPending]);
 
+  // ─── Derived state ─────────────────────────────────────────────────────────
+
+  const isSubmitted = responseStatus === 'submitted';
+  const isSaving = saveMutation.isPending;
+  const isSubmitting = submitMutation.isPending;
+  const canAddRowsAfterConfirmation = table.allow_additional_rows_after_confirmation === true;
+  const fullyLocked = isSubmitted && !hasEditableRows && !canAddRowsAfterConfirmation;
+
   // Called by EditableTable after a row is removed locally.
   // Triggers an immediate save so the deletion is persisted without waiting for auto-save.
   const handleRowRemoved = useCallback(() => {
@@ -296,14 +304,6 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
       return latestRows;
     });
   }, [fullyLocked, saveMutation]);
-
-  // ─── Derived state ─────────────────────────────────────────────────────────
-
-  const isSubmitted = responseStatus === 'submitted';
-  const isSaving = saveMutation.isPending;
-  const isSubmitting = submitMutation.isPending;
-  const canAddRowsAfterConfirmation = table.allow_additional_rows_after_confirmation === true;
-  const fullyLocked = isSubmitted && !hasEditableRows && !canAddRowsAfterConfirmation;
 
   useEffect(() => {
     const statusForMeta = responseStatus === 'submitted' ? 'submitted' : 'draft';
