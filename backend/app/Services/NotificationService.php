@@ -482,7 +482,10 @@ class NotificationService
             ->first();
 
         if ($notification) {
-            return $notification->markAsRead();
+            $result = $notification->markAsRead();
+            $this->invalidateBadgeCache($userId);
+
+            return $result;
         }
 
         return false;
@@ -493,12 +496,16 @@ class NotificationService
      */
     public function markAllAsRead(int $userId): int
     {
-        return Notification::forUser($userId)
+        $count = Notification::forUser($userId)
             ->unread()
             ->update([
                 'is_read' => true,
                 'read_at' => now(),
             ]);
+
+        $this->invalidateBadgeCache($userId);
+
+        return $count;
     }
 
     /**
@@ -507,6 +514,64 @@ class NotificationService
     public function getUnreadCount(int $userId): int
     {
         return Notification::forUser($userId)->unread()->count();
+    }
+
+    /**
+     * Get unread notification counts grouped by page/category for sidebar badges.
+     * Returns counts for tasks, surveys, documents, report_tables, attendance, system.
+     */
+    public function getPageBadgeCounts(int $userId): array
+    {
+        $cacheKey = "notification_badges_{$userId}";
+
+        return \Illuminate\Support\Facades\Cache::remember($cacheKey, 60, function () use ($userId) {
+            // NOT: approval_completed və revision_required survey workflow tipləridir,
+            //      bu yüzden surveys bucket-ə daxil edirik.
+            $rows = Notification::forUser($userId)
+                ->unread()
+                ->selectRaw("
+                    CASE
+                        WHEN type LIKE 'task_%' THEN 'tasks'
+                        WHEN type LIKE 'survey_%'
+                             OR type IN ('approval_completed', 'revision_required') THEN 'surveys'
+                        WHEN type LIKE 'document_%' OR type LIKE 'link_%' THEN 'documents'
+                        WHEN type LIKE 'report_table_%' THEN 'report_tables'
+                        WHEN type = 'attendance_reminder' THEN 'attendance'
+                        ELSE 'system'
+                    END AS page_key,
+                    COUNT(*) AS cnt
+                ")
+                ->groupByRaw("
+                    CASE
+                        WHEN type LIKE 'task_%' THEN 'tasks'
+                        WHEN type LIKE 'survey_%'
+                             OR type IN ('approval_completed', 'revision_required') THEN 'surveys'
+                        WHEN type LIKE 'document_%' OR type LIKE 'link_%' THEN 'documents'
+                        WHEN type LIKE 'report_table_%' THEN 'report_tables'
+                        WHEN type = 'attendance_reminder' THEN 'attendance'
+                        ELSE 'system'
+                    END
+                ")
+                ->pluck('cnt', 'page_key');
+
+            return [
+                'tasks'         => (int) ($rows['tasks'] ?? 0),
+                'surveys'       => (int) ($rows['surveys'] ?? 0),
+                'documents'     => (int) ($rows['documents'] ?? 0),
+                'report_tables' => (int) ($rows['report_tables'] ?? 0),
+                'attendance'    => (int) ($rows['attendance'] ?? 0),
+                'system'        => (int) ($rows['system'] ?? 0),
+            ];
+        });
+    }
+
+    /**
+     * Invalidate the sidebar badge cache for a user.
+     * Call this after markAsRead / markAllAsRead.
+     */
+    public function invalidateBadgeCache(int $userId): void
+    {
+        \Illuminate\Support\Facades\Cache::forget("notification_badges_{$userId}");
     }
 
     /**

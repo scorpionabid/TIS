@@ -354,7 +354,7 @@ export function ReportTableApprovalGroupedView() {
 
   const filteredTables = useMemo(() => {
     const q = search.trim().toLowerCase();
-    let filtered = q ? grouped.filter(t => t.table.title.toLowerCase().includes(q)) : [...grouped];
+    const filtered = q ? grouped.filter(t => t.table.title.toLowerCase().includes(q)) : [...grouped];
     // Sort by deadline (most recent first) or by id (highest first) as fallback
     return filtered.sort((a, b) => {
       const aDate = a.table.deadline ? new Date(a.table.deadline).getTime() : 0;

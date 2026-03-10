@@ -253,7 +253,6 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
       }
     }, 3_000);
     return () => clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, responseStatus, hasEditableRows, hasUnsaved, table.allow_additional_rows_after_confirmation]);
 
   // ─── Handlers ─────────────────────────────────────────────────────────────
@@ -313,7 +312,6 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
         handleSubmitClick();
       },
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [fullyLocked, rows, handleSubmitClick]
   );
 

@@ -50,6 +50,8 @@ export interface MenuItem {
   description?: string;
   permissions?: string[];
   permissionMatch?: "any" | "all";
+  /** Sidebar badge key — maps to unread notification count category */
+  badgeKey?: 'tasks' | 'surveys' | 'documents' | 'report_tables' | 'attendance';
 }
 
 export interface MenuGroup {
@@ -109,6 +111,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Davamiyyət",
         icon: UserCheck,
         path: "/attendance",
+        badgeKey: "attendance",
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
@@ -190,6 +193,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Tapşırıqlar",
         path: "/tasks",
         icon: ClipboardCheck,
+        badgeKey: "tasks",
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
@@ -201,6 +205,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Təyin olunmuş Tapşırıqlar",
         path: "/tasks/assigned",
         icon: CheckCircle,
+        badgeKey: "tasks",
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
@@ -214,6 +219,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Mənim Yönləndirmələrim",
         path: "/my-delegations",
         icon: Users,
+        badgeKey: "tasks",
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
@@ -265,6 +271,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             label: "Sənədlər",
             path: "/documents",
             icon: FileText,
+            badgeKey: "documents",
             roles: [
               USER_ROLES.SUPERADMIN,
               USER_ROLES.REGIONADMIN,
@@ -278,6 +285,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             label: "Folderlər",
             path: "/folders",
             icon: Folder,
+            badgeKey: "documents",
             roles: [
               USER_ROLES.SUPERADMIN,
               USER_ROLES.REGIONADMIN,
@@ -293,6 +301,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Mənim Resurslarım",
         path: "/my-resources",
         icon: Folder,
+        badgeKey: "documents",
         roles: [
           USER_ROLES.SEKTORADMIN,
           USER_ROLES.SCHOOLADMIN,
@@ -315,6 +324,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: "survey-list",
             label: "Sorğu Siyahısı",
             path: "/surveys",
+            badgeKey: "surveys",
             roles: [
               USER_ROLES.SUPERADMIN,
               USER_ROLES.REGIONADMIN,
@@ -326,6 +336,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: "approvals",
             label: "Təsdiq Paneli",
             path: "/approvals",
+            badgeKey: "surveys",
             roles: [
               USER_ROLES.SUPERADMIN,
               USER_ROLES.REGIONADMIN,
@@ -342,6 +353,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Hesabat Cədvəlləri",
         icon: Table2,
         path: "/report-tables",
+        badgeKey: "report_tables",
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
@@ -355,6 +367,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Hesabat Cədvəlləri",
         icon: Table2,
         path: "/report-table-entry",
+        badgeKey: "report_tables",
         roles: [USER_ROLES.SCHOOLADMIN],
         permissions: ["report_table_responses.write"],
       },
@@ -375,6 +388,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
             id: "pending-surveys",
             label: "Gözləyən Sorğular",
             path: "/my-surveys/pending",
+            badgeKey: "surveys",
             roles: [
               USER_ROLES.SUPERADMIN,
               USER_ROLES.REGIONADMIN,
@@ -925,14 +939,24 @@ export const improvedNavigationConfig: MenuGroup[] = [
     id: "notifications",
     label: "Bildirişlər",
     panel: "management",
-    roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+    roles: [
+      USER_ROLES.SUPERADMIN,
+      USER_ROLES.REGIONADMIN,
+      USER_ROLES.SEKTORADMIN,
+      USER_ROLES.SCHOOLADMIN,
+    ],
     items: [
       {
         id: "notifications",
         label: "Bildirişlər",
         path: "/notifications",
         icon: Bell,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+        roles: [
+          USER_ROLES.SUPERADMIN,
+          USER_ROLES.REGIONADMIN,
+          USER_ROLES.SEKTORADMIN,
+          USER_ROLES.SCHOOLADMIN,
+        ],
       },
     ],
   },

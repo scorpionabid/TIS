@@ -8,6 +8,7 @@ import { useSidebarBehavior } from '@/hooks/useSidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLayout } from '@/contexts/LayoutContext';
 import { useNavigationCache } from '@/hooks/useNavigationCache';
+import { useNotificationBadges } from '@/hooks/useNotificationBadges';
 
 interface ModernSidebarProps {
   onLogout: () => void;
@@ -20,6 +21,7 @@ export const ModernSidebar: React.FC<ModernSidebarProps> = ({ onLogout }) => {
   const { navigationMenu } = useNavigationCache({
     panel: sidebarPreferences.activePanel
   });
+  const badgeCounts = useNotificationBadges();
 
   // Debug panel-based navigation
   useEffect(() => {
@@ -45,7 +47,7 @@ export const ModernSidebar: React.FC<ModernSidebarProps> = ({ onLogout }) => {
       <div className="flex flex-col h-full">
         <SidebarHeader isExpanded={isExpanded} />
         <SidebarPanelSwitch isExpanded={isExpanded} />
-        <SidebarMenu menuGroups={navigationMenu} />
+        <SidebarMenu menuGroups={navigationMenu} badgeCounts={badgeCounts} />
         <SidebarFooter isExpanded={isExpanded} onLogout={onLogout} />
       </div>
     </SidebarContainer>

@@ -100,7 +100,7 @@ class Tokenizer {
     }
 
     // Operators
-    if (/[\+\-\*\/=<>!&]/.test(char)) {
+    if (/[+\-*/=<>!&]/.test(char)) {
       let value = char;
       this.position++;
       // Check for two-character operators
@@ -209,7 +209,7 @@ class Parser {
 
   private parseAdditive(): ASTNode {
     let left = this.parseMultiplicative();
-    while (/^[\+\-]/.test(this.current().value)) {
+    while (/^[-+]/.test(this.current().value)) {
       const op = this.advance().value;
       const right = this.parseMultiplicative();
       left = { type: 'binary_op', op, left, right };
@@ -219,7 +219,7 @@ class Parser {
 
   private parseMultiplicative(): ASTNode {
     let left = this.parseUnary();
-    while (/^[\*\/]/.test(this.current().value)) {
+    while (/^[*/]/.test(this.current().value)) {
       const op = this.advance().value;
       const right = this.parseUnary();
       left = { type: 'binary_op', op, left, right };

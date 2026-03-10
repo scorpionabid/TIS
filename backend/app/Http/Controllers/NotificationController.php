@@ -93,6 +93,20 @@ class NotificationController extends Controller
     }
 
     /**
+     * Get unread counts grouped by page category for sidebar badges.
+     * Returns: { tasks, surveys, documents, report_tables, attendance, system }
+     */
+    public function pageBadgeCounts(): JsonResponse
+    {
+        $counts = $this->notificationService->getPageBadgeCounts(Auth::id());
+
+        return response()->json([
+            'success' => true,
+            'data'    => $counts,
+        ]);
+    }
+
+    /**
      * Mark notification as read
      */
     public function markAsRead(Request $request, int $id): JsonResponse

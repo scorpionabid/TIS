@@ -12,6 +12,10 @@ use Illuminate\Validation\ValidationException;
 
 class ReportTableService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService
+    ) {}
+
     // ─── Logging Helper ─────────────────────────────────────────────────────
 
     private function log(string $level, string $message, array $context = []): void
@@ -197,7 +201,65 @@ class ReportTableService
             $table->publish();
         });
 
+        $this->notifyReportTableAssigned($table->fresh(['creator']));
+
         return $table->fresh(['creator']);
+    }
+
+    /**
+     * Cədvəl dərc edildikdə hədəf məktəblərin schooladmin-lərinə notification göndər.
+     */
+    private function notifyReportTableAssigned(ReportTable $table): void
+    {
+        $institutionIds = $table->target_institutions ?? [];
+        if (empty($institutionIds)) {
+            return;
+        }
+
+        // Hər hədəf institutionun schooladmin istifadəçilərini tap
+        $schoolAdminIds = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['schooladmin', 'məktəbadmin']))
+            ->whereIn('institution_id', $institutionIds)
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($schoolAdminIds)) {
+            return;
+        }
+
+        $creatorName = $table->creator?->name ?? $table->creator?->username ?? 'Sistem';
+        $deadline = $table->deadline ? $table->deadline->format('d.m.Y') : '';
+
+        foreach ($schoolAdminIds as $userId) {
+            try {
+                $this->notificationService->send([
+                    'user_id'      => $userId,
+                    'title'        => 'Yeni hesabat cədvəli əlavə edildi',
+                    'message'      => sprintf(
+                        '"%s" hesabat cədvəli sizin məktəbə təyin edildi.%s',
+                        $table->title,
+                        $deadline ? " Son tarix: {$deadline}." : ''
+                    ),
+                    'type'         => 'report_table_assigned',
+                    'channel'      => 'in_app',
+                    'priority'     => 'normal',
+                    'related_type' => ReportTable::class,
+                    'related_id'   => $table->id,
+                    'metadata'     => [
+                        'report_table_id'    => $table->id,
+                        'report_table_title' => $table->title,
+                        'creator_name'       => $creatorName,
+                        'deadline'           => $deadline,
+                        'action_url'         => '/report-table-entry',
+                    ],
+                ]);
+            } catch (\Throwable $e) {
+                \Log::warning('Failed to send report_table_assigned notification', [
+                    'table_id' => $table->id,
+                    'user_id'  => $userId,
+                    'error'    => $e->getMessage(),
+                ]);
+            }
+        }
     }
 
     /**

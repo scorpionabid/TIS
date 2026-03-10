@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\DB;
 
 class ReportTableApprovalService
 {
+    public function __construct(
+        private readonly NotificationService $notificationService
+    ) {}
+
     // ─── Approval Queue ──────────────────────────────────────────────────────
 
     /**
@@ -319,7 +323,10 @@ class ReportTableApprovalService
 
         $response->approveRow($rowIndex, $reviewer->id);
 
-        return $response->fresh(['reportTable', 'institution', 'respondent']);
+        $fresh = $response->fresh(['reportTable', 'institution', 'respondent']);
+        $this->sendRowActionNotification($fresh, $reviewer, 'approved', null);
+
+        return $fresh;
     }
 
     /**
@@ -336,7 +343,10 @@ class ReportTableApprovalService
 
         $response->rejectRow($rowIndex, $reviewer->id, $reason);
 
-        return $response->fresh(['reportTable', 'institution', 'respondent']);
+        $fresh = $response->fresh(['reportTable', 'institution', 'respondent']);
+        $this->sendRowActionNotification($fresh, $reviewer, 'rejected', $reason);
+
+        return $fresh;
     }
 
     /**
@@ -348,7 +358,10 @@ class ReportTableApprovalService
 
         $response->returnRowToDraft($rowIndex);
 
-        return $response->fresh(['reportTable', 'institution', 'respondent']);
+        $fresh = $response->fresh(['reportTable', 'institution', 'respondent']);
+        $this->sendRowActionNotification($fresh, $reviewer, 'returned', null);
+
+        return $fresh;
     }
 
     /**
@@ -521,5 +534,93 @@ class ReportTableApprovalService
         $allChildrenIds = $institution->getAllChildrenIds();
 
         return array_values(array_diff($allChildrenIds, [$institution->id]));
+    }
+
+    // ─── Notification Helpers ────────────────────────────────────────────────
+
+    /**
+     * Sətir qərarını (approved/rejected/returned) məktəb schooladmin-inə bildir.
+     */
+    private function sendRowActionNotification(
+        ReportTableResponse $response,
+        User $reviewer,
+        string $action,
+        ?string $reason
+    ): void {
+        // Cavabı göndərmiş məktəbin schooladmin-ini tap
+        $institutionId = $response->institution_id;
+        if (! $institutionId) {
+            return;
+        }
+
+        $schoolAdminIds = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['schooladmin', 'məktəbadmin']))
+            ->where('institution_id', $institutionId)
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($schoolAdminIds)) {
+            return;
+        }
+
+        $tableTitle    = $response->reportTable?->title ?? 'Hesabat cədvəli';
+        $reviewerName  = $reviewer->name ?? $reviewer->username ?? 'Admin';
+
+        [$notifType, $title, $message] = match ($action) {
+            'approved' => [
+                'report_table_approved',
+                'Hesabat cədvəli məlumatı təsdiqləndi',
+                sprintf('"%s" cədvəlindəki məlumatınız %s tərəfindən təsdiqləndi.', $tableTitle, $reviewerName),
+            ],
+            'rejected' => [
+                'report_table_rejected',
+                'Hesabat cədvəli məlumatı rədd edildi',
+                sprintf(
+                    '"%s" cədvəlindəki məlumatınız %s tərəfindən rədd edildi.%s',
+                    $tableTitle,
+                    $reviewerName,
+                    $reason ? " Səbəb: {$reason}" : ''
+                ),
+            ],
+            'returned' => [
+                'revision_required',
+                'Hesabat cədvəli məlumatı geri qaytarıldı',
+                sprintf('"%s" cədvəlindəki məlumatınız %s tərəfindən düzəliş üçün geri qaytarıldı.', $tableTitle, $reviewerName),
+            ],
+            default => [null, null, null],
+        };
+
+        if (! $notifType) {
+            return;
+        }
+
+        foreach ($schoolAdminIds as $userId) {
+            try {
+                $this->notificationService->send([
+                    'user_id'      => $userId,
+                    'title'        => $title,
+                    'message'      => $message,
+                    'type'         => $notifType,
+                    'channel'      => 'in_app',
+                    'priority'     => $action === 'rejected' ? 'high' : 'normal',
+                    'related_type' => ReportTableResponse::class,
+                    'related_id'   => $response->id,
+                    'metadata'     => [
+                        'report_table_id'       => $response->report_table_id,
+                        'report_table_title'    => $tableTitle,
+                        'response_id'           => $response->id,
+                        'action'                => $action,
+                        'reviewer_name'         => $reviewerName,
+                        'rejection_reason'      => $reason,
+                        'action_url'            => '/report-table-entry',
+                    ],
+                ]);
+            } catch (\Throwable $e) {
+                \Log::warning("Failed to send report_table_{$action} notification", [
+                    'response_id' => $response->id,
+                    'user_id'     => $userId,
+                    'error'       => $e->getMessage(),
+                ]);
+            }
+        }
     }
 }

@@ -7,9 +7,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { MenuGroup, MenuItem } from '@/config/navigation';
 import { useSidebarBehavior } from '@/hooks/useSidebar';
+import type { PageBadgeCounts } from '@/services/notification';
 
 interface SidebarMenuProps {
   menuGroups: MenuGroup[];
+  badgeCounts?: PageBadgeCounts;
 }
 
 // Hər bölməyə rəngli sol kənar + başlıq rəngi
@@ -28,14 +30,49 @@ const GROUP_STYLES: Record<string, { border: string; label: string; dot: string 
   'system-settings':     { border: 'border-l-gray-400',    label: 'text-gray-500',    dot: 'bg-gray-400' },
 };
 
-export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
+/** Oxunmamış sayını compact formada göstər: 1-99 → rəqəm, 100+ → "99+" */
+function BadgeCount({ count, collapsed = false }: { count: number; collapsed?: boolean }) {
+  if (count <= 0) return null;
+  const label = count > 99 ? '99+' : String(count);
+
+  if (collapsed) {
+    // Collapsed sidebar: icon üzərində kiçik qırmızı nöqtə/rəqəm
+    return (
+      <span
+        className={cn(
+          "absolute top-0.5 right-0.5 flex items-center justify-center",
+          "min-w-[14px] h-[14px] px-0.5",
+          "text-[9px] font-bold leading-none",
+          "bg-rose-500 text-white rounded-full",
+        )}
+      >
+        {count > 9 ? '9+' : label}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      className={cn(
+        "ml-auto flex items-center justify-center",
+        "min-w-[18px] h-[18px] px-1",
+        "text-[11px] font-bold leading-none",
+        "bg-rose-500 text-white rounded-full shrink-0",
+      )}
+    >
+      {label}
+    </span>
+  );
+}
+
+export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups, badgeCounts }) => {
   const { isExpanded, currentPath, handleNavigation } = useSidebarBehavior();
   const navigate = useNavigate();
   const [openGroups, setOpenGroups] = useState<string[]>([]);
 
   const toggleGroup = (groupId: string) => {
-    setOpenGroups(prev => 
-      prev.includes(groupId) 
+    setOpenGroups(prev =>
+      prev.includes(groupId)
         ? prev.filter(id => id !== groupId)
         : [...prev, groupId]
     );
@@ -43,13 +80,35 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
 
   const isActive = (path?: string) => path === currentPath;
 
+  const getBadgeCount = (item: MenuItem): number => {
+    if (!item.badgeKey || !badgeCounts) return 0;
+    return badgeCounts[item.badgeKey] ?? 0;
+  };
+
+  /** Recursive: toplam badge count (children dahil) */
+  const getTotalBadgeCount = (item: MenuItem): number => {
+    let total = getBadgeCount(item);
+    if (item.children) {
+      for (const child of item.children) {
+        total += getTotalBadgeCount(child);
+      }
+    }
+    return total;
+  };
+
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
     const hasChildren = item.children && item.children.length > 0;
     const isItemActive = isActive(item.path);
     const isGroupOpen = openGroups.includes(item.id);
     const IconComponent = item.icon ?? Circle;
+    const badgeCount = getBadgeCount(item);
+    const totalBadgeCount = getTotalBadgeCount(item); // parent üçün children-i də sayır
 
     if (!isExpanded && !hasChildren) {
+      const tooltipLabel = badgeCount > 0
+        ? `${item.label} (${badgeCount} oxunmamış)`
+        : item.label;
+
       return (
         <Tooltip key={item.id}>
           <TooltipTrigger asChild>
@@ -57,7 +116,7 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
               variant="ghost"
               size="icon"
               className={cn(
-                "h-10 w-10 mx-2 my-1",
+                "h-10 w-10 mx-2 my-1 relative",
                 isItemActive && "bg-primary text-primary-foreground"
               )}
               asChild={!!item.path}
@@ -65,16 +124,18 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
               {item.path ? (
                 <Link to={item.path} onClick={() => handleNavigation(item.path!)}>
                   <IconComponent className="h-4 w-4" />
+                  <BadgeCount count={badgeCount} collapsed />
                 </Link>
               ) : (
                 <div>
                   <IconComponent className="h-4 w-4" />
+                  <BadgeCount count={badgeCount} collapsed />
                 </div>
               )}
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right" className="ml-2">
-            {item.label}
+            {tooltipLabel}
           </TooltipContent>
         </Tooltip>
       );
@@ -110,8 +171,11 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
               >
                 {item.label}
               </span>
+              {isExpanded && totalBadgeCount > 0 && !isGroupOpen && (
+                <BadgeCount count={totalBadgeCount} />
+              )}
               {isExpanded && (
-                <ChevronRight 
+                <ChevronRight
                   className={cn(
                     "h-4 w-4 transition-transform",
                     isGroupOpen && "rotate-90"
@@ -140,7 +204,8 @@ export const SidebarMenu: React.FC<SidebarMenuProps> = ({ menuGroups }) => {
       >
         <Link to={item.path!} onClick={() => handleNavigation(item.path!)}>
           <IconComponent className="h-4 w-4 mr-3" />
-          <span>{item.label}</span>
+          <span className="flex-1">{item.label}</span>
+          <BadgeCount count={badgeCount} />
         </Link>
       </Button>
     );

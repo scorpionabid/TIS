@@ -179,9 +179,10 @@ Route::middleware('permission:tasks.read')->group(function () {
 
 // All authenticated users can READ their own notifications (no special permission needed)
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('notifications',               [NotificationController::class, 'index']);
-    Route::get('notifications/statistics',    [NotificationController::class, 'statistics']);
-    Route::get('notifications/unread-count',  [NotificationController::class, 'unreadCount']);
+    Route::get('notifications',                        [NotificationController::class, 'index']);
+    Route::get('notifications/statistics',             [NotificationController::class, 'statistics']);
+    Route::get('notifications/unread-count',           [NotificationController::class, 'unreadCount']);
+    Route::get('notifications/page-badge-counts',      [NotificationController::class, 'pageBadgeCounts']);
 
     // Wildcard routes come AFTER static routes
     Route::get('notifications/{notification}', [NotificationController::class, 'show']);

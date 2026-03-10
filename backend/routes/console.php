@@ -31,6 +31,19 @@ Schedule::command('notifications:cleanup --older-than=30')
         \Log::info('Weekly notification cleanup completed successfully');
     });
 
+// Attendance Reminders
+// Hər iş günü saat 10:00-da davamiyyəti qeyd edilməmiş məktəbləri xəbərdar et
+Schedule::command('attendance:send-reminders')
+    ->weekdays()
+    ->dailyAt('10:00')
+    ->description('Davamiyyəti qeyd edilməmiş məktəblərin adminlərinə xatırlatma göndər')
+    ->onSuccess(function () {
+        \Log::info('Attendance reminders sent successfully');
+    })
+    ->onFailure(function () {
+        \Log::error('Attendance reminders failed');
+    });
+
 // Task Deadline Reminders
 // Send reminders at 8:00 AM for tasks approaching deadline
 Schedule::command('tasks:send-deadline-reminders --days=3')

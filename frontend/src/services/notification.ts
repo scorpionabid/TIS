@@ -69,6 +69,16 @@ export interface NotificationFilters {
   search?: string;
 }
 
+/** Unread notification counts grouped by sidebar page category */
+export interface PageBadgeCounts {
+  tasks: number;
+  surveys: number;
+  documents: number;
+  report_tables: number;
+  attendance: number;
+  system: number;
+}
+
 export interface NotificationSettings {
   email_notifications: boolean;
   in_app_notifications: boolean;
@@ -249,6 +259,20 @@ class NotificationService extends BaseService<Notification> {
     } catch (error) {
       logger.error('NotificationService.getUnreadCount failed', error);
       throw error;
+    }
+  }
+
+  /** Fetch unread counts grouped by page category for sidebar badges. */
+  async getPageBadgeCounts(): Promise<{ success: boolean; data: PageBadgeCounts }> {
+    try {
+      const response = await this.get<PageBadgeCounts>(`${this.baseUrl}/page-badge-counts`);
+      return response as { success: boolean; data: PageBadgeCounts };
+    } catch (error) {
+      logger.warn('NotificationService.getPageBadgeCounts failed', error);
+      return {
+        success: false,
+        data: { tasks: 0, surveys: 0, documents: 0, report_tables: 0, attendance: 0, system: 0 },
+      };
     }
   }
 
