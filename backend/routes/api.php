@@ -119,6 +119,9 @@ Route::middleware([\App\Http\Middleware\ForceCors::class])->group(function () {
         // Specialized Module Routes
         require __DIR__ . '/api/specialized.php';
 
+        // Preschool Attendance & Group Management Routes
+        require __DIR__ . '/api/preschool.php';
+
         // Report Tables Module Routes
         require __DIR__ . '/api/report-tables.php';
     });

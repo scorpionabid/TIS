@@ -123,6 +123,15 @@ const SchoolScheduleManagement = lazy(
 const BulkAttendanceEntry = lazy(
   () => import("./pages/school/BulkAttendanceEntry"),
 );
+const PreschoolGroups = lazy(
+  () => import("./pages/preschool/PreschoolGroups"),
+);
+const PreschoolAttendanceEntry = lazy(
+  () => import("./pages/preschool/PreschoolAttendanceEntry"),
+);
+const PreschoolAttendanceReports = lazy(
+  () => import("./pages/preschool/PreschoolAttendanceReports"),
+);
 
 // Teacher pages
 const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
@@ -1294,6 +1303,62 @@ const App = () => {
                             ]}
                           >
                             <SchoolClasses />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    {/* Preschool Routes */}
+                    <Route
+                      path="preschool/groups"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.SCHOOLADMIN,
+                            ]}
+                            requiredPermissions={["preschool.groups.manage"]}
+                            permissionMatch="any"
+                          >
+                            <PreschoolGroups />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="preschool/attendance"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.SCHOOLADMIN,
+                            ]}
+                            requiredPermissions={["preschool.attendance.write"]}
+                            permissionMatch="any"
+                          >
+                            <PreschoolAttendanceEntry />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="preschool/attendance/reports"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.REGIONADMIN,
+                              USER_ROLES.REGIONOPERATOR,
+                              USER_ROLES.SEKTORADMIN,
+                            ]}
+                            requiredPermissions={[
+                              "preschool.attendance.reports",
+                            ]}
+                            permissionMatch="any"
+                          >
+                            <PreschoolAttendanceReports />
                           </RoleProtectedRoute>
                         </LazyWrapper>
                       }

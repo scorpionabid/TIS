@@ -345,6 +345,13 @@ class PermissionSeeder extends Seeder
             'reports.create',
             'reports.export',
             'reports.custom',
+
+            // Preschool Attendance Management
+            'preschool.groups.manage',
+            'preschool.attendance.read',
+            'preschool.attendance.write',
+            'preschool.attendance.reports',
+            'preschool.attendance.export',
         ];
 
         foreach ($permissions as $permissionName) {
@@ -389,6 +396,7 @@ class PermissionSeeder extends Seeder
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
                 'institution-types.read', 'institution-types.manage',
                 'system.config', 'analytics.view',
+                'preschool.groups.manage', 'preschool.attendance.read', 'preschool.attendance.write', 'preschool.attendance.reports', 'preschool.attendance.export',
             ],
             'regionadmin' => [
                 'users.read', 'users.create', 'users.update', 'users.delete',
@@ -417,6 +425,7 @@ class PermissionSeeder extends Seeder
                 'links.create', 'links.read', 'links.update', 'links.delete', 'links.share', 'links.bulk', 'links.analytics', 'links.tracking',
                 'institution-types.read',
                 'analytics.view',
+                'preschool.attendance.read', 'preschool.attendance.reports', 'preschool.attendance.export',
             ],
             'schooladmin' => [
                 'users.read', 'users.create', 'users.update',
@@ -440,6 +449,7 @@ class PermissionSeeder extends Seeder
                 'view teacher_performance', 'create teacher_performance', 'edit teacher_performance', 'manage teacher_performance',
                 'links.read',
                 'reports.read',
+                'preschool.groups.manage', 'preschool.attendance.read', 'preschool.attendance.write',
             ],
             'regionoperator' => [
                 // regionadmin permissions EXCEPT users.create and users.update
@@ -570,6 +580,7 @@ class PermissionSeeder extends Seeder
                 'users.delete',
                 'users.read',
                 'view teacher_performance',
+                'preschool.attendance.read', 'preschool.attendance.reports',
             ],
             'sektoradmin' => [
                 'users.read', 'users.create', 'users.update',
@@ -593,6 +604,7 @@ class PermissionSeeder extends Seeder
                 'teaching_loads.read',
                 'links.read',
                 'reports.read',
+                'preschool.attendance.read', 'preschool.attendance.reports',
             ],
             'muavin' => [
                 'schedules.create', 'schedules.read', 'schedules.update',

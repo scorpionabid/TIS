@@ -109,3 +109,15 @@ Schedule::command('logs:cleanup')
     ->onFailure(function () {
         \Log::error('Weekly log cleanup failed');
     });
+
+// Məktəbəqədər şəkillər: 30 gündən köhnəlləri sil
+Schedule::command('preschool:cleanup-photos --older-than=30')
+    ->daily()
+    ->at('03:30')
+    ->description('Məktəbəqədər şəkillər: 30 gündən köhnəlləri sil')
+    ->onSuccess(function () {
+        \Log::info('Preschool photo cleanup completed successfully');
+    })
+    ->onFailure(function () {
+        \Log::error('Preschool photo cleanup failed');
+    });
