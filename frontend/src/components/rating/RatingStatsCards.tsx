@@ -6,9 +6,15 @@ import { RatingItem } from '@/types/rating';
 interface RatingStatsCardsProps {
     data: RatingItem[];
     loading?: boolean;
+    variant?: 'school' | 'sector';
 }
 
-export const RatingStatsCards: React.FC<RatingStatsCardsProps> = ({ data, loading }) => {
+export const RatingStatsCards: React.FC<RatingStatsCardsProps> = ({ 
+    data, 
+    loading,
+    variant = 'school'
+}) => {
+    const isSector = variant === 'sector';
     const calculateStats = () => {
         if (data.length === 0) {
             return {
@@ -36,10 +42,10 @@ export const RatingStatsCards: React.FC<RatingStatsCardsProps> = ({ data, loadin
 
     const statItems = [
         {
-            title: 'Ümumi Direktor',
+            title: isSector ? 'Ümumi Sektor Admin' : 'Ümumi Direktor',
             value: stats.total,
-            description: 'Məktəb rəhbəri',
-            icon: Building2,
+            description: isSector ? 'Sektor rəhbəri' : 'Məktəb rəhbəri',
+            icon: isSector ? Building2 : Building2,
             color: 'text-blue-600',
             bgColor: 'bg-blue-100'
         },

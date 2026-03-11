@@ -20,8 +20,9 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
   const [pagination, setPagination] = useState<PaginatedResponse<RatingItem> | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState(new Date().toISOString().slice(0, 7));
+  const [period, setPeriod] = useState(() => new Date().toISOString().slice(0, 7));
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [selectedItems, setSelectedItems] = useState<number[]>([]);
 
   // Manual score dialog state
@@ -31,9 +32,9 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [period, institutionId, academicYearId, currentPage]);
+  }, [period, institutionId, academicYearId, currentPage, statusFilter]);
 
-  const loadData = async () => {
+  const loadData = async (forceCalculate = false) => {
     try {
       setLoading(true);
       const response = await ratingService.getAllRatings({
@@ -42,7 +43,9 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         academic_year_id: academicYearId,
         user_role: 'sektoradmin',
         page: currentPage,
-        per_page: 15
+        per_page: 15,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        force_calculate: forceCalculate || undefined,
       });
 
       if (response && response.data) {
@@ -68,28 +71,7 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
     }
   };
 
-  const forceRefresh = async () => {
-    try {
-      setLoading(true);
-      const response = await ratingService.getAllRatings({
-        period,
-        institution_id: institutionId,
-        academic_year_id: academicYearId,
-        user_role: 'sektoradmin',
-        page: currentPage,
-        per_page: 15,
-        force_calculate: true,
-      });
-      if (response && response.data) {
-        setData(response.data);
-        setPagination(response);
-      }
-    } catch (error) {
-      logger.error('Error force refreshing sector ratings:', { error });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const forceRefresh = () => loadData(true);
 
   const bulkDelete = async () => {
     if (selectedItems.length === 0) return;
@@ -105,7 +87,7 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
       }
       setSelectedItems([]);
       await loadData();
-      logger.info('Bulk delete completed', { count: selectedItems.length });
+      logger.info('Bulk delete completed');
     } catch (error) {
       logger.error('Error in bulk delete:', { error });
     } finally {
@@ -120,7 +102,7 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         : filteredData;
 
       const csv = [
-        ['Müəssisə', 'Sektor Admin', 'Email', 'Task', 'Survey', 'Təsdiq', 'Link', 'Manual', 'Manual Kateqoriya', 'Ümumi', 'Status'],
+        ['Müəssisə', 'Sektor Admin', 'Email', 'Task', 'Survey', 'Təsdiq', 'Link', 'Hesabat', 'Manual', 'Manual Kateqoriya', 'Ümumi', 'Status'],
         ...exportData.map(item => [
           item.institution?.name || '',
           item.user?.full_name || '',
@@ -129,6 +111,7 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
           item.survey_score || 0,
           item.approval_score || 0,
           item.link_score || 0,
+          item.report_score || 0,
           item.manual_score || 0,
           item.manual_score_category || '',
           item.overall_score || 0,
@@ -180,7 +163,7 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
       setManualDialogOpen(false);
       setManualDialogItem(null);
       await loadData();
-      logger.info('Manual score saved', { score, category });
+      logger.info('Manual score saved');
     } catch (error) {
       logger.error('Error saving manual score:', { error });
     } finally {
@@ -220,7 +203,7 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       {/* Summary Cards */}
-      <RatingStatsCards data={filteredData} loading={loading} />
+      <RatingStatsCards data={filteredData} loading={loading} variant="sector" />
 
       {/* Toolbar Actions */}
       <RatingActionToolbar
@@ -232,6 +215,8 @@ export const SectorRatingTab: React.FC<SectorRatingTabProps> = ({
         onExport={exportToExcel}
         selectedCount={selectedItems.length}
         loading={loading}
+        status={statusFilter}
+        onStatusChange={setStatusFilter}
         period={period}
         onPeriodChange={(val) => { setPeriod(val); setCurrentPage(1); }}
       />
