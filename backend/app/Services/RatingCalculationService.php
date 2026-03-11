@@ -300,7 +300,7 @@ class RatingCalculationService
             ->where('institution_id', $institutionId)
             ->whereBetween('attendance_date', [$workdays[0], end($workdays)])
             ->get()
-            ->groupBy(fn ($record) => $record->attendance_date->toDateString());
+            ->groupBy(fn ($record) => \Carbon\Carbon::parse($record->attendance_date)->toDateString());
 
         $onTime = 0;
         $missed = 0;
@@ -310,9 +310,9 @@ class RatingCalculationService
 
             $sameDay = $dayRecords->filter(function ($record) use ($dateStr) {
                 $morningOk = $record->morning_recorded_at
-                    && $record->morning_recorded_at->toDateString() === $dateStr;
+                    && \Carbon\Carbon::parse($record->morning_recorded_at)->toDateString() === $dateStr;
                 $eveningOk = $record->evening_recorded_at
-                    && $record->evening_recorded_at->toDateString() === $dateStr;
+                    && \Carbon\Carbon::parse($record->evening_recorded_at)->toDateString() === $dateStr;
 
                 return $morningOk || $eveningOk;
             })->count();
