@@ -8,9 +8,12 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { User, Briefcase } from 'lucide-react';
 import { useProfileForm } from '@/hooks/profile/useProfileForm';
 import { ProfilePhotoSection } from './ProfilePhotoSection';
 import { PersonalInfoTab } from './PersonalInfoTab';
+import { ProfessionalInfoTab } from './ProfessionalInfoTab';
 import { ProfileResponse } from '@/services/profile';
 
 interface ProfileEditModalProps {
@@ -76,7 +79,26 @@ export default function ProfileEditModal({
             onRemovePreview={handleRemoveAvatarPreview}
           />
 
-          <PersonalInfoTab form={form} />
+          <Tabs defaultValue="personal" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="personal" className="gap-2">
+                <User className="h-4 w-4" />
+                Şəxsi Məlumatlar
+              </TabsTrigger>
+              <TabsTrigger value="professional" className="gap-2">
+                <Briefcase className="h-4 w-4" />
+                Peşəkar Məlumatlar
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="personal" className="m-0">
+              <PersonalInfoTab form={form} />
+            </TabsContent>
+
+            <TabsContent value="professional" className="m-0">
+              <ProfessionalInfoTab form={form} />
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter className="mt-6">
             <Button type="button" variant="outline" onClick={onClose} disabled={isSubmitting}>
