@@ -104,9 +104,9 @@ class RatingCalculationTest extends TestCase
             ]);
 
         $response->assertOk()
-            ->assertJsonPath('summary.total_users', 2)
-            ->assertJsonPath('summary.success_count', 2)
-            ->assertJsonPath('summary.error_count', 0);
+            ->assertJsonPath('data.summary.total_users', 2)
+            ->assertJsonPath('data.summary.success_count', 2)
+            ->assertJsonPath('data.summary.error_count', 0);
 
         $this->assertDatabaseCount('ratings', 2);
     }
@@ -141,8 +141,8 @@ class RatingCalculationTest extends TestCase
             ]);
 
         $response->assertOk()
-            ->assertJsonPath('summary.total_users', 1) // Only school admin from own region
-            ->assertJsonPath('summary.success_count', 1);
+            ->assertJsonPath('data.summary.total_users', 1) // Only school admin from own region
+            ->assertJsonPath('data.summary.success_count', 1);
     }
 
     /** @test */
@@ -184,7 +184,7 @@ class RatingCalculationTest extends TestCase
             ]);
 
         $response->assertOk()
-            ->assertJsonPath('data.task_score', -1) // 1 on-time - 2 late/overdue
+            ->assertJsonPath('data.task_score', '-1.00') // 1 on-time - 2 late/overdue
             ->assertJsonPath('data.score_details.tasks_on_time', 1)
             ->assertJsonPath('data.score_details.tasks_late', 2);
     }
@@ -211,8 +211,8 @@ class RatingCalculationTest extends TestCase
             ]);
 
         $response->assertOk()
-            ->assertJsonPath('data.manual_score', 10) // Preserved
-            ->assertJsonPath('data.overall_score', 12); // 2 tasks + 10 manual
+            ->assertJsonPath('data.manual_score', '10.00') // Preserved
+            ->assertJsonPath('data.overall_score', '12.00'); // 2 tasks + 10 manual
     }
 
     /** @test */

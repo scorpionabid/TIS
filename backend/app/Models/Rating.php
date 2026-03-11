@@ -26,6 +26,7 @@ class Rating extends Model
         'attendance_score',
         'approval_score',
         'link_score',
+        'report_score',
         'manual_score',
         'manual_score_category',
         'manual_score_reason',
@@ -55,6 +56,7 @@ class Rating extends Model
         'attendance_score' => 'decimal:2',
         'approval_score' => 'decimal:2',
         'link_score' => 'decimal:2',
+        'report_score' => 'decimal:2',
         'manual_score' => 'decimal:2',
         // PRD-yə uyğun yeni komponent skorları
         'academic_score' => 'decimal:2',

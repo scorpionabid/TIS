@@ -25,6 +25,7 @@ import {
     Trophy,
     Users,
     Pencil,
+    FileText,
 } from 'lucide-react';
 import {
     Pagination,
@@ -156,7 +157,7 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                         </TableHead>
 
                         {/* Merged: Institution + Director */}
-                        <TableHead className="font-semibold text-gray-700 min-w-[200px]">
+                        <TableHead className="font-semibold text-gray-700 min-w-[350px]">
                             {isSector ? 'Sektor Admin' : 'Müəssisə / Direktor'}
                         </TableHead>
 
@@ -187,6 +188,12 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                             {iconHead(
                                 <ExternalLink className="h-4 w-4 text-gray-500" />,
                                 'Link balı (auto-hesablanan)'
+                            )}
+                        </TableHead>
+                        <TableHead className="w-12 text-center">
+                            {iconHead(
+                                <FileText className="h-4 w-4 text-gray-500" />,
+                                'Hesabat balı (auto-hesablanan)'
                             )}
                         </TableHead>
 
@@ -237,12 +244,12 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
 
                                 {/* Merged institution + director cell */}
                                 <TableCell className="py-2.5">
-                                    <div className="font-semibold text-sm text-gray-900 leading-tight truncate max-w-[240px]">
+                                    <div className="font-semibold text-sm text-gray-900 leading-tight truncate max-w-[450px]">
                                         {item.institution?.name || '—'}
                                     </div>
                                     <div className="flex items-center gap-1 mt-0.5">
                                         <Users className="h-3 w-3 text-gray-400 flex-shrink-0" />
-                                        <span className="text-xs text-muted-foreground truncate max-w-[220px]">
+                                        <span className="text-xs text-muted-foreground truncate max-w-[430px]">
                                             {item.user?.full_name || 'Bilinməyən'}
                                         </span>
                                     </div>
@@ -292,6 +299,16 @@ export const RatingDataTable: React.FC<RatingDataTableProps> = ({
                                         Number(item.link_score) || 0,
                                         item.score_details
                                             ? `Açılmış: ${item.score_details.links_opened ?? 0} | Açılmamış: ${item.score_details.links_missed ?? 0} | Cəmi: ${item.score_details.links_total ?? 0}`
+                                            : 'Hesablanmayıb'
+                                    )}
+                                </TableCell>
+
+                                {/* Report score (read-only) */}
+                                <TableCell className="text-center p-2">
+                                    {scoreCell(
+                                        Number(item.report_score) || 0,
+                                        item.score_details
+                                            ? `Vaxtında: ${item.score_details.reports_on_time ?? 0} | Gecikmiş: ${item.score_details.reports_late ?? 0} | Buraxılmış: ${item.score_details.reports_missed ?? 0} | Cəmi: ${item.score_details.reports_total ?? 0}`
                                             : 'Hesablanmayıb'
                                     )}
                                 </TableCell>

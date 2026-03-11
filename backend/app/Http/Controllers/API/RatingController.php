@@ -307,6 +307,8 @@ class RatingController extends BaseController
             $rating = $this->ratingService->calculateRating($userId, $validated);
 
             return $this->successResponse($rating, 'Reytinq uğurla hesablandı');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return $this->errorResponse('Validasiya xətası', 422, $e->errors());
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinq hesablanıla bilmədi: ' . $e->getMessage());
         }
@@ -327,6 +329,8 @@ class RatingController extends BaseController
             $results = $this->ratingService->calculateAllRatings($validated, $request->user());
 
             return $this->successResponse($results, 'Bütün reytinqlər uğurla hesablandı');
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return $this->errorResponse('Validasiya xətası', 422, $e->errors());
         } catch (\Exception $e) {
             return $this->errorResponse('Reytinqlər hesablanıla bilmədi: ' . $e->getMessage());
         }
