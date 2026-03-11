@@ -2,11 +2,9 @@ import React, { useState } from 'react';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { Alert, AlertDescription } from '../../ui/alert';
-import { Button } from '../../ui/button';
 import { Input } from '../../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../ui/select';
 import {
-  Download,
   TrendingUp,
   Search,
   Users,
@@ -23,6 +21,7 @@ const SurveyResultsTab: React.FC = () => {
   const { toast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [exportingSurveyId, setExportingSurveyId] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const { data: surveysData, isLoading: surveysLoading, error: surveysError } = useQuery({
@@ -60,56 +59,31 @@ const SurveyResultsTab: React.FC = () => {
 
   const exportMutation = useMutation({
     mutationFn: async (surveyId: number) => {
+      setExportingSurveyId(surveyId);
       const blob = await surveyService.exportResponses(surveyId, 'xlsx');
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = url;
-      a.download = `survey-${surveyId}-results.xlsx`;
+      a.download = `sorgu-cavablari-${surveyId}-${new Date().toISOString().split('T')[0]}.xlsx`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     },
     onSuccess: () => {
-      toast({ title: "Uğurlu", description: "Nəticələr uğurla yükləndi" });
+      setExportingSurveyId(null);
+      toast({ title: "Uğurlu", description: "Cavablar uğurla yükləndi" });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
+      setExportingSurveyId(null);
       toast({
         title: "Xəta",
-        description: error.message || 'Yükləmə zamanı xəta baş verdi',
+        description: error instanceof Error ? error.message : 'Yükləmə zamanı xəta baş verdi',
         variant: "destructive"
       });
     }
   });
-
-  const handleExportAll = async () => {
-    if (!Array.isArray(surveysArray) || surveysArray.length === 0) {
-      toast({ title: "Xəta", description: "Export ediləcək sorğu tapılmadı", variant: "destructive" });
-      return;
-    }
-
-    let successCount = 0;
-    let errorCount = 0;
-
-    try {
-      for (const survey of surveysArray) {
-        try {
-          await exportMutation.mutateAsync(survey.id);
-          successCount++;
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        } catch (error) {
-          errorCount++;
-        }
-      }
-      toast({
-        title: "Tamamlandı",
-        description: `${successCount} sorğu uğurla export edildi${errorCount > 0 ? `, ${errorCount} sorğuda xəta` : ''}`
-      });
-    } catch (error) {
-      toast({ title: "Xəta", description: "Bulk export zamanı xəta", variant: "destructive" });
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -133,19 +107,9 @@ const SurveyResultsTab: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Sorğu Nəticələri</h1>
-          <p className="text-muted-foreground">Toplanmış nəticələrin təhlili və hesabatlar</p>
-        </div>
-        <Button
-          onClick={handleExportAll}
-          disabled={exportMutation.isPending || !Array.isArray(surveysArray) || surveysArray.length === 0}
-          className="flex items-center gap-2"
-        >
-          <Download className="h-4 w-4" />
-          {exportMutation.isPending ? 'Yüklənir...' : 'Bütün Nəticələri Yüklə'}
-        </Button>
+      <div>
+        <h1 className="text-3xl font-bold">Sorğu Nəticələri</h1>
+        <p className="text-muted-foreground">Toplanmış nəticələrin təhlili və hesabatlar</p>
       </div>
 
       {(surveysError || analyticsError) && (
@@ -257,7 +221,7 @@ const SurveyResultsTab: React.FC = () => {
                 key={survey.id}
                 survey={survey}
                 onExport={() => exportMutation.mutate(survey.id)}
-                isExporting={exportMutation.isPending}
+                isExporting={exportingSurveyId === survey.id}
                 getStatusColor={getStatusColor}
                 getStatusText={getStatusText}
                 navigate={navigate}

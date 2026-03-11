@@ -24,12 +24,6 @@ class SurveyQuestion extends Model
             if (! isset($question->max_file_size)) {
                 $question->max_file_size = 10240; // 10MB default
             }
-            if (! isset($question->rating_min)) {
-                $question->rating_min = 1;
-            }
-            if (! isset($question->rating_max)) {
-                $question->rating_max = 10;
-            }
         });
     }
 
@@ -50,13 +44,10 @@ class SurveyQuestion extends Model
         'max_length',
         'allowed_file_types',
         'max_file_size',
-        'rating_min',
-        'rating_max',
-        'rating_min_label',
-        'rating_max_label',
-        'table_headers',
-        'table_rows',
         'translations',
+        // Legacy fields kept for backward compatibility with existing data
+        'table_rows',
+        'table_headers',
     ];
 
     protected $casts = [
@@ -68,12 +59,12 @@ class SurveyQuestion extends Model
         'min_value' => 'decimal:2',
         'max_value' => 'decimal:2',
         'allowed_file_types' => 'array',
-        'table_headers' => 'array',
-        'table_rows' => 'array',
         'translations' => 'array',
+        'table_rows' => 'array',
+        'table_headers' => 'array',
     ];
 
-    // Constants for question types from PRD-2
+    // Constants for question types
     const TYPES = [
         'text' => 'Text Input - Açıq cavab sahələri',
         'number' => 'Number Input - Rəqəmsal məlumatlar',
@@ -81,9 +72,6 @@ class SurveyQuestion extends Model
         'single_choice' => 'Single Choice - Radio button seçimlər',
         'multiple_choice' => 'Multiple Choice - Checkbox seçimlər',
         'file_upload' => 'File Upload - PDF, Excel (max 10MB)',
-        'rating' => 'Rating Scale - 1-10 qiymətləndirmə',
-        'table_matrix' => 'Table/Matrix - Strukturlaşdırılmış cədvəl',
-        'table_input' => 'Table Input - Dinamik sətirli cədvəl',
     ];
 
     /**

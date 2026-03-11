@@ -12,14 +12,6 @@ import { QuestionEditForm } from './QuestionEditForm';
 import type { Survey } from '@/types/surveys';
 import type { Question } from '@/types/surveyModal';
 
-const columnTypes = [
-  { value: 'text', label: 'Mətn' },
-  { value: 'number', label: 'Rəqəm' },
-  { value: 'date', label: 'Tarix' },
-];
-
-const maxRowsOptions = [5, 10, 15, 20, 25, 30, 40, 50];
-
 interface Step2QuestionsProps {
   questions: Question[];
   newQuestion: Partial<Question>;
@@ -34,9 +26,6 @@ interface Step2QuestionsProps {
   needsOptions: boolean;
   needsNumberValidation: boolean;
   needsFileValidation: boolean;
-  needsMatrixConfiguration: boolean;
-  needsRatingConfiguration: boolean;
-  needsTableInputConfiguration: boolean;
   questionTypes: Array<{ value: string; label: string }>;
   setQuestions: (questions: Question[]) => void;
   setNewQuestion: React.Dispatch<React.SetStateAction<Partial<Question>>>;
@@ -53,12 +42,6 @@ interface Step2QuestionsProps {
   addOption: () => void;
   updateOption: (index: number, value: string) => void;
   removeOption: (index: number) => void;
-  addTableRow: () => void;
-  updateTableRow: (index: number, value: string) => void;
-  removeTableRow: (index: number) => void;
-  addTableColumn: () => void;
-  updateTableColumn: (index: number, value: string) => void;
-  removeTableColumn: (index: number) => void;
   toast: (options: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void;
 }
 
@@ -76,9 +59,6 @@ export function Step2Questions({
   needsOptions,
   needsNumberValidation,
   needsFileValidation,
-  needsMatrixConfiguration,
-  needsRatingConfiguration,
-  needsTableInputConfiguration,
   questionTypes,
   setQuestions,
   setNewQuestion,
@@ -95,12 +75,6 @@ export function Step2Questions({
   addOption,
   updateOption,
   removeOption,
-  addTableRow,
-  updateTableRow,
-  removeTableRow,
-  addTableColumn,
-  updateTableColumn,
-  removeTableColumn,
   toast,
 }: Step2QuestionsProps) {
   return (
@@ -195,20 +169,13 @@ export function Step2Questions({
         <div className="space-y-4">
           {/* Question Text */}
           <div className="space-y-2">
-            <Label>
-              Sual mətni {newQuestion.type === 'table_input' ? '(İxtiyari)' : '*'}
-            </Label>
+            <Label>Sual mətni *</Label>
             <Textarea
               value={newQuestion.question || ''}
               onChange={(e) => setNewQuestion(prev => ({ ...prev, question: e.target.value }))}
-              placeholder={newQuestion.type === 'table_input'
-                ? "Sual mətni (ixtiyari - sütun adları kifayətdir)"
-                : "Sualınızı daxil edin..."}
+              placeholder="Sualınızı daxil edin..."
               rows={2}
             />
-            {newQuestion.type === 'table_input' && (
-              <p className="text-xs text-blue-600">ℹ️ Dinamik cədvəl üçün sütun adları sual yerinə keçir</p>
-            )}
           </div>
 
           {/* Question Type and Required */}
@@ -219,76 +186,17 @@ export function Step2Questions({
                 value={newQuestion.type || 'text'}
                 onValueChange={(value) => setNewQuestion(prev => {
                   const nextType = value as Question['type'];
-
-                  if (nextType === 'table_matrix') {
-                    return {
-                      ...prev,
-                      type: nextType,
-                      options: [],
-                      tableRows: prev.tableRows && prev.tableRows.length > 0
-                        ? prev.tableRows
-                        : ['Sətir 1', 'Sətir 2'],
-                      tableHeaders: prev.tableHeaders && prev.tableHeaders.length > 0
-                        ? prev.tableHeaders
-                        : ['Sütun 1', 'Sütun 2'],
-                      tableInputColumns: undefined,
-                      tableInputMaxRows: undefined,
-                      min_value: undefined,
-                      max_value: undefined,
-                      max_file_size: undefined,
-                      allowed_file_types: undefined,
-                      rating_min: undefined,
-                      rating_max: undefined,
-                      rating_min_label: undefined,
-                      rating_max_label: undefined,
-                    };
-                  }
-
-                  if (nextType === 'table_input') {
-                    return {
-                      ...prev,
-                      type: nextType,
-                      options: [],
-                      tableRows: undefined,
-                      tableHeaders: undefined,
-                      tableInputColumns: prev.tableInputColumns && prev.tableInputColumns.length > 0
-                        ? prev.tableInputColumns
-                        : [
-                            { key: 'col_1', label: 'Sütun 1', type: 'text' as const },
-                            { key: 'col_2', label: 'Sütun 2', type: 'text' as const },
-                          ],
-                      tableInputMaxRows: prev.tableInputMaxRows ?? 20,
-                      min_value: undefined,
-                      max_value: undefined,
-                      max_file_size: undefined,
-                      allowed_file_types: undefined,
-                      rating_min: undefined,
-                      rating_max: undefined,
-                      rating_min_label: undefined,
-                      rating_max_label: undefined,
-                    };
-                  }
-
                   const resetOptions = ['single_choice', 'multiple_choice'].includes(nextType)
                     ? prev.options || []
                     : [];
-
                   return {
                     ...prev,
                     type: nextType,
                     options: resetOptions,
-                    tableRows: undefined,
-                    tableHeaders: undefined,
-                    tableInputColumns: undefined,
-                    tableInputMaxRows: undefined,
                     min_value: nextType === 'number' ? prev.min_value : undefined,
                     max_value: nextType === 'number' ? prev.max_value : undefined,
                     max_file_size: nextType === 'file_upload' ? (prev.max_file_size || 10 * 1024 * 1024) : undefined,
                     allowed_file_types: nextType === 'file_upload' ? prev.allowed_file_types : undefined,
-                    rating_min: nextType === 'rating' ? (prev.rating_min ?? 1) : undefined,
-                    rating_max: nextType === 'rating' ? (prev.rating_max ?? 5) : undefined,
-                    rating_min_label: nextType === 'rating' ? (prev.rating_min_label ?? 'Pis') : undefined,
-                    rating_max_label: nextType === 'rating' ? (prev.rating_max_label ?? 'Əla') : undefined,
                   };
                 })}
               >
@@ -432,243 +340,6 @@ export function Step2Questions({
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {/* Rating configuration */}
-          {needsRatingConfiguration && (
-            <div className="space-y-2">
-              <Label>Qiymətləndirmə tənzimləmələri</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-xs">Minimum bal</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={newQuestion.rating_min ?? ''}
-                    onChange={(e) => setNewQuestion(prev => ({
-                      ...prev,
-                      rating_min: e.target.value === '' ? undefined : Number(e.target.value)
-                    }))}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Maksimum bal</Label>
-                  <Input
-                    type="number"
-                    min="1"
-                    value={newQuestion.rating_max ?? ''}
-                    onChange={(e) => setNewQuestion(prev => ({
-                      ...prev,
-                      rating_max: e.target.value === '' ? undefined : Number(e.target.value)
-                    }))}
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Minimum etiket</Label>
-                  <Input
-                    value={newQuestion.rating_min_label ?? ''}
-                    onChange={(e) => setNewQuestion(prev => ({
-                      ...prev,
-                      rating_min_label: e.target.value || undefined
-                    }))}
-                    placeholder="Məs: Pis"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Maksimum etiket</Label>
-                  <Input
-                    value={newQuestion.rating_max_label ?? ''}
-                    onChange={(e) => setNewQuestion(prev => ({
-                      ...prev,
-                      rating_max_label: e.target.value || undefined
-                    }))}
-                    placeholder="Məs: Əla"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Table/Matrix configuration */}
-          {needsMatrixConfiguration && (
-            <div className="space-y-4">
-              <div>
-                <Label>Cədvəl sətirləri</Label>
-                <div className="space-y-2 mt-2">
-                  {(newQuestion.tableRows || []).map((row, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs min-w-[24px] text-center">
-                        {index + 1}
-                      </Badge>
-                      <Input
-                        value={row}
-                        onChange={(e) => updateTableRow(index, e.target.value)}
-                        placeholder={`Sətir ${index + 1} adı`}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeTableRow(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addTableRow}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Sətir əlavə et
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <Label>Cədvəl sütunları</Label>
-                <div className="space-y-2 mt-2">
-                  {(newQuestion.tableHeaders || []).map((header, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Badge variant="outline" className="text-xs min-w-[24px] text-center">
-                        {index + 1}
-                      </Badge>
-                      <Input
-                        value={header}
-                        onChange={(e) => updateTableColumn(index, e.target.value)}
-                        placeholder={`Sütun ${index + 1} adı`}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeTableColumn(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addTableColumn}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Sütun əlavə et
-                  </Button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Table Input (Dynamic Table) configuration */}
-          {needsTableInputConfiguration && (
-            <div className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded p-3">
-                <p className="text-sm text-blue-700">
-                  <strong>Dinamik cədvəl:</strong> Cavab verənlər + düyməsi ilə sətir əlavə edə biləcəklər.
-                  Siz yalnız sütun başlıqlarını, data tiplərini və maksimum sətir sayını təyin edin.
-                </p>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <Label>Cədvəl sütunları</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const columns = newQuestion.tableInputColumns || [];
-                      const newKey = `col_${columns.length + 1}`;
-                      setNewQuestion(prev => ({
-                        ...prev,
-                        tableInputColumns: [
-                          ...(prev.tableInputColumns || []),
-                          { key: newKey, label: `Sütun ${columns.length + 1}`, type: 'text' as const },
-                        ],
-                      }));
-                    }}
-                    disabled={(newQuestion.tableInputColumns?.length || 0) >= 10}
-                  >
-                    <Plus className="h-4 w-4 mr-1" />
-                    Sütun əlavə et
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {(newQuestion.tableInputColumns || []).map((column, index) => (
-                    <div key={column.key} className="flex items-center space-x-2">
-                      <Badge variant="outline" className="text-xs min-w-[24px] text-center">
-                        {index + 1}
-                      </Badge>
-                      <Input
-                        value={column.label}
-                        onChange={(e) => {
-                          const columns = [...(newQuestion.tableInputColumns || [])];
-                          columns[index] = { ...columns[index], label: e.target.value };
-                          setNewQuestion(prev => ({ ...prev, tableInputColumns: columns }));
-                        }}
-                        placeholder={`Sütun ${index + 1} adı`}
-                        className="flex-1"
-                      />
-                      <Select
-                        value={column.type}
-                        onValueChange={(value) => {
-                          const columns = [...(newQuestion.tableInputColumns || [])];
-                          columns[index] = { ...columns[index], type: value as 'text' | 'number' | 'date' };
-                          setNewQuestion(prev => ({ ...prev, tableInputColumns: columns }));
-                        }}
-                      >
-                        <SelectTrigger className="w-28">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {columnTypes.map((type) => (
-                            <SelectItem key={type.value} value={type.value}>
-                              {type.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const columns = (newQuestion.tableInputColumns || []).filter((_, i) => i !== index);
-                          setNewQuestion(prev => ({ ...prev, tableInputColumns: columns }));
-                        }}
-                        disabled={(newQuestion.tableInputColumns?.length || 0) <= 1}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-xs">Maksimum sətir sayı (cavab verənlər bu qədər sətir əlavə edə bilər)</Label>
-                <Select
-                  value={String(newQuestion.tableInputMaxRows ?? 20)}
-                  onValueChange={(value) => setNewQuestion(prev => ({ ...prev, tableInputMaxRows: Number(value) }))}
-                >
-                  <SelectTrigger className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {maxRowsOptions.map((num) => (
-                      <SelectItem key={num} value={String(num)}>
-                        Maksimum {num} sətir
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           )}

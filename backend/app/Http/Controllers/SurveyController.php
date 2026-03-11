@@ -100,9 +100,8 @@ class SurveyController extends BaseController
             'survey_type' => 'nullable|string|in:form,poll,assessment,feedback',
             'status' => 'nullable|string|in:draft,published',
             'questions' => 'required|array|min:1',
-            // table_input sualları üçün question ixtiyaridir - sütun adları kifayətdir
-            'questions.*.question' => 'nullable|string|max:1000',
-            'questions.*.type' => 'required|string|in:text,number,date,single_choice,multiple_choice,file_upload,rating,table_matrix,table_input',
+            'questions.*.question' => 'required|string|max:1000',
+            'questions.*.type' => 'required|string|in:text,number,date,single_choice,multiple_choice,file_upload',
             'questions.*.required' => 'nullable|boolean',
             'questions.*.options' => 'nullable|array',
             'questions.*.description' => 'nullable|string|max:1000',
@@ -113,21 +112,7 @@ class SurveyController extends BaseController
             'questions.*.allowed_file_types' => 'nullable|array',
             'questions.*.allowed_file_types.*' => 'string|max:50',
             'questions.*.max_file_size' => 'nullable|integer|min:0',
-            'questions.*.rating_min' => 'nullable|integer|min:1',
-            'questions.*.rating_max' => 'nullable|integer|min:1',
-            'questions.*.rating_min_label' => 'nullable|string|max:100',
-            'questions.*.rating_max_label' => 'nullable|string|max:100',
-            'questions.*.table_headers' => 'nullable|array',
-            'questions.*.table_headers.*' => 'string|max:255',
-            'questions.*.table_rows' => 'nullable|array',
-            'questions.*.table_rows.*' => 'string|max:255',
             'questions.*.metadata' => 'nullable|array',
-            'questions.*.metadata.table_input' => 'nullable|array',
-            'questions.*.metadata.table_input.max_rows' => 'nullable|integer|min:1|max:100',
-            'questions.*.metadata.table_input.columns' => 'nullable|array|min:1|max:20',
-            'questions.*.metadata.table_input.columns.*.key' => 'required_with:questions.*.metadata.table_input.columns|string|max:50',
-            'questions.*.metadata.table_input.columns.*.label' => 'required_with:questions.*.metadata.table_input.columns|string|max:255',
-            'questions.*.metadata.table_input.columns.*.type' => 'required_with:questions.*.metadata.table_input.columns|string|in:text,number,date',
             'questions.*.translations' => 'nullable|array',
             'settings' => 'nullable|array',
             'targeting_rules' => 'nullable|array',
@@ -144,10 +129,10 @@ class SurveyController extends BaseController
             'target_institutions.*' => 'integer|exists:institutions,id',
         ]);
 
-        // Custom validation: non-table_input questions must have question text
+        // Validation: all questions must have question text
         if (isset($validated['questions'])) {
             foreach ($validated['questions'] as $index => $question) {
-                if (($question['type'] ?? 'text') !== 'table_input' && empty($question['question'])) {
+                if (empty($question['question'])) {
                     return $this->errorResponse("Sual " . ($index + 1) . ": Sual mətni daxil edilməlidir", 422);
                 }
             }
@@ -178,9 +163,8 @@ class SurveyController extends BaseController
             'description' => 'nullable|string|max:2000',
             'survey_type' => 'sometimes|string|in:form,poll,assessment,feedback',
             'questions' => 'sometimes|required|array|min:1',
-            // table_input sualları üçün question ixtiyaridir - sütun adları kifayətdir
-            'questions.*.question' => 'nullable|string|max:1000',
-            'questions.*.type' => 'required|string|in:text,number,date,single_choice,multiple_choice,file_upload,rating,table_matrix,table_input',
+            'questions.*.question' => 'required|string|max:1000',
+            'questions.*.type' => 'required|string|in:text,number,date,single_choice,multiple_choice,file_upload',
             'questions.*.required' => 'nullable|boolean',
             'questions.*.options' => 'nullable|array',
             'questions.*.description' => 'nullable|string|max:1000',
@@ -191,21 +175,7 @@ class SurveyController extends BaseController
             'questions.*.allowed_file_types' => 'nullable|array',
             'questions.*.allowed_file_types.*' => 'string|max:50',
             'questions.*.max_file_size' => 'nullable|integer|min:0',
-            'questions.*.rating_min' => 'nullable|integer|min:1',
-            'questions.*.rating_max' => 'nullable|integer|min:1',
-            'questions.*.rating_min_label' => 'nullable|string|max:100',
-            'questions.*.rating_max_label' => 'nullable|string|max:100',
-            'questions.*.table_headers' => 'nullable|array',
-            'questions.*.table_headers.*' => 'string|max:255',
-            'questions.*.table_rows' => 'nullable|array',
-            'questions.*.table_rows.*' => 'string|max:255',
             'questions.*.metadata' => 'nullable|array',
-            'questions.*.metadata.table_input' => 'nullable|array',
-            'questions.*.metadata.table_input.max_rows' => 'nullable|integer|min:1|max:100',
-            'questions.*.metadata.table_input.columns' => 'nullable|array|min:1|max:20',
-            'questions.*.metadata.table_input.columns.*.key' => 'required_with:questions.*.metadata.table_input.columns|string|max:50',
-            'questions.*.metadata.table_input.columns.*.label' => 'required_with:questions.*.metadata.table_input.columns|string|max:255',
-            'questions.*.metadata.table_input.columns.*.type' => 'required_with:questions.*.metadata.table_input.columns|string|in:text,number,date',
             'questions.*.translations' => 'nullable|array',
             'settings' => 'nullable|array',
             'targeting_rules' => 'nullable|array',
@@ -221,10 +191,10 @@ class SurveyController extends BaseController
             'target_institutions.*' => 'integer|exists:institutions,id',
         ]);
 
-        // Custom validation: non-table_input questions must have question text
+        // Validation: all questions must have question text
         if (isset($validated['questions'])) {
             foreach ($validated['questions'] as $index => $question) {
-                if (($question['type'] ?? 'text') !== 'table_input' && empty($question['question'])) {
+                if (empty($question['question'])) {
                     return $this->errorResponse("Sual " . ($index + 1) . ": Sual mətni daxil edilməlidir", 422);
                 }
             }
@@ -314,6 +284,30 @@ class SurveyController extends BaseController
 
     // NOTE: publish(), pause(), and archive() methods have been moved to SurveyStatusController
     // These methods are now handled by SurveyStatusService with proper status management
+
+    /**
+     * Export survey responses as flat-matrix Excel file
+     * One row per submitted response, one column per question (full title)
+     */
+    public function export(Survey $survey)
+    {
+        try {
+            $export = new \App\Exports\SurveyFlatResponsesExport($survey);
+            $filename = 'sorgu-cavablari-' . $survey->id . '-' . now()->format('Y-m-d') . '.xlsx';
+
+            return \Maatwebsite\Excel\Facades\Excel::download($export, $filename, \Maatwebsite\Excel\Excel::XLSX);
+        } catch (\Exception $e) {
+            \Log::error('Survey flat export error', [
+                'survey_id' => $survey->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Export zamanı xəta baş verdi: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
 
     /**
      * Get survey for response (public endpoint)

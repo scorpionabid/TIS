@@ -35,26 +35,7 @@ export type SurveyQuestionType =
   | 'date'
   | 'single_choice'
   | 'multiple_choice'
-  | 'file_upload'
-  | 'rating'
-  | 'table_matrix'
-  | 'table_input';
-
-export interface TableInputColumn {
-  key: string;
-  label: string;
-  type: 'text' | 'number' | 'date';
-}
-
-export interface TableInputConfig {
-  max_rows?: number;
-  columns: TableInputColumn[];
-}
-
-export interface SurveyQuestionMetadata {
-  table_input?: TableInputConfig;
-  [key: string]: unknown;
-}
+  | 'file_upload';
 
 export interface SurveyQuestion {
   id?: number;
@@ -68,19 +49,13 @@ export interface SurveyQuestion {
   order_index?: number;
   is_active?: boolean;
   validation_rules?: Record<string, unknown> | null;
-  metadata?: SurveyQuestionMetadata | null;
+  metadata?: Record<string, unknown> | null;
   min_value?: number;
   max_value?: number;
   min_length?: number;
   max_length?: number;
   allowed_file_types?: string[];
   max_file_size?: number;
-  rating_min?: number;
-  rating_max?: number;
-  rating_min_label?: string;
-  rating_max_label?: string;
-  table_headers?: string[];
-  table_rows?: string[];
   translations?: Record<string, unknown> | null;
   created_at?: string;
   updated_at?: string;
