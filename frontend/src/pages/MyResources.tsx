@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,20 +9,19 @@ import {
   Link,
   FileText,
   Eye,
-  Download,
-  ExternalLink,
   BookOpen,
-  Clock,
-  MousePointer,
   AlertCircle,
-  User,
-  Building2,
-  CheckCircle,
-  Video,
-  Archive,
   Folder,
-  Upload
+  Upload,
+  Download,
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,6 +30,8 @@ import { AssignedResource } from "@/types/resources";
 import documentCollectionService from "@/services/documentCollectionService";
 import type { DocumentCollection } from "@/types/documentCollection";
 import FolderDocumentsView from "@/components/documents/FolderDocumentsView";
+import { AssignedResourceGrid } from "@/components/resources/AssignedResourceGrid";
+import { ResourceDetailPanel } from "@/components/resources/ResourceDetailPanel";
 
 export default function MyResources() {
   const { currentUser } = useAuth();
@@ -40,7 +41,17 @@ export default function MyResources() {
   // State
   const [activeTab, setActiveTab] = useState<'all' | 'links' | 'documents'>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sortBy, setSortBy] = useState<'date_desc' | 'date_asc' | 'title_asc' | 'title_desc'>('date_desc');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [selectedFolder, setSelectedFolder] = useState<DocumentCollection | null>(null);
+  const [detailResource, setDetailResource] = useState<AssignedResource | null>(null);
+
+  // Debounce search — 300ms gözlə, sonra API çağır
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm), 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
   // Check permissions
   const isAuthenticated = !!currentUser;
@@ -76,32 +87,13 @@ export default function MyResources() {
   const { data: assignedResources, isLoading, error, refetch } = useQuery({
     queryKey: ['assigned-resources', {
       type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
-      search: searchTerm || undefined,
+      search: debouncedSearch || undefined,
     }],
     queryFn: async () => {
-      console.log('🔍 MyResources: Fetching assigned resources', {
-        currentUser: currentUser,
-        userRole: currentUser?.role,
-        canViewAssignedResources,
-        activeTab,
-        searchTerm,
-        queryParams: {
-          type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
-          search: searchTerm || undefined,
-          per_page: 50
-        }
-      });
-
       const result = await resourceService.getAssignedResources({
         type: activeTab === 'all' ? undefined : activeTab.slice(0, -1) as 'link' | 'document',
-        search: searchTerm || undefined,
+        search: debouncedSearch || undefined,
         per_page: 50
-      });
-
-      console.log('📥 MyResources: Assigned resources result', {
-        result,
-        count: result?.length || 0,
-        data: result
       });
 
       return result;
@@ -109,6 +101,23 @@ export default function MyResources() {
     enabled: isAuthenticated && canViewAssignedResources,
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
+
+  const rawResourcesData = assignedResources || [];
+
+  // Sort + category filter (client-side) — must be before early returns (Rules of Hooks)
+  const resourcesData = useMemo(() => {
+    let data = [...rawResourcesData];
+    switch (sortBy) {
+      case 'date_desc': data.sort((a, b) => new Date(b.assigned_at || b.created_at).getTime() - new Date(a.assigned_at || a.created_at).getTime()); break;
+      case 'date_asc':  data.sort((a, b) => new Date(a.assigned_at || a.created_at).getTime() - new Date(b.assigned_at || b.created_at).getTime()); break;
+      case 'title_asc': data.sort((a, b) => a.title.localeCompare(b.title, 'az')); break;
+      case 'title_desc':data.sort((a, b) => b.title.localeCompare(a.title, 'az')); break;
+    }
+    if (activeTab === 'documents' && categoryFilter !== 'all') {
+      data = data.filter(r => r.type === 'document' && r.category === categoryFilter);
+    }
+    return data;
+  }, [rawResourcesData, sortBy, activeTab, categoryFilter]);
 
   // Security check
   if (!isAuthenticated) {
@@ -139,21 +148,6 @@ export default function MyResources() {
     );
   }
 
-  const resourcesData = assignedResources || [];
-
-  // Helper functions
-  const getResourceIcon = (resource: AssignedResource) => {
-    if (resource.type === 'link') {
-      switch (resource.link_type) {
-        case 'video': return <Video className="h-5 w-5 text-red-500" />;
-        case 'form': return <FileText className="h-5 w-5 text-green-500" />;
-        case 'document': return <FileText className="h-5 w-5 text-blue-500" />;
-        default: return <ExternalLink className="h-5 w-5 text-primary" />;
-      }
-    } else {
-      return <span className="text-lg">{resourceService.getResourceIcon(resource)}</span>;
-    }
-  };
 
   const handleResourceAction = async (resource: AssignedResource, action: 'view' | 'access' | 'download') => {
     let blobUrl: string | null = null;
@@ -163,7 +157,7 @@ export default function MyResources() {
           if (resource.type === 'link' && resource.url) {
             const result = await resourceService.accessResource(resource.id, 'link');
             window.open(result.redirect_url || resource.url, '_blank', 'noopener,noreferrer');
-            // Mark as viewed and refresh
+            resourceService.markAsViewed(resource.id, 'link');
             queryClient.invalidateQueries({ queryKey: ['assigned-resources'] });
           }
           break;
@@ -178,13 +172,14 @@ export default function MyResources() {
               document.body.appendChild(a);
               a.click();
               document.body.removeChild(a);
-              // Mark as viewed and refresh
+              resourceService.markAsViewed(resource.id, 'document');
               queryClient.invalidateQueries({ queryKey: ['assigned-resources'] });
             }
           }
           break;
         case 'view':
-          // Mark as viewed (to be implemented)
+          await resourceService.markAsViewed(resource.id, resource.type);
+          queryClient.invalidateQueries({ queryKey: ['assigned-resources'] });
           break;
       }
     } catch (error: any) {
@@ -284,9 +279,9 @@ export default function MyResources() {
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          {/* Search */}
-          <div className="mb-6">
-            <div className="relative max-w-md">
+          {/* Search + Sort */}
+          <div className="mb-6 flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
               <Input
                 type="text"
@@ -296,6 +291,17 @@ export default function MyResources() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Sırala" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="date_desc">Ən yeni əvvəl</SelectItem>
+                <SelectItem value="date_asc">Ən köhnə əvvəl</SelectItem>
+                <SelectItem value="title_asc">Ad (A → Z)</SelectItem>
+                <SelectItem value="title_desc">Ad (Z → A)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Statistics */}
@@ -342,37 +348,77 @@ export default function MyResources() {
           </div>
 
           {/* Assigned Resources Tabs */}
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger value="all">
-                Hamısı ({resourcesData.length})
-              </TabsTrigger>
-              <TabsTrigger value="links">
-                Linklər ({resourcesData.filter(r => r.type === 'link').length})
-              </TabsTrigger>
-              <TabsTrigger value="documents">
-                Sənədlər ({resourcesData.filter(r => r.type === 'document').length})
-              </TabsTrigger>
-            </TabsList>
+          {isLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i}>
+                  <CardContent className="px-4 py-6">
+                    <div className="animate-pulse">
+                      <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
+                      <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as any)}>
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger value="all">
+                  Hamısı ({resourcesData.length})
+                </TabsTrigger>
+                <TabsTrigger value="links">
+                  Linklər ({resourcesData.filter(r => r.type === 'link').length})
+                </TabsTrigger>
+                <TabsTrigger value="documents">
+                  Sənədlər ({resourcesData.filter(r => r.type === 'document').length})
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="all" className="mt-6">
-              <AssignedResourceGrid resources={resourcesData} onResourceAction={handleResourceAction} />
-            </TabsContent>
+              <TabsContent value="all" className="mt-6">
+                <AssignedResourceGrid resources={resourcesData} onResourceAction={handleResourceAction} onCardClick={setDetailResource} />
+              </TabsContent>
 
-            <TabsContent value="links" className="mt-6">
-              <AssignedResourceGrid
-                resources={resourcesData.filter(r => r.type === 'link')}
-                onResourceAction={handleResourceAction}
-              />
-            </TabsContent>
+              <TabsContent value="links" className="mt-6">
+                <AssignedResourceGrid
+                  resources={resourcesData.filter(r => r.type === 'link')}
+                  onResourceAction={handleResourceAction}
+                  onCardClick={setDetailResource}
+                />
+              </TabsContent>
 
-            <TabsContent value="documents" className="mt-6">
-              <AssignedResourceGrid
-                resources={resourcesData.filter(r => r.type === 'document')}
-                onResourceAction={handleResourceAction}
-              />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="documents" className="mt-6">
+                {/* Category filter chips */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {[
+                    { value: 'all', label: 'Hamısı' },
+                    { value: 'administrative', label: 'İnzibati' },
+                    { value: 'educational', label: 'Tədris' },
+                    { value: 'financial', label: 'Maliyyə' },
+                    { value: 'hr', label: 'HR' },
+                    { value: 'reports', label: 'Hesabat' },
+                    { value: 'forms', label: 'Formlar' },
+                  ].map(cat => (
+                    <Button
+                      key={cat.value}
+                      variant={categoryFilter === cat.value ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setCategoryFilter(cat.value)}
+                    >
+                      {cat.label}
+                    </Button>
+                  ))}
+                </div>
+                <AssignedResourceGrid
+                  resources={resourcesData.filter(r => r.type === 'document')}
+                  onResourceAction={handleResourceAction}
+                  onCardClick={setDetailResource}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
         </CardContent>
       </Card>
 
@@ -491,198 +537,17 @@ export default function MyResources() {
         />
       )}
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="px-4 py-6">
-                <div className="animate-pulse">
-                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2 mb-4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-full mb-2"></div>
-                  <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
+      {/* Resource Detail Side Panel */}
+      <ResourceDetailPanel
+        resource={detailResource}
+        onClose={() => setDetailResource(null)}
+        onAction={(resource, action) => {
+          setDetailResource(null);
+          handleResourceAction(resource, action);
+        }}
+      />
+
     </div>
   );
 }
 
-// Assigned Resource Grid Component
-interface AssignedResourceGridProps {
-  resources: AssignedResource[];
-  onResourceAction: (resource: AssignedResource, action: 'view' | 'access' | 'download') => void;
-}
-
-function AssignedResourceGrid({ resources, onResourceAction }: AssignedResourceGridProps) {
-  const getResourceIcon = (resource: AssignedResource) => {
-    if (resource.type === 'link') {
-      switch (resource.link_type) {
-        case 'video': return <Video className="h-5 w-5 text-red-500" />;
-        case 'form': return <FileText className="h-5 w-5 text-green-500" />;
-        case 'document': return <FileText className="h-5 w-5 text-blue-500" />;
-        default: return <ExternalLink className="h-5 w-5 text-primary" />;
-      }
-    } else {
-      return <span className="text-lg">{resourceService.getResourceIcon(resource)}</span>;
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('az-AZ', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
-
-  if (resources.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-medium">Resurs tapılmadı</h3>
-        <p className="text-muted-foreground">
-          Hələ ki sizə heç bir resurs təyin edilməyib
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {resources.map((resource: AssignedResource) => (
-        <Card
-          key={`${resource.type}-${resource.id}`}
-          className={`hover:shadow-lg transition-shadow ${
-            resource.is_new ? 'border-red-200 bg-red-50/30' :
-            !resource.viewed_at ? 'border-blue-200 bg-blue-50/30' : ''
-          }`}
-        >
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {getResourceIcon(resource)}
-                <CardTitle className="text-base truncate">{resource.title}</CardTitle>
-              </div>
-              <div className="flex gap-1 ml-2 flex-wrap">
-                <Badge variant="outline" className="text-xs">
-                  {resource.type === 'link' ? 'Link' : 'Sənəd'}
-                </Badge>
-                {resource.is_new && (
-                  <Badge variant="destructive" className="text-xs">Yeni</Badge>
-                )}
-                {!resource.viewed_at && !resource.is_new && (
-                  <Badge variant="secondary" className="text-xs">Baxılmayıb</Badge>
-                )}
-                {resource.viewed_at && (
-                  <Badge variant="default" className="text-xs bg-green-600">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Baxılıb
-                  </Badge>
-                )}
-              </div>
-            </div>
-            <CardDescription className="text-xs">
-              {resource.type === 'link' && resource.url
-                ? (() => {
-                    try {
-                      return new URL(resource.url).hostname;
-                    } catch {
-                      return resource.url.length > 30 ? resource.url.substring(0, 30) + '...' : resource.url;
-                    }
-                  })()
-                : resource.type === 'document' && resource.original_filename
-                ? `${resource.mime_type?.split('/')[1]?.toUpperCase()} • ${resourceService.formatResourceSize(resource)}`
-                : 'Resurs'
-              }
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-3">
-              {resource.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {resource.description}
-                </p>
-              )}
-
-              {/* Assignment Info */}
-              {resource.assigned_by && (
-                <div className="p-3 bg-blue-50 rounded-lg space-y-1">
-                  <div className="text-xs text-blue-800 font-medium">Təyin edən:</div>
-                  <div className="flex items-center gap-1 text-xs text-blue-700">
-                    <User className="h-3 w-3" />
-                    <span>{resource.assigned_by.name}</span>
-                    <span>•</span>
-                    <Building2 className="h-3 w-3" />
-                    <span>{resource.assigned_by.institution}</span>
-                  </div>
-                  {resource.assigned_at && (
-                    <div className="flex items-center gap-1 text-xs text-blue-700">
-                      <Clock className="h-3 w-3" />
-                      <span>Təyin tarixi: {formatDate(resource.assigned_at)}</span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                {resource.type === 'link' && (
-                  <div className="flex items-center gap-1">
-                    <MousePointer className="h-3 w-3" />
-                    <span>{resource.click_count || 0} klik</span>
-                  </div>
-                )}
-                {resource.type === 'document' && (
-                  <div className="flex items-center gap-1">
-                    <Download className="h-3 w-3" />
-                    <span>{resource.download_count || 0} yükləmə</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>{formatDate(resource.created_at)}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="flex-1"
-                  onClick={() => onResourceAction(resource, 'view')}
-                >
-                  <Eye className="h-3 w-3 mr-1" />
-                  Bax
-                </Button>
-                {resource.type === 'link' ? (
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => onResourceAction(resource, 'access')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Aç
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => onResourceAction(resource, 'download')}
-                    disabled={!resource.is_downloadable}
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    Yüklə
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}

@@ -732,7 +732,7 @@ class LinkShareControllerRefactored extends BaseController
             $user = Auth::user();
 
             // Check if user has permission to view assigned resources
-            if (! $user->hasAnyRole(['sektoradmin', 'schooladmin', 'regionoperator', 'müəllim', 'teacher'])) {
+            if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'regionoperator', 'müəllim', 'teacher'])) {
                 return $this->errorResponse('Bu səhifəni görməyə icazəniz yoxdur', 403);
             }
 
@@ -749,6 +749,41 @@ class LinkShareControllerRefactored extends BaseController
                 'total' => count($assignedResources),
             ], 'Təyin edilmiş resurslər alındı');
         }, 'linkshare.getAssignedResources');
+    }
+
+    /**
+     * Mark a resource as viewed by the current user.
+     * Called when a user opens a link or downloads a document.
+     */
+    public function markAsViewed(Request $request, string $type, int $id): JsonResponse
+    {
+        return $this->executeWithErrorHandling(function () use ($request, $type, $id) {
+            $user = Auth::user();
+
+            $view = \App\Models\ResourceView::where([
+                'user_id' => $user->id,
+                'resource_id' => $id,
+                'resource_type' => $type,
+            ])->first();
+
+            if ($view) {
+                $view->update([
+                    'last_viewed_at' => now(),
+                    'view_count' => $view->view_count + 1,
+                ]);
+            } else {
+                \App\Models\ResourceView::create([
+                    'user_id' => $user->id,
+                    'resource_id' => $id,
+                    'resource_type' => $type,
+                    'first_viewed_at' => now(),
+                    'last_viewed_at' => now(),
+                    'view_count' => 1,
+                ]);
+            }
+
+            return $this->successResponse(null, 'Resurs baxılmış kimi işarələndi');
+        }, 'linkshare.markAsViewed');
     }
 
     /**

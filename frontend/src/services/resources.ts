@@ -657,6 +657,19 @@ class ResourceService {
     }
   }
 
+  /**
+   * Mark a resource as viewed by the current user (non-blocking).
+   * Called after opening a link or downloading a document.
+   */
+  async markAsViewed(id: number, type: 'link' | 'document'): Promise<void> {
+    try {
+      await apiClient.post(`/my-resources/${type}/${id}/view`, {});
+    } catch (error) {
+      // Non-blocking — view tracking failure should never break the user experience
+      console.warn('⚠️ ResourceService.markAsViewed failed (non-critical):', error);
+    }
+  }
+
   async getAssignedResourcesPaginated(filters: ResourceFilters = {}): Promise<ResourceListResponse> {
     const resources = await this.getAssignedResources(filters);
     return this.buildPaginatedResponse(resources, filters.per_page);
