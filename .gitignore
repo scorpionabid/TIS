@@ -221,3 +221,10 @@ backend/.env.backup_*
 
 # Database statistics
 database_*.txt
+
+# Production restore scripts (LOCAL DEVELOPMENT ONLY)
+restore_production_backup.sh
+restore_*_production*.sh
+restore_*_backup*.sh
+*production_*.sql
+*backup_*.sql
