@@ -119,6 +119,7 @@ dist-ssr
 .cache/
 public
 !/backend/public/index.php
+!frontend/public/
 
 # Storybook build outputs
 .out
