@@ -32,7 +32,7 @@ class AuthMiddleware
         }
 
         // Check if user account is locked
-        if ($user->account_locked_until && $user->account_locked_until > now()) {
+        if ($user->locked_until && $user->locked_until > now()) {
             return response()->json([
                 'message' => 'Account is temporarily locked. Please try again later.',
             ], 423);

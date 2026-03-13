@@ -58,6 +58,17 @@ class SetupWizardController extends Controller
      */
     public function initializeSystem(Request $request): JsonResponse
     {
+        // Guard: sistem artıq qurulubsa icazə vermə
+        $superAdminExists = User::whereHas('roles', function ($q) {
+            $q->where('name', 'superadmin');
+        })->exists();
+
+        if ($superAdminExists) {
+            return response()->json([
+                'message' => 'Sistem artıq qurulub. Bu əməliyyata icazə verilmir.',
+            ], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'superadmin_username' => 'required|string|min:3|max:50|unique:users,username',
             'superadmin_email' => 'required|email|unique:users,email',
@@ -151,6 +162,11 @@ class SetupWizardController extends Controller
      */
     public function createSampleStructure(Request $request): JsonResponse
     {
+        // Guard: yalnız superadmin icra edə bilər (route artıq public deyil)
+        if (! auth()->check() || ! auth()->user()->hasRole('superadmin')) {
+            return response()->json(['message' => 'Icazə yoxdur.'], 403);
+        }
+
         $validator = Validator::make($request->all(), [
             'region_name' => 'required|string|max:255',
             'region_code' => 'required|string|max:10',

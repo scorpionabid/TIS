@@ -37,7 +37,8 @@ Route::prefix('links')->group(function () {
 });
 
 // My Resources Routes (for all authenticated roles)
-Route::prefix('my-resources')->middleware('auth:sanctum')->group(function () {
+// auth:sanctum + auth.custom: validates token, is_active, account_locked_until
+Route::prefix('my-resources')->middleware(['auth:sanctum', 'auth.custom'])->group(function () {
     // Get resources assigned to current user's institution
     Route::get('/assigned', [LinkShareController::class, 'getAssignedResources'])
         ->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator|teacher');

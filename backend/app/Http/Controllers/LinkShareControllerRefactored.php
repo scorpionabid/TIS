@@ -45,7 +45,7 @@ class LinkShareControllerRefactored extends BaseController
         return $this->executeWithErrorHandling(function () use ($request) {
             $request->validate([
                 'search' => 'nullable|string|max:255',
-                'document_type' => 'nullable|string',
+                'document_type' => 'nullable|string|in:link,pdf,doc,docx,xls,xlsx,png,jpg,jpeg,gif,other',
                 'creator_id' => 'nullable|exists:users,id',
                 'institution_id' => 'nullable|exists:institutions,id',
                 'institution_ids' => 'nullable|array',
@@ -59,7 +59,7 @@ class LinkShareControllerRefactored extends BaseController
                 'date_to' => 'nullable|date|after_or_equal:date_from',
                 'sort_by' => 'nullable|string|in:created_at,expires_at,access_count,document_name',
                 'sort_direction' => 'nullable|string|in:asc,desc',
-                'per_page' => 'nullable|integer|min:1|max:500',
+                'per_page' => 'nullable|integer|min:1|max:100',
                 'scope' => 'nullable|string|in:scoped,global',
                 'status' => 'nullable|string|in:active,expired,disabled',
                 'statuses' => 'nullable|array',
@@ -731,8 +731,9 @@ class LinkShareControllerRefactored extends BaseController
 
             $user = Auth::user();
 
-            // Check if user has permission to view assigned resources
-            if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'regionoperator', 'müəllim', 'teacher'])) {
+            // Route middleware 'teacher' rolunu yoxlayır.
+            // 'müəllim' alias-ı üçün əlavə controller yoxlaması (DB-də fərqli adla saxlanıla bilər)
+            if (! $user->hasAnyRole(['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'regionoperator', 'teacher', 'müəllim'])) {
                 return $this->errorResponse('Bu səhifəni görməyə icazəniz yoxdur', 403);
             }
 
@@ -759,6 +760,26 @@ class LinkShareControllerRefactored extends BaseController
     {
         return $this->executeWithErrorHandling(function () use ($request, $type, $id) {
             $user = Auth::user();
+
+            // Authorization: istifadəçinin bu resursa giriş hüququ var mı?
+            if ($type === 'link') {
+                $resource = LinkShare::find($id);
+                if (! $resource) {
+                    return $this->errorResponse('Bağlantı tapılmadı', 404);
+                }
+                if (! $resource->canBeAccessedBy($user)) {
+                    return $this->errorResponse('Bu resursa giriş icazəniz yoxdur', 403);
+                }
+            } elseif ($type === 'document') {
+                $resource = \App\Models\Document::find($id);
+                if (! $resource) {
+                    return $this->errorResponse('Sənəd tapılmadı', 404);
+                }
+                // SuperAdmin hər şeyə çatır; digərləri yalnız öz institution-larına
+                if (! $user->hasRole('superadmin') && $resource->institution_id !== $user->institution_id) {
+                    return $this->errorResponse('Bu sənədə giriş icazəniz yoxdur', 403);
+                }
+            }
 
             $view = \App\Models\ResourceView::where([
                 'user_id' => $user->id,

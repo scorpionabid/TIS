@@ -19,9 +19,11 @@ Route::middleware([\App\Http\Middleware\ForceCors::class])->group(function () {
     require __DIR__ . '/api/public.php';
 
     // Load authenticated routes
-    Route::middleware('auth:sanctum')->group(function () {
-        // DEBUG ENDPOINT - Check current user permissions (Development Only)
-        if (app()->environment('local', 'development', 'testing')) {
+    // auth:sanctum checks token validity
+    // auth.custom checks is_active, account_locked_until, password_change_required
+    Route::middleware(['auth:sanctum', 'auth.custom'])->group(function () {
+        // DEBUG ENDPOINT - Local environment only (removed 'development' and 'testing')
+        if (app()->environment('local')) {
             Route::get('/debug/my-permissions', function (Illuminate\Http\Request $request) {
                 $user = $request->user();
 

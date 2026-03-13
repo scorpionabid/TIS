@@ -4,6 +4,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Auth\DeviceController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\Auth\SessionController;
+use App\Http\Controllers\ConfigController;
 use App\Http\Controllers\HealthController;
 use App\Http\Controllers\NavigationController;
 use App\Http\Controllers\ProfileController;
@@ -71,3 +72,29 @@ Route::prefix('devices')->group(function () {
 Route::get('navigation', [NavigationController::class, 'getNavigation']);
 Route::get('navigation/permissions', [NavigationController::class, 'getNavigationWithPermissions']);
 Route::get('navigation/menu', [NavigationController::class, 'getMenuItems']);
+
+// System constants (moved behind auth - roles/permissions not exposed publicly)
+Route::get('config/constants', [ConfigController::class, 'getConstants']);
+
+// WebSocket config (moved behind auth - app_key not exposed publicly)
+Route::get('test/websocket/info', function () {
+    $broadcastDriver = env('BROADCAST_CONNECTION', 'log');
+    $isWebSocketEnabled = ! in_array($broadcastDriver, ['log', 'null']);
+
+    if (! $isWebSocketEnabled) {
+        return response()->json([
+            'success' => false,
+            'message' => 'WebSocket/Broadcasting is disabled. Using polling for updates.',
+        ]);
+    }
+
+    return response()->json([
+        'success' => true,
+        'data' => [
+            'app_key' => env('REVERB_APP_KEY', 'atis-notification-2024'),
+            'reverb_host' => env('REVERB_HOST', 'localhost'),
+            'reverb_port' => (int) env('REVERB_PORT', 8080),
+            'reverb_scheme' => env('REVERB_PORT', 8080) == 443 ? 'https' : 'http',
+        ],
+    ]);
+});
