@@ -17,10 +17,11 @@ export function GenericManagerV2<
   T extends BaseEntity,
   TFilters extends BaseFilters,
   TCreateData
->({ 
-  config, 
-  customLogic, 
-  className 
+>({
+  config,
+  customLogic,
+  className,
+  statsVariant = 'default',
 }: GenericManagerProps<T, TFilters, TCreateData>) {
   
   const manager = useEntityManagerV2(config, customLogic);
@@ -155,7 +156,7 @@ export function GenericManagerV2<
 
       {/* Stats Cards */}
       {features.stats !== false && (
-        <GenericStatsCards stats={manager.stats} />
+        <GenericStatsCards stats={manager.stats} variant={statsVariant} />
       )}
 
       {/* Bulk Actions */}

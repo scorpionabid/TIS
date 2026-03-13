@@ -165,6 +165,7 @@ export interface GenericManagerProps<T extends BaseEntity, TFilters extends Base
   config: EntityConfig<T, TFilters, TCreateData>;
   customLogic?: ManagerCustomLogic<T>;
   className?: string;
+  statsVariant?: 'default' | 'compact';
 }
 
 // Hook return type extension

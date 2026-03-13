@@ -285,6 +285,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
       <GenericManagerV2
         config={enhancedConfig}
         customLogic={enhancedCustomLogic}
+        statsVariant="compact"
       />
       
       {/* Teacher-specific Modals */}
