@@ -27,6 +27,10 @@ class SchoolTeacherController extends Controller
      */
     public function getTeachers(Request $request): JsonResponse
     {
+        if (! auth()->user()->can('teachers.read')) {
+            return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+        }
+
         $user = Auth::user();
         $school = $user->institution;
 
@@ -91,6 +95,10 @@ class SchoolTeacherController extends Controller
     public function getTeacher(Request $request, int $teacherId): JsonResponse
     {
         try {
+            if (! auth()->user()->can('teachers.read')) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
+
             $user = Auth::user();
             $school = $user->institution;
 
@@ -171,16 +179,11 @@ class SchoolTeacherController extends Controller
     public function createTeacher(Request $request): JsonResponse
     {
         try {
-            $user = Auth::user();
-
-            // Permission check temporarily disabled for debugging
-            // TODO: Re-enable after fixing
-            /*
-            if (!$user || !$user->can('teachers.write')) {
-                return response()->json(['error' => 'Unauthorized - Missing teachers.write permission'], 403);
+            if (! auth()->user()->can('teachers.write')) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
             }
-            */
 
+            $user = Auth::user();
             $school = $user->institution;
 
             if (! $school) {
@@ -390,6 +393,10 @@ class SchoolTeacherController extends Controller
     public function updateTeacher(Request $request, int $teacherId): JsonResponse
     {
         try {
+            if (! auth()->user()->can('teachers.update')) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
+
             $user = Auth::user();
             $school = $user->institution;
 
@@ -415,6 +422,7 @@ class SchoolTeacherController extends Controller
                 'profile' => 'nullable|array',
                 'profile.first_name' => 'nullable|string|max:100',
                 'profile.last_name' => 'nullable|string|max:100',
+                'profile.patronymic' => 'nullable|string|max:100',
                 'profile.contact_phone' => 'nullable|string|max:20',
                 'profile.birth_date' => 'nullable|date',
                 'profile.hire_date' => 'nullable|date',
@@ -424,7 +432,7 @@ class SchoolTeacherController extends Controller
                 'profile.subjects' => 'nullable', // Can be array or JSON string
                 'profile.salary' => 'nullable|numeric|min:0',
                 'profile.notes' => 'nullable|string',
-                // New teacher fields
+                // Position & Employment fields
                 'profile.position_type' => 'nullable|string|in:direktor,direktor_muavini_tedris,direktor_muavini_inzibati,terbiye_isi_uzre_direktor_muavini,metodik_birlesme_rəhbəri,muəllim_sinif_rəhbəri,muəllim,psixoloq,kitabxanaçı,laborant,tibb_işçisi,təsərrüfat_işçisi',
                 'profile.employment_status' => 'nullable|string|in:full_time,part_time,contract,temporary,substitute',
                 'profile.workplace_type' => 'nullable|string|in:primary,secondary',
@@ -432,9 +440,14 @@ class SchoolTeacherController extends Controller
                 'profile.contract_end_date' => 'nullable|date|after:profile.contract_start_date',
                 'profile.specialty_score' => 'nullable|numeric|min:0|max:100',
                 'profile.specialty' => 'nullable|string|max:255',
+                'profile.specialty_level' => 'nullable|string|in:bakalavr,magistr,doktorantura,elmi_ishci',
                 'profile.experience_years' => 'nullable|integer|min:0|max:50',
-                'profile.miq_score' => 'nullable|numeric|min:0|max:999.99',
-                'profile.certification_score' => 'nullable|numeric|min:0|max:999.99',
+                // Assessment fields — consistent with createTeacher
+                'profile.assessment_type' => 'nullable|string|in:sertifikasiya,miq_100,miq_60,diaqnostik',
+                'profile.assessment_score' => 'nullable|numeric|min:0|max:100',
+                // Old certification fields — max:100 consistent with createTeacher
+                'profile.miq_score' => 'nullable|numeric|min:0|max:100',
+                'profile.certification_score' => 'nullable|numeric|min:0|max:100',
                 'profile.last_certification_date' => 'nullable|date',
             ]);
 
@@ -536,6 +549,10 @@ class SchoolTeacherController extends Controller
     public function destroy(Request $request, int $teacherId): JsonResponse
     {
         try {
+            if (! auth()->user()->can('teachers.delete')) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
+
             $user = Auth::user();
             $school = $user->institution;
 
@@ -580,6 +597,10 @@ class SchoolTeacherController extends Controller
     public function getAvailable(Request $request): JsonResponse
     {
         try {
+            if (! auth()->user()->can('teachers.read')) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
+
             $user = Auth::user();
             $institutionId = $request->get('institution_id');
             $role = $request->get('role', 'müəllim');
@@ -638,6 +659,10 @@ class SchoolTeacherController extends Controller
     public function exportTeachers(Request $request): JsonResponse
     {
         try {
+            if (! auth()->user()->can('teachers.read')) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
+
             $user = Auth::user();
             $school = $user->institution;
 
@@ -698,6 +723,10 @@ class SchoolTeacherController extends Controller
      */
     public function getImportTemplate(): JsonResponse
     {
+        if (! auth()->user()->can('teachers.read')) {
+            return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+        }
+
         $template = [
             [
                 'Ad' => 'Məsələn: Əli',
@@ -727,6 +756,10 @@ class SchoolTeacherController extends Controller
     public function importTeachers(Request $request): JsonResponse
     {
         try {
+            if (! auth()->user()->can('teachers.write')) {
+                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
+            }
+
             $user = Auth::user();
             $school = $user->institution;
 

@@ -180,7 +180,20 @@ export interface SchoolTeacher extends BaseEntity {
   experience_years?: number;
   miq_score?: number;
   certification_score?: number;
+  last_certification_date?: string;
   last_evaluation_date?: string;
+
+  // Weekly hours (alias for workload_hours, returned by API)
+  weekly_hours?: number;
+
+  // Classes and subjects details
+  subjects?: Array<{ name: string; hours_per_week?: number }> | string[];
+  classes?: Array<{ name: string; student_count: number; is_class_teacher?: boolean }> | number[];
+
+  // Additional profile fields
+  education?: string;
+  certifications?: string[];
+  updated_at?: string;
 }
 
 // Attendance interfaces
