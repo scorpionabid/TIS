@@ -130,36 +130,36 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
 
   // Build stats cards from statistics API
   const statsCards = React.useMemo((): StatsConfig[] => {
-    const stats = statisticsResponse?.data;
-    if (!stats) return [];
+    const overview = statisticsResponse?.data?.overview;
+    if (!overview) return [];
     return [
       {
         key: 'total',
         label: 'Cəmi Sinif',
-        value: stats.active_grades + stats.inactive_grades,
+        value: overview.total_grades,
         icon: GraduationCap,
         color: 'blue',
       },
       {
         key: 'active',
         label: 'Aktiv',
-        value: stats.active_grades,
+        value: overview.active_grades,
         icon: CheckCircle2,
         color: 'green',
       },
       {
         key: 'no_teacher',
         label: 'Müəllimsiz',
-        value: stats.teacher_assignment_stats.without_teacher,
+        value: overview.grades_without_teachers,
         icon: UserX,
-        color: stats.teacher_assignment_stats.without_teacher > 0 ? 'yellow' : 'green',
+        color: overview.grades_without_teachers > 0 ? 'yellow' : 'green',
       },
       {
         key: 'no_room',
         label: 'Otaqsız',
-        value: stats.room_assignment_stats.without_room,
+        value: overview.grades_without_rooms,
         icon: DoorOpen,
-        color: stats.room_assignment_stats.without_room > 0 ? 'yellow' : 'green',
+        color: overview.grades_without_rooms > 0 ? 'yellow' : 'green',
       },
     ];
   }, [statisticsResponse]);
