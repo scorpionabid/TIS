@@ -10,10 +10,12 @@ import { FilterBar } from '@/components/common/FilterBar';
 interface GenericFiltersProps {
   searchTerm: string;
   setSearchTerm: (term: string) => void;
-  filters: any;
-  setFilters: (filters: any) => void;
+  // Matches React.Dispatch<React.SetStateAction<T>> where T extends BaseFilters
+  filters: Record<string, unknown>;
+  setFilters: (updater: ((prev: Record<string, unknown>) => Record<string, unknown>) | Record<string, unknown>) => void;
   filterFields: FilterFieldConfig[];
   className?: string;
+  variant?: 'default' | 'inline';
 }
 
 export function GenericFilters({
@@ -23,27 +25,118 @@ export function GenericFilters({
   setFilters,
   filterFields,
   className,
+  variant = 'default',
 }: GenericFiltersProps) {
-  
+
   const [isExpanded, setIsExpanded] = React.useState(false);
-  const hasActiveFilters = Object.values(filters || {}).some(value => 
+  const hasActiveFilters = Object.values(filters || {}).some(value =>
     value !== undefined && value !== null && value !== '' && value !== 'all'
   );
 
-  const handleFilterChange = (key: string, value: any) => {
+  const handleFilterChange = (key: string, value: string | undefined) => {
     setFilters(prev => ({
       ...prev,
-      [key]: value === 'all' ? undefined : value
+      [key]: value === 'all' ? undefined : value,
     }));
   };
 
   const handleClearFilters = () => {
-    setFilters({});
+    setFilters(() => ({}));
     setSearchTerm('');
   };
 
+  // --- Inline variant ---
+  if (variant === 'inline') {
+    const inlineSelectFields = filterFields.filter(f => f.type === 'select');
+
+    return (
+      <div className={cn('space-y-2', className)}>
+        {/* Row: search + selects + clear */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[160px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4 pointer-events-none" />
+            <Input
+              placeholder="Axtarış..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 h-9 text-sm"
+            />
+          </div>
+
+          {/* Select filters — always visible */}
+          {inlineSelectFields.map(field => {
+            const currentValue = (filters[field.key] as string | undefined) || 'all';
+            return (
+              <Select
+                key={field.key}
+                value={currentValue}
+                onValueChange={(value) => handleFilterChange(field.key, value)}
+              >
+                <SelectTrigger className="h-9 w-[130px] text-sm">
+                  <SelectValue placeholder={field.label} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{field.label}</SelectItem>
+                  {field.options?.map(option => (
+                    <SelectItem key={option.value} value={String(option.value)}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            );
+          })}
+
+          {/* Clear button — only when there are active filters or search */}
+          {(hasActiveFilters || searchTerm) && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleClearFilters}
+              className="h-9 w-9 shrink-0"
+              aria-label="Filtrləri təmizlə"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
+
+        {/* Active chips row — only when filters are set */}
+        {hasActiveFilters && (
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(filters).map(([key, value]) => {
+              if (!value || value === 'all') return null;
+
+              const field = filterFields.find(f => f.key === key);
+              if (!field) return null;
+
+              const displayValue =
+                field.options?.find(o => String(o.value) === String(value))?.label ||
+                String(value);
+
+              return (
+                <span key={key} className="filter-chip">
+                  {field.label}: {displayValue}
+                  <button
+                    onClick={() => handleFilterChange(key, undefined)}
+                    className="hover:bg-primary/20 rounded-full p-0.5"
+                    aria-label={`${field.label} filtrini sil`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // --- Default variant (unchanged) ---
   const renderFilterField = (field: FilterFieldConfig) => {
-    const currentValue = (filters || {})[field.key];
+    const currentValue = (filters[field.key] as string | undefined);
 
     switch (field.type) {
       case 'select':
@@ -93,32 +186,32 @@ export function GenericFilters({
           </div>
         );
 
-      case 'daterange':
+      case 'daterange': {
+        const rangeValue = currentValue as unknown as { from?: string; to?: string } | undefined;
         return (
           <div key={field.key} className="space-y-2">
             <label className="text-sm font-medium">{field.label}</label>
             <div className="grid grid-cols-2 gap-2">
               <Input
                 type="date"
-                value={currentValue?.from || ''}
-                onChange={(e) => handleFilterChange(field.key, {
-                  ...currentValue,
-                  from: e.target.value
-                })}
+                value={rangeValue?.from || ''}
+                onChange={(e) =>
+                  handleFilterChange(field.key, JSON.stringify({ ...rangeValue, from: e.target.value }))
+                }
                 placeholder="Başlanğıc"
               />
               <Input
                 type="date"
-                value={currentValue?.to || ''}
-                onChange={(e) => handleFilterChange(field.key, {
-                  ...currentValue,
-                  to: e.target.value
-                })}
+                value={rangeValue?.to || ''}
+                onChange={(e) =>
+                  handleFilterChange(field.key, JSON.stringify({ ...rangeValue, to: e.target.value }))
+                }
                 placeholder="Son"
               />
             </div>
           </div>
         );
+      }
 
       default:
         return null;
@@ -192,7 +285,9 @@ export function GenericFilters({
               const field = filterFields?.find(f => f.key === key);
               if (!field) return null;
 
-              const displayValue = field.options?.find(o => String(o.value) === String(value))?.label || String(value);
+              const displayValue =
+                field.options?.find(o => String(o.value) === String(value))?.label ||
+                String(value);
 
               return (
                 <span key={key} className="filter-chip">

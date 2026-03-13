@@ -22,8 +22,7 @@ import {
   Eye, 
   Edit, 
   Trash2,
-  Download,
-  Upload
+  Download
 } from 'lucide-react';
 
 // Default filters and create data
@@ -356,8 +355,8 @@ export const teacherEntityConfig: EntityConfig<SchoolTeacher, TeacherFilters, Ne
     stats: true,
     tabs: true,
     bulk: true,
-    export: true,
-    import: true,
+    export: false,
+    import: false,
     create: true,
     edit: true,
     delete: true,
@@ -409,17 +408,6 @@ export const teacherCustomLogic: ManagerCustomLogic<SchoolTeacher> = {
     },
   ],
   
-  // Header actions
-  headerActions: [
-    {
-      key: 'import-export',
-      label: 'İdxal/İxrac',
-      icon: Upload,
-      onClick: () => {
-        console.log('Open import/export modal');
-        // This will be handled in the component
-      },
-      variant: 'outline',
-    },
-  ],
+  // Header actions — handled directly in SchoolTeacherManagerStandardized
+  headerActions: [],
 };

@@ -22,6 +22,7 @@ export function GenericManagerV2<
   customLogic,
   className,
   statsVariant = 'default',
+  filterVariant = 'default',
 }: GenericManagerProps<T, TFilters, TCreateData>) {
   
   const manager = useEntityManagerV2(config, customLogic);
@@ -179,6 +180,7 @@ export function GenericManagerV2<
               filters={manager.filters}
               setFilters={manager.setFilters}
               filterFields={config.filterFields}
+              variant={filterVariant}
             />
           }
         </div>
