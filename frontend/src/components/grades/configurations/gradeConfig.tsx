@@ -1,15 +1,20 @@
 import React from 'react';
 import { Grade, GradeFilters, gradeService } from '@/services/grades';
-// TODO: import { GradeFilters as GradeFiltersComponent } from './GradeFilters';
 import { EntityConfig } from '@/components/generic/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 import { logger } from '@/utils/logger';
 import {
   Users,
-  MapPin,
   UserCheck,
-  Calendar,
   School,
   Settings,
   BookOpen,
@@ -18,9 +23,9 @@ import {
   BarChart3,
   Trash2,
   Archive,
-  Copy
+  Copy,
+  CheckCircle
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 // Status badge configurations
 const getCapacityStatusBadge = (status: string, utilizationRate: number) => {
@@ -62,7 +67,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     create: false,  // Disable default create button since we use headerActions
     tabs: true,     // Enable tabs
     filters: true,  // Enable filters
-    bulk: true     // Enable bulk selection
+    bulk: false,    // Bulk operations not yet configured
+    stats: false,   // Stats rendered separately in GradeManager using statistics API
   },
 
   // Tab configuration
@@ -103,7 +109,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'name',
       label: 'Sinif',
-      width: 120,
+      width: '120px',
       render: (grade: Grade) => (
         <div className="flex flex-col">
           <span className="font-semibold text-base">{grade.full_name || `${grade.class_level || ''}-${grade.name || ''}`}</span>
@@ -116,7 +122,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'specialty',
       label: 'İxtisas',
-      width: 110,
+      width: '110px',
       render: (grade: Grade) => grade.specialty ? (
         <Badge variant="outline" className="text-xs py-0.5">
           {grade.specialty}
@@ -128,11 +134,11 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'student_count',
       label: 'Tələbələr',
-      width: 120,
+      width: '120px',
       sortable: true,
       render: (grade: Grade) => {
-        const maleCount = (grade as any).male_student_count || 0;
-        const femaleCount = (grade as any).female_student_count || 0;
+        const maleCount = grade.male_student_count || 0;
+        const femaleCount = grade.female_student_count || 0;
         const totalCount = grade.student_count || 0;
         const hasGenderData = maleCount > 0 || femaleCount > 0;
 
@@ -159,9 +165,9 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'teaching_shift',
       label: 'Növbə',
-      width: 90,
+      width: '90px',
       render: (grade: Grade) => {
-        const teachingShift = (grade as any).teaching_shift;
+        const teachingShift = grade.teaching_shift;
         return teachingShift ? (
           <Badge variant="outline" className="text-xs py-0.5">
             {teachingShift}
@@ -174,7 +180,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'homeroom_teacher',
       label: 'Sinif Rəhbəri',
-      width: 160,
+      width: '160px',
       render: (grade: Grade) => grade.homeroom_teacher ? (
         <div className="flex items-center gap-1 text-sm">
           <UserCheck className="h-3 w-3 text-muted-foreground" />
@@ -187,7 +193,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'academic_year',
       label: 'Təhsil İli',
-      width: 110,
+      width: '110px',
       render: (grade: Grade) => {
         if (!grade.academic_year) {
           return <span className="text-muted-foreground text-xs italic">-</span>;
@@ -214,11 +220,17 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       }
     },
     {
+      key: 'capacity_status',
+      label: 'Tutum',
+      width: '140px',
+      render: (grade: Grade) => getCapacityStatusBadge(grade.capacity_status, grade.utilization_rate)
+    },
+    {
       key: 'institution',
       label: 'Məktəb',
-      width: 200,
+      width: '200px',
       // Hide for SchoolAdmin, SektorAdmin and below - they already know their institution
-      isVisible: (grade: Grade, userRole?: string) => {
+      isVisible: (_grade: Grade, userRole?: string) => {
         return ['superadmin', 'regionadmin'].includes(userRole || '');
       },
       render: (grade: Grade) => grade.institution ? (
@@ -260,9 +272,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       label: 'Kopyala',
       icon: Copy,
       variant: 'ghost' as const,
-      onClick: (grade: Grade) => {
-        // Handle duplicate action - will be overridden in component
-        console.log('Duplicate grade:', grade.id);
+      onClick: (_grade: Grade) => {
+        // onClick will be overridden in GradeManager component
       }
     },
     {
@@ -270,9 +281,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       label: 'Tələbələr',
       icon: UserPlus,
       variant: 'ghost' as const,
-      onClick: (grade: Grade) => {
-        // Handle students action - will be overridden in component
-        console.log('Manage students for grade:', grade.id);
+      onClick: (_grade: Grade) => {
+        // onClick will be overridden in GradeManager component
       }
     },
     {
@@ -280,9 +290,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       label: 'Analitika',
       icon: BarChart3,
       variant: 'ghost' as const,
-      onClick: (grade: Grade) => {
-        // Handle analytics action - will be overridden in component
-        console.log('View analytics for grade:', grade.id);
+      onClick: (_grade: Grade) => {
+        // onClick will be overridden in GradeManager component
       }
     },
     {
@@ -290,20 +299,28 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       label: 'Deaktiv Et',
       icon: Archive,
       variant: 'ghost' as const,
-      onClick: (grade: Grade) => {
-        // Handle soft delete action - will be overridden in component
-        console.log('Soft delete grade:', grade.id);
+      onClick: (_grade: Grade) => {
+        // onClick will be overridden in GradeManager component
       },
       isVisible: (grade: Grade) => grade.is_active
+    },
+    {
+      key: 'activate',
+      label: 'Aktivləşdir',
+      icon: CheckCircle,
+      variant: 'ghost' as const,
+      onClick: (_grade: Grade) => {
+        // onClick will be overridden in GradeManager component
+      },
+      isVisible: (grade: Grade) => !grade.is_active
     },
     {
       key: 'hard-delete',
       label: 'Sil',
       icon: Trash2,
       variant: 'destructive' as const,
-      onClick: (grade: Grade) => {
-        // Handle hard delete action - will be overridden in component
-        console.log('Hard delete grade:', grade.id);
+      onClick: (_grade: Grade) => {
+        // onClick will be overridden in GradeManager component
       }
     }
   ],
@@ -424,21 +441,10 @@ export const gradeCustomLogic = {
 
   // Sort helpers
   getSortValue: (grade: Grade, key: string) => {
-    console.log('🔍 getSortValue DEBUG:', {
-      gradeId: grade?.id,
-      key,
-      grade_name: grade?.name,
-      grade_name_type: typeof grade?.name,
-      full_grade_object: grade
-    });
-
     try {
       switch (key) {
-        case 'name': {
-          const name = grade?.name;
-          console.log('🔍 Processing name:', { name, type: typeof name, isNull: name === null, isUndefined: name === undefined });
-          return name && typeof name === 'string' ? name.toLowerCase() : '';
-        }
+        case 'name':
+          return grade?.name && typeof grade.name === 'string' ? grade.name.toLowerCase() : '';
         case 'class_level':
           return grade?.class_level || 0;
         case 'student_count':
@@ -451,7 +457,7 @@ export const gradeCustomLogic = {
           return '';
       }
     } catch (error) {
-      console.error('❌ getSortValue ERROR:', { error, grade, key });
+      logger.error('getSortValue failed', { error, gradeId: grade?.id, key });
       return '';
     }
   }
@@ -469,15 +475,12 @@ export const GradeFiltersComponent: React.FC<{
   availableInstitutions = [],
   availableAcademicYears = []
 }) => {
+  const ALL = '__all__';
   const currentFilters = filters || {};
+
   const applyFilterChange = (patch: Partial<GradeFilters>, options?: { resetPage?: boolean }) => {
-    const nextFilters: GradeFilters = {
-      ...currentFilters,
-      ...patch,
-    };
-    if (options?.resetPage !== false) {
-      nextFilters.page = 1;
-    }
+    const nextFilters: GradeFilters = { ...currentFilters, ...patch };
+    if (options?.resetPage !== false) nextFilters.page = 1;
     onFiltersChange(nextFilters);
   };
 
@@ -485,155 +488,159 @@ export const GradeFiltersComponent: React.FC<{
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4 bg-muted/50 rounded-lg">
       {/* Institution Filter */}
       {availableInstitutions.length > 1 && (
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium">Məktəb</label>
-          <select
-            value={currentFilters.institution_id || ''}
-            onChange={(e) =>
-              applyFilterChange({
-                institution_id: e.target.value ? parseInt(e.target.value, 10) : undefined,
-              })
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-sm font-medium">Məktəb</Label>
+          <Select
+            value={currentFilters.institution_id?.toString() ?? ALL}
+            onValueChange={(val) =>
+              applyFilterChange({ institution_id: val === ALL ? undefined : parseInt(val, 10) })
             }
-            className="px-3 py-2 border border-input rounded-md text-sm bg-background"
           >
-            <option value="">Bütün məktəblər</option>
-            {availableInstitutions.map(inst => (
-              <option key={inst.id} value={inst.id}>{inst.name}</option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Bütün məktəblər" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Bütün məktəblər</SelectItem>
+              {availableInstitutions.map(inst => (
+                <SelectItem key={inst.id} value={inst.id.toString()}>{inst.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
       {/* Class Level Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Sinif Səviyyəsi</label>
-        <select
-          value={currentFilters.class_level || ''}
-          onChange={(e) =>
-            applyFilterChange({
-              class_level: e.target.value ? parseInt(e.target.value, 10) : undefined,
-            })
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-sm font-medium">Sinif Səviyyəsi</Label>
+        <Select
+          value={currentFilters.class_level?.toString() ?? ALL}
+          onValueChange={(val) =>
+            applyFilterChange({ class_level: val === ALL ? undefined : parseInt(val, 10) })
           }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
-          <option value="">Bütün səviyyələr</option>
-          {Array.from({length: 12}, (_, i) => i + 1).map(level => (
-            <option key={level} value={level}>{level}. sinif</option>
-          ))}
-        </select>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Bütün səviyyələr" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Bütün səviyyələr</SelectItem>
+            {Array.from({ length: 12 }, (_, i) => i + 1).map(level => (
+              <SelectItem key={level} value={level.toString()}>{level}. sinif</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Academic Year Filter */}
       {availableAcademicYears.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium">Təhsil İli</label>
-          <select
-            value={currentFilters.academic_year_id || ''}
-            onChange={(e) =>
-              applyFilterChange({
-                academic_year_id: e.target.value ? parseInt(e.target.value, 10) : undefined,
-              })
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-sm font-medium">Təhsil İli</Label>
+          <Select
+            value={currentFilters.academic_year_id?.toString() ?? ALL}
+            onValueChange={(val) =>
+              applyFilterChange({ academic_year_id: val === ALL ? undefined : parseInt(val, 10) })
             }
-            className="px-3 py-2 border border-input rounded-md text-sm bg-background"
           >
-            <option value="">Bütün təhsil illəri</option>
-            {availableAcademicYears.map(year => (
-              <option key={year.id} value={year.id}>
-                {year.name} {year.is_active && '(Aktiv)'}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue placeholder="Bütün təhsil illəri" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>Bütün təhsil illəri</SelectItem>
+              {availableAcademicYears.map(year => (
+                <SelectItem key={year.id} value={year.id.toString()}>
+                  {year.name}{year.is_active ? ' (Aktiv)' : ''}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       )}
 
       {/* Capacity Status Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Tutum Vəziyyəti</label>
-        <select
-          value={currentFilters.capacity_status || ''}
-          onChange={(e) =>
-            applyFilterChange({
-              capacity_status: e.target.value || undefined,
-            })
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-sm font-medium">Tutum Vəziyyəti</Label>
+        <Select
+          value={currentFilters.capacity_status ?? ALL}
+          onValueChange={(val) =>
+            applyFilterChange({ capacity_status: val === ALL ? undefined : val })
           }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
-          <option value="">Bütün statuslar</option>
-          <option value="available">Müsait</option>
-          <option value="near_capacity">Dolmağa Yaxın</option>
-          <option value="full">Dolu</option>
-          <option value="over_capacity">Həddindən Çox</option>
-          <option value="no_room">Otaq Yoxdur</option>
-        </select>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Bütün statuslar" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Bütün statuslar</SelectItem>
+            <SelectItem value="available">Müsait</SelectItem>
+            <SelectItem value="near_capacity">Dolmağa Yaxın</SelectItem>
+            <SelectItem value="full">Dolu</SelectItem>
+            <SelectItem value="over_capacity">Həddindən Çox</SelectItem>
+            <SelectItem value="no_room">Otaq Yoxdur</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Teacher Assignment Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Müəllim Təyinatı</label>
-        <select
-          value={
-            currentFilters.has_teacher !== undefined
-              ? currentFilters.has_teacher.toString()
-              : ''
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-sm font-medium">Müəllim Təyinatı</Label>
+        <Select
+          value={currentFilters.has_teacher !== undefined ? currentFilters.has_teacher.toString() : ALL}
+          onValueChange={(val) =>
+            applyFilterChange({ has_teacher: val === ALL ? undefined : val === 'true' })
           }
-          onChange={(e) =>
-            applyFilterChange({
-              has_teacher: e.target.value === '' ? undefined : e.target.value === 'true',
-            })
-          }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
-          <option value="">Hamısı</option>
-          <option value="true">Müəllimi var</option>
-          <option value="false">Müəllimi yoxdur</option>
-        </select>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Hamısı" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Hamısı</SelectItem>
+            <SelectItem value="true">Müəllimi var</SelectItem>
+            <SelectItem value="false">Müəllimi yoxdur</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Room Assignment Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Otaq Təyinatı</label>
-        <select
-          value={
-            currentFilters.has_room !== undefined ? currentFilters.has_room.toString() : ''
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-sm font-medium">Otaq Təyinatı</Label>
+        <Select
+          value={currentFilters.has_room !== undefined ? currentFilters.has_room.toString() : ALL}
+          onValueChange={(val) =>
+            applyFilterChange({ has_room: val === ALL ? undefined : val === 'true' })
           }
-          onChange={(e) =>
-            applyFilterChange({
-              has_room: e.target.value === '' ? undefined : e.target.value === 'true',
-            })
-          }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
-          <option value="">Hamısı</option>
-          <option value="true">Otağı var</option>
-          <option value="false">Otağı yoxdur</option>
-        </select>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Hamısı" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>Hamısı</SelectItem>
+            <SelectItem value="true">Otağı var</SelectItem>
+            <SelectItem value="false">Otağı yoxdur</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Active Status Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Status</label>
-        <select
-          value={
-            currentFilters.is_active !== undefined
-              ? currentFilters.is_active.toString()
-              : 'true'
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-sm font-medium">Status</Label>
+        <Select
+          value={currentFilters.is_active !== undefined ? currentFilters.is_active.toString() : 'true'}
+          onValueChange={(val) =>
+            applyFilterChange({ is_active: val === ALL ? undefined : val === 'true' })
           }
-          onChange={(e) =>
-            applyFilterChange({
-              is_active: e.target.value === '' ? undefined : e.target.value === 'true',
-            })
-          }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
         >
-          <option value="true">Aktiv</option>
-          <option value="false">Deaktiv</option>
-          <option value="">Hamısı</option>
-        </select>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="true">Aktiv</SelectItem>
+            <SelectItem value="false">Deaktiv</SelectItem>
+            <SelectItem value={ALL}>Hamısı</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Clear Filters Button */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium invisible">Təmizlə</label>
+      <div className="flex flex-col gap-1.5">
+        <Label className="invisible text-sm font-medium">Təmizlə</Label>
         <Button
           variant="outline"
           size="sm"
@@ -651,10 +658,10 @@ export const GradeFiltersComponent: React.FC<{
               { resetPage: true }
             )
           }
-          className="px-4"
+          className="h-9"
         >
           <Settings className="h-4 w-4 mr-2" />
-          Filtrləri Təmizlə
+          Filtrləri Sıfırla
         </Button>
       </div>
     </div>

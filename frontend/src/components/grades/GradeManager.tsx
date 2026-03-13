@@ -1,9 +1,10 @@
 import React from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, GraduationCap, CheckCircle2, UserX, DoorOpen } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
+import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
 import { Grade, GradeFilters } from '@/services/grades';
-import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent } from './configurations/gradeConfig';
+import { gradeEntityConfig, GradeFiltersComponent } from './configurations/gradeConfig';
 import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
 import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
@@ -16,7 +17,6 @@ import { academicYearService } from '@/services/academicYears';
 import { gradeService } from '@/services/grades';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
-import { useEntityManagerV2 } from '@/hooks/useEntityManagerV2';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +28,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
+import type { StatsConfig } from '@/components/generic/types';
 
 interface GradeManagerProps {
   className?: string;
@@ -114,24 +115,84 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     return academicYearsResponse.data;
   }, [academicYearsResponse]);
 
+  // Fetch grade statistics for summary cards
+  const institutionFilter = currentUser && !['superadmin', 'regionadmin'].includes(currentUser.role)
+    ? currentUser.institution?.id
+    : undefined;
+
+  const { data: statisticsResponse } = useQuery({
+    queryKey: ['grades', 'statistics', institutionFilter],
+    queryFn: () => gradeService.getStatistics(
+      institutionFilter ? { institution_id: institutionFilter } : undefined
+    ),
+    staleTime: 1000 * 60 * 2,
+  });
+
+  // Build stats cards from statistics API
+  const statsCards = React.useMemo((): StatsConfig[] => {
+    const stats = statisticsResponse?.data;
+    if (!stats) return [];
+    return [
+      {
+        key: 'total',
+        label: 'Cəmi Sinif',
+        value: stats.active_grades + stats.inactive_grades,
+        icon: GraduationCap,
+        color: 'blue',
+      },
+      {
+        key: 'active',
+        label: 'Aktiv',
+        value: stats.active_grades,
+        icon: CheckCircle2,
+        color: 'green',
+      },
+      {
+        key: 'no_teacher',
+        label: 'Müəllimsiz',
+        value: stats.teacher_assignment_stats.without_teacher,
+        icon: UserX,
+        color: stats.teacher_assignment_stats.without_teacher > 0 ? 'yellow' : 'green',
+      },
+      {
+        key: 'no_room',
+        label: 'Otaqsız',
+        value: stats.room_assignment_stats.without_room,
+        icon: DoorOpen,
+        color: stats.room_assignment_stats.without_room > 0 ? 'yellow' : 'green',
+      },
+    ];
+  }, [statisticsResponse]);
+
+  const invalidateGrades = React.useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['grades'] });
+  }, [queryClient]);  // also invalidates ['grades', 'statistics', ...]
+
   // Soft delete mutation (deactivate)
   const softDeleteMutation = useMutation({
     mutationFn: ({ gradeId, reason }: { gradeId: number; reason?: string }) =>
       gradeService.deactivate(gradeId, reason),
     onSuccess: () => {
       toast.success('Sinif deaktiv edildi');
-      // Invalidate all grade-related queries with more specific patterns
-      queryClient.invalidateQueries({ queryKey: ['grades'] });
-      queryClient.invalidateQueries({ predicate: (query) =>
-        query.queryKey[0] === 'grades' ||
-        (Array.isArray(query.queryKey) && query.queryKey.includes('grades'))
-      });
-      // Force refetch to ensure immediate UI update
-      queryClient.refetchQueries({ queryKey: ['grades'] });
+      invalidateGrades();
     },
     onError: (error: any) => {
       logger.error('Soft delete failed', { error });
       const message = error?.response?.data?.message || 'Sinif deaktiv edilə bilmədi';
+      toast.error(message);
+    },
+  });
+
+  // Activate mutation (reactivate deactivated grade)
+  const activateMutation = useMutation({
+    mutationFn: (gradeId: number) => gradeService.update(gradeId, { is_active: true }),
+    onSuccess: () => {
+      toast.success('Sinif aktivləşdirildi');
+      invalidateGrades();
+    },
+    onError: (error: any) => {
+      logger.error('Activate failed', { error });
+      const message = error?.response?.data?.message || 'Sinif aktivləşdirilə bilmədi';
       toast.error(message);
     },
   });
@@ -141,14 +202,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     mutationFn: (gradeId: number) => gradeService.delete(gradeId),
     onSuccess: () => {
       toast.success('Sinif tamamilə silindi');
-      // Invalidate all grade-related queries with more specific patterns
-      queryClient.invalidateQueries({ queryKey: ['grades'] });
-      queryClient.invalidateQueries({ predicate: (query) =>
-        query.queryKey[0] === 'grades' ||
-        (Array.isArray(query.queryKey) && query.queryKey.includes('grades'))
-      });
-      // Force refetch to ensure immediate UI update
-      queryClient.refetchQueries({ queryKey: ['grades'] });
+      invalidateGrades();
     },
     onError: (error: any) => {
       logger.error('Hard delete failed', { error });
@@ -222,6 +276,9 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
               setSoftDeleteTarget(grade);
               setSoftDeleteReason('');
               break;
+            case 'activate':
+              activateMutation.mutate(grade.id);
+              break;
             case 'hard-delete':
               setHardDeleteTarget(grade);
               break;
@@ -231,7 +288,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         }
       }))
     };
-  }, [currentUser, softDeleteMutation, hardDeleteMutation]);
+  }, [currentUser, softDeleteMutation, activateMutation, hardDeleteMutation]);
 
   // Handle create action
   const handleCreate = React.useCallback(() => {
@@ -340,6 +397,15 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
 
   return (
     <>
+      {/* Summary stats */}
+      {statsCards.length > 0 && (
+        <GenericStatsCards
+          stats={statsCards}
+          variant="compact"
+          className="mb-4"
+        />
+      )}
+
       <GenericManagerV2
         key={`grade-manager-${currentUser?.institution?.id || 'no-institution'}`}
         config={enhancedConfig}

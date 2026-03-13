@@ -55,7 +55,10 @@ export interface Grade {
   capacity_status: 'available' | 'near_capacity' | 'full' | 'over_capacity' | 'no_room';
   utilization_rate: number;
   available_spots: number;
-  
+
+  // Tags (eager-loaded when included)
+  tags?: Array<{ id: number; name: string; color?: string; category?: string }>;
+
   created_at: string;
   updated_at: string;
 }

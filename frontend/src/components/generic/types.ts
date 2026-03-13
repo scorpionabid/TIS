@@ -32,6 +32,7 @@ export interface ColumnConfig<T = any> {
   align?: 'left' | 'center' | 'right';
   sortable?: boolean;
   render?: (item: T, value: any) => ReactNode;
+  isVisible?: (item: T, userRole?: string) => boolean;
 }
 
 // Action button configuration
@@ -41,6 +42,7 @@ export interface ActionConfig<T = any> {
   label: string;
   variant?: 'default' | 'outline' | 'ghost' | 'destructive';
   size?: 'sm' | 'md' | 'lg';
+  isPrimary?: boolean;
   onClick: (item: T) => void;
   isVisible?: (item: T) => boolean;
   isDisabled?: (item: T) => boolean;
