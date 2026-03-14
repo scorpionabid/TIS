@@ -25,7 +25,13 @@ import type { ReportTable, ReportTableResponse, ReportTableResponseStatus, Repor
 interface TableEntryCardProps {
   table: ReportTable;
   onStatusChange?: (tableId: number, status: 'draft' | 'submitted') => void;
-  onMetaChange?: (meta: { hasUnsaved: boolean; responseStatus: 'draft' | 'submitted' | null; fullyLocked: boolean }) => void;
+  onMetaChange?: (meta: {
+    hasUnsaved: boolean;
+    responseStatus: 'draft' | 'submitted' | null;
+    fullyLocked: boolean;
+    lastSaved: Date | null;
+    isSaving: boolean;
+  }) => void;
 }
 
 export type TableEntryCardHandle = {
@@ -307,8 +313,14 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
 
   useEffect(() => {
     const statusForMeta = responseStatus === 'submitted' ? 'submitted' : 'draft';
-    onMetaChange?.({ hasUnsaved, responseStatus: responseStatus ? statusForMeta : null, fullyLocked });
-  }, [hasUnsaved, responseStatus, fullyLocked, onMetaChange]);
+    onMetaChange?.({
+      hasUnsaved,
+      responseStatus: responseStatus ? statusForMeta : null,
+      fullyLocked,
+      lastSaved,
+      isSaving: saveMutation.isPending,
+    });
+  }, [hasUnsaved, responseStatus, fullyLocked, lastSaved, saveMutation.isPending, onMetaChange]);
 
   useImperativeHandle(
     ref,
