@@ -50,6 +50,7 @@ export function SurveyResponseForm({ surveyId, responseId, onComplete, onSave }:
     mutationFn: (departmentId?: number) => surveyService.startResponse(surveyId, departmentId),
     onSuccess: (data) => {
       setCurrentResponse(data.response);
+      queryClient.invalidateQueries({ queryKey: ['my-survey-responses'] });
       // If this returns an existing response (has responses), load them
       if (data.response.responses && Object.keys(data.response.responses).length > 0) {
         setResponses(data.response.responses);

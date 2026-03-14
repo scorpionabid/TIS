@@ -27,15 +27,8 @@ export function useAssignmentMutations(onSuccess?: () => void) {
         title: variables.successMessage.title,
         description: variables.successMessage.description,
       });
-      // Force immediate cache invalidation and refetch
-      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'], refetchType: 'active' });
-      queryClient.invalidateQueries({ queryKey: ['tasks'], refetchType: 'active' });
-      
-      // Additional manual refetch for immediate UI update
-      setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: ['assigned-tasks'] });
-        queryClient.refetchQueries({ queryKey: ['tasks'] });
-      }, 100);
+      queryClient.invalidateQueries({ queryKey: ['assigned-tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
       
       onSuccess?.();
     },

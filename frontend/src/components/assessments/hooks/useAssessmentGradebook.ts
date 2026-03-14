@@ -93,7 +93,7 @@ export const useAssessmentGradebook = () => {
     mutationFn: (data: CreateAssessmentData) => schoolAdminService.createAssessment(data),
     onSuccess: () => {
       toast.success('Qiymətləndirmə yaradıldı');
-      refetchAssessments();
+      queryClient.invalidateQueries({ queryKey: schoolAdminKeys.assessments(selectedClassId) });
       setCreateModalOpen(false);
       setNewAssessment({
         title: '',
@@ -114,7 +114,7 @@ export const useAssessmentGradebook = () => {
       schoolAdminService.saveGrades(assessmentId, grades),
     onSuccess: () => {
       toast.success('Qiymətlər saxlanıldı');
-      refetchGrades();
+      queryClient.invalidateQueries({ queryKey: schoolAdminKeys.grades(selectedAssessmentId) });
     },
     onError: () => {
       toast.error('Qiymətlər saxlanıla bilmədi');
@@ -126,7 +126,7 @@ export const useAssessmentGradebook = () => {
     mutationFn: (assessmentId: number) => schoolAdminService.submitAssessment(assessmentId),
     onSuccess: () => {
       toast.success('Qiymətləndirmə təqdim edildi');
-      refetchAssessments();
+      queryClient.invalidateQueries({ queryKey: schoolAdminKeys.assessments(selectedClassId) });
     },
     onError: () => {
       toast.error('Qiymətləndirmə təqdim edilə bilmədi');

@@ -238,6 +238,7 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
       queryClient.invalidateQueries({ queryKey: ['report-table-my-response', table.id] });
       queryClient.invalidateQueries({ queryKey: ['report-table-responses', table.id] });
       queryClient.invalidateQueries({ queryKey: ['report-table-approval-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['report-tables'] });
       toast.success('Məlumatlar uğurla göndərildi!');
       onStatusChange?.(table.id, 'submitted');
     },
@@ -264,9 +265,14 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
       // Optimistically mark row as submitted immediately, before query re-fetch completes
       setOptimisticSubmittedRows((prev) => { const s = new Set(prev); s.add(rowIndex); return s; });
       queryClient.invalidateQueries({ queryKey: ['report-table-my-response', table.id] });
+      queryClient.invalidateQueries({ queryKey: ['report-table-approval-queue'] });
       toast.success('Sətir təsdiq üçün göndərildi.');
     },
-    onError: (err: Error) => toast.error(err.message || 'Göndərmək mümkün olmadı.'),
+    onError: (err: Error, rowIndex) => {
+      // Roll back optimistic state if the mutation fails
+      setOptimisticSubmittedRows((prev) => { const s = new Set(prev); s.delete(rowIndex); return s; });
+      toast.error(err.message || 'Göndərmək mümkün olmadı.');
+    },
     onSettled: () => setSubmittingRowIdx(null),
   });
 

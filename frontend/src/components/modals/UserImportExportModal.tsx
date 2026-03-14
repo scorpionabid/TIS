@@ -86,6 +86,7 @@ export const UserImportExportModal: React.FC<UserImportExportModalProps> = ({ is
       userService.importUsersByRole(file, roleType),
     onSuccess: (result) => {
       setImportResult(result);
+      queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['user-export-stats'] });
       refetchStats();
     },

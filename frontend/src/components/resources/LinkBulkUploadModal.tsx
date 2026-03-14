@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as XLSX from 'xlsx';
 import { UploadCloud, FileUp, AlertTriangle, CheckCircle2, Info, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -68,6 +68,7 @@ const isValidUrl = (value: string) => {
 
 export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUploadModalProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [submitErrors, setSubmitErrors] = useState<SubmitError[]>([]);
   const [summary, setSummary] = useState<LinkBulkUploadResult | null>(null);
@@ -148,6 +149,7 @@ export function LinkBulkUploadModal({ isOpen, onClose, onSuccess }: LinkBulkUplo
       setSummary(result);
       const apiErrors = (result.errors || []).map<SubmitError>((message) => ({ message }));
       setSubmitErrors(apiErrors);
+      queryClient.invalidateQueries({ queryKey: ['links'] });
       toast({
         title: 'Yükləmə tamamlandı',
         description: `Yaradılan link: ${result.created}, uğursuz: ${result.failed}`,

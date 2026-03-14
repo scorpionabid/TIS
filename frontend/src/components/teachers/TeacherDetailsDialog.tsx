@@ -96,6 +96,7 @@ export const TeacherDetailsDialog: React.FC<TeacherDetailsDialogProps> = ({
         description: 'İş yeri aktivləşdirildi.',
       });
       void queryClient.invalidateQueries({ queryKey: ['teacher', teacher?.id, 'workplaces'] });
+      void queryClient.invalidateQueries({ queryKey: ['teachers'] });
     },
     onError: () => {
       toast({
@@ -115,6 +116,7 @@ export const TeacherDetailsDialog: React.FC<TeacherDetailsDialogProps> = ({
         description: 'İş yeri deaktivləşdirildi.',
       });
       void queryClient.invalidateQueries({ queryKey: ['teacher', teacher?.id, 'workplaces'] });
+      void queryClient.invalidateQueries({ queryKey: ['teachers'] });
     },
     onError: () => {
       toast({
