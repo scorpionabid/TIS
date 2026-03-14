@@ -55,7 +55,7 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
 
   const { data: gradesResponse } = useQuery({
     queryKey: ['grades', 'for-student-filter'],
-    queryFn: () => gradeService.getAll({ per_page: 100 }),
+    queryFn: () => gradeService.get({ per_page: 100 }),
     staleTime: 1000 * 60 * 5, // 5 minutes cache
   });
 
@@ -94,7 +94,18 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
   // Process available grades
   const availableGrades = React.useMemo(() => {
     if (!gradesResponse?.data) return [];
-    return gradesResponse.data;
+    
+    const rawData: any = gradesResponse.data;
+    if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
+      if ('grades' in rawData && Array.isArray(rawData.grades)) {
+        return rawData.grades;
+      }
+      if ('data' in rawData && Array.isArray(rawData.data)) {
+        return rawData.data;
+      }
+    }
+    
+    return Array.isArray(rawData) ? rawData : [];
   }, [gradesResponse]);
 
   // Cache invalidation is now handled by GenericManagerV2 and useEntityManagerV2
@@ -110,7 +121,7 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
         return {
           ...action,
           onClick: (student: Student) => {
-            logger.debug('Opening student details', { studentId: student.id });
+            logger.debug('Opening student details', { data: { studentId: student.id } });
             setSelectedStudent(student);
           }
         };
@@ -119,7 +130,7 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
         return {
           ...action,
           onClick: (student: Student) => {
-            logger.debug('Opening student edit', { studentId: student.id });
+            logger.debug('Opening student edit', { data: { studentId: student.id } });
             setEditingStudent(student);
           }
         };
@@ -132,7 +143,7 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
               toast.warning('Şagird artıq aktivdir');
               return;
             }
-            logger.debug('Opening enrollment modal', { studentId: student.id });
+            logger.debug('Opening enrollment modal', { data: { studentId: student.id } });
             setEnrollmentStudent(student);
             setEnrollmentModalOpen(true);
           }
@@ -182,7 +193,6 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
 
   // Handle close modals
   const handleCloseModals = React.useCallback(() => {
-    setCreateModalOpen(false);
     setSelectedStudent(null);
     setEditingStudent(null);
     setEnrollmentModalOpen(false);
@@ -194,17 +204,19 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
   // Save handler removed - using manager.handleCreate and manager.handleUpdate directly
 
   // Simplified enrollment handler
-  const handleEnrollment = React.useCallback(async (enrollmentData: any) => {
+  const handleEnrollment = React.useCallback(async (classId: number) => {
     try {
       logger.debug('Processing student enrollment', {
-        studentId: enrollmentStudent?.id,
-        enrollmentData: Object.keys(enrollmentData)
+        data: {
+          studentId: enrollmentStudent?.id,
+          classId
+        }
       });
       
       if (enrollmentStudent) {
         await studentService.update(enrollmentStudent.id, {
           status: 'active',
-          ...enrollmentData
+          class_id: classId
         });
         toast.success(`${enrollmentStudent.first_name} ${enrollmentStudent.last_name} uğurla qeydiyyatdan keçirildi`);
         

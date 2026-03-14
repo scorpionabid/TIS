@@ -151,6 +151,11 @@ const ScheduleComparisonTool = lazy(
   () => import("./components/schedules/ScheduleComparisonTool"),
 );
 
+// Grade Book Pages
+const GradeBooks = lazy(() => import("./pages/GradeBooks"));
+const GradeBookDetail = lazy(() => import("./pages/GradeBookDetail"));
+const GradeBookCreate = lazy(() => import("./pages/GradeBookCreate"));
+
 // Debug Console
 const DebugConsole = lazy(() => import("./pages/DebugConsole"));
 
@@ -1337,6 +1342,57 @@ const App = () => {
                             ]}
                           >
                             <SchoolAssessments />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+
+                    {/* Grade Book Routes - Sinif Jurnalı */}
+                    <Route
+                      path="grade-books"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.REGIONADMIN,
+                              USER_ROLES.SEKTORADMIN,
+                              USER_ROLES.SCHOOLADMIN,
+                              USER_ROLES.MUELLIM,
+                            ]}
+                          >
+                            <GradeBooks />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="grade-books/create"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.SCHOOLADMIN,
+                            ]}
+                          >
+                            <GradeBookCreate />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="grade-books/:id"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.SCHOOLADMIN,
+                              USER_ROLES.MUELLIM,
+                            ]}
+                          >
+                            <GradeBookDetail />
                           </RoleProtectedRoute>
                         </LazyWrapper>
                       }

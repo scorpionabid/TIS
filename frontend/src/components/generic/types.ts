@@ -53,6 +53,7 @@ export interface TabConfig {
   count?: number;
   filter?: (items: any[]) => any[];
   serverFilters?: Record<string, any>;
+  isStatsTab?: boolean; // When true, shows statistics cards instead of table
 }
 
 // Stats card configuration
@@ -112,6 +113,13 @@ export interface ManagerCustomLogic<T extends BaseEntity> {
     onClick: () => void;
     variant?: 'default' | 'outline';
   }>;
+  
+  // Custom create click handler
+  onCreateClick?: () => void;
+  
+  // Custom import/export handlers
+  onImportClick?: () => void;
+  onExportClick?: () => void;
 }
 
 // Entity configuration

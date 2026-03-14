@@ -2,6 +2,20 @@ import { apiClient, ApiResponse } from './api';
 import { logger } from '@/utils/logger';
 import { PaginationMeta } from '@/types/api';
 
+export interface GradeSubject {
+  id: number;
+  subject_id: number;
+  subject_name: string;
+  subject_code?: string;
+  weekly_hours: number;
+  is_teaching_activity: boolean;
+  teacher_id?: number;
+  teacher_name?: string;
+  has_grade_book: boolean;
+  grade_book_id?: number;
+  grade_book_status?: string;
+}
+
 export interface Grade {
   id: number;
   name: string;
@@ -50,6 +64,7 @@ export interface Grade {
     full_name: string;
     email: string;
   };
+  grade_subjects?: GradeSubject[];
   
   // Computed attributes
   capacity_status: 'available' | 'near_capacity' | 'full' | 'over_capacity' | 'no_room';
@@ -179,22 +194,46 @@ class GradeService {
 
   /**
    * Get grades - alias for getGrades (for compatibility with EntityManagerV2)
+   * Handles both { success, data: { grades, pagination } } and direct array formats
    */
   async get(filters?: GradeFilters): Promise<GradeListResult> {
     const response = await this.getGrades(filters);
 
-    if (response?.data && typeof response.data === 'object' && 'grades' in response.data) {
-      const payload = response.data as any;
-      return {
-        items: Array.isArray(payload.grades) ? payload.grades : [],
-        pagination: payload.pagination || response.meta || null,
-      };
+    // response is already the data from apiClient (axios response.data)
+    // Handle different response formats
+    if (response && typeof response === 'object') {
+      // Check if response has data property (ApiResponse wrapper)
+      const responseData = (response as any).data || response;
+      
+      // Check if data contains grades directly
+      if (responseData && 'grades' in responseData && Array.isArray(responseData.grades)) {
+        return {
+          items: responseData.grades,
+          pagination: responseData.pagination || (response as any).meta || null,
+        };
+      }
+      
+      // Check if data.data contains grades (double nested from backend)
+      if (responseData && responseData.data && typeof responseData.data === 'object' && 'grades' in responseData.data) {
+        const nestedData = responseData.data;
+        return {
+          items: Array.isArray(nestedData.grades) ? nestedData.grades : [],
+          pagination: nestedData.pagination || (response as any).meta || null,
+        };
+      }
+      
+      // If data is an array directly
+      if (Array.isArray(responseData)) {
+        return {
+          items: responseData,
+          pagination: null,
+        };
+      }
     }
 
-    const items = Array.isArray(response?.data) ? (response.data as Grade[]) : [];
     return {
-      items,
-      pagination: (response as any)?.pagination || response?.meta || null,
+      items: [],
+      pagination: null,
     };
   }
 
@@ -321,6 +360,19 @@ class GradeService {
     });
 
     return apiClient.delete<void>(`${this.baseURL}/${id}`);
+  }
+
+  /**
+   * Get subjects for a specific grade
+   */
+  async getGradeSubjects(gradeId: number): Promise<ApiResponse<GradeSubject[]>> {
+    logger.debug('Fetching grade subjects', {
+      component: 'GradeService',
+      action: 'getGradeSubjects',
+      data: { gradeId }
+    });
+
+    return apiClient.get<GradeSubject[]>(`${this.baseURL}/${gradeId}/subjects`);
   }
 
   /**

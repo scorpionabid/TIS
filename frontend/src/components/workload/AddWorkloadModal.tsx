@@ -4,12 +4,12 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Loader2, AlertCircle, CheckCircle2, Info } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { gradeService, Grade } from '@/services/grades';
 import { teacherService, TeacherSubject } from '@/services/teachers';
-import { workloadService, GradeSubject } from '@/services/workload';
+import { workloadService, TeachingLoad, GradeSubject } from '@/services/workload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 interface AddWorkloadModalProps {
@@ -58,11 +58,90 @@ export default function AddWorkloadModal({
     enabled: selectedClass !== null && selectedClass > 0,
   });
 
-  const grades = gradesResponse?.data || [];
-  const gradeSubjects = useMemo(
-    () => gradeSubjectsResponse?.data ?? [],
-    [gradeSubjectsResponse?.data]
-  );
+  // Load existing teaching loads for this teacher
+  const { data: existingLoadsResponse, isLoading: existingLoadsLoading } = useQuery({
+    queryKey: ['teaching-loads', teacherId],
+    queryFn: () => workloadService.getTeacherWorkload(teacherId),
+    enabled: isOpen && teacherId > 0,
+  });
+
+  const grades = useMemo(() => {
+    // Handle different API response structures
+    const responseData = gradesResponse?.data;
+    if (Array.isArray(responseData)) {
+      return responseData;
+    }
+    if (responseData && typeof responseData === 'object') {
+      // Check for nested data structure { data: { grades: [...] } }
+      const nestedGrades = (responseData as any)?.grades || (responseData as any)?.data;
+      if (Array.isArray(nestedGrades)) {
+        return nestedGrades;
+      }
+    }
+    return [];
+  }, [gradesResponse]);
+
+  const gradeSubjects = useMemo(() => {
+    const responseData = gradeSubjectsResponse?.data;
+    
+    console.log('🔍 AddWorkloadModal gradeSubjects useMemo:', {
+      gradeSubjectsResponse,
+      responseData,
+      isArray: Array.isArray(responseData),
+      length: Array.isArray(responseData) ? responseData.length : 0
+    });
+    
+    if (Array.isArray(responseData)) {
+      return responseData;
+    }
+    
+    return [];
+  }, [gradeSubjectsResponse]);
+
+  // Get existing teaching loads
+  const existingLoads = useMemo(() => {
+    return existingLoadsResponse?.data?.loads || [];
+  }, [existingLoadsResponse]);
+
+  // Group subjects by whether teacher teaches them
+  const teacherSubjectIds = useMemo(() => {
+    return new Set((teacherSubjects || []).map((ts: TeacherSubject) => ts.subject_id));
+  }, [teacherSubjects]);
+
+  const { teacherSubjectsList, otherSubjectsList } = useMemo(() => {
+    const teacherList: GradeSubject[] = [];
+    const otherList: GradeSubject[] = [];
+    
+    gradeSubjects.forEach((gs: GradeSubject) => {
+      if (teacherSubjectIds.has(gs.subject_id)) {
+        teacherList.push(gs);
+      } else {
+        otherList.push(gs);
+      }
+    });
+    
+    return { teacherSubjectsList: teacherList, otherSubjectsList: otherList };
+  }, [gradeSubjects, teacherSubjectIds]);
+
+  // Check if subject is already assigned to this teacher for selected class
+  const isSubjectAlreadyAssigned = useMemo(() => {
+    if (!selectedClass || !selectedSubject) return false;
+    return existingLoads.some(
+      (load: TeachingLoad) =>
+        load.class_id === selectedClass &&
+        load.subject_id === selectedSubject
+    );
+  }, [existingLoads, selectedClass, selectedSubject]);
+
+  // Get list of already assigned subject IDs for the selected class
+  const assignedSubjectIdsForClass = useMemo(() => {
+    if (!selectedClass) return new Set<number>();
+    return new Set(
+      existingLoads
+        .filter((load: TeachingLoad) => load.class_id === selectedClass)
+        .map((load: TeachingLoad) => load.subject_id)
+    );
+  }, [existingLoads, selectedClass]);
 
   // Auto-select subject and hours when class is selected
   useEffect(() => {
@@ -83,19 +162,14 @@ export default function AddWorkloadModal({
         setAutoSelectedInfo(
           `Avtomatik seçildi: "${matchingSubject.subject_name}" (${matchingSubject.weekly_hours} saat/həftə)`
         );
-
-        toast({
-          title: 'Avtomatik Seçim',
-          description: `${matchingSubject.subject_name} fənni və ${matchingSubject.weekly_hours} saat avtomatik seçildi`,
-        });
       } else {
         console.log('⚠️ No matching subject found');
         setSelectedSubject(null);
         setWeeklyHours(0);
-        setAutoSelectedInfo('Bu sinifdə müəllimin fənni tapılmadı. Manuel olaraq seçin.');
+        setAutoSelectedInfo(`Bu sinifdə ${gradeSubjects.length} fənn tapıldı. Seçim edin.`);
       }
     }
-  }, [selectedClass, teacherSubjects, gradeSubjects, toast]);
+  }, [selectedClass, teacherSubjects, gradeSubjects]);
 
   // Reset form when modal closes
   useEffect(() => {
@@ -133,6 +207,16 @@ export default function AddWorkloadModal({
       toast({
         title: 'Xəta',
         description: 'Zəhmət olmasa bütün sahələri doldurun',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    // Check if already assigned
+    if (isSubjectAlreadyAssigned) {
+      toast({
+        title: 'Artıq Təyin Edilib',
+        description: 'Bu fənn artıq bu sinifdə bu müəllimə təyin edilib',
         variant: 'destructive'
       });
       return;
@@ -252,49 +336,140 @@ export default function AddWorkloadModal({
                 />
               </SelectTrigger>
               <SelectContent>
-                {gradeSubjects.map((gs: GradeSubject) => (
-                  <SelectItem key={gs.subject_id} value={gs.subject_id.toString()}>
-                    {gs.subject_name} ({gs.weekly_hours} saat/həftə)
-                  </SelectItem>
-                ))}
+                {/* Teacher's subjects group */}
+                {teacherSubjectsList.length > 0 && (
+                  <>
+                    <div className="px-2 py-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50">
+                      Müəllimin Fənnləri
+                    </div>
+                    {teacherSubjectsList.map((gs: GradeSubject) => {
+                      const isAssigned = assignedSubjectIdsForClass.has(gs.subject_id);
+                      return (
+                        <SelectItem 
+                          key={gs.subject_id} 
+                          value={gs.subject_id.toString()}
+                          disabled={isAssigned}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span>{gs.subject_name} ({gs.weekly_hours} saat)</span>
+                            {isAssigned ? (
+                              <span className="text-xs text-muted-foreground ml-2">(təyin edilib)</span>
+                            ) : (
+                              <span className="text-xs text-emerald-600 ml-2">✓</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </>
+                )}
+                
+                {/* Other subjects group */}
+                {otherSubjectsList.length > 0 && (
+                  <>
+                    {teacherSubjectsList.length > 0 && (
+                      <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 mt-1">
+                        Digər Fənnlər
+                      </div>
+                    )}
+                    {otherSubjectsList.map((gs: GradeSubject) => {
+                      const isAssigned = assignedSubjectIdsForClass.has(gs.subject_id);
+                      return (
+                        <SelectItem 
+                          key={gs.subject_id} 
+                          value={gs.subject_id.toString()}
+                          disabled={isAssigned}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span>{gs.subject_name} ({gs.weekly_hours} saat)</span>
+                            {isAssigned && (
+                              <span className="text-xs text-muted-foreground ml-2">(təyin edilib)</span>
+                            )}
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </>
+                )}
               </SelectContent>
             </Select>
             {gradeSubjectsLoading && selectedClass && (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Sinif fənnləri yüklənir...
+                Fənnlər yüklənir...
+              </div>
+            )}
+            {!gradeSubjectsLoading && gradeSubjects.length === 0 && selectedClass && (
+              <div className="text-sm text-amber-600">
+                Bu sinif üçün fənn məlumatı tapılmadı.
               </div>
             )}
           </div>
 
-          {/* Weekly Hours */}
+          {/* Weekly Hours - Read Only */}
           <div className="grid gap-2">
-            <Label htmlFor="hours">Həftəlik Saat Sayı *</Label>
-            <Input
-              id="hours"
-              type="number"
-              placeholder="Həftəlik saat sayı"
-              min="1"
-              max="40"
-              value={weeklyHours || ''}
-              onChange={(e) => setWeeklyHours(parseInt(e.target.value) || 0)}
-              disabled={!selectedSubject}
-            />
-            {weeklyHours > 0 && (
-              <p className="text-xs text-muted-foreground">
-                {weeklyHours} saat/həftə = {weeklyHours * 4} saat/ay (təxmini)
-              </p>
-            )}
+            <Label>Həftəlik Saat</Label>
+            <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+              <div className="text-2xl font-bold text-primary">
+                {weeklyHours > 0 ? weeklyHours : '-'}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                saat/həftə
+                {weeklyHours > 0 && (
+                  <span className="block text-xs">
+                    ({weeklyHours * 4} saat/ay təxmini)
+                  </span>
+                )}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Saatlar sinif/fənn təyinatından avtomatik gəlir
+            </p>
           </div>
 
-          {/* Validation warning */}
-          {!teacherSubjects || teacherSubjects.length === 0 && (
+          {/* Validation warning - only show if no teacher subjects at all */}
+          {(!teacherSubjects || teacherSubjects.length === 0) && !teacherSubjectsLoading && (
+            <Alert className="bg-amber-50 border-amber-200">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-700">
+                Bu müəllim üçün heç bir fənn təyin edilməyib. Yenə də sinifin istənilən fənnini təyin edə bilərsiniz.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Already assigned warning */}
+          {isSubjectAlreadyAssigned && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                Bu müəllim üçün heç bir fənn təyin edilməyib. Zəhmət olmasa əvvəlcə müəllimə fənn təyin edin.
+                Bu fənn artıq bu sinifdə bu müəllimə təyin edilib. Təkrar təyin etmək mümkün deyil.
               </AlertDescription>
             </Alert>
+          )}
+
+          {/* Existing assignments info */}
+          {existingLoads.length > 0 && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Info className="h-4 w-4 text-blue-600" />
+                <span className="text-sm font-medium text-blue-800">
+                  Mövcud Təyinatlar ({existingLoads.length})
+                </span>
+              </div>
+              <div className="space-y-1 max-h-24 overflow-y-auto">
+                {existingLoads.slice(0, 5).map((load: TeachingLoad) => (
+                  <div key={load.id} className="text-xs text-blue-700 flex justify-between">
+                    <span>{load.class_name} - {load.subject_name}</span>
+                    <span>{load.weekly_hours} saat</span>
+                  </div>
+                ))}
+                {existingLoads.length > 5 && (
+                  <div className="text-xs text-blue-600 italic">
+                    ... və {existingLoads.length - 5} ədədi daha
+                  </div>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
@@ -308,7 +483,7 @@ export default function AddWorkloadModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || !teacherSubjects || teacherSubjects.length === 0}
+            disabled={isSubmitting || !selectedClass || !selectedSubject || weeklyHours <= 0 || isSubjectAlreadyAssigned}
           >
             {isSubmitting ? (
               <>

@@ -86,6 +86,21 @@ class GradeSubject extends Model
     }
 
     /**
+     * Get the auto-created grade book for this subject assignment.
+     */
+    public function gradeBook(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(
+            GradeBookSession::class,
+            'grade_id',
+            'grade_id'
+        )->whereColumn('subject_id', 'grade_subjects.subject_id')
+            ->where(function ($query) {
+                $query->whereNull('deleted_at');
+            });
+    }
+
+    /**
      * Get the activity types as array.
      */
     public function getActivityTypesAttribute(): array

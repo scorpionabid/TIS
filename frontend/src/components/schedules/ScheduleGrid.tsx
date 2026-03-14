@@ -15,6 +15,7 @@ import { ScheduleGridView } from './components/ScheduleGridView';
 import { ScheduleListView } from './components/ScheduleListView';
 import { ScheduleEmptyState } from './components/ScheduleEmptyState';
 import { ScheduleSlotContent } from './components/ScheduleSlotContent';
+import { useTeacherAvailabilityCheck } from '@/hooks/useTeacherAvailabilityCheck';
 
 interface ScheduleGridProps {
   scheduleId?: number;
@@ -60,6 +61,11 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({
     showConflicts
   });
 
+  // Load teacher availability when viewing teacher schedule
+  const { checkAvailability } = useTeacherAvailabilityCheck({
+    teacherId: teacherId || undefined,
+  });
+
   // Schedule logic and state management
   const {
     currentWeek,
@@ -94,12 +100,16 @@ export const ScheduleGrid: React.FC<ScheduleGridProps> = ({
   const getSlotContent = (slot: ScheduleSlot, hasConflictFlag: boolean) => {
     const slotConflicts = getSlotConflicts(slot);
     
+    // Check teacher availability for this slot
+    const availabilityResult = checkAvailability(slot.day_of_week, slot.start_time, slot.end_time);
+    
     return (
       <ScheduleSlotContent
         slot={slot}
         hasConflict={hasConflictFlag}
         viewScale={viewScale}
         conflicts={slotConflicts}
+        availabilityType={availabilityResult.availabilityType}
       />
     );
   };

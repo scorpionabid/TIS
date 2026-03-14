@@ -27,6 +27,28 @@ export function GenericManagerV2<
   const features = config.features || {};
   const useServerPagination = Boolean(config.serverSide?.pagination);
 
+  // Import/Export modal states
+  const [importModalOpen, setImportModalOpen] = React.useState(false);
+  const [exportModalOpen, setExportModalOpen] = React.useState(false);
+
+  // Handle import button click
+  const handleImportClick = () => {
+    if (customLogic?.onImportClick) {
+      customLogic.onImportClick();
+    } else {
+      setImportModalOpen(true);
+    }
+  };
+
+  // Handle export button click
+  const handleExportClick = () => {
+    if (customLogic?.onExportClick) {
+      customLogic.onExportClick();
+    } else {
+      setExportModalOpen(true);
+    }
+  };
+
   // Pagination for filtered entities (ensure we always pass an array)
   const safeFilteredEntities = manager.filteredEntities || [];
   const pagination = usePagination(safeFilteredEntities, {
@@ -112,14 +134,14 @@ export function GenericManagerV2<
 
           {/* Import/Export */}
           {features.import && (
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleImportClick}>
               <Upload className="h-4 w-4 mr-2" />
               İdxal
             </Button>
           )}
 
           {features.export && (
-            <Button variant="outline">
+            <Button variant="outline" onClick={handleExportClick}>
               <Download className="h-4 w-4 mr-2" />
               İxrac
             </Button>
@@ -153,8 +175,8 @@ export function GenericManagerV2<
         </div>
       </div>
 
-      {/* Stats Cards */}
-      {features.stats !== false && (
+      {/* Stats Cards - Only show at top if no stats tab exists */}
+      {features.stats !== false && !config.tabs?.some(t => t.isStatsTab) && (
         <GenericStatsCards stats={manager.stats} />
       )}
 
@@ -189,107 +211,114 @@ export function GenericManagerV2<
           <TabsList className={"grid w-full " + (config.tabs.length <= 2 ? 'grid-cols-2' : config.tabs.length === 3 ? 'grid-cols-3' : config.tabs.length === 4 ? 'grid-cols-4' : 'grid-cols-5')}>
             {config.tabs.map(tab => (
               <TabsTrigger key={tab.key} value={tab.key}>
-                {tab.label} ({tab.count ?? manager.filteredEntities.length})
+                {tab.label} {tab.isStatsTab ? '' : `(${tab.count ?? manager.filteredEntities.length})`}
               </TabsTrigger>
             ))}
           </TabsList>
 
           {config.tabs.map(tab => (
             <TabsContent key={tab.key} value={tab.key} className="space-y-4">
-              {/* Table Content */}
-              {manager.isLoading ? (
-                <GenericTable
-                  columns={config.columns}
-                  data={[]}
-                  actions={config.actions}
-                  isLoading={true}
-                  onRowSelect={features.bulk !== false ? manager.toggleItemSelection : undefined}
-                  selectedItems={manager.selectedItems}
-                  onSelectAll={features.bulk !== false ? handleSelectAll : undefined}
-                  isAllSelected={isAllSelected}
-                  isIndeterminate={isIndeterminate}
-                />
-              ) : (useServerPagination ? tableItems.length > 0 : pagination.totalItems > 0) ? (
+              {/* Stats Tab Content */}
+              {tab.isStatsTab ? (
+                <GenericStatsCards stats={manager.stats} />
+              ) : (
                 <>
-                  <GenericTable
-                    columns={config.columns}
-                    data={tableItems}
-                    actions={config.actions}
-                    isLoading={false}
-                    onRowSelect={features.bulk !== false ? manager.toggleItemSelection : undefined}
-                    selectedItems={manager.selectedItems}
-                    onSelectAll={features.bulk !== false ? handleSelectAll : undefined}
-                    isAllSelected={isAllSelected}
-                    isIndeterminate={isIndeterminate}
-                    customRowRender={customLogic?.renderCustomRow}
-                  />
-                  
-                  {/* Pagination */}
-                  {useServerPagination ? (
-                    <TablePagination
-                      currentPage={manager.pagination?.current_page || manager.filters?.page || 1}
-                      totalPages={manager.pagination?.total_pages || manager.pagination?.last_page || 1}
-                      totalItems={manager.pagination?.total || tableItems.length}
-                      itemsPerPage={manager.pagination?.per_page || manager.filters?.per_page || tableItems.length || 20}
-                      startIndex={(manager.pagination?.from ?? 0) > 0 ? (manager.pagination!.from! - 1) : 0}
-                      endIndex={manager.pagination?.to ?? tableItems.length}
-                      onPageChange={manager.setPage}
-                      onItemsPerPageChange={manager.setPerPage}
-                      canGoPrevious={manager.pagination ? manager.pagination.current_page > 1 : undefined}
-                      canGoNext={
-                        manager.pagination
-                          ? manager.pagination.current_page < (manager.pagination.total_pages || manager.pagination.last_page || 1)
-                          : undefined
-                      }
+                  {/* Table Content */}
+                  {manager.isLoading ? (
+                    <GenericTable
+                      columns={config.columns}
+                      data={[]}
+                      actions={config.actions}
+                      isLoading={true}
+                      onRowSelect={features.bulk !== false ? manager.toggleItemSelection : undefined}
+                      selectedItems={manager.selectedItems}
+                      onSelectAll={features.bulk !== false ? handleSelectAll : undefined}
+                      isAllSelected={isAllSelected}
+                      isIndeterminate={isIndeterminate}
                     />
+                  ) : (useServerPagination ? tableItems.length > 0 : pagination.totalItems > 0) ? (
+                    <>
+                      <GenericTable
+                        columns={config.columns}
+                        data={tableItems}
+                        actions={config.actions}
+                        isLoading={false}
+                        onRowSelect={features.bulk !== false ? manager.toggleItemSelection : undefined}
+                        selectedItems={manager.selectedItems}
+                        onSelectAll={features.bulk !== false ? handleSelectAll : undefined}
+                        isAllSelected={isAllSelected}
+                        isIndeterminate={isIndeterminate}
+                        customRowRender={customLogic?.renderCustomRow}
+                      />
+                      
+                      {/* Pagination */}
+                      {useServerPagination ? (
+                        <TablePagination
+                          currentPage={manager.pagination?.current_page || manager.filters?.page || 1}
+                          totalPages={manager.pagination?.total_pages || manager.pagination?.last_page || 1}
+                          totalItems={manager.pagination?.total || tableItems.length}
+                          itemsPerPage={manager.pagination?.per_page || manager.filters?.per_page || tableItems.length || 20}
+                          startIndex={(manager.pagination?.from ?? 0) > 0 ? (manager.pagination!.from! - 1) : 0}
+                          endIndex={manager.pagination?.to ?? tableItems.length}
+                          onPageChange={manager.setPage}
+                          onItemsPerPageChange={manager.setPerPage}
+                          canGoPrevious={manager.pagination ? manager.pagination.current_page > 1 : undefined}
+                          canGoNext={
+                            manager.pagination
+                              ? manager.pagination.current_page < (manager.pagination.total_pages || manager.pagination.last_page || 1)
+                              : undefined
+                          }
+                        />
+                      ) : (
+                        <TablePagination
+                          currentPage={pagination.currentPage}
+                          totalPages={pagination.totalPages}
+                          totalItems={pagination.totalItems}
+                          itemsPerPage={pagination.itemsPerPage}
+                          startIndex={pagination.startIndex}
+                          endIndex={pagination.endIndex}
+                          onPageChange={pagination.goToPage}
+                          onItemsPerPageChange={pagination.setItemsPerPage}
+                          onPrevious={pagination.goToPreviousPage}
+                          onNext={pagination.goToNextPage}
+                          canGoPrevious={pagination.canGoPrevious}
+                          canGoNext={pagination.canGoNext}
+                        />
+                      )}
+                    </>
                   ) : (
-                    <TablePagination
-                      currentPage={pagination.currentPage}
-                      totalPages={pagination.totalPages}
-                      totalItems={pagination.totalItems}
-                      itemsPerPage={pagination.itemsPerPage}
-                      startIndex={pagination.startIndex}
-                      endIndex={pagination.endIndex}
-                      onPageChange={pagination.goToPage}
-                      onItemsPerPageChange={pagination.setItemsPerPage}
-                      onPrevious={pagination.goToPreviousPage}
-                      onNext={pagination.goToNextPage}
-                      canGoPrevious={pagination.canGoPrevious}
-                      canGoNext={pagination.canGoNext}
-                    />
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-center py-12">
+                          <AlertTriangle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="text-lg font-medium mb-2">
+                            {config.entityName} tapılmadı
+                          </h3>
+                          <p className="text-muted-foreground">
+                            {manager.searchTerm ? 
+                              'Axtarış kriteriyasına uyğun məlumat tapılmadı' : 
+                              tab.key === 'all' ? 
+                                `Hələ ki yaradılmış ${config.entityName.toLowerCase()} yoxdur` :
+                                `${tab.label} ${config.entityName.toLowerCase()} yoxdur`
+                            }
+                          </p>
+                          {features.create !== false && (
+                            <Button 
+                              className="mt-4" 
+                              onClick={() => {
+                                manager.setEditingEntity(null);
+                                manager.setCreateModalOpen(true);
+                              }}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              İlk {config.entityName.toLowerCase()}i yarat
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
                   )}
                 </>
-              ) : (
-                <Card>
-                  <CardContent className="pt-6">
-                    <div className="text-center py-12">
-                      <AlertTriangle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">
-                        {config.entityName} tapılmadı
-                      </h3>
-                      <p className="text-muted-foreground">
-                        {manager.searchTerm ? 
-                          'Axtarış kriteriyasına uyğun məlumat tapılmadı' : 
-                          tab.key === 'all' ? 
-                            `Hələ ki yaradılmış ${config.entityName.toLowerCase()} yoxdur` :
-                            `${tab.label} ${config.entityName.toLowerCase()} yoxdur`
-                        }
-                      </p>
-                      {features.create !== false && (
-                        <Button 
-                          className="mt-4" 
-                          onClick={() => {
-                            manager.setEditingEntity(null);
-                            manager.setCreateModalOpen(true);
-                          }}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          İlk {config.entityName.toLowerCase()}i yarat
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
               )}
             </TabsContent>
           ))}

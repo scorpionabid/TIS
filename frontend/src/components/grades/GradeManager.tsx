@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { Grade, GradeFilters } from '@/services/grades';
@@ -9,6 +9,7 @@ import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
 import { GradeAnalyticsModal } from './GradeAnalyticsModal';
 import { GradeDuplicateModal } from './GradeDuplicateModal';
+import { gradeBookService } from '@/services/gradeBook';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
@@ -55,6 +56,11 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   const [analyticsGrade, setAnalyticsGrade] = React.useState<Grade | null>(null);
   const [softDeleteTarget, setSoftDeleteTarget] = React.useState<Grade | null>(null);
   const [hardDeleteTarget, setHardDeleteTarget] = React.useState<Grade | null>(null);
+  const [syncModalOpen, setSyncModalOpen] = React.useState(false);
+  const [syncPreview, setSyncPreview] = React.useState<{
+    orphaned_count: number;
+    missing_count: number;
+  } | null>(null);
   const [softDeleteReason, setSoftDeleteReason] = React.useState('');
 
   // Role-based access and filtering
@@ -233,6 +239,56 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     };
   }, [currentUser, softDeleteMutation, hardDeleteMutation]);
 
+  // Sync mutation
+  const syncMutation = useMutation({
+    mutationFn: () => gradeBookService.sync({
+      institution_id: currentUser?.institution?.id,
+    }),
+    onSuccess: (data) => {
+      toast.success(data.message);
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      setSyncModalOpen(false);
+      setSyncPreview(null);
+    },
+    onError: (error: any) => {
+      logger.error('Sync failed', { error });
+      const message = error?.response?.data?.message || 'Sinxronizasiya zamanı xəta baş verdi';
+      toast.error(message);
+    },
+  });
+
+  // Check sync status
+  const checkSyncStatus = React.useCallback(async () => {
+    try {
+      const [orphanedResult, gradesResult] = await Promise.all([
+        gradeBookService.findOrphaned({ institution_id: currentUser?.institution?.id }),
+        gradeService.get({ institution_id: currentUser?.institution?.id, include: 'subjects' }),
+      ]);
+
+      const orphanedCount = orphanedResult.data?.orphaned_count || 0;
+      
+      // Calculate missing grade books
+      let missingCount = 0;
+      if (gradesResult.items) {
+        gradesResult.items.forEach((grade: Grade) => {
+          const subjects = grade.grade_subjects || [];
+          const teachingSubjects = subjects.filter(s => s.is_teaching_activity);
+          const withoutGradeBook = teachingSubjects.filter(s => !s.has_grade_book).length;
+          missingCount += withoutGradeBook;
+        });
+      }
+
+      setSyncPreview({
+        orphaned_count: orphanedCount,
+        missing_count: missingCount,
+      });
+      setSyncModalOpen(true);
+    } catch (error) {
+      logger.error('Failed to check sync status', { error });
+      toast.error('Sinxronizasiya statusu yoxlanarkən xəta baş verdi');
+    }
+  }, [currentUser?.institution?.id]);
+
   // Handle create action
   const handleCreate = React.useCallback(() => {
     logger.debug('Opening grade creation dialog', {
@@ -242,9 +298,25 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setCreateModalOpen(true);
   }, []);
 
+  // Handle sync action
+  const handleSync = React.useCallback(() => {
+    logger.debug('Opening sync dialog', {
+      component: 'GradeManager',
+      action: 'handleSync'
+    });
+    checkSyncStatus();
+  }, [checkSyncStatus]);
+
   // Custom logic with create handler
   const customLogic = React.useMemo(() => ({
     headerActions: [
+      {
+        key: 'sync-grade-books',
+        label: 'Jurnalları Sinxronlaşdır',
+        icon: RefreshCw as any,
+        onClick: handleSync,
+        variant: 'outline' as const
+      },
       {
         key: 'create-grade',
         label: 'Yeni Sinif',
@@ -291,6 +363,8 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setStudentsGrade(null);
     setAnalyticsModalOpen(false);
     setAnalyticsGrade(null);
+    setSyncModalOpen(false);
+    setSyncPreview(null);
     if (!softDeleteMutation.isPending) {
       setSoftDeleteTarget(null);
       setSoftDeleteReason('');
@@ -408,6 +482,89 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
           }}
         />
       )}
+
+      <AlertDialog
+        open={syncModalOpen}
+        onOpenChange={(open) => {
+          if (!open && !syncMutation.isPending) {
+            setSyncModalOpen(false);
+            setSyncPreview(null);
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              Jurnalları Sinxronlaşdır
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              {syncPreview ? (
+                <>
+                  <p>Sinxronizasiya statusu:</p>
+                  <div className="bg-muted p-3 rounded-md space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Çatışmayan jurnallar:</span>
+                      <span className="font-medium text-green-600">
+                        {syncPreview.missing_count}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Fənn silinmiş jurnallar:</span>
+                      <span className="font-medium text-orange-600">
+                        {syncPreview.orphaned_count}
+                      </span>
+                    </div>
+                  </div>
+                  {syncPreview.missing_count === 0 && syncPreview.orphaned_count === 0 ? (
+                    <p className="text-green-600 font-medium">
+                      ✅ Bütün jurnallar sinxronizasiya edilib!
+                    </p>
+                  ) : (
+                    <p>
+                      {syncPreview.missing_count > 0 && `${syncPreview.missing_count} yeni jurnal yaradılacaq. `}
+                      {syncPreview.orphaned_count > 0 && `${syncPreview.orphaned_count} yetim jurnal təmizlənəcək.`}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p>Status yoxlanılır...</p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel
+              disabled={syncMutation.isPending}
+              onClick={() => {
+                setSyncModalOpen(false);
+                setSyncPreview(null);
+              }}
+            >
+              Bağla
+            </AlertDialogCancel>
+            {syncPreview && (syncPreview.missing_count > 0 || syncPreview.orphaned_count > 0) && (
+              <AlertDialogAction asChild>
+                <Button
+                  onClick={() => syncMutation.mutate()}
+                  disabled={syncMutation.isPending}
+                >
+                  {syncMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Sinxronlaşdırılır...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Sinxronlaşdır
+                    </>
+                  )}
+                </Button>
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={!!softDeleteTarget}

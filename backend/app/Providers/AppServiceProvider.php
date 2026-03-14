@@ -84,6 +84,7 @@ class AppServiceProvider extends ServiceProvider
         // Register model observers
         \App\Models\Institution::observe(\App\Observers\InstitutionObserver::class);
         \App\Models\Permission::observe(\App\Observers\PermissionObserver::class);
+        \App\Models\GradeSubject::observe(\App\Observers\GradeSubjectObserver::class);
 
         // Configure database query performance monitoring
         if (config('app.debug') || config('app.env') === 'production') {

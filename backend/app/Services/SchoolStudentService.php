@@ -127,11 +127,26 @@ class SchoolStudentService
     public function createStudent(Institution $school, array $data): Student
     {
         return DB::transaction(function () use ($school, $data) {
+            // Map guardian fields to parent fields (backward compat)
+            $data['parent_name'] = $data['guardian_name'] ?? $data['parent_name'] ?? null;
+            $data['parent_phone'] = $data['guardian_phone'] ?? $data['parent_phone'] ?? null;
+            $data['parent_email'] = $data['guardian_email'] ?? $data['parent_email'] ?? null;
+            $data['special_needs'] = $data['allergies'] ?? $data['special_needs'] ?? null;
+
+            // Email is optional - generate placeholder if not provided
+            $email = $data['email'] ?? null;
+            $generatedEmail = null;
+            if (empty($email)) {
+                $studentNum = $data['student_number'] ?? uniqid();
+                $generatedEmail = 'student.' . strtolower($studentNum) . '@placeholder.school';
+                $email = $generatedEmail;
+            }
+
             // Create user first
             $user = User::create([
-                'username' => $data['username'] ?? strtolower(str_replace(' ', '.', $data['name'])),
-                'name' => $data['name'],
-                'email' => $data['email'],
+                'username' => $data['username'] ?? strtolower(str_replace(' ', '.', $data['name'] ?? '')),
+                'name' => $data['name'] ?? ($data['first_name'] . ' ' . $data['last_name']),
+                'email' => $email,
                 'password' => Hash::make($data['password'] ?? 'student123'),
                 'role' => 'student',
                 'institution_id' => $school->id,
@@ -157,34 +172,41 @@ class SchoolStudentService
             $student = Student::create([
                 'user_id' => $user->id,
                 'institution_id' => $school->id,
-                'grade_id' => $data['grade_id'],
+                'grade_id' => $data['grade_id'] ?? null,
                 'student_number' => $data['student_number'] ?? $this->generateStudentNumber($school),
                 'enrollment_date' => $data['enrollment_date'] ?? now(),
+                'status' => $data['status'] ?? 'active',
                 'is_active' => true,
                 'first_name' => $data['first_name'] ?? '',
                 'last_name' => $data['last_name'] ?? '',
                 'class_name' => $data['class_name'] ?? '',
-                'grade_level' => $data['grade_level'] ?? '',
+                'grade_level' => $data['current_grade_level'] ?? $data['grade_level'] ?? '',
                 'birth_date' => $data['date_of_birth'] ?? null,
+                'gender' => $data['gender'] ?? null,
+                'address' => $data['address'] ?? null,
                 'parent_name' => $data['parent_name'] ?? null,
                 'parent_phone' => $data['parent_phone'] ?? null,
                 'parent_email' => $data['parent_email'] ?? null,
-                'address' => $data['address'] ?? null,
+                'guardian_relation' => $data['guardian_relation'] ?? null,
+                'emergency_contact' => $data['emergency_contact'] ?? null,
                 'special_needs' => $data['special_needs'] ?? null,
                 'medical_conditions' => $data['medical_conditions'] ?? null,
+                'notes' => $data['notes'] ?? null,
             ]);
 
-            // Create enrollment record
-            StudentEnrollment::create([
-                'student_id' => $student->id,
-                'student_number' => $student->student_number,
-                'grade_id' => $data['grade_id'],
-                'academic_year_id' => $this->getCurrentAcademicYear(),
-                'enrollment_date' => $data['enrollment_date'] ?? now(),
-                'enrollment_status' => 'active',
-            ]);
+            // Create enrollment record (only if grade_id provided)
+            if (!empty($data['grade_id'])) {
+                StudentEnrollment::create([
+                    'student_id' => $student->id,
+                    'student_number' => $student->student_number,
+                    'grade_id' => $data['grade_id'],
+                    'academic_year_id' => $this->getCurrentAcademicYear(),
+                    'enrollment_date' => $data['enrollment_date'] ?? now(),
+                    'enrollment_status' => 'active',
+                ]);
+            }
 
-            return $student->load(['user.profile', 'grade']);
+            return $student->load(['institution']);
         });
     }
 

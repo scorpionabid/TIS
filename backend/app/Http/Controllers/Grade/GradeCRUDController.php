@@ -474,6 +474,9 @@ class GradeCRUDController extends Controller
         }
         if (str_contains($includes, 'subjects')) {
             $with[] = 'subjects.activeTeacherAssignments.teacher.profile';
+            $with[] = 'gradeSubjects.subject';
+            $with[] = 'gradeSubjects.teacher';
+            $with[] = 'gradeSubjects.gradeBook';
         }
 
         return $with;

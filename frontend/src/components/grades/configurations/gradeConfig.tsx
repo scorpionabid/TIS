@@ -57,12 +57,13 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   title: 'Sinif İdarəetməsi',
   description: 'Məktəb siniflərinin idarə edilməsi və tələbə yazılışları',
   
-  // Feature configuration - disable default create button
+  // Feature configuration - disable default create button and stats
   features: {
-    create: false,  // Disable default create button since we use headerActions
-    tabs: true,     // Enable tabs
-    filters: true,  // Enable filters
-    bulk: true     // Enable bulk selection
+    create: false,   // Disable default create button since we use headerActions
+    tabs: true,      // Enable tabs
+    filters: true,   // Enable filters
+    bulk: true,      // Enable bulk selection
+    stats: false     // Hide stats cards from main view - will show in separate tab
   },
 
   // Tab configuration
@@ -95,6 +96,11 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       serverFilters: {
         is_active: false,
       },
+    },
+    {
+      key: 'stats',
+      label: 'Statistika',
+      isStatsTab: true,  // Special statistics tab
     }
   ],
   
@@ -111,18 +117,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
             {grade.class_level || 0}. sinif səviyyəsi
           </span>
         </div>
-      )
-    },
-    {
-      key: 'specialty',
-      label: 'İxtisas',
-      width: 110,
-      render: (grade: Grade) => grade.specialty ? (
-        <Badge variant="outline" className="text-xs py-0.5">
-          {grade.specialty}
-        </Badge>
-      ) : (
-        <span className="text-muted-foreground text-xs italic">-</span>
       )
     },
     {
@@ -170,6 +164,30 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
           <span className="text-muted-foreground text-xs italic">-</span>
         );
       }
+    },
+    {
+      key: 'education_program',
+      label: 'Təhsil Proqramı',
+      width: 150,
+      render: (grade: Grade) => grade.education_program ? (
+        <Badge variant="outline" className="text-xs py-0.5">
+          {grade.education_program}
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground text-xs italic">-</span>
+      )
+    },
+    {
+      key: 'class_profile',
+      label: 'Profil',
+      width: 150,
+      render: (grade: Grade) => grade.class_profile ? (
+        <Badge variant="secondary" className="text-xs py-0.5">
+          {grade.class_profile}
+        </Badge>
+      ) : (
+        <span className="text-muted-foreground text-xs italic">-</span>
+      )
     },
     {
       key: 'homeroom_teacher',
@@ -457,7 +475,7 @@ export const gradeCustomLogic = {
   }
 };
 
-// Enhanced filter component for grades
+// Enhanced filter component for grades - simplified to only show Status filter
 export const GradeFiltersComponent: React.FC<{
   filters: GradeFilters;
   onFiltersChange: (filters: GradeFilters) => void;
@@ -466,8 +484,6 @@ export const GradeFiltersComponent: React.FC<{
 }> = ({ 
   filters, 
   onFiltersChange,
-  availableInstitutions = [],
-  availableAcademicYears = []
 }) => {
   const currentFilters = filters || {};
   const applyFilterChange = (patch: Partial<GradeFilters>, options?: { resetPage?: boolean }) => {
@@ -482,180 +498,27 @@ export const GradeFiltersComponent: React.FC<{
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 p-4 bg-muted/50 rounded-lg">
-      {/* Institution Filter */}
-      {availableInstitutions.length > 1 && (
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium">Məktəb</label>
-          <select
-            value={currentFilters.institution_id || ''}
-            onChange={(e) =>
-              applyFilterChange({
-                institution_id: e.target.value ? parseInt(e.target.value, 10) : undefined,
-              })
-            }
-            className="px-3 py-2 border border-input rounded-md text-sm bg-background"
-          >
-            <option value="">Bütün məktəblər</option>
-            {availableInstitutions.map(inst => (
-              <option key={inst.id} value={inst.id}>{inst.name}</option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Class Level Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Sinif Səviyyəsi</label>
-        <select
-          value={currentFilters.class_level || ''}
-          onChange={(e) =>
-            applyFilterChange({
-              class_level: e.target.value ? parseInt(e.target.value, 10) : undefined,
-            })
-          }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
-        >
-          <option value="">Bütün səviyyələr</option>
-          {Array.from({length: 12}, (_, i) => i + 1).map(level => (
-            <option key={level} value={level}>{level}. sinif</option>
-          ))}
-        </select>
-      </div>
-
-      {/* Academic Year Filter */}
-      {availableAcademicYears.length > 0 && (
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium">Təhsil İli</label>
-          <select
-            value={currentFilters.academic_year_id || ''}
-            onChange={(e) =>
-              applyFilterChange({
-                academic_year_id: e.target.value ? parseInt(e.target.value, 10) : undefined,
-              })
-            }
-            className="px-3 py-2 border border-input rounded-md text-sm bg-background"
-          >
-            <option value="">Bütün təhsil illəri</option>
-            {availableAcademicYears.map(year => (
-              <option key={year.id} value={year.id}>
-                {year.name} {year.is_active && '(Aktiv)'}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* Capacity Status Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Tutum Vəziyyəti</label>
-        <select
-          value={currentFilters.capacity_status || ''}
-          onChange={(e) =>
-            applyFilterChange({
-              capacity_status: e.target.value || undefined,
-            })
-          }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
-        >
-          <option value="">Bütün statuslar</option>
-          <option value="available">Müsait</option>
-          <option value="near_capacity">Dolmağa Yaxın</option>
-          <option value="full">Dolu</option>
-          <option value="over_capacity">Həddindən Çox</option>
-          <option value="no_room">Otaq Yoxdur</option>
-        </select>
-      </div>
-
-      {/* Teacher Assignment Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Müəllim Təyinatı</label>
-        <select
-          value={
-            currentFilters.has_teacher !== undefined
-              ? currentFilters.has_teacher.toString()
-              : ''
-          }
-          onChange={(e) =>
-            applyFilterChange({
-              has_teacher: e.target.value === '' ? undefined : e.target.value === 'true',
-            })
-          }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
-        >
-          <option value="">Hamısı</option>
-          <option value="true">Müəllimi var</option>
-          <option value="false">Müəllimi yoxdur</option>
-        </select>
-      </div>
-
-      {/* Room Assignment Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Otaq Təyinatı</label>
-        <select
-          value={
-            currentFilters.has_room !== undefined ? currentFilters.has_room.toString() : ''
-          }
-          onChange={(e) =>
-            applyFilterChange({
-              has_room: e.target.value === '' ? undefined : e.target.value === 'true',
-            })
-          }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
-        >
-          <option value="">Hamısı</option>
-          <option value="true">Otağı var</option>
-          <option value="false">Otağı yoxdur</option>
-        </select>
-      </div>
-
-      {/* Active Status Filter */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium">Status</label>
+    <div className="flex flex-wrap items-center gap-4">
+      {/* Status Filter - only one filter */}
+      <div className="flex items-center gap-2">
+        <label className="text-sm font-medium text-slate-700">Status:</label>
         <select
           value={
             currentFilters.is_active !== undefined
               ? currentFilters.is_active.toString()
-              : 'true'
+              : ''
           }
           onChange={(e) =>
             applyFilterChange({
               is_active: e.target.value === '' ? undefined : e.target.value === 'true',
             })
           }
-          className="px-3 py-2 border border-input rounded-md text-sm bg-background"
+          className="px-3 py-2 border border-slate-200 rounded-md text-sm bg-white min-w-[140px]"
         >
+          <option value="">Hamısı</option>
           <option value="true">Aktiv</option>
           <option value="false">Deaktiv</option>
-          <option value="">Hamısı</option>
         </select>
-      </div>
-
-      {/* Clear Filters Button */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium invisible">Təmizlə</label>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() =>
-            applyFilterChange(
-              {
-                institution_id: undefined,
-                class_level: undefined,
-                academic_year_id: undefined,
-                capacity_status: undefined,
-                has_teacher: undefined,
-                has_room: undefined,
-                is_active: true,
-              },
-              { resetPage: true }
-            )
-          }
-          className="px-4"
-        >
-          <Settings className="h-4 w-4 mr-2" />
-          Filtrləri Təmizlə
-        </Button>
       </div>
     </div>
   );

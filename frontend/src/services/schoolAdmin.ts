@@ -154,6 +154,7 @@ export interface SchoolTeacher extends BaseEntity {
   email: string;
   phone?: string;
   department: string;
+  institution?: string;
   position: string;
   hire_date: string;
   is_active: boolean;
@@ -162,12 +163,18 @@ export interface SchoolTeacher extends BaseEntity {
   workload_hours?: number;
   performance_rating?: number;
 
+  workload_total_hours?: number;
+  workload_teaching_hours?: number;
+  workload_club_hours?: number;
+  workload_extracurricular_hours?: number;
+
   // New teacher fields from teacher management improvement
   position_type?: 'direktor' | 'direktor_muavini_tedris' | 'direktor_muavini_inzibati' |
                   'terbiye_isi_uzre_direktor_muavini' | 'metodik_birlesme_rəhbəri' |
                   'muəllim_sinif_rəhbəri' | 'muəllim' | 'psixoloq' | 'kitabxanaçı' |
                   'laborant' | 'tibb_işçisi' | 'təsərrüfat_işçisi';
   employment_status?: 'full_time' | 'part_time' | 'contract' | 'temporary' | 'substitute';
+  assessment_score?: number;
   primary_institution_id?: number;
   contract_start_date?: string;
   contract_end_date?: string;

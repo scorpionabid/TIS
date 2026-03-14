@@ -36,13 +36,15 @@ export const EnrollmentModal: React.FC<EnrollmentModalProps> = ({
   const filteredClasses = classes?.filter(cls => 
     !selectedGradeForEnrollment || 
     selectedGradeForEnrollment === 'all' || 
-    cls.grade_level.toString() === selectedGradeForEnrollment
+    cls.class_level?.toString() === selectedGradeForEnrollment
   ) || [];
 
   // Get available classes (not at full capacity)
-  const availableClasses = filteredClasses.filter(cls => 
-    cls.current_enrollment < cls.capacity
-  );
+  const availableClasses = filteredClasses.filter(cls => {
+    const currentList = cls.student_count || 0;
+    const capacityVal = cls.room?.capacity || 30; // Default capacity if no room
+    return currentList < capacityVal;
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -103,7 +105,9 @@ export const EnrollmentModal: React.FC<EnrollmentModalProps> = ({
             <div className="max-h-60 overflow-y-auto space-y-2">
               {availableClasses.length > 0 ? (
                 availableClasses.map(cls => {
-                  const capacityPercentage = (cls.current_enrollment / cls.capacity) * 100;
+                  const currentList = cls.student_count || 0;
+                  const capacityVal = cls.room?.capacity || 30;
+                  const capacityPercentage = (currentList / capacityVal) * 100;
                   
                   return (
                     <div 
@@ -113,20 +117,20 @@ export const EnrollmentModal: React.FC<EnrollmentModalProps> = ({
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">{cls.name}</p>
+                          <p className="font-medium">{cls.class_level}-{cls.name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {getGradeLevelText(cls.grade_level)}
+                            {getGradeLevelText(cls.class_level)}
                           </p>
-                          {cls.class_teacher && (
+                          {cls.homeroom_teacher && (
                             <p className="text-xs text-muted-foreground">
-                              Rəhbər: {cls.class_teacher.name}
+                              Rəhbər: {cls.homeroom_teacher.full_name}
                             </p>
                           )}
                         </div>
                         <div className="text-right">
                           <div className="flex items-center gap-1 text-sm">
                             <Users className="h-3 w-3" />
-                            <span>{cls.current_enrollment}/{cls.capacity}</span>
+                            <span>{currentList}/{capacityVal}</span>
                           </div>
                           <div className="text-xs text-muted-foreground">
                             {capacityPercentage.toFixed(0)}% dolu

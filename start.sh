@@ -254,7 +254,9 @@ setup_database() {
         if [[ "$check_output" =~ ^[0-9]+$ ]]; then
             user_count=$check_output
         else
-            user_count=0
+            # If both fail, assume DB is NOT EMPTY to be safe
+            print_warning "⚠️  Database yoxlanışı zamanı xəta baş verdi. Sıfırlanmanın qarşısını almaq üçün proses dayandırılır."
+            user_count=999
         fi
     fi
 

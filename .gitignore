@@ -221,3 +221,12 @@ backend/.env.backup_*
 
 # Database statistics
 database_*.txt
+
+# Legacy Tests & Scripts
+backend/.legacy-tests/
+test_student.php
+frontend/test_fetch.js
+atis_verified_backup_*.tar.gz
+restore-db.bat
+restore-db.sh
+restore_prod_sql.sh

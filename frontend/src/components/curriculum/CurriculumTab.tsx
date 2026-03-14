@@ -396,9 +396,6 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Qrupa Bölünür
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Müəllim
-                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Əməliyyatlar
                   </th>
@@ -455,13 +452,6 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
                       ) : (
                         <span className="text-sm text-gray-500">−</span>
                       )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {subject.teacher_name || (
-                          <span className="text-gray-400 italic">Təyin edilməyib</span>
-                        )}
-                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex items-center justify-end gap-2">

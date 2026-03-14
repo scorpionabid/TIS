@@ -270,6 +270,11 @@ const actions: ActionConfig<Student>[] = [
 // Enhanced tab configuration with proper filtering
 const tabs: TabConfig[] = [
   {
+    key: 'stats',
+    label: 'Statistika',
+    isStatsTab: true,
+  },
+  {
     key: 'all',
     label: 'Hamısı',
   },

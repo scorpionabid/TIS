@@ -124,52 +124,13 @@ export const improvedNavigationConfig: MenuGroup[] = [
         id: "assessments",
         label: "Qiymətləndirmə",
         icon: Calculator,
+        path: "/grade-books",
         roles: [
           USER_ROLES.SUPERADMIN,
           USER_ROLES.REGIONADMIN,
           USER_ROLES.SEKTORADMIN,
           USER_ROLES.SCHOOLADMIN,
           USER_ROLES.MUELLIM,
-        ],
-        children: [
-          {
-            id: "assessment-entry",
-            label: "Qiymət Daxil Etmə",
-            path: "/assessments/entry",
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-          },
-          {
-            id: "gradebook",
-            label: "Qiymət Dəftəri",
-            path: "/school/gradebook",
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.MUELLIM],
-          },
-          {
-            id: "school-assessments-manage",
-            label: "Qiymətləndirmə İdarəetməsi",
-            path: "/school/assessments",
-            icon: TrendingUp,
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-            description: "Qiymətləndirmə kampaniyalarını yaradın və izləyin",
-          },
-          {
-            id: "assessment-results",
-            label: "Məktəb StatistikasI",
-            path: "/assessments/results",
-            roles: [
-              USER_ROLES.SUPERADMIN,
-              USER_ROLES.REGIONADMIN,
-              USER_ROLES.SEKTORADMIN,
-              USER_ROLES.SCHOOLADMIN,
-            ],
-            description: "Tip və mərhələyə görə nəticələr",
-          },
-          {
-            id: "assessment-types",
-            label: "Qiymətləndirmə Növləri",
-            path: "/assessments/types",
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
-          },
         ],
       },
     ],
@@ -583,7 +544,7 @@ export const improvedNavigationConfig: MenuGroup[] = [
     ],
   },
 
-  // �� Məktəb İdarəetməsi (Sadələşdirilmiş)
+  // 🏫 Məktəb İdarəetməsi (Sadələşdirilmiş)
   {
     id: "school-management",
     label: "Məktəb İdarəsi",
@@ -601,50 +562,23 @@ export const improvedNavigationConfig: MenuGroup[] = [
       {
         id: "students",
         label: "Şagirdlər",
+        path: "/students",
         icon: Users,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-        children: [
-          {
-            id: "school-students",
-            label: "Şagird Siyahısı",
-            path: "/students",
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-          },
-          {
-            id: "student-enrollment",
-            label: "Yeni Qeydiyyat",
-            path: "/students",
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-          },
-        ],
       },
       {
         id: "teachers",
         label: "Müəllimlər",
+        path: "/school/teachers",
         icon: GraduationCap,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-        children: [
-          {
-            id: "school-teachers",
-            label: "Müəllim Siyahısı",
-            path: "/school/teachers",
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-          },
-        ],
       },
       {
         id: "classes",
         label: "Siniflər",
+        path: "/school/classes",
         icon: Building2,
         roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-        children: [
-          {
-            id: "school-classes",
-            label: "Sinif Siyahısı",
-            path: "/school/classes",
-            roles: [USER_ROLES.SUPERADMIN, USER_ROLES.SCHOOLADMIN],
-          },
-        ],
       },
     ],
   },
