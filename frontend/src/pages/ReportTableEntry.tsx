@@ -55,6 +55,7 @@ export default function ReportTableEntry() {
     hasUnsaved: boolean;
     responseStatus: 'draft' | 'submitted' | null;
     fullyLocked: boolean;
+    hasEditableRows: boolean;
     lastSaved: Date | null;
     isSaving: boolean;
   } | null>(null);
@@ -495,7 +496,10 @@ export default function ReportTableEntry() {
                       type="button"
                       size="sm"
                       onClick={handleSubmitAll}
-                      disabled={entryMeta?.fullyLocked}
+                      disabled={
+                        entryMeta?.fullyLocked ||
+                        (entryMeta !== null && !entryMeta.hasEditableRows)
+                      }
                       className="gap-1.5 h-9 bg-emerald-600 hover:bg-emerald-700 text-white"
                     >
                       <Send className="h-4 w-4" />

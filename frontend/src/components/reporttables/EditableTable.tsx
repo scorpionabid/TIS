@@ -8,6 +8,7 @@ import {
 import { Keyboard, Plus, AlertCircle, Sigma, Columns, HelpCircle, Filter, X as XIcon } from 'lucide-react';
 import type { ReportTableRow, ReportTableColumn, RowStatuses } from '@/types/reportTable';
 import { validateRow, hasValidationErrors, colMinWidth, colTypeLabel } from '@/utils/tableValidation';
+import { getFocusableElements } from '@/utils/focusManagement';
 
 import { DesktopRow } from './DesktopRow';
 import { MobileRow } from './MobileRow';
@@ -149,6 +150,83 @@ export const EditableTable = React.memo(function EditableTable({
   const [freezeFirstCol, setFreezeFirstCol] = useState(false);
   const [rowFilter, setRowFilter] = useState<'all' | 'rejected' | 'pending'>('all');
 
+  // ─── Native Tab navigation (bypasses Radix Sheet focus trap) ────────────────
+  // Radix's focus-trap uses a native DOM addEventListener on the Dialog container,
+  // which fires BEFORE React synthetic events during the bubble phase.
+  // Using a capture-phase listener on our table container fires FIRST — before
+  // Radix ever sees the event — so stopImmediatePropagation actually works.
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  // Use refs so the effect callback always has fresh values without re-registering.
+  // NOTE: .current assignments are done AFTER visibleRows/columns are computed below.
+  const columnsRef = useRef(columns);
+  const visibleRowsRef = useRef<typeof visibleRows>([]);
+
+  useEffect(() => {
+    const container = tableContainerRef.current;
+    if (!container) return;
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+
+      const focused = document.activeElement as HTMLElement | null;
+      if (!focused || !container.contains(focused)) return;
+
+      // Find the data-cell-pos attribute on the focused element or its ancestors
+      const cellTd = focused.closest('[data-cell-pos]') as HTMLElement | null;
+      if (!cellTd) return;
+
+      const [rowStr, colStr] = (cellTd.dataset.cellPos ?? '').split('-');
+      const currentOriginalRow = parseInt(rowStr);
+      const currentColIdx = parseInt(colStr);
+      if (isNaN(currentOriginalRow) || isNaN(currentColIdx)) return;
+
+      // Stop ALL listeners — including Radix focus trap — from handling this Tab
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      const cols = columnsRef.current;
+      const vRows = visibleRowsRef.current;
+      const totalCols = cols.length;
+
+      // Navigate within visible rows (filter-aware)
+      const currentVisibleIdx = vRows.findIndex(({ idx }) => idx === currentOriginalRow);
+      if (currentVisibleIdx === -1) return;
+
+      let nextVisibleIdx = currentVisibleIdx;
+      let nextColIdx = currentColIdx;
+
+      if (e.shiftKey) {
+        if (currentColIdx > 0) {
+          nextColIdx = currentColIdx - 1;
+        } else if (currentVisibleIdx > 0) {
+          nextVisibleIdx = currentVisibleIdx - 1;
+          nextColIdx = totalCols - 1;
+        } else return;
+      } else {
+        if (currentColIdx + 1 < totalCols) {
+          nextColIdx = currentColIdx + 1;
+        } else if (currentVisibleIdx + 1 < vRows.length) {
+          nextVisibleIdx = currentVisibleIdx + 1;
+          nextColIdx = 0;
+        } else return;
+      }
+
+      const nextOriginalRow = vRows[nextVisibleIdx].idx;
+      const targetCell = container.querySelector<HTMLElement>(
+        `[data-cell-pos="${nextOriginalRow}-${nextColIdx}"]`
+      );
+      // Use existing utility for accessible focusable element detection
+      const focusable = targetCell
+        ? (getFocusableElements(targetCell)[0] ?? targetCell)
+        : null;
+      focusable?.focus();
+    };
+
+    // Capture phase: fires before any bubble-phase listener (including Radix's)
+    container.addEventListener('keydown', handleTab, true);
+    return () => container.removeEventListener('keydown', handleTab, true);
+  }, []); // empty deps — uses refs for fresh column/row data
+
   const hasNumericCols = useMemo(
     () => columns.some((c) => c.type === 'number' || c.type === 'calculated'),
     [columns]
@@ -179,6 +257,10 @@ export const EditableTable = React.memo(function EditableTable({
       });
   }, [displayRows, rowFilter, rowStatuses]);
 
+  // Keep refs fresh for the native Tab handler (defined above)
+  columnsRef.current = columns;
+  visibleRowsRef.current = visibleRows;
+
   const columnTotals = useMemo(() => {
     if (!showTotals || displayRows.length <= 1) return {} as Record<string, number>;
     const totals: Record<string, number> = {};
@@ -204,7 +286,7 @@ export const EditableTable = React.memo(function EditableTable({
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-3">
+    <div ref={tableContainerRef} className="space-y-3">
       {/* Row filter chips — only shown when there are rejected/pending rows */}
       {rowStatuses && (rowStatusCounts.rejected > 0 || rowStatusCounts.pending > 0) && (
         <div className="flex items-center gap-2 flex-wrap">

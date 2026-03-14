@@ -24,7 +24,7 @@ export interface CellInputProps {
   value: string;
   onChange: (v: string) => void;
   onBlur: () => void;
-  onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  onKeyDown?: (e: React.KeyboardEvent<HTMLElement>) => void;
   onPaste?: (e: React.ClipboardEvent<HTMLInputElement>) => void;
   disabled: boolean;
   error: boolean;

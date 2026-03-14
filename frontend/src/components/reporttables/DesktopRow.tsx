@@ -17,7 +17,7 @@ export interface DesktopRowProps {
   fixedRowLabel?: string | null;
   onCellChange: (rowIdx: number, colKey: string, value: string) => void;
   onCellBlur: (rowIdx: number) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLElement>, rowIdx: number, colIdx: number) => void;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
   onRemove: (rowIdx: number) => void;
   onDuplicate: (rowIdx: number) => void;
@@ -74,11 +74,14 @@ export const DesktopRow = React.memo(function DesktopRow({
           const isCalculated = col.type === 'calculated';
 
           return (
-            <td key={col.key} className={[
-              'px-1 py-1',
-              freezeFirstCol && colIdx === 0 ? 'sticky left-10 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : '',
-              freezeFirstCol && colIdx === 0 ? (isCalculated ? 'bg-slate-50' : 'bg-white') : (isCalculated ? 'bg-slate-50' : ''),
-            ].filter(Boolean).join(' ')}>
+            <td
+              key={col.key}
+              data-cell-pos={`${rowIdx}-${colIdx}`}
+              className={[
+                'px-1 py-1',
+                freezeFirstCol && colIdx === 0 ? 'sticky left-10 z-10 shadow-[2px_0_4px_-2px_rgba(0,0,0,0.15)]' : '',
+                freezeFirstCol && colIdx === 0 ? (isCalculated ? 'bg-slate-50' : 'bg-white') : (isCalculated ? 'bg-slate-50' : ''),
+              ].filter(Boolean).join(' ')}>
               {isCalculated ? (
                 <div className="h-9 px-3 py-2 text-sm text-slate-600 flex items-center">
                   <span className={displayValue.startsWith('#ERROR') ? 'text-red-500' : ''}>

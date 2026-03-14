@@ -16,7 +16,7 @@ export interface MobileRowProps {
   fixedRowLabel?: string | null;
   onCellChange: (rowIdx: number, colKey: string, value: string) => void;
   onCellBlur: (rowIdx: number) => void;
-  onKeyDown: (e: React.KeyboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
+  onKeyDown: (e: React.KeyboardEvent<HTMLElement>, rowIdx: number, colIdx: number) => void;
   onPaste: (e: React.ClipboardEvent<HTMLInputElement>, rowIdx: number, colIdx: number) => void;
   onRemove: (rowIdx: number) => void;
   onRowSubmit?: (rowIdx: number) => void;
