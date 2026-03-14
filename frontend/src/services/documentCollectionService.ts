@@ -26,15 +26,31 @@ class DocumentCollectionService {
    * Get specific folder with its documents
    */
   async getById(folderId: number): Promise<FolderWithDocuments> {
-    const response = await api.get<{ success: boolean; data: { folder: DocumentCollection; documents: any[] } }>(
+    const response = await api.get<{ success: boolean; data: { folder: DocumentCollection; institutions?: any[]; documents?: any[] } }>(
       `${this.basePath}/${folderId}`
     );
-    // Backend returns {success: true, data: {folder: {...}, documents: [...]}}
-    // We need to merge folder and documents into FolderWithDocuments format
+    // Backend currently returns paginated format:
+    // {success: true, data: {folder: {...}, institutions: [{institution_id, institution_name, documents: [...]}]}, meta: {...}}
+    // We flatten institutions[].documents into a single array and inject institution relation if missing.
     const backendData = (response as any).data;
+
+    let documents: any[] = [];
+    if (Array.isArray(backendData.institutions)) {
+      documents = backendData.institutions.flatMap((inst: any) =>
+        (inst.documents || []).map((doc: any) => ({
+          ...doc,
+          // Ensure institution relation is available for grouping in FolderDocumentsView
+          institution: doc.institution ?? { id: inst.institution_id, name: inst.institution_name },
+        }))
+      );
+    } else if (Array.isArray(backendData.documents)) {
+      // Fallback for legacy format
+      documents = backendData.documents;
+    }
+
     return {
-      ...backendData.folder,
-      documents: backendData.documents || []
+      ...(backendData.folder ?? {}),
+      documents,
     };
   }
 

@@ -105,8 +105,9 @@ class DocumentService extends BaseService<Document> {
 
     // Add other fields with proper boolean handling
     Object.keys(data).forEach(key => {
-      if (key !== 'file' && data[key as keyof CreateDocumentData] !== undefined) {
-        const value = data[key as keyof CreateDocumentData];
+      const value = data[key as keyof CreateDocumentData];
+      // Skip file, undefined, null, and empty strings (empty string dates cause DB errors)
+      if (key !== 'file' && value !== undefined && value !== null && value !== '') {
         if (Array.isArray(value)) {
           // Only add array if it has items
           if (value.length > 0) {
@@ -149,10 +150,11 @@ class DocumentService extends BaseService<Document> {
     }
 
     Object.keys(data).forEach(key => {
-      if (key === 'file' || data[key as keyof CreateDocumentData] === undefined) {
+      const value = data[key as keyof CreateDocumentData];
+      // Skip file, undefined, null, and empty strings (empty string dates cause DB errors)
+      if (key === 'file' || value === undefined || value === null || value === '') {
         return;
       }
-      const value = data[key as keyof CreateDocumentData];
       if (Array.isArray(value)) {
         if (value.length > 0) {
           value.forEach(item => formData.append(`${key}[]`, item));

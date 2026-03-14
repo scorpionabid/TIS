@@ -249,45 +249,58 @@ class DocumentControllerRefactored extends Controller
 
     /**
      * Download document
+     *
+     * Bypasses InstitutionScope so schooladmin can download documents assigned
+     * by regionadmin (which have a different institution_id). Permission checks
+     * are performed explicitly via canUserDownloadDocument().
      */
-    public function download(Document $document, Request $request): StreamedResponse
+    public function download(int $document, Request $request): StreamedResponse
     {
+        $doc = \App\Models\Document::withoutGlobalScope(\App\Scopes\InstitutionScope::class)
+            ->findOrFail($document);
+
         $user = Auth::user();
 
         // Check if user can download this document
-        $canDownload = $this->permissionService->canUserDownloadDocument($user, $document);
+        $canDownload = $this->permissionService->canUserDownloadDocument($user, $doc);
 
         if (! $canDownload) {
             abort(403, 'Bu sənədi yükləmək icazəniz yoxdur.');
         }
 
         Log::info('Document download permission granted', [
-            'document_id' => $document->id,
+            'document_id' => $doc->id,
             'user_id' => $user->id,
         ]);
 
         // Log document download
-        $this->activityService->logActivity($document, $user, 'download', $request);
+        $this->activityService->logActivity($doc, $user, 'download', $request);
 
-        return $this->downloadService->downloadDocument($document);
+        return $this->downloadService->downloadDocument($doc);
     }
 
     /**
      * Preview document
+     *
+     * Bypasses InstitutionScope so schooladmin can preview documents assigned
+     * by regionadmin. Permission checks performed explicitly.
      */
-    public function preview(Document $document): StreamedResponse
+    public function preview(int $document): StreamedResponse
     {
+        $doc = \App\Models\Document::withoutGlobalScope(\App\Scopes\InstitutionScope::class)
+            ->findOrFail($document);
+
         $user = Auth::user();
 
         // Check if user can access this document
-        if (! $this->permissionService->canUserAccessDocument($user, $document)) {
+        if (! $this->permissionService->canUserAccessDocument($user, $doc)) {
             abort(403, 'Bu sənədə giriş icazəniz yoxdur.');
         }
 
         // Log preview activity
-        $this->activityService->logActivity($document, $user, 'preview');
+        $this->activityService->logActivity($doc, $user, 'preview');
 
-        return $this->downloadService->previewDocument($document);
+        return $this->downloadService->previewDocument($doc);
     }
 
     /**

@@ -1,7 +1,13 @@
 import React from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import {
   Eye,
   Download,
@@ -10,11 +16,12 @@ import {
   MousePointer,
   User,
   Building2,
-  CheckCircle,
   Video,
   Archive,
   FileText,
   AlertTriangle,
+  CheckCircle,
+  Info,
 } from 'lucide-react';
 import { AssignedResource } from '@/types/resources';
 import { resourceService } from '@/services/resources';
@@ -28,13 +35,13 @@ interface AssignedResourceGridProps {
 function getResourceIcon(resource: AssignedResource): React.ReactNode {
   if (resource.type === 'link') {
     switch (resource.link_type) {
-      case 'video': return <Video className="h-5 w-5 text-red-500" />;
-      case 'form': return <FileText className="h-5 w-5 text-green-500" />;
-      case 'document': return <FileText className="h-5 w-5 text-blue-500" />;
-      default: return <ExternalLink className="h-5 w-5 text-primary" />;
+      case 'video':    return <Video    className="h-4 w-4 text-red-500   flex-shrink-0" />;
+      case 'form':     return <FileText className="h-4 w-4 text-green-500 flex-shrink-0" />;
+      case 'document': return <FileText className="h-4 w-4 text-blue-500  flex-shrink-0" />;
+      default:         return <ExternalLink className="h-4 w-4 text-primary flex-shrink-0" />;
     }
   }
-  return <span className="text-lg">{resourceService.getResourceIcon(resource)}</span>;
+  return <span className="text-base leading-none flex-shrink-0">{resourceService.getResourceIcon(resource)}</span>;
 }
 
 function formatDate(dateString: string): string {
@@ -46,185 +53,243 @@ function formatDate(dateString: string): string {
 }
 
 function isExpiringSoon(expiresAt: string): boolean {
-  const daysUntilExpiry = Math.ceil(
-    (new Date(expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
-  );
-  return daysUntilExpiry <= 7 && daysUntilExpiry > 0;
+  const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
+  return days <= 7 && days > 0;
 }
 
 function isExpired(expiresAt: string): boolean {
   return new Date(expiresAt).getTime() < Date.now();
 }
 
+function ResourceTooltip({ resource }: { resource: AssignedResource }) {
+  return (
+    <div className="max-w-[240px] space-y-2 text-xs">
+      {resource.description && (
+        <p className="text-muted-foreground leading-relaxed">{resource.description}</p>
+      )}
+
+      {resource.assigned_by && (
+        <div className="space-y-1 pt-1.5 border-t border-border/50">
+          <div className="flex items-center gap-1.5">
+            <User className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+            <span className="font-medium">{resource.assigned_by.name}</span>
+          </div>
+          <div className="flex items-start gap-1.5">
+            <Building2 className="h-3 w-3 text-muted-foreground flex-shrink-0 mt-0.5" />
+            <span className="leading-tight">{resource.assigned_by.institution}</span>
+          </div>
+          {resource.assigned_at && (
+            <div className="flex items-center gap-1.5 text-muted-foreground">
+              <Clock className="h-3 w-3 flex-shrink-0" />
+              <span>Təyin: {formatDate(resource.assigned_at)}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="flex items-center gap-3 pt-1.5 border-t border-border/50 text-muted-foreground">
+        {resource.type === 'link' && (
+          <div className="flex items-center gap-1">
+            <MousePointer className="h-3 w-3" />
+            <span>{resource.click_count || 0} klik</span>
+          </div>
+        )}
+        {resource.type === 'document' && (
+          <div className="flex items-center gap-1">
+            <Download className="h-3 w-3" />
+            <span>{resource.download_count || 0} yükləmə</span>
+          </div>
+        )}
+        {resource.viewed_at && (
+          <div className="flex items-center gap-1 text-green-600">
+            <CheckCircle className="h-3 w-3" />
+            <span>Baxılıb</span>
+          </div>
+        )}
+      </div>
+
+      {resource.expires_at && (
+        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-sm pt-1.5 border-t border-border/50 ${
+          isExpired(resource.expires_at)
+            ? 'text-red-600'
+            : isExpiringSoon(resource.expires_at)
+            ? 'text-amber-600'
+            : 'text-muted-foreground'
+        }`}>
+          <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+          <span>
+            {isExpired(resource.expires_at) ? 'Müddəti bitib' : 'Son tarix'}:{' '}
+            {formatDate(resource.expires_at)}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AssignedResourceGrid({ resources, onResourceAction, onCardClick }: AssignedResourceGridProps) {
   if (resources.length === 0) {
     return (
-      <div className="text-center py-12">
-        <Archive className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-        <h3 className="text-lg font-medium">Resurs tapılmadı</h3>
-        <p className="text-muted-foreground">Hələ ki sizə heç bir resurs təyin edilməyib</p>
+      <div className="text-center py-10">
+        <Archive className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+        <p className="text-sm font-medium text-foreground">Resurs tapılmadı</p>
+        <p className="text-xs text-muted-foreground mt-1">Hələ sizə heç bir resurs təyin edilməyib</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {resources.map((resource: AssignedResource) => (
-        <Card
-          key={`${resource.type}-${resource.id}`}
-          onClick={() => onCardClick?.(resource)}
-          className={`hover:shadow-lg transition-shadow ${onCardClick ? 'cursor-pointer' : ''} ${
-            resource.is_new
-              ? 'border-red-200 bg-red-50/30'
-              : !resource.viewed_at
-              ? 'border-blue-200 bg-blue-50/30'
-              : ''
-          }`}
-        >
-          <CardHeader className="pb-3">
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {getResourceIcon(resource)}
-                <CardTitle className="text-base truncate">{resource.title}</CardTitle>
-              </div>
-              <div className="flex gap-1 ml-2 flex-wrap">
-                <Badge variant="outline" className="text-xs">
-                  {resource.type === 'link' ? 'Link' : 'Sənəd'}
-                </Badge>
-                {resource.is_new && (
-                  <Badge variant="destructive" className="text-xs">Yeni</Badge>
-                )}
-                {!resource.viewed_at && !resource.is_new && (
-                  <Badge variant="secondary" className="text-xs">Baxılmayıb</Badge>
-                )}
-                {resource.viewed_at && (
-                  <Badge variant="default" className="text-xs bg-green-600">
-                    <CheckCircle className="h-3 w-3 mr-1" />
-                    Baxılıb
+    <TooltipProvider delayDuration={400}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {resources.map((resource: AssignedResource) => {
+          const expired    = resource.expires_at && isExpired(resource.expires_at);
+          const expiringSoon = resource.expires_at && !expired && isExpiringSoon(resource.expires_at);
+
+          return (
+            <Card
+              key={`${resource.type}-${resource.id}`}
+              onClick={() => onCardClick?.(resource)}
+              className={`group relative flex flex-col transition-all duration-150 hover:shadow-md ${
+                onCardClick ? 'cursor-pointer' : ''
+              } ${
+                resource.is_new
+                  ? 'border-red-200'
+                  : !resource.viewed_at
+                  ? 'border-blue-100'
+                  : ''
+              }`}
+            >
+              <CardContent className="p-3 flex flex-col gap-2.5 h-full">
+                {/* Row 1: Icon + Title + Info trigger */}
+                <div className="flex items-start gap-2 min-w-0">
+                  <div className="mt-0.5 flex-shrink-0">
+                    {getResourceIcon(resource)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-sm font-medium leading-tight truncate"
+                      title={resource.title}
+                    >
+                      {resource.title}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                      {resource.type === 'link' && resource.url
+                        ? (() => {
+                            try { return new URL(resource.url).hostname; }
+                            catch { return resource.url; }
+                          })()
+                        : resource.original_filename
+                        ? `${(resource.mime_type?.split('/')[1] ?? 'FAYL').toUpperCase()} · ${resourceService.formatResourceSize(resource)}`
+                        : null}
+                    </p>
+                  </div>
+                  {/* Hover info icon */}
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="opacity-0 group-hover:opacity-60 hover:!opacity-100 transition-opacity flex-shrink-0 mt-0.5 focus:outline-none"
+                        onClick={(e) => e.stopPropagation()}
+                        aria-label="Ətraflı məlumat"
+                      >
+                        <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" align="end" className="p-3">
+                      <ResourceTooltip resource={resource} />
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+
+                {/* Row 2: Status badges + expiry icon */}
+                <div className="flex items-center gap-1 flex-wrap">
+                  <Badge variant="outline" className="text-[10px] h-[18px] px-1.5 py-0 font-normal">
+                    {resource.type === 'link' ? 'Link' : 'Sənəd'}
                   </Badge>
-                )}
-              </div>
-            </div>
-            <CardDescription className="text-xs">
-              {resource.type === 'link' && resource.url
-                ? (() => {
-                    try {
-                      return new URL(resource.url).hostname;
-                    } catch {
-                      return resource.url.length > 30
-                        ? resource.url.substring(0, 30) + '...'
-                        : resource.url;
-                    }
-                  })()
-                : resource.type === 'document' && resource.original_filename
-                ? `${resource.mime_type?.split('/')[1]?.toUpperCase()} • ${resourceService.formatResourceSize(resource)}`
-                : 'Resurs'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-3">
-              {resource.description && (
-                <p className="text-sm text-muted-foreground line-clamp-2">
-                  {resource.description}
-                </p>
-              )}
-
-              {/* Assignment Info */}
-              {resource.assigned_by && (
-                <div className="p-3 bg-blue-50 rounded-lg space-y-1">
-                  <div className="text-xs text-blue-800 font-medium">Təyin edən:</div>
-                  <div className="flex items-center gap-1 text-xs text-blue-700">
-                    <User className="h-3 w-3" />
-                    <span>{resource.assigned_by.name}</span>
-                    <span>•</span>
-                    <Building2 className="h-3 w-3" />
-                    <span>{resource.assigned_by.institution}</span>
-                  </div>
-                  {resource.assigned_at && (
-                    <div className="flex items-center gap-1 text-xs text-blue-700">
-                      <Clock className="h-3 w-3" />
-                      <span>Təyin tarixi: {formatDate(resource.assigned_at)}</span>
-                    </div>
+                  {resource.is_new && (
+                    <Badge variant="destructive" className="text-[10px] h-[18px] px-1.5 py-0">
+                      Yeni
+                    </Badge>
+                  )}
+                  {!resource.viewed_at && !resource.is_new && (
+                    <Badge className="text-[10px] h-[18px] px-1.5 py-0 font-normal bg-red-100 text-red-700 border border-red-200 hover:bg-red-100">
+                      Baxılmayıb
+                    </Badge>
+                  )}
+                  {/* Expiry icons with tooltip */}
+                  {expired && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-help">
+                          <AlertTriangle className="h-3.5 w-3.5 text-red-500" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Müddəti bitib: {formatDate(resource.expires_at!)}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {expiringSoon && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex cursor-help">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Son tarix: {formatDate(resource.expires_at!)}</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
-              )}
 
-              {/* Expiry warning */}
-              {resource.expires_at && (
+                {/* Row 3: Action buttons */}
                 <div
-                  className={`flex items-center gap-1 text-xs px-2 py-1 rounded ${
-                    isExpired(resource.expires_at)
-                      ? 'bg-red-50 text-red-600'
-                      : isExpiringSoon(resource.expires_at)
-                      ? 'bg-amber-50 text-amber-700'
-                      : 'text-muted-foreground'
-                  }`}
+                  className="flex gap-1.5 mt-auto pt-1"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {(isExpired(resource.expires_at) || isExpiringSoon(resource.expires_at)) && (
-                    <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                  {!resource.viewed_at && (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 flex-shrink-0"
+                          onClick={() => onResourceAction(resource, 'view')}
+                        >
+                          <Eye className="h-3.5 w-3.5" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="text-xs">Baxıldı kimi işarələ</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
-                  {isExpired(resource.expires_at)
-                    ? `Müddəti bitib: ${formatDate(resource.expires_at)}`
-                    : `Son tarix: ${formatDate(resource.expires_at)}`}
+                  {resource.type === 'link' ? (
+                    <Button
+                      size="sm"
+                      className="flex-1 h-7 text-xs gap-1"
+                      onClick={() => onResourceAction(resource, 'access')}
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Aç
+                    </Button>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="flex-1 h-7 text-xs gap-1"
+                      onClick={() => onResourceAction(resource, 'download')}
+                      disabled={!resource.is_downloadable}
+                    >
+                      <Download className="h-3 w-3" />
+                      Yüklə
+                    </Button>
+                  )}
                 </div>
-              )}
-
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                {resource.type === 'link' && (
-                  <div className="flex items-center gap-1">
-                    <MousePointer className="h-3 w-3" />
-                    <span>{resource.click_count || 0} klik</span>
-                  </div>
-                )}
-                {resource.type === 'document' && (
-                  <div className="flex items-center gap-1">
-                    <Download className="h-3 w-3" />
-                    <span>{resource.download_count || 0} yükləmə</span>
-                  </div>
-                )}
-                <div className="flex items-center gap-1">
-                  <Clock className="h-3 w-3" />
-                  <span>{formatDate(resource.created_at)}</span>
-                </div>
-              </div>
-
-              <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
-                {!resource.viewed_at && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => onResourceAction(resource, 'view')}
-                  >
-                    <Eye className="h-3 w-3 mr-1" />
-                    Baxıldı
-                  </Button>
-                )}
-                {resource.type === 'link' ? (
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => onResourceAction(resource, 'access')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Aç
-                  </Button>
-                ) : (
-                  <Button
-                    size="sm"
-                    className="flex-1"
-                    onClick={() => onResourceAction(resource, 'download')}
-                    disabled={!resource.is_downloadable}
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    Yüklə
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </TooltipProvider>
   );
 }

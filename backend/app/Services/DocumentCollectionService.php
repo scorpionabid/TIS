@@ -128,7 +128,8 @@ class DocumentCollectionService
     public function getAccessibleFolders(User $user): Collection
     {
         $query = DocumentCollection::query()
-            ->with(['ownerInstitution', 'institution', 'creator', 'targetInstitutions']);
+            ->with(['ownerInstitution', 'institution', 'creator', 'targetInstitutions'])
+            ->withCount('documents as documents_count');
 
         // SuperAdmin sees all folders
         if ($user->hasRole('superadmin')) {
@@ -685,6 +686,8 @@ class DocumentCollectionService
             'folder_id' => $folder->id,
         ]);
 
+        // accessible_institutions is kept for download access control.
+        // Separation from my-resources is handled in getAssignedResources via whereDoesntHave('collections').
         return Document::create([
             'title' => pathinfo($originalFilename, PATHINFO_FILENAME),
             'original_filename' => $originalFilename,

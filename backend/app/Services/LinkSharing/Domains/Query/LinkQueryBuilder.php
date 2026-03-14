@@ -650,8 +650,14 @@ class LinkQueryBuilder
 
             // Get documents assigned to user's allowed institutions (if not filtering for links only)
             if (! $request->filled('type') || $request->type !== 'link') {
-                $documentsQuery = \App\Models\Document::with(['uploader', 'institution'])
+                $documentsQuery = \App\Models\Document::withoutGlobalScope(\App\Scopes\InstitutionScope::class)
+                    ->with(['uploader', 'institution'])
                     ->where('status', 'active')
+                    // Exclude documents that belong to a folder/collection.
+                    // Folder documents are uploaded BY schools INTO region-created folders.
+                    // Assigned resources are documents that region SENDS TO schools.
+                    // These two concepts must remain strictly separated.
+                    ->whereDoesntHave('collections')
                     ->where(function ($query) use ($allowedInstitutions) {
                         $query->where('is_public', true)
                             ->orWhereIn('institution_id', $allowedInstitutions)
