@@ -27,7 +27,9 @@ class DocumentCollectionService {
    */
   async getById(folderId: number): Promise<FolderWithDocuments> {
     const response = await api.get<{ success: boolean; data: { folder: DocumentCollection; institutions?: any[]; documents?: any[] } }>(
-      `${this.basePath}/${folderId}`
+      `${this.basePath}/${folderId}`,
+      undefined,
+      { cache: false } // Bypass cache to ensure we get the latest documents after upload/delete
     );
     // Backend currently returns paginated format:
     // {success: true, data: {folder: {...}, institutions: [{institution_id, institution_name, documents: [...]}]}, meta: {...}}
@@ -122,12 +124,12 @@ class DocumentCollectionService {
    * Bulk download folder contents as ZIP
    */
   async bulkDownload(folderId: number): Promise<Blob> {
-    const response = await api.get(
+    const response = await api.get<Blob>(
       `${this.basePath}/${folderId}/download`,
       undefined, // params
       { responseType: 'blob' } // options
     );
-    return response.data;
+    return (response as any).data || response;
   }
 
   /**
@@ -166,14 +168,14 @@ class DocumentCollectionService {
    */
   async downloadDocument(documentId: number): Promise<Blob> {
     // IMPORTANT: Pass responseType in third argument (options), NOT in params
-    const response = await api.get(
+    const response = await api.get<Blob>(
       `/documents/${documentId}/download`,
       undefined, // params
       { responseType: 'blob' } // options
     );
 
     // apiOptimized returns {data: blob} for blob responses
-    const blob = response.data || response;
+    const blob = (response as any).data || response;
 
     if (!(blob instanceof Blob)) {
       throw new Error('Invalid file response from server');
