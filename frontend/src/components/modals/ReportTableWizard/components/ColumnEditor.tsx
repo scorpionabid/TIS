@@ -3,11 +3,12 @@
  * Individual column editing with expandable advanced settings
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 import {
   GripVertical,
   Settings2,
@@ -25,6 +26,9 @@ import {
   MapPin,
   ChevronDown,
   ChevronUp,
+  Copy,
+  ArrowUp,
+  ArrowDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReportTableColumn } from '@/types/reportTable';
@@ -36,8 +40,11 @@ interface ColumnEditorProps {
   disabled: boolean;
   onUpdate: (index: number, field: keyof ReportTableColumn, value: unknown) => void;
   onRemove: (index: number) => void;
+  onDuplicate?: () => void;
   hasErrors?: boolean;
   errors?: string[];
+  /** External collapse/expand signal from parent (collapse all / expand all) */
+  collapseSignal?: { collapsed: boolean; version: number };
   dragHandleProps?: {
     attributes: Record<string, unknown>;
     listeners: Record<string, unknown>;
@@ -57,18 +64,90 @@ const TYPE_ICONS: Record<string, React.ReactNode> = {
   gps: <MapPin className="h-4 w-4" />,
 };
 
+// Matches the default auto-generated key pattern (col_1, col_2, etc.)
+const AUTO_KEY_PATTERN = /^col_\d+$/;
+
+function generateKeyFromLabel(label: string): string {
+  const key = label
+    .toLowerCase()
+    .replace(/ə/g, 'e')
+    .replace(/ı/g, 'i')
+    .replace(/ö/g, 'o')
+    .replace(/ü/g, 'u')
+    .replace(/ğ/g, 'g')
+    .replace(/ş/g, 's')
+    .replace(/ç/g, 'c')
+    .replace(/[^a-z0-9]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '')
+    .substring(0, 30);
+  return key || 'col';
+}
+
 export function ColumnEditor({
   column,
   index,
   disabled,
   onUpdate,
   onRemove,
+  onDuplicate,
   hasErrors,
   errors,
+  collapseSignal,
   dragHandleProps,
 }: ColumnEditorProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [bulkPasteText, setBulkPasteText] = useState('');
+  const prevSignalVersionRef = useRef<number | undefined>(undefined);
+
+  // Sync with external collapse/expand signal (collapse all / expand all from parent)
+  useEffect(() => {
+    if (
+      collapseSignal !== undefined &&
+      collapseSignal.version !== prevSignalVersionRef.current
+    ) {
+      prevSignalVersionRef.current = collapseSignal.version;
+      setIsCollapsed(collapseSignal.collapsed);
+      if (collapseSignal.collapsed) setShowAdvanced(false);
+    }
+  }, [collapseSignal]);
+
+  // Auto-generate key from label if key is still default auto-generated pattern
+  const handleLabelBlur = useCallback(() => {
+    if (
+      column.label.trim() &&
+      (AUTO_KEY_PATTERN.test(column.key) || !column.key.trim())
+    ) {
+      const generated = generateKeyFromLabel(column.label);
+      if (generated && generated !== column.key) {
+        onUpdate(index, 'key', generated);
+      }
+    }
+  }, [column.label, column.key, index, onUpdate]);
+
+  // Move an option up (-1) or down (+1)
+  const moveOption = useCallback(
+    (optIdx: number, direction: -1 | 1) => {
+      const opts = [...(column.options ?? [])];
+      const targetIdx = optIdx + direction;
+      if (targetIdx < 0 || targetIdx >= opts.length) return;
+      [opts[optIdx], opts[targetIdx]] = [opts[targetIdx], opts[optIdx]];
+      onUpdate(index, 'options', opts);
+    },
+    [column.options, index, onUpdate]
+  );
+
+  // Bulk paste: split by newline, trim, filter empty lines, append to options
+  const handleBulkPaste = useCallback(() => {
+    const lines = bulkPasteText
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean);
+    if (lines.length === 0) return;
+    onUpdate(index, 'options', [...(column.options ?? []), ...lines]);
+    setBulkPasteText('');
+  }, [bulkPasteText, column.options, index, onUpdate]);
 
   const hasAdvancedSettings =
     column.required ||
@@ -109,18 +188,24 @@ export function ColumnEditor({
           {TYPE_ICONS[column.type] || <Type className="h-4 w-4" />}
         </div>
 
-        {/* Collapsed view - show only summary */}
+        {/* Collapsed view — show summary only */}
         {isCollapsed ? (
-          <div className="flex-1 flex items-center gap-2 py-1">
+          <div className="flex-1 flex items-center gap-2 py-1 min-w-0">
             <span className="text-sm font-medium text-gray-700 truncate">
-              {column.label || 'Sütun'} ({column.key || 'col_'})
+              {column.label || 'Sütun'}{' '}
+              <span className="text-gray-400 font-normal">({column.key || 'col_'})</span>
             </span>
-            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
-              {COLUMN_TYPES.find(t => t.value === column.type)?.label || column.type}
+            <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded shrink-0">
+              {COLUMN_TYPES.find((t) => t.value === column.type)?.label || column.type}
             </span>
+            {column.multiple && (
+              <span className="text-xs text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded shrink-0">
+                çoxlu
+              </span>
+            )}
           </div>
         ) : (
-          /* Main Fields */
+          /* Expanded: Main Fields */
           <div className="flex-1 grid grid-cols-3 gap-2">
             <div>
               <Label className="text-xs text-gray-500 mb-1 block">Açar ad</Label>
@@ -146,6 +231,7 @@ export function ColumnEditor({
               <Input
                 value={column.label}
                 onChange={(e) => onUpdate(index, 'label', e.target.value)}
+                onBlur={handleLabelBlur}
                 placeholder="Sütun adı"
                 disabled={disabled}
                 className={cn(
@@ -161,7 +247,10 @@ export function ColumnEditor({
                 onChange={(e) => {
                   const v = e.target.value as ReportTableColumn['type'];
                   onUpdate(index, 'type', v);
-                  if (v !== 'select') onUpdate(index, 'options', undefined);
+                  if (v !== 'select') {
+                    onUpdate(index, 'options', undefined);
+                    onUpdate(index, 'multiple', undefined);
+                  }
                 }}
                 disabled={disabled}
                 className={cn(
@@ -180,7 +269,7 @@ export function ColumnEditor({
           </div>
         )}
 
-        {/* Actions */}
+        {/* Action Buttons */}
         <div className="flex items-center gap-1 mt-1 shrink-0">
           {!disabled && (
             <Button
@@ -192,9 +281,13 @@ export function ColumnEditor({
                 isCollapsed ? 'text-emerald-600' : 'text-gray-400 hover:text-emerald-600'
               )}
               onClick={() => setIsCollapsed(!isCollapsed)}
-              title={isCollapsed ? "Genişləndir" : "Yığışdır"}
+              title={isCollapsed ? 'Genişləndir' : 'Yığışdır'}
             >
-              {isCollapsed ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+              {isCollapsed ? (
+                <ChevronDown className="h-4 w-4" />
+              ) : (
+                <ChevronUp className="h-4 w-4" />
+              )}
             </Button>
           )}
           {!disabled && (
@@ -208,10 +301,25 @@ export function ColumnEditor({
                   ? 'text-emerald-600'
                   : 'text-gray-400 hover:text-emerald-600'
               )}
-              onClick={() => setShowAdvanced(!showAdvanced)}
+              onClick={() => {
+                if (isCollapsed) setIsCollapsed(false);
+                setShowAdvanced(!showAdvanced);
+              }}
               title="Qaydalar"
             >
               <Settings2 className="h-4 w-4" />
+            </Button>
+          )}
+          {!disabled && onDuplicate && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 w-8 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+              onClick={onDuplicate}
+              title="Kopyala"
+            >
+              <Copy className="h-4 w-4" />
             </Button>
           )}
           {!disabled && (
@@ -253,9 +361,7 @@ export function ColumnEditor({
               <Label className="text-xs text-gray-500 mb-1 block">Kömək mətni</Label>
               <Input
                 value={column.hint ?? ''}
-                onChange={(e) =>
-                  onUpdate(index, 'hint', e.target.value || undefined)
-                }
+                onChange={(e) => onUpdate(index, 'hint', e.target.value || undefined)}
                 placeholder="İstifadəçiyə kömək mətni..."
                 className="text-sm h-8"
               />
@@ -275,7 +381,7 @@ export function ColumnEditor({
               </Label>
             </div>
 
-            {/* Type-specific settings */}
+            {/* Number constraints */}
             {column.type === 'number' && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -313,6 +419,7 @@ export function ColumnEditor({
               </div>
             )}
 
+            {/* Text length constraints */}
             {column.type === 'text' && (
               <div className="grid grid-cols-2 gap-2">
                 <div>
@@ -350,35 +457,79 @@ export function ColumnEditor({
               </div>
             )}
 
+            {/* Select options */}
             {column.type === 'select' && (
-              <div className="space-y-2">
-                <Label className="text-xs text-gray-500">Seçim variantları</Label>
-                {(column.options ?? []).map((opt, optIdx) => (
-                  <div key={optIdx} className="flex gap-2">
-                    <Input
-                      value={opt}
-                      onChange={(e) => {
-                        const newOpts = [...(column.options ?? [])];
-                        newOpts[optIdx] = e.target.value;
-                        onUpdate(index, 'options', newOpts);
-                      }}
-                      placeholder={`Variant ${optIdx + 1}`}
-                      className="text-sm h-8"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 w-8 p-0 text-red-400 hover:text-red-600 shrink-0"
-                      onClick={() => {
-                        const newOpts = (column.options ?? []).filter((_, i) => i !== optIdx);
-                        onUpdate(index, 'options', newOpts);
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  </div>
-                ))}
+              <div className="space-y-3">
+                {/* Multiple selection toggle */}
+                <div className="flex items-center gap-2 pb-2 border-b border-gray-200">
+                  <Checkbox
+                    id={`multi-${index}`}
+                    checked={column.multiple ?? false}
+                    onCheckedChange={(v) =>
+                      onUpdate(index, 'multiple', v === true ? true : undefined)
+                    }
+                  />
+                  <Label
+                    htmlFor={`multi-${index}`}
+                    className="text-sm text-gray-600 cursor-pointer"
+                  >
+                    Çoxlu seçim (multi-select)
+                  </Label>
+                </div>
+
+                {/* Options list with reordering */}
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Seçim variantları</Label>
+                  {(column.options ?? []).map((opt, optIdx) => (
+                    <div key={optIdx} className="flex gap-1 items-center">
+                      {/* Up / Down arrows */}
+                      <div className="flex flex-col gap-0 shrink-0">
+                        <button
+                          type="button"
+                          disabled={optIdx === 0}
+                          onClick={() => moveOption(optIdx, -1)}
+                          className="h-4 w-5 flex items-center justify-center text-gray-300 hover:text-gray-600 disabled:opacity-25 disabled:cursor-not-allowed"
+                          title="Yuxarı"
+                        >
+                          <ArrowUp className="h-3 w-3" />
+                        </button>
+                        <button
+                          type="button"
+                          disabled={optIdx === (column.options?.length ?? 1) - 1}
+                          onClick={() => moveOption(optIdx, 1)}
+                          className="h-4 w-5 flex items-center justify-center text-gray-300 hover:text-gray-600 disabled:opacity-25 disabled:cursor-not-allowed"
+                          title="Aşağı"
+                        >
+                          <ArrowDown className="h-3 w-3" />
+                        </button>
+                      </div>
+
+                      <Input
+                        value={opt}
+                        onChange={(e) => {
+                          const newOpts = [...(column.options ?? [])];
+                          newOpts[optIdx] = e.target.value;
+                          onUpdate(index, 'options', newOpts);
+                        }}
+                        placeholder={`Variant ${optIdx + 1}`}
+                        className="text-sm h-8 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-red-400 hover:text-red-600 shrink-0"
+                        onClick={() => {
+                          const newOpts = (column.options ?? []).filter((_, i) => i !== optIdx);
+                          onUpdate(index, 'options', newOpts);
+                        }}
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
                 <Button
                   type="button"
                   variant="outline"
@@ -390,10 +541,33 @@ export function ColumnEditor({
                 >
                   <Plus className="h-3 w-3 mr-1" /> Variant əlavə et
                 </Button>
+
+                {/* Bulk paste */}
+                <div className="space-y-1.5 pt-2 border-t border-gray-100">
+                  <Label className="text-xs text-gray-400">
+                    Toplu əlavə — hər sətirdə bir variant yazın
+                  </Label>
+                  <Textarea
+                    value={bulkPasteText}
+                    onChange={(e) => setBulkPasteText(e.target.value)}
+                    placeholder={'Variant 1\nVariant 2\nVariant 3'}
+                    className="text-sm min-h-[60px] resize-none"
+                    rows={3}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs h-7"
+                    disabled={!bulkPasteText.trim()}
+                    onClick={handleBulkPaste}
+                  >
+                    <Plus className="h-3 w-3 mr-1" /> Toplu əlavə et
+                  </Button>
+                </div>
+
                 {(column.options?.length ?? 0) === 0 && (
-                  <p className="text-xs text-red-500">
-                    Ən azı bir variant əlavə edin
-                  </p>
+                  <p className="text-xs text-red-500">Ən azı bir variant əlavə edin</p>
                 )}
               </div>
             )}
