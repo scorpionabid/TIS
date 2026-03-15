@@ -31,7 +31,7 @@ class MessageResource extends JsonResource
             'parent_id'     => $this->parent_id,
             'is_read'       => $recipientRecord?->is_read,
             'read_at'       => $recipientRecord?->read_at?->toISOString(),
-            'replies_count' => $this->replies()->count(),
+            'replies_count' => $this->replies_count ?? $this->replies()->count(),
             'replies'       => $this->whenLoaded('replies', fn () => MessageResource::collection($this->replies)),
             'recipients'    => $this->whenLoaded('messageRecipients', function () {
                 return $this->messageRecipients->map(fn ($r) => [

@@ -16,7 +16,7 @@ class SendMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'body'                 => ['required', 'string', 'min:1', 'max:5000'],
+            'body'                 => ['required', 'string', 'min:1', 'max:2000'],
             'recipient_ids'        => ['nullable', 'array'],
             'recipient_ids.*'      => ['required', 'integer', 'exists:users,id'],
             'target_institutions'  => ['nullable', 'array'],

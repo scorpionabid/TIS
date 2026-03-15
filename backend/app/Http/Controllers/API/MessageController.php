@@ -32,6 +32,7 @@ class MessageController extends Controller
                 $q->where('recipient_id', $userId)->whereNull('deleted_at');
             })
             ->whereNull('parent_id')
+            ->withCount('replies')
             ->with([
                 'sender.role',
                 'sender.institution',
@@ -55,6 +56,7 @@ class MessageController extends Controller
         $messages = Message::where('sender_id', $userId)
             ->whereNull('parent_id')
             ->whereNull('deleted_at')
+            ->withCount('replies')
             ->with([
                 'sender.role',
                 'messageRecipients.recipient',
@@ -82,14 +84,23 @@ class MessageController extends Controller
 
     /**
      * GET /api/messages/recipients
-     * Rol əsaslı alıcı siyahısı.
+     * Rol əsaslı alıcı siyahısı. ?search= parametri ilə filterlənə bilər.
      */
     public function recipients(Request $request): JsonResponse
     {
-        $user = auth()->user();
+        $user       = auth()->user();
+        $search     = strtolower(trim($request->string('search')->value()));
+        $recipients = $this->getRecipientsCollectionForUser($user);
+
+        if ($search !== '') {
+            $recipients = $recipients->filter(fn ($r) =>
+                str_contains(strtolower($r['name']), $search) ||
+                str_contains(strtolower($r['institution_name']), $search)
+            );
+        }
 
         return response()->json([
-            'data' => $this->getRecipientsCollectionForUser($user)->values(),
+            'data' => $recipients->values(),
         ]);
     }
 
@@ -298,6 +309,7 @@ class MessageController extends Controller
     /**
      * RegionAdmin / RegionOperator: öz region altındakı sektoradmin (level 3) və
      * schooladmin (level 4) istifadəçilərini görür.
+     * Bir tək query ilə hər iki rolu birlikdə çəkir.
      */
     private function getRecipientsForRegionAdmin(User $user): Collection
     {
@@ -311,31 +323,16 @@ class MessageController extends Controller
             return collect([]);
         }
 
-        // SektorAdmins (level 3 institutions)
-        $sektorAdmins = User::whereHas('roles', fn ($q) => $q->where('name', 'sektoradmin'))
+        return User::whereHas('roles', fn ($q) => $q->whereIn('name', ['sektoradmin', 'schooladmin']))
             ->whereHas('institution', fn ($q) =>
                 $q->whereIn('id', $allChildIds)
-                  ->where('level', 3)
+                  ->whereIn('level', [3, 4])
                   ->where('is_active', true)
             )
             ->where('is_active', true)
             ->with(['roles', 'institution'])
             ->get()
-            ->map(fn (User $u) => $this->mapUserToRecipient($u, 'sektoradmin'));
-
-        // SchoolAdmins (level 4 institutions)
-        $schoolAdmins = User::whereHas('roles', fn ($q) => $q->where('name', 'schooladmin'))
-            ->whereHas('institution', fn ($q) =>
-                $q->whereIn('id', $allChildIds)
-                  ->where('level', 4)
-                  ->where('is_active', true)
-            )
-            ->where('is_active', true)
-            ->with(['roles', 'institution'])
-            ->get()
-            ->map(fn (User $u) => $this->mapUserToRecipient($u, 'schooladmin'));
-
-        return $sektorAdmins->merge($schoolAdmins);
+            ->map(fn (User $u) => $this->mapUserToRecipient($u));
     }
 
     /**
