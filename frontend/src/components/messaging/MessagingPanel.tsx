@@ -257,6 +257,10 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
                   <MessageThread
                     selectedMessageId={selectedId}
                     onReply={handleReply}
+                    onThreadDeleted={() => {
+                      setSelectedId(null);
+                      setMobileView('list');
+                    }}
                     currentUserId={currentUserId}
                   />
                 </div>

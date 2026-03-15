@@ -1,12 +1,13 @@
 import { useState, useMemo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
-import { Search } from 'lucide-react';
+import { MessageSquare, Search } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
+import { useDebounce } from '@/hooks/useDebounce';
 import { useInbox, useSent } from '@/hooks/messages/useMessages';
 import type { Message, MessageTab } from '@/types/message';
 
@@ -52,6 +53,12 @@ function ConversationItem({
 
   const isUnread = isInbox && message.is_read === false;
 
+  // Sent tab: oxunma vəziyyəti — neçəsi oxuyub
+  const readCount = !isInbox && message.recipients
+    ? message.recipients.filter((r) => r.is_read).length
+    : 0;
+  const totalCount = !isInbox ? (message.recipients?.length ?? 0) : 0;
+
   return (
     <button
       type="button"
@@ -92,6 +99,11 @@ function ConversationItem({
               Yeni
             </Badge>
           )}
+          {!isInbox && totalCount > 0 && (
+            <span className="text-[10px] text-muted-foreground flex-shrink-0">
+              {readCount}/{totalCount} oxuyub
+            </span>
+          )}
         </div>
       </div>
     </button>
@@ -127,8 +139,11 @@ function MessageList({
 }) {
   if (messages.length === 0) {
     return (
-      <div className="flex items-center justify-center py-10 text-muted-foreground text-sm">
-        Mesaj yoxdur
+      <div className="flex flex-col items-center justify-center py-10 gap-2 text-center px-4">
+        <MessageSquare className="h-7 w-7 text-muted-foreground/30" />
+        <p className="text-sm text-muted-foreground">
+          {isInbox ? 'Gələn qutunuz boşdur' : 'Göndərilən mesaj yoxdur'}
+        </p>
       </div>
     );
   }
@@ -159,7 +174,6 @@ function InboxTab({
   isActive: boolean;
   searchTerm: string;
 }) {
-  // Aktiv olmayan tab mount olduqda fetch etmir — isActive true olduqda başlayır
   const { data, isLoading } = useInbox(1, isActive);
 
   const filtered = useMemo(() =>
@@ -231,6 +245,7 @@ export function ConversationList({
   onSelect,
 }: ConversationListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const debouncedSearch = useDebounce(searchTerm, 200);
 
   return (
     <Tabs
@@ -263,7 +278,7 @@ export function ConversationList({
           selectedId={selectedId}
           onSelect={onSelect}
           isActive={tab === 'inbox'}
-          searchTerm={searchTerm}
+          searchTerm={debouncedSearch}
         />
       </TabsContent>
 
@@ -272,7 +287,7 @@ export function ConversationList({
           selectedId={selectedId}
           onSelect={onSelect}
           isActive={tab === 'sent'}
-          searchTerm={searchTerm}
+          searchTerm={debouncedSearch}
         />
       </TabsContent>
     </Tabs>

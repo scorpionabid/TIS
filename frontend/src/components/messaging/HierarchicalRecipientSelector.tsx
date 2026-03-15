@@ -319,7 +319,16 @@ function UserItem({
         isSelected && 'bg-accent'
       )}
     >
-      <Checkbox checked={isSelected} readOnly />
+      {/* Visual-only checkbox — Shadcn Checkbox öz <button>-unu render edir,
+          nested button yaratmaması üçün div indicator istifadə edirik */}
+      <div
+        className={cn(
+          'h-4 w-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors',
+          isSelected ? 'bg-primary border-primary' : 'border-muted-foreground/40'
+        )}
+      >
+        {isSelected && <Check className="h-2.5 w-2.5 text-primary-foreground" />}
+      </div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-medium truncate">{user.name}</p>
         <p className="text-[10px] text-muted-foreground truncate">

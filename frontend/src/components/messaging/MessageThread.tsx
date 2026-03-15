@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { MessageBubble } from './MessageBubble';
 import { useMessageThread } from '@/hooks/messages/useMessages';
@@ -8,6 +8,7 @@ import type { Message } from '@/types/message';
 interface MessageThreadProps {
   selectedMessageId: number | null;
   onReply: (message: Message) => void;
+  onThreadDeleted?: () => void;
   currentUserId: number;
 }
 
@@ -27,6 +28,7 @@ function ThreadSkeleton() {
 export function MessageThread({
   selectedMessageId,
   onReply,
+  onThreadDeleted,
   currentUserId,
 }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -39,8 +41,6 @@ export function MessageThread({
   }, [thread]);
 
   // Mark as read when thread opens (if unread)
-  // thread?.data: service həmişə { data: Message } qaytarır, normalizasiya lazım deyil
-  // markAsRead.mutate: TanStack Query v5-də stable ref — loop yaratmır
   const rootMessage = thread?.data ?? null;
   const { mutate: markAsReadMutate } = markAsRead;
 
@@ -50,17 +50,27 @@ export function MessageThread({
     }
   }, [selectedMessageId, rootMessage?.is_read, markAsReadMutate]);
 
+  // Build flat list: root + all replies
+  const allMessages: Message[] = useMemo(
+    () => (rootMessage ? [rootMessage, ...(rootMessage.replies ?? [])] : []),
+    [rootMessage]
+  );
+
+  // id → message map — reply preview üçün parent mesajı tapmaq
+  const messageMap = useMemo(() => {
+    const map = new Map<number, Message>();
+    allMessages.forEach((m) => map.set(m.id, m));
+    return map;
+  }, [allMessages]);
+
   const handleDelete = (id: number) => {
     if (window.confirm('Bu mesajı silmək istədiyinizə əminsiniz?')) {
       deleteMessage.mutate(id, {
         onSuccess: () => {
-          // If the root message of the thread is deleted, close the thread
           if (id === selectedMessageId) {
-            // we should ideally go back to list, but this component doesn't control that.
-            // however, we can't really do much here without a callback to clear selectedId in parent.
-            // Actually, selectedMessageId is passed as prop. 
+            onThreadDeleted?.();
           }
-        }
+        },
       });
     }
   };
@@ -85,7 +95,6 @@ export function MessageThread({
     );
   }
 
-  // rootMessage yuxarıda `thread?.data ?? null` kimi hesablanıb (markAsRead effect-indən əvvəl)
   if (!rootMessage) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
@@ -93,9 +102,6 @@ export function MessageThread({
       </div>
     );
   }
-
-  // Build flat list: root + all replies
-  const allMessages: Message[] = [rootMessage, ...(rootMessage.replies ?? [])];
 
   // Determine thread subject name for header
   const isRootOwn = rootMessage.sender.id === currentUserId;
@@ -126,6 +132,7 @@ export function MessageThread({
             isOwn={msg.sender.id === currentUserId}
             onReply={onReply}
             onDelete={handleDelete}
+            parentMessage={msg.parent_id ? messageMap.get(msg.parent_id) : undefined}
           />
         ))}
         <div ref={bottomRef} />

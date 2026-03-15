@@ -10,6 +10,7 @@ interface MessageBubbleProps {
   isOwn: boolean;
   onReply?: (message: Message) => void;
   onDelete?: (id: number) => void;
+  parentMessage?: Message;
 }
 
 function formatMessageTime(dateStr: string): string {
@@ -26,12 +27,12 @@ function formatMessageTime(dateStr: string): string {
 function ReadStatus({ isRead }: { isRead: boolean | null }) {
   if (isRead === null) return null;
   if (isRead) {
-    return <CheckCheck className="h-3.5 w-3.5 text-blue-300" />;
+    return <CheckCheck className="h-3.5 w-3.5 text-blue-400" />;
   }
   return <Check className="h-3.5 w-3.5 text-primary-foreground/60" />;
 }
 
-export function MessageBubble({ message, isOwn, onReply, onDelete }: MessageBubbleProps) {
+export function MessageBubble({ message, isOwn, onReply, onDelete, parentMessage }: MessageBubbleProps) {
   const isUnread = !isOwn && message.is_read === false;
 
   return (
@@ -68,14 +69,17 @@ export function MessageBubble({ message, isOwn, onReply, onDelete }: MessageBubb
           )}
         >
           {/* Reply preview */}
-          {message.parent_id && (
+          {parentMessage && (
             <div
               className={cn(
-                'border-l-2 pl-2 mb-2 text-xs opacity-70',
+                'border-l-2 pl-2 mb-2 text-xs opacity-70 rounded-sm',
                 isOwn ? 'border-primary-foreground/40' : 'border-primary'
               )}
             >
-              <span>Cavab...</span>
+              <span className="font-semibold block truncate">{parentMessage.sender.name}</span>
+              <span className="line-clamp-2 break-words">
+                {parentMessage.body.slice(0, 80)}{parentMessage.body.length > 80 ? '…' : ''}
+              </span>
             </div>
           )}
 
