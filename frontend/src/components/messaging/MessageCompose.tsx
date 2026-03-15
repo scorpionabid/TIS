@@ -13,6 +13,7 @@ interface MessageComposeProps {
   preselectedRecipientIds?: number[];
   preselectedInstitutionIds?: number[];
   preselectedRoles?: string[];
+  preselectedParentId?: number;
 }
 
 export function MessageCompose({
@@ -22,6 +23,7 @@ export function MessageCompose({
   preselectedRecipientIds = [],
   preselectedInstitutionIds = [],
   preselectedRoles = [],
+  preselectedParentId,
 }: MessageComposeProps) {
   const [body, setBody] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -52,7 +54,7 @@ export function MessageCompose({
 
     const payload: SendMessagePayload = {
       body: trimmed,
-      parent_id: replyTo?.id,
+      parent_id: replyTo?.id || preselectedParentId,
     };
 
     if (recipientIds.length > 0) payload.recipient_ids = recipientIds;
@@ -73,8 +75,8 @@ export function MessageCompose({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // Ctrl+Enter or Cmd+Enter to send
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+    // Enter to send (unless Shift is held for new line)
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -110,17 +112,18 @@ export function MessageCompose({
       )}
 
       {/* Input row */}
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-2 relative group">
         <Textarea
           ref={textareaRef}
           value={body}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder="Mesaj yazın... (Ctrl+Enter)"
+          placeholder="Mesaj yazın... (Göndərmək üçün Enter)"
           rows={1}
           className={cn(
-            'flex-1 resize-none min-h-[40px] max-h-[160px] text-sm py-2.5',
-            'rounded-xl border-input bg-muted/30 focus-visible:bg-background transition-colors'
+            'flex-1 resize-none min-h-[44px] max-h-[160px] text-sm py-3 px-4',
+            'rounded-2xl border-input/40 bg-muted/40 transition-all duration-200',
+            'focus-visible:bg-background focus-visible:ring-1 focus-visible:ring-primary/30 focus-visible:border-primary/50 focus-visible:shadow-[0_0_15px_rgba(var(--primary),0.05)]'
           )}
           disabled={sendMessage.isPending}
         />
@@ -128,7 +131,10 @@ export function MessageCompose({
           onClick={handleSend}
           disabled={!canSend}
           size="icon"
-          className="h-11 w-11 flex-shrink-0 rounded-full"
+          className={cn(
+            'h-11 w-11 flex-shrink-0 rounded-full transition-all duration-200',
+            canSend ? 'bg-primary hover:bg-primary/90 hover:scale-105 shadow-sm' : 'opacity-50'
+          )}
         >
           <Send className="h-4 w-4" />
           <span className="sr-only">Göndər</span>
@@ -136,7 +142,7 @@ export function MessageCompose({
       </div>
 
       {sendMessage.isPending && (
-        <p className="text-xs text-muted-foreground text-right">Göndərilir...</p>
+        <p className="text-xs text-muted-foreground text-right mr-12 animate-pulse">Göndərilir...</p>
       )}
     </div>
   );

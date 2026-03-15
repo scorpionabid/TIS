@@ -14,13 +14,17 @@ import type {
  * buna görə tam response qaytarılmalıdır, yalnız `.data` yox.
  */
 class MessageService {
-  async getInbox(page = 1): Promise<MessagesResponse> {
-    const response = await apiClient.get<MessagesResponse>('/messages', { page });
+  async getInbox(page = 1, search?: string): Promise<MessagesResponse> {
+    const params: Record<string, any> = { page };
+    if (search) params.search = search;
+    const response = await apiClient.get<MessagesResponse>('/messages', params);
     return response as unknown as MessagesResponse;
   }
 
-  async getSent(page = 1): Promise<MessagesResponse> {
-    const response = await apiClient.get<MessagesResponse>('/messages/sent', { page });
+  async getSent(page = 1, search?: string): Promise<MessagesResponse> {
+    const params: Record<string, any> = { page };
+    if (search) params.search = search;
+    const response = await apiClient.get<MessagesResponse>('/messages/sent', params);
     return response as unknown as MessagesResponse;
   }
 

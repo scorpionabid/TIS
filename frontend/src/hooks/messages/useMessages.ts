@@ -1,20 +1,34 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useInfiniteQuery } from '@tanstack/react-query';
 import { messageService } from '@/services/messageService';
 import type { MessagesResponse, UnreadCountResponse } from '@/types/message';
 
-export function useInbox(page = 1, enabled = true) {
-  return useQuery<MessagesResponse>({
-    queryKey: ['messages', 'inbox', page],
-    queryFn: () => messageService.getInbox(page),
+export function useInbox(search = '', enabled = true) {
+  return useInfiniteQuery<MessagesResponse>({
+    queryKey: ['messages', 'inbox', search],
+    queryFn: ({ pageParam = 1 }) => messageService.getInbox(pageParam as number, search),
+    getNextPageParam: (lastPage) => {
+      if (lastPage?.meta && lastPage.meta.current_page < lastPage.meta.last_page) {
+        return lastPage.meta.current_page + 1;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
     staleTime: 30_000,
     enabled,
   });
 }
 
-export function useSent(page = 1, enabled = true) {
-  return useQuery<MessagesResponse>({
-    queryKey: ['messages', 'sent', page],
-    queryFn: () => messageService.getSent(page),
+export function useSent(search = '', enabled = true) {
+  return useInfiniteQuery<MessagesResponse>({
+    queryKey: ['messages', 'sent', search],
+    queryFn: ({ pageParam = 1 }) => messageService.getSent(pageParam as number, search),
+    getNextPageParam: (lastPage) => {
+      if (lastPage?.meta && lastPage.meta.current_page < lastPage.meta.last_page) {
+        return lastPage.meta.current_page + 1;
+      }
+      return undefined;
+    },
+    initialPageParam: 1,
     staleTime: 30_000,
     enabled,
   });

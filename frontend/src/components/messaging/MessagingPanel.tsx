@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Plus, ArrowLeft } from 'lucide-react';
 import {
   Sheet,
@@ -17,9 +17,7 @@ import { HierarchicalRecipientSelector } from './HierarchicalRecipientSelector';
 import { RecipientSelector } from './RecipientSelector';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRoleCheck } from '@/hooks/useRoleCheck';
-import { useWebSocket } from '@/contexts/WebSocketContext';
-import { useQueryClient } from '@tanstack/react-query';
-import { toast } from 'sonner';
+import { useMessageWebSocket } from '@/hooks/messages/useMessageWebSocket';
 import type { Message, MessageTab } from '@/types/message';
 
 interface MessagingPanelProps {
@@ -32,8 +30,7 @@ type PanelView = 'list' | 'thread' | 'compose';
 export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
   const { currentUser } = useAuth();
   const { isSchoolAdmin } = useRoleCheck();
-  const { listenToUserChannel, stopListening, isEchoConnected } = useWebSocket();
-  const queryClient = useQueryClient();
+  useMessageWebSocket(open);
   const [tab, setTab] = useState<MessageTab>('inbox');
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [replyTo, setReplyTo] = useState<Message | null>(null);
@@ -41,6 +38,8 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
   const [selectedRecipients, setSelectedRecipients] = useState<number[]>([]);
   const [selectedInstitutions, setSelectedInstitutions] = useState<number[]>([]);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
+  const [defaultRecipientIds, setDefaultRecipientIds] = useState<number[]>([]);
+  const [defaultParentId, setDefaultParentId] = useState<number | undefined>(undefined);
 
   // Mobile: track which panel is visible
   const [mobileView, setMobileView] = useState<PanelView>('list');
@@ -48,6 +47,8 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
   const handleSelectConversation = (id: number) => {
     setSelectedId(id);
     setReplyTo(null);
+    setDefaultRecipientIds([]);
+    setDefaultParentId(undefined);
     setIsComposing(false);
     setMobileView('thread');
   };
@@ -73,10 +74,26 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
     setReplyTo(null);
   };
 
+  const handleThreadLoaded = (message: Message) => {
+    // If we are in a thread, set default recipients for quick reply
+    // If I sent the message, default recipient is the recipient(s)
+    // If I received the message, default recipient is the sender
+    if (message.sender.id === currentUserId) {
+      if (message.recipients && message.recipients.length > 0) {
+        setDefaultRecipientIds(message.recipients.map((r) => r.id));
+      }
+    } else {
+      setDefaultRecipientIds([message.sender.id]);
+    }
+    setDefaultParentId(message.id);
+  };
+
   const handleNewMessage = () => {
     setIsComposing(true);
     setSelectedId(null);
     setReplyTo(null);
+    setDefaultRecipientIds([]);
+    setDefaultParentId(undefined);
     setSelectedRecipients([]);
     setSelectedInstitutions([]);
     setSelectedRoles([]);
@@ -89,55 +106,21 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
     setSelectedRecipients([]);
     setSelectedInstitutions([]);
     setSelectedRoles([]);
+    setDefaultRecipientIds([]);
+    setDefaultParentId(undefined);
   };
 
   const currentUserId = currentUser?.id ?? 0;
 
-  // open dəyişdikdə yenidən subscribe etməmək üçün ref istifadə edirik
-  const openRef = useRef(open);
-  openRef.current = open;
-
-  // WebSocket: yeni mesaj gəldikdə cache-i yenilə, panel bağlıdırsa toast göstər
-  // `open` deps-dən çıxarıldı — channel subscription panel açıb-bağlamaqdan asılı olmamalıdır
-  useEffect(() => {
-    if (!currentUser || !isEchoConnected) return;
-
-    const channelName = `App.Models.User.${currentUser.id}`;
-
-    listenToUserChannel(currentUser.id, (data: unknown) => {
-      const eventData = data as {
-        type?: string;
-        sender_name?: string;
-        body_preview?: string;
-      };
-
-      // Yalnız bu event tipini emal et — catch-all `|| !eventData?.type` digər event-ləri tetikləyə bilər
-      if (eventData?.type === 'NewMessageReceived') {
-        queryClient.invalidateQueries({ queryKey: ['messages', 'unread-count'] });
-        queryClient.invalidateQueries({ queryKey: ['messages', 'inbox'] });
-
-        if (!openRef.current) {
-          toast.info(
-            `${eventData.sender_name ?? 'Yeni mesaj'}: ${eventData.body_preview ?? ''}`,
-            { duration: 4000 }
-          );
-        }
-      }
-    });
-
-    return () => {
-      stopListening(channelName);
-    };
-  }, [currentUser, isEchoConnected, queryClient, listenToUserChannel, stopListening]);
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-2xl p-0 flex flex-col"
+        className="w-full sm:max-w-2xl p-0 flex flex-col bg-background/95 backdrop-blur-md shadow-2xl border-l border-border/40"
       >
         {/* Header */}
-        <SheetHeader className="flex-row items-center justify-between px-4 py-3 border-b space-y-0 flex-shrink-0">
+        <SheetHeader className="flex-row items-center justify-between px-5 py-3.5 border-b border-border/40 bg-muted/30 space-y-0 flex-shrink-0">
           <div className="flex items-center gap-2">
             {/* Back button for mobile thread/compose view */}
             {mobileView !== 'list' && (
@@ -261,20 +244,22 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
                       setSelectedId(null);
                       setMobileView('list');
                     }}
+                    onThreadLoaded={handleThreadLoaded}
                     currentUserId={currentUserId}
                   />
                 </div>
 
                 {/* Compose area — only show when a conversation is selected */}
                 {selectedId !== null && (
-                  <div className="flex-shrink-0 border-t p-3">
+                  <div className="flex-shrink-0 border-t border-border/40 bg-muted/10 p-4">
                     <MessageCompose
                       replyTo={replyTo}
                       onReplyCancel={handleReplyCancel}
                       onSent={handleThreadSent}
                       preselectedRecipientIds={
-                        replyTo ? [replyTo.sender.id] : []
+                        replyTo ? [replyTo.sender.id] : defaultRecipientIds
                       }
+                      preselectedParentId={defaultParentId}
                     />
                   </div>
                 )}
