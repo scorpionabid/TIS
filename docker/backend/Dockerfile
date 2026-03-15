@@ -20,7 +20,8 @@ RUN apk add --no-cache \
         pdo_sqlite \
         gd \
         zip \
-        opcache
+        opcache \
+        pcntl
 
 # Install Redis extension
 RUN apk add --no-cache autoconf g++ make \

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-use App\Http\Controllers\Api\MessageController;
+use App\Http\Controllers\API\MessageController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('messages')->group(function () {

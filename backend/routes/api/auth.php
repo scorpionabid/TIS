@@ -92,9 +92,9 @@ Route::get('test/websocket/info', function () {
         'success' => true,
         'data' => [
             'app_key' => env('REVERB_APP_KEY', 'atis-notification-2024'),
-            'reverb_host' => env('REVERB_HOST', 'localhost'),
-            'reverb_port' => (int) env('REVERB_PORT', 8080),
-            'reverb_scheme' => env('REVERB_PORT', 8080) == 443 ? 'https' : 'http',
+            'reverb_host' => env('REVERB_PUBLIC_HOST', env('REVERB_HOST', 'localhost')),
+            'reverb_port' => (int) env('REVERB_PUBLIC_PORT', env('REVERB_PORT', 8080)),
+            'reverb_scheme' => (int) env('REVERB_PUBLIC_PORT', env('REVERB_PORT', 8080)) == 443 ? 'https' : 'http',
         ],
     ]);
 });

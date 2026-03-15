@@ -117,10 +117,10 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
     <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-2xl p-0 flex flex-col bg-background/95 backdrop-blur-md shadow-2xl border-l border-border/40"
+        className="w-full sm:max-w-2xl p-0 flex flex-col bg-background shadow-2xl border-l border-border/40"
       >
         {/* Header */}
-        <SheetHeader className="flex-row items-center justify-between px-5 py-3.5 border-b border-border/40 bg-muted/30 space-y-0 flex-shrink-0">
+        <SheetHeader className="flex-row items-center justify-between px-5 py-3.5 border-b border-border/40 bg-muted/50 space-y-0 flex-shrink-0">
           <div className="flex items-center gap-2">
             {/* Back button for mobile thread/compose view */}
             {mobileView !== 'list' && (
@@ -251,7 +251,7 @@ export function MessagingPanel({ open, onClose }: MessagingPanelProps) {
 
                 {/* Compose area — only show when a conversation is selected */}
                 {selectedId !== null && (
-                  <div className="flex-shrink-0 border-t border-border/40 bg-muted/10 p-4">
+                  <div className="flex-shrink-0 border-t border-border/40 bg-muted/20 p-4">
                     <MessageCompose
                       replyTo={replyTo}
                       onReplyCancel={handleReplyCancel}
