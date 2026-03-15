@@ -1,11 +1,10 @@
-import { SearchIcon } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { UserProfile } from "@/components/layout/components/Header/UserProfile";
 import { NotificationDropdown } from "@/components/layout/components/Header/NotificationDropdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { surveyService } from "@/services/surveys";
+import { MessagingIndicator, MessagingPanel } from "@/components/messaging";
 
 interface DashboardHeaderProps {
   title: string;
@@ -45,6 +44,7 @@ export const DashboardHeader = ({
 }: DashboardHeaderProps) => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const [messagingOpen, setMessagingOpen] = useState(false);
   const [surveyNotifications, setSurveyNotifications] = useState<SurveyNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -256,46 +256,45 @@ export const DashboardHeader = ({
     }
   };
   return (
-    <div className="flex items-center justify-between w-full">
-      {/* Title Section */}
-      <div className="min-w-0 flex-1 pr-4">
-        <h1 className="text-lg lg:text-xl font-bold text-foreground font-heading truncate">{title}</h1>
-      </div>
-
-      {/* Actions Section */}
-      <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 flex-shrink-0">
-        {/* Search - Hidden on smaller screens */}
-        <div className="relative hidden xl:block">
-          <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Axtarış..."
-            className="pl-10 w-40 xl:w-48 focus:ring-input-focus focus:border-input-focus"
-          />
+    <>
+      <div className="flex items-center justify-between w-full">
+        {/* Title Section */}
+        <div className="min-w-0 flex-1 pr-4">
+          <h1 className="text-lg lg:text-xl font-bold text-foreground font-heading truncate">{title}</h1>
         </div>
 
-        {/* Notifications */}
-        <div className="relative">
-          <NotificationDropdown
-            enableRealTime={false}
-            notifications={notifications}
-            unreadCount={effectiveUnreadCount}
-            onMarkAsRead={handleMarkAsRead}
-            onMarkAllAsRead={handleMarkAllAsRead}
-            onDelete={handleDeleteNotification}
-            onNotificationClick={handleNotificationClick}
-          />
-          {effectiveUnreadCount > 0 && (
-            <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center text-[10px] font-medium z-10">
-              {effectiveUnreadCount > 9 ? "9+" : effectiveUnreadCount}
-            </span>
+        {/* Actions Section */}
+        <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 flex-shrink-0">
+          {/* Messaging Indicator - Replaces search */}
+          <MessagingIndicator onClick={() => setMessagingOpen(true)} />
+
+          {/* Notifications */}
+          <div className="relative">
+            <NotificationDropdown
+              enableRealTime={false}
+              notifications={notifications}
+              unreadCount={effectiveUnreadCount}
+              onMarkAsRead={handleMarkAsRead}
+              onMarkAllAsRead={handleMarkAllAsRead}
+              onDelete={handleDeleteNotification}
+              onNotificationClick={handleNotificationClick}
+            />
+            {effectiveUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center text-[10px] font-medium z-10">
+                {effectiveUnreadCount > 9 ? "9+" : effectiveUnreadCount}
+              </span>
+            )}
+          </div>
+
+          {/* User Profile */}
+          {currentUser && onLogout && (
+            <UserProfile user={currentUser} onLogout={onLogout} />
           )}
         </div>
-
-        {/* User Profile */}
-        {currentUser && onLogout && (
-          <UserProfile user={currentUser} onLogout={onLogout} />
-        )}
       </div>
-    </div>
+
+      {/* Messaging Panel — portal-rendered Sheet, flex layout-dan kənar */}
+      <MessagingPanel open={messagingOpen} onClose={() => setMessagingOpen(false)} />
+    </>
   );
 };

@@ -188,7 +188,7 @@ Route::middleware('role:superadmin')->prefix('institution-types')->group(functio
 });
 
 // Institution Hierarchy Management
-Route::middleware('permission:institutions.hierarchy')->group(function () {
+Route::middleware('permission:institutions.hierarchy|role:schooladmin')->group(function () {
     Route::get('hierarchy', [InstitutionHierarchyController::class, 'getHierarchy']);
     Route::get('institutions-hierarchy', [InstitutionHierarchyController::class, 'getHierarchy']);
     Route::get('hierarchy/children/{institution}', [InstitutionHierarchyController::class, 'getSubTree']);

@@ -71,7 +71,23 @@ class UserPermissionService extends BaseService
 
             case 'məktəbadmin':
             case 'schooladmin':
-                // MəktəbAdmin can only see users in their school
+                // MəktəbAdmin can see users in their school
+                // For messaging/hierarchy purposes, also allow seeing admins in parent institutions
+                $requestedInstitutionId = request()->get('institution_id');
+                if ($requestedInstitutionId && (int) $requestedInstitutionId !== $currentUser->institution_id) {
+                    $userInstitution = $currentUser->institution;
+                    $ancestorIds = $userInstitution ? $userInstitution->getAncestors()->pluck('id')->toArray() : [];
+
+                    if (in_array((int) $requestedInstitutionId, $ancestorIds)) {
+                        $query->where('institution_id', $requestedInstitutionId)
+                            ->whereHas('roles', function ($q) {
+                                $q->whereIn('name', ['regionadmin', 'regionoperator', 'sektoradmin']);
+                            });
+
+                        return;
+                    }
+                }
+
                 $query->where('institution_id', $currentUser->institution_id);
                 break;
 
@@ -117,7 +133,17 @@ class UserPermissionService extends BaseService
 
             case 'məktəbadmin':
             case 'schooladmin':
-                return $targetUser->institution_id === $currentUser->institution_id;
+                // Allowed if target user is in same school
+                if ($targetUser->institution_id === $currentUser->institution_id) {
+                    return true;
+                }
+
+                // OR if target user is an admin in a parent institution (for messaging)
+                $userInstitution = $currentUser->institution;
+                $ancestorIds = $userInstitution ? $userInstitution->getAncestors()->pluck('id')->toArray() : [];
+
+                return in_array($targetUser->institution_id, $ancestorIds) &&
+                       $targetUser->hasAnyRole(['regionadmin', 'regionoperator', 'sektoradmin']);
 
             case 'müəllim':
             case 'teacher':

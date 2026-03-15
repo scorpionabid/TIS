@@ -42,9 +42,19 @@ class PermissionMiddleware
             ]);
         }
 
-        // Check if user has any of the required permissions for the active guard
+        // Check if user has any of the required permissions or roles for the active guard
         foreach ($permissions as $permission) {
             $hasPermission = false;
+
+            // Support role: prefix for role-based access check within permission middleware
+            if (str_starts_with($permission, 'role:')) {
+                $roleName = substr($permission, 5);
+                if ($user->hasRole($roleName)) {
+                    return $next($request);
+                }
+                continue;
+            }
+
             try {
                 $hasPermission = $user->hasPermissionTo($permission);
             } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {

@@ -126,6 +126,9 @@ Route::middleware([\App\Http\Middleware\ForceCors::class])->group(function () {
 
         // Report Tables Module Routes
         require __DIR__ . '/api/report-tables.php';
+
+        // Messaging Routes
+        require __DIR__ . '/api/messages.php';
     });
 
     // Test route (public)
