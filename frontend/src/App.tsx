@@ -583,6 +583,7 @@ const App = () => {
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.REGIONADMIN,
                               USER_ROLES.REGIONOPERATOR,
+                              USER_ROLES.SEKTORADMIN,
                             ]}
                             requiredPermissions={["institutions.read"]}
                             permissionMatch="any"
@@ -1227,6 +1228,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.SCHOOLADMIN,
+                              USER_ROLES.SEKTORADMIN,
                             ]}
                           >
                             <SchoolTeachers />
@@ -1242,6 +1244,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.SCHOOLADMIN,
+                              USER_ROLES.SEKTORADMIN,
                             ]}
                           >
                             <SchoolClasses />
@@ -1313,6 +1316,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.SCHOOLADMIN,
+                              USER_ROLES.SEKTORADMIN,
                             ]}
                           >
                             <SchoolAttendance />
@@ -1389,6 +1393,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.SCHOOLADMIN,
+                              USER_ROLES.SEKTORADMIN,
                             ]}
                           >
                             <SchoolScheduleManagement />
