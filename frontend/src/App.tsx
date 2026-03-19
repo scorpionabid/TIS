@@ -81,6 +81,7 @@ const SectorRating = lazy(() => import("./pages/SectorRating"));
 const SchoolAdminRating = lazy(() => import("./pages/SchoolAdminRating"));
 const TeacherRating = lazy(() => import("./pages/TeacherRating"));
 const TeacherVerification = lazy(() => import("./pages/TeacherVerification"));
+const RatingConfiguration = lazy(() => import("./pages/RatingConfiguration"));
 
 // RegionAdmin pages
 const RegionAdminIndex = lazy(
@@ -1137,69 +1138,6 @@ const App = () => {
                         }
                       />
                       <Route
-                        path="regionadmin/schools"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Schools</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/hierarchy"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Hierarchy</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/tasks/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Tasks</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/surveys/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Surveys</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/documents/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Documents</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/reports/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Reports</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/settings/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Settings</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
                         path="regionadmin/attendance/reports"
                         element={
                           <LazyWrapper>
@@ -1618,6 +1556,19 @@ const App = () => {
                             ]}
                           >
                             <TeacherVerification />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="rating-configuration"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[USER_ROLES.SUPERADMIN]}
+                            requiredPermissions={["rating-configs.manage"]}
+                          >
+                            <RatingConfiguration />
                           </RoleProtectedRoute>
                         </LazyWrapper>
                       }
