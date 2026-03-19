@@ -240,7 +240,10 @@ class InstitutionTypeSeeder extends Seeder
         ];
 
         foreach ($institutionTypes as $type) {
-            InstitutionType::create($type);
+            InstitutionType::updateOrCreate(
+                ['key' => $type['key']],
+                $type
+            );
         }
     }
 }

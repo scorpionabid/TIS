@@ -132,3 +132,15 @@ Schedule::command('preschool:cleanup-photos --older-than=30')
     ->onFailure(function () {
         \Log::error('Preschool photo cleanup failed');
     });
+
+// Telescope prune: 48 saatdan köhnə log sətirləri sil
+Schedule::command('telescope:prune --hours=48')
+    ->daily()
+    ->at('04:30')
+    ->description('Telescope logs: 48 saatdan köhnə qeydləri sil')
+    ->onSuccess(function () {
+        \Log::info('Telescope pruning completed successfully');
+    })
+    ->onFailure(function () {
+        \Log::error('Telescope pruning failed');
+    });
