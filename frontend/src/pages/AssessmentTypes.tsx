@@ -130,14 +130,14 @@ export default function AssessmentTypes() {
     queryKey: ['assessment-stages', selectedTypeId],
     queryFn: () => assessmentTypeService.getStages(selectedTypeId!),
     enabled: activeTab === 'stages' && !!selectedTypeId,
-    staleTime: 0,
+    staleTime: 5 * 60_000,
   });
 
   const { data: resultFields, isLoading: fieldsLoading, error: fieldsError } = useQuery({
     queryKey: ['assessment-result-fields', selectedTypeId],
     queryFn: () => assessmentTypeService.getResultFields(selectedTypeId!),
     enabled: activeTab === 'resultFields' && !!selectedTypeId,
-    staleTime: 0,
+    staleTime: 5 * 60_000,
   });
 
   const ALL_VALUE = 'all';

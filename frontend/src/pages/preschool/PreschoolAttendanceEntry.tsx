@@ -55,7 +55,7 @@ const PreschoolAttendanceEntry: React.FC = () => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['preschool-attendance', selectedDate],
     queryFn: () => preschoolAttendanceService.getForDate(selectedDate),
-    staleTime: 0,
+    staleTime: 30_000,
   });
 
   const groups: PreschoolGroupWithAttendance[] = data?.data?.groups ?? [];

@@ -107,8 +107,8 @@ export function useEntityManagerV2<
         throw fetchError;
       }
     },
-    refetchOnWindowFocus: 'always',
-    staleTime: 0, // Always refetch after invalidation for fresh data
+    refetchOnWindowFocus: false,
+    staleTime: 30_000,
   });
 
   const entities = queryResult?.items ?? [];
