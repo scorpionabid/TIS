@@ -1,18 +1,10 @@
 import React from 'react';
-<<<<<<< HEAD
 import { Plus, Loader2, RefreshCw } from 'lucide-react';
-=======
-import { Plus, Loader2, GraduationCap, CheckCircle2, UserX, DoorOpen } from 'lucide-react';
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 import { Button } from '@/components/ui/button';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
 import { Grade, GradeFilters } from '@/services/grades';
-<<<<<<< HEAD
 import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent, calculateAssignedStudents } from './configurations/gradeConfig';
-=======
-import { gradeEntityConfig, GradeFiltersComponent } from './configurations/gradeConfig';
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
 import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
@@ -352,7 +344,6 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         }
       }))
     };
-<<<<<<< HEAD
   }, [currentUser, softDeleteMutation, hardDeleteMutation, studentsResponse]);
 
   // Sync mutation
@@ -404,9 +395,6 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
       toast.error('Sinxronizasiya statusu yoxlanarkən xəta baş verdi');
     }
   }, [currentUser?.institution?.id]);
-=======
-  }, [currentUser, softDeleteMutation, activateMutation, hardDeleteMutation]);
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 
   // Handle create action
   const handleCreate = React.useCallback(() => {

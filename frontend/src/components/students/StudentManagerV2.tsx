@@ -193,7 +193,6 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
       }
       return action;
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [queryClient]);
 
   // Modal control state for GenericManager integration

@@ -296,49 +296,9 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
               </TabsTrigger>
             </TabsList>
 
-<<<<<<< HEAD
             {/* TAB 1: BASIC INFO (REQUIRED) */}
             <TabsContent value="basic" className="space-y-5 mt-0 focus-visible:outline-none">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-=======
-            {/* TAB 1: BASIC INFO */}
-            <TabsContent value="basic" className="space-y-4 mt-4">
-              {/* Institution selector — only for multi-institution admins in create mode */}
-              {!editingGrade && !isSingleInstitution && availableInstitutions.length > 1 && (
-                <div className="space-y-2">
-                  <Label htmlFor="institution_id">
-                    Məktəb <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={formData.institution_id ? formData.institution_id.toString() : 'none'}
-                    onValueChange={(val) =>
-                      handleFieldChange('institution_id', val === 'none' ? 0 : parseInt(val, 10))
-                    }
-                    disabled={isLoading}
-                  >
-                    <SelectTrigger className={validationErrors.institution_id ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Məktəb seçin" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Məktəb seçin</SelectItem>
-                      {availableInstitutions.map(inst => (
-                        <SelectItem key={inst.id} value={inst.id.toString()}>
-                          {inst.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {validationErrors.institution_id && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
-                      {validationErrors.institution_id}
-                    </p>
-                  )}
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                 <div className="space-y-2">
                   <Label htmlFor="class_level" className="text-sm font-semibold text-slate-700">
                     Sinif səviyyəsi <span className="text-red-500">*</span>
@@ -351,15 +311,9 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                     <SelectTrigger className={`h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${validationErrors.class_level ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}>
                       <SelectValue placeholder="Sinif səviyyəsini seçin" />
                     </SelectTrigger>
-<<<<<<< HEAD
                     <SelectContent className="rounded-lg">
                       {classLevelOptions.map((level: any) => (
                         <SelectItem key={level.value} value={level.value.toString()} className="rounded-md">
-=======
-                    <SelectContent>
-                      {classLevelOptions.map((level) => (
-                        <SelectItem key={level.value} value={level.value.toString()}>
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                           {level.label}
                         </SelectItem>
                       ))}
@@ -384,17 +338,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                     placeholder="Məs: A, b, r2"
                     maxLength={3}
                     disabled={isLoading}
-<<<<<<< HEAD
                     className={`h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${validationErrors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
                   />
                   <p className="text-xs text-slate-500">
                     Ən çox 3 simvol. Hərf, rəqəm və ya kombinasiyalar (məs: A, B, r2).
-=======
-                    className={validationErrors.name ? 'border-red-500' : ''}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Ən çox 3 simvol. Hərf, rəqəm və ya kombinasiyalar ola bilər.
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                   </p>
                   {validationErrors.name && (
                     <p className="text-sm text-red-600 flex items-center gap-1.5 mt-1">
@@ -407,7 +354,6 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
               {/* Academic Year display */}
               <div className="space-y-2">
-<<<<<<< HEAD
                 <Label className="text-sm font-semibold text-slate-700">Akademik İl</Label>
                 <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
                   <span className="font-medium text-slate-700">
@@ -416,18 +362,6 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                   <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">
                     Aktiv
                   </Badge>
-=======
-                <Label>Akademik İl</Label>
-                <div className="p-3 bg-muted rounded-md flex items-center justify-between">
-                  <span className="text-sm">
-                    {selectedYear?.name ?? (formData.academic_year_id ? '...' : 'Seçilməyib')}
-                  </span>
-                  {selectedYear && (
-                    <Badge variant={selectedYear.is_active ? 'default' : 'secondary'}>
-                      {selectedYear.is_active ? 'Aktiv' : 'Keçmiş il'}
-                    </Badge>
-                  )}
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                 </div>
                 {validationErrors.academic_year_id && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
@@ -446,12 +380,8 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                       {previewName}
                     </div>
                     <div className="text-sm text-blue-700 mt-1">
-<<<<<<< HEAD
                       <Badge className={`${getEducationStageColor(formData.class_level)} font-medium`} variant="secondary">
                         {formData.class_level === 0 && 'Məktəbəqədər hazırlıq'}
-=======
-                      <Badge className={getEducationStageColor(formData.class_level)} variant="secondary">
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                         {formData.class_level >= 1 && formData.class_level <= 4 && 'İbtidai təhsil'}
                         {formData.class_level >= 5 && formData.class_level <= 9 && 'Ümumi orta təhsil'}
                         {formData.class_level >= 10 && formData.class_level <= 12 && 'Tam orta təhsil'}
@@ -479,11 +409,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                     value={formData.class_type || ''}
                     onChange={(e) => handleFieldChange('class_type', e.target.value)}
                     placeholder="Məs: Orta məktəb sinfi"
-<<<<<<< HEAD
                     className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-=======
-                    disabled={isLoading}
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                   />
                 </div>
                 <div className="space-y-2">
@@ -493,11 +419,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                     value={formData.class_profile || ''}
                     onChange={(e) => handleFieldChange('class_profile', e.target.value)}
                     placeholder="Məs: Rəqəmsal bacarıqlar"
-<<<<<<< HEAD
                     className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
-=======
-                    disabled={isLoading}
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                   />
                 </div>
               </div>
@@ -549,13 +471,9 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
               {/* Specialty — only for grades 10-12 */}
               {shouldShowSpecialty && (
                 <div className="space-y-2">
-<<<<<<< HEAD
                   <Label htmlFor="specialty" className="text-sm font-semibold text-slate-700">
                     İxtisas/İstiqamət
                   </Label>
-=======
-                  <Label htmlFor="specialty">İxtisas/İstiqamət (könüllü)</Label>
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                   <Select
                     value={formData.specialty || 'none'}
                     onValueChange={(value) => handleFieldChange('specialty', value === 'none' ? '' : value)}
@@ -564,14 +482,8 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                     <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                       <SelectValue placeholder="İxtisas seçin" />
                     </SelectTrigger>
-<<<<<<< HEAD
                     <SelectContent className="rounded-lg">
                       {namingOptions?.data?.specialties?.map((specialty: any) => (
-=======
-                    <SelectContent>
-                      <SelectItem value="none">Seçilməyib</SelectItem>
-                      {namingOptions?.data?.specialties?.map((specialty) => (
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                         <SelectItem key={specialty.value || 'none'} value={specialty.value || 'none'}>
                           {specialty.label}
                         </SelectItem>
@@ -586,13 +498,9 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
               {/* Homeroom Teacher */}
               <div className="space-y-2">
-<<<<<<< HEAD
                 <Label htmlFor="homeroom_teacher_id" className="text-sm font-semibold text-slate-700">
                   Sinif Rəhbəri
                 </Label>
-=======
-                <Label htmlFor="homeroom_teacher_id">Sinif Rəhbəri (könüllü)</Label>
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                 <Select
                   value={formData.homeroom_teacher_id?.toString() || 'none'}
                   onValueChange={(value) =>
@@ -619,13 +527,9 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
               {/* Description */}
               <div className="space-y-2">
-<<<<<<< HEAD
                 <Label htmlFor="description" className="text-sm font-semibold text-slate-700">
                   Qeyd
                 </Label>
-=======
-                <Label htmlFor="description">Qeyd (könüllü)</Label>
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                 <Textarea
                   value={formData.description || ''}
                   onChange={(e) => handleFieldChange('description', e.target.value)}

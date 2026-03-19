@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { AlertTriangle, Building2, MapPin } from 'lucide-center'; // Note: Should be 'lucide-react', checking if I made a typo. It's 'lucide-react'.
+import { AlertTriangle, Building2, MapPin } from 'lucide-react';
 import { useRegionalAttendanceData } from './hooks/useRegionalAttendanceData';
 import { regionalAttendanceService } from '@/services/regionalAttendance';
 

@@ -161,16 +161,14 @@ const ScheduleComparisonTool = lazy(
   () => import("./components/schedules/ScheduleComparisonTool"),
 );
 
-<<<<<<< HEAD
 // Grade Book Pages
 const GradeBooks = lazy(() => import("./pages/GradeBooks"));
 const GradeBookDetail = lazy(() => import("./pages/GradeBookDetail"));
 const GradeBookCreate = lazy(() => import("./pages/GradeBookCreate"));
-=======
+
 // AI Analysis pages
-const AiAnalysis = lazy(() => import("./pages/AiAnalysis"));
+const AiAnalysis = lazy(() => import("./pages/AiAnalysis/index"));
 const AiSettings = lazy(() => import("./pages/AiSettings"));
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 
 // Debug Console
 const DebugConsole = lazy(() => import("./pages/DebugConsole"));

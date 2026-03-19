@@ -497,7 +497,7 @@ export function GradeBookList({ selectedGradeId, institutionId, institutionName,
                 <p className="text-sm text-slate-500">
                   {selectedJournalId && (() => {
                     const gb = gradeBooks.find(g => g.id === selectedJournalId);
-                    const gradeDisplayName = gb?.grade?.full_name || `${gb?.grade?.class_level || ''}-${gb?.grade?.name || ''}`.replace(/^\-/, '');
+                    const gradeDisplayName = gb?.grade?.full_name || `${gb?.grade?.class_level || ''}-${gb?.grade?.name || ''}`.replace(/^-/, '');
                     return `${gradeDisplayName} - ${gb?.subject?.name || ''}`;
                   })()}
                 </p>

@@ -195,7 +195,7 @@ const GradeBooksPage: React.FC = () => {
           if (!g?.id) return;
 
           const id = Number(g.id);
-          const composite = `${g.class_level || ''}-${g.name || ''}`.replace(/^\-/, '');
+          const composite = `${g.class_level || ''}-${g.name || ''}`.replace(/^-/, '');
           const gradeName = g.full_name || composite || g.name;
           const label = gradeName || `Sinif ${id}`;
 
