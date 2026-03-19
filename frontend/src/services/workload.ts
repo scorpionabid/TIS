@@ -156,14 +156,10 @@ class WorkloadService {
    */
   async getGradeSubjects(gradeId: number): Promise<{ success: boolean; data: GradeSubject[] }> {
     try {
-      console.log('🔍 WorkloadService.getGradeSubjects called with gradeId:', gradeId);
       
       // Use curriculumService to get grade subjects from /grades/{id}/subjects
       const response = await curriculumService.getCurriculumSubjects(gradeId);
       
-      console.log('📦 curriculumService.getCurriculumSubjects response:', response);
-      console.log('📦 subjects array:', response.subjects);
-      console.log('📦 subjects length:', response.subjects?.length || 0);
       
       // Transform curriculum GradeSubject to workload GradeSubject format
       // They are compatible, just need to ensure the structure matches
@@ -189,8 +185,6 @@ class WorkloadService {
         updated_at: subject.updated_at,
       }));
       
-      console.log('✅ Transformed gradeSubjects:', gradeSubjects);
-      console.log('✅ Returning data length:', gradeSubjects.length);
       
       return { success: true, data: gradeSubjects };
     } catch (error) {

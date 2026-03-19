@@ -365,7 +365,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle duplicate action - will be overridden in component
-        console.log('Duplicate grade:', grade.id);
       }
     },
     {
@@ -375,7 +374,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle students action - will be overridden in component
-        console.log('Manage students for grade:', grade.id);
       }
     },
     {
@@ -385,7 +383,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle analytics action - will be overridden in component
-        console.log('View analytics for grade:', grade.id);
       }
     },
     {
@@ -395,7 +392,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle soft delete action - will be overridden in component
-        console.log('Soft delete grade:', grade.id);
       },
       isVisible: (grade: Grade) => grade.is_active
     },
@@ -406,7 +402,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       variant: 'destructive' as const,
       onClick: (grade: Grade) => {
         // Handle hard delete action - will be overridden in component
-        console.log('Hard delete grade:', grade.id);
       }
     }
   ],
@@ -527,19 +522,11 @@ export const gradeCustomLogic = {
 
   // Sort helpers
   getSortValue: (grade: Grade, key: string) => {
-    console.log('🔍 getSortValue DEBUG:', {
-      gradeId: grade?.id,
-      key,
-      grade_name: grade?.name,
-      grade_name_type: typeof grade?.name,
-      full_grade_object: grade
-    });
 
     try {
       switch (key) {
         case 'name': {
           const name = grade?.name;
-          console.log('🔍 Processing name:', { name, type: typeof name, isNull: name === null, isUndefined: name === undefined });
           return name && typeof name === 'string' ? name.toLowerCase() : '';
         }
         case 'class_level':

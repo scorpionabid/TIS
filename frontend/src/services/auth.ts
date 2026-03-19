@@ -59,9 +59,6 @@ const clearStoredDeviceId = (identifier?: string | null, debug = false): void =>
     if (map[normalizedIdentifier]) {
       delete map[normalizedIdentifier];
       persistDeviceMap(map, debug);
-      if (debug) {
-        console.log('🧹 Auth Service: Cleared stored device ID for identifier', normalizedIdentifier);
-      }
     }
     return;
   }
@@ -174,11 +171,6 @@ const extractUserRole = (roles: any): string => {
 
 // Helper function to transform API user data to User type
 const transformUserData = (userData: any): User => {
-  // Debug logging to understand API response structure
-  if (process.env.NODE_ENV === 'development') {
-    console.log('🔍 Transform User Data - Input:', JSON.stringify(userData, null, 2));
-  }
-
   // Handle different possible API response structures
   let user = userData;
   
@@ -228,10 +220,8 @@ const transformUserData = (userData: any): User => {
 class AuthService {
   private readonly DEBUG_MODE = process.env.NODE_ENV === 'development';
 
-  private log(...args: any[]): void {
-    if (this.DEBUG_MODE) {
-      console.log(...args);
-    }
+  private log(...args: unknown[]): void {
+    void args;
   }
 
   async login(credentials: LoginCredentials): Promise<LoginResponse> {
@@ -279,15 +269,6 @@ class AuthService {
       loginData.set('device_id', deviceId);
 
       this.log('🔍 Auth Service: Sending login request');
-      if (this.DEBUG_MODE) {
-        console.log('🔐 Auth Service: Login payload preview', {
-          login: loginData.get('login'),
-          passwordLength: (loginData.get('password') || '').length,
-          deviceName: loginData.get('device_name'),
-          deviceId: loginData.get('device_id'),
-        });
-      }
-
       const response = await apiClient.post<{
         message?: string;
         code?: string;

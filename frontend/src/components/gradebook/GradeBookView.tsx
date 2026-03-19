@@ -161,7 +161,6 @@ export function GradeBookView({ id: propId }: { id?: number }) {
   };
 
   const handleDeleteColumn = async (column: GradeBookColumn) => {
-    console.log('Deleting column:', column);
     try {
       await gradeBookService.archiveColumn(column.id);
       toast({

@@ -45,7 +45,6 @@ export function useEntityManagerV2<
   
   // Debug logging for createModalOpen state changes
   React.useEffect(() => {
-    console.log(`🎭 useEntityManagerV2(${entityType}) createModalOpen changed:`, createModalOpen);
   }, [createModalOpen, entityType]);
   const [selectedItems, setSelectedItems] = useState<T[]>([]);
   const [paginationMeta, setPaginationMeta] = useState<PaginationMeta | null>(null);
@@ -96,11 +95,9 @@ export function useEntityManagerV2<
   } = useQuery({
     queryKey: [...queryKey, entityType, filters],
     queryFn: async () => {
-      console.log(`🔍 EntityManagerV2(${entityType}): Fetching entities with filters:`, filters);
       try {
         const result = await service.get(filters);
         const normalized = normalizeServiceResult(result);
-        console.log(`✅ EntityManagerV2(${entityType}): Fetched ${normalized.items.length} entities`);
         return normalized;
       } catch (fetchError) {
         console.error(`❌ EntityManagerV2(${entityType}): Failed to fetch entities:`, fetchError);
@@ -198,8 +195,6 @@ export function useEntityManagerV2<
       return entities;
     }
     
-    console.log(`🔄 EntityManagerV2(${entityType}): Filtering ${entities.length} entities`);
-    console.log(`📊 Current filters - Tab: ${selectedTab}, Search: "${searchTerm}"`);
     
     let filtered = entities;
     
@@ -256,7 +251,6 @@ export function useEntityManagerV2<
       filtered = config.dataTransformer(filtered);
     }
     
-    console.log(`✅ EntityManagerV2(${entityType}): Filtered to ${filtered.length} entities`);
     return filtered;
   }, [entities, selectedTab, searchTerm, config.tabs, config.columns, config.dataTransformer, entityType, useServerFiltering]);
 
@@ -360,11 +354,9 @@ export function useEntityManagerV2<
   // Create mutation with enhanced cache invalidation
   const createEntityMutation = useMutation({
     mutationFn: (data: Partial<TCreateData>) => {
-      console.log(`➕ EntityManagerV2(${entityType}): Creating entity:`, data);
       return service.create(data);
     },
     onSuccess: (result) => {
-      console.log(`✅ EntityManagerV2(${entityType}): Entity created successfully:`, result);
       toast.success(`${entityName} uğurla yaradıldı`);
       
       // Enhanced cache invalidation with forced refetch
@@ -387,11 +379,9 @@ export function useEntityManagerV2<
   // Update mutation with enhanced cache invalidation
   const updateEntityMutation = useMutation({
     mutationFn: ({ id, data }: { id: number; data: Partial<TCreateData> }) => {
-      console.log(`📝 EntityManagerV2(${entityType}): Updating entity ${id}:`, data);
       return service.update(id, data);
     },
     onSuccess: (result) => {
-      console.log(`✅ EntityManagerV2(${entityType}): Entity updated successfully:`, result);
       toast.success(`${entityName} uğurla yeniləndi`);
       
       // Enhanced cache invalidation
@@ -409,11 +399,9 @@ export function useEntityManagerV2<
   // Delete mutation with enhanced cache invalidation
   const deleteEntityMutation = useMutation({
     mutationFn: (id: number) => {
-      console.log(`🗑️ EntityManagerV2(${entityType}): Deleting entity ${id}`);
       return service.delete(id);
     },
     onSuccess: () => {
-      console.log(`✅ EntityManagerV2(${entityType}): Entity deleted successfully`);
       toast.success(`${entityName} uğurla silindi`);
       
       // Enhanced cache invalidation

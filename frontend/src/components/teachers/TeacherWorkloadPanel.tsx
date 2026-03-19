@@ -103,36 +103,28 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
 
   // Process data
   const grades = useMemo(() => {
-    console.log('=== DEBUG gradesResponse ===', gradesResponse);
-    console.log('gradesError:', gradesError);
     
     if (!gradesResponse) {
-      console.log('gradesResponse is null/undefined');
       return [];
     }
     
     // Handle different response formats
     if (Array.isArray(gradesResponse)) {
-      console.log('gradesResponse is array:', gradesResponse.length);
       return gradesResponse;
     }
     
     if (gradesResponse.items && Array.isArray(gradesResponse.items)) {
-      console.log('gradesResponse.items found:', gradesResponse.items.length);
       return gradesResponse.items;
     }
     
     if (gradesResponse.data && Array.isArray(gradesResponse.data)) {
-      console.log('gradesResponse.data found:', gradesResponse.data.length);
       return gradesResponse.data;
     }
     
     if (gradesResponse.data && gradesResponse.data.grades && Array.isArray(gradesResponse.data.grades)) {
-      console.log('gradesResponse.data.grades found:', gradesResponse.data.grades.length);
       return gradesResponse.data.grades;
     }
     
-    console.log('No valid grades data found, response:', gradesResponse);
     return [];
   }, [gradesResponse, gradesError]);
 
@@ -257,18 +249,8 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
   });
 
   const handleAdd = () => {
-    console.log('🔍 handleAdd çağrıldı:', {
-      selectedClass,
-      selectedSubject,
-      weeklyHours,
-      wouldExceedLimit,
-      currentTotal,
-      maxHours,
-      isPending: createMutation.isPending
-    });
     
     if (!selectedClass || !selectedSubject || weeklyHours === 0) {
-      console.log('❌ Validation uğursuz:', { selectedClass, selectedSubject, weeklyHours });
       return;
     }
     
@@ -285,7 +267,6 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
     });
     
     if (isDuplicate) {
-      console.log('❌ Duplicate təyinat:', { selectedClass, selectedSubject, academicYearId });
       toast({
         title: 'Təkrar təyinat!',
         description: 'Bu sinif və fənn kombinasiyası artıq təyin edilib.',
@@ -296,7 +277,6 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
     
     // Validate workload limit before adding
     if (wouldExceedLimit) {
-      console.log('❌ Limit aşılacaq:', { currentTotal, weeklyHours, projectedTotal, maxHours });
       toast({
         title: 'Limit Aşılacaq!',
         description: `Bu təyinat müəllimin həftəlik limitini (${maxHours} saat) aşacaq. Mövcud: ${currentTotal} saat + Yeni: ${weeklyHours} saat = ${projectedTotal} saat`,
@@ -305,7 +285,6 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
       return;
     }
     
-    console.log('✅ Təyinat əlavə edilir:', { class_id: selectedClass, subject_id: selectedSubject, weekly_hours: weeklyHours });
     
     createMutation.mutate({
       class_id: selectedClass,

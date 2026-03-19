@@ -398,8 +398,6 @@ export function FormBuilder({
     <div className={cn("space-y-6", className)}>
       <Form {...form}>
         <form onSubmit={form.handleSubmit((data) => {
-          console.log('🔍 FormBuilder - Submitting data:', data);
-          console.log('🔍 FormBuilder - Fields:', fields.map(f => ({ name: f.name, value: data[f.name] })));
           onSubmit(data);
         })} className="space-y-6">
           <div className={cn(

@@ -1077,36 +1077,12 @@ function filterMenuItems(
           permissions.includes(permission),
         );
 
-        // DEBUG: Log permission match result (development only)
-        if (
-          process.env.NODE_ENV === "development" &&
-          (item.id?.includes("attendance") || item.path?.includes("attendance"))
-        ) {
-          console.log("🔍 Permission Match (ALL):", {
-            itemId: item.id,
-            required: item.permissions,
-            hasAll: hasAllPermissions,
-          });
-        }
-
         return hasAllPermissions;
       }
 
       const hasAnyPermission = item.permissions.some((permission) =>
         permissions.includes(permission),
       );
-
-      // DEBUG: Log permission match result (development only)
-      if (
-        process.env.NODE_ENV === "development" &&
-        (item.id?.includes("attendance") || item.path?.includes("attendance"))
-      ) {
-        console.log("🔍 Permission Match (ANY):", {
-          itemId: item.id,
-          required: item.permissions,
-          hasAny: hasAnyPermission,
-        });
-      }
 
       return hasAnyPermission;
     })

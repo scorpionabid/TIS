@@ -205,7 +205,6 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
     
     // Explicitly handle create click to manage our own state
     onCreateClick: () => {
-      console.log('🚀 StudentManagerV2 - onCreateClick triggered');
       setEditingStudent(null);
       setCreateModalOpen(true);
     },

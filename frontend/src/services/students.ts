@@ -161,7 +161,6 @@ class StudentService {
    */
   async get(filters: StudentFilters = {}, bypassCache = false): Promise<StudentServiceResponse | Student[]> {
     try {
-      console.log('🔍 StudentService.get - baseURL:', this.baseURL, 'filters:', filters);
       
       // Build query parameters as a plain object for apiClient
       const params: Record<string, any> = {};

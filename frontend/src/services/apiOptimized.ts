@@ -483,34 +483,6 @@ class ApiClientOptimized {
         throw enhancedError;
       }
       
-      // Log response structure for debugging (development only)
-      if (isDevelopment && response.url.includes('/grades')) {
-        console.log('📦 GRADES API RESPONSE STRUCTURE:', {
-          hasData: 'data' in data,
-          hasSuccess: 'success' in data,
-          dataType: typeof data.data,
-          dataIsArray: Array.isArray(data.data),
-          topLevelKeys: Object.keys(data),
-          firstItemKeys: Array.isArray(data.data) && data.data.length > 0 ? Object.keys(data.data[0]) : [],
-          fullResponse: data
-        });
-      }
-
-      // Log TASKS response (assigned-to-me) - ALWAYS (even in production for debugging)
-      if (response.url.includes('/tasks/assigned-to-me')) {
-        console.log('📦 TASKS ASSIGNED API RESPONSE:', {
-          url: response.url,
-          hasData: 'data' in data,
-          hasSuccess: 'success' in data,
-          dataType: typeof data.data,
-          dataIsArray: Array.isArray(data.data),
-          dataLength: Array.isArray(data.data) ? data.data.length : 0,
-          topLevelKeys: Object.keys(data),
-          firstTask: Array.isArray(data.data) && data.data.length > 0 ? data.data[0] : null,
-          fullResponse: data
-        });
-      }
-
       return data;
     } else {
       if (!response.ok) {

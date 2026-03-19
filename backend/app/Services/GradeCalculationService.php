@@ -133,7 +133,7 @@ class GradeCalculationService
                     'max_score' => 100,
                     'display_order' => $displayOrder,
                     'column_type' => 'calculated',
-                    'created_by' => auth()->id() ?? 1,
+                    'created_by' => auth()->id() ?? throw new \RuntimeException('Authenticated user required for grade book column creation'),
                 ])
             ]);
         }
@@ -153,7 +153,7 @@ class GradeCalculationService
                     'percentage' => $isGradeColumn ? null : $score,
                     'grade_mark' => $normalizedGrade,
                     'is_present' => true,
-                    'recorded_by' => auth()->id() ?? 1,
+                    'recorded_by' => auth()->id(),
                     'recorded_at' => now(),
                 ]
             );

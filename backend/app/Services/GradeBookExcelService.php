@@ -311,7 +311,7 @@ class GradeBookExcelService
                             'percentage' => ($score / $maxScore) * 100,
                             'grade_mark' => $this->calculationService->convertScoreToGrade($score),
                             'is_present' => true,
-                            'recorded_by' => auth()->id() ?? 1,
+                            'recorded_by' => auth()->id(),
                             'recorded_at' => now(),
                         ]
                     );

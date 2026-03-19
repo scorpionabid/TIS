@@ -108,7 +108,15 @@ class GradeBookAnalyticsController extends Controller
             'subject_id' => 'nullable|exists:subjects,id',
         ]);
 
-        $query = GradeBookSession::with(['grade', 'subject', 'institution'])
+        $query = GradeBookSession::with([
+            'grade' => fn ($q) => $q->withCount([
+                'enrollments as active_students_count' => fn ($q) => $q->where('enrollment_status', 'active'),
+            ]),
+            'subject',
+            'institution',
+            'columns' => fn ($q) => $q->where('column_type', 'calculated'),
+            'columns.cells' => fn ($q) => $q->select('grade_book_column_id', 'score', 'grade_mark'),
+        ])
             ->where('academic_year_id', $validated['academic_year_id']);
 
         if (!empty($validated['region_id'])) {
@@ -134,33 +142,25 @@ class GradeBookAnalyticsController extends Controller
         $gradeBooks = $query->get();
 
         $performanceData = $gradeBooks->map(function ($session) {
-            // Get all calculated columns for this session
-            $columns = $session->columns()->where('column_type', 'calculated')->pluck('id');
+            // Use preloaded columns (column_type=calculated eager loaded above)
+            $columnMap = $session->columns->keyBy('column_label');
 
-            // Get average scores
-            $averages = GradeBookCell::whereIn('grade_book_column_id', $columns)
-                ->select('grade_book_column_id', DB::raw('avg(score) as avg_score'))
-                ->groupBy('grade_book_column_id')
-                ->get()
-                ->keyBy('grade_book_column_id');
+            // Compute averages from preloaded cells (no extra queries)
+            $avgScore = fn ($label) => round(
+                $columnMap->get($label)?->cells->avg('score') ?? 0,
+                2
+            );
 
-            // Get grade distribution
-            $annualGradeColumn = $session->columns()
-                ->where('column_label', 'ILLIK_QIYMET')
-                ->first();
-
+            // Grade distribution from preloaded cells
             $gradeDistribution = [5 => 0, 4 => 0, 3 => 0, 2 => 0];
-
+            $annualGradeColumn = $columnMap->get('ILLIK_QIYMET');
             if ($annualGradeColumn) {
-                $distribution = GradeBookCell::where('grade_book_column_id', $annualGradeColumn->id)
+                $dist = $annualGradeColumn->cells
                     ->whereNotNull('grade_mark')
-                    ->select('grade_mark', DB::raw('count(*) as count'))
                     ->groupBy('grade_mark')
-                    ->get()
-                    ->keyBy('grade_mark');
-
-                foreach ($distribution as $grade => $data) {
-                    $gradeDistribution[$grade] = $data->count;
+                    ->map->count();
+                foreach ($gradeDistribution as $grade => $_) {
+                    $gradeDistribution[$grade] = $dist->get($grade, 0);
                 }
             }
 
@@ -170,14 +170,12 @@ class GradeBookAnalyticsController extends Controller
                 'subject_name' => $session->subject?->name,
                 'institution_name' => $session->institution?->name,
                 'averages' => [
-                    'i_semester' => round($averages[$session->columns()->where('column_label', 'I_YARIMIL_BAL')->first()?->id]?->avg_score ?? 0, 2),
-                    'ii_semester' => round($averages[$session->columns()->where('column_label', 'II_YARIMIL_BAL')->first()?->id]?->avg_score ?? 0, 2),
-                    'annual' => round($averages[$session->columns()->where('column_label', 'ILLIK_BAL')->first()?->id]?->avg_score ?? 0, 2),
+                    'i_semester' => $avgScore('I_YARIMIL_BAL'),
+                    'ii_semester' => $avgScore('II_YARIMIL_BAL'),
+                    'annual' => $avgScore('ILLIK_BAL'),
                 ],
                 'grade_distribution' => $gradeDistribution,
-                'total_students' => $session->grade?->enrollments()
-                    ->where('enrollment_status', 'active')
-                    ->count() ?? 0,
+                'total_students' => $session->grade?->active_students_count ?? 0,
             ];
         });
 

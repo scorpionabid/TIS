@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use App\Scopes\InstitutionScope;
+use App\Helpers\DataIsolationHelper;
 
 class GradeBookController extends Controller
 {
@@ -45,11 +46,9 @@ class GradeBookController extends Controller
     {
         $user = auth()->user();
         $institutionIdParam = $request->institution_id;
-        
-        // Check if this is a specific institution query (from hierarchy selection)
-        $isSpecificInstitutionQuery = $institutionIdParam !== null && $institutionIdParam !== '';
-        
-        // ALWAYS bypass InstitutionScope for explicit queries - the scope overrides our where clause
+
+        // InstitutionScope bypass edilir — çünki scope WHERE clausunu override edir.
+        // Əvəzinə DataIsolationHelper ilə role-based filtr tətbiq edilir.
         $query = GradeBookSession::query()
             ->withoutGlobalScope(InstitutionScope::class)
             ->with([
@@ -59,11 +58,13 @@ class GradeBookController extends Controller
                 'teachers.teacher',
             ]);
 
-        // Apply institution filter FIRST if provided
-        if ($isSpecificInstitutionQuery) {
+        // Specific institution query (hierarchy navigator-dan gəldikdə)
+        if ($institutionIdParam !== null && $institutionIdParam !== '') {
             $institutionId = (int) $institutionIdParam;
-            // Force the where clause to be applied
-            $query = $query->where('grade_book_sessions.institution_id', '=', $institutionId);
+            $query->where('grade_book_sessions.institution_id', '=', $institutionId);
+        } else {
+            // Institution ID yoxdursa — istifadəçinin hierarchy-sinə görə məhdudlaşdır
+            $query = DataIsolationHelper::applyRegionalScope($query, $user);
         }
         
         if ($request->has('academic_year_id')) {
@@ -126,22 +127,26 @@ class GradeBookController extends Controller
             'columns.cells.student',
         ]);
 
-        // Fetch students from both enrollments and directly from students table for resilience
-        // Bypass InstitutionScope to ensure we get students from the correct grade only
+        // canView() yoxlaması artıq keçib — bu müəssisəyə girişimiz var.
+        // Student sorğularını həmin müəssisə ilə məhdudlaşdırırıq (scope bypass-sız).
+        $institutionId = $gradeBook->institution_id;
+
         $enrolledStudentIds = $gradeBook->grade->studentEnrollments()
             ->where('enrollment_status', 'active')
             ->pluck('student_id')
             ->toArray();
 
-        // Get students directly assigned to this grade (bypass InstitutionScope)
+        // Bu müəssisənin həmin sinifdəki şagirdlərini götür
         $directStudents = \App\Models\Student::withoutGlobalScope(InstitutionScope::class)
             ->where('grade_id', $gradeBook->grade_id)
+            ->where('institution_id', $institutionId)
             ->where('is_active', true)
             ->get();
 
-        // Get students via enrollment that might not have grade_id set yet (bypass InstitutionScope)
+        // Enrollment vasitəsilə daxil olan şagirdlər (məktəbi eynidir)
         $enrolledStudents = \App\Models\Student::withoutGlobalScope(InstitutionScope::class)
             ->whereIn('id', $enrolledStudentIds)
+            ->where('institution_id', $institutionId)
             ->where('is_active', true)
             ->get();
 

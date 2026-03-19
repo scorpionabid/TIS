@@ -87,7 +87,7 @@ class GradeSubjectObserver
                 'grade_id' => $grade->id,
                 'subject_id' => $subject->id,
                 'academic_year_id' => $academicYearId,
-                'created_by' => auth()->id() ?? $gradeSubject->teacher_id ?? 1,
+                'created_by' => auth()->id() ?? $gradeSubject->teacher_id ?? throw new \RuntimeException('Cannot auto-create grade book without authenticated user or assigned teacher'),
                 'status' => 'active',
                 'title' => null,
             ]);

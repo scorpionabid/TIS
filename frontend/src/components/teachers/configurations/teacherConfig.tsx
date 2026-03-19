@@ -247,7 +247,6 @@ const actions: ActionConfig<SchoolTeacher>[] = [
     label: 'Dərs yükü / İş vaxtı',
     variant: 'outline',
     onClick: (teacher) => {
-      console.log('Toggle teacher details:', teacher);
     },
     // @ts-expect-error - used by GenericTable for primary actions
     isPrimary: true,
@@ -259,7 +258,6 @@ const actions: ActionConfig<SchoolTeacher>[] = [
     variant: 'ghost',
     onClick: (teacher) => {
       // This will be handled by custom logic
-      console.log('View teacher:', teacher);
     },
   },
   {
@@ -269,7 +267,6 @@ const actions: ActionConfig<SchoolTeacher>[] = [
     variant: 'ghost',
     onClick: (teacher) => {
       // This will be handled by custom logic
-      console.log('Edit teacher:', teacher);
     },
   },
   {
@@ -279,7 +276,6 @@ const actions: ActionConfig<SchoolTeacher>[] = [
     variant: 'ghost',
     onClick: (teacher) => {
       // This will be handled by custom logic
-      console.log('Delete teacher:', teacher);
     },
   },
 ];
@@ -507,7 +503,6 @@ export const teacherCustomLogic: ManagerCustomLogic<SchoolTeacher> = {
       label: 'Aktivləşdir',
       icon: CheckCircle,
       onClick: (selectedTeachers) => {
-        console.log('Bulk activate:', selectedTeachers);
         // Implement bulk activate logic
       },
       variant: 'default',
@@ -517,7 +512,6 @@ export const teacherCustomLogic: ManagerCustomLogic<SchoolTeacher> = {
       label: 'Passivləşdir',
       icon: XCircle,
       onClick: (selectedTeachers) => {
-        console.log('Bulk deactivate:', selectedTeachers);
         // Implement bulk deactivate logic
       },
       variant: 'outline',
@@ -527,7 +521,6 @@ export const teacherCustomLogic: ManagerCustomLogic<SchoolTeacher> = {
       label: 'İxrac Et',
       icon: Download,
       onClick: (selectedTeachers) => {
-        console.log('Bulk export:', selectedTeachers);
         // Implement bulk export logic
       },
       variant: 'outline',
@@ -541,7 +534,6 @@ export const teacherCustomLogic: ManagerCustomLogic<SchoolTeacher> = {
       label: 'İdxal/İxrac',
       icon: Upload,
       onClick: () => {
-        console.log('Open import/export modal');
         // This will be handled in the component
       },
       variant: 'outline',

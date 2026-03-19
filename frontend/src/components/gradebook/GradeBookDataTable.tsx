@@ -102,18 +102,15 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
   // Get cell score - for calculated grade columns, return grade_mark instead of score
   const getCellScore = (student: StudentWithScores, columnId: number, column?: GradeBookColumn): number | null => {
     if (!student.scores) {
-      console.log('getCellScore: no scores for student', student.id);
       return null;
     }
 
     const overrideKey = getCellKey(Number(student.id), Number(columnId));
     if (Object.prototype.hasOwnProperty.call(localScoreOverrides, overrideKey)) {
-      console.log('getCellScore: using override', overrideKey, localScoreOverrides[overrideKey]);
       return localScoreOverrides[overrideKey] ?? null;
     }
 
     const cellData = student.scores[columnId];
-    console.log('getCellScore: cellData', { studentId: student.id, columnId, cellData });
     if (!cellData) return null;
   
     // For calculated grade columns (ending with _QIYMET), show grade_mark
@@ -137,7 +134,6 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
     closeEditor: boolean;
   }) => {
     const { studentId, columnId, rawValue, closeEditor } = args;
-    console.log('saveCell DEBUG:', { gradeBookId, studentId, columnId, rawValue, isSavingCell });
     if (isSavingCell) return;
 
     const parsed = parseScore(rawValue);
@@ -174,7 +170,6 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
     if (!student) return;
 
     const cellData = student.scores?.[Number(columnId)];
-    console.log('saveCell CELL DATA:', { studentId, columnId, cellData, cellId: cellData?.id });
     if (!cellData || !cellData.id) {
       toast({
         title: 'Xəta',
@@ -192,9 +187,7 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
       });
 
       try {
-        console.log('saveCell RECALCULATE START:', { gradeBookId, parsed });
         await gradeBookService.recalculate(Number(gradeBookId));
-        console.log('saveCell RECALCULATE SUCCESS');
       } catch (err) {
         console.error('saveCell RECALCULATE ERROR:', err);
       }

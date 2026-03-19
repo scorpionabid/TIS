@@ -35,11 +35,7 @@ export default function GradeBookCreatePage() {
 
   // Set institution_id when currentUser loads - with detailed logging
   useEffect(() => {
-    console.log('=== SET INSTITUTION EFFECT ===');
-    console.log('userInstitutionId:', userInstitutionId);
-    console.log('formData.institution_id:', formData.institution_id);
     if (userInstitutionId && !formData.institution_id) {
-      console.log('✓ Setting institution_id:', userInstitutionId);
       setFormData(prev => ({ ...prev, institution_id: String(userInstitutionId) }));
     }
   }, [userInstitutionId]);
@@ -56,13 +52,10 @@ export default function GradeBookCreatePage() {
   const { data: gradesResponse, isLoading: gradesLoading, error: gradesError, isError: gradesIsError } = useQuery({
     queryKey: ['grades', formData.institution_id],
     queryFn: async () => {
-      console.log('=== FETCHING GRADES ===');
-      console.log('institution_id:', formData.institution_id);
       const result = await gradeService.get({ 
         institution_id: Number(formData.institution_id),
         per_page: 100 // Backend limit is 100
       });
-      console.log('gradeService.get result:', result);
       return result;
     },
     enabled: !!formData.institution_id && formData.institution_id !== '',
@@ -71,16 +64,6 @@ export default function GradeBookCreatePage() {
 
   // Debug logging with useEffect to track changes
   useEffect(() => {
-    console.log('=== DEBUG STATE CHANGE ===');
-    console.log('currentUser:', currentUser);
-    console.log('userInstitutionId:', userInstitutionId);
-    console.log('isSchoolUser:', isSchoolUser);
-    console.log('formData.institution_id:', formData.institution_id);
-    console.log('gradesLoading:', gradesLoading);
-    console.log('gradesIsError:', gradesIsError);
-    console.log('gradesError:', gradesError);
-    console.log('gradesResponse:', gradesResponse);
-    console.log('grades count:', grades.length);
   }, [currentUser, userInstitutionId, formData.institution_id, gradesLoading, gradesIsError, gradesError, gradesResponse, grades.length, isSchoolUser]);
 
   // Fetch curriculum subjects when grade is selected

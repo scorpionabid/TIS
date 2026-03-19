@@ -78,16 +78,6 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
 
-  // Debug logging for modal open state
-  useEffect(() => {
-    if (open) {
-      console.log('🚀 StudentModal OPENED:', { 
-        studentId: (student as any)?.id,
-        institutionId: (student as any)?.institution_id || currentUser?.institution_id,
-        hasCurrentUser: !!currentUser 
-      });
-    }
-  }, [open, student, currentUser]);
 
   const institutionId = (student as any)?.institution_id || currentUser?.institution?.id || currentUser?.institution_id;
 
@@ -102,7 +92,6 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
   // Force refetch when modal opens to ensure fresh data
   useEffect(() => {
     if (open) {
-      console.log('🔄 StudentModal: Forcing grades refetch for institution:', institutionId);
       refetchGrades();
     }
   }, [open, institutionId, refetchGrades]);
@@ -117,13 +106,6 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
     
     const list = Array.isArray(items) ? items : [];
     
-    if (open) {
-      console.log('📊 StudentModal Grades Processed:', {
-        itemsCount: list.length,
-        firstItem: list[0] ? { id: list[0].id, name: list[0].name } : 'none'
-      });
-    }
-
     return [...list].sort(
       (a: any, b: any) => (a.class_level || 0) - (b.class_level || 0) || (a.name || '').localeCompare(b.name || '')
     );
@@ -242,7 +224,6 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
     try {
       setLoading(true);
       
-      console.log('🔍 StudentModal - Raw form data:', data);
       
       // Clean empty strings to undefined so they don't cause backend type issues
       const cleanedData = Object.entries(data).reduce((acc: any, [key, value]) => {
@@ -264,10 +245,6 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
         is_active: true,
       };
 
-      console.log('🔍 StudentModal - Processed student data:', studentData);
-      console.log('🔍 StudentModal - first_name:', studentData.first_name);
-      console.log('🔍 StudentModal - last_name:', studentData.last_name);
-      console.log('🔍 StudentModal - student_number:', studentData.student_number);
 
       await onSave(studentData);
       
@@ -389,7 +366,6 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
 
   return (
     <Dialog open={open} onOpenChange={(val) => {
-      console.log('🔄 StudentModal onOpenChange:', val);
       if (!val) onClose();
     }}>
       <DialogContent 

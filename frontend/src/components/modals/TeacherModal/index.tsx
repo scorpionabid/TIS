@@ -208,7 +208,6 @@ export function TeacherModal({
       // Transform to backend format
       const teacherData = transformTeacherDataToBackend(data);
 
-      console.log('📤 TeacherModal sending data:', teacherData);
 
       // Save
       await onSave(teacherData);

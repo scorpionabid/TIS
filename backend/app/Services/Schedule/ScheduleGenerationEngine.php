@@ -220,7 +220,7 @@ class ScheduleGenerationEngine
             'schedule_type' => 'regular',
             'generation_method' => 'automated',
             'status' => 'draft',
-            'created_by' => auth()->id() ?? 1,
+            'created_by' => auth()->id() ?? throw new \RuntimeException('Authenticated user required for schedule generation'),
             'effective_date' => Carbon::now()->startOfWeek(),
             'effective_from' => Carbon::now()->startOfWeek(),
             'end_date' => Carbon::now()->addMonths(1),

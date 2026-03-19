@@ -247,7 +247,6 @@ const actions: ActionConfig<Student>[] = [
     label: 'Ətraflı bax',
     variant: 'ghost',
     onClick: (student) => {
-      console.log('View student:', student);
     },
   },
   {
@@ -256,7 +255,6 @@ const actions: ActionConfig<Student>[] = [
     label: 'Redaktə et',
     variant: 'ghost',
     onClick: (student) => {
-      console.log('Edit student:', student);
     },
   },
   {
@@ -265,7 +263,6 @@ const actions: ActionConfig<Student>[] = [
     label: 'Sinifə yaz',
     variant: 'ghost',
     onClick: (student) => {
-      console.log('Enroll student:', student);
     },
     condition: (student) => student.status !== 'active', // Only show for non-active students
   },
@@ -275,7 +272,6 @@ const actions: ActionConfig<Student>[] = [
     label: 'Deaktiv et',
     variant: 'ghost',
     onClick: (student) => {
-      console.log('Deactivate student:', student);
     },
     condition: (student) => student.is_active !== false, // Only show for active students
   },
@@ -285,7 +281,6 @@ const actions: ActionConfig<Student>[] = [
     label: 'Sil',
     variant: 'ghost',
     onClick: (student) => {
-      console.log('Delete student:', student);
     },
   },
 ];
@@ -555,7 +550,6 @@ export const studentCustomLogic: ManagerCustomLogic<Student> = {
       label: 'Toplu Aktivləşdirmə',
       icon: CheckCircle,
       onClick: (selectedStudents) => {
-        console.log('Bulk activate:', selectedStudents.length, 'students');
         // Implementation would go here
       },
       variant: 'default',
@@ -565,7 +559,6 @@ export const studentCustomLogic: ManagerCustomLogic<Student> = {
       label: 'Toplu Deaktivləşdirmə',
       icon: XCircle,
       onClick: (selectedStudents) => {
-        console.log('Bulk deactivate:', selectedStudents.length, 'students');
         // Implementation would go here
       },
       variant: 'outline',
@@ -575,7 +568,6 @@ export const studentCustomLogic: ManagerCustomLogic<Student> = {
       label: 'Toplu Köçürmə',
       icon: ArrowRightLeft,
       onClick: (selectedStudents) => {
-        console.log('Bulk transfer:', selectedStudents.length, 'students');
         // Implementation would go here
       },
       variant: 'outline',
@@ -585,7 +577,6 @@ export const studentCustomLogic: ManagerCustomLogic<Student> = {
       label: 'Toplu Məzun Etmə',
       icon: GraduationCap,
       onClick: (selectedStudents) => {
-        console.log('Bulk graduate:', selectedStudents.length, 'students');
         // Implementation would go here
       },
       variant: 'outline',
@@ -595,7 +586,6 @@ export const studentCustomLogic: ManagerCustomLogic<Student> = {
       label: 'Seçilənləri İxrac Et',
       icon: Download,
       onClick: (selectedStudents) => {
-        console.log('Export selected:', selectedStudents.length, 'students');
         // Implementation would go here
       },
       variant: 'outline',

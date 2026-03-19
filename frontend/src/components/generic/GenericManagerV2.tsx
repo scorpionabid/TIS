@@ -282,7 +282,6 @@ export function GenericManagerV2<
         const modalProps = {
           open: manager.createModalOpen,
           onClose: () => {
-            console.log('🔄 GenericManagerV2 Modal onClose called');
             manager.setCreateModalOpen(false);
             manager.setEditingEntity(null);
           },
@@ -293,14 +292,6 @@ export function GenericManagerV2<
           isLoading: manager.isCreating || manager.isUpdating,
         };
         
-        console.log('🎨 GenericManagerV2 About to render custom modal:', {
-          hasRenderCustomModal: !!customLogic.renderCustomModal,
-          createModalOpen: manager.createModalOpen,
-          editingEntity: manager.editingEntity?.id || 'null',
-          isCreating: manager.isCreating,
-          isUpdating: manager.isUpdating,
-          modalProps: modalProps
-        });
         
         return customLogic.renderCustomModal(modalProps);
       })()}

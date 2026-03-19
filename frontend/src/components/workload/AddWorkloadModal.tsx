@@ -84,12 +84,6 @@ export default function AddWorkloadModal({
   const gradeSubjects = useMemo(() => {
     const responseData = gradeSubjectsResponse?.data;
     
-    console.log('🔍 AddWorkloadModal gradeSubjects useMemo:', {
-      gradeSubjectsResponse,
-      responseData,
-      isArray: Array.isArray(responseData),
-      length: Array.isArray(responseData) ? responseData.length : 0
-    });
     
     if (Array.isArray(responseData)) {
       return responseData;
@@ -146,9 +140,6 @@ export default function AddWorkloadModal({
   // Auto-select subject and hours when class is selected
   useEffect(() => {
     if (selectedClass && teacherSubjects && gradeSubjects.length > 0) {
-      console.log('🔍 Checking for auto-selection...');
-      console.log('Teacher subjects:', teacherSubjects);
-      console.log('Grade subjects:', gradeSubjects);
 
       // Find matching subject: teacher's subject that exists in selected grade
       const matchingSubject = gradeSubjects.find((gs: GradeSubject) =>
@@ -156,14 +147,12 @@ export default function AddWorkloadModal({
       );
 
       if (matchingSubject) {
-        console.log('✅ Found matching subject:', matchingSubject);
         setSelectedSubject(matchingSubject.subject_id);
         setWeeklyHours(matchingSubject.weekly_hours);
         setAutoSelectedInfo(
           `Avtomatik seçildi: "${matchingSubject.subject_name}" (${matchingSubject.weekly_hours} saat/həftə)`
         );
       } else {
-        console.log('⚠️ No matching subject found');
         setSelectedSubject(null);
         setWeeklyHours(0);
         setAutoSelectedInfo(`Bu sinifdə ${gradeSubjects.length} fənn tapıldı. Seçim edin.`);

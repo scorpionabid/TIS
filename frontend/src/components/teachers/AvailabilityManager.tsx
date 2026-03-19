@@ -353,7 +353,6 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
   };
 
   const saveAvailability = () => {
-    console.log('Saving availability:', { teacherId, shifts, activeDays, availability });
     alert('İş vaxtı məlumatları saxlanıldı!');
   };
 

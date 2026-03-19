@@ -316,9 +316,9 @@ Route::prefix('grades')->group(function () {
     // Curriculum management (grade subjects)
     Route::get('/{grade}/subjects', [GradeSubjectController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
     Route::get('/{grade}/subjects/available', [GradeSubjectController::class, 'availableSubjects'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::post('/{grade}/subjects', [GradeSubjectController::class, 'store'])->middleware('permission:grades.read');
-    Route::put('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'update'])->middleware('permission:grades.read');
-    Route::delete('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'destroy'])->middleware('permission:grades.read');
+    Route::post('/{grade}/subjects', [GradeSubjectController::class, 'store'])->middleware('permission:grades.manage');
+    Route::put('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'update'])->middleware('permission:grades.manage');
+    Route::delete('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'destroy'])->middleware('permission:grades.manage');
     Route::get('/{grade}/subjects/statistics', [GradeSubjectController::class, 'statistics'])->middleware('permission:grades.read');
 });
 
@@ -690,7 +690,7 @@ Route::prefix('analytics/grade-books')->middleware(['auth:sanctum'])->group(func
         ->middleware('permission:analytics.read');
 });
 use App\Http\Controllers\GradeBookController;
-use App\Http\Controllers\GradeBookAuditController;
+use App\Http\Controllers\GradeBookAuditLogController;
 use App\Http\Controllers\GradeHistoryController;
 
 Route::prefix('grade-books')->middleware('auth:sanctum')->group(function () {
@@ -718,10 +718,11 @@ Route::prefix('grade-books')->middleware('auth:sanctum')->group(function () {
     Route::post('/{gradeBook}/import', [GradeBookController::class, 'importScores'])->middleware('permission:assessments.write');
 
     // Audit Logs
-    Route::get('/{gradeBook}/audit-logs', [GradeBookAuditController::class, 'index'])->middleware('permission:assessments.read');
-    Route::get('/{gradeBook}/audit-logs/student/{studentId}', [GradeBookAuditController::class, 'studentHistory'])->middleware('permission:assessments.read');
-    Route::get('/{gradeBook}/audit-logs/recent-activity', [GradeBookAuditController::class, 'recentActivity'])->middleware('permission:assessments.read');
-    Route::get('/{gradeBook}/audit-logs/suspicious-activity', [GradeBookAuditController::class, 'suspiciousActivity'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/audit-logs', [GradeBookAuditLogController::class, 'index'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/audit-logs/student/{studentId}', [GradeBookAuditLogController::class, 'studentHistory'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/audit-logs/recent-activity', [GradeBookAuditLogController::class, 'recentActivity'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/audit-logs/suspicious-activity', [GradeBookAuditLogController::class, 'suspiciousActivity'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/audit-logs/cell/{cellId}', [GradeBookAuditLogController::class, 'cellHistory'])->middleware('permission:assessments.read');
 
     // Columns (Exams)
     Route::post('/{gradeBook}/columns', [GradeBookController::class, 'storeColumn'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin|teacher');

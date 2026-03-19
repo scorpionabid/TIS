@@ -329,9 +329,7 @@ class SchoolAdminService {
   // Teacher management methods  
   async getTeachers(params?: PaginationParams): Promise<SchoolTeacher[]> {
     const baseEndpoint = this.baseEndpoint || '/schooladmin';
-    console.log('🔍 SchoolAdminService.getTeachers called with:', { baseEndpoint, thisBaseEndpoint: this.baseEndpoint, params });
     const endpoint = `${baseEndpoint}/teachers`;
-    console.log('🔍 Final endpoint:', endpoint);
     const response = await apiClient.get<SchoolTeacher[]>(endpoint, params);
     return response.data || response as any;
   }
@@ -599,10 +597,6 @@ class SchoolAdminService {
 export const schoolAdminService = new SchoolAdminService();
 
 // Debug: Check if binding worked
-console.log('🔍 Testing schoolAdminService binding:', {
-  hasBaseEndpoint: !!(schoolAdminService as any)['baseEndpoint'],
-  getTeachersType: typeof schoolAdminService.getTeachers
-});
 
 // Query keys for React Query
 export const schoolAdminKeys = {
