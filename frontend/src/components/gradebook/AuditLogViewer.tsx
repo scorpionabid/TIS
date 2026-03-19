@@ -101,7 +101,7 @@ export function AuditLogViewer() {
         page: currentPage.toString(),
         per_page: '20',
         ...Object.fromEntries(
-          Object.entries(filters).filter(([_, v]) => v !== '')
+          Object.entries(filters).filter(([k, v]) => v !== '' && v !== 'all')
         ),
       });
 

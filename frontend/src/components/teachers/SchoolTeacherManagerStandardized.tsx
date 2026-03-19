@@ -49,6 +49,12 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [teacherToDelete, setTeacherToDelete] = React.useState<SchoolTeacher | null>(null);
   
+  // Shift configuration state for availability management
+  const [shiftConfig, setShiftConfig] = React.useState({
+    shift1: { name: 'I NÖVBƏ', lessonCount: 6, startTime: '08:00', color: 'blue', enabled: true },
+    shift2: { name: 'II NÖVBƏ', lessonCount: 6, startTime: '14:00', color: 'orange', enabled: false },
+  });
+  
   // Institution filtering for role-based access
   const [institutionFilter, setInstitutionFilter] = React.useState<string>('all');
   const { currentUser: user } = useAuth();
@@ -175,6 +181,30 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
       });
       setEditingUser(null);
       setTeacherModalOpen(true);
+    },
+    
+    // Import/Export/Template handlers for modern header
+    onImportClick: () => {
+      logger.debug('Opening import modal', {
+        component: 'SchoolTeacherManagerStandardized',
+        action: 'openImportModal'
+      });
+      setImportExportModalOpen(true);
+    },
+    onExportClick: () => {
+      logger.debug('Opening export modal', {
+        component: 'SchoolTeacherManagerStandardized',
+        action: 'openExportModal'
+      });
+      setImportExportModalOpen(true);
+    },
+    onTemplateClick: () => {
+      logger.debug('Downloading template', {
+        component: 'SchoolTeacherManagerStandardized',
+        action: 'downloadTemplate'
+      });
+      // Template download will be handled by TeacherImportExportModal
+      setImportExportModalOpen(true);
     },
     
   }), []);
@@ -366,7 +396,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
                     <div className="grid grid-cols-12 gap-6">
                       {/* Sol sütun - İş vaxtı statistikası */}
                       <div className="col-span-3 space-y-4">
-                        <TeacherScheduleStats teacherId={drawerTeacher.id} />
+                        <TeacherScheduleStats teacherId={drawerTeacher.id} shifts={shiftConfig} />
                       </div>
                       {/* Sağ sütun - Əsas məzmun */}
                       <div className="col-span-9">
@@ -380,7 +410,11 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
                             </div>
                           </CardHeader>
                           <CardContent className="space-y-4">
-                            <AvailabilityManager teacherId={drawerTeacher.id} />
+                            <AvailabilityManager 
+                              teacherId={drawerTeacher.id} 
+                              externalShifts={shiftConfig}
+                              onShiftsChange={setShiftConfig}
+                            />
                           </CardContent>
                         </Card>
                       </div>

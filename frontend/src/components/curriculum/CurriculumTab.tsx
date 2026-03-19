@@ -10,11 +10,13 @@
  */
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, Trash2, Edit, BookOpen, Users, Clock, ArrowUpDown, ArrowUp, ArrowDown, Filter } from 'lucide-react';
+import { Plus, Trash2, Edit, BookOpen, Users, Clock, ArrowUpDown, ArrowUp, ArrowDown, Filter, LayoutDashboard } from 'lucide-react';
 import curriculumService from '../../services/curriculumService';
-import type { GradeSubject, CurriculumMeta, CurriculumStatistics } from '../../types/curriculum';
+import type { GradeSubject, CurriculumMeta, CurriculumStatistics as ICurriculumStatistics } from '../../types/curriculum';
 import AddSubjectModal from './AddSubjectModal';
 import EditSubjectModal from './EditSubjectModal';
+import CurriculumStatistics from './CurriculumStatistics';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface CurriculumTabProps {
   gradeId: number;
@@ -28,7 +30,7 @@ type SortDirection = 'asc' | 'desc';
 const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpdate }) => {
   const [subjects, setSubjects] = useState<GradeSubject[]>([]);
   const [meta, setMeta] = useState<CurriculumMeta | null>(null);
-  const [statistics, setStatistics] = useState<CurriculumStatistics | null>(null);
+  const [statistics, setStatistics] = useState<ICurriculumStatistics | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -50,7 +52,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
       setMeta(data.meta);
     } catch (err: any) {
       console.error('Error loading curriculum:', err);
-      setError(err.response?.data?.message || 'Kurikulum yüklənərkən xəta baş verdi');
+      setError(err.response?.data?.message || 'Tədris planı yüklənərkən xəta baş verdi');
       setSubjects([]); // Set empty array on error
     } finally {
       setLoading(false);
@@ -70,10 +72,12 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
     void Promise.all([loadCurriculum(), loadStatistics()]);
   }, [loadCurriculum, loadStatistics]);
 
-  const handleAddSuccess = () => {
+  const handleAddSuccess = (isContinuous?: boolean) => {
     loadCurriculum();
     loadStatistics();
-    setIsAddModalOpen(false);
+    if (!isContinuous) {
+      setIsAddModalOpen(false);
+    }
     onUpdate?.();
   };
 
@@ -85,7 +89,7 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
   };
 
   const handleDelete = async (gradeSubjectId: number, subjectName: string) => {
-    if (!confirm(`"${subjectName}" fənnini kurikulumdan silmək istədiyinizə əminsiniz?`)) {
+    if (!confirm(`"${subjectName}" fənnini tədris planından silmək istədiyinizə əminsiniz?`)) {
       return;
     }
 
@@ -201,284 +205,153 @@ const CurriculumTab: React.FC<CurriculumTabProps> = ({ gradeId, gradeName, onUpd
   }
 
   return (
-    <div className="space-y-6">
-      {/* Statistics Cards */}
-      {statistics && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-blue-50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-blue-600 font-medium">Cəmi Fənn</p>
-                <p className="text-2xl font-bold text-blue-900">{statistics?.total_subjects || 0}</p>
-              </div>
-              <BookOpen className="h-8 w-8 text-blue-400" />
-            </div>
+    <div className="flex flex-col h-full space-y-6">
+      {/* Upper Section: Stats Overview */}
+      <div className="flex items-center justify-between bg-white p-4 rounded-xl border shadow-sm">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-primary/10 rounded-lg">
+            <LayoutDashboard className="h-6 w-6 text-primary" />
           </div>
-
-          <div className={`rounded-lg p-4 ${
-            (statistics?.total_weekly_hours || 0) > 35
-              ? 'bg-red-50 border-2 border-red-200'
-              : (statistics?.total_weekly_hours || 0) > 30
-              ? 'bg-yellow-50 border-2 border-yellow-200'
-              : 'bg-green-50'
-          }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${
-                  (statistics?.total_weekly_hours || 0) > 35
-                    ? 'text-red-600'
-                    : (statistics?.total_weekly_hours || 0) > 30
-                    ? 'text-yellow-600'
-                    : 'text-green-600'
-                }`}>Həftəlik Saat</p>
-                <p className={`text-2xl font-bold ${
-                  (statistics?.total_weekly_hours || 0) > 35
-                    ? 'text-red-900'
-                    : (statistics?.total_weekly_hours || 0) > 30
-                    ? 'text-yellow-900'
-                    : 'text-green-900'
-                }`}>{statistics?.total_weekly_hours || 0}</p>
-                {(statistics?.total_weekly_hours || 0) > 35 && (
-                  <p className="text-xs text-red-600 mt-1">⚠️ Maksimum limitdən çox</p>
-                )}
-                {(statistics?.total_weekly_hours || 0) > 30 && (statistics?.total_weekly_hours || 0) <= 35 && (
-                  <p className="text-xs text-yellow-600 mt-1">⚠️ Limite yaxındır</p>
-                )}
-              </div>
-              <Clock className={`h-8 w-8 ${
-                (statistics?.total_weekly_hours || 0) > 35
-                  ? 'text-red-400'
-                  : (statistics?.total_weekly_hours || 0) > 30
-                  ? 'text-yellow-400'
-                  : 'text-green-400'
-              }`} />
-            </div>
-          </div>
-
-          <div className="bg-purple-50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-purple-600 font-medium">Hesablanmış Saat</p>
-                <p className="text-2xl font-bold text-purple-900">{statistics?.total_calculated_hours || 0}</p>
-              </div>
-              <Users className="h-8 w-8 text-purple-400" />
-            </div>
-          </div>
-
-          <div className="bg-orange-50 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-orange-600 font-medium">Qruplara Bölünən</p>
-                <p className="text-2xl font-bold text-orange-900">{statistics?.split_groups_count || 0}</p>
-              </div>
-              <Users className="h-8 w-8 text-orange-400" />
-            </div>
+          <div>
+            <h3 className="text-lg font-bold text-gray-900">Tədris Planı İdarəetməsi</h3>
+            <p className="text-sm text-muted-foreground">
+              {meta?.grade_name ? `${meta.grade_name} sinfi üçün tədris planı` : gradeName}
+            </p>
           </div>
         </div>
-      )}
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">Fənnlər və Dərs Yükü</h3>
-          <p className="text-sm text-gray-500 mt-1">
-            {meta?.grade_name ? `${meta.grade_name} sinfi üçün kurikulum` : gradeName}
-            {subjects && filteredAndSortedSubjects.length !== subjects.length && (
-              <span className="ml-2 text-blue-600">
-                ({filteredAndSortedSubjects.length} / {subjects.length} fənn göstərilir)
-              </span>
-            )}
-          </p>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setIsAddModalOpen(true)}
+            className="flex items-center gap-2 px-6 py-2.5 bg-primary text-white rounded-lg hover:bg-primary/90 transition-all shadow-md active:scale-95 font-medium"
+          >
+            <Plus className="h-5 w-5" />
+            Yeni Fənn Əlavə Et
+          </button>
         </div>
-        <button
-          onClick={() => setIsAddModalOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Fənn Əlavə Et
-        </button>
       </div>
 
-      {/* Filter Bar */}
-      {subjects && subjects.length > 0 && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <Filter className="h-4 w-4 text-gray-600" />
-            <span className="text-sm font-medium text-gray-700">Filtrlər</span>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {/* Activity Type Filter */}
-            <select
-              value={filterActivityType}
-              onChange={(e) => setFilterActivityType(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">Bütün fəaliyyət növləri</option>
-              <option value="teaching">📘 Tədris fəaliyyəti</option>
-              <option value="extracurricular">🌟 Dərsdənkənar</option>
-              <option value="club">🎭 Dərnək</option>
-            </select>
-
-            {/* Group Split Filter */}
-            <select
-              value={filterGroupSplit}
-              onChange={(e) => setFilterGroupSplit(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">Hamısı</option>
-              <option value="split">Qruplara bölünən</option>
-              <option value="nosplit">Qruplara bölünməyən</option>
-            </select>
-
-            {/* Clear Filters */}
-            {(filterActivityType !== 'all' || filterGroupSplit !== 'all' || sortField) && (
-              <button
-                onClick={() => {
-                  setFilterActivityType('all');
-                  setFilterGroupSplit('all');
-                  setSortField(null);
-                }}
-                className="px-3 py-2 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+      {/* Main Content Area: Two Column Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 flex-1 min-h-0 overflow-hidden">
+        {/* Left Side: Subjects Table (8/12) */}
+        <div className="lg:col-span-9 flex flex-col min-h-0 bg-white rounded-xl border shadow-sm overflow-hidden">
+          <div className="p-4 border-b bg-gray-50/50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" />
+              <span className="font-semibold text-gray-700">Tədris Planındakı Fənnlər</span>
+              <span className="ml-2 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-bold">
+                {filteredAndSortedSubjects.length} fənn
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-muted-foreground" />
+              <select
+                value={filterActivityType}
+                onChange={(e) => setFilterActivityType(e.target.value as any)}
+                className="bg-transparent border-none text-sm font-medium focus:ring-0 cursor-pointer"
               >
-                Filttrləri təmizlə
-              </button>
+                <option value="all">Fəaliyyət növü (Hamısı)</option>
+                <option value="teaching">📘 Dərs</option>
+                <option value="extracurricular">🌟 Dərsdənkənar məşğələ</option>
+                <option value="club">🎭 Dərnək</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-auto">
+            {!subjects || subjects.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-full p-12 text-center opacity-60">
+                <BookOpen className="h-16 w-16 mb-4 text-muted-foreground" />
+                <h4 className="text-xl font-medium">Tədris planı boşdur</h4>
+                <p className="max-w-xs mx-auto mt-2">Bu sinfə hələ heç bir fənn əlavə edilməyib.</p>
+              </div>
+            ) : (
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-white border-b z-10">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('name')}>
+                      <div className="flex items-center gap-2">
+                        Fənn {sortField === 'name' && (sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                      </div>
+                    </th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('weekly_hours')}>
+                      <div className="flex items-center gap-2">
+                        Saat {sortField === 'weekly_hours' && (sortDirection === 'asc' ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />)}
+                      </div>
+                    </th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Fəaliyyət</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase">Bölünmə</th>
+                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase text-right">Əməliyyat</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredAndSortedSubjects.map((subject) => (
+                    <tr key={subject.id} className="hover:bg-gray-50/80 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="font-semibold text-gray-900">{subject.subject_name}</div>
+                        <div className="text-xs text-muted-foreground font-mono">{subject.subject_code}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-700 rounded-md font-bold">
+                          <Clock className="h-3.5 w-3.5" />
+                          {subject.formatted_hours}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {subject.is_teaching_activity && (
+                            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 text-[10px] font-bold rounded uppercase">Dərs</span>
+                          )}
+                          {subject.is_extracurricular && (
+                            <span className="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded uppercase">Dərsdənkənar məşğələ</span>
+                          )}
+                          {subject.is_club && (
+                            <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-[10px] font-bold rounded uppercase">Dərnək</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        {subject.is_split_groups ? (
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 bg-orange-100 text-orange-700 text-[10px] font-bold rounded uppercase">
+                            <Users className="h-3 w-3" />
+                            {subject.group_count} Qrup
+                          </div>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => setEditingSubject(subject)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            title="Düzəliş et"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(subject.id, subject.subject_name)}
+                            disabled={deletingId === subject.id}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-30"
+                            title="Sil"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             )}
           </div>
         </div>
-      )}
 
-      {/* Subjects Table */}
-      {!subjects || subjects.length === 0 ? (
-        <div className="bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg p-12 text-center">
-          <BookOpen className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Fənn əlavə edilməyib</h3>
-          <p className="text-gray-500">Bu sinfə hələ fənn əlavə edilməyib. Yuxarıdakı "Fənn Əlavə Et" düyməsindən istifadə edin.</p>
+        {/* Right Side: Statistics (4/12) */}
+        <div className="lg:col-span-3 space-y-6 overflow-y-auto pr-2">
+          <CurriculumStatistics subjects={subjects} />
         </div>
-      ) : (
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort('name')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Fənn
-                      {sortField === 'name' && (
-                        sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                      )}
-                      {sortField !== 'name' && <ArrowUpDown className="h-4 w-4 text-gray-400" />}
-                    </div>
-                  </th>
-                  <th
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100 transition-colors"
-                    onClick={() => handleSort('weekly_hours')}
-                  >
-                    <div className="flex items-center gap-2">
-                      Həftəlik Saat
-                      {sortField === 'weekly_hours' && (
-                        sortDirection === 'asc' ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />
-                      )}
-                      {sortField !== 'weekly_hours' && <ArrowUpDown className="h-4 w-4 text-gray-400" />}
-                    </div>
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Tədris Fəaliyyəti
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dərsdənkənar
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Dərnək
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Qrupa Bölünür
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Əməliyyatlar
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAndSortedSubjects?.map((subject) => (
-                  <tr key={subject.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {subject.subject_name}
-                          </div>
-                          <div className="text-sm text-gray-500">{subject.subject_code}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">{subject.formatted_hours}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {subject.is_teaching_activity ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                          <span className="mr-1">📘</span> Tədris
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-400">−</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {subject.is_extracurricular ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
-                          <span className="mr-1">🌟</span> Dərsdənkənar
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-400">−</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {subject.is_club ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 border border-purple-200">
-                          <span className="mr-1">🎭</span> Dərnək
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs text-gray-400">−</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {subject.is_split_groups ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
-                          {subject.group_count} qrup
-                        </span>
-                      ) : (
-                        <span className="text-sm text-gray-500">−</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => setEditingSubject(subject)}
-                          className="text-blue-600 hover:text-blue-900"
-                          title="Düzəliş et"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(subject.id, subject.subject_name)}
-                          disabled={deletingId === subject.id}
-                          className="text-red-600 hover:text-red-900 disabled:opacity-50"
-                          title="Sil"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      </div>
 
       {/* Modals */}
       {isAddModalOpen && (

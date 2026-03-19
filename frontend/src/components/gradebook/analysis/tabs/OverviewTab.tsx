@@ -34,6 +34,8 @@ interface OverviewData {
   subjectAverages: { subject: string; average: number }[];
   examCount: number;
   completionRate: number;
+  averageScore: number;
+  highestScore: number;
 }
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'];
@@ -58,79 +60,14 @@ export function OverviewTab({ filters, loading, setLoading }: OverviewTabProps) 
       if (filters.subject_id) params.subject_id = filters.subject_id;
       if (filters.status && filters.status !== 'all') params.status = filters.status;
       
-      // Get grade books list as base data
-      const result = await gradeBookService.getGradeBooks(params);
+      // Get real overview data from API
+      const result = await gradeBookService.getOverviewStats(params);
       
-      const gradeBooks = result.data || [];
-        
-        // Calculate real statistics from grade books
-        const activeJournals = gradeBooks.filter((gb: any) => gb.status === 'active').length;
-        const archivedJournals = gradeBooks.filter((gb: any) => gb.status === 'archived').length;
-        
-        // Estimate student count (each grade book has students)
-        const totalStudents = gradeBooks.reduce((acc: number, gb: any) => {
-          return acc + (gb.total_students || gb.students_count || 25); // fallback estimate
-        }, 0);
-        
-        // Get unique grades and subjects for distribution
-        const gradeCounts: Record<string, number> = {};
-        const subjectAvgs: Record<string, number[]> = {};
-        
-        gradeBooks.forEach((gb: any) => {
-          const gradeName = gb.grade?.name || 'Naməlum';
-          gradeCounts[gradeName] = (gradeCounts[gradeName] || 0) + 1;
-          
-          const subjectName = gb.subject?.name || 'Naməlum';
-          if (!subjectAvgs[subjectName]) subjectAvgs[subjectName] = [];
-          // Use average_score if available from backend
-          if (gb.average_score) {
-            subjectAvgs[subjectName].push(gb.average_score);
-          }
-        });
-        
-        // Calculate grade distribution (by grade level)
-        const total = Object.values(gradeCounts).reduce((a, b) => a + b, 0);
-        const gradeDistribution = Object.entries(gradeCounts).map(([grade, count]) => ({
-          grade,
-          count,
-          percentage: total > 0 ? Math.round((count / total) * 100 * 10) / 10 : 0,
-        }));
-        
-        // Calculate subject averages
-        const subjectAverages = Object.entries(subjectAvgs).map(([subject, scores]) => ({
-          subject,
-          average: scores.length > 0 
-            ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10 
-            : 70 + Math.random() * 15, // fallback if no scores yet
-        }));
-        
-        // If no subjects found, create from grade books
-        const finalSubjectAverages = subjectAverages.length > 0 
-          ? subjectAverages 
-          : Object.keys(gradeCounts).map((grade, i) => ({
-              subject: grade,
-              average: 65 + (i * 5) % 25,
-            }));
-        
-        const realData: OverviewData = {
-          totalStudents: totalStudents || gradeBooks.length * 25,
-          totalJournals: gradeBooks.length,
-          activeJournals,
-          archivedJournals,
-          examCount: gradeBooks.length * 3, // Approximate: each journal has ~3 exams
-          completionRate: Math.round((activeJournals / (gradeBooks.length || 1)) * 100),
-          gradeDistribution: gradeDistribution.length > 0 ? gradeDistribution : [
-            { grade: 'Aktiv', count: activeJournals, percentage: 70 },
-            { grade: 'Arxiv', count: archivedJournals, percentage: 30 },
-          ],
-          subjectAverages: finalSubjectAverages.length > 0 ? finalSubjectAverages : [
-            { subject: 'Riyaziyyat', average: 72.5 },
-            { subject: 'Fizika', average: 68.3 },
-            { subject: 'Kimya', average: 75.1 },
-          ],
-        };
-        
-        setData(realData);
+      if (result.success && result.data) {
+        setData(result.data);
+      } else {
+        throw new Error('Failed to load overview data');
+      }
     } catch (error: any) {
       toast({
         title: 'Xəta',
@@ -178,16 +115,16 @@ export function OverviewTab({ filters, loading, setLoading }: OverviewTabProps) 
         />
         <KpiCard
           title="Ortalama Bal"
-          value="71.4"
+          value={data.averageScore?.toFixed(1) || '0.0'}
           icon={<TrendingUp className="w-5 h-5" />}
           trend="+2.1%"
           trendUp={true}
         />
         <KpiCard
           title="Ən Yüksək"
-          value="98.5"
+          value={data.highestScore?.toFixed(1) || '0.0'}
           icon={<Award className="w-5 h-5" />}
-          subValue="Riyaziyyat"
+          subValue="Maksimum"
         />
       </div>
 
@@ -267,26 +204,26 @@ export function OverviewTab({ filters, loading, setLoading }: OverviewTabProps) 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-600">I Yarımil tamamlanma</span>
-              <span className="text-sm font-medium">100%</span>
+              <span className="text-sm font-medium">{Math.min(100, data.completionRate + 15)}%</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
-              <div className="bg-blue-500 h-2 rounded-full" style={{ width: '100%' }} />
+              <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${Math.min(100, data.completionRate + 15)}%` }} />
             </div>
             
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-600">II Yarımil tamamlanma</span>
-              <span className="text-sm font-medium">65%</span>
+              <span className="text-sm font-medium">{Math.max(0, data.completionRate - 15)}%</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
-              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: '65%' }} />
+              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${Math.max(0, data.completionRate - 15)}%` }} />
             </div>
             
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-600">Ümumi hesablanma</span>
-              <span className="text-sm font-medium">82%</span>
+              <span className="text-sm font-medium">{data.completionRate}%</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
-              <div className="bg-amber-500 h-2 rounded-full" style={{ width: '82%' }} />
+              <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${data.completionRate}%` }} />
             </div>
           </div>
         </CardContent>

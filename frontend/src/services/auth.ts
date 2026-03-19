@@ -407,7 +407,7 @@ class AuthService {
     }
   }
 
-  async refreshToken(): Promise<LoginResponse> {
+  async refreshToken(options?: { remember?: boolean; deviceName?: string }): Promise<LoginResponse> {
     try {
       const response = await apiClient.post<{
         message?: string;

@@ -238,16 +238,16 @@ export const ScheduleSettings: React.FC<ScheduleSettingsProps> = ({
             <div>
               <Label>Nahar fasiləsi dövrü</Label>
               <Select
-                value={settings.lunch_break_period?.toString() || ''}
+                value={settings.lunch_break_period?.toString() || 'none'}
                 onValueChange={(value) => 
-                  handleSettingsChange('lunch_break_period', value ? parseInt(value) : null)
+                  handleSettingsChange('lunch_break_period', (value && value !== 'none') ? parseInt(value) : null)
                 }
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Dövrü seçin" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Nahar fasiləsi yox</SelectItem>
+                  <SelectItem value="none">Nahar fasiləsi yox</SelectItem>
                   {Array.from({ length: settings.daily_periods }, (_, i) => i + 1).map(period => (
                     <SelectItem key={period} value={period.toString()}>
                       {period}. dərsdən sonra

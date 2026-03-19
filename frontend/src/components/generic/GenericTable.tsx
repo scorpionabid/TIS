@@ -111,8 +111,7 @@ export function GenericTable<T extends BaseEntity>({
             {columns.map((column, index) => (
               <TableHead 
                 key={index} 
-                className={column.width} 
-                style={{ textAlign: column.align || 'left' }}
+                className={`${column.width || ''} h-12 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-700 bg-slate-50 border-b border-slate-200 text-center whitespace-nowrap`}
               >
                 {column.label}
               </TableHead>
@@ -120,7 +119,9 @@ export function GenericTable<T extends BaseEntity>({
             
             {/* Actions header */}
             {actions.length > 0 && (
-              <TableHead className="text-right">Əməliyyatlar</TableHead>
+              <TableHead className="h-12 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-700 bg-slate-50 border-b border-slate-200 text-center whitespace-nowrap w-[140px]">
+                Əməliyyatlar
+              </TableHead>
             )}
           </TableRow>
         </TableHeader>

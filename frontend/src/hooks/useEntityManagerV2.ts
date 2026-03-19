@@ -38,7 +38,7 @@ export function useEntityManagerV2<
   // State management
   const [searchTerm, setSearchTerm] = useState<string>((initialFilters as any)?.search || '');
   const [filters, setFilters] = useState<TFilters>(initialFilters);
-  const [selectedTab, setSelectedTab] = useState('all');
+  const [selectedTab, setSelectedTab] = useState('active');
   const [selectedEntity, setSelectedEntity] = useState<T | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<T | null>(null);
@@ -191,6 +191,10 @@ export function useEntityManagerV2<
   const filteredEntities = useMemo(() => {
     if (!entities) return [];
     if (useServerFiltering) {
+      // Apply dataTransformer if provided (even for server-side filtering)
+      if (config.dataTransformer) {
+        return config.dataTransformer(entities);
+      }
       return entities;
     }
     
@@ -208,10 +212,10 @@ export function useEntityManagerV2<
         // Default tab filtering
         switch (selectedTab) {
           case 'active':
-            filtered = filtered.filter(item => item.is_active === true);
+            filtered = filtered.filter(item => (item as any).is_active === true);
             break;
           case 'inactive':
-            filtered = filtered.filter(item => item.is_active === false);
+            filtered = filtered.filter(item => (item as any).is_active === false);
             break;
         }
       }
@@ -221,18 +225,40 @@ export function useEntityManagerV2<
     if (searchTerm && searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
       filtered = filtered.filter(item => {
-        // Search through searchable fields from columns
-        return config.columns.some(column => {
-          const value = item[column.key as keyof T];
+        // 1. Search through searchable fields from columns
+        const columnMatch = config.columns.some(column => {
+          const value = (item as any)[column.key];
           if (value == null) return false;
           return String(value).toLowerCase().includes(searchLower);
         });
+
+        if (columnMatch) return true;
+
+        // 2. Specialized search for Grade entity (class_level and full_name)
+        if (entityType === 'grades') {
+          const grade = item as any;
+          const classLevelStr = String(grade.class_level || '');
+          const fullName = String(grade.full_name || '').toLowerCase();
+          const name = String(grade.name || '').toLowerCase();
+          
+          // Check for "1", "1-A", "1A"
+          return classLevelStr === searchTerm || 
+                 fullName.includes(searchLower) || 
+                 name.includes(searchLower);
+        }
+
+        return false;
       });
+    }
+    
+    // Apply dataTransformer if provided
+    if (config.dataTransformer) {
+      filtered = config.dataTransformer(filtered);
     }
     
     console.log(`✅ EntityManagerV2(${entityType}): Filtered to ${filtered.length} entities`);
     return filtered;
-  }, [entities, selectedTab, searchTerm, config.tabs, config.columns, entityType, useServerFiltering]);
+  }, [entities, selectedTab, searchTerm, config.tabs, config.columns, config.dataTransformer, entityType, useServerFiltering]);
 
   // Enhanced stats calculation
   const stats = useMemo(() => {
@@ -341,8 +367,13 @@ export function useEntityManagerV2<
       console.log(`✅ EntityManagerV2(${entityType}): Entity created successfully:`, result);
       toast.success(`${entityName} uğurla yaradıldı`);
       
-      // Enhanced cache invalidation
+      // Enhanced cache invalidation with forced refetch
       invalidateEntityCaches();
+      
+      // Force immediate refetch to ensure new entity appears in list
+      setTimeout(() => {
+        refetch();
+      }, 100);
       
       setCreateModalOpen(false);
       setEditingEntity(null);

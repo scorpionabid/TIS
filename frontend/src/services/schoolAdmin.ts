@@ -496,8 +496,43 @@ class SchoolAdminService {
   }
 
   async getStudentsByClass(classId: number): Promise<Student[]> {
-    const response = await apiClient.get<Student[]>(`${this.baseEndpoint}/classes/${classId}/students`);
-    return response.data || response as any;
+    const response = await apiClient.get<any>(`${this.baseEndpoint}/classes/${classId}/students`);
+    
+    // Handle different API response structures
+    let studentsData = response.data;
+    
+    // If response has nested data structure
+    if (studentsData?.data) {
+      studentsData = studentsData.data;
+    }
+    
+    // If it's an object with students array
+    if (studentsData?.students && Array.isArray(studentsData.students)) {
+      studentsData = studentsData.students;
+    }
+    
+    // Ensure we have an array
+    if (!Array.isArray(studentsData)) {
+      console.warn('getStudentsByClass: Expected array but got:', typeof studentsData);
+      return [];
+    }
+    
+    // Transform to ensure consistent Student interface
+    return studentsData.map((student: any) => ({
+      id: student.id,
+      student_number: student.student_number || student.student_id || '',
+      student_id: student.student_id || student.student_number || '',
+      first_name: student.first_name || '',
+      last_name: student.last_name || '',
+      full_name: student.full_name || `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+      email: student.email || null,
+      status: student.status || 'active',
+      is_active: student.is_active !== false,
+      institution_id: student.institution_id || 0,
+      current_class: student.current_class || student.class || { id: classId, name: '' },
+      created_at: student.created_at || new Date().toISOString(),
+      updated_at: student.updated_at || new Date().toISOString(),
+    }));
   }
 
   async updateStudent(studentId: number, data: Partial<CreateStudentData>): Promise<SchoolStudent> {
@@ -571,7 +606,7 @@ export const schoolAdminKeys = {
   class: (id: number) => [...schoolAdminKeys.classes(), id] as const,
   teachers: () => [...schoolAdminKeys.all, 'teachers'] as const,
   teacher: (id: number) => [...schoolAdminKeys.teachers(), id] as const,
-  students: () => [...schoolAdminKeys.all, 'students'] as const,
+  students: (classId?: number) => [...schoolAdminKeys.all, 'students', { classId }] as const,
   student: (id: number) => [...schoolAdminKeys.students(), id] as const,
   attendance: (classId?: number, date?: string) => [...schoolAdminKeys.all, 'attendance', { classId, date }] as const,
   assessments: (classId?: number) => [...schoolAdminKeys.all, 'assessments', { classId }] as const,

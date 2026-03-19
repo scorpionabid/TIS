@@ -69,6 +69,54 @@ export function AddColumnModal({
   });
   const assessmentTypes = assessmentTypesResponse?.data || [];
 
+  const getAssessmentTypeTag = (type: { name?: string; category?: string }): string => {
+    const name = (type.name || '').trim();
+    const lowerName = name.toLowerCase();
+    const category = (type.category || '').toLowerCase();
+
+    if (category === 'ksq') return 'KSQ';
+    if (category === 'bsq') {
+      if (lowerName.includes('burax')) return 'Buraxılış';
+      return 'BSQ';
+    }
+    if (category === 'monitoring') return 'Monitorinq';
+    if (category === 'diagnostic') return 'Diaqnostik';
+
+    if (lowerName.includes('burax')) return 'Buraxılış';
+    if (lowerName.includes('monitor')) return 'Monitorinq';
+    if (lowerName.includes('milli')) return 'Milli';
+    if (lowerName.includes('diaqno')) return 'Diaqnostik';
+    if (lowerName.includes('kiçik') || lowerName.includes('kicik')) return 'KSQ';
+    if (lowerName.includes('böyük') || lowerName.includes('boyuk')) return 'BSQ';
+
+    return '';
+  };
+
+  // Map tag to full display name
+  const getFullDisplayName = (tag: string): string => {
+    switch (tag) {
+      case 'KSQ': return 'Kiçik Summativ Qiymətləndirmə (KSQ)';
+      case 'BSQ': return 'Böyük Summativ Qiymətləndirmə (BSQ)';
+      case 'Monitorinq': return 'Monitorinq (Monitorinq)';
+      case 'Diaqnostik': return 'Diaqnostik (Diaqnostik)';
+      case 'Buraxılış': return 'Buraxılış imtahanı (Buraxılış)';
+      case 'Milli': return 'Milli (Milli)';
+      default: return tag;
+    }
+  };
+
+  // Hardcoded assessment types - these 6 always appear
+  const hardcodedAssessmentTypes = [
+    { id: 'ksq', name: 'Kiçik Summativ Qiymətləndirmə', __tag: 'KSQ', category: 'ksq' },
+    { id: 'bsq', name: 'Böyük Summativ Qiymətləndirmə', __tag: 'BSQ', category: 'bsq' },
+    { id: 'monitoring', name: 'Monitorinq', __tag: 'Monitorinq', category: 'monitoring' },
+    { id: 'diagnostic', name: 'Diaqnostik', __tag: 'Diaqnostik', category: 'diagnostic' },
+    { id: 'buraxilis', name: 'Buraxılış imtahanı', __tag: 'Buraxılış', category: 'bsq' },
+    { id: 'milli', name: 'Milli', __tag: 'Milli', category: 'custom' },
+  ];
+
+  const gradeBookAssessmentTypes = hardcodedAssessmentTypes;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -138,21 +186,47 @@ export function AddColumnModal({
 
   // Auto-suggest column label based on assessment type and semester
   const suggestColumnLabel = (assessmentTypeId: string, semester: 'I' | 'II') => {
-    const selectedType = assessmentTypes?.find(t => t.id === Number(assessmentTypeId));
+    const selectedType = gradeBookAssessmentTypes.find(t => String(t.id) === assessmentTypeId);
     if (!selectedType) return '';
 
-    const prefix = selectedType.category?.toUpperCase() || 'KSQ';
-    const regex = new RegExp(`^${prefix}(\\d+)$`, 'i');
-    const maxN = existingColumns
+    const category = (selectedType.category || '').toLowerCase();
+
+    if (category === 'ksq' || category === 'bsq') {
+      const prefix = category.toUpperCase();
+      const regex = new RegExp(`^${prefix}(\\d+)$`, 'i');
+      const maxN = existingColumns
+        .filter(c => c.semester === semester)
+        .map(c => {
+          const label = (c.column_label || '').trim();
+          const match = label.match(regex);
+          return match ? Number(match[1]) : 0;
+        })
+        .reduce((acc, n) => Math.max(acc, n), 0);
+
+      return `${prefix}${maxN + 1}`;
+    }
+
+    const base = (selectedType.name || '').trim();
+    if (!base) return '';
+
+    const sameSemesterLabels = existingColumns
       .filter(c => c.semester === semester)
-      .map(c => {
-        const label = (c.column_label || '').trim();
-        const match = label.match(regex);
+      .map(c => (c.column_label || '').trim())
+      .filter(Boolean);
+
+    if (!sameSemesterLabels.includes(base)) {
+      return base;
+    }
+
+    const suffixRegex = new RegExp(`^${base.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&')}\\s+(\\d+)$`, 'i');
+    const maxSuffix = sameSemesterLabels
+      .map(label => {
+        const match = label.match(suffixRegex);
         return match ? Number(match[1]) : 0;
       })
       .reduce((acc, n) => Math.max(acc, n), 0);
 
-    return `${prefix}${maxN + 1}`;
+    return `${base} ${Math.max(1, maxSuffix + 1)}`;
   };
 
   const handleAssessmentTypeChange = (value: string) => {
@@ -207,9 +281,9 @@ export function AddColumnModal({
                 <SelectValue placeholder="İmtahan növü seçin" />
               </SelectTrigger>
               <SelectContent>
-                {assessmentTypes?.map((type) => (
+                {gradeBookAssessmentTypes.map((type: any) => (
                   <SelectItem key={type.id} value={String(type.id)}>
-                    {type.name} ({type.category?.toUpperCase()})
+                    {getFullDisplayName(type.__tag)}
                   </SelectItem>
                 ))}
               </SelectContent>

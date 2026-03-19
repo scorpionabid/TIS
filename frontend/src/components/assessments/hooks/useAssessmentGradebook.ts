@@ -70,7 +70,7 @@ export const useAssessmentGradebook = () => {
   const { 
     data: students 
   } = useQuery({
-    queryKey: schoolAdminKeys.students(),
+    queryKey: schoolAdminKeys.students(selectedClassId),
     queryFn: () => selectedClassId ? schoolAdminService.getStudentsByClass(selectedClassId) : Promise.resolve([]),
     enabled: !!selectedClassId,
     refetchOnWindowFocus: false,

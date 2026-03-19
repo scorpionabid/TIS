@@ -29,7 +29,7 @@ class GradeBookExcelService
     public function generateTemplate(int $sessionId): Spreadsheet
     {
         $session = GradeBookSession::with([
-            'grade.enrollments.student',
+            'grade.studentEnrollments.student',
             'columns' => fn ($q) => $q->where('column_type', 'input')->orderBy('display_order'),
             'subject',
         ])->findOrFail($sessionId);
@@ -87,17 +87,14 @@ class GradeBookExcelService
 
         // Add student data
         $row = 3;
-        $students = $session->grade->enrollments()
-            ->where('enrollment_status', 'active')
-            ->with('student')
-            ->get()
-            ->sortBy('student.last_name');
+        $students = \App\Models\Student::where('grade_id', $session->grade_id)
+            ->where('is_active', true)
+            ->orderBy('last_name')
+            ->get();
 
-        foreach ($students as $enrollment) {
-            $student = $enrollment->student;
-
+        foreach ($students as $student) {
             $sheet->setCellValue("A{$row}", $student->id);
-            $sheet->setCellValue("B{$row}", $student->student_number);
+            $sheet->setCellValue("B{$row}", $student->utis_code ?: $student->student_number);
             $sheet->setCellValue("C{$row}", $student->last_name);
             $sheet->setCellValue("D{$row}", $student->first_name);
             $sheet->setCellValue("E{$row}", $student->father_name);
@@ -165,7 +162,7 @@ class GradeBookExcelService
         }
 
         // Get session info for validation
-        $session = GradeBookSession::with(['grade.enrollments'])->find($sessionId);
+        $session = GradeBookSession::with(['grade.studentEnrollments'])->find($sessionId);
         if (!$session) {
             $results['errors'][] = [
                 'type' => 'session_error',
@@ -175,7 +172,7 @@ class GradeBookExcelService
         }
 
         // Get valid student IDs for this grade
-        $validStudentIds = $session->grade->enrollments()
+        $validStudentIds = $session->grade->studentEnrollments()
             ->where('enrollment_status', 'active')
             ->pluck('student_id')
             ->toArray();
@@ -361,7 +358,7 @@ class GradeBookExcelService
     public function exportGradeBook(int $sessionId): Spreadsheet
     {
         $session = GradeBookSession::with([
-            'grade.enrollments.student',
+            'grade.studentEnrollments.student',
             'columns' => fn ($q) => $q->orderBy('display_order'),
             'subject',
             'academicYear',
@@ -434,17 +431,14 @@ class GradeBookExcelService
         $row = 4;
         $counter = 1;
 
-        $students = $session->grade->enrollments()
-            ->where('enrollment_status', 'active')
-            ->with('student')
-            ->get()
-            ->sortBy('student.last_name');
+        $students = \App\Models\Student::where('grade_id', $session->grade_id)
+            ->where('is_active', true)
+            ->orderBy('last_name')
+            ->get();
 
-        foreach ($students as $enrollment) {
-            $student = $enrollment->student;
-
+        foreach ($students as $student) {
             $sheet->setCellValue("A{$row}", $counter++);
-            $sheet->setCellValue("B{$row}", $student->student_number);
+            $sheet->setCellValue("B{$row}", $student->utis_code ?: $student->student_number);
             $sheet->setCellValue("C{$row}", $student->last_name);
             $sheet->setCellValue("D{$row}", $student->first_name);
             $sheet->setCellValue("E{$row}", $student->father_name);
@@ -555,7 +549,7 @@ class GradeBookExcelService
         $sheet->setCellValue('A1', 'ÜMUMİ STATİSTİKA');
         $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(14);
 
-        $students = $session->grade->enrollments()
+        $students = $session->grade->studentEnrollments()
             ->where('enrollment_status', 'active')
             ->count();
 
@@ -587,11 +581,11 @@ class GradeBookExcelService
     /**
      * Get grade distribution for session
      */
-    private function getGradeDistribution(GradeBookSession $session): array
+    protected function getGradeDistribution(GradeBookSession $session): array
     {
         $distribution = [5 => 0, 4 => 0, 3 => 0, 2 => 0];
 
-        $students = $session->grade->enrollments()
+        $students = $session->grade->studentEnrollments()
             ->where('enrollment_status', 'active')
             ->pluck('student_id');
 

@@ -43,11 +43,18 @@ interface RadarData {
 
 export function ComparisonTab({ filters, loading, setLoading }: ComparisonTabProps) {
   const { toast } = useToast();
-  const [comparisonType, setComparisonType] = useState<'class' | 'subject' | 'time'>('class');
+  const [comparisonType, setComparisonType] = useState<'class' | 'subject' | 'time'>('subject');
   const [selectedGrade, setSelectedGrade] = useState<string>('');
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [radarData, setRadarData] = useState<RadarData[]>([]);
   const [barData, setBarData] = useState<ClassComparison[]>([]);
+  const [stats, setStats] = useState<{
+    averageDiff: number;
+    strongestSubject: string;
+    weakestSubject: string;
+    strongestScore: number;
+    weakestScore: number;
+  } | null>(null);
 
   useEffect(() => {
     loadComparisonData();
@@ -59,100 +66,18 @@ export function ComparisonTab({ filters, loading, setLoading }: ComparisonTabPro
       
       // Build params from filters
       const params: any = {
-        view_type: comparisonType === 'class' ? 'institution' : comparisonType,
-        compare_by: 'level',
-        metrics: ['average', 'count'],
+        compare_by: comparisonType,
       };
       if (filters.institution_id) params.institution_id = filters.institution_id;
       if (filters.academic_year_id) params.academic_year_id = filters.academic_year_id;
       
-      // Get multi-level analysis data from API
-      const response = await gradeBookService.getMultiLevelAnalysis(params);
+      // Get comparison data from API
+      const response = await gradeBookService.getComparisonData(params);
       
       if (response.success && response.data) {
-        // Transform comparison data to radar format
-        const comparisonData = response.data.comparison_data || [];
-        
-        // Create radar data from comparison results
-        const realRadarData: RadarData[] = comparisonData.slice(0, 6).map((item: any, index: number) => ({
-          metric: item.name || `Item ${index + 1}`,
-          value: item.average || 70 + Math.random() * 15,
-          average: 75, // baseline average
-        }));
-        
-        // If no data, create from grade books
-        if (realRadarData.length === 0) {
-          // Fallback: get grade books and create comparison
-          const gbParams: any = {};
-          if (filters.institution_id) gbParams.institution_id = filters.institution_id;
-          if (filters.academic_year_id) gbParams.academic_year_id = filters.academic_year_id;
-          
-          const gbResult = await gradeBookService.getGradeBooks(gbParams);
-          const gradeBooks = gbResult.data || [];
-          
-          // Group by subject and calculate averages
-          const subjectScores: Record<string, number[]> = {};
-          gradeBooks.forEach((gb: any) => {
-            const subject = gb.subject?.name || 'Naməlum';
-            if (!subjectScores[subject]) subjectScores[subject] = [];
-            // Use average_score from grade book if available
-            if (gb.average_score) {
-              subjectScores[subject].push(gb.average_score);
-            }
-          });
-          
-          // Transform to radar data
-          const fallbackRadarData = Object.entries(subjectScores).slice(0, 6).map(([subject, scores]) => ({
-            metric: subject,
-            value: scores.length > 0 
-              ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
-              : 70 + Math.random() * 15,
-            average: 75,
-          }));
-          
-          setRadarData(fallbackRadarData.length > 0 ? fallbackRadarData : [
-            { metric: 'I Yarımil', value: 78.5, average: 72.3 },
-            { metric: 'II Yarımil', value: 81.2, average: 74.8 },
-            { metric: 'İllik', value: 79.8, average: 73.5 },
-            { metric: 'KSQ', value: 75.4, average: 70.2 },
-            { metric: 'BSQ', value: 82.1, average: 76.5 },
-          ]);
-          
-          // Create bar data from subjects
-          const fallbackBarData = Object.entries(subjectScores).slice(0, 8).map(([subject, scores]) => ({
-            subject,
-            current: scores.length > 0 
-              ? Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10) / 10
-              : 70 + Math.random() * 15,
-            average: 70 + Math.random() * 10,
-            max: 95 + Math.random() * 5,
-          }));
-          
-          setBarData(fallbackBarData.length > 0 ? fallbackBarData : [
-            { subject: 'Riyaziyyat', current: 72.5, average: 68.3, max: 95.2 },
-            { subject: 'Fizika', current: 68.3, average: 65.1, max: 91.4 },
-            { subject: 'Kimya', current: 75.1, average: 71.8, max: 94.6 },
-            { subject: 'Biologiya', current: 71.8, average: 69.2, max: 89.3 },
-            { subject: 'Ədəbyyat', current: 78.2, average: 74.5, max: 96.1 },
-            { subject: 'Tarix', current: 74.6, average: 70.8, max: 92.7 },
-          ]);
-        } else {
-          setRadarData(realRadarData);
-          
-          // Create bar data from same comparison data
-          const realBarData: ClassComparison[] = comparisonData.slice(0, 8).map((item: any) => ({
-            subject: item.name || 'Naməlum',
-            current: item.average || 70 + Math.random() * 15,
-            average: 70 + Math.random() * 10,
-            max: 95,
-          }));
-          
-          setBarData(realBarData.length > 0 ? realBarData : [
-            { subject: 'Riyaziyyat', current: 72.5, average: 68.3, max: 95.2 },
-            { subject: 'Fizika', current: 68.3, average: 65.1, max: 91.4 },
-            { subject: 'Kimya', current: 75.1, average: 71.8, max: 94.6 },
-          ]);
-        }
+        setRadarData(response.data.radarData || []);
+        setBarData(response.data.barData || []);
+        setStats(response.data.stats || null);
       } else {
         throw new Error('Failed to load comparison data');
       }
@@ -162,6 +87,9 @@ export function ComparisonTab({ filters, loading, setLoading }: ComparisonTabPro
         description: 'Müqayisə məlumatları yüklənərkən xəta baş verdi',
         variant: 'destructive',
       });
+      setRadarData([]);
+      setBarData([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -334,10 +262,30 @@ export function ComparisonTab({ filters, loading, setLoading }: ComparisonTabPro
 
       {/* Summary Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard title="Ortalama fərq" value="+5.2" trend="Yuxarı" positive={true} />
-        <StatCard title="Ən güclü fənn" value="Ədəbyyat" trend="78.2 bal" positive={true} />
-        <StatCard title="Ən zəif fənn" value="Fizika" trend="68.3 bal" positive={false} />
-        <StatCard title="Sinif sıralaması" value="3/12" trend="Yaxşı" positive={true} />
+        <StatCard 
+          title="Ortalama fərq" 
+          value={`${stats?.averageDiff ? (stats.averageDiff > 0 ? '+' : '') + stats.averageDiff.toFixed(1) : '0.0'}`} 
+          trend="Ümumi ortalama" 
+          positive={true} 
+        />
+        <StatCard 
+          title="Ən güclü fənn" 
+          value={stats?.strongestSubject || '-'} 
+          trend={`${stats?.strongestScore?.toFixed(1) || '0.0'} bal`} 
+          positive={true} 
+        />
+        <StatCard 
+          title="Ən zəif fənn" 
+          value={stats?.weakestSubject || '-'} 
+          trend={`${stats?.weakestScore?.toFixed(1) || '0.0'} bal`} 
+          positive={false} 
+        />
+        <StatCard 
+          title="Fənn sayı" 
+          value={`${barData.length}`} 
+          trend="Aktiv fənn" 
+          positive={true} 
+        />
       </div>
     </div>
   );

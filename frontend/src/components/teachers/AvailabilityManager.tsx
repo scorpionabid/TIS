@@ -1,11 +1,15 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Save, RotateCcw, Clock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Save, RotateCcw, Clock, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { workloadService } from '@/services/workload';
+import { gradeService } from '@/services/grades';
 
 interface BreakConfig {
   smallBreakDuration: number;
@@ -20,10 +24,13 @@ interface ShiftConfig {
   lessonDuration: number;
   breaks: BreakConfig;
   color: string;
+  enabled: boolean; // Whether this shift is enabled/active
 }
 
 interface AvailabilityManagerProps {
   teacherId: number;
+  externalShifts?: Record<string, ShiftConfig>;
+  onShiftsChange?: (shifts: Record<string, ShiftConfig>) => void;
 }
 
 const DAYS = [
@@ -50,6 +57,7 @@ const DEFAULT_SHIFTS: Record<string, ShiftConfig> = {
     lessonDuration: 45,
     breaks: { ...DEFAULT_BREAKS },
     color: 'blue',
+    enabled: true, // Default active
   },
   shift2: {
     name: 'II NÖVBƏ',
@@ -58,6 +66,7 @@ const DEFAULT_SHIFTS: Record<string, ShiftConfig> = {
     lessonDuration: 45,
     breaks: { ...DEFAULT_BREAKS },
     color: 'orange',
+    enabled: false, // Default inactive
   },
 };
 
@@ -79,8 +88,87 @@ const formatOrdinal = (n: number) => {
   }
 };
 
-export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({ teacherId }) => {
-  const [shifts, setShifts] = useState(DEFAULT_SHIFTS);
+export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({ 
+  teacherId,
+  externalShifts,
+  onShiftsChange
+}) => {
+  const [internalShifts, setInternalShifts] = useState(DEFAULT_SHIFTS);
+  const shifts = externalShifts || internalShifts;
+  const setShifts = onShiftsChange || setInternalShifts;
+  const [manualOverride, setManualOverride] = useState<Record<string, boolean>>({});
+  
+  // Fetch teaching loads to determine which shifts should be active
+  const { data: workloadData } = useQuery({
+    queryKey: ['teacher-workload', teacherId],
+    queryFn: () => workloadService.getTeacherWorkload(teacherId),
+    enabled: !!teacherId,
+  });
+
+  // Fetch grades to get shift information for each class
+  const { data: gradesData } = useQuery({
+    queryKey: ['grades'],
+    queryFn: () => gradeService.get({ per_page: 100 }),
+    enabled: !!teacherId,
+  });
+
+  // Auto-activate shifts based on teaching loads
+  useEffect(() => {
+    if (!workloadData?.loads || !gradesData?.data) return;
+
+    const loads = workloadData.loads;
+    const grades = Array.isArray(gradesData.data) ? gradesData.data : 
+                   gradesData.data?.grades || gradesData.data?.data || [];
+
+    // Determine which shifts are needed based on assigned classes
+    const neededShifts = new Set<string>();
+    
+    loads.forEach((load: any) => {
+      const grade = grades.find((g: any) => g.id === load.class_id);
+      if (grade?.teaching_shift) {
+        // Map teaching_shift to shift key
+        const shift = grade.teaching_shift;
+        if (shift === '1' || shift === 'I' || shift === 'first' || shift === 'shift1') {
+          neededShifts.add('shift1');
+        } else if (shift === '2' || shift === 'II' || shift === 'second' || shift === 'shift2') {
+          neededShifts.add('shift2');
+        }
+      } else {
+        // If no shift specified, default to shift1
+        neededShifts.add('shift1');
+      }
+    });
+
+    // If no teaching loads, keep defaults (shift1 active, shift2 inactive)
+    if (neededShifts.size === 0) {
+      neededShifts.add('shift1');
+    }
+
+    // Only auto-activate if not manually overridden
+    setShifts(prev => ({
+      ...prev,
+      shift1: {
+        ...prev.shift1,
+        enabled: manualOverride.shift1 !== undefined ? prev.shift1.enabled : neededShifts.has('shift1')
+      },
+      shift2: {
+        ...prev.shift2,
+        enabled: manualOverride.shift2 !== undefined ? prev.shift2.enabled : neededShifts.has('shift2')
+      }
+    }));
+  }, [workloadData, gradesData, manualOverride]);
+
+  // Toggle shift enabled state manually
+  const toggleShiftEnabled = (shiftKey: string) => {
+    setManualOverride(prev => ({ ...prev, [shiftKey]: true }));
+    setShifts(prev => ({
+      ...prev,
+      [shiftKey]: {
+        ...prev[shiftKey],
+        enabled: !prev[shiftKey].enabled
+      }
+    }));
+  };
   
   // Default: Monday-Friday active (green), Saturday-Sunday inactive
   const [activeDays, setActiveDays] = useState<Record<string, boolean>>(() => {
@@ -128,7 +216,72 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({ teache
     return times;
   };
 
-  // Calculate end time for a shift
+  // Calculate work time for a day based on first and last active lessons
+  const calculateDailyWorkTime = (dayKey: string) => {
+    let firstStart: string | null = null;
+    let lastEnd: string | null = null;
+
+    (Object.entries(shifts) as [string, ShiftConfig][]).forEach(([shiftKey, shift]) => {
+      if (!shift.enabled) return;
+
+      const times = calculateLessonTimes(shift);
+      times.forEach((time, periodIndex) => {
+        const slotKey = `${dayKey}-${shiftKey}-${periodIndex + 1}`;
+        if (availability[slotKey] && activeDays[dayKey]) {
+          if (!firstStart || time < firstStart) {
+            firstStart = time;
+          }
+          // Calculate end time for this lesson
+          const [h, m] = time.split(':').map(Number);
+          const endMinutes = h * 60 + m + shift.lessonDuration;
+          const endH = Math.floor(endMinutes / 60);
+          const endM = endMinutes % 60;
+          const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
+          
+          if (!lastEnd || endTime > lastEnd) {
+            lastEnd = endTime;
+          }
+        }
+      });
+    });
+
+    if (!firstStart || !lastEnd) return null;
+    
+    const [startH, startM] = firstStart.split(':').map(Number);
+    const [endH, endM] = lastEnd.split(':').map(Number);
+    const startMinutes = startH * 60 + startM;
+    const endMinutes = endH * 60 + endM;
+    const totalMinutes = endMinutes - startMinutes;
+    
+    return {
+      start: firstStart,
+      end: lastEnd,
+      hours: Math.floor(totalMinutes / 60),
+      minutes: totalMinutes % 60,
+      totalMinutes
+    };
+  };
+
+  // Calculate total weekly work time
+  const calculateWeeklyWorkTime = () => {
+    let totalWorkMinutes = 0;
+    let activeDaysCount = 0;
+
+    DAYS.forEach(day => {
+      const dailyTime = calculateDailyWorkTime(day.key);
+      if (dailyTime) {
+        totalWorkMinutes += dailyTime.totalMinutes;
+        activeDaysCount++;
+      }
+    });
+
+    return {
+      totalHours: Math.floor(totalWorkMinutes / 60),
+      totalMinutes: totalWorkMinutes % 60,
+      activeDays: activeDaysCount,
+      maxHours: 36 // Standard max work hours
+    };
+  };
   const calculateEndTime = (shift: ShiftConfig) => {
     const times = calculateLessonTimes(shift);
     if (times.length === 0) return shift.startTime;
@@ -206,16 +359,55 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({ teache
 
   return (
     <div className="space-y-4">
+      {/* Shift Enable/Disable Toggles */}
+      <div className="flex gap-4 mb-4">
+        {(Object.entries(shifts) as [string, ShiftConfig][]).map(([shiftKey, shift]) => (
+          <div 
+            key={shiftKey}
+            className={cn(
+              "flex items-center gap-3 px-4 py-3 rounded-lg border flex-1",
+              shift.enabled 
+                ? (shift.color === 'blue' 
+                    ? 'bg-blue-50 border-blue-200' 
+                    : 'bg-orange-50 border-orange-200')
+                : 'bg-gray-50 border-gray-200 opacity-60'
+            )}
+          >
+            <Clock className={cn(
+              "h-5 w-5",
+              shift.color === 'blue' ? 'text-blue-600' : 'text-orange-600'
+            )} />
+            <div className="flex-1">
+              <div className={cn(
+                "font-medium",
+                shift.enabled ? '' : 'text-gray-500'
+              )}>
+                {shift.name}
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {shift.enabled ? 'Aktiv' : 'Deaktiv'}
+              </div>
+            </div>
+            <Switch
+              checked={shift.enabled}
+              onCheckedChange={() => toggleShiftEnabled(shiftKey)}
+            />
+          </div>
+        ))}
+      </div>
+
       {/* Shift Configuration with Sub-tabs */}
       <Tabs defaultValue="shift1" className="w-full">
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger value="shift1" className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-blue-600" />
             I NÖVBƏ
+            {!shifts.shift1.enabled && <span className="text-xs text-gray-400">(Deaktiv)</span>}
           </TabsTrigger>
           <TabsTrigger value="shift2" className="flex items-center gap-2">
             <Clock className="h-4 w-4 text-orange-600" />
             II NÖVBƏ
+            {!shifts.shift2.enabled && <span className="text-xs text-gray-400">(Deaktiv)</span>}
           </TabsTrigger>
         </TabsList>
 

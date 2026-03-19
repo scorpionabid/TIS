@@ -23,7 +23,6 @@ class UserProfile extends Model
         'last_name',
         'patronymic',
         'birth_date',
-        'date_of_birth',
         'gender',
         'national_id',
         'profile_image_path',
@@ -82,7 +81,6 @@ class UserProfile extends Model
     {
         return [
             'birth_date' => 'date',
-            'date_of_birth' => 'date',
             'last_certification_date' => 'date',
             'address' => 'array',
             'education_history' => 'array',

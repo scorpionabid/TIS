@@ -36,7 +36,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { useToast } from '@/hooks/use-toast';
-import { GraduationCap, AlertCircle } from 'lucide-react';
+import { GraduationCap, AlertCircle, Loader2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 import { userService } from '@/services/users';
@@ -255,61 +255,68 @@ export function TeacherModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <GraduationCap className="h-5 w-5" />
-            {teacher ? 'Müəllim məlumatlarını redaktə et' : 'Yeni müəllim əlavə et'}
-          </DialogTitle>
-          <DialogDescription>
-            {teacher
-              ? 'Müəllimin məlumatlarını dəyişdirin və yadda saxlayın.'
-              : 'Yeni müəllimin məlumatlarını daxil edin. Məcburi sahələri doldurun.'}
-          </DialogDescription>
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col p-0 gap-0">
+        {/* Modern Header */}
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 bg-gradient-to-r from-emerald-50 to-white">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-600 rounded-xl shadow-lg shadow-emerald-200">
+              <GraduationCap className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-bold text-slate-900">
+                {teacher ? 'Müəllim Məlumatlarını Redaktə Et' : 'Yeni Müəllim Əlavə Et'}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-500 mt-0.5">
+                {teacher
+                  ? 'Müəllimin məlumatlarını dəyişdirin və yadda saxlayın.'
+                  : 'Yeni müəllimin məlumatlarını daxil edin. Məcburi sahələri doldurun.'}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex-1 overflow-hidden flex flex-col">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="basic" className="relative">
-                  Əsas Məlumatlar *
+              <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-xl mx-6 mt-4 mb-2 max-w-md">
+                <TabsTrigger 
+                  value="basic" 
+                  className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-emerald-700 font-medium transition-all relative"
+                >
+                  Əsas Məlumatlar
                   {basicTabErrors.length > 0 && (
                     <Badge variant="destructive" className="ml-2 h-5 w-5 p-0 flex items-center justify-center">
                       <AlertCircle className="h-3 w-3" />
                     </Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="additional">
+                <TabsTrigger 
+                  value="additional"
+                  className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-emerald-700 font-medium transition-all"
+                >
                   Əlavə Məlumatlar
                 </TabsTrigger>
               </TabsList>
 
-              <div className="flex-1 overflow-y-auto px-1 pb-4">
+              <div className="flex-1 overflow-y-auto px-6 pb-4">
                 {/* TAB 1: BASIC INFORMATION (REQUIRED) */}
-                <TabsContent value="basic" className="space-y-6 mt-4">
-                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <div className="flex items-center gap-2 text-blue-700 font-medium">
-                      <GraduationCap className="h-5 w-5" />
-                      Məcburi Sahələr
-                    </div>
-                    <p className="text-sm text-blue-600 mt-1">
-                      Bütün məcburi sahələri doldurun. Əlavə məlumatlar ikinci tabda qeyd edilə bilər.
-                    </p>
-                  </div>
-
+                <TabsContent value="basic" className="space-y-5 mt-2 focus-visible:outline-none">
                   {/* Personal Information */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <FormField
                       control={form.control}
                       name="first_name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Ad *</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-slate-700">Ad *</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Adı daxil edin" />
+                            <Input 
+                              {...field} 
+                              placeholder="Adı daxil edin" 
+                              className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                            />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-sm text-red-600 mt-1" />
                         </FormItem>
                       )}
                     />
@@ -319,11 +326,15 @@ export function TeacherModal({
                       name="last_name"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Soyad *</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-slate-700">Soyad *</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Soyadı daxil edin" />
+                            <Input 
+                              {...field} 
+                              placeholder="Soyadı daxil edin" 
+                              className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                            />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-sm text-red-600 mt-1" />
                         </FormItem>
                       )}
                     />
@@ -333,21 +344,27 @@ export function TeacherModal({
                       name="patronymic"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Ata adı *</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-slate-700">Ata adı *</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="Ata adını daxil edin" />
+                            <Input 
+                              {...field} 
+                              placeholder="Ata adını daxil edin" 
+                              className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                            />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-sm text-red-600 mt-1" />
                         </FormItem>
                       )}
                     />
+                  </div>
 
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <FormField
                       control={form.control}
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email *</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-slate-700">Email *</FormLabel>
                           <FormControl>
                             <Input
                               {...field}
@@ -357,12 +374,13 @@ export function TeacherModal({
                                 field.onBlur();
                                 checkEmailUnique(e.target.value);
                               }}
+                              className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                             />
                           </FormControl>
                           {emailValidation.isUnique === false && (
-                            <p className="text-sm text-destructive">Bu email artıq istifadə olunur</p>
+                            <p className="text-sm text-red-600 mt-1">Bu email artıq istifadə olunur</p>
                           )}
-                          <FormMessage />
+                          <FormMessage className="text-sm text-red-600 mt-1" />
                         </FormItem>
                       )}
                     />
@@ -372,65 +390,81 @@ export function TeacherModal({
                       name="username"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>İstifadəçi adı *</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-slate-700">İstifadəçi adı *</FormLabel>
                           <FormControl>
-                            <Input {...field} placeholder="İstifadəçi adı" />
+                            <Input 
+                              {...field} 
+                              placeholder="İstifadəçi adı" 
+                              className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                            />
                           </FormControl>
-                          <FormMessage />
+                          <FormMessage className="text-sm text-red-600 mt-1" />
                         </FormItem>
                       )}
                     />
-
-                    {isNewTeacher && (
-                      <>
-                        <FormField
-                          control={form.control}
-                          name="password"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Şifrə *</FormLabel>
-                              <FormControl>
-                                <Input {...field} type="password" placeholder="Minimum 8 simvol" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-
-                        <FormField
-                          control={form.control}
-                          name="password_confirmation"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Şifrə təkrarı *</FormLabel>
-                              <FormControl>
-                                <Input {...field} type="password" placeholder="Şifrəni təkrar daxil edin" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </>
-                    )}
                   </div>
 
+                  {isNewTeacher && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <FormField
+                        control={form.control}
+                        name="password"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Şifrə *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="password" 
+                                placeholder="Minimum 8 simvol" 
+                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-sm text-red-600 mt-1" />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="password_confirmation"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Şifrə təkrarı *</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="password" 
+                                placeholder="Şifrəni təkrar daxil edin" 
+                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                              />
+                            </FormControl>
+                            <FormMessage className="text-sm text-red-600 mt-1" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+
                   {/* Position Information */}
-                  <div className="border-t pt-4">
-                    <h3 className="font-medium mb-4">Vəzifə Məlumatları</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="pt-4 border-t border-slate-100">
+                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Vəzifə</Badge>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <FormField
                         control={form.control}
                         name="position_type"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Vəzifə *</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Vəzifə *</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
                                   <SelectValue placeholder="Vəzifə seçin" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent>
+                              <SelectContent className="rounded-lg">
                                 {POSITION_TYPES.map((option) => (
                                   <SelectItem key={option.value} value={option.value}>
                                     {option.label}
@@ -438,7 +472,7 @@ export function TeacherModal({
                                 ))}
                               </SelectContent>
                             </Select>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -448,14 +482,14 @@ export function TeacherModal({
                         name="workplace_type"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>İş yeri növü *</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">İş yeri növü *</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
                                   <SelectValue placeholder="İş yeri növü seçin" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent>
+                              <SelectContent className="rounded-lg">
                                 {WORKPLACE_TYPES.map((option) => (
                                   <SelectItem key={option.value} value={option.value}>
                                     {option.label}
@@ -463,7 +497,7 @@ export function TeacherModal({
                                 ))}
                               </SelectContent>
                             </Select>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -473,11 +507,15 @@ export function TeacherModal({
                         name="specialty"
                         render={({ field }) => (
                           <FormItem className="md:col-span-2">
-                            <FormLabel>İxtisas *</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">İxtisas *</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="İxtisasını daxil edin" />
+                              <Input 
+                                {...field} 
+                                placeholder="İxtisasını daxil edin" 
+                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                              />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -485,22 +523,24 @@ export function TeacherModal({
                   </div>
 
                   {/* Assessment Information */}
-                  <div className="border-t pt-4">
-                    <h3 className="font-medium mb-4">Qiymətləndirmə Məlumatları</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="pt-4 border-t border-slate-100">
+                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                      <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200">Qiymətləndirmə</Badge>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <FormField
                         control={form.control}
                         name="assessment_type"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Qiymətləndirmə növü *</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Qiymətləndirmə növü *</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
                                   <SelectValue placeholder="Qiymətləndirmə növü seçin" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent>
+                              <SelectContent className="rounded-lg">
                                 {ASSESSMENT_TYPES.map((option) => (
                                   <SelectItem key={option.value} value={option.value}>
                                     {option.label}
@@ -508,7 +548,7 @@ export function TeacherModal({
                                 ))}
                               </SelectContent>
                             </Select>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -518,7 +558,7 @@ export function TeacherModal({
                         name="assessment_score"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Qiymətləndirmə balı *</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Qiymətləndirmə balı *</FormLabel>
                             <FormControl>
                               <Input
                                 {...field}
@@ -526,9 +566,10 @@ export function TeacherModal({
                                 placeholder="0-100"
                                 min="0"
                                 max="100"
+                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                               />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -536,20 +577,20 @@ export function TeacherModal({
                   </div>
 
                   {/* Status */}
-                  <div className="border-t pt-4">
+                  <div className="pt-4 border-t border-slate-100">
                     <FormField
                       control={form.control}
                       name="is_active"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Status *</FormLabel>
+                          <FormLabel className="text-sm font-semibold text-slate-700">Status *</FormLabel>
                           <Select onValueChange={field.onChange} value={field.value}>
                             <FormControl>
-                              <SelectTrigger>
+                              <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all w-full md:w-64">
                                 <SelectValue placeholder="Status seçin" />
                               </SelectTrigger>
                             </FormControl>
-                            <SelectContent>
+                            <SelectContent className="rounded-lg">
                               {IS_ACTIVE_OPTIONS.map((option) => (
                                 <SelectItem key={option.value} value={option.value}>
                                   {option.label}
@@ -557,7 +598,7 @@ export function TeacherModal({
                               ))}
                             </SelectContent>
                           </Select>
-                          <FormMessage />
+                          <FormMessage className="text-sm text-red-600 mt-1" />
                         </FormItem>
                       )}
                     />
@@ -565,30 +606,27 @@ export function TeacherModal({
                 </TabsContent>
 
                 {/* TAB 2: ADDITIONAL INFORMATION (OPTIONAL) */}
-                <TabsContent value="additional" className="space-y-6 mt-4">
-                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <div className="text-slate-700 font-medium">
-                      Əlavə Məlumatlar (Optional)
-                    </div>
-                    <p className="text-sm text-slate-600 mt-1">
-                      Bu sahələr məcburi deyil. Doldursanız daha ətraflı profil yaranacaq.
-                    </p>
-                  </div>
-
+                <TabsContent value="additional" className="space-y-5 mt-2 focus-visible:outline-none">
                   {/* Contact Information */}
                   <div>
-                    <h3 className="font-medium mb-4">Əlaqə Məlumatları</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                      <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200">Əlaqə</Badge>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <FormField
                         control={form.control}
                         name="contact_phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Telefon</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Telefon</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="+994501234567" />
+                              <Input 
+                                {...field} 
+                                placeholder="+994501234567" 
+                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                              />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -598,11 +636,15 @@ export function TeacherModal({
                         name="birth_date"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Doğum tarixi</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Doğum tarixi</FormLabel>
                             <FormControl>
-                              <Input {...field} type="date" />
+                              <Input 
+                                {...field} 
+                                type="date" 
+                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                              />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -612,14 +654,14 @@ export function TeacherModal({
                         name="gender"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Cins</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Cins</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
-                                <SelectTrigger>
+                                <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all">
                                   <SelectValue placeholder="Cins seçin" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent>
+                              <SelectContent className="rounded-lg">
                                 {GENDER_OPTIONS.map((option) => (
                                   <SelectItem key={option.value} value={option.value}>
                                     {option.label}
@@ -627,7 +669,7 @@ export function TeacherModal({
                                 ))}
                               </SelectContent>
                             </Select>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -637,11 +679,15 @@ export function TeacherModal({
                         name="national_id"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Şəxsiyyət vəsiqəsi</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Şəxsiyyət vəsiqəsi</FormLabel>
                             <FormControl>
-                              <Input {...field} placeholder="FIN kod" />
+                              <Input 
+                                {...field} 
+                                placeholder="FIN kod" 
+                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                              />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -649,19 +695,25 @@ export function TeacherModal({
                   </div>
 
                   {/* Contract Information */}
-                  <div className="border-t pt-4">
-                    <h3 className="font-medium mb-4">Müqavilə Məlumatları</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="pt-4 border-t border-slate-100">
+                    <h3 className="text-sm font-semibold text-slate-900 mb-4 flex items-center gap-2">
+                      <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200">Müqavilə</Badge>
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                       <FormField
                         control={form.control}
                         name="contract_start_date"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Müqavilə başlanğıc tarixi</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Müqavilə başlanğıc tarixi</FormLabel>
                             <FormControl>
-                              <Input {...field} type="date" />
+                              <Input 
+                                {...field} 
+                                type="date" 
+                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                              />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -671,11 +723,15 @@ export function TeacherModal({
                         name="contract_end_date"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Müqavilə bitmə tarixi</FormLabel>
+                            <FormLabel className="text-sm font-semibold text-slate-700">Müqavilə bitmə tarixi</FormLabel>
                             <FormControl>
-                              <Input {...field} type="date" />
+                              <Input 
+                                {...field} 
+                                type="date" 
+                                className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
+                              />
                             </FormControl>
-                            <FormMessage />
+                            <FormMessage className="text-sm text-red-600 mt-1" />
                           </FormItem>
                         )}
                       />
@@ -919,11 +975,22 @@ export function TeacherModal({
               </div>
             </Tabs>
 
-            <DialogFooter className="mt-4">
-              <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            <DialogFooter className="gap-3 pt-6 mt-2 border-t border-slate-100 px-6 pb-6">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onClose} 
+                disabled={loading}
+                className="h-11 px-6 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+              >
                 Ləğv et
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button 
+                type="submit" 
+                disabled={loading}
+                className="h-11 px-6 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-lg shadow-emerald-200 transition-all"
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {loading ? 'Yüklənir...' : (teacher ? 'Yenilə' : 'Əlavə et')}
               </Button>
             </DialogFooter>

@@ -31,7 +31,12 @@ import {
   Calendar,
   MapPin,
   Clock,
-  Badge as BadgeIcon
+  Badge as BadgeIcon,
+  BarChart3,
+  LayoutGrid,
+  UserCog,
+  AlertCircle,
+  School
 } from 'lucide-react';
 
 // Re-export types from services for compatibility
@@ -63,6 +68,7 @@ const columns: ColumnConfig<Student>[] = [
     key: 'name',
     label: 'Ad Soyad',
     width: 'w-[220px]',
+    align: 'left',
     render: (student) => (
       <div className="flex items-center gap-3">
         <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center ring-2 ring-blue-50">
@@ -76,7 +82,7 @@ const columns: ColumnConfig<Student>[] = [
           </div>
           <div className="text-sm text-muted-foreground flex items-center gap-1">
             <BadgeIcon className="h-3 w-3" />
-            {student.student_number || student.student_id || 'ID yoxdur'}
+            UTİS: {student.student_number || student.student_id || 'Yoxdur'}
           </div>
         </div>
       </div>
@@ -85,50 +91,55 @@ const columns: ColumnConfig<Student>[] = [
   {
     key: 'contact',
     label: 'Əlaqə',
+    width: 'w-[160px]',
+    align: 'center',
     render: (student) => (
-      <div className="space-y-1">
-        {student.email && (
-          <div className="flex items-center gap-2 text-sm">
-            <Mail className="h-3 w-3 text-muted-foreground" />
-            <span className="truncate max-w-[150px]" title={student.email}>
-              {student.email}
-            </span>
-          </div>
-        )}
-        {student.phone && (
-          <div className="flex items-center gap-2 text-sm">
-            <Phone className="h-3 w-3 text-muted-foreground" />
-            <span>{student.phone}</span>
-          </div>
-        )}
-        {!student.email && !student.phone && (
-          <span className="text-muted-foreground text-sm">Məlumat yoxdur</span>
-        )}
+      <div className="flex justify-center">
+        <div className="space-y-1 text-center">
+          {student.email && (
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <Mail className="h-3 w-3 text-muted-foreground" />
+              <span className="truncate max-w-[140px]" title={student.email}>
+                {student.email}
+              </span>
+            </div>
+          )}
+          {student.phone && (
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <Phone className="h-3 w-3 text-muted-foreground" />
+              <span>{student.phone}</span>
+            </div>
+          )}
+          {!student.email && !student.phone && (
+            <span className="text-muted-foreground text-sm">Məlumat yoxdur</span>
+          )}
+        </div>
       </div>
     ),
   },
   {
     key: 'academic_info',
     label: 'Akademik Məlumat',
+    width: 'w-[150px]',
+    align: 'center',
     render: (student) => {
-      const className = student.class_name || student.current_class?.name;
-      const gradeLevel = student.grade_level || student.current_grade_level || student.current_class?.grade_level;
+      // Support legacy paths as well as the new `grade` relationship
+      const className = student.grade?.name || student.class_name || student.current_class?.name;
+      const classLevel = student.grade?.class_level || student.grade_level || student.current_grade_level || student.current_class?.grade_level;
       
+      const hasClassAssigned = !!(className || classLevel);
+      const isNewFormat = !!(student.grade?.name && student.grade?.class_level);
+
       return (
-        <div className="space-y-1">
-          {className && (
-            <div className="flex items-center gap-2">
-              <Users className="h-3 w-3 text-green-600" />
-              <span className="font-medium text-sm">{className}</span>
-            </div>
-          )}
-          {gradeLevel && (
-            <div className="flex items-center gap-2">
-              <GraduationCap className="h-3 w-3 text-blue-600" />
-              <span className="text-sm text-muted-foreground">{gradeLevel}-ci sinif</span>
-            </div>
-          )}
-          {!className && !gradeLevel && (
+        <div className="flex justify-center">
+          {hasClassAssigned ? (
+             <div className="flex items-center justify-center gap-2">
+               <GraduationCap className="h-4 w-4 text-primary" />
+               <span className="font-medium">
+                 {isNewFormat ? `${student.grade.class_level}-${student.grade.name}` : (classLevel ? `${classLevel} - ${className || ''}` : className)}
+               </span>
+             </div>
+          ) : (
             <span className="text-muted-foreground text-sm">Sinif təyin edilməyib</span>
           )}
         </div>
@@ -138,32 +149,38 @@ const columns: ColumnConfig<Student>[] = [
   {
     key: 'performance',
     label: 'Performans',
+    width: 'w-[140px]',
+    align: 'center',
     render: (student) => (
-      <div className="space-y-1">
-        {student.gpa && (
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-green-600">
-              GPA: {student.gpa.toFixed(1)}
-            </span>
-          </div>
-        )}
-        {student.attendance_rate && (
-          <div className="flex items-center gap-2">
-            <Clock className="h-3 w-3 text-blue-500" />
-            <span className="text-sm text-muted-foreground">
-              {student.attendance_rate}% davamiyyət
-            </span>
-          </div>
-        )}
-        {!student.gpa && !student.attendance_rate && (
-          <span className="text-muted-foreground text-sm">Məlumat yoxdur</span>
-        )}
+      <div className="flex justify-center">
+        <div className="space-y-1 text-center">
+          {student.gpa && (
+            <div className="flex items-center justify-center gap-2">
+              <span className="text-sm font-medium text-green-600">
+                GPA: {student.gpa.toFixed(1)}
+              </span>
+            </div>
+          )}
+          {student.attendance_rate && (
+            <div className="flex items-center justify-center gap-2">
+              <Clock className="h-3 w-3 text-blue-500" />
+              <span className="text-sm text-muted-foreground">
+                {student.attendance_rate}% davamiyyət
+              </span>
+            </div>
+          )}
+          {!student.gpa && !student.attendance_rate && (
+            <span className="text-muted-foreground text-sm">Məlumat yoxdur</span>
+          )}
+        </div>
       </div>
     ),
   },
   {
     key: 'status',
     label: 'Status',
+    width: 'w-[100px]',
+    align: 'center',
     render: (student) => {
       const status = student.enrollment_status || student.status;
       const isActive = student.is_active !== false;
@@ -189,28 +206,34 @@ const columns: ColumnConfig<Student>[] = [
       }
       
       return (
-        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${statusColor}`}>
-          {statusText}
-        </span>
+        <div className="flex justify-center">
+          <span className={`inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-medium border whitespace-nowrap ${statusColor}`}>
+            {statusText}
+          </span>
+        </div>
       );
     },
   },
   {
     key: 'enrollment_date',
     label: 'Qeydiyyat Tarixi',
+    width: 'w-[130px]',
+    align: 'center',
     render: (student) => {
       const enrollmentDate = student.enrollment_date;
-      if (!enrollmentDate) return <span className="text-muted-foreground text-sm">Tarix yoxdur</span>;
+      if (!enrollmentDate) return <div className="flex justify-center"><span className="text-muted-foreground text-sm">Tarix yoxdur</span></div>;
       
       try {
         return (
-          <div className="flex items-center gap-2 text-sm">
-            <Calendar className="h-3 w-3 text-muted-foreground" />
-            {new Date(enrollmentDate).toLocaleDateString('az-AZ')}
+          <div className="flex justify-center">
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <Calendar className="h-3 w-3 text-muted-foreground" />
+              {new Date(enrollmentDate).toLocaleDateString('az-AZ')}
+            </div>
           </div>
         );
       } catch {
-        return <span className="text-muted-foreground text-sm">{enrollmentDate}</span>;
+        return <div className="flex justify-center"><span className="text-muted-foreground text-sm">{enrollmentDate}</span></div>;
       }
     },
   },
@@ -267,16 +290,20 @@ const actions: ActionConfig<Student>[] = [
   },
 ];
 
-// Enhanced tab configuration with proper filtering
+// Enhanced tab configuration with proper filtering and modern design
 const tabs: TabConfig[] = [
   {
     key: 'stats',
     label: 'Statistika',
     isStatsTab: true,
+    icon: BarChart3,
+    variant: 'primary',
   },
   {
     key: 'all',
     label: 'Hamısı',
+    icon: LayoutGrid,
+    variant: 'default',
   },
   {
     key: 'active',
@@ -284,6 +311,8 @@ const tabs: TabConfig[] = [
     filter: (students: Student[]) => students.filter(s => 
       s.is_active !== false && (s.status === 'active' || s.enrollment_status === 'active')
     ),
+    icon: CheckCircle,
+    variant: 'success',
   },
   {
     key: 'inactive',
@@ -291,6 +320,8 @@ const tabs: TabConfig[] = [
     filter: (students: Student[]) => students.filter(s => 
       s.is_active === false || s.status === 'inactive' || s.enrollment_status === 'inactive'
     ),
+    icon: XCircle,
+    variant: 'danger',
   },
   {
     key: 'transferred',
@@ -298,6 +329,8 @@ const tabs: TabConfig[] = [
     filter: (students: Student[]) => students.filter(s => 
       s.enrollment_status === 'transferred' || s.status === 'transferred'
     ),
+    icon: ArrowRightLeft,
+    variant: 'warning',
   },
   {
     key: 'graduated',
@@ -305,6 +338,8 @@ const tabs: TabConfig[] = [
     filter: (students: Student[]) => students.filter(s => 
       s.enrollment_status === 'graduated' || s.status === 'graduated'
     ),
+    icon: GraduationCap,
+    variant: 'purple',
   },
   {
     key: 'needs_class',
@@ -312,6 +347,8 @@ const tabs: TabConfig[] = [
     filter: (students: Student[]) => students.filter(s => 
       !s.class_name && !s.current_class && s.is_active !== false
     ),
+    icon: School,
+    variant: 'orange',
   },
 ];
 
@@ -442,7 +479,7 @@ export const unifiedStudentConfig: EntityConfig<Student, StudentFilters, Student
   
   // API service - Using unified student service with proper this binding
   service: {
-    get: (filters) => studentService.get(filters),
+    get: (filters) => studentService.get({ ...filters, _t: Date.now() }),
     create: (data) => studentService.create(data),
     update: (id, data) => studentService.update(id, data),
     delete: (id) => studentService.delete(id),
@@ -471,6 +508,21 @@ export const unifiedStudentConfig: EntityConfig<Student, StudentFilters, Student
     create: true,
     edit: true,
     delete: true,
+  },
+  
+  // Modern Header Configuration
+  headerConfig: {
+    title: 'Şagird İdarəetməsi',
+    description: 'Məktəb şagirdlərinin qeydiyyatı və idarə edilməsi',
+    searchPlaceholder: 'Ad, soyad və ya UTİS nömrəsinə görə axtar...',
+    createLabel: 'Yeni Şagird',
+    showStats: true,
+    showSearch: true,
+    showRefresh: true,
+    showImport: true,
+    showExport: true,
+    showTemplate: true,
+    showCreate: true,
   },
 };
 

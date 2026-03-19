@@ -332,84 +332,87 @@ class DataIsolationHelper
             return Institution::pluck('id');
         }
 
-        $primaryRole = $user->roles->first();
-        if (! $primaryRole) {
-            return collect([]);
-        }
-
-        switch ($primaryRole->name) {
-            case 'regionadmin':
-                $userRegion = $user->institution;
-                if (! $userRegion || $userRegion->level !== 2) {
-                    return collect([]);
-                }
-
-                // Use Institution model's recursive method to get ALL children
-                return collect($userRegion->getAllChildrenIds());
-
-            case 'regionoperator':
-                $institution = $user->institution;
-
-                if (! $institution) {
-                    \Log::warning('RegionOperator getAllowedInstitutionIds: missing institution', [
-                        'user_id' => $user->id,
-                        'username' => $user->username,
-                    ]);
-
-                    return collect([]);
-                }
-
-                // Region operators attached to regional HQ (level 2) should inherit entire region tree
-                if ($institution->level === 2) {
-                    $ids = $institution->getAllChildrenIds();
-
-                    \Log::info('RegionOperator scope expanded to full region', [
-                        'user_id' => $user->id,
-                        'institution_id' => $institution->id,
-                        'children_count' => count($ids),
-                    ]);
-
-                    return collect($ids);
-                }
-
-                // Region operators attached to sectors (level 3) should see sector + schools
-                if ($institution->level === 3) {
-                    $childIds = Institution::where('parent_id', $institution->id)
-                        ->where('level', '>=', 3)
-                        ->pluck('id');
-
-                    return $childIds->prepend($institution->id);
-                }
-
-                // Default: restrict to assigned institution
-                return collect([$institution->id]);
-
-            case 'sektoradmin':
-                $userSector = $user->institution;
-                // Use level-based validation instead of type
-                if (! $userSector || $userSector->level !== 3) {
-                    \Log::warning('SektorAdmin getAllowedInstitutionIds: Invalid sector institution', [
-                        'user_id' => $user->id,
-                        'institution_id' => $userSector?->id,
-                        'institution_level' => $userSector?->level,
-                    ]);
-
-                    return collect([]);
-                }
-
-                return Institution::where('parent_id', $userSector->id)
-                    ->where('level', 4)
-                    ->pluck('id')
-                    ->prepend($userSector->id);
-
-            case 'schooladmin':
-            case 'məktəbadmin':
-            case 'müəllim':
-                return collect([$user->institution_id]);
-
-            default:
+        // IMPORTANT: Do not rely on roles->first() ordering.
+        // Users may have multiple roles; choose by priority.
+        if ($user->hasRole('regionadmin')) {
+            $userRegion = $user->institution;
+            if (! $userRegion || (int) $userRegion->level !== 2) {
                 return collect([]);
+            }
+
+            return collect($userRegion->getAllChildrenIds());
         }
+
+        if ($user->hasRole('regionoperator')) {
+            $institution = $user->institution;
+
+            if (! $institution) {
+                \Log::warning('RegionOperator getAllowedInstitutionIds: missing institution', [
+                    'user_id' => $user->id,
+                    'username' => $user->username,
+                ]);
+
+                return collect([]);
+            }
+
+            if ((int) $institution->level === 2) {
+                $ids = $institution->getAllChildrenIds();
+
+                \Log::info('RegionOperator scope expanded to full region', [
+                    'user_id' => $user->id,
+                    'institution_id' => $institution->id,
+                    'children_count' => count($ids),
+                ]);
+
+                return collect($ids);
+            }
+
+            if ((int) $institution->level === 3) {
+                $childIds = Institution::where('parent_id', $institution->id)
+                    ->where('level', '>=', 3)
+                    ->pluck('id');
+
+                return $childIds->prepend($institution->id);
+            }
+
+            return collect([$institution->id]);
+        }
+
+        if ($user->hasRole('sektoradmin')) {
+            $userSector = $user->institution;
+            if (! $userSector) {
+                return collect([]);
+            }
+
+            $sectorId = null;
+            if ((int) $userSector->level === 3) {
+                $sectorId = $userSector->id;
+            } elseif ((int) $userSector->level === 4 && $userSector->parent_id) {
+                $sectorId = (int) $userSector->parent_id;
+            }
+
+            if (! $sectorId) {
+                \Log::warning('SektorAdmin getAllowedInstitutionIds: Unable to derive sector', [
+                    'user_id' => $user->id,
+                    'institution_id' => $userSector->id,
+                    'institution_level' => $userSector->level,
+                    'parent_id' => $userSector->parent_id,
+                ]);
+
+                return collect([$userSector->id]);
+            }
+
+            return Institution::where('parent_id', $sectorId)
+                ->where('level', 4)
+                ->pluck('id')
+                ->prepend($sectorId);
+        }
+
+        if ($user->hasAnyRole(['schooladmin', 'məktəbadmin', 'müəllim'])) {
+            return collect([$user->institution_id]);
+        }
+
+        return collect([]);
     }
 
     /**

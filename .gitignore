@@ -169,7 +169,12 @@ Thumbs.db
 /storage/uploads/
 /public/uploads/
 
-# Redis dumps
+# Large archives
+frontend/node_modules.tar.gz
+*.tar.gz
+
+# Tracking files
+large_files.txt
 dump.rdb
 
 # PostgreSQL

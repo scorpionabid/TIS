@@ -97,7 +97,7 @@ class SchoolStudentController extends Controller
         }
 
         try {
-            $student = $this->studentService->createStudent($school, $validator->validated());
+            $student = $this->studentService->createStudent($school, $validated);
 
             return response()->json([
                 'success' => true,
@@ -105,6 +105,10 @@ class SchoolStudentController extends Controller
                 'message' => 'Student created successfully',
             ], 201);
         } catch (\Exception $e) {
+            \Log::error('Student creation error: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create student: ' . $e->getMessage(),
@@ -148,6 +152,7 @@ class SchoolStudentController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|email|unique:users,email,' . $student->user_id,
             'grade_id' => 'sometimes|required|exists:grades,id',
+            'class_id' => 'sometimes|required|exists:grades,id', // Support class_id from frontend
             'first_name' => 'nullable|string|max:255',
             'last_name' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
@@ -170,8 +175,14 @@ class SchoolStudentController extends Controller
             ], 422);
         }
 
+        $validated = $validator->validated();
+        // Map class_id to grade_id if provided
+        if (empty($validated['grade_id']) && !empty($validated['class_id'])) {
+            $validated['grade_id'] = $validated['class_id'];
+        }
+
         try {
-            $updatedStudent = $this->studentService->updateStudent($student, $validator->validated());
+            $updatedStudent = $this->studentService->updateStudent($student, $validated);
 
             return response()->json([
                 'success' => true,

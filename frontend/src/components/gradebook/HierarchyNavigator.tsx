@@ -19,6 +19,7 @@ export interface HierarchyNode {
     average?: number;
   };
   children?: HierarchyNode[];
+  has_children?: boolean;
 }
 
 interface HierarchyNavigatorProps {
@@ -127,15 +128,44 @@ function HierarchyNodeItem({
 }: HierarchyNodeItemProps) {
   const Icon = typeIcons[node.type] || Building2;
   const isExpanded = expandedIds.has(node.id);
-  const hasChildren = node.children && node.children.length > 0;
+  // Check both has_children flag and actual children array
+  const hasChildren = node.has_children || (node.children && node.children.length > 0);
   const isSelected = selectedId === node.id && selectedType === node.type;
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleClick = () => {
     onSelect?.(node);
   };
 
-  const handleToggle = (e: React.MouseEvent) => {
+  const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // If expanding and has children flag but no children loaded yet, we need to load them
+    if (!isExpanded && node.has_children && (!node.children || node.children.length === 0)) {
+      setIsLoading(true);
+      try {
+        // Import gradeBookService dynamically to avoid circular dependencies
+        const { gradeBookService } = await import('@/services/gradeBook');
+        const response = await gradeBookService.getHierarchy({
+          parent_id: node.id,
+          parent_type: node.type,
+          depth: 1,
+        });
+        
+        if (response.success && response.data?.items) {
+          // Update node with loaded children
+          node.children = response.data.items.map((child: any) => ({
+            ...child,
+            has_children: !!(child.stats?.institutions || child.stats?.grade_books),
+          }));
+        }
+      } catch (error) {
+        console.error('Failed to load children:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
     onToggleExpand?.(node.id);
   };
 
@@ -153,8 +183,11 @@ function HierarchyNodeItem({
           <button
             className="p-1 hover:bg-slate-200 rounded transition-colors"
             onClick={handleToggle}
+            disabled={isLoading}
           >
-            {isExpanded ? (
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+            ) : isExpanded ? (
               <ChevronDown className="w-4 h-4 text-slate-500" />
             ) : (
               <ChevronRight className="w-4 h-4 text-slate-500" />
@@ -170,10 +203,14 @@ function HierarchyNodeItem({
         <div className="flex-1 min-w-0">
           <p className="font-medium text-sm truncate">{node.name}</p>
           <p className="text-xs text-slate-500">
-            {node.type === 'region' && `${node.stats?.institutions || 0} məktəb`}
-            {node.type === 'sector' && `${node.stats?.institutions || 0} məktəb, ${node.stats?.grade_books || 0} jurnal`}
-            {node.type === 'institution' && `${node.stats?.grade_books || 0} jurnal`}
-            {node.type === 'grade' && `${node.stats?.grade_books || 0} jurnal`}
+            {node.type === 'region' && `${node.stats?.institutions ?? 0} məktəb`}
+            {node.type === 'sector' && (
+              node.stats?.grade_books !== undefined
+                ? `${node.stats?.institutions ?? 0} məktəb, ${node.stats.grade_books} jurnal`
+                : `${node.stats?.institutions ?? 0} məktəb`
+            )}
+            {node.type === 'institution' && (node.stats?.grade_books !== undefined ? `${node.stats.grade_books} jurnal` : '')}
+            {node.type === 'grade' && (node.stats?.grade_books !== undefined ? `${node.stats.grade_books} jurnal` : '')}
             {node.type === 'gradebook' && 'Jurnal'}
           </p>
         </div>
@@ -185,9 +222,9 @@ function HierarchyNodeItem({
         )}
       </div>
 
-      {hasChildren && isExpanded && (
+      {hasChildren && isExpanded && node.children && (
         <div className="mt-1">
-          {node.children!.map((child, index) => (
+          {node.children.map((child, index) => (
             <HierarchyNodeItem
               key={`${child.type}-${child.id}-${index}`}
               node={child}
@@ -251,6 +288,7 @@ export const useHierarchyState = () => {
 
   return {
     expandedIds,
+    setExpandedIds,
     selectedNode,
     toggleExpand,
     expandAll,

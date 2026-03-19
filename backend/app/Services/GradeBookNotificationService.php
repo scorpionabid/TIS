@@ -45,11 +45,11 @@ class GradeBookNotificationService
      */
     public function notifyGradeUpdate(int $cellId, ?float $oldScore, float $newScore, int $updatedBy): void
     {
-        $cell = GradeBookCell::with(['column.gradeBookSession', 'student'])->find($cellId);
+        $cell = GradeBookCell::with(['column.session', 'student'])->find($cellId);
         
         if (!$cell) return;
 
-        $gradeBook = $cell->column->gradeBookSession;
+        $gradeBook = $cell->column->session;
         
         // Notify other teachers
         $otherTeachers = $gradeBook->teachers()

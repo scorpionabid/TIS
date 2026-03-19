@@ -10,6 +10,7 @@ services:
       - APP_ENV=local
       - APP_DEBUG=true
       - APP_KEY=base64:IcNxbQiy6sWLjfrgaSlGkm4S2utYBz+DXj4u/Rt7g0k=
+      - APP_URL=https://atis.sim.edu.az
       - DB_CONNECTION=pgsql
       - DB_HOST=atis_postgres
       - DB_PORT=5432
@@ -22,6 +23,10 @@ services:
       - REDIS_PASSWORD=null
       - REDIS_PORT=6379
       - REDIS_DB=0
+      - VITE_API_URL=https://atis.sim.edu.az
+      - VITE_API_BASE_URL=https://atis.sim.edu.az/api
+      - VITE_SANCTUM_BASE_URL=https://atis.sim.edu.az
+      - SANCTUM_STATEFUL_DOMAINS=https://atis.sim.edu.az
     ports:
       - "8000:8000"
     volumes:

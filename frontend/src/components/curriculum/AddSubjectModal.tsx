@@ -20,7 +20,7 @@ interface AddSubjectModalProps {
   gradeId: number;
   gradeName: string;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (isContinuous?: boolean) => void;
 }
 
 const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
@@ -90,7 +90,9 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
     try {
       setSubmitting(true);
       await curriculumService.addSubjectToCurriculum(gradeId, dto);
-      onSuccess();
+      setFormData(defaultGradeSubjectFormData);
+      setError(null);
+      onSuccess(true);
     } catch (err: any) {
       console.error('Error adding subject:', err);
       setError(err.response?.data?.message || 'Fənn əlavə edilərkən xəta baş verdi');
@@ -227,36 +229,54 @@ const AddSubjectModal: React.FC<AddSubjectModalProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-gray-50 rounded-lg p-4">
                   <label className="flex items-center gap-2 cursor-pointer hover:bg-white px-3 py-2 rounded transition-colors">
                     <input
-                      type="checkbox"
+                      type="radio"
+                      name="activity_type"
                       checked={formData.is_teaching_activity}
                       onChange={(e) =>
-                        setFormData({ ...formData, is_teaching_activity: e.target.checked })
+                        setFormData({
+                          ...formData,
+                          is_teaching_activity: true,
+                          is_extracurricular: false,
+                          is_club: false
+                        })
                       }
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-gray-700 font-medium">📘 Tədris</span>
+                    <span className="text-sm text-gray-700 font-medium">📘 Dərs</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer hover:bg-white px-3 py-2 rounded transition-colors">
                     <input
-                      type="checkbox"
+                      type="radio"
+                      name="activity_type"
                       checked={formData.is_extracurricular}
                       onChange={(e) =>
-                        setFormData({ ...formData, is_extracurricular: e.target.checked })
+                        setFormData({
+                          ...formData,
+                          is_teaching_activity: false,
+                          is_extracurricular: true,
+                          is_club: false
+                        })
                       }
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-2 focus:ring-blue-500"
                     />
-                    <span className="text-sm text-gray-700 font-medium">📝 Dərsdənkənar</span>
+                    <span className="text-sm text-gray-700 font-medium">📝 Dərsdənkənar məşğələ</span>
                   </label>
 
                   <label className="flex items-center gap-2 cursor-pointer hover:bg-white px-3 py-2 rounded transition-colors">
                     <input
-                      type="checkbox"
+                      type="radio"
+                      name="activity_type"
                       checked={formData.is_club}
                       onChange={(e) =>
-                        setFormData({ ...formData, is_club: e.target.checked })
+                        setFormData({
+                          ...formData,
+                          is_teaching_activity: false,
+                          is_extracurricular: false,
+                          is_club: true
+                        })
                       }
-                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
+                      className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-2 focus:ring-blue-500"
                     />
                     <span className="text-sm text-gray-700 font-medium">🎯 Dərnək</span>
                   </label>

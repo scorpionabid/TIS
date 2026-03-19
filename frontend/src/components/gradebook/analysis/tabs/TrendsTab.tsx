@@ -44,6 +44,15 @@ export function TrendsTab({ filters, loading, setLoading }: TrendsTabProps) {
   const [trendData, setTrendData] = useState<TrendData[]>([]);
   const [subjectTrends, setSubjectTrends] = useState<SubjectTrend[]>([]);
 
+  const [stats, setStats] = useState<{
+    averageScore: number;
+    growthRate: number;
+    highestMonth: string;
+    lowestMonth: string;
+    highestScore: number;
+    lowestScore: number;
+  } | null>(null);
+
   useEffect(() => {
     loadTrendsData();
   }, [filters, timeRange, selectedSubject]);
@@ -54,61 +63,20 @@ export function TrendsTab({ filters, loading, setLoading }: TrendsTabProps) {
 
       // Build params from filters
       const params: any = {
-        view_type: 'institution',
-        compare_by: 'time',
-        metrics: ['average', 'count'],
+        time_range: timeRange,
       };
       if (filters.institution_id) params.institution_id = filters.institution_id;
       if (filters.academic_year_id) params.academic_year_id = filters.academic_year_id;
 
-      // Get trend data from API
-      const response = await gradeBookService.getMultiLevelAnalysis(params);
+      // Get trends data from API
+      const response = await gradeBookService.getTrendsData(params);
 
-      if (response.success && response.data?.chart_data) {
-        // Transform API data to trend format
-        const chartData = response.data.chart_data;
-        const realTrendData: TrendData[] = chartData.map((item: any) => ({
-          month: item.month || item.period || '',
-          average: item.current || item.average || 0,
-          target: item.target || 70,
-          previous: item.previous || 0,
-        }));
-        setTrendData(realTrendData.length > 0 ? realTrendData : getDefaultTrendData());
-
-        // Transform subject trends
-        const subjectData = response.data.subjects || [];
-        const realSubjectTrends: SubjectTrend[] = subjectData.slice(0, 3).map((subj: any) => ({
-          subject: subj.name || 'Naməlum',
-          data: subj.monthly_data || subj.data || getDefaultSubjectData(),
-        }));
-        setSubjectTrends(realSubjectTrends.length > 0 ? realSubjectTrends : getDefaultSubjectTrends());
+      if (response.success && response.data) {
+        setTrendData(response.data.trendData || []);
+        setSubjectTrends(response.data.subjectTrends || []);
+        setStats(response.data.stats || null);
       } else {
-        // Fallback to calculated data from grade books
-        const gbParams: any = {};
-        if (filters.institution_id) gbParams.institution_id = filters.institution_id;
-        if (filters.academic_year_id) gbParams.academic_year_id = filters.academic_year_id;
-
-        const gbResult = await gradeBookService.getGradeBooks(gbParams);
-        const gradeBooks = gbResult.data || [];
-
-        // Group by subject for trends
-        const subjectScores: Record<string, number[]> = {};
-        gradeBooks.forEach((gb: any) => {
-          const subject = gb.subject?.name || 'Naməlum';
-          if (!subjectScores[subject]) subjectScores[subject] = [];
-          if (gb.average_score) {
-            subjectScores[subject].push(gb.average_score);
-          }
-        });
-
-        // Create subject trends from real data
-        const fallbackSubjectTrends = Object.entries(subjectScores).slice(0, 3).map(([subject, scores]) => ({
-          subject,
-          data: generateTrendFromScores(scores),
-        }));
-
-        setTrendData(getDefaultTrendData());
-        setSubjectTrends(fallbackSubjectTrends.length > 0 ? fallbackSubjectTrends : getDefaultSubjectTrends());
+        throw new Error('Failed to load trends data');
       }
     } catch (error: any) {
       toast({
@@ -116,103 +84,22 @@ export function TrendsTab({ filters, loading, setLoading }: TrendsTabProps) {
         description: 'Trend məlumatları yüklənərkən xəta baş verdi',
         variant: 'destructive',
       });
+      // Set empty data on error
+      setTrendData([]);
+      setSubjectTrends([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper functions for fallback data
-  const getDefaultTrendData = (): TrendData[] => [
-    { month: 'Sen', average: 68.5, target: 70, previous: 65.2 },
-    { month: 'Okt', average: 70.2, target: 70, previous: 66.8 },
-    { month: 'Noy', average: 72.1, target: 70, previous: 68.5 },
-    { month: 'Dek', average: 71.8, target: 70, previous: 69.2 },
-    { month: 'Yan', average: 73.5, target: 72, previous: 70.1 },
-    { month: 'Fev', average: 74.2, target: 72, previous: 71.5 },
-    { month: 'Mar', average: 75.8, target: 72, previous: 72.3 },
-    { month: 'Apr', average: 76.5, target: 72, previous: 73.1 },
-    { month: 'May', average: 77.2, target: 75, previous: 74.5 },
-  ];
-
-  const getDefaultSubjectTrends = (): SubjectTrend[] => [
-    {
-      subject: 'Riyaziyyat',
-      data: [
-        { month: 'Sen', score: 65 },
-        { month: 'Okt', score: 68 },
-        { month: 'Noy', score: 70 },
-        { month: 'Dek', score: 72 },
-        { month: 'Yan', score: 71 },
-        { month: 'Fev', score: 73 },
-        { month: 'Mar', score: 75 },
-        { month: 'Apr', score: 76 },
-        { month: 'May', score: 78 },
-      ],
-    },
-    {
-      subject: 'Ədəbyyat',
-      data: [
-        { month: 'Sen', score: 72 },
-        { month: 'Okt', score: 74 },
-        { month: 'Noy', score: 75 },
-        { month: 'Dek', score: 76 },
-        { month: 'Yan', score: 77 },
-        { month: 'Fev', score: 78 },
-        { month: 'Mar', score: 79 },
-        { month: 'Apr', score: 80 },
-        { month: 'May', score: 81 },
-      ],
-    },
-    {
-      subject: 'Fizika',
-      data: [
-        { month: 'Sen', score: 60 },
-        { month: 'Okt', score: 62 },
-        { month: 'Noy', score: 64 },
-        { month: 'Dek', score: 66 },
-        { month: 'Yan', score: 65 },
-        { month: 'Fev', score: 67 },
-        { month: 'Mar', score: 68 },
-        { month: 'Apr', score: 69 },
-        { month: 'May', score: 70 },
-      ],
-    },
-  ];
-
-  const getDefaultSubjectData = () => [
-    { month: 'Sen', score: 65 },
-    { month: 'Okt', score: 68 },
-    { month: 'Noy', score: 70 },
-    { month: 'Dek', score: 72 },
-    { month: 'Yan', score: 71 },
-    { month: 'Fev', score: 73 },
-    { month: 'Mar', score: 75 },
-    { month: 'Apr', score: 76 },
-    { month: 'May', score: 78 },
-  ];
-
-  const generateTrendFromScores = (scores: number[]) => {
-    const months = ['Sen', 'Okt', 'Noy', 'Dek', 'Yan', 'Fev', 'Mar', 'Apr', 'May'];
-    const avg = scores.length > 0 
-      ? scores.reduce((a, b) => a + b, 0) / scores.length 
-      : 70;
-    return months.map((month, i) => ({
-      month,
-      score: Math.round((avg + (i * 1.5) - 6 + Math.random() * 4) * 10) / 10,
-    }));
-  };
 
   const getGrowthRate = () => {
-    if (trendData.length < 2) return 0;
-    const first = trendData[0].average;
-    const last = trendData[trendData.length - 1].average;
-    return ((last - first) / first) * 100;
+    return stats?.growthRate || 0;
   };
 
   const getAverageScore = () => {
-    if (trendData.length === 0) return 0;
-    const sum = trendData.reduce((acc, curr) => acc + curr.average, 0);
-    return sum / trendData.length;
+    return stats?.averageScore || 0;
   };
 
   if (loading) {
@@ -267,13 +154,13 @@ export function TrendsTab({ filters, loading, setLoading }: TrendsTabProps) {
         />
         <StatCard
           title="Ən yüksək"
-          value="82.5"
-          trend="May 2024"
+          value={stats?.highestScore?.toFixed(1) || '0.0'}
+          trend={stats?.highestMonth || '-'}
         />
         <StatCard
           title="Ən aşağı"
-          value="68.2"
-          trend="Sen 2023"
+          value={stats?.lowestScore?.toFixed(1) || '0.0'}
+          trend={stats?.lowestMonth || '-'}
         />
       </div>
 

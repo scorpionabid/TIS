@@ -20,7 +20,9 @@ class TeacherProfile extends Model
         'specialization',
         'photo',
         'school',
+        'institution_id',
         'subject',
+        'subject_id',
         'address',
         'emergency_contact_name',
         'emergency_contact_phone',
@@ -47,6 +49,22 @@ class TeacherProfile extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Get the institution the teacher belongs to.
+     */
+    public function institution(): BelongsTo
+    {
+        return $this->belongsTo(Institution::class);
+    }
+
+    /**
+     * Get the subject the teacher specializes in.
+     */
+    public function subjectModel(): BelongsTo
+    {
+        return $this->belongsTo(Subject::class, 'subject_id');
     }
 
     /**

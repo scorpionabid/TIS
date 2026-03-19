@@ -33,6 +33,9 @@ interface HierarchyNode {
     average?: number;
   };
   children?: HierarchyNode[];
+  has_children?: boolean;
+  loading?: boolean;
+  parent_id?: number;
 }
 
 interface DashboardSummary {
@@ -52,6 +55,7 @@ export function AdminDashboard() {
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [selectedNode, setSelectedNode] = useState<HierarchyNode | null>(null);
+  const [breadcrumbPath, setBreadcrumbPath] = useState<HierarchyNode[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -63,6 +67,7 @@ export function AdminDashboard() {
       
       const params: any = {
         level: viewMode,
+        depth: 1, // Only load first level initially
       };
       
       if (currentScope.regionId) params.region_id = currentScope.regionId;
@@ -74,10 +79,16 @@ export function AdminDashboard() {
         setHierarchyData(response.data.items || []);
         setSummary(response.data.summary || null);
         
-        // Auto-expand first level
+        // Auto-expand first level nodes
         if (response.data.items?.length > 0) {
           const newExpanded = new Set<number>();
-          response.data.items.forEach((item: HierarchyNode) => newExpanded.add(item.id));
+          response.data.items.forEach((item: HierarchyNode) => {
+            newExpanded.add(item.id);
+            // Mark nodes that have children but they aren't loaded yet
+            if (item.stats?.institutions || item.stats?.grade_books) {
+              item.has_children = true;
+            }
+          });
           setExpandedIds(newExpanded);
         }
       }
@@ -113,6 +124,126 @@ export function AdminDashboard() {
 
   const selectNode = (node: HierarchyNode) => {
     setSelectedNode(node);
+    // Build breadcrumb path when node is selected
+    const path = buildBreadcrumbPath(node);
+    setBreadcrumbPath(path);
+  };
+
+  // Build breadcrumb path from root to selected node
+  const buildBreadcrumbPath = (targetNode: HierarchyNode): HierarchyNode[] => {
+    const path: HierarchyNode[] = [];
+    
+    const findPath = (nodes: HierarchyNode[], targetId: number, targetType: string): boolean => {
+      for (const node of nodes) {
+        if (node.id === targetId && node.type === targetType) {
+          path.unshift(node);
+          return true;
+        }
+        if (node.children && node.children.length > 0) {
+          if (findPath(node.children, targetId, targetType)) {
+            path.unshift(node);
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    
+    findPath(hierarchyData, targetNode.id, targetNode.type);
+    return path;
+  };
+
+  // Lazy load children for a node
+  const loadChildren = async (node: HierarchyNode) => {
+    if (node.loading) return;
+    if (node.children && node.children.length > 0) return; // Already loaded
+    
+    // Mark node as loading
+    updateNodeLoadingState(node.id, node.type, true);
+    
+    try {
+      const params: any = {
+        parent_id: node.id,
+        parent_type: node.type,
+        depth: 1,
+      };
+      
+      if (currentScope.regionId) params.region_id = currentScope.regionId;
+      if (currentScope.sectorId) params.sector_id = currentScope.sectorId;
+      
+      const response = await gradeBookService.getHierarchy(params);
+      
+      if (response.success) {
+        // Update the node with loaded children
+        updateNodeChildren(node.id, node.type, response.data.items || []);
+      }
+    } catch (error) {
+      toast({
+        title: 'Xəta',
+        description: 'Alt elementlər yüklənərkən xəta baş verdi',
+        variant: 'destructive',
+      });
+    } finally {
+      updateNodeLoadingState(node.id, node.type, false);
+    }
+  };
+
+  // Update node loading state in hierarchy
+  const updateNodeLoadingState = (nodeId: number, nodeType: string, isLoading: boolean) => {
+    setHierarchyData(prevData => {
+      return updateNodeInTree(prevData, nodeId, nodeType, (node) => ({
+        ...node,
+        loading: isLoading
+      }));
+    });
+  };
+
+  // Update node children in hierarchy
+  const updateNodeChildren = (nodeId: number, nodeType: string, children: HierarchyNode[]) => {
+    setHierarchyData(prevData => {
+      return updateNodeInTree(prevData, nodeId, nodeType, (node) => ({
+        ...node,
+        children: children.map(child => ({
+          ...child,
+          parent_id: nodeId,
+          has_children: !!(child.stats?.institutions || child.stats?.grade_books)
+        }))
+      }));
+    });
+  };
+
+  // Helper to update a node in the tree structure
+  const updateNodeInTree = (
+    nodes: HierarchyNode[], 
+    targetId: number, 
+    targetType: string, 
+    updater: (node: HierarchyNode) => HierarchyNode
+  ): HierarchyNode[] => {
+    return nodes.map(node => {
+      if (node.id === targetId && node.type === targetType) {
+        return updater(node);
+      }
+      if (node.children) {
+        return {
+          ...node,
+          children: updateNodeInTree(node.children, targetId, targetType, updater)
+        };
+      }
+      return node;
+    });
+  };
+
+  const handleToggleExpand = async (node: HierarchyNode, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    const isExpanded = expandedIds.has(node.id);
+    
+    if (!isExpanded && node.has_children && (!node.children || node.children.length === 0)) {
+      // Need to load children first
+      await loadChildren(node);
+    }
+    
+    toggleExpand(node.id);
   };
 
   // Stats cards data
@@ -174,8 +305,9 @@ export function AdminDashboard() {
   const renderHierarchyNode = (node: HierarchyNode, level: number = 0) => {
     const Icon = getTypeIcon(node.type);
     const isExpanded = expandedIds.has(node.id);
-    const hasChildren = node.children && node.children.length > 0;
+    const hasChildren = node.has_children || (node.children && node.children.length > 0);
     const isSelected = selectedNode?.id === node.id && selectedNode?.type === node.type;
+    const isLoading = node.loading;
 
     return (
       <div key={`${node.type}-${node.id}`}>
@@ -190,12 +322,12 @@ export function AdminDashboard() {
           {hasChildren && (
             <button
               className="p-1 hover:bg-slate-200 rounded transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                toggleExpand(node.id);
-              }}
+              onClick={(e) => handleToggleExpand(node, e)}
+              disabled={isLoading}
             >
-              {isExpanded ? (
+              {isLoading ? (
+                <div className="w-4 h-4 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin" />
+              ) : isExpanded ? (
                 <ChevronDown className="w-4 h-4 text-slate-500" />
               ) : (
                 <ChevronRight className="w-4 h-4 text-slate-500" />
@@ -226,9 +358,9 @@ export function AdminDashboard() {
           )}
         </div>
 
-        {hasChildren && isExpanded && (
+        {hasChildren && isExpanded && node.children && (
           <div className="mt-1">
-            {node.children!.map((child) => renderHierarchyNode(child, level + 1))}
+            {node.children.map((child) => renderHierarchyNode(child, level + 1))}
           </div>
         )}
       </div>
@@ -317,6 +449,25 @@ export function AdminDashboard() {
               <BarChart3 className="w-4 h-4" />
               {selectedNode ? `${selectedNode.name} - Ətraflı məlumat` : 'Seçilmiş element məlumatları'}
             </CardTitle>
+            {/* Breadcrumb Path */}
+            {breadcrumbPath.length > 0 && (
+              <div className="flex items-center gap-1 text-xs text-slate-500 mt-2 flex-wrap">
+                {breadcrumbPath.map((node, index) => (
+                  <React.Fragment key={`${node.type}-${node.id}`}>
+                    {index > 0 && <ChevronRight className="w-3 h-3" />}
+                    <span 
+                      className={cn(
+                        "hover:text-blue-600 cursor-pointer transition-colors",
+                        index === breadcrumbPath.length - 1 && "font-medium text-slate-700"
+                      )}
+                      onClick={() => selectNode(node)}
+                    >
+                      {node.name}
+                    </span>
+                  </React.Fragment>
+                ))}
+              </div>
+            )}
           </CardHeader>
           <CardContent>
             {selectedNode ? (

@@ -1,5 +1,6 @@
 import React from 'react';
 import { Grade, GradeFilters, gradeService } from '@/services/grades';
+import { studentService } from '@/services/students';
 // TODO: import { GradeFilters as GradeFiltersComponent } from './GradeFilters';
 import { EntityConfig } from '@/components/generic/types';
 import { Badge } from '@/components/ui/badge';
@@ -18,9 +19,35 @@ import {
   BarChart3,
   Trash2,
   Archive,
-  Copy
+  Copy,
+  LayoutGrid,
+  CheckCircle,
+  XCircle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// Calculate assigned students count from students data
+export const calculateAssignedStudents = (grades: Grade[], students: any[]): Grade[] => {
+  if (!grades || !students) return grades;
+  
+  // Create a map of grade_id to count of students
+  const gradeStudentCounts = new Map<number, number>();
+  
+  students.forEach(student => {
+    // Check various possible grade ID fields
+    const gradeId = student.grade_id || student.grade?.id || student.current_class?.id;
+    if (gradeId) {
+      const currentCount = gradeStudentCounts.get(gradeId) || 0;
+      gradeStudentCounts.set(gradeId, currentCount + 1);
+    }
+  });
+  
+  // Merge counts into grades
+  return grades.map(grade => ({
+    ...grade,
+    assigned_student_count: gradeStudentCounts.get(grade.id) || 0
+  }));
+};
 
 // Status badge configurations
 const getCapacityStatusBadge = (status: string, utilizationRate: number) => {
@@ -57,22 +84,46 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   title: 'Sinif İdarəetməsi',
   description: 'Məktəb siniflərinin idarə edilməsi və tələbə yazılışları',
   
-  // Feature configuration - disable default create button and stats
+  // Feature configuration
   features: {
-    create: false,   // Disable default create button since we use headerActions
+    create: true,    // Enable create button
     tabs: true,      // Enable tabs
     filters: true,   // Enable filters
     bulk: true,      // Enable bulk selection
-    stats: false     // Hide stats cards from main view - will show in separate tab
+    stats: false,    // Hide stats cards from main view - will show in separate tab
+    export: true,    // Enable export
+    import: true,    // Enable import
+  },
+
+  // Modern Header Configuration
+  headerConfig: {
+    title: 'Sinif İdarəetməsi',
+    description: 'Məktəb siniflərinin idarə edilməsi və tələbə yazılışları',
+    searchPlaceholder: 'Sinif adına və ya ixtisasına görə axtar...',
+    createLabel: 'Yeni Sinif',
+    showStats: true,
+    showSearch: true,
+    showRefresh: true,
+    showImport: true,
+    showExport: true,
+    showTemplate: true,
+    showCreate: true,
   },
 
   // Tab configuration
   serverSide: {
     pagination: true,
-    filtering: true,
+    filtering: false,
   },
 
   tabs: [
+    {
+      key: 'stats',
+      label: 'Statistika',
+      isStatsTab: true,
+      icon: BarChart3,
+      variant: 'primary',
+    },
     {
       key: 'all',
       label: 'Bütün Siniflər',
@@ -80,6 +131,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       serverFilters: {
         is_active: undefined,
       },
+      icon: LayoutGrid,
+      variant: 'default',
     },
     {
       key: 'active',
@@ -88,6 +141,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       serverFilters: {
         is_active: true,
       },
+      icon: CheckCircle,
+      variant: 'success',
     },
     {
       key: 'inactive',
@@ -96,11 +151,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       serverFilters: {
         is_active: false,
       },
-    },
-    {
-      key: 'stats',
-      label: 'Statistika',
-      isStatsTab: true,  // Special statistics tab
+      icon: XCircle,
+      variant: 'danger',
     }
   ],
   
@@ -124,6 +176,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       label: 'Tələbələr',
       width: 120,
       sortable: true,
+      align: 'center',
       render: (grade: Grade) => {
         const maleCount = (grade as any).male_student_count || 0;
         const femaleCount = (grade as any).female_student_count || 0;
@@ -131,7 +184,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
         const hasGenderData = maleCount > 0 || femaleCount > 0;
 
         return (
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col items-center gap-0.5">
             <div className="flex items-center gap-1.5">
               <Users className="h-3.5 w-3.5 text-muted-foreground" />
               <span className="font-semibold">{totalCount}</span>
@@ -151,9 +204,40 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       }
     },
     {
+      key: 'assigned_student_count',
+      label: 'Şagirdlər',
+      width: 130,
+      sortable: true,
+      align: 'center',
+      render: (grade: Grade) => {
+        const maleCount = (grade as any).assigned_male_count || 0;
+        const femaleCount = (grade as any).assigned_female_count || 0;
+        const totalCount = (grade as any).assigned_student_count || 0;
+        const hasGenderData = true; // Hər zaman göstərilsin ki, dizayn mərkəzə tam otursun
+
+        return (
+          <div className="flex flex-col items-center gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold">{totalCount}</span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-0.5">
+                <span className="text-blue-600 font-medium">{maleCount}</span> oğlan
+              </span>
+              <span className="flex items-center gap-0.5">
+                <span className="text-pink-600 font-medium">{femaleCount}</span> qız
+              </span>
+            </div>
+          </div>
+        );
+      }
+    },
+    {
       key: 'teaching_shift',
       label: 'Növbə',
       width: 90,
+      align: 'center',
       render: (grade: Grade) => {
         const teachingShift = (grade as any).teaching_shift;
         return teachingShift ? (
@@ -170,8 +254,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       label: 'Təhsil Proqramı',
       width: 150,
       render: (grade: Grade) => grade.education_program ? (
-        <Badge variant="outline" className="text-xs py-0.5">
-          {grade.education_program}
+        <Badge variant="outline" className="text-xs py-0.5 text-center justify-center">
+          {grade.education_program === 'umumi' ? 'Ümumi' : grade.education_program}
         </Badge>
       ) : (
         <span className="text-muted-foreground text-xs italic">-</span>
@@ -206,6 +290,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       key: 'academic_year',
       label: 'Təhsil İli',
       width: 110,
+      align: 'center',
       render: (grade: Grade) => {
         if (!grade.academic_year) {
           return <span className="text-muted-foreground text-xs italic">-</span>;
@@ -254,7 +339,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   actions: [
     {
       key: 'view',
-      label: 'Kurikulum',
+      label: 'Tədris planı',
       icon: BookOpen,
       variant: 'default' as const,
       isPrimary: true, // Mark as primary action - always visible

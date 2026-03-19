@@ -32,18 +32,18 @@ export const EnrollmentModal: React.FC<EnrollmentModalProps> = ({
 }) => {
   if (!student) return null;
 
-  // Filter classes by selected grade level
+  // Filter classes by selected grade level — show ALL classes for that level
   const filteredClasses = classes?.filter(cls => 
     !selectedGradeForEnrollment || 
     selectedGradeForEnrollment === 'all' || 
     cls.class_level?.toString() === selectedGradeForEnrollment
   ) || [];
 
-  // Get available classes (not at full capacity)
-  const availableClasses = filteredClasses.filter(cls => {
-    const currentList = cls.student_count || 0;
-    const capacityVal = cls.room?.capacity || 30; // Default capacity if no room
-    return currentList < capacityVal;
+  // Show capacity info but do NOT hide classes — let the teacher decide
+  const availableClasses = filteredClasses.sort((a, b) => {
+    // Sort: available first, then near capacity, then full
+    const order = { available: 0, near_capacity: 1, full: 2, over_capacity: 3, no_room: 4 };
+    return (order[a.capacity_status] ?? 5) - (order[b.capacity_status] ?? 5);
   });
 
   return (
@@ -117,10 +117,7 @@ export const EnrollmentModal: React.FC<EnrollmentModalProps> = ({
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium">{cls.class_level}-{cls.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {getGradeLevelText(cls.class_level)}
-                          </p>
+                          <p className="font-medium text-lg text-primary">{cls.class_level}-{cls.name}</p>
                           {cls.homeroom_teacher && (
                             <p className="text-xs text-muted-foreground">
                               Rəhbər: {cls.homeroom_teacher.full_name}

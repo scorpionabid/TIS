@@ -20,12 +20,16 @@ class Grade extends Model
      */
     protected $fillable = [
         'name',
+        'section',
         'class_level',
         'academic_year_id',
         'institution_id',
         'room_id',
+        'classroom_location',
         'homeroom_teacher_id',
+        'class_teacher_id',
         'student_count',
+        'max_capacity',
         'male_student_count',
         'female_student_count',
         'specialty',
@@ -39,7 +43,9 @@ class Grade extends Model
         'teaching_shift',
         'description',
         'metadata',
+        'schedule_preferences',
         'is_active',
+        'status',
         'teacher_assigned_at',
         'teacher_removed_at',
         'deactivated_at',
@@ -67,9 +73,11 @@ class Grade extends Model
         return [
             'class_level' => 'integer',
             'student_count' => 'integer',
+            'max_capacity' => 'integer',
             'male_student_count' => 'integer',
             'female_student_count' => 'integer',
             'metadata' => 'array',
+            'schedule_preferences' => 'array',
             'is_active' => 'boolean',
             'teacher_assigned_at' => 'datetime',
             'teacher_removed_at' => 'datetime',
@@ -107,6 +115,14 @@ class Grade extends Model
     public function homeroomTeacher(): BelongsTo
     {
         return $this->belongsTo(User::class, 'homeroom_teacher_id');
+    }
+
+    /**
+     * Get the class teacher for this grade (alias for backward compatibility).
+     */
+    public function classTeacher(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'class_teacher_id');
     }
 
     /**

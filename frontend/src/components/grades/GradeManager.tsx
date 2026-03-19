@@ -3,18 +3,20 @@ import { Plus, Loader2, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { Grade, GradeFilters } from '@/services/grades';
-import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent } from './configurations/gradeConfig';
+import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent, calculateAssignedStudents } from './configurations/gradeConfig';
 import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
 import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
 import { GradeAnalyticsModal } from './GradeAnalyticsModal';
 import { GradeDuplicateModal } from './GradeDuplicateModal';
+import { GradeImportExportModal } from './modals/GradeImportExportModal';
 import { gradeBookService } from '@/services/gradeBook';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import { academicYearService } from '@/services/academicYears';
 import { gradeService } from '@/services/grades';
+import { studentService } from '@/services/students';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
 import { useEntityManagerV2 } from '@/hooks/useEntityManagerV2';
@@ -62,6 +64,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     missing_count: number;
   } | null>(null);
   const [softDeleteReason, setSoftDeleteReason] = React.useState('');
+  const [importExportModalOpen, setImportExportModalOpen] = React.useState(false);
 
   // Role-based access and filtering
   const { currentUser } = useAuth();
@@ -77,6 +80,13 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   const { data: academicYearsResponse } = useQuery({
     queryKey: ['academic-years', 'for-grade-filter'],
     queryFn: () => academicYearService.getAll(),
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+  });
+
+  // Fetch all students to calculate assigned_student_count per grade
+  const { data: studentsResponse } = useQuery({
+    queryKey: ['students', 'for-grade-counts'],
+    queryFn: () => studentService.getAll({ per_page: 1000 }),
     staleTime: 1000 * 60 * 5, // 5 minutes cache
   });
 
@@ -176,11 +186,51 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
       defaultFilters.institution_id = currentUser.institution.id;
     }
 
+    // Get students data for assigned_student_count calculation
+    const students = studentsResponse?.data?.students || [];
+
     return {
       ...gradeEntityConfig,
 
       // Override defaultFilters with role-based institution filtering
       defaultFilters,
+
+      // Data transformer to calculate assigned_student_count from students data
+      dataTransformer: (grades: Grade[]) => {
+        if (!grades || !students || students.length === 0) return grades;
+        
+        // Create a map of grade_id to count of students
+        const gradeStudentCounts = new Map<number, { total: number, male: number, female: number }>();
+        
+        students.forEach((student: any) => {
+          // Check various possible grade ID fields
+          const gradeId = student.grade_id || student.grade?.id || student.current_class?.id || student.current_class_id;
+          if (gradeId) {
+            const currentCounts = gradeStudentCounts.get(gradeId) || { total: 0, male: 0, female: 0 };
+            currentCounts.total += 1;
+            
+            const gender = (student.gender || student.profile?.gender || '').toLowerCase();
+            if (gender === 'male' || gender === 'm' || gender === 'oğlan') {
+              currentCounts.male += 1;
+            } else if (gender === 'female' || gender === 'f' || gender === 'qız') {
+              currentCounts.female += 1;
+            }
+            
+            gradeStudentCounts.set(gradeId, currentCounts);
+          }
+        });
+        
+        // Merge counts into grades
+        return grades.map(grade => {
+          const counts = gradeStudentCounts.get(grade.id) || { total: 0, male: 0, female: 0 };
+          return {
+            ...grade,
+            assigned_student_count: counts.total,
+            assigned_male_count: counts.male,
+            assigned_female_count: counts.female
+          };
+        });
+      },
 
       // Filter columns based on user role
       columns: gradeEntityConfig.columns.filter(column => {
@@ -237,7 +287,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         }
       }))
     };
-  }, [currentUser, softDeleteMutation, hardDeleteMutation]);
+  }, [currentUser, softDeleteMutation, hardDeleteMutation, studentsResponse]);
 
   // Sync mutation
   const syncMutation = useMutation({
@@ -309,6 +359,10 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
 
   // Custom logic with create handler
   const customLogic = React.useMemo(() => ({
+    onCreateClick: handleCreate,
+    onImportClick: () => setImportExportModalOpen(true),
+    onExportClick: () => setImportExportModalOpen(true),
+    onTemplateClick: () => gradeService.downloadTemplate(),
     headerActions: [
       {
         key: 'sync-grade-books',
@@ -316,13 +370,6 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         icon: RefreshCw as any,
         onClick: handleSync,
         variant: 'outline' as const
-      },
-      {
-        key: 'create-grade',
-        label: 'Yeni Sinif',
-        icon: Plus as any,
-        onClick: handleCreate,
-        variant: 'default' as const
       }
     ],
     renderCustomFilters: (manager: any) => {
@@ -365,6 +412,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setAnalyticsGrade(null);
     setSyncModalOpen(false);
     setSyncPreview(null);
+    setImportExportModalOpen(false);
     if (!softDeleteMutation.isPending) {
       setSoftDeleteTarget(null);
       setSoftDeleteReason('');
@@ -482,6 +530,12 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
           }}
         />
       )}
+
+      {/* Import/Export Modal */}
+      <GradeImportExportModal
+        isOpen={importExportModalOpen}
+        onClose={handleCloseModals}
+      />
 
       <AlertDialog
         open={syncModalOpen}

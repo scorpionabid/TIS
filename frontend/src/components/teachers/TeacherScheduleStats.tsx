@@ -4,58 +4,66 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Clock, Calendar, CheckCircle2, XCircle, Briefcase } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface ShiftConfig {
+  name: string;
+  startTime: string;
+  lessonCount: number;
+  enabled: boolean;
+  color: string;
+}
 
 interface TeacherScheduleStatsProps {
   teacherId: number;
+  shifts?: Record<string, ShiftConfig>;
 }
 
 // Default shift configuration (should match AvailabilityManager)
-const DEFAULT_SHIFTS = {
-  shift1: { name: 'I NÖVBƏ', lessonCount: 6, startTime: '08:00', color: 'blue' },
-  shift2: { name: 'II NÖVBƏ', lessonCount: 6, startTime: '14:00', color: 'orange' },
+const DEFAULT_SHIFTS: Record<string, ShiftConfig> = {
+  shift1: { name: 'I NÖVBƏ', startTime: '08:00', lessonCount: 6, enabled: true, color: 'blue' },
+  shift2: { name: 'II NÖVBƏ', startTime: '14:00', lessonCount: 6, enabled: false, color: 'orange' },
 };
 
 const DAYS = [
-  { key: 'monday', label: 'B.e' },
-  { key: 'tuesday', label: 'Ç.a' },
-  { key: 'wednesday', label: 'Ç' },
-  { key: 'thursday', label: 'C.a' },
-  { key: 'friday', label: 'C' },
-  { key: 'saturday', label: 'Ş' },
-  { key: 'sunday', label: 'B' },
+  { key: 'mon', label: 'B.e' },
+  { key: 'tue', label: 'Ç.a' },
+  { key: 'wed', label: 'Ç' },
+  { key: 'thu', label: 'C.a' },
+  { key: 'fri', label: 'C' },
+  { key: 'sat', label: 'Ş' },
+  { key: 'sun', label: 'B' },
 ];
 
-export const TeacherScheduleStats: React.FC<TeacherScheduleStatsProps> = ({ teacherId }) => {
-  // For now, use default values. In future, this can fetch from API
-  const isLoading = false;
+const TOTAL_DAYS = 7;
+
+export const TeacherScheduleStats: React.FC<TeacherScheduleStatsProps> = ({ 
+  teacherId, 
+  shifts = DEFAULT_SHIFTS 
+}) => {
+  // Default active days (Mon-Fri)
+  const activeDays = 5;
+  const totalDays = TOTAL_DAYS;
   
-  // Calculate stats based on default availability (Mon-Fri active, all slots available)
-  const activeDays = 5; // Monday-Friday
-  const totalDays = 7;
-  const shift1Lessons = DEFAULT_SHIFTS.shift1.lessonCount;
-  const shift2Lessons = DEFAULT_SHIFTS.shift2.lessonCount;
+  // Calculate stats based on ACTIVE shifts only
+  const activeShiftEntries = Object.entries(shifts).filter(([_, shift]) => shift.enabled);
   
-  // Total available slots (active days × lessons per day)
-  const totalSlotsPerDay = shift1Lessons + shift2Lessons;
-  const totalAvailableSlots = activeDays * totalSlotsPerDay;
-  const totalPossibleSlots = totalDays * totalSlotsPerDay;
+  // Calculate total lessons from active shifts only
+  const totalLessonsPerDay = activeShiftEntries.reduce((sum, [_, shift]) => sum + shift.lessonCount, 0);
+  const totalAvailableSlots = activeDays * totalLessonsPerDay;
+  
+  // Calculate individual shift lessons
+  const shift1Lessons = shifts.shift1?.enabled ? shifts.shift1.lessonCount : 0;
+  const shift2Lessons = shifts.shift2?.enabled ? shifts.shift2.lessonCount : 0;
   
   // Calculate hours (assuming 45 min per lesson)
   const lessonDuration = 45;
   const totalAvailableHours = Math.round((totalAvailableSlots * lessonDuration) / 60);
-  const totalPossibleHours = Math.round((totalPossibleSlots * lessonDuration) / 60);
+  const maxWorkHours = 36;
   
-  const utilizationPercentage = Math.round((activeDays / totalDays) * 100);
-
-  if (isLoading) {
-    return (
-      <div className="space-y-3">
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-24 w-full" />
-      </div>
-    );
-  }
+  const utilizationPercentage = maxWorkHours > 0 
+    ? Math.min(100, Math.round((totalAvailableHours / maxWorkHours) * 100))
+    : 0;
 
   return (
     <div className="space-y-4">
@@ -71,7 +79,7 @@ export const TeacherScheduleStats: React.FC<TeacherScheduleStatsProps> = ({ teac
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-2xl font-bold">{totalAvailableHours}</span>
-              <span className="text-xs text-muted-foreground">/ {totalPossibleHours} saat</span>
+              <span className="text-xs text-muted-foreground">/ {maxWorkHours} saat</span>
             </div>
             <Progress value={utilizationPercentage} className="h-2" />
             <div className="flex items-center justify-between text-xs">
@@ -82,37 +90,51 @@ export const TeacherScheduleStats: React.FC<TeacherScheduleStatsProps> = ({ teac
         </CardContent>
       </Card>
 
-      {/* Shifts Info */}
+      {/* Shifts Info - Show based on enabled status */}
       <div className="grid grid-cols-1 gap-3">
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-blue-500" />
-                <span className="text-sm font-medium">{DEFAULT_SHIFTS.shift1.name}</span>
+        {Object.entries(shifts).map(([shiftKey, shift]) => (
+          <Card 
+            key={shiftKey}
+            className={cn(
+              "border-l-4",
+              shift.enabled 
+                ? (shift.color === 'blue' ? 'border-l-blue-500' : 'border-l-orange-500')
+                : 'border-l-gray-300 opacity-60'
+            )}
+          >
+            <CardContent className="p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Briefcase className={cn(
+                    "h-4 w-4",
+                    shift.enabled 
+                      ? (shift.color === 'blue' ? 'text-blue-500' : 'text-orange-500')
+                      : 'text-gray-400'
+                  )} />
+                  <span className={cn(
+                    "text-sm font-medium",
+                    !shift.enabled && 'text-gray-500'
+                  )}>
+                    {shift.name}
+                  </span>
+                  {!shift.enabled && <span className="text-xs text-gray-400">(Deaktiv)</span>}
+                </div>
+                <Badge 
+                  variant={shift.enabled ? "secondary" : "outline"} 
+                  className={cn("text-xs", !shift.enabled && "text-gray-400")}
+                >
+                  {shift.enabled ? shift.lessonCount : 0} dərs
+                </Badge>
               </div>
-              <Badge variant="secondary" className="text-xs">{shift1Lessons} dərs</Badge>
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Başlama: {DEFAULT_SHIFTS.shift1.startTime}
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-l-4 border-l-orange-500">
-          <CardContent className="p-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Briefcase className="h-4 w-4 text-orange-500" />
-                <span className="text-sm font-medium">{DEFAULT_SHIFTS.shift2.name}</span>
+              <div className={cn(
+                "text-xs mt-1",
+                shift.enabled ? 'text-muted-foreground' : 'text-gray-400'
+              )}>
+                {shift.enabled ? `Başlama: ${shift.startTime}` : 'Növbə deaktivdir'}
               </div>
-              <Badge variant="secondary" className="text-xs">{shift2Lessons} dərs</Badge>
-            </div>
-            <div className="text-xs text-muted-foreground mt-1">
-              Başlama: {DEFAULT_SHIFTS.shift2.startTime}
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Days Summary */}

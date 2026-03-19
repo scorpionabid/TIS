@@ -85,6 +85,7 @@ export interface StudentWithScores {
   full_name: string;
   teacher_id?: number | null;
   scores: Record<number, {
+    id: number;
     score: number | null;
     percentage: number | null;
     grade_mark: string | null;
@@ -141,6 +142,24 @@ export interface AssignTeacherRequest {
 class GradeBookService {
   private baseUrl = '/grade-books';
 
+  private invalidateGradeBookCache(gradeBookId: number): void {
+    try {
+      // ApiClientOptimized caches GET responses by endpoint string.
+      // We clear by pattern to force subsequent GETs to fetch fresh data.
+      apiClient.clearCache(`${this.baseUrl}/${gradeBookId}`);
+    } catch {
+      // ignore cache invalidation errors
+    }
+  }
+
+  private invalidateAllGradeBooksCache(): void {
+    try {
+      apiClient.clearCache(`${this.baseUrl}/`);
+    } catch {
+      // ignore cache invalidation errors
+    }
+  }
+
   // Get all grade books
   async getGradeBooks(params?: {
     institution_id?: number;
@@ -154,15 +173,45 @@ class GradeBookService {
     const response = await apiClient.get(this.baseUrl, { params });
     // Handle different response formats
     const responseData = response.data;
+ 
+    const toMeta = (paginator: any) => {
+      if (!paginator || typeof paginator !== 'object') return {};
+      const {
+        current_page,
+        last_page,
+        per_page,
+        total,
+        from,
+        to,
+      } = paginator;
+      return {
+        current_page,
+        last_page,
+        per_page,
+        total,
+        from,
+        to,
+      };
+    };
     
+    // If backend returns Laravel paginator shape: { success: true, data: { data: [...], ...pagination } }
+    if (responseData?.success && responseData?.data && Array.isArray(responseData.data?.data)) {
+      return { data: responseData.data.data, meta: toMeta(responseData.data) };
+    }
+
     // If backend returns { success: true, data: [...], meta: {...} }
-    if (responseData.success && Array.isArray(responseData.data)) {
+    if (responseData?.success && Array.isArray(responseData?.data)) {
       return { data: responseData.data, meta: responseData.meta || {} };
     }
     
-    // If backend returns { data: [...], meta: {...} } directly
-    if (Array.isArray(responseData.data)) {
-      return { data: responseData.data, meta: responseData.meta || {} };
+    // If backend returns paginator directly: { data: [...], ...pagination }
+    if (responseData && Array.isArray(responseData?.data) && typeof responseData === 'object') {
+      return { data: responseData.data, meta: toMeta(responseData) };
+    }
+
+    // If backend returns nested paginator inside data: { data: { data: [...] } }
+    if (responseData?.data && Array.isArray(responseData.data?.data)) {
+      return { data: responseData.data.data, meta: toMeta(responseData.data) };
     }
     
     // Direct array response
@@ -192,19 +241,80 @@ class GradeBookService {
     const response = await apiClient.get(`${this.baseUrl}/${id}`);
     // Handle different response formats
     const responseData = response.data;
-    
-    // If backend returns { success: true, data: {...} }
-    if (responseData.success && responseData.data) {
-      return { data: responseData.data };
+
+    const raw = (responseData?.success && responseData?.data)
+      ? responseData.data
+      : (responseData?.data && responseData.data.grade_book)
+        ? responseData.data
+        : responseData;
+
+    // Normalize to prevent runtime crashes when fields are missing or null
+    let students: StudentWithScores[] = Array.isArray(raw?.students) ? raw.students : [];
+
+    // Normalize scores: ensure all score values are numeric (not strings)
+    students = students.map((student: any) => {
+      if (!student.scores || typeof student.scores !== 'object') {
+        return {
+          ...student,
+          id: Number(student.id),
+          teacher_id: student.teacher_id === null || student.teacher_id === undefined ? null : Number(student.teacher_id),
+          scores: {},
+        };
+      }
+      const normalizedScores: StudentWithScores['scores'] = {};
+      for (const [columnId, scoreData] of Object.entries(student.scores)) {
+        if (!scoreData) continue;
+        normalizedScores[Number(columnId)] = {
+          id: scoreData.id,
+          score: scoreData.score === null ? null : Number(scoreData.score),
+          percentage: scoreData.percentage === null ? null : Number(scoreData.percentage),
+          grade_mark: scoreData.grade_mark,
+          is_present: scoreData.is_present,
+        };
+      }
+      return {
+        ...student,
+        id: Number(student.id),
+        teacher_id: student.teacher_id === null || student.teacher_id === undefined ? null : Number(student.teacher_id),
+        scores: normalizedScores,
+      };
+    });
+
+    let inputColumns: GradeBookColumn[] = [];
+    let calculatedColumns: GradeBookColumn[] = [];
+
+    if (Array.isArray(raw?.input_columns)) {
+      inputColumns = raw.input_columns;
     }
-    
-    // If backend returns { data: {...} } directly
-    if (responseData.data && responseData.data.grade_book) {
-      return responseData;
+    if (Array.isArray(raw?.calculated_columns)) {
+      calculatedColumns = raw.calculated_columns;
     }
-    
-    // Direct response
-    return { data: responseData as any };
+
+    // Some backends may only provide columns_by_semester; derive columns if needed
+    const columnsBySemester: Record<string, GradeBookColumn[]> =
+      raw?.columns_by_semester && typeof raw.columns_by_semester === 'object'
+        ? raw.columns_by_semester
+        : {};
+
+    if (inputColumns.length === 0 || calculatedColumns.length === 0) {
+      const allColumnsFromSemester = Object.values(columnsBySemester).flat().filter(Boolean) as GradeBookColumn[];
+      if (inputColumns.length === 0) {
+        inputColumns = allColumnsFromSemester.filter(c => c.column_type === 'input');
+      }
+      if (calculatedColumns.length === 0) {
+        calculatedColumns = allColumnsFromSemester.filter(c => c.column_type === 'calculated');
+      }
+    }
+
+    return {
+      data: {
+        grade_book: raw?.grade_book,
+        students,
+        columns_by_semester: columnsBySemester,
+        input_columns: inputColumns,
+        calculated_columns: calculatedColumns,
+      }
+    };
   }
 
   // Get students with scores
@@ -216,29 +326,37 @@ class GradeBookService {
   // Add new column (exam)
   async addColumn(gradeBookId: number, data: CreateColumnRequest): Promise<{ data: GradeBookColumn }> {
     const response = await apiClient.post(`${this.baseUrl}/${gradeBookId}/columns`, data);
+    this.invalidateGradeBookCache(gradeBookId);
     return response.data;
   }
 
   // Update column (exam)
   async updateColumn(columnId: number, data: UpdateColumnRequest): Promise<{ data: GradeBookColumn }> {
     const response = await apiClient.patch(`${this.baseUrl}/columns/${columnId}`, data);
+    // Column update affects gradebook view, invalidate all gradebook caches
+    this.invalidateAllGradeBooksCache();
     return response.data;
   }
 
   // Archive column
   async archiveColumn(columnId: number): Promise<void> {
     await apiClient.delete(`${this.baseUrl}/columns/${columnId}`);
+    // Column archive affects gradebook view, invalidate all gradebook caches
+    this.invalidateAllGradeBooksCache();
   }
 
   // Update cell (score)
   async updateCell(cellId: number, data: UpdateCellRequest): Promise<{ data: GradeBookCell }> {
     const response = await apiClient.patch(`${this.baseUrl}/cells/${cellId}`, data);
+    // Cell update affects gradebook view, invalidate all gradebook caches
+    this.invalidateAllGradeBooksCache();
     return response.data;
   }
 
   // Bulk update cells
   async bulkUpdateCells(gradeBookId: number, data: BulkUpdateCellsRequest): Promise<{ message: string; updated_count: number }> {
     const response = await apiClient.post(`${this.baseUrl}/${gradeBookId}/cells/bulk-update`, data);
+    this.invalidateGradeBookCache(gradeBookId);
     return response.data;
   }
 
@@ -258,6 +376,7 @@ class GradeBookService {
     const response = await apiClient.post(`${this.baseUrl}/${gradeBookId}/students/${studentId}/teacher`, {
       teacher_id: teacherId,
     });
+    this.invalidateGradeBookCache(gradeBookId);
     return response.data;
   }
 
@@ -296,16 +415,18 @@ class GradeBookService {
 
   // Export template
   async exportTemplate(gradeBookId: number): Promise<Blob> {
-    const response = await apiClient.get(`${this.baseUrl}/${gradeBookId}/export-template`, {
+    const response = await apiClient.get(`${this.baseUrl}/${gradeBookId}/export-template`, undefined, {
       responseType: 'blob',
+      cache: false,
     });
     return response.data;
   }
 
   // Export grade book with scores
   async exportGradeBook(gradeBookId: number): Promise<Blob> {
-    const response = await apiClient.get(`${this.baseUrl}/${gradeBookId}/export`, {
+    const response = await apiClient.get(`${this.baseUrl}/${gradeBookId}/export`, undefined, {
       responseType: 'blob',
+      cache: false,
     });
     return response.data;
   }
@@ -315,12 +436,8 @@ class GradeBookService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await apiClient.post(`${this.baseUrl}/${gradeBookId}/import`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+    const response = await apiClient.post(`${this.baseUrl}/${gradeBookId}/import`, formData);
+    return response as any;
   }
 
   /**
@@ -450,7 +567,17 @@ class GradeBookService {
       }>;
     };
   }> {
-    const response = await apiClient.get(`${this.baseUrl}/hierarchy`, { params });
+    // Ensure we don't send empty strings or nulls that might confuse the backend
+    const cleanParams: Record<string, any> = {};
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          cleanParams[key] = value;
+        }
+      });
+    }
+
+    const response = await apiClient.get(`${this.baseUrl}/hierarchy`, { params: cleanParams });
     return response.data;
   }
 
@@ -483,17 +610,87 @@ class GradeBookService {
     subject_id?: number;
     status?: string;
   }): Promise<{
-    totalStudents: number;
-    totalJournals: number;
-    activeJournals: number;
-    archivedJournals: number;
-    examCount: number;
-    completionRate: number;
-    gradeDistribution: { grade: string; count: number; percentage: number }[];
-    subjectAverages: { subject: string; average: number }[];
+    success: boolean;
+    data: {
+      totalStudents: number;
+      totalJournals: number;
+      activeJournals: number;
+      archivedJournals: number;
+      examCount: number;
+      completionRate: number;
+      averageScore: number;
+      highestScore: number;
+      gradeDistribution: { grade: string; count: number; percentage: number }[];
+      subjectAverages: { subject: string; average: number }[];
+    };
   }> {
     const response = await apiClient.get(`${this.baseUrl}/analysis/overview`, { params });
-    return response.data;
+    return response;
+  }
+
+  // Get comparison data for radar and bar charts
+  async getComparisonData(params?: {
+    institution_id?: number;
+    academic_year_id?: number;
+    compare_by?: string;
+  }): Promise<{
+    success: boolean;
+    data: {
+      radarData: { metric: string; value: number; average: number }[];
+      barData: { subject: string; current: number; average: number; max: number }[];
+      stats: {
+        averageDiff: number;
+        strongestSubject: string;
+        weakestSubject: string;
+        strongestScore: number;
+        weakestScore: number;
+      };
+    };
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/comparison`, { params });
+    return response;
+  }
+
+  // Get trends data over time
+  async getTrendsData(params?: {
+    institution_id?: number;
+    academic_year_id?: number;
+    time_range?: string;
+  }): Promise<{
+    success: boolean;
+    data: {
+      trendData: { month: string; average: number; target: number; previous: number }[];
+      subjectTrends: { subject: string; data: { month: string; score: number }[] }[];
+      stats: {
+        averageScore: number;
+        growthRate: number;
+        highestMonth: string;
+        lowestMonth: string;
+        highestScore: number;
+        lowestScore: number;
+      };
+    };
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/trends`, { params });
+    return response;
+  }
+
+  // Get deep dive analysis: risk students, top students, subject details
+  async getDeepDiveData(params?: {
+    institution_id?: number;
+    academic_year_id?: number;
+    grade_id?: number;
+    subject_id?: number;
+  }): Promise<{
+    success: boolean;
+    data: {
+      riskStudents: { id: number; name: string; class: string; average: number; failedSubjects: number; attendance: number; trend: string }[];
+      topStudents: { id: number; name: string; class: string; average: number; bestSubject: string; improvement: number }[];
+      subjectAnalysis: { subject: string; average: number; passRate: number; riskCount: number; trend: string }[];
+    };
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/deep-dive`, { params });
+    return response;
   }
 }
 

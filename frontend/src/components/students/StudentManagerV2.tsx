@@ -4,12 +4,12 @@ import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { Student } from '@/services/students';
 import { StudentFilters } from './configurations/studentConfig';
 import { unifiedStudentConfig, studentCustomLogic } from './configurations/studentConfig';
-import { StudentModal } from '@/components/modals/StudentModal';
+import { StudentModalModern } from '@/components/modals/student/StudentModalModern';
 import { StudentDetailsDialog } from './StudentDetailsDialog';
 import { EnrollmentModal } from './EnrollmentModal';
 // StudentImportExportModal handled by GenericManagerV2
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import { gradeService } from '@/services/grades';
 import { studentService } from '@/services/students';
@@ -40,11 +40,12 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
   const [enrollmentModalOpen, setEnrollmentModalOpen] = React.useState(false);
   const [enrollmentStudent, setEnrollmentStudent] = React.useState<Student | null>(null);
   // Import/Export modal handled by GenericManagerV2
-  const [selectedGradeForEnrollment, setSelectedGradeForEnrollment] = React.useState<number | null>(null);
+  // EnrollmentModal expects string ('all' | '1' | '2' | ...)
+  const [selectedGradeForEnrollment, setSelectedGradeForEnrollment] = React.useState<string>('all');
 
   // Role-based access and filtering
   const { currentUser } = useAuth();
-  // QueryClient handling moved to GenericManagerV2
+  const queryClient = useQueryClient();
 
   // Fetch supporting data for filters
   const { data: institutionsResponse } = useQuery({
@@ -53,9 +54,11 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
     staleTime: 1000 * 60 * 5, // 5 minutes cache
   });
 
+  const institutionId = currentUser?.institution_id;
   const { data: gradesResponse } = useQuery({
-    queryKey: ['grades', 'for-student-filter'],
-    queryFn: () => gradeService.get({ per_page: 100 }),
+    queryKey: ['grades', 'for-enrollment', institutionId],
+    queryFn: () => gradeService.get({ institution_id: institutionId, per_page: 200, is_active: true }),
+    enabled: !!institutionId,
     staleTime: 1000 * 60 * 5, // 5 minutes cache
   });
 
@@ -91,31 +94,41 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
     }
   }, [institutionsResponse, currentUser]);
 
-  // Process available grades
+  // Process available grades — gradeService.get() returns { items: Grade[] } normalized shape
   const availableGrades = React.useMemo(() => {
-    if (!gradesResponse?.data) return [];
-    
-    const rawData: any = gradesResponse.data;
-    if (rawData && typeof rawData === 'object' && !Array.isArray(rawData)) {
-      if ('grades' in rawData && Array.isArray(rawData.grades)) {
-        return rawData.grades;
-      }
-      if ('data' in rawData && Array.isArray(rawData.data)) {
-        return rawData.data;
-      }
-    }
-    
-    return Array.isArray(rawData) ? rawData : [];
+    if (!gradesResponse) return [];
+    const raw: any = gradesResponse;
+    // Normalized shape from useEntityManagerV2: { items: Grade[] }
+    if (Array.isArray(raw.items)) return raw.items;
+    // Backend wrapped: { data: { grades: [] } }
+    if (raw.data?.grades && Array.isArray(raw.data.grades)) return raw.data.grades;
+    if (raw.data?.data && Array.isArray(raw.data.data)) return raw.data.data;
+    if (raw.data && Array.isArray(raw.data)) return raw.data;
+    if (Array.isArray(raw)) return raw;
+    return [];
   }, [gradesResponse]);
 
-  // Cache invalidation is now handled by GenericManagerV2 and useEntityManagerV2
-  // Removed duplicate mutation logic to eliminate redundancy
+  // Student-specific logic
+  const handleStudentCreate = async (data: any) => {
+    try {
+      await studentService.create(data);
+      toast.success('Şagird uğurla yaradıldı');
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      // Force immediate refetch to ensure new entity appears in list
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['students'] });
+      }, 100);
+    } catch (error) {
+      toast.error('Şagird yaradıla bilmədi');
+      throw error;
+    }
+  };
 
   // Simplified configuration - GenericManagerV2 handles most actions automatically
   const enhancedConfig = React.useMemo(() => ({
     ...unifiedStudentConfig,
     
-    // Only override student-specific actions that require custom logic
+    // Override ALL actions with real handlers
     actions: unifiedStudentConfig.actions.map(action => {
       if (action.key === 'view') {
         return {
@@ -138,52 +151,93 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
       if (action.key === 'enroll') {
         return {
           ...action,
+          // Show enroll for ALL students (remove the status check in config)
+          isVisible: () => true,
           onClick: (student: Student) => {
-            if (student.status === 'active') {
-              toast.warning('Şagird artıq aktivdir');
-              return;
-            }
             logger.debug('Opening enrollment modal', { data: { studentId: student.id } });
             setEnrollmentStudent(student);
             setEnrollmentModalOpen(true);
           }
         };
       }
-      // GenericManagerV2 handles soft-delete and hard-delete automatically
+      if (action.key === 'soft-delete') {
+        return {
+          ...action,
+          isVisible: (student: Student) => student.is_active !== false,
+          onClick: async (student: Student) => {
+            if (!confirm(`${student.first_name} ${student.last_name} deaktiv edilsin?`)) return;
+            try {
+              await studentService.update(student.id, { is_active: false, status: 'inactive' } as any);
+              toast.success(`${student.first_name} ${student.last_name} deaktiv edildi`);
+              queryClient.invalidateQueries({ queryKey: ['students'] });
+            } catch (e) {
+              toast.error('Deaktiv etmə uğursuz oldu');
+            }
+          }
+        };
+      }
+      if (action.key === 'hard-delete') {
+        return {
+          ...action,
+          onClick: async (student: Student) => {
+            if (!confirm(`${student.first_name} ${student.last_name} silmək istədiyinizdən əminsiniz? Bu əməliyyat geri qaytarıla bilməz.`)) return;
+            try {
+              await studentService.delete(student.id);
+              toast.success(`${student.first_name} ${student.last_name} silindi`);
+              queryClient.invalidateQueries({ queryKey: ['students'] });
+            } catch (e) {
+              toast.error('Silmə uğursuz oldu');
+            }
+          }
+        };
+      }
       return action;
     })
-  }), []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [queryClient]);
 
-  // GenericManagerV2 handles create action through manager.setCreateModalOpen()
+  // Modal control state for GenericManager integration
+  const [createModalOpen, setCreateModalOpen] = React.useState(false);
+  const [importExportModalOpen, setImportExportModalOpen] = React.useState(false);
 
-  // Custom logic with renderCustomModal to connect GenericManagerV2 with UserModal
+  // Custom logic with renderCustomModal to connect GenericManagerV2 with StudentModal
   const customLogic = React.useMemo(() => ({
     ...studentCustomLogic,
     
-    // Override renderCustomModal to connect GenericManagerV2 create button with UserModal
-    renderCustomModal: ({ open, onClose, onSave, entity, isLoading }) => {
-      console.log('🎯 StudentManagerV2 renderCustomModal called:', { 
-        open, 
-        hasOnClose: !!onClose, 
-        hasOnSave: !!onSave, 
-        entity: entity?.id || 'null', 
-        isLoading 
-      });
-      
-      return (
-        <StudentModal
-          open={open}
-          onClose={onClose}
-          onSave={onSave}
-          student={entity}
-        />
-      );
+    // Explicitly handle create click to manage our own state
+    onCreateClick: () => {
+      console.log('🚀 StudentManagerV2 - onCreateClick triggered');
+      setEditingStudent(null);
+      setCreateModalOpen(true);
     },
     
-    // Enhanced custom filters rendering with available data
+    // Import/Export/Template handlers for modern header
+    onImportClick: () => {
+      logger.debug('Opening student import modal', {
+        component: 'StudentManagerV2',
+        action: 'openImportModal'
+      });
+      setImportExportModalOpen(true);
+    },
+    onExportClick: () => {
+      logger.debug('Opening student export modal', {
+        component: 'StudentManagerV2',
+        action: 'openExportModal'
+      });
+      setImportExportModalOpen(true);
+    },
+    onTemplateClick: () => {
+      logger.debug('Downloading student template', {
+        component: 'StudentManagerV2',
+        action: 'downloadTemplate'
+      });
+      // Template download will be handled by StudentImportExportModal
+      setImportExportModalOpen(true);
+    },
+
+    // Custom filters showing counts
     renderCustomFilters: () => (
       <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-        {/* Custom filter implementation can be added here */}
         <div className="text-sm text-muted-foreground">
           {availableInstitutions.length} müəssisə, {availableGrades.length} sinif mövcuddur
         </div>
@@ -198,10 +252,24 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
     setEnrollmentModalOpen(false);
     setEnrollmentStudent(null);
     // Import/Export modal closed by GenericManagerV2
-    setSelectedGradeForEnrollment(null);
+    setSelectedGradeForEnrollment('all');
   }, []);
 
-  // Save handler removed - using manager.handleCreate and manager.handleUpdate directly
+  // Save handler for edit — must invalidate students cache so the list refreshes
+  const handleUserSave = React.useCallback(async (studentData: any) => {
+    try {
+      if (editingStudent) {
+        await studentService.update(editingStudent.id, studentData);
+        toast.success(`${editingStudent.first_name} ${editingStudent.last_name} uğurla yeniləndi`);
+      }
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      setEditingStudent(null);
+    } catch (error) {
+      logger.error('Failed to save student', error);
+      toast.error('Şagird yadda saxlanıla bilmədi');
+      throw error;
+    }
+  }, [editingStudent, queryClient]);
 
   // Simplified enrollment handler
   const handleEnrollment = React.useCallback(async (classId: number) => {
@@ -217,10 +285,17 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
         await studentService.update(enrollmentStudent.id, {
           status: 'active',
           class_id: classId
-        });
+        } as any);
         toast.success(`${enrollmentStudent.first_name} ${enrollmentStudent.last_name} uğurla qeydiyyatdan keçirildi`);
         
-        // GenericManagerV2 will handle cache invalidation automatically
+        // Explicitly invalidate cache so the list refreshes immediately
+        queryClient.invalidateQueries({ queryKey: ['students'] });
+        queryClient.invalidateQueries({ queryKey: ['grades'] });
+        
+        // Force refetch to ensure UI updates
+        setTimeout(() => {
+          queryClient.refetchQueries({ queryKey: ['students'] });
+        }, 100);
       }
       
       handleCloseModals();
@@ -276,6 +351,22 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
       <GenericManagerV2
         config={enhancedConfig}
         customLogic={customLogic}
+      />
+      
+      {/* Student Create Modal */}
+      <StudentModalModern
+        open={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        onSave={handleStudentCreate}
+        student={null}
+      />
+      
+      {/* Edit Student Modal — opened via edit action in table */}
+      <StudentModalModern
+        open={!!editingStudent}
+        onClose={() => setEditingStudent(null)}
+        onSave={handleUserSave}
+        student={editingStudent}
       />
       
       {/* Student-specific Modals - separate from GenericManagerV2 create modal */}

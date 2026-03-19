@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +28,8 @@ import {
   Users,
   ArrowRight,
   X,
-  FileDown
+  FileDown,
+  School
 } from 'lucide-react';
 import { gradeBookService, GradeBookSession } from '@/services/gradeBook';
 import { useToast } from '@/hooks/use-toast';
@@ -42,7 +43,14 @@ type GradeGroup = {
   items: GradeBookSession[];
 };
 
-export function GradeBookList() {
+interface GradeBookListProps {
+  selectedGradeId?: number | null;
+  institutionId?: number | null;
+  institutionName?: string | null;
+  selectedGradeLabel?: string | null;
+}
+
+export function GradeBookList({ selectedGradeId, institutionId, institutionName, selectedGradeLabel }: GradeBookListProps = {}) {
   const { toast } = useToast();
   const { currentUser } = useAuth();
 
@@ -59,8 +67,28 @@ export function GradeBookList() {
   const [filters, setFilters] = useState({
     status: '',
     academic_year_id: '',
-    institution_id: userInstitutionId ? String(userInstitutionId) : '',
+    institution_id: institutionId
+      ? String(institutionId)
+      : (userInstitutionId ? String(userInstitutionId) : ''),
   });
+
+  useEffect(() => {
+    const nextInstitutionId = institutionId
+      ? String(institutionId)
+      : (userInstitutionId ? String(userInstitutionId) : '');
+
+    setFilters(prev => {
+      if (prev.institution_id === nextInstitutionId) return prev;
+      return { ...prev, institution_id: nextInstitutionId };
+    });
+  }, [institutionId, userInstitutionId]);
+
+  // Auto-expand selected grade when selectedGradeId changes from parent
+  useEffect(() => {
+    if (selectedGradeId) {
+      setExpandedGrades(prev => new Set([...prev, String(selectedGradeId)]));
+    }
+  }, [selectedGradeId]);
 
   const openJournal = (id: number) => {
     setSelectedJournalId(id);
@@ -117,10 +145,39 @@ export function GradeBookList() {
     }
   };
 
+  // Helper to extract grade display name from various possible property names
+  const getGradeDisplayName = (grade: any): string => {
+    if (!grade) return 'Sinif adı yoxdur';
+    
+    // Try various property names that might contain the grade name
+    const possibleNames = [
+      grade.full_name,
+      grade.display_name,
+      grade.grade_name,
+      grade.label,
+      (grade.class_level && grade.name) ? `${grade.class_level}-${grade.name}` : null,
+      grade.name,
+      `Sinif ${grade.id}`
+    ];
+    
+    for (const name of possibleNames) {
+      if (name && String(name).trim()) {
+        return String(name).trim();
+      }
+    }
+    
+    return `Sinif ${grade.id || '?'}`;
+  };
+
   // Group grade books by grade/class
   const groupedGradeBooks = useMemo(() => {
-    const filtered = gradeBooks.filter((gb) => {
-      const gradeDisplayName = gb.grade?.full_name || `${gb.grade?.class_level || ''}-${gb.grade?.name || ''}`.replace(/^\-/, '');
+    // If a grade is selected from hierarchy, only show that grade
+    const filteredByGrade = selectedGradeId 
+      ? gradeBooks.filter(gb => gb.grade?.id === selectedGradeId)
+      : gradeBooks;
+    
+    const filtered = filteredByGrade.filter((gb) => {
+      const gradeDisplayName = getGradeDisplayName(gb.grade);
       const matchesSearch = searchTerm === '' ||
         gb.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (gradeDisplayName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -132,11 +189,12 @@ export function GradeBookList() {
     });
 
     return filtered.reduce((acc: Record<string, GradeGroup>, gb) => {
-      const gradeKey = gb.grade?.id ? String(gb.grade.id) : 'Sinifsiz';
-      const gradeDisplayName = gb.grade?.full_name || `${gb.grade?.class_level || ''}-${gb.grade?.name || ''}`.replace(/^\-/, '');
+      const gradeKey = gb.grade?.id ? String(gb.grade.id) : 'no-grade';
+      const gradeDisplayName = getGradeDisplayName(gb.grade);
+      
       if (!acc[gradeKey]) {
         acc[gradeKey] = {
-          gradeDisplayName: gradeDisplayName || 'Sinifsiz',
+          gradeDisplayName: gradeDisplayName,
           gradeAcademicYearName: gb.academic_year?.name,
           items: [],
         };
@@ -144,7 +202,7 @@ export function GradeBookList() {
       acc[gradeKey].items.push(gb);
       return acc;
     }, {});
-  }, [gradeBooks, searchTerm, selectedGrade]);
+  }, [gradeBooks, searchTerm, selectedGrade, selectedGradeId]);
 
   // Get unique grades for filter
   const availableGrades = useMemo(() => {
@@ -152,7 +210,7 @@ export function GradeBookList() {
     gradeBooks.forEach((gb) => {
       if (!gb.grade?.id) return;
       const key = String(gb.grade.id);
-      const label = gb.grade?.full_name || `${gb.grade?.class_level || ''}-${gb.grade?.name || ''}`.replace(/^\-/, '');
+      const label = getGradeDisplayName(gb.grade);
       if (!map.has(key)) {
         map.set(key, label || key);
       }
@@ -239,16 +297,16 @@ export function GradeBookList() {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Header - Minimal */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-slate-900">Sinif Jurnalları</h1>
-      </div>
-
-      {/* Filters - Minimal */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        {/* Search */}
-        <div className="relative flex-1">
+    <Card className="border-slate-200 h-full flex flex-col">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base font-medium flex items-center gap-2">
+          <School className="w-4 h-4" />
+          Jurnallar
+        </CardTitle>
+        <span className={cn("text-xs text-slate-500 truncate block", !institutionName && "invisible")} title={institutionName || undefined}>
+          {institutionName || "Məktəb"}
+        </span>
+        <div className="relative mt-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Jurnal axtar..."
@@ -257,44 +315,9 @@ export function GradeBookList() {
             className="pl-10 h-9 border-slate-200"
           />
         </div>
-
-        {/* Grade Filter */}
-        <Select
-          value={selectedGrade}
-          onValueChange={setSelectedGrade}
-        >
-          <SelectTrigger className="w-full sm:w-[160px] h-9 border-slate-200">
-            <GraduationCap className="w-4 h-4 mr-2 text-slate-500" />
-            <SelectValue placeholder="Sinif" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Bütün siniflər</SelectItem>
-            {availableGrades.map((grade) => (
-              <SelectItem key={grade.value} value={grade.value}>
-                {grade.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        {/* Status Filter */}
-        <Select
-          value={filters.status || 'all'}
-          onValueChange={(value) => setFilters(prev => ({ ...prev, status: value === 'all' ? '' : value }))}
-        >
-          <SelectTrigger className="w-full sm:w-[140px] h-9 border-slate-200">
-            <Filter className="w-4 h-4 mr-2 text-slate-500" />
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Bütün</SelectItem>
-            <SelectItem value="active">Aktiv</SelectItem>
-            <SelectItem value="archived">Arxiv</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Content */}
+      </CardHeader>
+      <CardContent className="p-0 flex-1 overflow-y-auto">
+        {/* Content */}
       {loading ? (
         <div className="flex items-center justify-center py-16">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
@@ -403,6 +426,18 @@ export function GradeBookList() {
                             </div>
                             <div className="flex items-center gap-2 mt-1 text-sm text-slate-500">
                               <span>{gradeBook.academic_year?.name}</span>
+                              {gradeBook.teachers && gradeBook.teachers.length > 0 && (
+                                <span className="text-slate-400">•</span>
+                              )}
+                              {gradeBook.teachers && gradeBook.teachers.slice(0, 2).map((teacher, idx) => (
+                                <span key={teacher.id} className="text-slate-600">
+                                  {teacher.full_name || `${teacher.first_name} ${teacher.last_name}`}
+                                  {idx < Math.min(gradeBook.teachers!.length, 2) - 1 && ', '}
+                                </span>
+                              ))}
+                              {gradeBook.teachers && gradeBook.teachers.length > 2 && (
+                                <span className="text-slate-400">+{gradeBook.teachers.length - 2}</span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -492,6 +527,7 @@ export function GradeBookList() {
           </div>
         </SheetContent>
       </Sheet>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

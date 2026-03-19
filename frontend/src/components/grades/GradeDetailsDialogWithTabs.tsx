@@ -34,7 +34,7 @@ export const GradeDetailsDialogWithTabs: React.FC<GradeDetailsDialogWithTabsProp
         <SheetHeader className="flex-shrink-0 text-left mb-6">
           <SheetTitle className="flex items-center gap-2 text-xl">
             <BookOpen className="h-6 w-6 text-primary" />
-            <span>{grade.display_name || grade.full_name} - Kurikulum</span>
+            <span>{grade.display_name || grade.full_name} - Tədris planı</span>
             <Badge variant={grade.is_active ? 'default' : 'secondary'} className="ml-2">
               {grade.is_active ? 'Aktiv' : 'Deaktiv'}
             </Badge>

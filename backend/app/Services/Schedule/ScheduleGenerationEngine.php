@@ -3,7 +3,7 @@
 namespace App\Services\Schedule;
 
 use App\Models\AcademicYear;
-use App\Models\ClassModel;
+use App\Models\Grade;
 use App\Models\Schedule;
 use App\Models\ScheduleSession;
 use App\Models\TimeSlot;
@@ -138,7 +138,7 @@ class ScheduleGenerationEngine
 
         $classRecord = null;
         if (! $institutionId && isset($firstLoad['class']['id'])) {
-            $classRecord = ClassModel::find($firstLoad['class']['id']);
+            $classRecord = Grade::find($firstLoad['class']['id']);
             $institutionId = $classRecord?->institution_id;
         }
 

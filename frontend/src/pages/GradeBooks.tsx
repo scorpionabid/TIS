@@ -8,106 +8,248 @@ import { GradeBookAnalysis } from '@/components/gradebook/analysis/GradeBookAnal
 import { AdminDashboard } from '@/components/gradebook/admin';
 import { GradeBookRoleProvider, useGradeBookRole } from '@/contexts/GradeBookRoleContext';
 import { HierarchyNavigator, useHierarchyState, HierarchyNode } from '@/components/gradebook/HierarchyNavigator';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Search } from 'lucide-react';
 import GradeBookCreatePage from './GradeBookCreate';
+import { hierarchyService, HierarchyNode as InstitutionHierarchyNode } from '@/services/hierarchy';
+import { gradeBookService } from '@/services/gradeBook';
+import { Button } from '@/components/ui/button';
 
 type GradeBookTab = 'list' | 'analysis' | 'admin' | 'create';
-
-// Mock hierarchy data for demo
-const generateMockHierarchy = (viewMode: string): HierarchyNode[] => {
-  if (viewMode === 'region') {
-    return [
-      {
-        id: 1,
-        name: 'Bakı Region',
-        type: 'region',
-        stats: { institutions: 12, grade_books: 45, average: 4.2 },
-        children: [
-          {
-            id: 1,
-            name: 'Sektor 1',
-            type: 'sector',
-            stats: { institutions: 6, grade_books: 24 },
-            children: [
-              {
-                id: 1,
-                name: 'Məktəb 1',
-                type: 'institution',
-                stats: { grade_books: 8 },
-              },
-              {
-                id: 2,
-                name: 'Məktəb 2',
-                type: 'institution',
-                stats: { grade_books: 6 },
-              },
-            ],
-          },
-          {
-            id: 2,
-            name: 'Sektor 2',
-            type: 'sector',
-            stats: { institutions: 6, grade_books: 21 },
-          },
-        ],
-      },
-    ];
-  } else if (viewMode === 'sector') {
-    return [
-      {
-        id: 1,
-        name: 'Sektor 1',
-        type: 'sector',
-        stats: { institutions: 6, grade_books: 24, average: 4.1 },
-        children: [
-          {
-            id: 1,
-            name: 'Məktəb 1',
-            type: 'institution',
-            stats: { grade_books: 8 },
-          },
-          {
-            id: 2,
-            name: 'Məktəb 2',
-            type: 'institution',
-            stats: { grade_books: 6 },
-          },
-          {
-            id: 3,
-            name: 'Məktəb 3',
-            type: 'institution',
-            stats: { grade_books: 10 },
-          },
-        ],
-      },
-    ];
-  }
-  return [];
-};
 
 const GradeBooksPage: React.FC = () => {
   const { hasPermission, currentUser } = useAuth();
   const { viewMode, canViewHierarchy, isRegionAdmin, isSectorAdmin, canCreate: roleCanCreate } = useGradeBookRole();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [hierarchyData] = useState<HierarchyNode[]>(() => generateMockHierarchy(viewMode));
+
+  const anyUser = currentUser as any;
+  
+  // Auto-select institution for school admin
+  useEffect(() => {
+    if (!canViewHierarchy && currentUser?.institution?.id) {
+      setSelectedInstitutionId(currentUser.institution.id);
+    }
+  }, [canViewHierarchy, currentUser?.institution?.id]);
+
+  // Institution hierarchy (Region->Sector->School) for Region/Sektor admins
+  const [institutionTree, setInstitutionTree] = useState<HierarchyNode[]>([]);
+  const [institutionTreeLoading, setInstitutionTreeLoading] = useState(true);
+  const [selectedInstitutionId, setSelectedInstitutionId] = useState<number | null>(null);
+  const [selectedGradeId, setSelectedGradeId] = useState<number | null>(null);
+
+  const [gradesForInstitution, setGradesForInstitution] = useState<Array<{ id: number; label: string; journalCount: number }>>([]);
+  const [gradesLoading, setGradesLoading] = useState(false);
+  const [hierarchySearch, setHierarchySearch] = useState('');
+  const [gradesSearch, setGradesSearch] = useState('');
   
   const {
     expandedIds,
+    setExpandedIds,
     selectedNode,
     toggleExpand,
     selectNode,
   } = useHierarchyState();
 
+  const mapInstitutionNodeType = (type: string): HierarchyNode['type'] | null => {
+    if (type === 'region' || type === 'regional_education_department') return 'region';
+    if (type === 'sektor' || type === 'sector_education_office') return 'sector';
+
+    // Schools are level 4 in this system but types vary (secondary_school/lyceum/...)
+    // We treat all non-region/non-sector institutions as schools for this view.
+    return 'institution';
+  };
+
+  const isSchoolTypeAllowed = (node: InstitutionHierarchyNode): boolean => {
+    return node.level === 4;
+  };
+
+  const countSchoolsInSubtree = (node: InstitutionHierarchyNode): number => {
+    if (node.level === 4) return 1;
+    const children = Array.isArray(node.children) ? node.children : [];
+    return children.reduce((sum, child) => sum + countSchoolsInSubtree(child), 0);
+  };
+
+  const toNavigatorNodes = (nodes: InstitutionHierarchyNode[]): HierarchyNode[] => {
+    const transform = (n: InstitutionHierarchyNode): HierarchyNode | null => {
+      const mappedType = mapInstitutionNodeType(n.type);
+      if (!mappedType) return null;
+
+      // Limit to Region(2) -> Sector(3) -> School(4)
+      if (mappedType === 'institution' && !isSchoolTypeAllowed(n)) {
+        return null;
+      }
+
+      const children = Array.isArray(n.children) ? n.children : [];
+      const nextChildren = children
+        .map(transform)
+        .filter(Boolean) as HierarchyNode[];
+
+      // Do not keep deeper levels under school
+      const trimmedChildren = mappedType === 'institution' ? undefined : nextChildren;
+
+      const schoolCount = mappedType === 'institution'
+        ? undefined
+        : countSchoolsInSubtree(n);
+
+      return {
+        id: Number(n.id),
+        name: n.name,
+        type: mappedType,
+        stats: schoolCount !== undefined ? { institutions: schoolCount } : undefined,
+        has_children: mappedType !== 'institution' ? (n.has_children || nextChildren.length > 0) : false,
+        children: trimmedChildren,
+      };
+    };
+
+    return nodes.map(transform).filter(Boolean) as HierarchyNode[];
+  };
+
+  // Load institution hierarchy tree from /api/hierarchy (role-scoped)
+  useEffect(() => {
+    const loadInstitutionTree = async () => {
+      try {
+        setInstitutionTreeLoading(true);
+
+        if (!canViewHierarchy) {
+          setInstitutionTree([]);
+          return;
+        }
+
+        const response = await hierarchyService.getHierarchy({ max_depth: 4, include_inactive: false, expand_all: true });
+        const rootNodes = response?.data ?? [];
+        const mapped = toNavigatorNodes(rootNodes);
+        setInstitutionTree(mapped);
+
+        const allIds = new Set<number>();
+        const collectIds = (items: HierarchyNode[]) => {
+          items.forEach(item => {
+            allIds.add(item.id);
+            if (item.children) collectIds(item.children);
+          });
+        };
+        collectIds(mapped);
+        setExpandedIds(allIds);
+      } catch (error) {
+        console.error('[InstitutionHierarchy] Error:', error);
+        setInstitutionTree([]);
+      } finally {
+        setInstitutionTreeLoading(false);
+      }
+    };
+
+    loadInstitutionTree();
+  }, [canViewHierarchy, setExpandedIds]);
+
   const canViewList = hasPermission('assessments.read');
-  const canCreate = hasPermission('assessments.write') && roleCanCreate;
+  const canCreate = hasPermission('assessments.create') && roleCanCreate;
   const canAccessAdmin = isRegionAdmin || isSectorAdmin;
+
+  // Selection handler: we select school nodes here
+  const handleSelectNode = (node: HierarchyNode) => {
+    selectNode(node);
+
+    if (node.type === 'institution') {
+      setSelectedInstitutionId(node.id);
+      setSelectedGradeId(null);
+      return;
+    }
+  };
+
+  const selectedInstitution = useMemo(() => {
+    if (!selectedInstitutionId) return null;
+    const findNode = (nodes: HierarchyNode[]): HierarchyNode | null => {
+      for (const n of nodes) {
+        if (n.type === 'institution' && n.id === selectedInstitutionId) return n;
+        if (n.children) {
+          const found = findNode(n.children);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    return findNode(institutionTree);
+  }, [institutionTree, selectedInstitutionId]);
+
+  const selectedInstitutionName = selectedInstitution?.name ?? '';
+
+  useEffect(() => {
+    const loadGradesForInstitution = async () => {
+      try {
+        setGradesLoading(true);
+        setGradesForInstitution([]);
+
+        if (!selectedInstitutionId) {
+          setSelectedGradeId(null);
+          return;
+        }
+
+        // Disable cache to ensure fresh data when switching schools
+        const result = await gradeBookService.getGradeBooks({ institution_id: selectedInstitutionId, per_page: 200 }, { cache: false });
+        const items = result?.data ?? [];
+
+        const map = new Map<number, { id: number; label: string; journalCount: number }>();
+        (items as any[]).forEach((gb) => {
+          const g = gb?.grade;
+          if (!g?.id) return;
+
+          const id = Number(g.id);
+          const composite = `${g.class_level || ''}-${g.name || ''}`.replace(/^\-/, '');
+          const gradeName = g.full_name || composite || g.name;
+          const label = gradeName || `Sinif ${id}`;
+
+          const existing = map.get(id);
+          if (existing) {
+            existing.journalCount += 1;
+          } else {
+            map.set(id, { id, label, journalCount: 1 });
+          }
+        });
+
+        const list = Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+        setGradesForInstitution(list);
+      } catch (error) {
+        console.error('[GradesForInstitution] Error:', error);
+        setGradesForInstitution([]);
+      } finally {
+        setGradesLoading(false);
+      }
+    };
+
+    loadGradesForInstitution();
+  }, [selectedInstitutionId]);
+
+  const filteredInstitutionTree = useMemo(() => {
+    if (!hierarchySearch.trim()) return institutionTree;
+    const query = hierarchySearch.toLowerCase();
+    const filterNodes = (nodes: HierarchyNode[]): HierarchyNode[] => {
+      return nodes.reduce<HierarchyNode[]>((acc, node) => {
+        const matches = node.name.toLowerCase().includes(query);
+        const filteredChildren = node.children ? filterNodes(node.children) : [];
+        if (matches || filteredChildren.length > 0) {
+          acc.push({
+            ...node,
+            children: filteredChildren.length > 0 ? filteredChildren : (matches ? node.children : undefined),
+            has_children: filteredChildren.length > 0 || (node.children?.length || 0) > 0,
+          });
+        }
+        return acc;
+      }, []);
+    };
+    return filterNodes(institutionTree);
+  }, [institutionTree, hierarchySearch]);
+
+  const filteredGrades = useMemo(() => {
+    if (!gradesSearch.trim()) return gradesForInstitution;
+    const query = gradesSearch.toLowerCase();
+    return gradesForInstitution.filter((g) => g.label.toLowerCase().includes(query));
+  }, [gradesForInstitution, gradesSearch]);
 
   const allowedTabs = useMemo(() => {
     const tabs: GradeBookTab[] = [];
     if (canViewList) tabs.push('list', 'analysis');
     if (canAccessAdmin) tabs.push('admin');
-    if (canCreate) tabs.push('create');
     return tabs;
   }, [canViewList, canCreate, canAccessAdmin]);
 
@@ -144,12 +286,12 @@ const GradeBooksPage: React.FC = () => {
   };
 
   const institutionChipText = useMemo(() => {
-    const regionOrDept = currentUser?.region?.name || currentUser?.department?.name || '';
-    const institution = currentUser?.institution?.name || '';
+    const regionOrDept = anyUser?.region?.name || anyUser?.department?.name || '';
+    const institution = anyUser?.institution?.name || '';
 
     if (regionOrDept && institution) return `${regionOrDept} · ${institution}`;
     return regionOrDept || institution;
-  }, [currentUser?.department?.name, currentUser?.institution?.name, currentUser?.region?.name]);
+  }, [anyUser?.department?.name, anyUser?.institution?.name, anyUser?.region?.name]);
 
   // Render hierarchy breadcrumb for Region/Sector Admins
   const renderHierarchyInfo = () => {
@@ -214,14 +356,6 @@ const GradeBooksPage: React.FC = () => {
                 Nəticə Analizi
               </TabsTrigger>
             )}
-            {allowedTabs.includes('create') && (
-              <TabsTrigger
-                value="create"
-                className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:bg-white/60 hover:text-slate-900 transition data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200"
-              >
-                + Yeni Jurnal
-              </TabsTrigger>
-            )}
             {allowedTabs.includes('admin') && (
               <TabsTrigger
                 value="admin"
@@ -247,25 +381,197 @@ const GradeBooksPage: React.FC = () => {
           <TabsContent value="list" className="mt-4">
             {/* Show hierarchy navigator for region/sector admins */}
             {canViewHierarchy ? (
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-                <div className="lg:col-span-1">
-                  <HierarchyNavigator
-                    nodes={hierarchyData}
-                    loading={false}
-                    selectedId={selectedNode?.id}
-                    selectedType={selectedNode?.type}
-                    onSelect={selectNode}
-                    expandedIds={expandedIds}
-                    onToggleExpand={toggleExpand}
-                  />
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div className="lg:col-span-4">
+                  <Card className="border-slate-200 h-full">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        <Building2 className="w-4 h-4" />
+                        Hiyerarşiya
+                      </CardTitle>
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Məktəb və ya sektor axtar..."
+                          value={hierarchySearch}
+                          onChange={(e) => setHierarchySearch(e.target.value)}
+                          className="pl-8 h-9 text-sm"
+                        />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="p-4 max-h-[460px] overflow-y-auto">
+                        <HierarchyNavigator
+                          nodes={filteredInstitutionTree}
+                          loading={institutionTreeLoading}
+                          selectedId={selectedNode?.id}
+                          selectedType={selectedNode?.type}
+                          onSelect={handleSelectNode}
+                          expandedIds={expandedIds}
+                          onToggleExpand={toggleExpand}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
                 </div>
-                <div className="lg:col-span-3">
-                  <GradeBookList />
+
+                <div className="lg:col-span-4">
+                  <Card className="border-slate-200 h-full">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        <Calculator className="w-4 h-4" />
+                        Siniflər
+                      </CardTitle>
+                      {selectedInstitutionName && (
+                        <span className="text-xs text-slate-500 truncate block" title={selectedInstitutionName}>
+                          {selectedInstitutionName}
+                        </span>
+                      )}
+                      <div className="relative">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Sinif axtar..."
+                          value={gradesSearch}
+                          onChange={(e) => setGradesSearch(e.target.value)}
+                          className="pl-8 h-9 text-sm"
+                          disabled={!selectedInstitutionId}
+                        />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      {!selectedInstitutionId ? (
+                        <div className="text-sm text-slate-500 text-center py-10">
+                          Məktəb seçin
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Button
+                              variant={selectedGradeId === null ? 'default' : 'outline'}
+                              className="w-full justify-between"
+                              onClick={() => setSelectedGradeId(null)}
+                            >
+                              Bütün siniflər
+                            </Button>
+                          </div>
+
+                          {gradesLoading ? (
+                            <div className="text-sm text-slate-500 text-center py-10">Yüklənir...</div>
+                          ) : filteredGrades.length === 0 ? (
+                            <div className="text-sm text-slate-500 text-center py-10">
+                              {gradesSearch.trim() ? 'Axtarışa uyğun sinif tapılmadı' : 'Sinif tapılmadı'}
+                            </div>
+                          ) : (
+                            <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+                              {filteredGrades.map((g) => (
+                                <Button
+                                  key={g.id}
+                                  variant={selectedGradeId === g.id ? 'default' : 'outline'}
+                                  className="w-full justify-between"
+                                  onClick={() => setSelectedGradeId(g.id)}
+                                >
+                                  <span className="truncate">{g.label}</span>
+                                  <span className="text-xs opacity-70">{g.journalCount}</span>
+                                </Button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="lg:col-span-4">
+                  {!selectedInstitutionId ? (
+                    <Card className="border-slate-200 h-full">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                          <School className="w-4 h-4" />
+                          Jurnallar
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="p-4">
+                        <div className="text-sm text-slate-500 text-center py-10">
+                          Jurnalları görmək üçün məktəb seçin
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <GradeBookList
+                      institutionId={selectedInstitutionId}
+                      institutionName={selectedInstitutionName}
+                      selectedGradeId={selectedGradeId}
+                      selectedGradeLabel={filteredGrades.find(g => g.id === selectedGradeId)?.label}
+                    />
+                  )}
                 </div>
               </div>
             ) : (
-              /* Show only grade book list for school admin and teacher */
-              <GradeBookList />
+              /* Two column layout for school admin and teacher */
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div className="lg:col-span-4">
+                  <Card className="border-slate-200 h-full">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        <Calculator className="w-4 h-4" />
+                        Siniflər
+                      </CardTitle>
+                      <span className="text-xs text-slate-500 truncate block" title={institutionChipText || undefined}>
+                        {institutionChipText || currentUser?.institution?.name}
+                      </span>
+                      <div className="relative mt-2">
+                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Sinif axtar..."
+                          value={gradesSearch}
+                          onChange={(e) => setGradesSearch(e.target.value)}
+                          className="pl-8 h-9 text-sm"
+                        />
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      {gradesLoading ? (
+                        <div className="text-sm text-slate-500 text-center py-10">Yüklənir...</div>
+                      ) : filteredGrades.length === 0 ? (
+                        <div className="text-sm text-slate-500 text-center py-10">
+                          {gradesSearch.trim() ? 'Axtarışa uyğun sinif tapılmadı' : 'Sinif tapılmadı'}
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
+                          <Button
+                            variant={selectedGradeId === null ? 'default' : 'outline'}
+                            className="w-full justify-between"
+                            onClick={() => setSelectedGradeId(null)}
+                          >
+                            Bütün siniflər
+                          </Button>
+                          {filteredGrades.map((g) => (
+                            <Button
+                              key={g.id}
+                              variant={selectedGradeId === g.id ? 'default' : 'outline'}
+                              className="w-full justify-between"
+                              onClick={() => setSelectedGradeId(g.id)}
+                            >
+                              <span className="truncate">{g.label}</span>
+                              <span className="text-xs opacity-70">{g.journalCount}</span>
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="lg:col-span-8">
+                  <GradeBookList
+                    institutionId={selectedInstitutionId}
+                    institutionName={currentUser?.institution?.name}
+                    selectedGradeId={selectedGradeId}
+                    selectedGradeLabel={filteredGrades.find(g => g.id === selectedGradeId)?.label}
+                  />
+                </div>
+              </div>
             )}
           </TabsContent>
         )}
@@ -273,12 +579,6 @@ const GradeBooksPage: React.FC = () => {
         {allowedTabs.includes('list') && (
           <TabsContent value="analysis" className="mt-4">
             <GradeBookAnalysis />
-          </TabsContent>
-        )}
-
-        {allowedTabs.includes('create') && (
-          <TabsContent value="create" className="mt-4">
-            <GradeBookCreatePage />
           </TabsContent>
         )}
 

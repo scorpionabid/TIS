@@ -275,7 +275,7 @@ class GradeBookValidationService
         if (!$isAssignedTeacher) {
             // Check if user has admin permissions
             $user = \App\Models\User::find($userId);
-            $hasAdminPermission = $user && $user->hasAnyPermission(['assessments.write', 'assessments.admin']);
+            $hasAdminPermission = $user && $user->hasAnyPermission(['assessments.write', 'assessments.update', 'assessments.admin']);
 
             if (!$hasAdminPermission) {
                 return [

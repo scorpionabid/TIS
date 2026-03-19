@@ -28,23 +28,8 @@ class AssessmentTypeSeeder extends Seeder
         $assessmentTypes = [
             // Grade Book Assessment Types
             [
-                'name' => 'Diaqnostik',
-                'description' => 'Diaqnostik qiymətləndirmə - şagirdlərin hazırkı bilik səviyyəsini müəyyən etmək üçün',
-                'category' => 'custom',
-                'is_active' => true,
-                'criteria' => [
-                    'Əvvəlki biliklər' => 100,
-                ],
-                'max_score' => 100,
-                'scoring_method' => 'percentage',
-                'grade_levels' => ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'],
-                'subjects' => ['Bütün fənlər'],
-                'created_by' => $superAdmin->id,
-                'institution_id' => null,
-            ],
-            [
-                'name' => 'KSQ',
-                'description' => 'Kiçik summativ qiymətləndirmə (KSQ) - mövzu üzrə biliyin yoxlanılması',
+                'name' => 'Kiçik summativ qiymətləndirmə',
+                'description' => 'Kiçik summativ qiymətləndirmə (KSQ)',
                 'category' => 'ksq',
                 'is_active' => true,
                 'criteria' => [
@@ -61,8 +46,8 @@ class AssessmentTypeSeeder extends Seeder
                 'institution_id' => null,
             ],
             [
-                'name' => 'BSQ',
-                'description' => 'Böyük summativ qiymətləndirmə (BSQ) - bölmə və ya yarımillik üzrə biliyin qiymətləndirilməsi',
+                'name' => 'Böyük Summativ qiymətləndirmə',
+                'description' => 'Böyük Summativ qiymətləndirmə (BSQ)',
                 'category' => 'bsq',
                 'is_active' => true,
                 'criteria' => [
@@ -81,7 +66,7 @@ class AssessmentTypeSeeder extends Seeder
             ],
             [
                 'name' => 'Buraxılış imtahanı',
-                'description' => 'Buraxılış imtahanı - təhsil pilləsinin sonunda yekun qiymətləndirmə',
+                'description' => 'Buraxılış imtahanı (Buraxılış)',
                 'category' => 'bsq',
                 'is_active' => true,
                 'criteria' => [
@@ -96,7 +81,7 @@ class AssessmentTypeSeeder extends Seeder
             ],
             [
                 'name' => 'Monitorinq',
-                'description' => 'Monitorinq qiymətləndirmə - tədris prosesinin izlənməsi üçün',
+                'description' => 'Monitorinq (monitorinq)',
                 'category' => 'custom',
                 'is_active' => true,
                 'criteria' => [
@@ -112,8 +97,8 @@ class AssessmentTypeSeeder extends Seeder
                 'institution_id' => null,
             ],
             [
-                'name' => 'Milli qiymətləndirmələr',
-                'description' => 'Milli qiymətləndirmələr - mərkəzləşdirilmiş qiymətləndirmə nəticələri',
+                'name' => 'Milli',
+                'description' => 'Milli (milli)',
                 'category' => 'custom',
                 'is_active' => true,
                 'criteria' => [

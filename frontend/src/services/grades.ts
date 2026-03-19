@@ -32,6 +32,7 @@ export interface Grade {
   student_count: number;
   male_student_count?: number;
   female_student_count?: number;
+  assigned_student_count?: number; // Students assigned from Students page
   specialty?: string;
   description?: string;
   education_program?: string;

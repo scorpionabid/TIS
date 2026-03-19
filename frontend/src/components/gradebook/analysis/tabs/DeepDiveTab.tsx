@@ -71,95 +71,31 @@ export function DeepDiveTab({ filters, loading, setLoading }: DeepDiveTabProps) 
       if (filters.academic_year_id) params.academic_year_id = filters.academic_year_id;
       if (filters.grade_id) params.grade_id = filters.grade_id;
       if (filters.subject_id) params.subject_id = filters.subject_id;
-      if (filters.status && filters.status !== 'all') params.status = filters.status;
 
-      // Get grade books for analysis
-      const result = await gradeBookService.getGradeBooks(params);
-      const gradeBooks = result.data || [];
+      // Get deep dive data from API
+      const response = await gradeBookService.getDeepDiveData(params);
 
-      // Analyze subjects from real grade book data
-      const subjectStats: Record<string, { scores: number[]; passCount: number; totalCount: number }> = {};
-      
-      gradeBooks.forEach((gb: any) => {
-        const subjectName = gb.subject?.name || 'Naməlum';
-        if (!subjectStats[subjectName]) {
-          subjectStats[subjectName] = { scores: [], passCount: 0, totalCount: 0 };
-        }
-        
-        // Use average_score from grade book if available
-        if (gb.average_score) {
-          subjectStats[subjectName].scores.push(gb.average_score);
-          subjectStats[subjectName].totalCount++;
-          if (gb.average_score >= 50) {
-            subjectStats[subjectName].passCount++;
-          }
-        }
-      });
-
-      // Transform to subject analysis
-      const realSubjectAnalysis: SubjectAnalysis[] = Object.entries(subjectStats).map(([subject, stats]) => {
-        const avg = stats.scores.length > 0 
-          ? stats.scores.reduce((a, b) => a + b, 0) / stats.scores.length 
-          : 70 + Math.random() * 10;
-        const passRate = stats.totalCount > 0 ? Math.round((stats.passCount / stats.totalCount) * 100) : 75;
-        
-        return {
-          subject,
-          average: Math.round(avg * 10) / 10,
-          passRate,
-          riskCount: Math.max(0, Math.floor((100 - passRate) * 0.3)),
-          trend: avg > 75 ? 'improving' : avg < 65 ? 'declining' : 'stable',
-        };
-      });
-
-      // Fallback to mock data if no real data
-      setSubjectAnalysis(realSubjectAnalysis.length > 0 ? realSubjectAnalysis : getDefaultSubjectAnalysis());
-
-      // For risk and top students, we need individual student data
-      // This requires fetching students from grade books - simplified for now
-      setRiskStudents(getDefaultRiskStudents());
-      setTopStudents(getDefaultTopStudents());
-
+      if (response.success && response.data) {
+        setRiskStudents(response.data.riskStudents || []);
+        setTopStudents(response.data.topStudents || []);
+        setSubjectAnalysis(response.data.subjectAnalysis || []);
+      } else {
+        throw new Error('Failed to load deep dive data');
+      }
     } catch (error: any) {
       toast({
         title: 'Xəta',
         description: 'Dərin təhlil məlumatları yüklənərkən xəta baş verdi',
         variant: 'destructive',
       });
+      setRiskStudents([]);
+      setTopStudents([]);
+      setSubjectAnalysis([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Helper functions for fallback data
-  const getDefaultRiskStudents = (): RiskStudent[] => [
-    { id: 1, name: 'Ahmadov Samir', class: '9-A', average: 32.5, failedSubjects: 4, attendance: 65, trend: 'down' },
-    { id: 2, name: 'Mammadova Lale', class: '10-B', average: 35.2, failedSubjects: 3, attendance: 70, trend: 'stable' },
-    { id: 3, name: 'Huseynov Elchin', class: '8-A', average: 38.8, failedSubjects: 3, attendance: 75, trend: 'down' },
-    { id: 4, name: 'Aliyeva Nigar', class: '11-A', average: 41.5, failedSubjects: 2, attendance: 80, trend: 'stable' },
-    { id: 5, name: 'Hasanov Orkhan', class: '9-B', average: 43.2, failedSubjects: 2, attendance: 72, trend: 'up' },
-    { id: 6, name: 'Ismayilova Aysel', class: '10-A', average: 45.8, failedSubjects: 2, attendance: 78, trend: 'down' },
-    { id: 7, name: 'Guliyev Tural', class: '8-B', average: 47.5, failedSubjects: 1, attendance: 85, trend: 'stable' },
-    { id: 8, name: 'Rzayeva Sabina', class: '11-B', average: 48.2, failedSubjects: 1, attendance: 82, trend: 'up' },
-  ];
-
-  const getDefaultTopStudents = (): TopStudent[] => [
-    { id: 1, name: 'Mammadov Ramil', class: '10-A', average: 94.5, bestSubject: 'Riyaziyyat', improvement: 12.3 },
-    { id: 2, name: 'Aliyeva Zeynab', class: '11-B', average: 92.8, bestSubject: 'Ədəbyyat', improvement: 8.5 },
-    { id: 3, name: 'Huseynov Tamerlan', class: '9-A', average: 91.2, bestSubject: 'Fizika', improvement: 15.2 },
-    { id: 4, name: 'Gasimova Aydan', class: '10-B', average: 90.5, bestSubject: 'Kimya', improvement: 6.8 },
-    { id: 5, name: 'Abdullayev Nurlan', class: '11-A', average: 89.8, bestSubject: 'Riyaziyyat', improvement: 9.4 },
-    { id: 6, name: 'Suleymanova Lala', class: '8-A', average: 88.5, bestSubject: 'Biologiya', improvement: 11.2 },
-  ];
-
-  const getDefaultSubjectAnalysis = (): SubjectAnalysis[] => [
-    { subject: 'Riyaziyyat', average: 72.5, passRate: 78, riskCount: 12, trend: 'improving' },
-    { subject: 'Fizika', average: 68.3, passRate: 65, riskCount: 18, trend: 'declining' },
-    { subject: 'Kimya', average: 75.1, passRate: 82, riskCount: 8, trend: 'improving' },
-    { subject: 'Ədəbyyat', average: 78.2, passRate: 88, riskCount: 5, trend: 'stable' },
-    { subject: 'Tarix', average: 74.6, passRate: 80, riskCount: 10, trend: 'stable' },
-    { subject: 'Biologiya', average: 71.8, passRate: 75, riskCount: 14, trend: 'improving' },
-  ];
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {

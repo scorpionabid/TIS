@@ -54,6 +54,8 @@ export interface TabConfig {
   filter?: (items: any[]) => any[];
   serverFilters?: Record<string, any>;
   isStatsTab?: boolean; // When true, shows statistics cards instead of table
+  icon?: LucideIcon; // Icon for the tab
+  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'purple' | 'orange'; // Color variant for modern tabs
 }
 
 // Stats card configuration
@@ -67,6 +69,51 @@ export interface StatsConfig {
     value: number;
     isPositive: boolean;
   };
+}
+
+// Header stats chip configuration
+export interface HeaderStatConfig {
+  key: string;
+  label: string;
+  value: number;
+  icon?: LucideIcon;
+  color?: 'default' | 'green' | 'red' | 'blue' | 'amber';
+  tooltip?: string;
+}
+
+// Header action configuration
+export interface HeaderActionConfig {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  variant?: 'default' | 'outline' | 'ghost' | 'secondary';
+  onClick: () => void;
+  isVisible?: boolean;
+  isLoading?: boolean;
+}
+
+// Header configuration for modern header
+export interface HeaderConfig {
+  // Visibility
+  showStats?: boolean;
+  showSearch?: boolean;
+  showRefresh?: boolean;
+  showImport?: boolean;
+  showExport?: boolean;
+  showTemplate?: boolean;
+  showCreate?: boolean;
+  
+  // Labels
+  title?: string;
+  description?: string;
+  searchPlaceholder?: string;
+  createLabel?: string;
+  
+  // Stats to show in header chips
+  stats?: HeaderStatConfig[];
+  
+  // Custom actions
+  actions?: HeaderActionConfig[];
 }
 
 // Filter field configuration
@@ -120,6 +167,7 @@ export interface ManagerCustomLogic<T extends BaseEntity> {
   // Custom import/export handlers
   onImportClick?: () => void;
   onExportClick?: () => void;
+  onTemplateClick?: () => void;
 }
 
 // Entity configuration
@@ -166,6 +214,12 @@ export interface EntityConfig<T extends BaseEntity, TFilters extends BaseFilters
     edit?: boolean;
     delete?: boolean;
   };
+  
+  // Header configuration
+  headerConfig?: HeaderConfig;
+  
+  // Data transformer function to modify items before display
+  dataTransformer?: (items: T[]) => T[];
 }
 
 // Generic Manager Props

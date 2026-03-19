@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,7 @@ export const GradingInterface: React.FC<GradingInterfaceProps> = ({
 
   const getCurrentPoints = (studentId: number) => {
     const current = gradeData[studentId]?.points;
-    if (current) return current;
+    if (current !== undefined) return current;
     
     const existing = getExistingGrade(studentId);
     return existing?.points?.toString() || '';
@@ -208,16 +208,13 @@ export const GradingInterface: React.FC<GradingInterfaceProps> = ({
                       <label className="text-xs text-muted-foreground">
                         Bal (max: {assessment.total_points})
                       </label>
-                      <Input
-                        data-testid={`grade-input-${student.id}`}
-                        type="number"
-                        min="0"
-                        max={assessment.total_points}
-                        step="0.1"
+                      <input
+                        type="text"
+                        inputMode="decimal"
                         value={currentPoints}
                         onChange={(e) => updateGrade(student.id, 'points', e.target.value)}
                         placeholder="0"
-                        className="h-8"
+                        className="flex h-8 w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       />
                     </div>
                   </div>

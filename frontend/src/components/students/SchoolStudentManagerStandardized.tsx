@@ -3,57 +3,68 @@ import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { SchoolStudent } from '@/services/schoolAdmin';
 import { StudentFilters } from './configurations/studentConfig';
 import { studentEntityConfig, studentCustomLogic } from './configurations/studentConfig';
-import { UserModal } from '@/components/modals/UserModal';
+import { StudentModalModern } from '@/components/modals/student/StudentModalModern';
 import { StudentDetailsDialog } from './StudentDetailsDialog';
 import { EnrollmentModal } from './EnrollmentModal';
 import { ImportModal } from '@/components/import/ImportModal';
 import { cn } from '@/lib/utils';
 import { Upload } from 'lucide-react';
 import { logger } from '@/utils/logger';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { gradeService, Grade } from '@/services/grades';
+import { useAuth } from '@/contexts/AuthContext';
+import { studentService } from '@/services/students';
+import { toast } from 'sonner';
 
 interface SchoolStudentManagerStandardizedProps {
   className?: string;
 }
 
-/**
- * Phase 3: Standardized Student Manager
- * 
- * This component demonstrates the standardized manager pattern using GenericManagerV2.
- * Key improvements:
- * - Reduced from 450+ lines to ~130 lines (71% reduction)
- * - Unified with GenericManagerV2 architecture  
- * - Consistent error handling with Phase 2 utilities
- * - Production-safe logging
- * - Type-safe configuration-driven approach
- * - Enhanced student-specific features (enrollment, transfer, graduation)
- */
 export const SchoolStudentManagerStandardized: React.FC<SchoolStudentManagerStandardizedProps> = ({ 
   className 
 }) => {
+  const queryClient = useQueryClient();
+  const { currentUser } = useAuth();
+
   // Local modal state for student-specific features
   const [userModalOpen, setUserModalOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState<SchoolStudent | null>(null);
   const [selectedStudent, setSelectedStudent] = React.useState<SchoolStudent | null>(null);
   const [enrollmentModalOpen, setEnrollmentModalOpen] = React.useState(false);
   const [importModalOpen, setImportModalOpen] = React.useState(false);
-  const [selectedGradeForEnrollment, setSelectedGradeForEnrollment] = React.useState<number | null>(null);
+  const [selectedGradeForEnrollment, setSelectedGradeForEnrollment] = React.useState<string>('all');
+  const [isEnrolling, setIsEnrolling] = React.useState(false);
+
+  // Fetch grades for the current institution so the enrollment modal shows real classes
+  const institutionId = currentUser?.institution_id;
+  const { data: gradesResponse } = useQuery({
+    queryKey: ['grades', 'for-enrollment', institutionId],
+    queryFn: () => gradeService.get({ institution_id: institutionId, per_page: 200, is_active: true }),
+    enabled: !!institutionId,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const availableGrades: Grade[] = React.useMemo(() => {
+    if (!gradesResponse) return [];
+    const raw: any = gradesResponse;
+    // Handle various response shapes from gradeService.get()
+    if (Array.isArray(raw.items)) return raw.items;
+    if (raw.data && Array.isArray(raw.data.grades)) return raw.data.grades;
+    if (raw.data && Array.isArray(raw.data)) return raw.data;
+    if (Array.isArray(raw)) return raw;
+    return [];
+  }, [gradesResponse]);
 
   // Enhanced configuration with student-specific modal handlers
   const enhancedConfig = React.useMemo(() => ({
     ...studentEntityConfig,
-    
-    // Override actions to connect with local modal handlers
     actions: studentEntityConfig.actions.map(action => ({
       ...action,
       onClick: (student: SchoolStudent) => {
         logger.debug(`Student action triggered: ${action.key}`, {
           component: 'SchoolStudentManagerStandardized',
           action: `handle${action.key}`,
-          data: { 
-            studentId: student.id, 
-            studentNumber: student.student_number || student.student_id,
-            studentName: `${student.first_name} ${student.last_name}`.trim()
-          }
+          data: { studentId: student.id }
         });
         
         switch (action.key) {
@@ -69,7 +80,6 @@ export const SchoolStudentManagerStandardized: React.FC<SchoolStudentManagerStan
             setEnrollmentModalOpen(true);
             break;
           case 'delete':
-            // Handle delete action - could integrate with DeleteModal if needed
             logger.info(`Delete action for student ${student.id}`);
             break;
           default:
@@ -79,140 +89,107 @@ export const SchoolStudentManagerStandardized: React.FC<SchoolStudentManagerStan
     })),
   }), []);
 
-  // Enhanced custom logic with student-specific handlers
+  // Enhanced custom logic
   const enhancedCustomLogic = React.useMemo(() => ({
     ...studentCustomLogic,
-    
-    // Custom header actions
     headerActions: [
       {
         key: 'import',
         label: 'İdxal Et',
         icon: Upload,
-        onClick: () => {
-          logger.debug('Opening student import modal', {
-            component: 'SchoolStudentManagerStandardized',
-            action: 'openImportModal'
-          });
-          setImportModalOpen(true);
-        },
+        onClick: () => setImportModalOpen(true),
         variant: 'outline' as const,
       },
     ],
-    
-    // Custom create handler
     onCreateClick: () => {
-      logger.debug('Opening create student modal', {
-        component: 'SchoolStudentManagerStandardized',
-        action: 'openCreateModal'
-      });
       setEditingUser(null);
       setUserModalOpen(true);
     },
-    
-    // Enhanced bulk actions
     bulkActions: [
       ...studentCustomLogic.bulkActions,
-      {
-        key: 'bulk-enroll',
-        label: 'Toplu Qeydiyyat',
-        icon: Upload,
-        onClick: (selectedStudents) => {
-          logger.info(`Bulk enrollment for ${selectedStudents.length} students`);
-          // Could open a bulk enrollment modal
-        },
-        variant: 'outline' as const,
-      },
     ],
   }), []);
 
-  // Modal event handlers with error handling
+  // Save handler with cache invalidation so the list refreshes after create/edit
   const handleUserSave = async (userData: any) => {
     try {
-      logger.debug('Saving student data', {
-        component: 'SchoolStudentManagerStandardized',
-        action: 'handleUserSave',
-        data: { isEdit: !!editingUser, studentId: editingUser?.id }
-      });
-      
       if (editingUser) {
-        await studentEntityConfig.service.update(editingUser.id, userData);
+        await studentService.update(editingUser.id, userData);
         logger.info(`Successfully updated student ${editingUser.id}`);
+        toast.success('Şagird uğurla yeniləndi');
       } else {
-        await studentEntityConfig.service.create(userData);
+        await studentService.create(userData);
         logger.info('Successfully created new student');
+        toast.success('Şagird uğurla yaradıldı');
       }
-      
-      // Close modal on success
+
+      // Invalidate query cache so GenericManagerV2 re-fetches the list
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+
       setUserModalOpen(false);
       setEditingUser(null);
-      
     } catch (error) {
       logger.error('Failed to save student', error, {
         component: 'SchoolStudentManagerStandardized',
         action: 'handleUserSave'
       });
-      throw error; // Re-throw to let modal handle user feedback
-    }
-  };
-
-  const handleEnrollment = async (enrollmentData: any) => {
-    try {
-      logger.debug('Processing student enrollment', {
-        component: 'SchoolStudentManagerStandardized',
-        action: 'handleEnrollment',
-        data: { 
-          studentId: selectedStudent?.id,
-          enrollmentData: Object.keys(enrollmentData)
-        }
-      });
-      
-      // Handle enrollment logic here
-      // This could call a specific enrollment service method
-      logger.info(`Successfully enrolled student ${selectedStudent?.id}`);
-      
-      // Close modal on success
-      setEnrollmentModalOpen(false);
-      setSelectedStudent(null);
-      
-    } catch (error) {
-      logger.error('Failed to enroll student', error);
       throw error;
     }
   };
 
-  // Utility functions for student-specific dialogs
+  // Enrollment handler
+  const handleEnrollment = async (classId: number) => {
+    if (!selectedStudent) return;
+    try {
+      setIsEnrolling(true);
+      await studentService.update(selectedStudent.id, {
+        class_id: classId,
+        status: 'active',
+      } as any);
+      toast.success(`${selectedStudent.first_name} ${selectedStudent.last_name} sinfə uğurla yazıldı`);
+
+      // Invalidate cache
+      queryClient.invalidateQueries({ queryKey: ['students'] });
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+
+      setEnrollmentModalOpen(false);
+      setSelectedStudent(null);
+      setSelectedGradeForEnrollment('all');
+    } catch (error) {
+      logger.error('Failed to enroll student', error);
+      toast.error('Qeydiyyat əməliyyatı uğursuz oldu');
+      throw error;
+    } finally {
+      setIsEnrolling(false);
+    }
+  };
+
+  // Utility functions
   const utilityFunctions = React.useMemo(() => ({
     getStatusText: (status: string) => {
-      const statusMap: Record<string, string> = {
-        'active': 'Aktiv',
-        'inactive': 'Passiv',
-        'transferred': 'Köçürülmüş',
-        'graduated': 'Məzun'
+      const map: Record<string, string> = {
+        active: 'Aktiv', inactive: 'Passiv', transferred: 'Köçürülmüş', graduated: 'Məzun'
       };
-      return statusMap[status] || status;
+      return map[status] || status;
     },
-    
     getStatusColor: (status: string) => {
-      const colorMap: Record<string, string> = {
-        'active': 'bg-green-100 text-green-800',
-        'inactive': 'bg-red-100 text-red-800',
-        'transferred': 'bg-blue-100 text-blue-800',
-        'graduated': 'bg-purple-100 text-purple-800'
+      const map: Record<string, string> = {
+        active: 'bg-green-100 text-green-800',
+        inactive: 'bg-red-100 text-red-800',
+        transferred: 'bg-blue-100 text-blue-800',
+        graduated: 'bg-purple-100 text-purple-800',
       };
-      return colorMap[status] || 'bg-gray-100 text-gray-800';
+      return map[status] || 'bg-gray-100 text-gray-800';
     },
-    
     getGenderText: (gender: string) => {
-      const genderMap: Record<string, string> = {
-        'male': 'Kişi',
-        'female': 'Qadın',
-        'other': 'Digər'
-      };
-      return genderMap[gender] || gender;
+      const map: Record<string, string> = { male: 'Kişi', female: 'Qadın', other: 'Digər' };
+      return map[gender] || gender;
     },
-    
-    getGradeLevelText: (level: string | number) => `${level}-ci sinif`,
+    getGradeLevelText: (level?: number) => {
+      if (level === undefined || level === null) return 'Naməlum';
+      if (level === 0) return 'Anasinifi';
+      return `${level}-ci sinif`;
+    },
   }), []);
 
   return (
@@ -223,31 +200,33 @@ export const SchoolStudentManagerStandardized: React.FC<SchoolStudentManagerStan
         customLogic={enhancedCustomLogic}
       />
       
-      {/* Student-specific Modals */}
-      <UserModal
+      {/* Student Modal - Modern */}
+      <StudentModalModern
         open={userModalOpen}
         onClose={() => {
-          logger.debug('Closing user modal', {
-            component: 'SchoolStudentManagerStandardized',
-            action: 'closeUserModal'
-          });
           setUserModalOpen(false);
           setEditingUser(null);
         }}
-        onSave={handleUserSave}
-        user={editingUser}
+        student={editingUser}
+        onSave={async (studentData) => {
+          if (editingUser) {
+            // Update existing student
+            await studentService.update(editingUser.id, studentData);
+          } else {
+            // Create new student
+            await studentService.create(studentData);
+          }
+          queryClient.invalidateQueries({ queryKey: ['students'] });
+          setUserModalOpen(false);
+          setEditingUser(null);
+        }}
       />
 
+      {/* Student details dialog */}
       <StudentDetailsDialog
         student={selectedStudent}
         isOpen={!!selectedStudent && !enrollmentModalOpen}
-        onClose={() => {
-          logger.debug('Closing student details dialog', {
-            component: 'SchoolStudentManagerStandardized',
-            action: 'closeDetailsDialog'
-          });
-          setSelectedStudent(null);
-        }}
+        onClose={() => setSelectedStudent(null)}
         onEdit={(student) => {
           setEditingUser(student);
           setUserModalOpen(true);
@@ -257,43 +236,36 @@ export const SchoolStudentManagerStandardized: React.FC<SchoolStudentManagerStan
           setSelectedStudent(student);
           setEnrollmentModalOpen(true);
         }}
-        {...utilityFunctions}
       />
 
+      {/* Enrollment modal — now receives real grades */}
       <EnrollmentModal
         isOpen={enrollmentModalOpen}
         onClose={() => {
-          logger.debug('Closing enrollment modal', {
-            component: 'SchoolStudentManagerStandardized',
-            action: 'closeEnrollmentModal'
-          });
           setEnrollmentModalOpen(false);
           setSelectedStudent(null);
-          setSelectedGradeForEnrollment(null);
+          setSelectedGradeForEnrollment('all');
         }}
         student={selectedStudent}
-        classes={[]} // This could be loaded dynamically
+        classes={availableGrades}
         selectedGradeForEnrollment={selectedGradeForEnrollment}
         setSelectedGradeForEnrollment={setSelectedGradeForEnrollment}
         onEnroll={handleEnrollment}
-        isEnrolling={false}
+        isEnrolling={isEnrolling}
         getGradeLevelText={utilityFunctions.getGradeLevelText}
       />
 
+      {/* Import modal */}
       <ImportModal
-        isOpen={importModalOpen}
-        onClose={() => {
-          logger.debug('Closing import modal', {
-            component: 'SchoolStudentManagerStandardized',
-            action: 'closeImportModal'
-          });
-          setImportModalOpen(false);
+        open={importModalOpen}
+        onOpenChange={(open) => {
+          setImportModalOpen(open);
+          if (!open) queryClient.invalidateQueries({ queryKey: ['students'] });
         }}
-        importType="students"
+        type="students"
         onImportComplete={() => {
-          logger.info('Student import completed successfully');
           setImportModalOpen(false);
-          // Could trigger a refetch here if needed
+          queryClient.invalidateQueries({ queryKey: ['students'] });
         }}
       />
     </div>

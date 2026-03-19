@@ -23,7 +23,9 @@ import {
   Edit, 
   Trash2,
   Download,
-  Upload
+  Upload,
+  BarChart3,
+  LayoutGrid
 } from 'lucide-react';
 
 // Default filters and create data
@@ -52,7 +54,8 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
   {
     key: 'name',
     label: 'Ad Soyad',
-    width: 'w-[220px]',
+    width: 'w-[200px]',
+    align: 'left',
     render: (teacher) => (
       <div className="flex items-center gap-3 py-1">
         <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center shadow-sm">
@@ -74,11 +77,12 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
   {
     key: 'workplace_type',
     label: 'İş yeri növü',
-    width: 'w-[120px]',
+    width: 'w-[130px]',
+    align: 'center',
     render: (teacher: any) => {
       const workplaceLabels: Record<string, string> = {
-        primary: 'Əsas iş yeri (bu məktəbdə)',
-        secondary: 'Əlavə (ikinci) iş yeri',
+        primary: 'Əsas iş yeri',
+        secondary: 'Əlavə iş yeri',
         remote: 'Uzaqdan iş',
       };
       const workplaceColors: Record<string, string> = {
@@ -88,16 +92,19 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
       };
       const type = teacher.workplace_type || 'primary';
       return (
-        <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium shadow-sm ${workplaceColors[type]}`}>
-          {workplaceLabels[type] || type}
-        </span>
+        <div className="flex justify-center">
+          <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-medium shadow-sm whitespace-nowrap ${workplaceColors[type]}`}>
+            {workplaceLabels[type] || type}
+          </span>
+        </div>
       );
     },
   },
   {
     key: 'position_type',
     label: 'Vəzifə',
-    width: 'w-[150px]',
+    width: 'w-[160px]',
+    align: 'center',
     render: (teacher: any) => {
       const positionLabels: Record<string, string> = {
         direktor: 'Direktor',
@@ -114,9 +121,11 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
         'təsərrüfat_işçisi': 'Təsərrüfat İşçisi',
       };
       return (
-        <span className="inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm">
-          {teacher.position_type ? positionLabels[teacher.position_type] || teacher.position_type : 'Təyin edilməyib'}
-        </span>
+        <div className="flex justify-center">
+          <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm whitespace-nowrap">
+            {teacher.position_type ? positionLabels[teacher.position_type] || teacher.position_type : 'Təyin edilməyib'}
+          </span>
+        </div>
       );
     },
   },
@@ -124,87 +133,108 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
     key: 'specialty',
     label: 'İxtisas',
     width: 'w-[140px]',
+    align: 'center',
     render: (teacher: any) => (
-      <span className="text-sm text-slate-700 font-medium">
-        {teacher.specialty || 'Təyin edilməyib'}
-      </span>
+      <div className="flex justify-center">
+        <span className="text-sm text-slate-700 font-medium">
+          {teacher.specialty || 'Təyin edilməyib'}
+        </span>
+      </div>
     ),
   },
   {
     key: 'assessment_score',
     label: 'Qiymətləndirmə balı',
-    width: 'w-[120px]',
+    width: 'w-[130px]',
+    align: 'center',
     render: (teacher: any) => {
       const score = teacher.assessment_score;
       const hasScore = score !== undefined && score !== null && score !== '';
       const numScore = hasScore ? Number(score) : NaN;
       return (
-        <span className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm ${
-          hasScore && !isNaN(numScore)
-            ? numScore >= 40 
-              ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
-              : numScore >= 30 
-                ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                : 'bg-red-100 text-red-800 border border-red-200'
-            : 'bg-slate-100 text-slate-500 border border-slate-200'
-        }`}>
-          {hasScore && !isNaN(numScore) ? Math.round(numScore) : '—'}
-        </span>
+        <div className="flex justify-center">
+          <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm ${
+            hasScore && !isNaN(numScore)
+              ? numScore >= 40 
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                : numScore >= 30 
+                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                  : 'bg-red-100 text-red-800 border border-red-200'
+              : 'bg-slate-100 text-slate-500 border border-slate-200'
+          }`}>
+            {hasScore && !isNaN(numScore) ? Math.round(numScore) : '—'}
+          </span>
+        </div>
       );
     },
   },
   {
     key: 'workload_teaching_hours',
     label: 'Dərs',
-    width: 'w-[100px]',
+    width: 'w-[90px]',
+    align: 'center',
     render: (teacher: any) => (
-      <span className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-base font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm min-w-[3rem]">
-        {teacher.workload_teaching_hours ?? 0}
-      </span>
+      <div className="flex justify-center">
+        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm min-w-[2.5rem]">
+          {teacher.workload_teaching_hours ?? 0}
+        </span>
+      </div>
     ),
   },
   {
     key: 'workload_extracurricular_hours',
     label: 'Məşğələ',
-    width: 'w-[100px]',
+    width: 'w-[90px]',
+    align: 'center',
     render: (teacher: any) => (
-      <span className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-base font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm min-w-[3rem]">
-        {teacher.workload_extracurricular_hours ?? 0}
-      </span>
+      <div className="flex justify-center">
+        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm min-w-[2.5rem]">
+          {teacher.workload_extracurricular_hours ?? 0}
+        </span>
+      </div>
     ),
   },
   {
     key: 'workload_club_hours',
     label: 'DƏRNƏK',
     width: 'w-[90px]',
+    align: 'center',
     render: (teacher: any) => (
-      <span className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-base font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-sm min-w-[3rem]">
-        {teacher.workload_club_hours ?? 0}
-      </span>
+      <div className="flex justify-center">
+        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-sm min-w-[2.5rem]">
+          {teacher.workload_club_hours ?? 0}
+        </span>
+      </div>
     ),
   },
   {
     key: 'workload_total_hours',
     label: 'HƏFTƏLİK SAAT',
     width: 'w-[110px]',
+    align: 'center',
     render: (teacher: any) => (
-      <span className="inline-flex items-center justify-center px-4 py-2 rounded-lg text-lg font-bold bg-emerald-100 text-emerald-800 border-2 border-emerald-300 shadow-md min-w-[3.5rem]">
-        {teacher.workload_total_hours ?? 0}
-      </span>
+      <div className="flex justify-center">
+        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-emerald-100 text-emerald-800 border-2 border-emerald-300 shadow-sm min-w-[2.5rem]">
+          {teacher.workload_total_hours ?? 0}
+        </span>
+      </div>
     ),
   },
   {
     key: 'is_active',
     label: 'Status',
     width: 'w-[100px]',
+    align: 'center',
     render: (teacher) => (
-      <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${
-        teacher.is_active
-          ? 'bg-green-100 text-green-800 border border-green-200'
-          : 'bg-red-100 text-red-800 border border-red-200'
-      }`}>
-        {teacher.is_active ? 'Aktiv' : 'Passiv'}
-      </span>
+      <div className="flex justify-center">
+        <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${
+          teacher.is_active
+            ? 'bg-green-100 text-green-800 border border-green-200'
+            : 'bg-red-100 text-red-800 border border-red-200'
+        }`}>
+          {teacher.is_active ? 'Aktiv' : 'Passiv'}
+        </span>
+      </div>
     ),
   },
 ];
@@ -214,7 +244,7 @@ const actions: ActionConfig<SchoolTeacher>[] = [
   {
     key: 'details',
     icon: Clock,
-    label: 'Yük/Mövcudluq',
+    label: 'Dərs yükü / İş vaxtı',
     variant: 'outline',
     onClick: (teacher) => {
       console.log('Toggle teacher details:', teacher);
@@ -257,23 +287,31 @@ const actions: ActionConfig<SchoolTeacher>[] = [
 // Tab configuration
 const tabs: TabConfig[] = [
   {
+    key: 'stats',
+    label: 'Statistika',
+    isStatsTab: true,
+    icon: BarChart3,
+    variant: 'primary',
+  },
+  {
     key: 'all',
     label: 'Hamısı',
+    icon: LayoutGrid,
+    variant: 'default',
   },
   {
     key: 'active',
     label: 'Aktiv',
     filter: (teachers) => teachers.filter(t => t.is_active === true),
+    icon: CheckCircle,
+    variant: 'success',
   },
   {
     key: 'inactive', 
     label: 'Passiv',
     filter: (teachers) => teachers.filter(t => t.is_active === false),
-  },
-  {
-    key: 'stats',
-    label: 'Statistika',
-    isStatsTab: true,
+    icon: XCircle,
+    variant: 'danger',
   },
 ];
 
@@ -433,6 +471,21 @@ export const teacherEntityConfig: EntityConfig<SchoolTeacher, TeacherFilters, Ne
     create: true,
     edit: true,
     delete: true,
+  },
+  
+  // Modern Header Configuration
+  headerConfig: {
+    title: 'Müəllim İdarəetməsi',
+    description: 'Məktəb müəllimlərinin qeydiyyatı və idarə edilməsi',
+    searchPlaceholder: 'Ad, soyad vəya fənnə görə axtar...',
+    createLabel: 'Yeni Müəllim',
+    showStats: true,
+    showSearch: true,
+    showRefresh: true,
+    showImport: true,
+    showExport: true,
+    showTemplate: true,
+    showCreate: true,
   },
 };
 

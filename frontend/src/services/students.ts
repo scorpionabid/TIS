@@ -159,7 +159,7 @@ class StudentService {
   /**
    * Get all students with role-based filtering - Enhanced for GenericManagerV2
    */
-  async get(filters: StudentFilters = {}): Promise<StudentServiceResponse | Student[]> {
+  async get(filters: StudentFilters = {}, bypassCache = false): Promise<StudentServiceResponse | Student[]> {
     try {
       console.log('🔍 StudentService.get - baseURL:', this.baseURL, 'filters:', filters);
       
@@ -180,6 +180,11 @@ class StudentService {
       if (filters.academic_year) params.academic_year = filters.academic_year;
       if (filters.enrollment_date_from) params.enrollment_date_from = filters.enrollment_date_from;
       if (filters.enrollment_date_to) params.enrollment_date_to = filters.enrollment_date_to;
+
+      // Bypass cache by adding timestamp when explicitly requested or from filters
+      if (bypassCache || (filters as any)._t) {
+        params._t = (filters as any)._t || Date.now();
+      }
 
       const response = await apiClient.get<any>(this.baseURL, params);
       

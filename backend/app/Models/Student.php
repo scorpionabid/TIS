@@ -20,6 +20,7 @@ class Student extends Model
         'institution_id',
         'class_name',
         'grade_level',
+        'grade_id',
         'birth_date',
         'gender',
         'parent_name',

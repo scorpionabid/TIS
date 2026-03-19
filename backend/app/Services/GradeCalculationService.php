@@ -111,36 +111,53 @@ class GradeCalculationService
      */
     private function updateCalculatedCell(int $studentId, int $sessionId, string $semester, string $label, float $score, bool $applyToAllSemesters = false): void
     {
-        $column = GradeBookColumn::firstOrCreate(
-            [
-                'grade_book_session_id' => $sessionId,
-                'column_label' => $label,
-            ],
-            [
-                'assessment_type_id' => 1, // Default, should be configured
-                'semester' => $semester,
-                'assessment_date' => now(),
-                'max_score' => 100,
-                'display_order' => $this->getDisplayOrderForLabel($label),
-                'column_type' => 'calculated',
-                'created_by' => auth()->id() ?? 1,
-            ]
-        );
+        $displayOrder = $this->getDisplayOrderForLabel($label);
 
-        GradeBookCell::updateOrCreate(
-            [
-                'grade_book_column_id' => $column->id,
-                'student_id' => $studentId,
-            ],
-            [
-                'score' => $score,
-                'percentage' => $score,
-                'grade_mark' => $this->convertScoreToGrade($score),
-                'is_present' => true,
-                'recorded_by' => auth()->id() ?? 1,
-                'recorded_at' => now(),
-            ]
-        );
+        $columns = GradeBookColumn::query()
+            ->where('grade_book_session_id', $sessionId)
+            ->where('column_type', 'calculated')
+            ->where(function ($q) use ($label, $displayOrder) {
+                $q->where('column_label', $label)
+                    ->orWhere('display_order', $displayOrder);
+            })
+            ->get();
+
+        if ($columns->isEmpty()) {
+            $columns = collect([
+                GradeBookColumn::create([
+                    'grade_book_session_id' => $sessionId,
+                    'column_label' => $label,
+                    'assessment_type_id' => 1,
+                    'semester' => $semester,
+                    'assessment_date' => now(),
+                    'max_score' => 100,
+                    'display_order' => $displayOrder,
+                    'column_type' => 'calculated',
+                    'created_by' => auth()->id() ?? 1,
+                ])
+            ]);
+        }
+
+        $upperLabel = strtoupper($label);
+        $isGradeColumn = str_ends_with($upperLabel, '_QIYMET') || str_contains($upperLabel, 'QIYMET') || str_contains($upperLabel, 'QIYM');
+        $normalizedGrade = $isGradeColumn ? (int) round($score) : $this->convertScoreToGrade($score);
+
+        foreach ($columns as $column) {
+            GradeBookCell::updateOrCreate(
+                [
+                    'grade_book_column_id' => $column->id,
+                    'student_id' => $studentId,
+                ],
+                [
+                    'score' => $isGradeColumn ? $normalizedGrade : $score,
+                    'percentage' => $isGradeColumn ? null : $score,
+                    'grade_mark' => $normalizedGrade,
+                    'is_present' => true,
+                    'recorded_by' => auth()->id() ?? 1,
+                    'recorded_at' => now(),
+                ]
+            );
+        }
     }
 
     /**
@@ -165,16 +182,26 @@ class GradeCalculationService
      */
     public function recalculateSession(int $sessionId): void
     {
-        $session = GradeBookSession::with(['grade.enrollments.student'])->find($sessionId);
+        $session = GradeBookSession::with(['grade.studentEnrollments.student'])->find($sessionId);
 
         if (!$session || !$session->grade) {
             return;
         }
 
-        $studentIds = $session->grade->enrollments()
+        $studentIds = $session->grade->studentEnrollments()
             ->where('enrollment_status', 'active')
             ->pluck('student_id')
             ->toArray();
+
+        if (empty($studentIds)) {
+            $studentIds = GradeBookCell::query()
+                ->whereHas('column', function ($q) use ($sessionId) {
+                    $q->where('grade_book_session_id', $sessionId);
+                })
+                ->distinct()
+                ->pluck('student_id')
+                ->toArray();
+        }
 
         foreach ($studentIds as $studentId) {
             $this->updateCalculatedColumns($studentId, $sessionId);
