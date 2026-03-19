@@ -724,7 +724,7 @@ class ApiClientOptimized {
       });
     }
 
-    if (data && (method === 'POST' || method === 'PUT' || method === 'DELETE')) {
+    if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE')) {
       // Don't stringify FormData - send it directly
       if (data instanceof FormData) {
         requestInit.body = data;

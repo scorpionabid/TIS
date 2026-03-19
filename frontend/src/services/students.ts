@@ -1,5 +1,6 @@
 import { apiClient } from './api';
 import { BaseEntity } from '@/components/generic/types';
+import { toast } from 'sonner';
 
 // Enhanced Student interface that extends BaseEntity for GenericManagerV2 compatibility
 export interface Student extends BaseEntity {
@@ -138,7 +139,8 @@ export interface StudentCount {
 
 // Unified response type for GenericManagerV2 compatibility
 export interface StudentServiceResponse {
-  data: Student[];
+  items?: Student[];
+  data?: Student[];
   pagination?: {
     current_page: number;
     per_page: number;
@@ -157,7 +159,7 @@ class StudentService {
   /**
    * Get all students with role-based filtering - Enhanced for GenericManagerV2
    */
-  async get(filters: StudentFilters = {}): Promise<Student[]> {
+  async get(filters: StudentFilters = {}, bypassCache = false): Promise<StudentServiceResponse | Student[]> {
     try {
       console.log('🔍 StudentService.get - baseURL:', this.baseURL, 'filters:', filters);
       
@@ -179,18 +181,43 @@ class StudentService {
       if (filters.enrollment_date_from) params.enrollment_date_from = filters.enrollment_date_from;
       if (filters.enrollment_date_to) params.enrollment_date_to = filters.enrollment_date_to;
 
+      // Bypass cache by adding timestamp when explicitly requested or from filters
+      if (bypassCache || (filters as any)._t) {
+        params._t = (filters as any)._t || Date.now();
+      }
+
       const response = await apiClient.get<any>(this.baseURL, params);
       
-      // Handle different response formats for compatibility
-      if (response.data?.students) {
-        return response.data.students;
-      } else if (response.data?.data) {
-        return Array.isArray(response.data.data) ? response.data.data : response.data.data.students || [];
+      // Let's add an explicit visual debug since console logs might be missed
+      
+      let finalResult = { items: [], raw: response.data } as any;
+      
+      if (response.data?.data?.students) {
+        finalResult = {
+          items: response.data.data.students,
+          pagination: response.data.data.pagination,
+          raw: response.data
+        } as any;
+      } else if (response.data?.students) {
+        finalResult = {
+          items: response.data.students,
+          pagination: response.data.pagination || null,
+          raw: response.data
+        } as any;
+      } else if (response.data?.data && Array.isArray(response.data.data)) {
+        finalResult = { items: response.data.data, raw: response.data } as any;
       } else if (Array.isArray(response.data)) {
-        return response.data;
+        finalResult = { items: response.data, raw: response.data } as any;
       }
       
-      return [];
+      // Temporary debug toast
+      setTimeout(() => {
+        toast.info(`Fetched ${finalResult.items?.length || 0} students. Raw response keys: ${Object.keys(response.data || {}).join(',')}`, {
+          duration: 10000
+        });
+      }, 500);
+      
+      return finalResult;
     } catch (error: any) {
       console.error('StudentService.get error:', error);
       throw new Error(error.response?.data?.message || 'Şagirdlər yüklənərkən xəta baş verdi');
@@ -201,11 +228,13 @@ class StudentService {
    * Legacy getAll method for backward compatibility
    */
   async getAll(filters: StudentFilters = {}): Promise<{ data: { students: Student[]; pagination: any }; success: boolean; message: string }> {
-    const students = await this.get(filters);
+    const getResult = await this.get(filters);
+    const students = Array.isArray(getResult) ? getResult : (getResult.items || []);
+    
     return {
       data: {
         students,
-        pagination: {
+        pagination: !Array.isArray(getResult) && getResult.pagination ? getResult.pagination : {
           current_page: 1,
           per_page: students.length,
           total: students.length,
@@ -263,7 +292,7 @@ class StudentService {
    */
   async getById(id: number): Promise<{ data: Student; success: boolean; message: string }> {
     try {
-      const response = await apiClient.get(`${this.baseURL}/${id}`);
+      const response = await apiClient.get<any>(`${this.baseURL}/${id}`);
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Şagird məlumatları yüklənərkən xəta baş verdi');
@@ -275,7 +304,7 @@ class StudentService {
    */
   async create(studentData: Partial<StudentCreateData>): Promise<Student> {
     try {
-      const response = await apiClient.post(this.baseURL, studentData);
+      const response = await apiClient.post<any>(this.baseURL, studentData);
       
       // Handle different response formats
       if (response.data?.data) {
@@ -296,7 +325,7 @@ class StudentService {
    */
   async update(id: number, studentData: Partial<StudentCreateData>): Promise<Student> {
     try {
-      const response = await apiClient.put(`${this.baseURL}/${id}`, studentData);
+      const response = await apiClient.put<any>(`${this.baseURL}/${id}`, studentData);
       
       // Handle different response formats
       if (response.data?.data) {
@@ -305,7 +334,7 @@ class StudentService {
         return response.data.student;
       }
       
-      return response.data;
+      return response.data as unknown as Student;
     } catch (error: any) {
       console.error('StudentService.update error:', error);
       throw new Error(error.response?.data?.message || 'Şagird yenilənərkən xəta baş verdi');
@@ -331,7 +360,7 @@ class StudentService {
   async createLegacy(studentData: any): Promise<{ data: Student; success: boolean; message: string }> {
     const student = await this.create(studentData);
     return {
-      data: student,
+      data: student as Student,
       success: true,
       message: 'Şagird uğurla yaradıldı'
     };
@@ -374,7 +403,7 @@ class StudentService {
       if (filters.class_id) params.append('class_id', filters.class_id.toString());
 
       const url = `${this.baseURL}/institutions/${institutionId}/count${params.toString() ? `?${params.toString()}` : ''}`;
-      const response = await apiClient.get(url);
+      const response = await apiClient.get<any>(url);
       return response.data.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Şagird sayı yüklənərkən xəta baş verdi');
@@ -494,7 +523,7 @@ class StudentService {
       ? `${this.baseURL}/available-for-grade/${gradeId}?${params}`
       : `${this.baseURL}/available-for-grade/${gradeId}`;
     
-    return apiClient.get(url);
+    return apiClient.get<any>(url);
   }
 }
 

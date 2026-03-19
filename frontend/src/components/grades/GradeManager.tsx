@@ -1,20 +1,31 @@
 import React from 'react';
+<<<<<<< HEAD
+import { Plus, Loader2, RefreshCw } from 'lucide-react';
+=======
 import { Plus, Loader2, GraduationCap, CheckCircle2, UserX, DoorOpen } from 'lucide-react';
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 import { Button } from '@/components/ui/button';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
 import { Grade, GradeFilters } from '@/services/grades';
+<<<<<<< HEAD
+import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent, calculateAssignedStudents } from './configurations/gradeConfig';
+=======
 import { gradeEntityConfig, GradeFiltersComponent } from './configurations/gradeConfig';
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
 import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
 import { GradeAnalyticsModal } from './GradeAnalyticsModal';
 import { GradeDuplicateModal } from './GradeDuplicateModal';
+import { GradeImportExportModal } from './modals/GradeImportExportModal';
+import { gradeBookService } from '@/services/gradeBook';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import { academicYearService } from '@/services/academicYears';
 import { gradeService } from '@/services/grades';
+import { studentService } from '@/services/students';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
 import {
@@ -56,7 +67,13 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   const [analyticsGrade, setAnalyticsGrade] = React.useState<Grade | null>(null);
   const [softDeleteTarget, setSoftDeleteTarget] = React.useState<Grade | null>(null);
   const [hardDeleteTarget, setHardDeleteTarget] = React.useState<Grade | null>(null);
+  const [syncModalOpen, setSyncModalOpen] = React.useState(false);
+  const [syncPreview, setSyncPreview] = React.useState<{
+    orphaned_count: number;
+    missing_count: number;
+  } | null>(null);
   const [softDeleteReason, setSoftDeleteReason] = React.useState('');
+  const [importExportModalOpen, setImportExportModalOpen] = React.useState(false);
 
   // Role-based access and filtering
   const { currentUser } = useAuth();
@@ -72,6 +89,13 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   const { data: academicYearsResponse } = useQuery({
     queryKey: ['academic-years', 'for-grade-filter'],
     queryFn: () => academicYearService.getAll(),
+    staleTime: 1000 * 60 * 5, // 5 minutes cache
+  });
+
+  // Fetch all students to calculate assigned_student_count per grade
+  const { data: studentsResponse } = useQuery({
+    queryKey: ['students', 'for-grade-counts'],
+    queryFn: () => studentService.getAll({ per_page: 1000 }),
     staleTime: 1000 * 60 * 5, // 5 minutes cache
   });
 
@@ -224,11 +248,51 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
       defaultFilters.institution_id = currentUser.institution.id;
     }
 
+    // Get students data for assigned_student_count calculation
+    const students = studentsResponse?.data?.students || [];
+
     return {
       ...gradeEntityConfig,
 
       // Override defaultFilters with role-based institution filtering
       defaultFilters,
+
+      // Data transformer to calculate assigned_student_count from students data
+      dataTransformer: (grades: Grade[]) => {
+        if (!grades || !students || students.length === 0) return grades;
+        
+        // Create a map of grade_id to count of students
+        const gradeStudentCounts = new Map<number, { total: number, male: number, female: number }>();
+        
+        students.forEach((student: any) => {
+          // Check various possible grade ID fields
+          const gradeId = student.grade_id || student.grade?.id || student.current_class?.id || student.current_class_id;
+          if (gradeId) {
+            const currentCounts = gradeStudentCounts.get(gradeId) || { total: 0, male: 0, female: 0 };
+            currentCounts.total += 1;
+            
+            const gender = (student.gender || student.profile?.gender || '').toLowerCase();
+            if (gender === 'male' || gender === 'm' || gender === 'oğlan') {
+              currentCounts.male += 1;
+            } else if (gender === 'female' || gender === 'f' || gender === 'qız') {
+              currentCounts.female += 1;
+            }
+            
+            gradeStudentCounts.set(gradeId, currentCounts);
+          }
+        });
+        
+        // Merge counts into grades
+        return grades.map(grade => {
+          const counts = gradeStudentCounts.get(grade.id) || { total: 0, male: 0, female: 0 };
+          return {
+            ...grade,
+            assigned_student_count: counts.total,
+            assigned_male_count: counts.male,
+            assigned_female_count: counts.female
+          };
+        });
+      },
 
       // Filter columns based on user role
       columns: gradeEntityConfig.columns.filter(column => {
@@ -288,7 +352,61 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         }
       }))
     };
+<<<<<<< HEAD
+  }, [currentUser, softDeleteMutation, hardDeleteMutation, studentsResponse]);
+
+  // Sync mutation
+  const syncMutation = useMutation({
+    mutationFn: () => gradeBookService.sync({
+      institution_id: currentUser?.institution?.id,
+    }),
+    onSuccess: (data) => {
+      toast.success(data.message);
+      queryClient.invalidateQueries({ queryKey: ['grades'] });
+      setSyncModalOpen(false);
+      setSyncPreview(null);
+    },
+    onError: (error: any) => {
+      logger.error('Sync failed', { error });
+      const message = error?.response?.data?.message || 'Sinxronizasiya zamanı xəta baş verdi';
+      toast.error(message);
+    },
+  });
+
+  // Check sync status
+  const checkSyncStatus = React.useCallback(async () => {
+    try {
+      const [orphanedResult, gradesResult] = await Promise.all([
+        gradeBookService.findOrphaned({ institution_id: currentUser?.institution?.id }),
+        gradeService.get({ institution_id: currentUser?.institution?.id, include: 'subjects' }),
+      ]);
+
+      const orphanedCount = orphanedResult.data?.orphaned_count || 0;
+      
+      // Calculate missing grade books
+      let missingCount = 0;
+      if (gradesResult.items) {
+        gradesResult.items.forEach((grade: Grade) => {
+          const subjects = grade.grade_subjects || [];
+          const teachingSubjects = subjects.filter(s => s.is_teaching_activity);
+          const withoutGradeBook = teachingSubjects.filter(s => !s.has_grade_book).length;
+          missingCount += withoutGradeBook;
+        });
+      }
+
+      setSyncPreview({
+        orphaned_count: orphanedCount,
+        missing_count: missingCount,
+      });
+      setSyncModalOpen(true);
+    } catch (error) {
+      logger.error('Failed to check sync status', { error });
+      toast.error('Sinxronizasiya statusu yoxlanarkən xəta baş verdi');
+    }
+  }, [currentUser?.institution?.id]);
+=======
   }, [currentUser, softDeleteMutation, activateMutation, hardDeleteMutation]);
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 
   // Handle create action
   const handleCreate = React.useCallback(() => {
@@ -299,15 +417,28 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setCreateModalOpen(true);
   }, []);
 
+  // Handle sync action
+  const handleSync = React.useCallback(() => {
+    logger.debug('Opening sync dialog', {
+      component: 'GradeManager',
+      action: 'handleSync'
+    });
+    checkSyncStatus();
+  }, [checkSyncStatus]);
+
   // Custom logic with create handler
   const customLogic = React.useMemo(() => ({
+    onCreateClick: handleCreate,
+    onImportClick: () => setImportExportModalOpen(true),
+    onExportClick: () => setImportExportModalOpen(true),
+    onTemplateClick: () => gradeService.downloadTemplate(),
     headerActions: [
       {
-        key: 'create-grade',
-        label: 'Yeni Sinif',
-        icon: Plus as any,
-        onClick: handleCreate,
-        variant: 'default' as const
+        key: 'sync-grade-books',
+        label: 'Jurnalları Sinxronlaşdır',
+        icon: RefreshCw as any,
+        onClick: handleSync,
+        variant: 'outline' as const
       }
     ],
     renderCustomFilters: (manager: any) => {
@@ -348,6 +479,9 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     setStudentsGrade(null);
     setAnalyticsModalOpen(false);
     setAnalyticsGrade(null);
+    setSyncModalOpen(false);
+    setSyncPreview(null);
+    setImportExportModalOpen(false);
     if (!softDeleteMutation.isPending) {
       setSoftDeleteTarget(null);
       setSoftDeleteReason('');
@@ -474,6 +608,95 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
           }}
         />
       )}
+
+      {/* Import/Export Modal */}
+      <GradeImportExportModal
+        isOpen={importExportModalOpen}
+        onClose={handleCloseModals}
+      />
+
+      <AlertDialog
+        open={syncModalOpen}
+        onOpenChange={(open) => {
+          if (!open && !syncMutation.isPending) {
+            setSyncModalOpen(false);
+            setSyncPreview(null);
+          }
+        }}
+      >
+        <AlertDialogContent className="max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <RefreshCw className="h-5 w-5" />
+              Jurnalları Sinxronlaşdır
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3">
+              {syncPreview ? (
+                <>
+                  <p>Sinxronizasiya statusu:</p>
+                  <div className="bg-muted p-3 rounded-md space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span>Çatışmayan jurnallar:</span>
+                      <span className="font-medium text-green-600">
+                        {syncPreview.missing_count}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Fənn silinmiş jurnallar:</span>
+                      <span className="font-medium text-orange-600">
+                        {syncPreview.orphaned_count}
+                      </span>
+                    </div>
+                  </div>
+                  {syncPreview.missing_count === 0 && syncPreview.orphaned_count === 0 ? (
+                    <p className="text-green-600 font-medium">
+                      ✅ Bütün jurnallar sinxronizasiya edilib!
+                    </p>
+                  ) : (
+                    <p>
+                      {syncPreview.missing_count > 0 && `${syncPreview.missing_count} yeni jurnal yaradılacaq. `}
+                      {syncPreview.orphaned_count > 0 && `${syncPreview.orphaned_count} yetim jurnal təmizlənəcək.`}
+                    </p>
+                  )}
+                </>
+              ) : (
+                <p>Status yoxlanılır...</p>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel
+              disabled={syncMutation.isPending}
+              onClick={() => {
+                setSyncModalOpen(false);
+                setSyncPreview(null);
+              }}
+            >
+              Bağla
+            </AlertDialogCancel>
+            {syncPreview && (syncPreview.missing_count > 0 || syncPreview.orphaned_count > 0) && (
+              <AlertDialogAction asChild>
+                <Button
+                  onClick={() => syncMutation.mutate()}
+                  disabled={syncMutation.isPending}
+                >
+                  {syncMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Sinxronlaşdırılır...
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2" />
+                      Sinxronlaşdır
+                    </>
+                  )}
+                </Button>
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={!!softDeleteTarget}

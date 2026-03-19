@@ -1,10 +1,13 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
 } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { FormBuilder } from '@/components/forms/FormBuilder';
@@ -16,6 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Student, StudentCreateData } from '@/services/students';
 import { institutionService } from '@/services/institutions';
 import { gradeService } from '@/services/grades';
+import { useAuth } from '@/contexts/AuthContext';
 import { 
   User as UserIcon, 
   GraduationCap, 
@@ -48,9 +52,9 @@ const studentSchema = z.object({
   gender: z.enum(['male', 'female', 'other']).optional(),
   address: z.string().optional(),
   enrollment_date: z.string().optional(),
-  current_grade_level: z.number().min(1).max(12).optional(),
-  class_id: z.number().optional(),
-  institution_id: z.number().optional(),
+  current_grade_level: z.union([z.number(), z.string()]).optional(),
+  class_id: z.union([z.number(), z.string()]).optional(),
+  institution_id: z.union([z.number(), z.string()]).optional(),
   status: z.enum(['active', 'inactive']).optional(),
   
   // Guardian information
@@ -69,30 +73,163 @@ const studentSchema = z.object({
 });
 
 export function StudentModal({ open, onClose, student, onSave }: StudentModalProps) {
-  console.log('🎓 StudentModal rendered with props:', { open, hasStudent: !!student });
-  
   const { toast } = useToast();
+  const { currentUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('basic');
 
-  // Load institutions and grades for dropdowns
-  const { data: institutionsResponse } = useQuery({
-    queryKey: ['institutions', 'for-student-modal'],
-    queryFn: () => institutionService.getAll({ per_page: 100 }),
+  // Debug logging for modal open state
+  useEffect(() => {
+    if (open) {
+      console.log('🚀 StudentModal OPENED:', { 
+        studentId: (student as any)?.id,
+        institutionId: (student as any)?.institution_id || currentUser?.institution_id,
+        hasCurrentUser: !!currentUser 
+      });
+    }
+  }, [open, student, currentUser]);
+
+  const institutionId = (student as any)?.institution_id || currentUser?.institution?.id || currentUser?.institution_id;
+
+  // Load grades scoped to the current institution
+  const { data: gradesResponse, refetch: refetchGrades } = useQuery({
+    queryKey: ['grades', 'for-student-modal', institutionId || 'all'],
+    queryFn: () => gradeService.get(institutionId ? { institution_id: Number(institutionId), per_page: 100, is_active: true } : { per_page: 100, is_active: true }),
     enabled: open,
     staleTime: 1000 * 60 * 5,
   });
 
-  const { data: gradesResponse } = useQuery({
-    queryKey: ['grades', 'for-student-modal'],
-    queryFn: () => gradeService.getAll({ per_page: 100 }),
-    enabled: open,
-    staleTime: 1000 * 60 * 5,
+  // Force refetch when modal opens to ensure fresh data
+  useEffect(() => {
+    if (open) {
+      console.log('🔄 StudentModal: Forcing grades refetch for institution:', institutionId);
+      refetchGrades();
+    }
+  }, [open, institutionId, refetchGrades]);
+
+  // Process data for class dropdown — sorted by level then name
+  const rawData = gradesResponse as any;
+  const grades = React.useMemo(() => {
+    // Robust extraction of items array from various possible response shapes
+    const items = rawData?.items || 
+                 (Array.isArray(rawData) ? rawData : 
+                 (rawData?.data?.grades || rawData?.data || []));
+    
+    const list = Array.isArray(items) ? items : [];
+    
+    if (open) {
+      console.log('📊 StudentModal Grades Processed:', {
+        itemsCount: list.length,
+        firstItem: list[0] ? { id: list[0].id, name: list[0].name } : 'none'
+      });
+    }
+
+    return [...list].sort(
+      (a: any, b: any) => (a.class_level || 0) - (b.class_level || 0) || (a.name || '').localeCompare(b.name || '')
+    );
+  }, [rawData, open]);
+
+  // Create shared form instance for all tabs
+  const sharedForm = useForm({
+    resolver: zodResolver(studentSchema),
+    defaultValues: student ? {
+      first_name: (student as any).first_name || '',
+      last_name: (student as any).last_name || '',
+      student_number: (student as any).student_number || '',
+      email: (student as any).email || '',
+      phone: (student as any).phone || '',
+      date_of_birth: (student as any).date_of_birth ? String((student as any).date_of_birth).split('T')[0] : '',
+      gender: (student as any).gender || '',
+      address: (student as any).address || '',
+      enrollment_date: (student as any).enrollment_date ? String((student as any).enrollment_date).split('T')[0] : '',
+      current_grade_level: (student as any).current_grade_level || '',
+      class_id: (student as any).current_class?.id ? String((student as any).current_class.id) : ((student as any).class_id ? String((student as any).class_id) : ''),
+      institution_id: (student as any).institution_id || '',
+      status: (student as any).status || 'active',
+      guardian_name: (student as any).guardian_name || '',
+      guardian_phone: (student as any).guardian_phone || '',
+      guardian_email: (student as any).guardian_email || '',
+      guardian_relation: (student as any).guardian_relation || '',
+      medical_conditions: (student as any).medical_conditions || '',
+      allergies: (student as any).allergies || '',
+      emergency_contact: (student as any).emergency_contact || '',
+      notes: (student as any).notes || '',
+    } : {
+      first_name: '',
+      last_name: '',
+      student_number: '',
+      email: '',
+      phone: '',
+      date_of_birth: '',
+      gender: '',
+      address: '',
+      enrollment_date: '',
+      current_grade_level: '',
+      class_id: '',
+      institution_id: institutionId || '',
+      status: 'active',
+      guardian_name: '',
+      guardian_phone: '',
+      guardian_email: '',
+      guardian_relation: '',
+      medical_conditions: '',
+      allergies: '',
+      emergency_contact: '',
+      notes: '',
+    },
   });
 
-  // Process data for dropdowns
-  const institutions = institutionsResponse?.data || [];
-  const grades = gradesResponse?.data || [];
+  // Reset form when modal opens/closes or student changes
+  useEffect(() => {
+    if (open) {
+      sharedForm.reset(student ? {
+        first_name: (student as any).first_name || '',
+        last_name: (student as any).last_name || '',
+        student_number: (student as any).student_number || '',
+        email: (student as any).email || '',
+        phone: (student as any).phone || '',
+        date_of_birth: (student as any).date_of_birth ? String((student as any).date_of_birth).split('T')[0] : '',
+        gender: (student as any).gender || '',
+        address: (student as any).address || '',
+        enrollment_date: (student as any).enrollment_date ? String((student as any).enrollment_date).split('T')[0] : '',
+        current_grade_level: (student as any).current_grade_level || '',
+        class_id: (student as any).current_class?.id ? String((student as any).current_class.id) : ((student as any).class_id ? String((student as any).class_id) : ''),
+        institution_id: (student as any).institution_id || institutionId || '',
+        status: (student as any).status || 'active',
+        guardian_name: (student as any).guardian_name || '',
+        guardian_phone: (student as any).guardian_phone || '',
+        guardian_email: (student as any).guardian_email || '',
+        guardian_relation: (student as any).guardian_relation || '',
+        medical_conditions: (student as any).medical_conditions || '',
+        allergies: (student as any).allergies || '',
+        emergency_contact: (student as any).emergency_contact || '',
+        notes: (student as any).notes || '',
+      } : {
+        first_name: '',
+        last_name: '',
+        student_number: '',
+        email: '',
+        phone: '',
+        date_of_birth: '',
+        gender: '',
+        address: '',
+        enrollment_date: '',
+        current_grade_level: '',
+        class_id: '',
+        institution_id: institutionId || '',
+        status: 'active',
+        guardian_name: '',
+        guardian_phone: '',
+        guardian_email: '',
+        guardian_relation: '',
+        medical_conditions: '',
+        allergies: '',
+        emergency_contact: '',
+        notes: '',
+      });
+      setActiveTab('basic');
+    }
+  }, [open, student, institutionId, sharedForm]);
 
   // Reset tab when modal opens
   useEffect(() => {
@@ -104,30 +241,51 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
   const handleFormSubmit = useCallback(async (data: any) => {
     try {
       setLoading(true);
-      console.log('🎓 StudentModal submitting data:', data);
       
-      // Process the data
+      console.log('🔍 StudentModal - Raw form data:', data);
+      
+      // Clean empty strings to undefined so they don't cause backend type issues
+      const cleanedData = Object.entries(data).reduce((acc: any, [key, value]) => {
+        acc[key] = value === '' ? undefined : value;
+        return acc;
+      }, {});
+
+      // Always inject institution_id from the current user — never trust the form
       const studentData: StudentCreateData = {
-        ...data,
-        current_grade_level: data.current_grade_level ? Number(data.current_grade_level) : undefined,
+        ...cleanedData,
+        institution_id: institutionId ? Number(institutionId) : data.institution_id,
+        // Derive current_grade_level from the selected class
+        current_grade_level: data.class_id
+          ? grades.find((g: any) => String(g.id) === String(data.class_id))?.class_level
+          : undefined,
         class_id: data.class_id ? Number(data.class_id) : undefined,
-        institution_id: data.institution_id ? Number(data.institution_id) : undefined,
+        grade_id: data.class_id ? Number(data.class_id) : undefined, // Ensure grade_id is also sent
         status: data.status || 'active',
         is_active: true,
       };
 
+      console.log('🔍 StudentModal - Processed student data:', studentData);
+      console.log('🔍 StudentModal - first_name:', studentData.first_name);
+      console.log('🔍 StudentModal - last_name:', studentData.last_name);
+      console.log('🔍 StudentModal - student_number:', studentData.student_number);
+
       await onSave(studentData);
       
+      const studentName = data.name ||
+        ((data.first_name || data.last_name) ? `${data.first_name || ''} ${data.last_name || ''}`.trim() : null) ||
+        student?.name ||
+        ((student?.first_name || student?.last_name) ? `${student.first_name || ''} ${student.last_name || ''}`.trim() : null) ||
+        'Şagird';
+
       toast({
-        title: student ? "Şagird yeniləndi" : "Yeni şagird yaradıldı",
-        description: student 
-          ? `${data.first_name} ${data.last_name} məlumatları yeniləndi` 
-          : `${data.first_name} ${data.last_name} sistemi əlavə edildi`,
+        title: student?.id ? "Şagird yeniləndi" : "Yeni şagird yaradıldı",
+        description: student?.id
+          ? `${studentName} məlumatları yeniləndi` 
+          : `${studentName} sistemə əlavə edildi`,
       });
       
       onClose();
     } catch (error: any) {
-      console.error('🚨 StudentModal save error:', error);
       toast({
         title: "Xəta baş verdi",
         description: error.message || "Şagird yadda saxlanıla bilmədi",
@@ -136,13 +294,13 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
     } finally {
       setLoading(false);
     }
-  }, [student, onSave, onClose, toast]);
+  }, [student, onSave, onClose, toast, institutionId, grades]);
 
   // Form fields configuration - Using modalFieldConfig
   const basicFields = [
     userFields.firstName,
     userFields.lastName,
-    createField('student_number', 'Şagird Nömrəsi', 'text', {
+    createField('student_number', 'UTİS kod', 'text', {
       required: true,
       placeholder: 'Məs: ST2024001',
       validation: commonValidations.required,
@@ -164,30 +322,20 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
     }),
   ];
 
-  const academicFields = [
+  const academicFields = React.useMemo(() => [
     createField('enrollment_date', 'Qeydiyyat Tarixi', 'date', {
       placeholder: 'Qeydiyyat tarixini seçin',
     }),
-    createField('current_grade_level', 'Sinif Səviyyəsi', 'select', {
-      options: Array.from({ length: 12 }, (_, i) => ({
-        value: String(i + 1),
-        label: `${i + 1}-ci sinif`,
-      })),
-      placeholder: 'Sinif səviyyəsini seçin',
-    }),
+    // Single combined class dropdown: shows "1-A", "1-B", "2-A"...
     createField('class_id', 'Sinif', 'select', {
       options: grades.map((grade: any) => ({
         value: String(grade.id),
-        label: grade.name || `${grade.level}-ci sinif`,
+        // Format: "1-A", "2-B" (level + dash + section name)
+        label: grade.class_level != null
+          ? `${grade.class_level}-${grade.name}`
+          : grade.name,
       })),
-      placeholder: 'Sinifdəni seçin',
-    }),
-    createField('institution_id', 'Təhsil Müəssisəsi', 'select', {
-      options: institutions.map((institution: any) => ({
-        value: String(institution.id),
-        label: institution.name,
-      })),
-      placeholder: 'Müəssisəni seçin',
+      placeholder: 'Sinfi seçin  (məs: 1-A)',
     }),
     createField('status', 'Status', 'select', {
       options: [
@@ -196,7 +344,7 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
       ],
       placeholder: 'Statusu seçin',
     }),
-  ];
+  ], [grades]);
 
   const guardianFields = [
     createField('guardian_name', 'Valideyn/Himayədər Adı', 'text', {
@@ -239,35 +387,11 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
     }),
   ];
 
-  // Default values for form
-  const defaultValues = student ? {
-    first_name: student.first_name || '',
-    last_name: student.last_name || '',
-    student_number: student.student_number || '',
-    email: student.email || '',
-    phone: student.phone || '',
-    date_of_birth: student.date_of_birth || '',
-    gender: student.gender || '',
-    address: student.address || '',
-    enrollment_date: student.enrollment_date || '',
-    current_grade_level: student.current_grade_level || '',
-    class_id: student.current_class?.id || '',
-    institution_id: student.institution_id || '',
-    status: student.status || 'active',
-    guardian_name: student.guardian_name || '',
-    guardian_phone: student.guardian_phone || '',
-    guardian_email: student.guardian_email || '',
-    guardian_relation: student.guardian_relation || '',
-    medical_conditions: student.medical_conditions || '',
-    allergies: student.allergies || '',
-    emergency_contact: student.emergency_contact || '',
-    notes: student.notes || '',
-  } : {
-    status: 'active',
-  };
-
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={open} onOpenChange={(val) => {
+      console.log('🔄 StudentModal onOpenChange:', val);
+      if (!val) onClose();
+    }}>
       <DialogContent 
         className="max-w-4xl max-h-[90vh] overflow-y-auto"
         onPointerDownOutside={(e) => e.preventDefault()}
@@ -275,16 +399,24 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <GraduationCap className="h-5 w-5" />
-            {student ? 'Şagird Məlumatlarını Redaktə Et' : 'Yeni Şagird Əlavə Et'}
-            {student && (
-              <Badge variant="outline" className="ml-2">
-                ID: {student.id}
+            {(student as any)?.id ? 'Şagird Məlumatlarını Redaktə Et' : 'Yeni Şagird Əlavə Et'}
+            {(student as any)?.id && (
+              <Badge className="ml-2">
+                ID: {(student as any).id}
               </Badge>
             )}
           </DialogTitle>
+          <DialogDescription>
+            Şagird məlumatlarını buradan əlavə edə və ya redaktə edə bilərsiniz.
+          </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs
+          key={`student-modal-${(student as any)?.id ?? 'new'}-${open}`}
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="basic" className="flex items-center gap-2">
               <UserIcon className="h-4 w-4" />
@@ -308,10 +440,11 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
             <FormBuilder
               fields={basicFields}
               onSubmit={handleFormSubmit}
-              defaultValues={defaultValues}
+              externalForm={sharedForm}
               loading={loading}
               submitLabel={student ? 'Yenilə' : 'Şagird Yarad'}
               columns={2}
+              hideSubmit={true}
             />
           </TabsContent>
 
@@ -319,10 +452,11 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
             <FormBuilder
               fields={academicFields}
               onSubmit={handleFormSubmit}
-              defaultValues={defaultValues}
+              externalForm={sharedForm}
               loading={loading}
               submitLabel={student ? 'Yenilə' : 'Şagird Yarad'}
               columns={2}
+              hideSubmit={true}
             />
           </TabsContent>
 
@@ -330,10 +464,11 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
             <FormBuilder
               fields={guardianFields}
               onSubmit={handleFormSubmit}
-              defaultValues={defaultValues}
+              externalForm={sharedForm}
               loading={loading}
               submitLabel={student ? 'Yenilə' : 'Şagird Yarad'}
               columns={2}
+              hideSubmit={true}
             />
           </TabsContent>
 
@@ -341,10 +476,10 @@ export function StudentModal({ open, onClose, student, onSave }: StudentModalPro
             <FormBuilder
               fields={medicalFields}
               onSubmit={handleFormSubmit}
-              defaultValues={defaultValues}
+              externalForm={sharedForm}
               loading={loading}
               submitLabel={student ? 'Yenilə' : 'Şagird Yarad'}
-              columns={1}
+              columns={2}
             />
           </TabsContent>
         </Tabs>

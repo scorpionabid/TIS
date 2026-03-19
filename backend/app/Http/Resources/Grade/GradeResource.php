@@ -82,6 +82,24 @@ class GradeResource extends JsonResource
                 return SubjectResource::collection($this->subjects);
             }),
 
+            'grade_subjects' => $this->whenLoaded('gradeSubjects', function () {
+                return $this->gradeSubjects->map(function ($gs) {
+                    return [
+                        'id' => $gs->id,
+                        'subject_id' => $gs->subject_id,
+                        'subject_name' => $gs->subject?->name,
+                        'subject_code' => $gs->subject?->code,
+                        'weekly_hours' => $gs->weekly_hours,
+                        'is_teaching_activity' => $gs->is_teaching_activity,
+                        'teacher_id' => $gs->teacher_id,
+                        'teacher_name' => $gs->teacher?->name,
+                        'has_grade_book' => $gs->gradeBook !== null,
+                        'grade_book_id' => $gs->gradeBook?->id,
+                        'grade_book_status' => $gs->gradeBook?->status,
+                    ];
+                });
+            }),
+
             // IDs for relationships
             'academic_year_id' => $this->academic_year_id,
             'institution_id' => $this->institution_id,

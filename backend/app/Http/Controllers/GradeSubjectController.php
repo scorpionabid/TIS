@@ -16,11 +16,25 @@ class GradeSubjectController extends Controller
      */
     public function index(Grade $grade)
     {
+        // Find corresponding class_id from classes table to check assignments
+        $classId = DB::table('classes')
+            ->where('institution_id', $grade->institution_id)
+            ->where('academic_year_id', $grade->academic_year_id)
+            ->where('grade_level', $grade->class_level)
+            ->where('section', $grade->name)
+            ->value('id');
+
+        $assignedSubjectIds = $classId ? DB::table('teaching_loads')
+            ->where('class_id', $classId)
+            ->where('academic_year_id', $grade->academic_year_id)
+            ->pluck('subject_id')
+            ->toArray() : [];
+
         $gradeSubjects = $grade->gradeSubjects()
             ->with(['subject', 'teacher'])
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($gs) {
+            ->map(function ($gs) use ($assignedSubjectIds) {
                 return [
                     'id' => $gs->id,
                     'subject_id' => $gs->subject_id,
@@ -37,6 +51,7 @@ class GradeSubjectController extends Controller
                     'activity_types' => $gs->activity_types,
                     'teacher_id' => $gs->teacher_id,
                     'teacher_name' => $gs->teacher ? $gs->teacher->name : null,
+                    'is_assigned' => in_array($gs->subject_id, $assignedSubjectIds),
                     'notes' => $gs->notes,
                     'created_at' => $gs->created_at,
                     'updated_at' => $gs->updated_at,

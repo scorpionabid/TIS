@@ -55,34 +55,49 @@ class SchoolStudentController extends Controller
         }
 
         $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|email|unique:users,email',
-            'grade_id' => 'required|exists:grades,id',
-            'first_name' => 'nullable|string|max:255',
-            'last_name' => 'nullable|string|max:255',
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'student_number' => 'required|string|unique:students,student_number',
+            'name' => 'nullable|string|max:255',
+            'email' => 'nullable|email|unique:users,email',
+            'grade_id' => 'nullable|exists:grades,id',
+            'class_id' => 'nullable|exists:grades,id',
             'phone' => 'nullable|string|max:20',
             'date_of_birth' => 'nullable|date',
             'gender' => 'nullable|in:male,female,other',
             'address' => 'nullable|string',
-            'student_number' => 'nullable|string|unique:students,student_number',
             'enrollment_date' => 'nullable|date',
-            'parent_name' => 'nullable|string|max:255',
-            'parent_phone' => 'nullable|string|max:20',
-            'parent_email' => 'nullable|email',
+            'status' => 'nullable|in:active,inactive',
+            'guardian_name' => 'nullable|string|max:255',
+            'guardian_phone' => 'nullable|string|max:20',
+            'guardian_email' => 'nullable|email',
+            'guardian_relation' => 'nullable|string|max:100',
             'emergency_contact' => 'nullable|string',
-            'special_needs' => 'nullable|string',
             'medical_conditions' => 'nullable|string',
+            'allergies' => 'nullable|string',
+            'notes' => 'nullable|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
                 'success' => false,
                 'errors' => $validator->errors(),
+                'message' => $validator->errors()->first(),
             ], 422);
         }
 
+        $validated = $validator->validated();
+        // Auto-construct 'name' from first_name + last_name if not provided
+        if (empty($validated['name'])) {
+            $validated['name'] = trim(($validated['first_name'] ?? '') . ' ' . ($validated['last_name'] ?? ''));
+        }
+        // Map class_id to grade_id if provided
+        if (empty($validated['grade_id']) && !empty($validated['class_id'])) {
+            $validated['grade_id'] = $validated['class_id'];
+        }
+
         try {
-            $student = $this->studentService->createStudent($school, $validator->validated());
+            $student = $this->studentService->createStudent($school, $validated);
 
             return response()->json([
                 'success' => true,
@@ -90,6 +105,10 @@ class SchoolStudentController extends Controller
                 'message' => 'Student created successfully',
             ], 201);
         } catch (\Exception $e) {
+            \Log::error('Student creation error: ' . $e->getMessage(), [
+                'request' => $request->all(),
+                'trace' => $e->getTraceAsString()
+            ]);
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create student: ' . $e->getMessage(),
@@ -133,6 +152,7 @@ class SchoolStudentController extends Controller
             'name' => 'sometimes|required|string|max:255',
             'email' => 'sometimes|required|email|unique:users,email,' . $student->user_id,
             'grade_id' => 'sometimes|required|exists:grades,id',
+            'class_id' => 'sometimes|required|exists:grades,id', // Support class_id from frontend
             'first_name' => 'nullable|string|max:255',
             'last_name' => 'nullable|string|max:255',
             'phone' => 'nullable|string|max:20',
@@ -155,8 +175,14 @@ class SchoolStudentController extends Controller
             ], 422);
         }
 
+        $validated = $validator->validated();
+        // Map class_id to grade_id if provided
+        if (empty($validated['grade_id']) && !empty($validated['class_id'])) {
+            $validated['grade_id'] = $validated['class_id'];
+        }
+
         try {
-            $updatedStudent = $this->studentService->updateStudent($student, $validator->validated());
+            $updatedStudent = $this->studentService->updateStudent($student, $validated);
 
             return response()->json([
                 'success' => true,

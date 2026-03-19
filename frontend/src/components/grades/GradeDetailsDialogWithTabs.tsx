@@ -7,11 +7,11 @@
 
 import React from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { Grade } from '@/services/grades';
 import { BookOpen } from 'lucide-react';
@@ -29,26 +29,26 @@ export const GradeDetailsDialogWithTabs: React.FC<GradeDetailsDialogWithTabsProp
   onUpdate,
 }) => {
   return (
-    <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
-        <DialogHeader className="flex-shrink-0">
-          <DialogTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            {grade.display_name || grade.full_name} - Kurikulum
+    <Sheet open onOpenChange={onClose}>
+      <SheetContent side="right" className="w-[90vw] sm:max-w-[1800px] overflow-hidden flex flex-col p-4 sm:p-6">
+        <SheetHeader className="flex-shrink-0 text-left mb-6">
+          <SheetTitle className="flex items-center gap-2 text-xl">
+            <BookOpen className="h-6 w-6 text-primary" />
+            <span>{grade.display_name || grade.full_name} - Tədris planı</span>
             <Badge variant={grade.is_active ? 'default' : 'secondary'} className="ml-2">
               {grade.is_active ? 'Aktiv' : 'Deaktiv'}
             </Badge>
-          </DialogTitle>
-        </DialogHeader>
+          </SheetTitle>
+        </SheetHeader>
 
-        <div className="flex-1 overflow-y-auto mt-4">
+        <div className="flex-1 overflow-y-auto pr-2 -mr-2">
           <CurriculumTab
             gradeId={grade.id}
             gradeName={grade.display_name || grade.full_name}
             onUpdate={onUpdate}
           />
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 };

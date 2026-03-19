@@ -397,7 +397,11 @@ export function FormBuilder({
   return (
     <div className={cn("space-y-6", className)}>
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <form onSubmit={form.handleSubmit((data) => {
+          console.log('🔍 FormBuilder - Submitting data:', data);
+          console.log('🔍 FormBuilder - Fields:', fields.map(f => ({ name: f.name, value: data[f.name] })));
+          onSubmit(data);
+        })} className="space-y-6">
           <div className={cn(
             "gap-6",
             columns > 1 ? formGridClass : "space-y-6"

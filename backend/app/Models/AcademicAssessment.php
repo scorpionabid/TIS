@@ -29,8 +29,12 @@ class AcademicAssessment extends Model
         'registration_deadline',
         'results_release_date',
         'assessment_description',
+        'strengths',
+        'improvement_areas',
         'assessment_objectives',
         'assessment_standards',
+        'international_standard',
+        'assessment_body',
         'total_questions',
         'total_points',
         'passing_score',
@@ -57,15 +61,18 @@ class AcademicAssessment extends Model
         'score_distribution',
         'performance_analytics',
         'question_analysis',
+        'criteria_scores',
         'reliability_coefficient',
         'historical_comparison',
         'regional_comparison',
         'national_benchmarks',
+        'rankings',
         'improvement_percentage',
         'created_by',
         'approved_by',
         'approved_at',
         'conducted_by',
+        'assessor_id',
         'administrative_notes',
         'quality_reviewed',
         'quality_reviewer',
@@ -96,6 +103,7 @@ class AcademicAssessment extends Model
         'triggers_intervention',
         'intervention_thresholds',
         'recommended_actions',
+        'recommendations_list',
         'intervention_review_date',
         'retention_period',
         'archive_date',
@@ -133,6 +141,11 @@ class AcademicAssessment extends Model
         'venue_assignments' => 'array',
         'proctor_assignments' => 'array',
         'technology_requirements' => 'array',
+        'rankings' => 'array',
+        'criteria_scores' => 'array',
+        'strengths' => 'array',
+        'improvement_areas' => 'array',
+        'recommendations_list' => 'array',
         'digital_delivery_config' => 'array',
         'accessibility_features' => 'array',
         'special_accommodations' => 'array',
@@ -161,6 +174,7 @@ class AcademicAssessment extends Model
         'standard_deviation' => 'decimal:2',
         'highest_score' => 'decimal:2',
         'lowest_score' => 'decimal:2',
+        'compliance_score' => 'decimal:2',
         'reliability_coefficient' => 'decimal:4',
         'improvement_percentage' => 'decimal:2',
     ];
@@ -204,6 +218,11 @@ class AcademicAssessment extends Model
     public function conductedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'conducted_by');
+    }
+
+    public function assessor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assessor_id');
     }
 
     public function qualityReviewer(): BelongsTo

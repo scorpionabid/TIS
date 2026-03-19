@@ -23,6 +23,7 @@ export interface GradeSubject {
   teacher_id: number | null;
   teacher_name: string | null;
   notes: string | null;
+  is_assigned: boolean;
   created_at: string;
   updated_at: string;
 }

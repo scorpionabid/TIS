@@ -5,6 +5,7 @@ use App\Http\Controllers\API\RegionalScheduleController;
 use App\Http\Controllers\API\RegionAssessmentController;
 use App\Http\Controllers\API\ScheduleGenerationController;
 use App\Http\Controllers\API\TeachingLoadApiController;
+use App\Http\Controllers\API\TeacherAvailabilityApiController;
 use App\Http\Controllers\AssessmentController;
 use App\Http\Controllers\AssessmentResultFieldController;
 use App\Http\Controllers\AssessmentStageController;
@@ -74,6 +75,14 @@ Route::prefix('teaching-loads')->group(function () {
     Route::get('/{teachingLoad}', [TeachingLoadApiController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     Route::put('/{teachingLoad}', [TeachingLoadApiController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
     Route::delete('/{teachingLoad}', [TeachingLoadApiController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+});
+
+// Teacher Availability API Routes
+Route::prefix('teacher-availabilities')->group(function () {
+    Route::get('/', [TeacherAvailabilityApiController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::post('/', [TeacherAvailabilityApiController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::put('/{teacherAvailability}', [TeacherAvailabilityApiController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::delete('/{teacherAvailability}', [TeacherAvailabilityApiController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
 });
 
 // Attendance Management Routes
@@ -368,10 +377,10 @@ Route::prefix('teacher-performance')->group(function () {
 // Assessment Management Routes
 Route::prefix('assessments')->middleware('permission:assessments.read')->group(function () {
     Route::get('/', [AssessmentController::class, 'index']);
-    Route::post('/', [AssessmentController::class, 'store'])->middleware('permission:assessments.write');
+    Route::post('/', [AssessmentController::class, 'store'])->middleware('permission:assessments.create');
     Route::get('/{assessment}', [AssessmentController::class, 'show']);
-    Route::put('/{assessment}', [AssessmentController::class, 'update'])->middleware('permission:assessments.write');
-    Route::delete('/{assessment}', [AssessmentController::class, 'destroy'])->middleware('permission:assessments.write');
+    Route::put('/{assessment}', [AssessmentController::class, 'update'])->middleware('permission:assessments.update');
+    Route::delete('/{assessment}', [AssessmentController::class, 'destroy'])->middleware('permission:assessments.update');
 
     // KSQ Assessment Routes - TODO: Implement KSQAssessmentController
     Route::prefix('ksq')->group(function () {
@@ -663,4 +672,74 @@ Route::prefix('school-students')->middleware('auth:sanctum')->group(function () 
 
     // Get by grade level
     Route::get('/by-grade/{gradeLevel}', [SchoolStudentController::class, 'getByGrade'])->middleware('permission:students.read');
+});
+
+// Grade Book Analytics Routes (Region Admin)
+use App\Http\Controllers\GradeBookAnalyticsController;
+
+Route::prefix('analytics/grade-books')->middleware(['auth:sanctum'])->group(function () {
+    Route::get('/region-summary', [GradeBookAnalyticsController::class, 'regionSummary'])
+        ->middleware('permission:analytics.read');
+    Route::get('/performance', [GradeBookAnalyticsController::class, 'performanceAnalytics'])
+        ->middleware('permission:analytics.read');
+    Route::get('/year-comparison', [GradeBookAnalyticsController::class, 'yearComparison'])
+        ->middleware('permission:analytics.read');
+    Route::get('/subject-ranking', [GradeBookAnalyticsController::class, 'subjectRanking'])
+        ->middleware('permission:analytics.read');
+    Route::get('/institution-detail', [GradeBookAnalyticsController::class, 'institutionDetail'])
+        ->middleware('permission:analytics.read');
+});
+use App\Http\Controllers\GradeBookController;
+use App\Http\Controllers\GradeBookAuditController;
+use App\Http\Controllers\GradeHistoryController;
+
+Route::prefix('grade-books')->middleware('auth:sanctum')->group(function () {
+    // Admin Hierarchy and Analysis APIs
+    Route::get('/hierarchy', [GradeBookController::class, 'getHierarchy'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/multi-level', [GradeBookController::class, 'getMultiLevelAnalysis'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::post('/sync', [GradeBookController::class, 'sync'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin');
+
+    // CRUD
+    Route::get('/', [GradeBookController::class, 'index'])->middleware('permission:assessments.read');
+    Route::post('/', [GradeBookController::class, 'store'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin');
+    Route::get('/{gradeBook}', [GradeBookController::class, 'show'])->middleware('permission:assessments.read');
+
+    // Students with scores
+    Route::get('/{gradeBook}/students', [GradeBookController::class, 'getStudentsWithScores'])->middleware('permission:assessments.read');
+
+    // Student grade history analytics
+    Route::get('/{gradeBook}/students/{studentId}/history', [GradeHistoryController::class, 'history'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/students/{studentId}/trend', [GradeHistoryController::class, 'trend'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/students/{studentId}/comparison', [GradeHistoryController::class, 'comparison'])->middleware('permission:assessments.read');
+
+    // Excel Import/Export
+    Route::get('/{gradeBook}/export-template', [GradeBookController::class, 'exportTemplate'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/export', [GradeBookController::class, 'exportGradeBook'])->middleware('permission:assessments.read');
+    Route::post('/{gradeBook}/import', [GradeBookController::class, 'importScores'])->middleware('permission:assessments.write');
+
+    // Audit Logs
+    Route::get('/{gradeBook}/audit-logs', [GradeBookAuditController::class, 'index'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/audit-logs/student/{studentId}', [GradeBookAuditController::class, 'studentHistory'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/audit-logs/recent-activity', [GradeBookAuditController::class, 'recentActivity'])->middleware('permission:assessments.read');
+    Route::get('/{gradeBook}/audit-logs/suspicious-activity', [GradeBookAuditController::class, 'suspiciousActivity'])->middleware('permission:assessments.read');
+
+    // Columns (Exams)
+    Route::post('/{gradeBook}/columns', [GradeBookController::class, 'storeColumn'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin|teacher');
+    Route::patch('/columns/{column}', [GradeBookController::class, 'updateColumn'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin|teacher');
+    Route::delete('/columns/{column}', [GradeBookController::class, 'archiveColumn'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin|teacher');
+
+    // Cells (Scores)
+    Route::patch('/cells/{cell}', [GradeBookController::class, 'updateCell'])->middleware('permission:assessments.update');
+    Route::post('/{gradeBook}/cells/bulk-update', [GradeBookController::class, 'bulkUpdateCells'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin|teacher');
+
+    // Teachers
+    Route::post('/{gradeBook}/teachers', [GradeBookController::class, 'assignTeacher'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin');
+    Route::delete('/teachers/{teacherAssignment}', [GradeBookController::class, 'removeTeacher'])->middleware('permission:assessments.delete');
+
+    // Recalculation
+    Route::post('/{gradeBook}/recalculate', [GradeBookController::class, 'recalculate'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin|teacher');
+
+    // Orphaned Grade Books Management
+    Route::get('/orphaned', [GradeBookController::class, 'findOrphaned'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin');
+    Route::post('/cleanup-orphaned', [GradeBookController::class, 'cleanupOrphaned'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin');
 });

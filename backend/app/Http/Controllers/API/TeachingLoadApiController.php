@@ -18,11 +18,18 @@ class TeachingLoadApiController extends Controller
             ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
             ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
             ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+            ->leftJoin('grades as grade_map', function ($join) {
+                $join->on('grade_map.institution_id', '=', 'classes.institution_id')
+                    ->on('grade_map.academic_year_id', '=', 'classes.academic_year_id')
+                    ->on('grade_map.class_level', '=', 'classes.grade_level')
+                    ->on('grade_map.name', '=', 'classes.section');
+            })
             ->select([
                 'teaching_loads.*',
                 'users.username as teacher_name',
                 'subjects.name as subject_name',
-                'classes.name as class_name',
+                'grade_map.id as grade_id',
+                DB::raw("COALESCE(grade_map.full_name, CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
             ])
             ->orderBy('users.username');
 
@@ -44,13 +51,108 @@ class TeachingLoadApiController extends Controller
         $validated = $request->validate([
             'teacher_id' => 'required|exists:users,id',
             'subject_id' => 'required|exists:subjects,id',
-            'class_id' => 'required|exists:classes,id',
+            // Frontend currently sends Grade/Class (grades table) id
+            'class_id' => 'required|exists:grades,id',
             'weekly_hours' => 'required|numeric|min:1|max:40',
             'academic_year_id' => 'required|exists:academic_years,id',
         ]);
 
+        // Map grade id to real classes table id (teaching_loads.class_id FK)
+        $grade = DB::table('grades')->where('id', $validated['class_id'])->first();
+        if (! $grade) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Selected class not found',
+            ], 422);
+        }
+
+        $existingClass = DB::table('classes')
+            ->where('institution_id', $grade->institution_id)
+            ->where('academic_year_id', $grade->academic_year_id)
+            ->where('grade_level', $grade->class_level)
+            ->where('section', $grade->name)
+            ->first();
+
+        $classId = $existingClass?->id;
+        if (! $classId) {
+            $classId = DB::table('classes')->insertGetId([
+                'institution_id' => $grade->institution_id,
+                'academic_year_id' => $grade->academic_year_id,
+                'name' => (string) ($grade->class_level . $grade->name),
+                'grade_level' => $grade->class_level,
+                'section' => $grade->name,
+                'max_capacity' => 30,
+                'current_enrollment' => 0,
+                'status' => 'active',
+                'class_teacher_id' => null,
+                'classroom_location' => null,
+                'schedule_preferences' => json_encode([]),
+                'metadata' => json_encode([
+                    'source' => 'teaching-loads',
+                    'grade_id' => $grade->id,
+                ]),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
+
+        // 1. Check if the exact same teacher + subject + class exists (Duplicate assignment for same teacher)
+        $existingOwnLoad = DB::table('teaching_loads')
+            ->where('teacher_id', $validated['teacher_id'])
+            ->where('subject_id', $validated['subject_id'])
+            ->where('class_id', $classId)
+            ->where('academic_year_id', $validated['academic_year_id'])
+            ->first();
+
+        if ($existingOwnLoad) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu fənn artıq bu müəllimə bu sinif üçün təyin edilib.',
+            ], 422);
+        }
+
+        // 2. Check if the subject is configured as split_groups. If not, prevent multiple teachers.
+        $gradeSubject = DB::table('grade_subjects')
+            ->where('grade_id', $grade->id)
+            ->where('subject_id', $validated['subject_id'])
+            ->first();
+
+        $isSplit = $gradeSubject ? (bool) $gradeSubject->is_split_groups : false;
+
+        if (! $isSplit) {
+            // Check if any OTHER teacher already has this subject in this class
+            $existingOtherLoad = DB::table('teaching_loads')
+                ->where('subject_id', $validated['subject_id'])
+                ->where('class_id', $classId)
+                ->where('academic_year_id', $validated['academic_year_id'])
+                ->first();
+
+            if ($existingOtherLoad) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Bu fənn qruplara bölünməyən fənndir və artıq başqa müəllimə təyin edilib.',
+                ], 422);
+            }
+        } else {
+            // Split subject: max 2 teachers allowed per class per subject
+            $assignedTeacherCount = DB::table('teaching_loads')
+                ->where('subject_id', $validated['subject_id'])
+                ->where('class_id', $classId)
+                ->where('academic_year_id', $validated['academic_year_id'])
+                ->count();
+
+            if ($assignedTeacherCount >= 2) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Qruplara bölünən fənnə maksimum 2 müəllim təyin edilə bilər. Bu sinif üçün artıq 2 müəllim təyin edilib.',
+                ], 422);
+            }
+        }
+
         // Add default values for required fields that might be missing
         $data = array_merge($validated, [
+            // Replace incoming grade id with real classes.id
+            'class_id' => $classId,
             'total_hours' => $validated['weekly_hours'], // Default total_hours to weekly_hours
             'status' => 'active', // Default status
             'start_date' => now()->startOfYear(), // Default to current academic year start
@@ -72,16 +174,42 @@ class TeachingLoadApiController extends Controller
 
     public function getTeacherWorkload(Request $request, string $teacherId): JsonResponse
     {
-        $workload = DB::table('teaching_loads')
+        // Get active academic year
+        $activeYear = DB::table('academic_years')
+            ->where('is_active', true)
+            ->first();
+
+        $query = DB::table('teaching_loads')
             ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
             ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
-            ->where('teaching_loads.teacher_id', $teacherId)
-            ->select([
-                'teaching_loads.*',
-                'subjects.name as subject_name',
-                'classes.name as class_name',
-            ])
-            ->get();
+            ->leftJoin('grades as grade_map', function ($join) {
+                $join->on('grade_map.institution_id', '=', 'classes.institution_id')
+                    ->on('grade_map.academic_year_id', '=', 'classes.academic_year_id')
+                    ->on('grade_map.class_level', '=', 'classes.grade_level')
+                    ->on('grade_map.name', '=', 'classes.section');
+            })
+            ->leftJoin('grade_subjects', function ($join) {
+                $join->on('grade_subjects.grade_id', '=', 'grade_map.id')
+                    ->on('grade_subjects.subject_id', '=', 'teaching_loads.subject_id');
+            })
+            ->where('teaching_loads.teacher_id', $teacherId);
+
+        // Filter by active academic year if exists
+        if ($activeYear) {
+            $query->where('teaching_loads.academic_year_id', $activeYear->id);
+        }
+
+        $workload = $query->select([
+            'teaching_loads.*',
+            'subjects.name as subject_name',
+            'grade_map.id as grade_id',
+            'grade_map.education_program',
+            'grade_map.class_profile',
+            'grade_subjects.is_teaching_activity',
+            'grade_subjects.is_extracurricular',
+            'grade_subjects.is_club',
+            DB::raw("CONCAT(classes.grade_level, '-', classes.section) as class_name"),
+        ])->get();
 
         $totalHours = $workload->sum('weekly_hours');
         $maxHours = 24;
@@ -146,12 +274,28 @@ class TeachingLoadApiController extends Controller
             ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
             ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
             ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+            ->leftJoin('grades as grade_map', function ($join) {
+                $join->on('grade_map.institution_id', '=', 'classes.institution_id')
+                    ->on('grade_map.academic_year_id', '=', 'classes.academic_year_id')
+                    ->on('grade_map.class_level', '=', 'classes.grade_level')
+                    ->on('grade_map.name', '=', 'classes.section');
+            })
+            ->leftJoin('grade_subjects', function ($join) {
+                $join->on('grade_subjects.grade_id', '=', 'grade_map.id')
+                    ->on('grade_subjects.subject_id', '=', 'teaching_loads.subject_id');
+            })
             ->where('teaching_loads.id', $id)
             ->select([
                 'teaching_loads.*',
                 'users.username as teacher_name',
                 'subjects.name as subject_name',
-                'classes.name as class_name',
+                'grade_map.id as grade_id',
+                'grade_map.education_program',
+                'grade_map.class_profile',
+                'grade_subjects.is_teaching_activity',
+                'grade_subjects.is_extracurricular',
+                'grade_subjects.is_club',
+                DB::raw("COALESCE(grade_map.full_name, CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
             ])
             ->first();
 
@@ -179,12 +323,19 @@ class TeachingLoadApiController extends Controller
             ->join('users', 'teaching_loads.teacher_id', '=', 'users.id')
             ->join('subjects', 'teaching_loads.subject_id', '=', 'subjects.id')
             ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+            ->leftJoin('grades as grade_map', function ($join) {
+                $join->on('grade_map.institution_id', '=', 'classes.institution_id')
+                    ->on('grade_map.academic_year_id', '=', 'classes.academic_year_id')
+                    ->on('grade_map.class_level', '=', 'classes.grade_level')
+                    ->on('grade_map.name', '=', 'classes.section');
+            })
             ->where('classes.institution_id', $institutionId)
             ->select([
                 'teaching_loads.*',
                 'users.username as teacher_name',
                 'subjects.name as subject_name',
-                'classes.name as class_name',
+                'grade_map.id as grade_id',
+                DB::raw("COALESCE(grade_map.full_name, CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
             ])
             ->orderBy('users.username')
             ->get();
@@ -201,14 +352,51 @@ class TeachingLoadApiController extends Controller
             'assignments' => 'required|array',
             'assignments.*.teacher_id' => 'required|exists:users,id',
             'assignments.*.subject_id' => 'required|exists:subjects,id',
-            'assignments.*.class_id' => 'required|exists:classes,id',
+            // Frontend sends Grade/Class (grades table) id
+            'assignments.*.class_id' => 'required|exists:grades,id',
             'assignments.*.weekly_hours' => 'required|numeric|min:1|max:40',
             'assignments.*.academic_year_id' => 'required|exists:academic_years,id',
         ]);
 
         $insertData = [];
         foreach ($validated['assignments'] as $assignment) {
+            $grade = DB::table('grades')->where('id', $assignment['class_id'])->first();
+            if (! $grade) {
+                continue;
+            }
+
+            $existingClass = DB::table('classes')
+                ->where('institution_id', $grade->institution_id)
+                ->where('academic_year_id', $grade->academic_year_id)
+                ->where('grade_level', $grade->class_level)
+                ->where('section', $grade->name)
+                ->first();
+
+            $classId = $existingClass?->id;
+            if (! $classId) {
+                $classId = DB::table('classes')->insertGetId([
+                    'institution_id' => $grade->institution_id,
+                    'academic_year_id' => $grade->academic_year_id,
+                    'name' => (string) ($grade->class_level . $grade->name),
+                    'grade_level' => $grade->class_level,
+                    'section' => $grade->name,
+                    'max_capacity' => 30,
+                    'current_enrollment' => 0,
+                    'status' => 'active',
+                    'class_teacher_id' => null,
+                    'classroom_location' => null,
+                    'schedule_preferences' => json_encode([]),
+                    'metadata' => json_encode([
+                        'source' => 'teaching-loads',
+                        'grade_id' => $grade->id,
+                    ]),
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
             $insertData[] = array_merge($assignment, [
+                'class_id' => $classId,
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);

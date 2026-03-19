@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { curriculumService } from './curriculumService';
 
 export interface TeachingLoad {
   id: number;
@@ -44,6 +45,7 @@ export interface GradeSubject {
   is_extracurricular: boolean;
   is_club: boolean;
   is_split_groups: boolean;
+  is_assigned: boolean;
   group_count: number;
   calculated_hours: number;
   formatted_hours: string;
@@ -150,17 +152,50 @@ class WorkloadService {
 
   /**
    * Get grade subjects with weekly hours
+   * Uses curriculumService to get actual grade curriculum subjects
    */
   async getGradeSubjects(gradeId: number): Promise<{ success: boolean; data: GradeSubject[] }> {
     try {
-      const response = await apiClient.get<GradeSubject[]>(`/grades/${gradeId}/subjects`);
-      return response as { success: boolean; data: GradeSubject[] };
+      console.log('🔍 WorkloadService.getGradeSubjects called with gradeId:', gradeId);
+      
+      // Use curriculumService to get grade subjects from /grades/{id}/subjects
+      const response = await curriculumService.getCurriculumSubjects(gradeId);
+      
+      console.log('📦 curriculumService.getCurriculumSubjects response:', response);
+      console.log('📦 subjects array:', response.subjects);
+      console.log('📦 subjects length:', response.subjects?.length || 0);
+      
+      // Transform curriculum GradeSubject to workload GradeSubject format
+      // They are compatible, just need to ensure the structure matches
+      const gradeSubjects: GradeSubject[] = (response.subjects || []).map(subject => ({
+        id: subject.id,
+        subject_id: subject.subject_id,
+        subject_name: subject.subject_name,
+        subject_code: subject.subject_code,
+        weekly_hours: subject.weekly_hours,
+        is_teaching_activity: subject.is_teaching_activity,
+        is_extracurricular: subject.is_extracurricular,
+        is_club: subject.is_club,
+        is_split_groups: subject.is_split_groups,
+        is_assigned: subject.is_assigned,
+        group_count: subject.group_count,
+        calculated_hours: subject.calculated_hours,
+        formatted_hours: subject.formatted_hours,
+        activity_types: subject.activity_types,
+        teacher_id: subject.teacher_id ?? undefined,
+        teacher_name: subject.teacher_name ?? undefined,
+        notes: subject.notes ?? undefined,
+        created_at: subject.created_at,
+        updated_at: subject.updated_at,
+      }));
+      
+      console.log('✅ Transformed gradeSubjects:', gradeSubjects);
+      console.log('✅ Returning data length:', gradeSubjects.length);
+      
+      return { success: true, data: gradeSubjects };
     } catch (error) {
       console.error('❌ WorkloadService.getGradeSubjects failed:', error);
-      return {
-        success: false,
-        data: []
-      };
+      return { success: false, data: [] };
     }
   }
 }

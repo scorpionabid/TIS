@@ -259,26 +259,48 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-xl">
-            <School className="h-5 w-5 text-blue-600" />
-            {editingGrade ? 'Sinif Məlumatlarını Redaktə Et' : 'Yeni Sinif Yarat'}
-          </DialogTitle>
-          <DialogDescription>
-            {editingGrade
-              ? 'Mövcud sinifin məlumatlarını yeniləyin.'
-              : 'Standartlaşdırılmış sinif adlandırma sistemi ilə yeni sinif yaradın.'}
-          </DialogDescription>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0">
+        {/* Modern Header */}
+        <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 bg-gradient-to-r from-blue-50 to-white">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-blue-600 rounded-xl shadow-lg shadow-blue-200">
+              <School className="h-6 w-6 text-white" />
+            </div>
+            <div>
+              <DialogTitle className="text-xl font-bold text-slate-900">
+                {editingGrade ? 'Sinif Məlumatlarını Redaktə Et' : 'Yeni Sinif Yarat'}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-slate-500 mt-0.5">
+                {editingGrade
+                  ? 'Mövcud sinifin məlumatlarını yeniləyin.'
+                  : 'Yeni sinif yaradaraq tədris prosesinə başlayın.'}
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="p-6">
           <Tabs defaultValue="basic" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="basic">Əsas Məlumat</TabsTrigger>
-              <TabsTrigger value="optional">Əlavə Məlumat (könüllü)</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 bg-slate-100 p-1 rounded-xl mb-6">
+              <TabsTrigger 
+                value="basic" 
+                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-700 font-medium transition-all"
+              >
+                Əsas Məlumat
+              </TabsTrigger>
+              <TabsTrigger 
+                value="optional"
+                className="rounded-lg data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:text-blue-700 font-medium transition-all"
+              >
+                Əlavə Məlumat
+              </TabsTrigger>
             </TabsList>
 
+<<<<<<< HEAD
+            {/* TAB 1: BASIC INFO (REQUIRED) */}
+            <TabsContent value="basic" className="space-y-5 mt-0 focus-visible:outline-none">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+=======
             {/* TAB 1: BASIC INFO */}
             <TabsContent value="basic" className="space-y-4 mt-4">
               {/* Institution selector — only for multi-institution admins in create mode */}
@@ -316,8 +338,9 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
               )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                 <div className="space-y-2">
-                  <Label htmlFor="class_level">
+                  <Label htmlFor="class_level" className="text-sm font-semibold text-slate-700">
                     Sinif səviyyəsi <span className="text-red-500">*</span>
                   </Label>
                   <Select
@@ -325,27 +348,33 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                     onValueChange={(value) => handleFieldChange('class_level', parseInt(value))}
                     disabled={isLoading}
                   >
-                    <SelectTrigger className={validationErrors.class_level ? 'border-red-500' : ''}>
+                    <SelectTrigger className={`h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${validationErrors.class_level ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}>
                       <SelectValue placeholder="Sinif səviyyəsini seçin" />
                     </SelectTrigger>
+<<<<<<< HEAD
+                    <SelectContent className="rounded-lg">
+                      {classLevelOptions.map((level: any) => (
+                        <SelectItem key={level.value} value={level.value.toString()} className="rounded-md">
+=======
                     <SelectContent>
                       {classLevelOptions.map((level) => (
                         <SelectItem key={level.value} value={level.value.toString()}>
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                           {level.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {validationErrors.class_level && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
+                    <p className="text-sm text-red-600 flex items-center gap-1.5 mt-1.5">
+                      <AlertCircle className="h-3.5 w-3.5" />
                       {validationErrors.class_level}
                     </p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="class_index">
+                  <Label htmlFor="class_index" className="text-sm font-semibold text-slate-700">
                     Sinif index-i <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -355,14 +384,21 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                     placeholder="Məs: A, b, r2"
                     maxLength={3}
                     disabled={isLoading}
+<<<<<<< HEAD
+                    className={`h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all ${validationErrors.name ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''}`}
+                  />
+                  <p className="text-xs text-slate-500">
+                    Ən çox 3 simvol. Hərf, rəqəm və ya kombinasiyalar (məs: A, B, r2).
+=======
                     className={validationErrors.name ? 'border-red-500' : ''}
                   />
                   <p className="text-xs text-muted-foreground">
                     Ən çox 3 simvol. Hərf, rəqəm və ya kombinasiyalar ola bilər.
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                   </p>
                   {validationErrors.name && (
-                    <p className="text-sm text-red-600 flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" />
+                    <p className="text-sm text-red-600 flex items-center gap-1.5 mt-1">
+                      <AlertCircle className="h-3.5 w-3.5" />
                       {validationErrors.name}
                     </p>
                   )}
@@ -371,6 +407,16 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
               {/* Academic Year display */}
               <div className="space-y-2">
+<<<<<<< HEAD
+                <Label className="text-sm font-semibold text-slate-700">Akademik İl</Label>
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
+                  <span className="font-medium text-slate-700">
+                    {availableAcademicYears.find(y => y.id === formData.academic_year_id)?.name || '2024-2025'}
+                  </span>
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 font-medium">
+                    Aktiv
+                  </Badge>
+=======
                 <Label>Akademik İl</Label>
                 <div className="p-3 bg-muted rounded-md flex items-center justify-between">
                   <span className="text-sm">
@@ -381,6 +427,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                       {selectedYear.is_active ? 'Aktiv' : 'Keçmiş il'}
                     </Badge>
                   )}
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                 </div>
                 {validationErrors.academic_year_id && (
                   <p className="text-sm text-red-600 flex items-center gap-1">
@@ -392,14 +439,19 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
               {/* Live preview */}
               {previewName && (
-                <Alert className="border-blue-200 bg-blue-50">
-                  <Sparkles className="h-4 w-4 text-blue-600" />
-                  <AlertDescription>
-                    <div className="font-medium text-blue-900">
-                      Sinif adı: <strong className="text-lg">{previewName}</strong>
+                <Alert className="border-blue-200 bg-gradient-to-r from-blue-50 to-blue-100/50 rounded-xl">
+                  <Sparkles className="h-5 w-5 text-blue-600" />
+                  <AlertDescription className="ml-2">
+                    <div className="font-semibold text-blue-900 text-lg">
+                      {previewName}
                     </div>
                     <div className="text-sm text-blue-700 mt-1">
+<<<<<<< HEAD
+                      <Badge className={`${getEducationStageColor(formData.class_level)} font-medium`} variant="secondary">
+                        {formData.class_level === 0 && 'Məktəbəqədər hazırlıq'}
+=======
                       <Badge className={getEducationStageColor(formData.class_level)} variant="secondary">
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                         {formData.class_level >= 1 && formData.class_level <= 4 && 'İbtidai təhsil'}
                         {formData.class_level >= 5 && formData.class_level <= 9 && 'Ümumi orta təhsil'}
                         {formData.class_level >= 10 && formData.class_level <= 12 && 'Tam orta təhsil'}
@@ -418,32 +470,40 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
             </TabsContent>
 
             {/* TAB 2: OPTIONAL INFO */}
-            <TabsContent value="optional" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <TabsContent value="optional" className="space-y-5 mt-0 focus-visible:outline-none">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <div className="space-y-2">
-                  <Label htmlFor="class_type">Sinfin tipi</Label>
+                  <Label htmlFor="class_type" className="text-sm font-semibold text-slate-700">Sinfin tipi</Label>
                   <Input
                     id="class_type"
                     value={formData.class_type || ''}
                     onChange={(e) => handleFieldChange('class_type', e.target.value)}
                     placeholder="Məs: Orta məktəb sinfi"
+<<<<<<< HEAD
+                    className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+=======
                     disabled={isLoading}
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="class_profile">Profil</Label>
+                  <Label htmlFor="class_profile" className="text-sm font-semibold text-slate-700">Profil</Label>
                   <Input
                     id="class_profile"
                     value={formData.class_profile || ''}
                     onChange={(e) => handleFieldChange('class_profile', e.target.value)}
                     placeholder="Məs: Rəqəmsal bacarıqlar"
+<<<<<<< HEAD
+                    className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+=======
                     disabled={isLoading}
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="teaching_shift">Növbə</Label>
+                <Label htmlFor="teaching_shift" className="text-sm font-semibold text-slate-700">Növbə</Label>
                 <Select
                   value={formData.teaching_shift || 'none'}
                   onValueChange={(value) =>
@@ -451,10 +511,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                   }
                   disabled={isLoading}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                     <SelectValue placeholder="Növbəni seçin" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-lg">
                     <SelectItem value="none">Seçilməyib</SelectItem>
                     {TEACHING_SHIFT_OPTIONS.map(option => (
                       <SelectItem key={option} value={option}>
@@ -489,25 +549,36 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
               {/* Specialty — only for grades 10-12 */}
               {shouldShowSpecialty && (
                 <div className="space-y-2">
+<<<<<<< HEAD
+                  <Label htmlFor="specialty" className="text-sm font-semibold text-slate-700">
+                    İxtisas/İstiqamət
+                  </Label>
+=======
                   <Label htmlFor="specialty">İxtisas/İstiqamət (könüllü)</Label>
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                   <Select
                     value={formData.specialty || 'none'}
                     onValueChange={(value) => handleFieldChange('specialty', value === 'none' ? '' : value)}
                     disabled={isLoading}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                       <SelectValue placeholder="İxtisas seçin" />
                     </SelectTrigger>
+<<<<<<< HEAD
+                    <SelectContent className="rounded-lg">
+                      {namingOptions?.data?.specialties?.map((specialty: any) => (
+=======
                     <SelectContent>
                       <SelectItem value="none">Seçilməyib</SelectItem>
                       {namingOptions?.data?.specialties?.map((specialty) => (
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                         <SelectItem key={specialty.value || 'none'} value={specialty.value || 'none'}>
                           {specialty.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-500">
                     10-12 siniflər üçün ixtisas təyin edilə bilər
                   </p>
                 </div>
@@ -515,7 +586,13 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
 
               {/* Homeroom Teacher */}
               <div className="space-y-2">
+<<<<<<< HEAD
+                <Label htmlFor="homeroom_teacher_id" className="text-sm font-semibold text-slate-700">
+                  Sinif Rəhbəri
+                </Label>
+=======
                 <Label htmlFor="homeroom_teacher_id">Sinif Rəhbəri (könüllü)</Label>
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                 <Select
                   value={formData.homeroom_teacher_id?.toString() || 'none'}
                   onValueChange={(value) =>
@@ -523,10 +600,10 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                   }
                   disabled={isLoading}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-11 rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                     <SelectValue placeholder="Müəllim seçin" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="rounded-lg max-h-60">
                     <SelectItem value="none">Sinif rəhbəri təyin edilməyib</SelectItem>
                     {availableTeachers?.map((teacher) => (
                       <SelectItem key={teacher.id} value={teacher.id.toString()}>
@@ -535,30 +612,47 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-slate-500">
                   Mövcud müəllimlərdən sinif rəhbəri təyin edə bilərsiniz
                 </p>
               </div>
 
               {/* Description */}
               <div className="space-y-2">
+<<<<<<< HEAD
+                <Label htmlFor="description" className="text-sm font-semibold text-slate-700">
+                  Qeyd
+                </Label>
+=======
                 <Label htmlFor="description">Qeyd (könüllü)</Label>
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
                 <Textarea
                   value={formData.description || ''}
                   onChange={(e) => handleFieldChange('description', e.target.value)}
                   placeholder="Sinif haqqında əlavə məlumat..."
                   rows={3}
                   disabled={isLoading}
+                  className="rounded-lg border-slate-200 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all resize-none"
                 />
               </div>
             </TabsContent>
           </Tabs>
 
-          <DialogFooter className="gap-2">
-            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
+          <DialogFooter className="gap-3 pt-6 mt-6 border-t border-slate-100">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose} 
+              disabled={isLoading}
+              className="h-11 px-6 rounded-lg border-slate-300 text-slate-700 hover:bg-slate-50 font-medium"
+            >
               Ləğv et
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="h-11 px-6 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-lg shadow-blue-200 transition-all"
+            >
               {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {editingGrade ? 'Yenilə' : 'Yarat'}
             </Button>

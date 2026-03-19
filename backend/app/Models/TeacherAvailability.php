@@ -12,8 +12,11 @@ class TeacherAvailability extends Model
 {
     use HasFactory;
 
+    protected $table = 'teacher_availability';
+
     protected $fillable = [
         'teacher_id',
+        'academic_year_id',
         'day_of_week',
         'start_time',
         'end_time',
@@ -37,6 +40,7 @@ class TeacherAvailability extends Model
     ];
 
     protected $casts = [
+        'academic_year_id' => 'integer',
         'start_time' => 'datetime:H:i',
         'end_time' => 'datetime:H:i',
         'effective_date' => 'date',

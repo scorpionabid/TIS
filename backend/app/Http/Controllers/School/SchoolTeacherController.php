@@ -9,6 +9,7 @@ use App\Models\UserProfile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\Models\Role;
 
@@ -68,7 +69,12 @@ class SchoolTeacherController extends Controller
                     'phone' => $profile->contact_phone ?? '',
                     'department' => $teacher->department->name ?? '',
                     'institution' => $teacher->institution->name ?? '',
+                    'workplace_type' => $profile->workplace_type ?? 'primary',
                     'position' => $teacher->roles->first()->name ?? '',
+                    'position_type' => $profile->position_type ?? null,
+                    'employment_status' => $profile->employment_status ?? null,
+                    'specialty' => $profile->specialty ?? null,
+                    'assessment_score' => $profile->assessment_score ?? null,
                     'hire_date' => $profile->hire_date ?? null,
                     'birth_date' => $profile->birth_date ?? null,
                     'address' => $profile->address ?? '',
@@ -81,6 +87,45 @@ class SchoolTeacherController extends Controller
                     'created_at' => $teacher->created_at,
                 ];
             });
+
+        $teacherIds = $teachers->pluck('id')->values();
+
+        $workloadSummary = collect();
+        if ($teacherIds->count() > 0) {
+            $summaryRows = DB::table('teaching_loads')
+                ->join('classes', 'teaching_loads.class_id', '=', 'classes.id')
+                ->leftJoin('grades as grade_map', function ($join) {
+                    $join->on('grade_map.institution_id', '=', 'classes.institution_id')
+                        ->on('grade_map.academic_year_id', '=', 'classes.academic_year_id')
+                        ->on('grade_map.class_level', '=', 'classes.grade_level')
+                        ->on('grade_map.name', '=', 'classes.section');
+                })
+                ->leftJoin('grade_subjects', function ($join) {
+                    $join->on('grade_subjects.grade_id', '=', 'grade_map.id')
+                        ->on('grade_subjects.subject_id', '=', 'teaching_loads.subject_id');
+                })
+                ->whereIn('teaching_loads.teacher_id', $teacherIds->all())
+                ->select([
+                    'teaching_loads.teacher_id',
+                    DB::raw('COALESCE(SUM(teaching_loads.weekly_hours), 0) as total_hours'),
+                    DB::raw('COALESCE(SUM(CASE WHEN grade_subjects.is_teaching_activity = true THEN teaching_loads.weekly_hours ELSE 0 END), 0) as teaching_hours'),
+                    DB::raw('COALESCE(SUM(CASE WHEN grade_subjects.is_club = true THEN teaching_loads.weekly_hours ELSE 0 END), 0) as club_hours'),
+                    DB::raw('COALESCE(SUM(CASE WHEN grade_subjects.is_extracurricular = true THEN teaching_loads.weekly_hours ELSE 0 END), 0) as extracurricular_hours'),
+                ])
+                ->groupBy('teaching_loads.teacher_id')
+                ->get();
+
+            $workloadSummary = collect($summaryRows)->keyBy('teacher_id');
+        }
+
+        $teachers = $teachers->map(function ($teacher) use ($workloadSummary) {
+            $summary = $workloadSummary->get($teacher['id']);
+            $teacher['workload_total_hours'] = (int) ($summary->total_hours ?? 0);
+            $teacher['workload_teaching_hours'] = (int) ($summary->teaching_hours ?? 0);
+            $teacher['workload_club_hours'] = (int) ($summary->club_hours ?? 0);
+            $teacher['workload_extracurricular_hours'] = (int) ($summary->extracurricular_hours ?? 0);
+            return $teacher;
+        });
 
         return response()->json([
             'success' => true,
