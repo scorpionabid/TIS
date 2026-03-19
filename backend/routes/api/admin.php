@@ -292,6 +292,14 @@ Route::prefix('system')->middleware('permission:system.config')->group(function 
     Route::delete('reports/schedule/{id}', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'deleteScheduledReport']);
 });
 
+// Audit Logs (SuperAdmin + RegionAdmin)
+Route::prefix('audit-logs')->middleware('role_or_permission:superadmin|regionadmin')->group(function () {
+    Route::get('/', [\App\Http\Controllers\AuditLogController::class, 'index']);
+    Route::get('/activities', [\App\Http\Controllers\AuditLogController::class, 'activities']);
+    Route::get('/summary', [\App\Http\Controllers\AuditLogController::class, 'summary']);
+    Route::get('/event-types', [\App\Http\Controllers\AuditLogController::class, 'eventTypes']);
+});
+
 // Academic years management
 Route::prefix('academic-years')->middleware('permission:institutions.read')->group(function () {
     Route::get('/', [App\Http\Controllers\AcademicYearController::class, 'index']);
