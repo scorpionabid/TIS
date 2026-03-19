@@ -160,6 +160,10 @@ const ScheduleComparisonTool = lazy(
   () => import("./components/schedules/ScheduleComparisonTool"),
 );
 
+// AI Analysis pages
+const AiAnalysis = lazy(() => import("./pages/AiAnalysis"));
+const AiSettings = lazy(() => import("./pages/AiSettings"));
+
 // Debug Console
 const DebugConsole = lazy(() => import("./pages/DebugConsole"));
 
@@ -1618,6 +1622,37 @@ const App = () => {
                         </LazyWrapper>
                       }
                     />
+                    {/* AI Analysis Routes */}
+                    <Route
+                      path="ai-analysis"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.REGIONADMIN,
+                            ]}
+                            requiredPermissions={["ai_analysis.view"]}
+                          >
+                            <AiAnalysis />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="ai-settings"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[USER_ROLES.SUPERADMIN]}
+                            requiredPermissions={["ai_analysis.view"]}
+                          >
+                            <AiSettings />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route
                       path="sector-rating"

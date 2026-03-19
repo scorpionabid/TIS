@@ -129,6 +129,9 @@ Route::middleware([\App\Http\Middleware\ForceCors::class])->group(function () {
 
         // Messaging Routes
         require __DIR__ . '/api/messages.php';
+
+        // AI Analysis Routes
+        require __DIR__ . '/api/ai-analysis.php';
     });
 
     // Test route (public)

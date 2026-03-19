@@ -35,6 +35,8 @@ import {
   Star,
   User,
   Table2,
+  Sparkles,
+  Bot,
 } from "lucide-react";
 import { logger } from "@/utils/logger";
 import { UserRole, USER_ROLES } from "@/constants/roles";
@@ -963,6 +965,24 @@ export const improvedNavigationConfig: MenuGroup[] = [
         ],
         permissions: ["preschool.attendance.reports"],
         permissionMatch: "any",
+      },
+      {
+        id: "ai-analysis",
+        label: "AI Analiz",
+        path: "/ai-analysis",
+        icon: Sparkles,
+        description: "Təbii dillə verilənlər bazası analizi",
+        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+        permissions: ["ai_analysis.view"],
+      },
+      {
+        id: "ai-settings",
+        label: "AI İdarəetmə",
+        path: "/ai-settings",
+        icon: Bot,
+        description: "AI provayder və model konfiqurasiyası",
+        roles: [USER_ROLES.SUPERADMIN],
+        permissions: ["ai_analysis.view"],
       },
     ],
   },

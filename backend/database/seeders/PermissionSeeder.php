@@ -353,6 +353,10 @@ class PermissionSeeder extends Seeder
             'preschool.attendance.write',
             'preschool.attendance.reports',
             'preschool.attendance.export',
+
+            // AI Analysis
+            'ai_analysis.view',
+            'ai_analysis.execute',
         ];
 
         foreach ($permissions as $permissionName) {
@@ -398,6 +402,7 @@ class PermissionSeeder extends Seeder
                 'institution-types.read', 'institution-types.manage',
                 'system.config', 'analytics.view',
                 'preschool.groups.manage', 'preschool.attendance.read', 'preschool.attendance.write', 'preschool.attendance.reports', 'preschool.attendance.export',
+                'ai_analysis.view', 'ai_analysis.execute',
             ],
             'regionadmin' => [
                 'users.read', 'users.create', 'users.update', 'users.delete',
@@ -427,6 +432,7 @@ class PermissionSeeder extends Seeder
                 'institution-types.read',
                 'analytics.view',
                 'preschool.attendance.read', 'preschool.attendance.reports', 'preschool.attendance.export',
+                'ai_analysis.view', 'ai_analysis.execute',
             ],
             'schooladmin' => [
                 'users.read', 'users.create', 'users.update',
