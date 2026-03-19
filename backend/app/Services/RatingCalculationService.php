@@ -9,6 +9,8 @@ use App\Models\Institution;
 use App\Models\LinkAccessLog;
 use App\Models\LinkShare;
 use App\Models\Rating;
+use App\Models\ReportTable;
+use App\Models\ReportTableResponse;
 use App\Models\SurveyResponse;
 use App\Models\TaskAssignment;
 use App\Models\User;
@@ -19,10 +21,6 @@ class RatingCalculationService
 {
     private const CACHE_MINUTES = 5;
 
-    /**
-     * Calculate rating for a specific user using +1/-1 point system.
-     * Skips calculation if rating was calculated within CACHE_MINUTES (unless $force=true).
-     */
     public function calculateRating(int $userId, array $params, bool $force = false): Rating
     {
         try {
@@ -31,25 +29,23 @@ class RatingCalculationService
             $academicYearId = $params['academic_year_id'];
             $period = $params['period'];
 
-            // Check cache - skip if recently calculated
-            if (! $force) {
+            if (!$force) {
                 $cached = Rating::where('user_id', $userId)
                     ->where('institution_id', $institutionId)
                     ->where('academic_year_id', $academicYearId)
                     ->where('period', $period)
                     ->first();
 
-                if ($cached && ! $this->isStale($cached)) {
+                if ($cached && !$this->isStale($cached)) {
                     return $cached;
                 }
             }
 
-            // Calculate common scores with +1/-1 system
             $taskResult = $this->calculateTaskScore($userId, $period);
             $surveyResult = $this->calculateSurveyScore($userId, $period);
             $linkResult = $this->calculateLinkScore($userId, $period);
+            $reportResult = $this->calculateReportScore($userId, $period);
 
-            // Role-aware: SektorAdmin gets approval score, SchoolAdmin gets attendance score
             $userRole = $params['user_role'] ?? $user->roles->first()?->name ?? 'schooladmin';
 
             if ($userRole === 'sektoradmin') {
@@ -60,7 +56,6 @@ class RatingCalculationService
                 $approvalResult = ['score' => 0, 'on_time' => 0, 'late' => 0, 'pending_overdue' => 0, 'total' => 0];
             }
 
-            // Preserve existing manual_score if rating already exists
             $existingRating = Rating::where('user_id', $userId)
                 ->where('institution_id', $institutionId)
                 ->where('academic_year_id', $academicYearId)
@@ -69,13 +64,14 @@ class RatingCalculationService
 
             $manualScore = $existingRating?->manual_score ?? 0;
 
-            // Overall formula depends on role
             if ($userRole === 'sektoradmin') {
                 $overallScore = $taskResult['score'] + $surveyResult['score']
-                    + $approvalResult['score'] + $linkResult['score'] + $manualScore;
+                    + $approvalResult['score'] + $linkResult['score'] 
+                    + $reportResult['score'] + $manualScore;
             } else {
                 $overallScore = $taskResult['score'] + $surveyResult['score']
-                    + $attendanceResult['score'] + $linkResult['score'] + $manualScore;
+                    + $attendanceResult['score'] + $linkResult['score'] 
+                    + $reportResult['score'] + $manualScore;
             }
 
             $scoreDetails = [
@@ -100,9 +96,13 @@ class RatingCalculationService
                 'approval_pending_overdue' => $approvalResult['pending_overdue'],
                 'approval_total' => $approvalResult['total'],
                 'approval_score' => $approvalResult['score'],
+                'reports_on_time' => $reportResult['on_time'],
+                'reports_late' => $reportResult['late'],
+                'reports_missed' => $reportResult['missed'],
+                'reports_total' => $reportResult['total'],
+                'report_score' => $reportResult['score'],
             ];
 
-            // Create or update rating
             $rating = Rating::updateOrCreate(
                 [
                     'user_id' => $userId,
@@ -117,27 +117,16 @@ class RatingCalculationService
                     'attendance_score' => $attendanceResult['score'],
                     'approval_score' => $approvalResult['score'],
                     'link_score' => $linkResult['score'],
+                    'report_score' => $reportResult['score'],
                     'manual_score' => $manualScore,
                     'score_details' => $scoreDetails,
                     'status' => 'published',
                     'metadata' => [
                         'calculation_method' => 'point_system',
-                        'calculated_at' => now()->toISOString(),
+                        'calculated_at' => Carbon::now()->toISOString(),
                     ],
                 ]
             );
-
-            Log::info('Rating calculated successfully', [
-                'user_id' => $userId,
-                'overall_score' => $overallScore,
-                'task_score' => $taskResult['score'],
-                'survey_score' => $surveyResult['score'],
-                'attendance_score' => $attendanceResult['score'],
-                'approval_score' => $approvalResult['score'],
-                'link_score' => $linkResult['score'],
-                'manual_score' => $manualScore,
-                'period' => $period,
-            ]);
 
             return $rating;
         } catch (\Exception $e) {
@@ -149,9 +138,6 @@ class RatingCalculationService
         }
     }
 
-    /**
-     * Calculate ratings for all users in the caller's hierarchy.
-     */
     public function calculateAllRatings(array $params, ?User $currentUser = null, bool $force = false): array
     {
         try {
@@ -159,10 +145,8 @@ class RatingCalculationService
             $period = $params['period'];
             $userRole = $params['user_role'] ?? 'schooladmin';
 
-            // Get allowed institution IDs based on hierarchy
             $allowedIds = $this->getAllowedInstitutionIds($currentUser);
 
-            // Get users with the target role within allowed institutions
             $users = User::byRole($userRole)
                 ->whereIn('institution_id', $allowedIds)
                 ->get();
@@ -192,13 +176,6 @@ class RatingCalculationService
                 }
             }
 
-            Log::info('Bulk rating calculation completed', [
-                'user_role' => $userRole,
-                'period' => $period,
-                'success_count' => $successCount,
-                'error_count' => $errorCount,
-            ]);
-
             return [
                 'results' => $results,
                 'summary' => [
@@ -216,12 +193,6 @@ class RatingCalculationService
         }
     }
 
-    /**
-     * Calculate task score using +1/-1 point system.
-     *
-     * +1: Task completed on time (completed_at <= due_date)
-     * -1: Task completed late (completed_at > due_date) OR overdue (not completed, past due_date)
-     */
     private function calculateTaskScore(int $userId, string $period): array
     {
         $assignments = TaskAssignment::where('assigned_user_id', $userId)
@@ -240,7 +211,7 @@ class RatingCalculationService
                 } else {
                     $late++;
                 }
-            } elseif (! in_array($assignment->assignment_status, ['completed', 'cancelled']) && $dueDate->isPast()) {
+            } elseif (!in_array($assignment->assignment_status, ['completed', 'cancelled']) && $dueDate->isPast()) {
                 $late++;
             }
         }
@@ -253,14 +224,6 @@ class RatingCalculationService
         ];
     }
 
-    /**
-     * Calculate survey score using +1/-1 point system.
-     *
-     * +1: Survey response submitted on time (submitted_at <= survey.end_date)
-     *     OR submitted for approval (status = submitted/approved)
-     * -1: Survey response late (submitted_at > survey.end_date)
-     *     OR deadline passed without submission
-     */
     private function calculateSurveyScore(int $userId, string $period): array
     {
         $responses = SurveyResponse::where('respondent_id', $userId)
@@ -279,7 +242,7 @@ class RatingCalculationService
                 } else {
                     $onTime++;
                 }
-            } elseif ($deadline && $deadline->isPast() && ! in_array($response->status, ['submitted', 'approved'])) {
+            } elseif ($deadline && $deadline->isPast() && !in_array($response->status, ['submitted', 'approved'])) {
                 $late++;
             }
         }
@@ -292,18 +255,11 @@ class RatingCalculationService
         ];
     }
 
-    /**
-     * Calculate attendance score using +1/-1 point system.
-     *
-     * +1: All grades' attendance recorded on the same day as attendance_date
-     * -1: At least one grade missing attendance OR not recorded on the same day
-     */
     private function calculateAttendanceScore(int $userId, string $period): array
     {
         $user = User::find($userId);
         $institutionId = $user->institution_id;
 
-        // Count active grades at this institution
         $totalGrades = Grade::withoutGlobalScopes()
             ->where('institution_id', $institutionId)
             ->where('is_active', true)
@@ -313,24 +269,20 @@ class RatingCalculationService
             return ['score' => 0, 'on_time' => 0, 'missed' => 0, 'total_days' => 0];
         }
 
-        // Parse period to get date range (e.g., '2025-01' → Jan 2025)
         $periodParts = explode('-', $period);
-        $year = (int) $periodParts[0];
-        $month = (int) ($periodParts[1] ?? 1);
+        $year = (int)$periodParts[0];
+        $month = (int)($periodParts[1] ?? 1);
         $startDate = Carbon::create($year, $month, 1)->startOfMonth();
         $endDate = $startDate->copy()->endOfMonth();
 
-        // Don't include future days
         if ($endDate->isFuture()) {
             $endDate = Carbon::today();
         }
 
-        // Don't calculate if start date is in the future
         if ($startDate->isFuture()) {
             return ['score' => 0, 'on_time' => 0, 'missed' => 0, 'total_days' => 0];
         }
 
-        // Get workdays (Mon-Fri) in the period
         $workdays = [];
         $current = $startDate->copy();
         while ($current->lte($endDate)) {
@@ -344,12 +296,11 @@ class RatingCalculationService
             return ['score' => 0, 'on_time' => 0, 'missed' => 0, 'total_days' => 0];
         }
 
-        // Batch query: get all attendance records for this institution in the period
         $attendanceRecords = ClassBulkAttendance::withoutGlobalScopes()
             ->where('institution_id', $institutionId)
             ->whereBetween('attendance_date', [$workdays[0], end($workdays)])
             ->get()
-            ->groupBy(fn ($record) => $record->attendance_date->toDateString());
+            ->groupBy(fn ($record) => \Carbon\Carbon::parse($record->attendance_date)->toDateString());
 
         $onTime = 0;
         $missed = 0;
@@ -357,12 +308,11 @@ class RatingCalculationService
         foreach ($workdays as $dateStr) {
             $dayRecords = $attendanceRecords->get($dateStr, collect());
 
-            // Count grades with same-day recording
             $sameDay = $dayRecords->filter(function ($record) use ($dateStr) {
                 $morningOk = $record->morning_recorded_at
-                    && $record->morning_recorded_at->toDateString() === $dateStr;
+                    && \Carbon\Carbon::parse($record->morning_recorded_at)->toDateString() === $dateStr;
                 $eveningOk = $record->evening_recorded_at
-                    && $record->evening_recorded_at->toDateString() === $dateStr;
+                    && \Carbon\Carbon::parse($record->evening_recorded_at)->toDateString() === $dateStr;
 
                 return $morningOk || $eveningOk;
             })->count();
@@ -382,35 +332,23 @@ class RatingCalculationService
         ];
     }
 
-    /**
-     * Calculate link score using +1/-1 point system.
-     *
-     * +1: Link opened (has access log entry for this user)
-     * -1: Link not opened (no access log entry)
-     */
     private function calculateLinkScore(int $userId, string $period): array
     {
         $user = User::with('roles')->find($userId);
         $institutionId = $user->institution_id;
         $userRole = $user->roles->first()?->name;
 
-        // Find active links targeted at this user
         $links = LinkShare::active()
             ->where(function ($q) use ($userId, $institutionId, $userRole) {
-                // Directly targeted by user_id
                 $q->whereJsonContains('target_users', $userId)
-                    ->orWhereJsonContains('target_users', (string) $userId)
-                    // Targeted by institution
+                    ->orWhereJsonContains('target_users', (string)$userId)
                     ->orWhereJsonContains('target_institutions', $institutionId)
-                    ->orWhereJsonContains('target_institutions', (string) $institutionId)
-                    // Public scope
+                    ->orWhereJsonContains('target_institutions', (string)$institutionId)
                     ->orWhere('share_scope', 'public')
-                    // Same institution scope
                     ->orWhere(function ($q2) use ($institutionId) {
                         $q2->where('share_scope', 'institutional')
                             ->where('institution_id', $institutionId);
                     });
-                // Targeted by role
                 if ($userRole) {
                     $q->orWhereJsonContains('target_roles', $userRole);
                 }
@@ -418,9 +356,7 @@ class RatingCalculationService
             ->get();
 
         $opened = 0;
-        $notOpened = 0;
 
-        // Batch query: get all access logs for this user and these links
         $accessedLinkIds = LinkAccessLog::where('user_id', $userId)
             ->whereIn('link_share_id', $links->pluck('id'))
             ->distinct()
@@ -430,32 +366,22 @@ class RatingCalculationService
         foreach ($links as $link) {
             if (in_array($link->id, $accessedLinkIds)) {
                 $opened++;
-            } else {
-                $notOpened++;
             }
         }
 
         return [
-            'score' => $opened - $notOpened,
+            'score' => $opened - ($links->count() - $opened),
             'opened' => $opened,
-            'missed' => $notOpened,
+            'missed' => $links->count() - $opened,
             'total' => $links->count(),
         ];
     }
 
-    /**
-     * Calculate approval score for SektorAdmin using +1/-1 point system.
-     *
-     * Measures how quickly SektorAdmin approves/rejects/returns school survey responses.
-     * +1: Action taken before survey end_date
-     * -1: Action taken after survey end_date OR no action and deadline passed
-     */
     private function calculateApprovalScore(int $userId, string $period): array
     {
         $user = User::find($userId);
         $institutionId = $user->institution_id;
 
-        // Get all child school IDs under this sector
         $childSchoolIds = Institution::where('parent_id', $institutionId)
             ->where('level', 4)
             ->pluck('id')
@@ -465,7 +391,6 @@ class RatingCalculationService
             return ['score' => 0, 'on_time' => 0, 'late' => 0, 'pending_overdue' => 0, 'total' => 0];
         }
 
-        // Get survey responses from child schools that have been submitted or acted upon
         $surveyResponses = SurveyResponse::withoutGlobalScopes()
             ->whereIn('institution_id', $childSchoolIds)
             ->whereIn('status', ['submitted', 'approved', 'rejected', 'returned'])
@@ -480,11 +405,10 @@ class RatingCalculationService
 
         foreach ($surveyResponses as $response) {
             $deadline = $response->survey?->end_date;
-            if (! $deadline) {
+            if (!$deadline) {
                 continue;
             }
 
-            // Check ApprovalAction first (structured approval workflow)
             $approvalAction = $response->approvalRequest
                 ?->approvalActions
                 ?->first();
@@ -496,14 +420,12 @@ class RatingCalculationService
                     $late++;
                 }
             } elseif ($response->approved_by == $userId && $response->approved_at) {
-                // Fallback: direct approval without workflow
                 if ($response->approved_at->lte($deadline)) {
                     $onTime++;
                 } else {
                     $late++;
                 }
             } elseif ($response->status === 'submitted' && $deadline->isPast()) {
-                // No action taken and deadline has passed
                 $pendingOverdue++;
             }
         }
@@ -517,43 +439,73 @@ class RatingCalculationService
         ];
     }
 
-    /**
-     * Check if a rating is stale (needs recalculation).
-     */
+    private function calculateReportScore(int $userId, string $period): array
+    {
+        $user = User::find($userId);
+        $institutionId = $user->institution_id;
+
+        $reportTables = ReportTable::published()
+            ->notTemplates()
+            ->whereJsonContains('target_institutions', (string)$institutionId)
+            ->orWhereJsonContains('target_institutions', $institutionId)
+            ->get();
+
+        $onTime = 0;
+        $late = 0;
+        $missed = 0;
+
+        foreach ($reportTables as $table) {
+            $deadline = $table->deadline;
+            
+            $response = ReportTableResponse::where('report_table_id', $table->id)
+                ->where('institution_id', $institutionId)
+                ->first();
+
+            if ($response && $response->status === 'submitted' && $response->submitted_at) {
+                if (!$deadline || $response->submitted_at->lte($deadline)) {
+                    $onTime++;
+                } else {
+                    $late++;
+                }
+            } elseif ($deadline && $deadline->isPast()) {
+                $missed++;
+            }
+        }
+
+        return [
+            'score' => $onTime - $late - $missed,
+            'on_time' => $onTime,
+            'late' => $late,
+            'missed' => $missed,
+            'total' => $reportTables->count(),
+        ];
+    }
+
     private function isStale(Rating $rating): bool
     {
         $metadata = $rating->metadata;
-        if (! $metadata || ! isset($metadata['calculated_at'])) {
+        if (!$metadata || !isset($metadata['calculated_at'])) {
             return true;
         }
 
-        return Carbon::parse($metadata['calculated_at'])
-            ->addMinutes(self::CACHE_MINUTES)
-            ->isPast();
+        return Carbon::parse($metadata['calculated_at'])->addMinutes(self::CACHE_MINUTES)->isPast();
     }
 
-    /**
-     * Get allowed institution IDs based on user's hierarchy level.
-     */
     private function getAllowedInstitutionIds(User $user): array
     {
         if ($user->hasRole('superadmin')) {
-            return \App\Models\Institution::pluck('id')->toArray();
+            return Institution::pluck('id')->toArray();
         }
 
         $institution = $user->institution;
-        if (! $institution) {
+        if (!$institution) {
             return [];
         }
 
-        // For level 4 (school), return only own institution
         if ($institution->level === 4) {
             return [$institution->id];
         }
 
-        // For level 2 (region) or level 3 (sector), get all children
-        $childIds = $institution->getAllChildrenIds();
-
-        return $childIds;
+        return $institution->getAllChildrenIds();
     }
 }

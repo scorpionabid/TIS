@@ -4,28 +4,24 @@
  */
 
 // Backend types from SurveyQuestion.php
-export type BackendQuestionType = 
-  | 'text' 
-  | 'number' 
-  | 'date' 
-  | 'single_choice' 
-  | 'multiple_choice' 
-  | 'file_upload' 
-  | 'rating' 
-  | 'table_matrix';
+export type BackendQuestionType =
+  | 'text'
+  | 'number'
+  | 'date'
+  | 'single_choice'
+  | 'multiple_choice'
+  | 'file_upload';
 
 // Frontend types used in components
-export type FrontendQuestionType = 
-  | 'text' 
-  | 'textarea' 
-  | 'number' 
-  | 'radio' 
-  | 'checkbox' 
-  | 'select' 
-  | 'rating' 
-  | 'date' 
-  | 'file_upload' 
-  | 'table_matrix';
+export type FrontendQuestionType =
+  | 'text'
+  | 'textarea'
+  | 'number'
+  | 'radio'
+  | 'checkbox'
+  | 'select'
+  | 'date'
+  | 'file_upload';
 
 // Mapping from frontend to backend types
 export const frontendToBackendMapping: Record<FrontendQuestionType, BackendQuestionType> = {
@@ -35,10 +31,8 @@ export const frontendToBackendMapping: Record<FrontendQuestionType, BackendQuest
   'radio': 'single_choice',
   'checkbox': 'multiple_choice',
   'select': 'single_choice', // Select dropdown is also single choice
-  'rating': 'rating',
   'date': 'date',
   'file_upload': 'file_upload',
-  'table_matrix': 'table_matrix',
 };
 
 // Mapping from backend to frontend types (for display)
@@ -49,8 +43,6 @@ export const backendToFrontendMapping: Record<BackendQuestionType, FrontendQuest
   'single_choice': 'radio', // Default to radio for single choice
   'multiple_choice': 'checkbox',
   'file_upload': 'file_upload',
-  'rating': 'rating',
-  'table_matrix': 'table_matrix',
 };
 
 // Question type labels for UI display
@@ -61,8 +53,6 @@ export const questionTypeLabels: Record<BackendQuestionType, string> = {
   'single_choice': 'Tək seçim',
   'multiple_choice': 'Çox seçim',
   'file_upload': 'Fayl yükləmə',
-  'rating': 'Qiymətləndirmə',
-  'table_matrix': 'Cədvəl/Matris',
 };
 
 // Question type descriptions
@@ -73,8 +63,6 @@ export const questionTypeDescriptions: Record<BackendQuestionType, string> = {
   'single_choice': 'Radio button seçimlər - yalnız bir variant',
   'multiple_choice': 'Checkbox seçimlər - çoxsaylı variant',
   'file_upload': 'PDF, Excel faylları (maksimum 10MB)',
-  'rating': '1-10 qiymətləndirmə skalası',
-  'table_matrix': 'Strukturlaşdırılmış cədvəl məlumatları',
 };
 
 /**

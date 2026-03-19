@@ -81,6 +81,7 @@ const SectorRating = lazy(() => import("./pages/SectorRating"));
 const SchoolAdminRating = lazy(() => import("./pages/SchoolAdminRating"));
 const TeacherRating = lazy(() => import("./pages/TeacherRating"));
 const TeacherVerification = lazy(() => import("./pages/TeacherVerification"));
+const RatingConfiguration = lazy(() => import("./pages/RatingConfiguration"));
 
 // RegionAdmin pages
 const RegionAdminIndex = lazy(
@@ -123,6 +124,15 @@ const SchoolScheduleManagement = lazy(
 const BulkAttendanceEntry = lazy(
   () => import("./pages/school/BulkAttendanceEntry"),
 );
+const PreschoolGroups = lazy(
+  () => import("./pages/preschool/PreschoolGroups"),
+);
+const PreschoolAttendanceEntry = lazy(
+  () => import("./pages/preschool/PreschoolAttendanceEntry"),
+);
+const PreschoolAttendanceReports = lazy(
+  () => import("./pages/preschool/PreschoolAttendanceReports"),
+);
 
 // Teacher pages
 const TeacherSchedule = lazy(() => import("./pages/teacher/TeacherSchedule"));
@@ -151,10 +161,16 @@ const ScheduleComparisonTool = lazy(
   () => import("./components/schedules/ScheduleComparisonTool"),
 );
 
+<<<<<<< HEAD
 // Grade Book Pages
 const GradeBooks = lazy(() => import("./pages/GradeBooks"));
 const GradeBookDetail = lazy(() => import("./pages/GradeBookDetail"));
 const GradeBookCreate = lazy(() => import("./pages/GradeBookCreate"));
+=======
+// AI Analysis pages
+const AiAnalysis = lazy(() => import("./pages/AiAnalysis"));
+const AiSettings = lazy(() => import("./pages/AiSettings"));
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 
 // Debug Console
 const DebugConsole = lazy(() => import("./pages/DebugConsole"));
@@ -1129,69 +1145,6 @@ const App = () => {
                         }
                       />
                       <Route
-                        path="regionadmin/schools"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Schools</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/hierarchy"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Hierarchy</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/tasks/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Tasks</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/surveys/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Surveys</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/documents/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Documents</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/reports/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Reports</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
-                        path="regionadmin/settings/*"
-                        element={
-                          <div className="p-6">
-                            <h1>Regional Settings</h1>
-                            <p>Hazırlanmaqdadır...</p>
-                          </div>
-                        }
-                      />
-                      <Route
                         path="regionadmin/attendance/reports"
                         element={
                           <LazyWrapper>
@@ -1299,6 +1252,62 @@ const App = () => {
                             ]}
                           >
                             <SchoolClasses />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    {/* Preschool Routes */}
+                    <Route
+                      path="preschool/groups"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.SCHOOLADMIN,
+                            ]}
+                            requiredPermissions={["preschool.groups.manage"]}
+                            permissionMatch="any"
+                          >
+                            <PreschoolGroups />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="preschool/attendance"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.SCHOOLADMIN,
+                            ]}
+                            requiredPermissions={["preschool.attendance.write"]}
+                            permissionMatch="any"
+                          >
+                            <PreschoolAttendanceEntry />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="preschool/attendance/reports"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.REGIONADMIN,
+                              USER_ROLES.REGIONOPERATOR,
+                              USER_ROLES.SEKTORADMIN,
+                            ]}
+                            requiredPermissions={[
+                              "preschool.attendance.reports",
+                            ]}
+                            permissionMatch="any"
+                          >
+                            <PreschoolAttendanceReports />
                           </RoleProtectedRoute>
                         </LazyWrapper>
                       }
@@ -1609,6 +1618,50 @@ const App = () => {
                         </LazyWrapper>
                       }
                     />
+                    <Route
+                      path="rating-configuration"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[USER_ROLES.SUPERADMIN]}
+                            requiredPermissions={["rating-configs.manage"]}
+                          >
+                            <RatingConfiguration />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    {/* AI Analysis Routes */}
+                    <Route
+                      path="ai-analysis"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.REGIONADMIN,
+                            ]}
+                            requiredPermissions={["ai_analysis.view"]}
+                          >
+                            <AiAnalysis />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="ai-settings"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[USER_ROLES.SUPERADMIN]}
+                            requiredPermissions={["ai_analysis.view"]}
+                          >
+                            <AiSettings />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+
                     {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                     <Route
                       path="sector-rating"

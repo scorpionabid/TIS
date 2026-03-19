@@ -20,8 +20,8 @@ print_error() { echo -e "${RED}❌ $1${NC}"; }
 # Ensure common Docker install locations are available in PATH
 export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
 
-DUMP_DIR="backend/database/snapshots"
-DUMP_FILE="$DUMP_DIR/atis_full_20260218.dump"
+DUMP_DIR="."
+DUMP_FILE="$DUMP_DIR/atis_production_20260303_094835.sql"
 
 echo ""
 print_status "📥 ATİS Full Database Restore"
@@ -62,10 +62,15 @@ docker exec atis_postgres dropdb --if-exists -U atis_dev_user atis_dev
 docker exec atis_postgres createdb -U atis_dev_user atis_dev
 
 # Restore from dump
-print_status "Dump bərpa edilir (pg_restore)..."
-# We use -Fc because it's a custom format dump. 
-# We use --no-owner and --no-privileges to avoid permission issues during local restore.
-docker exec -i atis_postgres pg_restore -U atis_dev_user -d atis_dev --no-owner --no-privileges < "$DUMP_FILE" || print_warning "Bəzi xətalar bərpa zamanı ignor edildi (foreign keys və s.)"
+if [[ "$DUMP_FILE" == *.sql ]]; then
+    print_status "Dump bərpa edilir (psql vasitəsilə .sql faylı)..."
+    # psql is used for plain text SQL dumps. We hide standard output and errors (like owner issues) to avoid flooding the terminal.
+    docker exec -i atis_postgres psql -U atis_dev_user -d atis_dev -q < "$DUMP_FILE" >/dev/null 2>&1 || print_warning "Bəzi xətalar bərpa zamanı yox sayıldı (owner dəyişikliyi və s.)"
+else
+    print_status "Dump bərpa edilir (pg_restore vasitəsilə .dump faylı)..."
+    # pg_restore is used for custom format dumps (-Fc)
+    docker exec -i atis_postgres pg_restore -U atis_dev_user -d atis_dev --no-owner --no-privileges < "$DUMP_FILE" >/dev/null 2>&1 || print_warning "Bəzi xətalar bərpa zamanı yox sayıldı (hər hansı uyğunsuzluqlar)"
+fi
 
 # Final validation
 print_status "Bərpa yoxlanılır..."

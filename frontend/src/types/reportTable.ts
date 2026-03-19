@@ -17,6 +17,8 @@ export interface ReportTableColumn {
   max_length?: number;
   // For select type: list of allowed options
   options?: string[];
+  // For select type: allow multiple selections
+  multiple?: boolean;
   // For calculated type: formula string
   formula?: string;
   // Format for calculated columns

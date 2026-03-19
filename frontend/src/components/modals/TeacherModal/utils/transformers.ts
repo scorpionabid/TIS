@@ -48,7 +48,10 @@ export function transformTeacherDataToBackend(formData: any) {
 
     // Assessment fields (NEW - REQUIRED)
     assessment_type: formData.assessment_type || null,
-    assessment_score: formData.assessment_score ? parseFloat(formData.assessment_score) : null,
+    // assessment_score may be 0 which is falsy — use explicit undefined/null check
+    assessment_score: (formData.assessment_score !== undefined && formData.assessment_score !== null && formData.assessment_score !== '')
+      ? parseFloat(String(formData.assessment_score))
+      : null,
 
     // Certification (old - optional)
     miq_score: formData.miq_score ? parseFloat(formData.miq_score) : null,

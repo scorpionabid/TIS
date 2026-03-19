@@ -49,12 +49,6 @@ class HealthController extends BaseController
         return $this->successResponse([
             'version' => config('app.version', '1.0.0'),
             'name' => config('app.name'),
-            'environment' => config('app.env'),
-            'debug' => config('app.debug'),
-            'timezone' => config('app.timezone'),
-            'locale' => config('app.locale'),
-            'php_version' => PHP_VERSION,
-            'laravel_version' => app()->version(),
         ], 'API version information');
     }
 

@@ -89,6 +89,8 @@ export default function Surveys() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['surveys'] });
       queryClient.invalidateQueries({ queryKey: ['survey-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['my-survey-responses'] });
+      queryClient.invalidateQueries({ queryKey: ['survey-responses-approval'] });
       toast({
         title: "Uğurlu",
         description: "Sorğu silindi",
@@ -124,6 +126,7 @@ export default function Surveys() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['surveys'] });
       queryClient.invalidateQueries({ queryKey: ['survey-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['my-survey-responses'] });
       toast({
         title: "Uğurlu",
         description: "Sorğu yayımlandı",
@@ -137,6 +140,8 @@ export default function Surveys() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['surveys'] });
       queryClient.invalidateQueries({ queryKey: ['survey-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['my-survey-responses'] });
+      queryClient.invalidateQueries({ queryKey: ['survey-responses-approval'] });
       toast({
         title: "Uğurlu",
         description: "Sorğu dayandırıldı",
@@ -150,6 +155,8 @@ export default function Surveys() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['surveys'] });
       queryClient.invalidateQueries({ queryKey: ['survey-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['my-survey-responses'] });
+      queryClient.invalidateQueries({ queryKey: ['survey-responses-approval'] });
       toast({
         title: "Uğurlu",
         description: "Sorğu arxivə göndərildi",

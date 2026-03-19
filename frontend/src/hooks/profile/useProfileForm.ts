@@ -19,6 +19,12 @@ const toUpdateData = (data: ProfileFormData): UpdateProfileData => ({
     birth_date: data.birth_date || undefined,
     gender: (data.gender as 'male' | 'female' | 'other') || undefined,
     contact_phone: data.contact_phone || undefined,
+    bio: data.bio || undefined,
+    specialty: data.specialty || undefined,
+    experience_years: data.experience_years === '' ? undefined : Number(data.experience_years),
+    degree_level: data.degree_level || undefined,
+    graduation_university: data.graduation_university || undefined,
+    graduation_year: data.graduation_year === '' ? undefined : Number(data.graduation_year),
   },
 });
 
@@ -36,6 +42,12 @@ const EMPTY_FORM: ProfileFormData = {
   emergency_contact_phone: '',
   address_street: '',
   address_city: '',
+  bio: '',
+  specialty: '',
+  experience_years: '',
+  degree_level: '',
+  graduation_university: '',
+  graduation_year: '',
 };
 
 export const useProfileForm = (
@@ -84,6 +96,12 @@ export const useProfileForm = (
       emergency_contact_phone: p?.emergency_contact_phone ?? '',
       address_street: p?.address?.street ?? '',
       address_city: p?.address?.city ?? '',
+      bio: p?.bio ?? '',
+      specialty: p?.specialty ?? '',
+      experience_years: p?.experience_years ?? '',
+      degree_level: p?.degree_level ?? '',
+      graduation_university: p?.graduation_university ?? '',
+      graduation_year: p?.graduation_year ?? '',
     });
   }, [profile, form]);
 

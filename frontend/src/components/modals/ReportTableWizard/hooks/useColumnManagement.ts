@@ -52,6 +52,24 @@ export function useColumnManagement(
     });
   }, [setColumns]);
 
+  const duplicateColumn = useCallback((index: number): void => {
+    setLocalColumns((prev) => {
+      const col = prev[index];
+      const baseCopyKey = `${col.key}_copy`;
+      // Avoid duplicate keys by appending a number if needed
+      let copyKey = baseCopyKey;
+      let n = 2;
+      while (prev.some((c) => c.key === copyKey)) {
+        copyKey = `${baseCopyKey}${n}`;
+        n++;
+      }
+      const copy: ReportTableColumn = { ...col, key: copyKey, label: `${col.label} (Kopya)` };
+      const next = [...prev.slice(0, index + 1), copy, ...prev.slice(index + 1)];
+      setColumns(next);
+      return next;
+    });
+  }, [setColumns]);
+
   const reorderColumns = useCallback((oldIndex: number, newIndex: number): void => {
     setLocalColumns((prev) => {
       const next = [...prev];
@@ -118,6 +136,7 @@ export function useColumnManagement(
     addColumn,
     removeColumn,
     updateColumn,
+    duplicateColumn,
     reorderColumns,
     importColumns,
     validateColumns,

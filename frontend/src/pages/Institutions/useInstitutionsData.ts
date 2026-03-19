@@ -249,9 +249,8 @@ export const useInstitutionsData = ({
         };
       }
     },
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
     refetchOnMount: true,
     networkMode: 'always',
     retry: false

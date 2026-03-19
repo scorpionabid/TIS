@@ -64,12 +64,13 @@ export function validateTeacherFields(data: any): string[] {
   // }
 
   // Assessment score validation (NEW)
-  if (data.assessment_type && !data.assessment_score) {
+  // Use explicit undefined/null check because 0 is a valid score
+  if (data.assessment_type && (data.assessment_score === undefined || data.assessment_score === null || data.assessment_score === '')) {
     errors.push(ERROR_MESSAGES.ASSESSMENT_SCORE_REQUIRED);
   }
 
-  if (data.assessment_score) {
-    const score = parseFloat(data.assessment_score);
+  if (data.assessment_score !== undefined && data.assessment_score !== null && data.assessment_score !== '') {
+    const score = parseFloat(String(data.assessment_score));
     if (isNaN(score) || score < 0 || score > 100) {
       errors.push(ERROR_MESSAGES.ASSESSMENT_SCORE_INVALID);
     }

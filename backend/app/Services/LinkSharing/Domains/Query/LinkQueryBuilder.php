@@ -544,6 +544,11 @@ class LinkQueryBuilder
         $assignedResources = [];
 
         try {
+            // Pre-load all view records for this user (single query, used for both links and docs)
+            $userViews = \App\Models\ResourceView::where('user_id', $user->id)
+                ->get()
+                ->keyBy(fn ($v) => $v->resource_type . '_' . $v->resource_id);
+
             // Get links assigned to user's allowed institutions OR specifically targeted to this user
             $linksQuery = LinkShare::with(['sharedBy', 'institution'])
                 ->where('status', 'active')
@@ -639,14 +644,20 @@ class LinkQueryBuilder
                         'institution' => $link->institution?->name ?? 'N/A',
                     ],
                     'is_new' => $link->created_at?->isAfter(now()->subDays(7)) ?? false,
-                    'viewed_at' => null, // TODO: Track user-specific views
+                    'viewed_at' => $userViews->get('link_' . $link->id)?->last_viewed_at?->toISOString(),
                 ];
             }
 
             // Get documents assigned to user's allowed institutions (if not filtering for links only)
             if (! $request->filled('type') || $request->type !== 'link') {
-                $documentsQuery = \App\Models\Document::with(['uploader', 'institution'])
+                $documentsQuery = \App\Models\Document::withoutGlobalScope(\App\Scopes\InstitutionScope::class)
+                    ->with(['uploader', 'institution'])
                     ->where('status', 'active')
+                    // Exclude documents that belong to a folder/collection.
+                    // Folder documents are uploaded BY schools INTO region-created folders.
+                    // Assigned resources are documents that region SENDS TO schools.
+                    // These two concepts must remain strictly separated.
+                    ->whereDoesntHave('collections')
                     ->where(function ($query) use ($allowedInstitutions) {
                         $query->where('is_public', true)
                             ->orWhereIn('institution_id', $allowedInstitutions)
@@ -703,7 +714,7 @@ class LinkQueryBuilder
                             'institution' => $document->institution?->name ?? 'N/A',
                         ],
                         'is_new' => $document->created_at?->isAfter(now()->subDays(7)) ?? false,
-                        'viewed_at' => null, // TODO: Track user-specific views
+                        'viewed_at' => $userViews->get('document_' . $document->id)?->last_viewed_at?->toISOString(),
                     ];
                 }
             }

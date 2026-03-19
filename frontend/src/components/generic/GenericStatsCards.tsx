@@ -7,9 +7,10 @@ import { TrendingUp, TrendingDown } from 'lucide-react';
 interface GenericStatsCardsProps {
   stats: StatsConfig[];
   className?: string;
+  variant?: 'default' | 'compact';
 }
 
-export function GenericStatsCards({ stats, className }: GenericStatsCardsProps) {
+export function GenericStatsCards({ stats, className, variant = 'default' }: GenericStatsCardsProps) {
   if (!stats.length) return null;
 
   const getColorClasses = (color: StatsConfig['color']) => {
@@ -53,6 +54,17 @@ export function GenericStatsCards({ stats, className }: GenericStatsCardsProps) 
     }
   };
 
+  const getCompactIconColor = (color: StatsConfig['color']): string => {
+    switch (color) {
+      case 'green': return 'text-green-500';
+      case 'red': return 'text-red-500';
+      case 'blue': return 'text-blue-500';
+      case 'yellow': return 'text-yellow-500';
+      case 'purple': return 'text-purple-500';
+      default: return 'text-muted-foreground';
+    }
+  };
+
   // Determine grid columns based on stats count
   const getGridCols = () => {
     if (stats.length === 1) return 'grid-cols-1';
@@ -62,6 +74,51 @@ export function GenericStatsCards({ stats, className }: GenericStatsCardsProps) 
     if (stats.length === 5) return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-5';
     return 'grid-cols-1 md:grid-cols-2 lg:grid-cols-3';
   };
+
+  const getCompactGridCols = () => {
+    if (stats.length === 1) return 'grid-cols-1';
+    if (stats.length === 2) return 'grid-cols-2';
+    if (stats.length === 3) return 'grid-cols-2 sm:grid-cols-3';
+    if (stats.length === 4) return 'grid-cols-2 sm:grid-cols-4';
+    if (stats.length <= 6) return 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-6';
+    return 'grid-cols-2 sm:grid-cols-4 lg:grid-cols-7';
+  };
+
+  if (variant === 'compact') {
+    return (
+      <div
+        className={cn(
+          "grid gap-2",
+          getCompactGridCols(),
+          className
+        )}
+      >
+        {stats.map((stat) => {
+          const Icon = stat.icon;
+          const iconColor = getCompactIconColor(stat.color);
+
+          return (
+            <Card
+              key={stat.key}
+              className="border shadow-none bg-card hover:border-primary/30 transition-colors"
+            >
+              <CardContent className="flex items-center gap-3 px-4 py-3">
+                <Icon className={cn("h-4 w-4 shrink-0", iconColor)} />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground truncate">
+                    {stat.label}
+                  </p>
+                </div>
+                <p className="text-lg font-semibold text-foreground tabular-nums shrink-0">
+                  {stat.value.toLocaleString()}
+                </p>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div

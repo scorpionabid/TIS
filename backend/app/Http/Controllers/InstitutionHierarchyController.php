@@ -21,10 +21,22 @@ class InstitutionHierarchyController extends Controller
                 'expand_all' => 'nullable|boolean',
             ]);
 
+            $user = Auth::user();
+            $pathIds = [];
+            if ($user && $user->hasRole('schooladmin')) {
+                $userInstitution = $user->institution;
+                if ($userInstitution) {
+                    $pathIds = array_merge([$userInstitution->id], $userInstitution->getAncestors()->pluck('id')->toArray());
+                }
+            }
+
             $query = Institution::with([
-                'children' => function ($q) use ($request) {
+                'children' => function ($q) use ($request, $pathIds) {
                     if (! $request->boolean('include_inactive', false)) {
                         $q->where('is_active', true);
+                    }
+                    if (! empty($pathIds)) {
+                        $q->whereIn('id', $pathIds);
                     }
                 },
                 'departments',
@@ -35,7 +47,6 @@ class InstitutionHierarchyController extends Controller
             }
 
             // Apply role-based filtering like other controllers
-            $user = Auth::user();
             if ($user && ! $user->hasRole('superadmin')) {
                 if ($user->hasRole('regionadmin')) {
                     // RegionAdmin can only see their region and institutions under it
@@ -75,9 +86,12 @@ class InstitutionHierarchyController extends Controller
                             });
                     });
                 } elseif ($user->hasRole('schooladmin')) {
-                    // SchoolAdmin can only see their own institution
-                    $institutionId = $user->institution_id;
-                    $query->where('id', $institutionId);
+                    // SchoolAdmin can see their own institution and ancestors
+                    if (! empty($pathIds)) {
+                        $query->whereIn('id', $pathIds);
+                    } else {
+                        $query->where('id', $user->institution_id);
+                    }
                 }
             }
 
@@ -90,8 +104,12 @@ class InstitutionHierarchyController extends Controller
                     // For SektorAdmin, their sector is the root
                     $institutions = $query->where('id', $user->institution_id)->get();
                 } elseif ($user->hasRole('schooladmin')) {
-                    // For SchoolAdmin, their school is the root
-                    $institutions = $query->where('id', $user->institution_id)->get();
+                    // For SchoolAdmin, the top-most ancestor is the root
+                    $userInstitution = $user->institution;
+                    $rootId = $userInstitution && $userInstitution->getAncestors()->count() > 0
+                        ? $userInstitution->getAncestors()->last()->id
+                        : $user->institution_id;
+                    $institutions = $query->where('id', $rootId)->get();
                 } else {
                     $institutions = $query->roots()->get();
                 }

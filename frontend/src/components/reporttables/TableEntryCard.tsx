@@ -25,7 +25,14 @@ import type { ReportTable, ReportTableResponse, ReportTableResponseStatus, Repor
 interface TableEntryCardProps {
   table: ReportTable;
   onStatusChange?: (tableId: number, status: 'draft' | 'submitted') => void;
-  onMetaChange?: (meta: { hasUnsaved: boolean; responseStatus: 'draft' | 'submitted' | null; fullyLocked: boolean }) => void;
+  onMetaChange?: (meta: {
+    hasUnsaved: boolean;
+    responseStatus: 'draft' | 'submitted' | null;
+    fullyLocked: boolean;
+    hasEditableRows: boolean;
+    lastSaved: Date | null;
+    isSaving: boolean;
+  }) => void;
 }
 
 export type TableEntryCardHandle = {
@@ -67,6 +74,8 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [tableHasErrors, setTableHasErrors] = useState(false);
   const [submittingRowIdx, setSubmittingRowIdx] = useState<number | null>(null);
+  // Optimistically treat just-submitted rows as locked until query re-fetches
+  const [optimisticSubmittedRows, setOptimisticSubmittedRows] = useState<Set<number>>(new Set());
   const [isInstructionsExpanded, setIsInstructionsExpanded] = useState(false);
 
   const initialRowsRef = useRef<string>('');
@@ -117,7 +126,40 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
     }
   }, [tableWithNotes.fixed_rows, tableWithNotes.columns, existingResponse]);
 
-  const rowStatuses = useMemo(() => existingResponse?.row_statuses ?? {}, [existingResponse]);
+  const rawRowStatuses = existingResponse?.row_statuses ?? {};
+
+  // A row status is "final" when it can no longer be edited by the user.
+  const isFinalRowStatus = (status: string | undefined) =>
+    status === 'submitted' || status === 'approved';
+
+  // Merge backend row statuses with optimistic updates.
+  // Once the query re-fetches and the backend confirms the status, optimistic entry is superseded.
+  const rowStatuses = useMemo(() => {
+    const base = existingResponse?.row_statuses ?? {};
+    if (optimisticSubmittedRows.size === 0) return base;
+    const merged = { ...base };
+    optimisticSubmittedRows.forEach((idx) => {
+      const existing = merged[String(idx)];
+      if (!existing || !isFinalRowStatus(existing.status)) {
+        merged[String(idx)] = { status: 'submitted' };
+      }
+    });
+    return merged;
+  }, [existingResponse?.row_statuses, optimisticSubmittedRows]);
+
+  // Clear optimistic entries once the backend confirms the row status
+  useEffect(() => {
+    if (optimisticSubmittedRows.size === 0) return;
+    setOptimisticSubmittedRows((prev) => {
+      const updated = new Set(prev);
+      prev.forEach((idx) => {
+        if (isFinalRowStatus(rawRowStatuses[String(idx)]?.status)) {
+          updated.delete(idx);
+        }
+      });
+      return updated.size === prev.size ? prev : updated;
+    });
+  }, [rawRowStatuses]);
 
   const hasEditableRows = useMemo(() => {
     if (rows.length === 0) return false;
@@ -196,6 +238,7 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
       queryClient.invalidateQueries({ queryKey: ['report-table-my-response', table.id] });
       queryClient.invalidateQueries({ queryKey: ['report-table-responses', table.id] });
       queryClient.invalidateQueries({ queryKey: ['report-table-approval-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['report-tables'] });
       toast.success('Məlumatlar uğurla göndərildi!');
       onStatusChange?.(table.id, 'submitted');
     },
@@ -218,11 +261,18 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
       return reportTableService.submitRow(table.id, currentResponseId, rowIndex);
     },
     onMutate: (rowIndex) => setSubmittingRowIdx(rowIndex),
-    onSuccess: () => {
+    onSuccess: (_data, rowIndex) => {
+      // Optimistically mark row as submitted immediately, before query re-fetch completes
+      setOptimisticSubmittedRows((prev) => { const s = new Set(prev); s.add(rowIndex); return s; });
       queryClient.invalidateQueries({ queryKey: ['report-table-my-response', table.id] });
+      queryClient.invalidateQueries({ queryKey: ['report-table-approval-queue'] });
       toast.success('Sətir təsdiq üçün göndərildi.');
     },
-    onError: (err: Error) => toast.error(err.message || 'Göndərmək mümkün olmadı.'),
+    onError: (err: Error, rowIndex) => {
+      // Roll back optimistic state if the mutation fails
+      setOptimisticSubmittedRows((prev) => { const s = new Set(prev); s.delete(rowIndex); return s; });
+      toast.error(err.message || 'Göndərmək mümkün olmadı.');
+    },
     onSettled: () => setSubmittingRowIdx(null),
   });
 
@@ -307,8 +357,15 @@ export const TableEntryCard = forwardRef<TableEntryCardHandle, TableEntryCardPro
 
   useEffect(() => {
     const statusForMeta = responseStatus === 'submitted' ? 'submitted' : 'draft';
-    onMetaChange?.({ hasUnsaved, responseStatus: responseStatus ? statusForMeta : null, fullyLocked });
-  }, [hasUnsaved, responseStatus, fullyLocked, onMetaChange]);
+    onMetaChange?.({
+      hasUnsaved,
+      responseStatus: responseStatus ? statusForMeta : null,
+      fullyLocked,
+      hasEditableRows,
+      lastSaved,
+      isSaving: saveMutation.isPending,
+    });
+  }, [hasUnsaved, responseStatus, fullyLocked, hasEditableRows, lastSaved, saveMutation.isPending, onMetaChange]);
 
   useImperativeHandle(
     ref,

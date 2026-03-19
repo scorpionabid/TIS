@@ -26,15 +26,33 @@ class DocumentCollectionService {
    * Get specific folder with its documents
    */
   async getById(folderId: number): Promise<FolderWithDocuments> {
-    const response = await api.get<{ success: boolean; data: { folder: DocumentCollection; documents: any[] } }>(
-      `${this.basePath}/${folderId}`
+    const response = await api.get<{ success: boolean; data: { folder: DocumentCollection; institutions?: any[]; documents?: any[] } }>(
+      `${this.basePath}/${folderId}`,
+      undefined,
+      { cache: false } // Bypass cache to ensure we get the latest documents after upload/delete
     );
-    // Backend returns {success: true, data: {folder: {...}, documents: [...]}}
-    // We need to merge folder and documents into FolderWithDocuments format
+    // Backend currently returns paginated format:
+    // {success: true, data: {folder: {...}, institutions: [{institution_id, institution_name, documents: [...]}]}, meta: {...}}
+    // We flatten institutions[].documents into a single array and inject institution relation if missing.
     const backendData = (response as any).data;
+
+    let documents: any[] = [];
+    if (Array.isArray(backendData.institutions)) {
+      documents = backendData.institutions.flatMap((inst: any) =>
+        (inst.documents || []).map((doc: any) => ({
+          ...doc,
+          // Ensure institution relation is available for grouping in FolderDocumentsView
+          institution: doc.institution ?? { id: inst.institution_id, name: inst.institution_name },
+        }))
+      );
+    } else if (Array.isArray(backendData.documents)) {
+      // Fallback for legacy format
+      documents = backendData.documents;
+    }
+
     return {
-      ...backendData.folder,
-      documents: backendData.documents || []
+      ...(backendData.folder ?? {}),
+      documents,
     };
   }
 
@@ -106,12 +124,12 @@ class DocumentCollectionService {
    * Bulk download folder contents as ZIP
    */
   async bulkDownload(folderId: number): Promise<Blob> {
-    const response = await api.get(
+    const response = await api.get<Blob>(
       `${this.basePath}/${folderId}/download`,
       undefined, // params
       { responseType: 'blob' } // options
     );
-    return response.data;
+    return (response as any).data || response;
   }
 
   /**
@@ -150,14 +168,14 @@ class DocumentCollectionService {
    */
   async downloadDocument(documentId: number): Promise<Blob> {
     // IMPORTANT: Pass responseType in third argument (options), NOT in params
-    const response = await api.get(
+    const response = await api.get<Blob>(
       `/documents/${documentId}/download`,
       undefined, // params
       { responseType: 'blob' } // options
     );
 
     // apiOptimized returns {data: blob} for blob responses
-    const blob = response.data || response;
+    const blob = (response as any).data || response;
 
     if (!(blob instanceof Blob)) {
       throw new Error('Invalid file response from server');

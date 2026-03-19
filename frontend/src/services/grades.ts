@@ -71,7 +71,10 @@ export interface Grade {
   capacity_status: 'available' | 'near_capacity' | 'full' | 'over_capacity' | 'no_room';
   utilization_rate: number;
   available_spots: number;
-  
+
+  // Tags (eager-loaded when included)
+  tags?: Array<{ id: number; name: string; color?: string; category?: string }>;
+
   created_at: string;
   updated_at: string;
 }
@@ -151,30 +154,25 @@ export interface GradeUpdateData {
 }
 
 export interface GradeStatistics {
-  total_grades: number;
-  active_grades: number;
-  inactive_grades: number;
-  level_distribution: Array<{
+  overview: {
+    total_grades: number;
+    active_grades: number;
+    inactive_grades: number;
+    grades_with_rooms: number;
+    grades_without_rooms: number;
+    grades_with_teachers: number;
+    grades_without_teachers: number;
+  };
+  students: {
+    total_students: number;
+    average_per_grade: number;
+    min_per_grade: number;
+    max_per_grade: number;
+  };
+  class_level_distribution: Array<{
     class_level: number;
     count: number;
-    percentage: number;
   }>;
-  capacity_status_distribution: Record<string, number>;
-  teacher_assignment_stats: {
-    with_teacher: number;
-    without_teacher: number;
-    percentage_assigned: number;
-  };
-  room_assignment_stats: {
-    with_room: number;
-    without_room: number;
-    percentage_assigned: number;
-  };
-  utilization_summary: {
-    average_utilization: number;
-    overcrowded_count: number;
-    underutilized_count: number;
-  };
 }
 
 export interface EnrollmentData {

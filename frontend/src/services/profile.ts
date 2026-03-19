@@ -31,6 +31,12 @@ export interface UserProfile {
     start_date: string;
     end_date?: string;
   }>;
+  bio?: string;
+  specialty?: string;
+  experience_years?: number;
+  degree_level?: string;
+  graduation_university?: string;
+  graduation_year?: number;
   certifications?: Array<{
     name: string;
     issuer: string;
@@ -89,6 +95,11 @@ export interface UpdateProfileData {
     gender?: string;
     contact_phone?: string;
     bio?: string;
+    specialty?: string;
+    experience_years?: number;
+    degree_level?: string;
+    graduation_university?: string;
+    graduation_year?: number;
   };
   preferences?: {
     theme?: string;
@@ -119,6 +130,12 @@ export interface ProfileFormData {
   emergency_contact_phone: string;
   address_street: string;
   address_city: string;
+  bio: string;
+  specialty: string;
+  experience_years: number | '';
+  degree_level: string;
+  graduation_university: string;
+  graduation_year: number | '';
 }
 
 export interface ChangePasswordData {

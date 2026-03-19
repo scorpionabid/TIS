@@ -10,16 +10,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import { cn } from '@/lib/utils';
-import { Upload, Calendar } from 'lucide-react';
+import { Upload } from 'lucide-react';
 import { logger } from '@/utils/logger';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { TeacherWorkloadPanel } from './TeacherWorkloadPanel';
-import { TeacherWorkloadStats } from './TeacherWorkloadStats';
-import { TeacherDetailedStats } from './TeacherDetailedStats';
-import { AvailabilityManager } from './AvailabilityManager';
-import { TeacherScheduleStats } from './TeacherScheduleStats';
 
 interface SchoolTeacherManagerStandardizedProps {
   className?: string;
@@ -43,20 +35,10 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
   const [teacherModalOpen, setTeacherModalOpen] = React.useState(false);
   const [editingUser, setEditingUser] = React.useState<SchoolTeacher | null>(null);
   const [selectedTeacher, setSelectedTeacher] = React.useState<SchoolTeacher | null>(null);
-  const [drawerOpen, setDrawerOpen] = React.useState(false);
-  const [drawerTeacher, setDrawerTeacher] = React.useState<SchoolTeacher | null>(null);
   const [importExportModalOpen, setImportExportModalOpen] = React.useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [teacherToDelete, setTeacherToDelete] = React.useState<SchoolTeacher | null>(null);
   
-  // Shift configuration state for availability management
-  const [shiftConfig, setShiftConfig] = React.useState({
-    shift1: { name: 'I NÖVBƏ', lessonCount: 6, startTime: '08:00', color: 'blue', enabled: true },
-    shift2: { name: 'II NÖVBƏ', lessonCount: 6, startTime: '14:00', color: 'orange', enabled: false },
-  });
-  
-  // Institution filtering for role-based access
-  const [institutionFilter, setInstitutionFilter] = React.useState<string>('all');
   const { currentUser: user } = useAuth();
   
   // Fetch institutions for role-based filtering
@@ -113,10 +95,6 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
         });
         
         switch (action.key) {
-          case 'details':
-            setDrawerTeacher(teacher);
-            setDrawerOpen(true);
-            break;
           case 'view':
             setSelectedTeacher(teacher);
             break;
@@ -181,30 +159,6 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
       });
       setEditingUser(null);
       setTeacherModalOpen(true);
-    },
-    
-    // Import/Export/Template handlers for modern header
-    onImportClick: () => {
-      logger.debug('Opening import modal', {
-        component: 'SchoolTeacherManagerStandardized',
-        action: 'openImportModal'
-      });
-      setImportExportModalOpen(true);
-    },
-    onExportClick: () => {
-      logger.debug('Opening export modal', {
-        component: 'SchoolTeacherManagerStandardized',
-        action: 'openExportModal'
-      });
-      setImportExportModalOpen(true);
-    },
-    onTemplateClick: () => {
-      logger.debug('Downloading template', {
-        component: 'SchoolTeacherManagerStandardized',
-        action: 'downloadTemplate'
-      });
-      // Template download will be handled by TeacherImportExportModal
-      setImportExportModalOpen(true);
     },
     
   }), []);
@@ -279,10 +233,12 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Main Generic Manager - contains search and table */}
+      {/* Main Generic Manager */}
       <GenericManagerV2
         config={enhancedConfig}
         customLogic={enhancedCustomLogic}
+        statsVariant="compact"
+        filterVariant="inline"
       />
       
       {/* Teacher-specific Modals */}
@@ -348,104 +304,6 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
           setImportExportModalOpen(false);
         }}
       />
-
-      {/* Workload & Availability Drawer */}
-      <Sheet open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <SheetContent side="right" className="w-[1800px] sm:max-w-[1800px] p-0">
-          <div className="h-full flex flex-col">
-            <SheetHeader className="px-6 py-4 border-b">
-              <SheetTitle>
-                {drawerTeacher?.first_name && drawerTeacher?.last_name
-                  ? `${drawerTeacher.first_name} ${drawerTeacher.last_name}`
-                  : drawerTeacher?.email || 'Müəllim'}
-              </SheetTitle>
-              <SheetDescription>
-                Dərs yükü və iş vaxtı idarəetməsi
-              </SheetDescription>
-            </SheetHeader>
-            
-            {drawerTeacher && (
-              <div className="flex-1 overflow-y-auto px-6 py-4">
-                <Tabs defaultValue="workload" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 mb-4">
-                    <TabsTrigger value="workload">Dərs Yükü</TabsTrigger>
-                    <TabsTrigger value="schedule">İş vaxtı</TabsTrigger>
-                    <TabsTrigger value="timetable">Dərs cədvəli</TabsTrigger>
-                    <TabsTrigger value="stats">Statistika</TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="workload" className="mt-0">
-                    <div className="grid grid-cols-12 gap-6">
-                      {/* Sol sütun - Statistika */}
-                      <div className="col-span-3 space-y-4">
-                        <TeacherWorkloadStats teacherId={drawerTeacher.id} />
-                      </div>
-                      {/* Sağ sütun - Əsas məzmun */}
-                      <div className="col-span-9">
-                        <TeacherWorkloadPanel 
-                          teacherId={drawerTeacher.id} 
-                          teacherName={drawerTeacher.first_name && drawerTeacher.last_name
-                            ? `${drawerTeacher.first_name} ${drawerTeacher.last_name}`.trim()
-                            : (drawerTeacher.email || `#${drawerTeacher.id}`)}
-                        />
-                      </div>
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="schedule" className="mt-0">
-                    <div className="grid grid-cols-12 gap-6">
-                      {/* Sol sütun - İş vaxtı statistikası */}
-                      <div className="col-span-3 space-y-4">
-                        <TeacherScheduleStats teacherId={drawerTeacher.id} shifts={shiftConfig} />
-                      </div>
-                      {/* Sağ sütun - Əsas məzmun */}
-                      <div className="col-span-9">
-                        <Card className="h-full">
-                          <CardHeader className="py-3">
-                            <div className="flex items-center justify-between">
-                              <CardTitle className="text-sm flex items-center gap-2">
-                                <Calendar className="h-4 w-4" />
-                                İş vaxtı
-                              </CardTitle>
-                            </div>
-                          </CardHeader>
-                          <CardContent className="space-y-4">
-                            <AvailabilityManager 
-                              teacherId={drawerTeacher.id} 
-                              externalShifts={shiftConfig}
-                              onShiftsChange={setShiftConfig}
-                            />
-                          </CardContent>
-                        </Card>
-                      </div>
-                    </div>
-                  </TabsContent>
-
-                  <TabsContent value="timetable" className="mt-0">
-                    <Card>
-                      <CardHeader className="py-3">
-                        <CardTitle className="text-sm flex items-center gap-2">
-                          <Calendar className="h-4 w-4" />
-                          Dərs cədvəli
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="text-sm text-muted-foreground">
-                          Müəllimin dərs cədvəli bu bölmədə olacaq.
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </TabsContent>
-                  
-                  <TabsContent value="stats" className="mt-0">
-                    <TeacherDetailedStats teacherId={drawerTeacher.id} />
-                  </TabsContent>
-                </Tabs>
-              </div>
-            )}
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 };

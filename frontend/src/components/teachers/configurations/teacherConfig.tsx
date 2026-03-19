@@ -22,10 +22,7 @@ import {
   Eye, 
   Edit, 
   Trash2,
-  Download,
-  Upload,
-  BarChart3,
-  LayoutGrid
+  Download
 } from 'lucide-react';
 
 // Default filters and create data
@@ -49,25 +46,24 @@ const defaultCreateData: NewTeacherData = {
   salary: '',
 };
 
-// Column configuration with modern design
+// Column configuration
 const columns: ColumnConfig<SchoolTeacher>[] = [
   {
     key: 'name',
     label: 'Ad Soyad',
     width: 'w-[200px]',
-    align: 'left',
     render: (teacher) => (
-      <div className="flex items-center gap-3 py-1">
-        <div className="w-10 h-10 bg-gradient-to-br from-primary/20 to-primary/10 rounded-full flex items-center justify-center shadow-sm">
-          <Users className="h-5 w-5 text-primary" />
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 bg-primary/10 rounded-full flex items-center justify-center">
+          <Users className="h-4 w-4 text-primary" />
         </div>
         <div>
-          <div className="font-semibold text-sm text-slate-900">
+          <div className="font-medium">
             {teacher.first_name && teacher.last_name 
               ? `${teacher.first_name} ${teacher.last_name}`.trim() 
               : teacher.email}
           </div>
-          <div className="text-xs text-slate-500">
+          <div className="text-sm text-muted-foreground">
             {teacher.employee_id}
           </div>
         </div>
@@ -75,183 +71,89 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
     ),
   },
   {
-    key: 'workplace_type',
-    label: 'İş yeri növü',
-    width: 'w-[130px]',
-    align: 'center',
-    render: (teacher: any) => {
-      const workplaceLabels: Record<string, string> = {
-        primary: 'Əsas iş yeri',
-        secondary: 'Əlavə iş yeri',
-        remote: 'Uzaqdan iş',
-      };
-      const workplaceColors: Record<string, string> = {
-        primary: 'bg-blue-100 text-blue-800 border border-blue-200',
-        secondary: 'bg-amber-100 text-amber-800 border border-amber-200',
-        remote: 'bg-purple-100 text-purple-800 border border-purple-200',
-      };
-      const type = teacher.workplace_type || 'primary';
-      return (
-        <div className="flex justify-center">
-          <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-medium shadow-sm whitespace-nowrap ${workplaceColors[type]}`}>
-            {workplaceLabels[type] || type}
-          </span>
-        </div>
-      );
-    },
+    key: 'email',
+    label: 'Email',
+    render: (teacher) => teacher.email,
+  },
+  {
+    key: 'department',
+    label: 'Şöbə',
+    render: (teacher) => teacher.department || 'Təyin edilməyib',
   },
   {
     key: 'position_type',
     label: 'Vəzifə',
-    width: 'w-[160px]',
-    align: 'center',
-    render: (teacher: any) => {
+    render: (teacher) => {
       const positionLabels: Record<string, string> = {
-        direktor: 'Direktor',
-        direktor_muavini_tedris: 'Direktor Müavini (Tədris)',
-        direktor_muavini_inzibati: 'Direktor Müavini (İnzibati)',
-        terbiye_isi_uzre_direktor_muavini: 'Direktor Müavini (Tərbiyə)',
+        'direktor': 'Direktor',
+        'direktor_muavini_tedris': 'Direktor Müavini (Tədris)',
+        'direktor_muavini_inzibati': 'Direktor Müavini (İnzibati)',
+        'terbiye_isi_uzre_direktor_muavini': 'Direktor Müavini (Tərbiyə)',
         'metodik_birlesme_rəhbəri': 'Metodik Birləşmə Rəhbəri',
         'muəllim_sinif_rəhbəri': 'Müəllim-Sinif Rəhbəri',
         'muəllim': 'Müəllim',
-        psixoloq: 'Psixoloq',
-        kitabxanaçı: 'Kitabxanaçı',
-        laborant: 'Laborant',
+        'psixoloq': 'Psixoloq',
+        'kitabxanaçı': 'Kitabxanaçı',
+        'laborant': 'Laborant',
         'tibb_işçisi': 'Tibb İşçisi',
         'təsərrüfat_işçisi': 'Təsərrüfat İşçisi',
       };
+      return teacher.position_type ? positionLabels[teacher.position_type] || teacher.position_type : 'Təyin edilməyib';
+    },
+  },
+  {
+    key: 'employment_status',
+    label: 'İş Statusu',
+    render: (teacher) => {
+      const statusLabels: Record<string, string> = {
+        'full_time': 'Tam Ştat',
+        'part_time': 'Yarım Ştat',
+        'contract': 'Müqavilə',
+        'temporary': 'Müvəqqəti',
+        'substitute': 'Əvəzedici',
+      };
+      const statusColors: Record<string, string> = {
+        'full_time': 'bg-blue-100 text-blue-800',
+        'part_time': 'bg-yellow-100 text-yellow-800',
+        'contract': 'bg-purple-100 text-purple-800',
+        'temporary': 'bg-orange-100 text-orange-800',
+        'substitute': 'bg-gray-100 text-gray-800',
+      };
+      if (!teacher.employment_status) return 'Təyin edilməyib';
       return (
-        <div className="flex justify-center">
-          <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700 border border-indigo-100 shadow-sm whitespace-nowrap">
-            {teacher.position_type ? positionLabels[teacher.position_type] || teacher.position_type : 'Təyin edilməyib'}
-          </span>
-        </div>
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusColors[teacher.employment_status]}`}>
+          {statusLabels[teacher.employment_status]}
+        </span>
       );
     },
   },
   {
-    key: 'specialty',
-    label: 'İxtisas',
-    width: 'w-[140px]',
-    align: 'center',
-    render: (teacher: any) => (
-      <div className="flex justify-center">
-        <span className="text-sm text-slate-700 font-medium">
-          {teacher.specialty || 'Təyin edilməyib'}
-        </span>
-      </div>
-    ),
-  },
-  {
-    key: 'assessment_score',
-    label: 'Qiymətləndirmə balı',
-    width: 'w-[130px]',
-    align: 'center',
-    render: (teacher: any) => {
-      const score = teacher.assessment_score;
-      const hasScore = score !== undefined && score !== null && score !== '';
-      const numScore = hasScore ? Number(score) : NaN;
-      return (
-        <div className="flex justify-center">
-          <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold shadow-sm ${
-            hasScore && !isNaN(numScore)
-              ? numScore >= 40 
-                ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
-                : numScore >= 30 
-                  ? 'bg-yellow-100 text-yellow-800 border border-yellow-200'
-                  : 'bg-red-100 text-red-800 border border-red-200'
-              : 'bg-slate-100 text-slate-500 border border-slate-200'
-          }`}>
-            {hasScore && !isNaN(numScore) ? Math.round(numScore) : '—'}
-          </span>
-        </div>
-      );
+    key: 'subjects',
+    label: 'Fənlər',
+    render: (teacher) => {
+      if (Array.isArray(teacher.subjects) && teacher.subjects.length > 0) {
+        return teacher.subjects.join(', ');
+      }
+      return 'Təyin edilməyib';
     },
-  },
-  {
-    key: 'workload_teaching_hours',
-    label: 'Dərs',
-    width: 'w-[90px]',
-    align: 'center',
-    render: (teacher: any) => (
-      <div className="flex justify-center">
-        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm min-w-[2.5rem]">
-          {teacher.workload_teaching_hours ?? 0}
-        </span>
-      </div>
-    ),
-  },
-  {
-    key: 'workload_extracurricular_hours',
-    label: 'Məşğələ',
-    width: 'w-[90px]',
-    align: 'center',
-    render: (teacher: any) => (
-      <div className="flex justify-center">
-        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm min-w-[2.5rem]">
-          {teacher.workload_extracurricular_hours ?? 0}
-        </span>
-      </div>
-    ),
-  },
-  {
-    key: 'workload_club_hours',
-    label: 'DƏRNƏK',
-    width: 'w-[90px]',
-    align: 'center',
-    render: (teacher: any) => (
-      <div className="flex justify-center">
-        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-sm min-w-[2.5rem]">
-          {teacher.workload_club_hours ?? 0}
-        </span>
-      </div>
-    ),
-  },
-  {
-    key: 'workload_total_hours',
-    label: 'HƏFTƏLİK SAAT',
-    width: 'w-[110px]',
-    align: 'center',
-    render: (teacher: any) => (
-      <div className="flex justify-center">
-        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-emerald-100 text-emerald-800 border-2 border-emerald-300 shadow-sm min-w-[2.5rem]">
-          {teacher.workload_total_hours ?? 0}
-        </span>
-      </div>
-    ),
   },
   {
     key: 'is_active',
     label: 'Status',
-    width: 'w-[100px]',
-    align: 'center',
     render: (teacher) => (
-      <div className="flex justify-center">
-        <span className={`inline-flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm ${
-          teacher.is_active
-            ? 'bg-green-100 text-green-800 border border-green-200'
-            : 'bg-red-100 text-red-800 border border-red-200'
-        }`}>
-          {teacher.is_active ? 'Aktiv' : 'Passiv'}
-        </span>
-      </div>
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+        teacher.is_active
+          ? 'bg-green-100 text-green-800'
+          : 'bg-red-100 text-red-800'
+      }`}>
+        {teacher.is_active ? 'Aktiv' : 'Passiv'}
+      </span>
     ),
   },
 ];
 
 // Action configuration
 const actions: ActionConfig<SchoolTeacher>[] = [
-  {
-    key: 'details',
-    icon: Clock,
-    label: 'Dərs yükü / İş vaxtı',
-    variant: 'outline',
-    onClick: (teacher) => {
-      console.log('Toggle teacher details:', teacher);
-    },
-    // @ts-expect-error - used by GenericTable for primary actions
-    isPrimary: true,
-  },
   {
     key: 'view',
     icon: Eye,
@@ -287,31 +189,18 @@ const actions: ActionConfig<SchoolTeacher>[] = [
 // Tab configuration
 const tabs: TabConfig[] = [
   {
-    key: 'stats',
-    label: 'Statistika',
-    isStatsTab: true,
-    icon: BarChart3,
-    variant: 'primary',
-  },
-  {
     key: 'all',
     label: 'Hamısı',
-    icon: LayoutGrid,
-    variant: 'default',
   },
   {
     key: 'active',
     label: 'Aktiv',
     filter: (teachers) => teachers.filter(t => t.is_active === true),
-    icon: CheckCircle,
-    variant: 'success',
   },
   {
     key: 'inactive', 
     label: 'Passiv',
     filter: (teachers) => teachers.filter(t => t.is_active === false),
-    icon: XCircle,
-    variant: 'danger',
   },
 ];
 
@@ -428,7 +317,7 @@ const calculateTeacherStats = (teachers: SchoolTeacher[]): StatsConfig[] => {
       label: 'Təyinat Lazım',
       value: needsAssignment,
       icon: UserCheck,
-      color: 'yellow',
+      color: 'orange',
     },
   ];
 };
@@ -443,8 +332,8 @@ export const teacherEntityConfig: EntityConfig<SchoolTeacher, TeacherFilters, Ne
   // API service
   service: {
     get: (filters) => schoolAdminService.getTeachers(filters),
-    create: (data) => schoolAdminService.createTeacher(data as any),
-    update: (id, data) => schoolAdminService.updateTeacher(id, data as any),
+    create: (data) => schoolAdminService.createTeacher(data),
+    update: (id, data) => schoolAdminService.updateTeacher(id, data),
     delete: (id) => schoolAdminService.deleteTeacher(id),
   },
   
@@ -463,29 +352,14 @@ export const teacherEntityConfig: EntityConfig<SchoolTeacher, TeacherFilters, Ne
   features: {
     search: true,
     filters: true,
-    stats: false, // Disabled - stats now shown in separate tab only
+    stats: true,
     tabs: true,
     bulk: true,
-    export: true,
-    import: true,
+    export: false,
+    import: false,
     create: true,
     edit: true,
     delete: true,
-  },
-  
-  // Modern Header Configuration
-  headerConfig: {
-    title: 'Müəllim İdarəetməsi',
-    description: 'Məktəb müəllimlərinin qeydiyyatı və idarə edilməsi',
-    searchPlaceholder: 'Ad, soyad vəya fənnə görə axtar...',
-    createLabel: 'Yeni Müəllim',
-    showStats: true,
-    showSearch: true,
-    showRefresh: true,
-    showImport: true,
-    showExport: true,
-    showTemplate: true,
-    showCreate: true,
   },
 };
 
@@ -534,17 +408,6 @@ export const teacherCustomLogic: ManagerCustomLogic<SchoolTeacher> = {
     },
   ],
   
-  // Header actions
-  headerActions: [
-    {
-      key: 'import-export',
-      label: 'İdxal/İxrac',
-      icon: Upload,
-      onClick: () => {
-        console.log('Open import/export modal');
-        // This will be handled in the component
-      },
-      variant: 'outline',
-    },
-  ],
+  // Header actions — handled directly in SchoolTeacherManagerStandardized
+  headerActions: [],
 };

@@ -431,9 +431,16 @@ class DocumentValidationService extends BaseService
             'accessible_departments',
         ];
 
+        $dateFields = ['expires_at'];
+
         foreach ($safeFields as $field) {
             if (isset($data[$field])) {
-                $sanitized[$field] = $data[$field];
+                // Convert empty string date fields to null to prevent DB timestamp errors
+                if (in_array($field, $dateFields) && $data[$field] === '') {
+                    $sanitized[$field] = null;
+                } else {
+                    $sanitized[$field] = $data[$field];
+                }
             }
         }
 

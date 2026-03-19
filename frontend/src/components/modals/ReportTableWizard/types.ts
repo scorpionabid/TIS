@@ -134,6 +134,7 @@ export interface UseColumnManagementReturn {
   addColumn: () => void;
   removeColumn: (index: number) => void;
   updateColumn: (index: number, field: keyof ReportTableColumn, value: unknown) => void;
+  duplicateColumn: (index: number) => void;
   reorderColumns: (oldIndex: number, newIndex: number) => void;
   importColumns: (columns: ReportTableColumn[]) => void;
   validateColumns: () => { valid: boolean; errors: string[]; columnErrors: Record<number, string[]> };

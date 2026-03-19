@@ -36,10 +36,16 @@ Route::prefix('links')->group(function () {
     Route::post('/{linkShare}/click', [LinkShareController::class, 'recordClick'])->middleware('permission:links.read');
 });
 
-// My Resources Routes (for sektoradmin, schooladmin and teachers)
-Route::prefix('my-resources')->group(function () {
+// My Resources Routes (for all authenticated roles)
+// auth:sanctum + auth.custom: validates token, is_active, account_locked_until
+Route::prefix('my-resources')->middleware(['auth:sanctum', 'auth.custom'])->group(function () {
+    // Get resources assigned to current user's institution
     Route::get('/assigned', [LinkShareController::class, 'getAssignedResources'])
-        ->middleware(['auth:sanctum', 'role:sektoradmin|schooladmin|regionoperator|müəllim|teacher']);
+        ->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|regionoperator|teacher');
+
+    // Mark a resource as viewed
+    Route::post('/{type}/{id}/view', [LinkShareController::class, 'markAsViewed'])
+        ->where('type', 'link|document');
 });
 
 // Link Database Routes (Department and Sector based link management)

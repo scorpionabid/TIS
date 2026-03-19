@@ -20,6 +20,11 @@ export interface ScoreDetails {
   links_missed: number;
   links_total: number;
   link_score: number;
+  reports_on_time?: number;
+  reports_late?: number;
+  reports_missed?: number;
+  reports_total?: number;
+  report_score?: number;
 }
 
 export interface RatingItem {
@@ -34,6 +39,7 @@ export interface RatingItem {
   attendance_score: number;
   approval_score: number;
   link_score: number;
+  report_score: number;
   manual_score: number;
   manual_score_category?: string;
   manual_score_reason?: string;

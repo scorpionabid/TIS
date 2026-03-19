@@ -46,14 +46,12 @@ class AuthController extends Controller
             RateLimiter::clear('login_ip:' . $request->ip());
             RateLimiter::clear('login_user:' . $request->login);
 
+            // CORS header-ları ForceCors middleware tərəfindən idarə edilir
             return response()->json([
                 'message' => 'Uğurlu giriş',
                 'code' => 'LOGIN_SUCCESS',
                 'data' => $result,
-            ])->header('Access-Control-Allow-Origin', 'http://localhost:3000')
-              ->header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS')
-              ->header('Access-Control-Allow-Headers', '*')
-              ->header('Access-Control-Allow-Credentials', 'true');
+            ]);
         } catch (ValidationException $e) {
             // Increment rate limiting on failed attempt
             RateLimiter::hit('login_ip:' . $request->ip(), 900);

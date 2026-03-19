@@ -1124,6 +1124,10 @@ class RegionTeacherController extends Controller
                 ]);
             }
 
+            while (ob_get_level() > 0) {
+                ob_end_clean();
+            }
+
             return $this->teacherService->generateImportTemplate($region);
         } catch (\Exception $e) {
             Log::error('RegionTeacherController - Error downloading template', [

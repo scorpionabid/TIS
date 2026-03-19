@@ -251,18 +251,43 @@ class Institution extends Model
 
     /**
      * Get all ancestors of this institution.
+     *
+     * PostgreSQL: recursive CTE — 1 query regardless of depth.
+     * SQLite (test env): simple loop with explicit finds.
      */
     public function getAncestors(): \Illuminate\Support\Collection
     {
-        $ancestors = collect();
-        $current = $this->parent;
-
-        while ($current) {
-            $ancestors->push($current);
-            $current = $current->parent;
+        if (is_null($this->parent_id)) {
+            return collect();
         }
 
-        return $ancestors;
+        if (\DB::getDriverName() !== 'pgsql') {
+            // SQLite fallback for tests
+            $ancestors = collect();
+            $currentId = $this->parent_id;
+            while ($currentId) {
+                $current = static::find($currentId);
+                if (!$current) {
+                    break;
+                }
+                $ancestors->push($current);
+                $currentId = $current->parent_id;
+            }
+            return $ancestors;
+        }
+
+        $rows = \DB::select("
+            WITH RECURSIVE ancestors AS (
+                SELECT * FROM institutions WHERE id = ? AND deleted_at IS NULL
+                UNION ALL
+                SELECT i.* FROM institutions i
+                JOIN ancestors a ON i.id = a.parent_id
+                WHERE i.deleted_at IS NULL
+            )
+            SELECT * FROM ancestors WHERE id != ?
+        ", [$this->parent_id, $this->id]);
+
+        return collect($rows)->map(fn ($r) => (new static())->forceFill((array) $r));
     }
 
     /**

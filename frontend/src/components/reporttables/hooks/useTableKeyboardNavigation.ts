@@ -23,7 +23,7 @@ export function useTableKeyboardNavigation({
   createEmptyRow,
 }: UseTableKeyboardNavigationParams) {
   const handleKeyDown = useCallback((
-    e: React.KeyboardEvent<HTMLInputElement>,
+    e: React.KeyboardEvent<HTMLElement>,
     rowIdx: number,
     colIdx: number
   ) => {
@@ -31,22 +31,8 @@ export function useTableKeyboardNavigation({
     const totalCols = columns.length;
 
     switch (e.key) {
-      case 'Tab':
-        e.preventDefault();
-        if (e.shiftKey) {
-          if (colIdx > 0) {
-            focusCell(rowIdx, colIdx - 1);
-          } else if (rowIdx > 0) {
-            focusCell(rowIdx - 1, totalCols - 1);
-          }
-        } else {
-          if (colIdx + 1 < totalCols) {
-            focusCell(rowIdx, colIdx + 1);
-          } else if (rowIdx + 1 < totalRows) {
-            focusCell(rowIdx + 1, 0);
-          }
-        }
-        break;
+      // Tab is handled by a native capture-phase listener in EditableTable
+      // to bypass Radix UI's Sheet/Dialog focus trap.
 
       case 'Enter':
         e.preventDefault();

@@ -188,7 +188,7 @@ Route::middleware('role:superadmin')->prefix('institution-types')->group(functio
 });
 
 // Institution Hierarchy Management
-Route::middleware('permission:institutions.hierarchy')->group(function () {
+Route::middleware('permission:institutions.hierarchy|role:schooladmin')->group(function () {
     Route::get('hierarchy', [InstitutionHierarchyController::class, 'getHierarchy']);
     Route::get('institutions-hierarchy', [InstitutionHierarchyController::class, 'getHierarchy']);
     Route::get('hierarchy/children/{institution}', [InstitutionHierarchyController::class, 'getSubTree']);
@@ -290,6 +290,14 @@ Route::prefix('system')->middleware('permission:system.config')->group(function 
     Route::get('reports/scheduled', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'getScheduledReports']);
     Route::post('reports/schedule', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'scheduleReport']);
     Route::delete('reports/schedule/{id}', [\App\Http\Controllers\SystemConfigControllerRefactored::class, 'deleteScheduledReport']);
+});
+
+// Audit Logs (SuperAdmin + RegionAdmin)
+Route::prefix('audit-logs')->middleware('role_or_permission:superadmin|regionadmin')->group(function () {
+    Route::get('/', [\App\Http\Controllers\AuditLogController::class, 'index']);
+    Route::get('/activities', [\App\Http\Controllers\AuditLogController::class, 'activities']);
+    Route::get('/summary', [\App\Http\Controllers\AuditLogController::class, 'summary']);
+    Route::get('/event-types', [\App\Http\Controllers\AuditLogController::class, 'eventTypes']);
 });
 
 // Academic years management

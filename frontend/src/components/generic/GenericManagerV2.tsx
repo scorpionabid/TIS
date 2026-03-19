@@ -18,10 +18,12 @@ export function GenericManagerV2<
   T extends BaseEntity,
   TFilters extends BaseFilters,
   TCreateData
->({ 
-  config, 
-  customLogic, 
-  className 
+>({
+  config,
+  customLogic,
+  className,
+  statsVariant = 'default',
+  filterVariant = 'default',
 }: GenericManagerProps<T, TFilters, TCreateData>) {
   
   const manager = useEntityManagerV2(config, customLogic);
@@ -109,6 +111,7 @@ export function GenericManagerV2<
 
   return (
     <div className={cn("space-y-6", className)}>
+<<<<<<< HEAD
       {/* Modern Header */}
       <ModernManagerHeader
         title={config.headerConfig?.title || `${config.entityNamePlural} İdarəetməsi`}
@@ -152,6 +155,89 @@ export function GenericManagerV2<
         showTemplate={config.headerConfig?.showTemplate === true}
         onTemplate={features.import && customLogic?.onTemplateClick ? customLogic.onTemplateClick : undefined}
       />
+=======
+      {/* Header */}
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-foreground">
+            {config.entityNamePlural} İdarəetməsi
+          </h2>
+          <p className="text-muted-foreground">
+            {config.entityNamePlural} idarə edin və izləyin
+          </p>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Refresh Button */}
+          <Button 
+            variant="outline" 
+            onClick={() => manager.refetch()} 
+            disabled={manager.isLoading}
+          >
+            <RefreshCw className={cn("h-4 w-4 mr-2", manager.isLoading && "animate-spin")} />
+            Yenilə
+          </Button>
+
+          {/* Custom Header Actions */}
+          {customLogic?.headerActions?.map(action => (
+            <Button
+              key={action.key}
+              variant={action.variant || 'outline'}
+              onClick={action.onClick}
+            >
+              <action.icon className="h-4 w-4 mr-2" />
+              {action.label}
+            </Button>
+          ))}
+
+          {/* Import/Export */}
+          {features.import && (
+            <Button variant="outline">
+              <Upload className="h-4 w-4 mr-2" />
+              İdxal
+            </Button>
+          )}
+
+          {features.export && (
+            <Button variant="outline">
+              <Download className="h-4 w-4 mr-2" />
+              İxrac
+            </Button>
+          )}
+
+          {/* Create Button */}
+          {features.create !== false && (
+            <Button
+              onClick={() => {
+                console.log('🚀 GenericManagerV2 Create button clicked:', {
+                  entityType: config.entityType,
+                  entityName: config.entityName,
+                  hasCustomOnCreateClick: !!customLogic?.onCreateClick
+                });
+
+                // Use custom create handler if provided
+                if (customLogic?.onCreateClick) {
+                  customLogic.onCreateClick();
+                } else {
+                  manager.setEditingEntity(null);
+                  manager.setCreateModalOpen(true);
+                }
+
+                console.log('✅ GenericManagerV2 Create handler executed');
+              }}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Yeni {config.entityName}
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      {features.stats !== false && (
+        <GenericStatsCards stats={manager.stats} variant={statsVariant} />
+      )}
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 
       {/* Bulk Actions */}
       {features.bulk !== false && manager.selectedItems.length > 0 && (
@@ -162,10 +248,29 @@ export function GenericManagerV2<
         />
       )}
 
+<<<<<<< HEAD
       {/* Tab Content */}
       {config.tabs && config.tabs.map(tab => {
         const isActive = manager.selectedTab === tab.key;
         if (!isActive) return null;
+=======
+      {/* Filters */}
+      {features.filters !== false && (
+        <div className="space-y-4">
+          {customLogic?.renderCustomFilters ? 
+            customLogic.renderCustomFilters(manager) :
+            <GenericFilters
+              searchTerm={manager.searchTerm}
+              setSearchTerm={manager.setSearchTerm}
+              filters={manager.filters}
+              setFilters={manager.setFilters}
+              filterFields={config.filterFields}
+              variant={filterVariant}
+            />
+          }
+        </div>
+      )}
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
 
         return (
           <div key={tab.key} className="space-y-4">

@@ -119,6 +119,7 @@ dist-ssr
 .cache/
 public
 !/backend/public/index.php
+!frontend/public/
 
 # Storybook build outputs
 .out
@@ -227,6 +228,7 @@ backend/.env.backup_*
 # Database statistics
 database_*.txt
 
+<<<<<<< HEAD
 # Legacy Tests & Scripts
 backend/.legacy-tests/
 test_student.php
@@ -235,3 +237,11 @@ atis_verified_backup_*.tar.gz
 restore-db.bat
 restore-db.sh
 restore_prod_sql.sh
+=======
+# Production restore scripts (LOCAL DEVELOPMENT ONLY)
+restore_production_backup.sh
+restore_*_production*.sh
+restore_*_backup*.sh
+*production_*.sql
+*backup_*.sql
+>>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2

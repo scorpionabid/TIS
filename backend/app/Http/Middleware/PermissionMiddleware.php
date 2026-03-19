@@ -31,33 +31,49 @@ class PermissionMiddleware
             return $next($request);
         }
 
-        \Log::debug('Permission middleware evaluation', [
-            'user_id' => $user->id,
-            'permissions_required' => $permissions,
-            'guard' => $guard,
-            'user_roles' => $user->getRoleNames(),
-            'available_guards' => \Spatie\Permission\Guard::getNames($user)->toArray(),
-        ]);
+        // Debug log-ları yalnız local mühitdə — production-da hər request-ə yazılmır
+        if (config('app.debug')) {
+            \Log::debug('Permission middleware evaluation', [
+                'user_id' => $user->id,
+                'permissions_required' => $permissions,
+                'guard' => $guard,
+                'user_roles' => $user->getRoleNames(),
+                'available_guards' => \Spatie\Permission\Guard::getNames($user)->toArray(),
+            ]);
+        }
 
-        // Check if user has any of the required permissions for the active guard
+        // Check if user has any of the required permissions or roles for the active guard
         foreach ($permissions as $permission) {
             $hasPermission = false;
+
+            // Support role: prefix for role-based access check within permission middleware
+            if (str_starts_with($permission, 'role:')) {
+                $roleName = substr($permission, 5);
+                if ($user->hasRole($roleName)) {
+                    return $next($request);
+                }
+                continue;
+            }
+
             try {
                 $hasPermission = $user->hasPermissionTo($permission);
+            } catch (\Spatie\Permission\Exceptions\PermissionDoesNotExist $e) {
+                // Permission not seeded yet — user definitely does not have it
+                $hasPermission = false;
             } catch (\Throwable $e) {
-                \Log::error('Permission check error', [
+                // Fail-closed: unexpected error — block for safety
+                \Log::critical('Permission check FAILED — request blocked for safety', [
                     'user_id' => $user->id,
                     'permission' => $permission,
                     'guard' => $guard,
+                    'path' => $request->path(),
                     'exception' => $e->getMessage(),
                 ]);
-            }
 
-            \Log::debug('Permission evaluated', [
-                'user_id' => $user->id,
-                'permission' => $permission,
-                'result' => $hasPermission,
-            ]);
+                return response()->json([
+                    'message' => 'Permission check temporarily unavailable. Please try again.',
+                ], 503);
+            }
 
             if ($hasPermission) {
                 return $next($request);

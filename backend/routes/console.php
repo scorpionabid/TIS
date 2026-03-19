@@ -109,3 +109,38 @@ Schedule::command('logs:cleanup')
     ->onFailure(function () {
         \Log::error('Weekly log cleanup failed');
     });
+
+// Mesaj təmizliyi: oxunmuş (1 gün) + oxunmamış (5 gün) + orphan mesajlar
+Schedule::command('messages:cleanup')
+    ->dailyAt('02:00')
+    ->description('Müddəti keçmiş mesajları təmizlə')
+    ->onSuccess(function () {
+        \Log::info('Message cleanup completed successfully');
+    })
+    ->onFailure(function () {
+        \Log::error('Message cleanup failed');
+    });
+
+// Məktəbəqədər şəkillər: 30 gündən köhnəlləri sil
+Schedule::command('preschool:cleanup-photos --older-than=30')
+    ->daily()
+    ->at('03:30')
+    ->description('Məktəbəqədər şəkillər: 30 gündən köhnəlləri sil')
+    ->onSuccess(function () {
+        \Log::info('Preschool photo cleanup completed successfully');
+    })
+    ->onFailure(function () {
+        \Log::error('Preschool photo cleanup failed');
+    });
+
+// Telescope prune: 48 saatdan köhnə log sətirləri sil
+Schedule::command('telescope:prune --hours=48')
+    ->daily()
+    ->at('04:30')
+    ->description('Telescope logs: 48 saatdan köhnə qeydləri sil')
+    ->onSuccess(function () {
+        \Log::info('Telescope pruning completed successfully');
+    })
+    ->onFailure(function () {
+        \Log::error('Telescope pruning failed');
+    });

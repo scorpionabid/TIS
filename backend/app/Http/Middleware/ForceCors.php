@@ -29,19 +29,19 @@ class ForceCors
             $isAllowedOrigin = (bool) preg_match('#^http://(?:10\.|127\.|192\.168\.|172\.(?:1[6-9]|2\d|3[0-1])\.)\d{1,3}\.\d{1,3}:3000$#', $origin);
         }
 
+        // CORS header-ları yalnız icazəli origin üçün set edilir
         if ($isAllowedOrigin && $origin) {
             $response->headers->set('Access-Control-Allow-Origin', $origin);
             $response->headers->set('Vary', 'Origin');
             $response->headers->set('Access-Control-Allow-Credentials', 'true');
+            // Sabit metodlar — reflection yox
+            $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+            // Sabit headerlar — attacker-ın göndərdiyi dəyər echo edilmir
+            $response->headers->set(
+                'Access-Control-Allow-Headers',
+                'Content-Type, Authorization, X-Requested-With, X-XSRF-TOKEN'
+            );
         }
-
-        $response->headers->set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-
-        $requestedHeaders = $request->headers->get('Access-Control-Request-Headers');
-        $response->headers->set(
-            'Access-Control-Allow-Headers',
-            $requestedHeaders ?: 'Content-Type, Authorization, X-Requested-With, X-XSRF-TOKEN'
-        );
 
         return $response;
     }

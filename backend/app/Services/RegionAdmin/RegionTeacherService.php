@@ -6,6 +6,7 @@ use App\Models\Institution;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class RegionTeacherService
 {
@@ -618,6 +619,10 @@ class RegionTeacherService
      */
     public function generateImportTemplate(Institution $region)
     {
+        while (ob_get_level() > 0) {
+            ob_end_clean();
+        }
+
         return \Maatwebsite\Excel\Facades\Excel::download(
             new \App\Exports\RegionTeacherTemplateExport($region),
             'teacher_import_template.xlsx'

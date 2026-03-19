@@ -1,8 +1,14 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
-import { Keyboard, Plus, AlertCircle, Sigma, Columns, HelpCircle } from 'lucide-react';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Keyboard, Plus, AlertCircle, Sigma, Columns, HelpCircle, Filter, X as XIcon } from 'lucide-react';
 import type { ReportTableRow, ReportTableColumn, RowStatuses } from '@/types/reportTable';
 import { validateRow, hasValidationErrors, colMinWidth, colTypeLabel } from '@/utils/tableValidation';
+import { getFocusableElements } from '@/utils/focusManagement';
 
 import { DesktopRow } from './DesktopRow';
 import { MobileRow } from './MobileRow';
@@ -142,11 +148,118 @@ export const EditableTable = React.memo(function EditableTable({
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showTotals, setShowTotals] = useState(false);
   const [freezeFirstCol, setFreezeFirstCol] = useState(false);
+  const [rowFilter, setRowFilter] = useState<'all' | 'rejected' | 'pending'>('all');
+
+  // ─── Native Tab navigation (bypasses Radix Sheet focus trap) ────────────────
+  // Radix's focus-trap uses a native DOM addEventListener on the Dialog container,
+  // which fires BEFORE React synthetic events during the bubble phase.
+  // Using a capture-phase listener on our table container fires FIRST — before
+  // Radix ever sees the event — so stopImmediatePropagation actually works.
+  const tableContainerRef = useRef<HTMLDivElement>(null);
+  // Use refs so the effect callback always has fresh values without re-registering.
+  // NOTE: .current assignments are done AFTER visibleRows/columns are computed below.
+  const columnsRef = useRef(columns);
+  const visibleRowsRef = useRef<typeof visibleRows>([]);
+
+  useEffect(() => {
+    const container = tableContainerRef.current;
+    if (!container) return;
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+
+      const focused = document.activeElement as HTMLElement | null;
+      if (!focused || !container.contains(focused)) return;
+
+      // Find the data-cell-pos attribute on the focused element or its ancestors
+      const cellTd = focused.closest('[data-cell-pos]') as HTMLElement | null;
+      if (!cellTd) return;
+
+      const [rowStr, colStr] = (cellTd.dataset.cellPos ?? '').split('-');
+      const currentOriginalRow = parseInt(rowStr);
+      const currentColIdx = parseInt(colStr);
+      if (isNaN(currentOriginalRow) || isNaN(currentColIdx)) return;
+
+      // Stop ALL listeners — including Radix focus trap — from handling this Tab
+      e.preventDefault();
+      e.stopImmediatePropagation();
+
+      const cols = columnsRef.current;
+      const vRows = visibleRowsRef.current;
+      const totalCols = cols.length;
+
+      // Navigate within visible rows (filter-aware)
+      const currentVisibleIdx = vRows.findIndex(({ idx }) => idx === currentOriginalRow);
+      if (currentVisibleIdx === -1) return;
+
+      let nextVisibleIdx = currentVisibleIdx;
+      let nextColIdx = currentColIdx;
+
+      if (e.shiftKey) {
+        if (currentColIdx > 0) {
+          nextColIdx = currentColIdx - 1;
+        } else if (currentVisibleIdx > 0) {
+          nextVisibleIdx = currentVisibleIdx - 1;
+          nextColIdx = totalCols - 1;
+        } else return;
+      } else {
+        if (currentColIdx + 1 < totalCols) {
+          nextColIdx = currentColIdx + 1;
+        } else if (currentVisibleIdx + 1 < vRows.length) {
+          nextVisibleIdx = currentVisibleIdx + 1;
+          nextColIdx = 0;
+        } else return;
+      }
+
+      const nextOriginalRow = vRows[nextVisibleIdx].idx;
+      const targetCell = container.querySelector<HTMLElement>(
+        `[data-cell-pos="${nextOriginalRow}-${nextColIdx}"]`
+      );
+      // Use existing utility for accessible focusable element detection
+      const focusable = targetCell
+        ? (getFocusableElements(targetCell)[0] ?? targetCell)
+        : null;
+      focusable?.focus();
+    };
+
+    // Capture phase: fires before any bubble-phase listener (including Radix's)
+    container.addEventListener('keydown', handleTab, true);
+    return () => container.removeEventListener('keydown', handleTab, true);
+  }, []); // empty deps — uses refs for fresh column/row data
 
   const hasNumericCols = useMemo(
     () => columns.some((c) => c.type === 'number' || c.type === 'calculated'),
     [columns]
   );
+
+  // Row status counts for filter chips
+  const rowStatusCounts = useMemo(() => {
+    let rejected = 0;
+    let pending = 0;
+    displayRows.forEach((_, idx) => {
+      const st = rowStatuses?.[String(idx)]?.status;
+      if (st === 'rejected') rejected++;
+      if (st === 'submitted') pending++;
+    });
+    return { rejected, pending };
+  }, [displayRows, rowStatuses]);
+
+  // Visible rows (filter applied — original indices preserved)
+  const visibleRows = useMemo(() => {
+    return displayRows
+      .map((row, idx) => ({ row, idx }))
+      .filter(({ idx }) => {
+        if (rowFilter === 'all') return true;
+        const st = rowStatuses?.[String(idx)]?.status;
+        if (rowFilter === 'rejected') return st === 'rejected';
+        if (rowFilter === 'pending') return st === 'submitted';
+        return true;
+      });
+  }, [displayRows, rowFilter, rowStatuses]);
+
+  // Keep refs fresh for the native Tab handler (defined above)
+  columnsRef.current = columns;
+  visibleRowsRef.current = visibleRows;
 
   const columnTotals = useMemo(() => {
     if (!showTotals || displayRows.length <= 1) return {} as Record<string, number>;
@@ -173,7 +286,48 @@ export const EditableTable = React.memo(function EditableTable({
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-3">
+    <div ref={tableContainerRef} className="space-y-3">
+      {/* Row filter chips — only shown when there are rejected/pending rows */}
+      {rowStatuses && (rowStatusCounts.rejected > 0 || rowStatusCounts.pending > 0) && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="flex items-center gap-1 text-xs text-gray-500">
+            <Filter className="h-3.5 w-3.5" />
+            Filtr:
+          </span>
+          <button
+            onClick={() => setRowFilter('all')}
+            className={`px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${rowFilter === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}
+          >
+            Hamısı ({displayRows.length})
+          </button>
+          {rowStatusCounts.rejected > 0 && (
+            <button
+              onClick={() => setRowFilter(rowFilter === 'rejected' ? 'all' : 'rejected')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${rowFilter === 'rejected' ? 'bg-red-600 text-white border-red-600' : 'bg-red-50 border-red-200 text-red-700 hover:bg-red-100'}`}
+            >
+              Rədd edilmiş ({rowStatusCounts.rejected})
+            </button>
+          )}
+          {rowStatusCounts.pending > 0 && (
+            <button
+              onClick={() => setRowFilter(rowFilter === 'pending' ? 'all' : 'pending')}
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors ${rowFilter === 'pending' ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100'}`}
+            >
+              Gözləyən ({rowStatusCounts.pending})
+            </button>
+          )}
+          {rowFilter !== 'all' && (
+            <button
+              onClick={() => setRowFilter('all')}
+              className="flex items-center gap-1 px-2 py-1 rounded-full text-xs text-gray-500 hover:text-gray-700"
+            >
+              <XIcon className="h-3 w-3" />
+              Filtri sil
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Keyboard shortcuts toggle */}
       {!hideKeyboardHelp && !disabled && (
         <div className="flex items-center justify-between gap-2 flex-wrap">
@@ -297,7 +451,7 @@ export const EditableTable = React.memo(function EditableTable({
             </tr>
           </thead>
           <tbody>
-            {displayRows.map((row, rowIdx) => (
+            {visibleRows.map(({ row, idx: rowIdx }) => (
               <DesktopRow
                 key={rowIdx}
                 row={row}
@@ -346,7 +500,7 @@ export const EditableTable = React.memo(function EditableTable({
 
       {/* Mobile card view */}
       <div className="space-y-3 md:hidden">
-        {displayRows.map((row, rowIdx) => (
+        {visibleRows.map(({ row, idx: rowIdx }) => (
           <MobileRow
             key={rowIdx}
             row={row}
@@ -371,18 +525,68 @@ export const EditableTable = React.memo(function EditableTable({
       </div>
 
       {(!disabled && !isStableTable) && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="border-dashed w-full"
-          onClick={handleAddRow}
-          disabled={displayRows.length >= maxRows}
-          data-testid="add-row-button"
-        >
-          <Plus className="h-4 w-4 mr-1" />
-          Sətir əlavə et ({displayRows.length}/{maxRows})
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-dashed flex-1"
+            onClick={handleAddRow}
+            disabled={displayRows.length >= maxRows}
+            data-testid="add-row-button"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Sətir əlavə et ({displayRows.length}/{maxRows})
+          </Button>
+
+          {/* Bulk add — only shown when max allows multiple additions */}
+          {maxRows - displayRows.length >= 5 && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-dashed px-2.5"
+                  title="Toplu sətir əlavə et"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <Plus className="h-3.5 w-3.5 -ml-2" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-48 p-2" align="end">
+                <p className="text-xs text-gray-500 mb-2 font-medium">Neçə sətir əlavə edilsin?</p>
+                <div className="flex flex-col gap-1">
+                  {([5, 10, 20] as const).map((n) => {
+                    const canAdd = displayRows.length + n <= maxRows;
+                    return (
+                      <button
+                        key={n}
+                        type="button"
+                        disabled={!canAdd}
+                        onClick={() => {
+                          for (let i = 0; i < n; i++) {
+                            if (displayRows.length + i < maxRows) {
+                              handleAddRow();
+                            }
+                          }
+                        }}
+                        className="text-left px-3 py-1.5 text-sm rounded hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                      >
+                        +{n} sətir
+                        {!canAdd && (
+                          <span className="text-xs text-gray-400 ml-1">
+                            (maks {maxRows - displayRows.length})
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
       )}
     </div>
   );

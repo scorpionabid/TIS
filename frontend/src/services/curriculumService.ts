@@ -38,7 +38,7 @@ class CurriculumService {
     // ApiClient returns this structure as-is
     return {
       subjects: response.data || [],
-      meta: response.meta || {},
+      meta: (response as any).meta || {},
     };
   }
 
@@ -66,7 +66,7 @@ class CurriculumService {
     );
     // Clear cache for this grade's subjects
     api.clearCache(`/grades/${gradeId}/subjects`);
-    return response.data.data;
+    return response.data as unknown as GradeSubject;
   }
 
   /**
@@ -83,7 +83,7 @@ class CurriculumService {
     );
     // Clear cache for this grade's subjects
     api.clearCache(`/grades/${gradeId}/subjects`);
-    return response.data.data;
+    return response.data as unknown as GradeSubject;
   }
 
   /**
@@ -98,7 +98,7 @@ class CurriculumService {
     );
     // Clear cache for this grade's subjects
     api.clearCache(`/grades/${gradeId}/subjects`);
-    return response.data.message;
+    return response.message || '';
   }
 
   /**

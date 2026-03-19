@@ -5,7 +5,7 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus, Copy, ChevronDown, Eye, EyeOff, Grid3X3, List, Trash2 } from 'lucide-react';
+import { Plus, Copy, ChevronDown, Eye, EyeOff, Grid3X3, List, Trash2, ChevronsDownUp, ChevronsUpDown } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -19,9 +19,11 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
+  useSortable,
 } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { toast } from 'sonner';
-import type { ReportTable } from '@/types/reportTable';
+import type { ReportTable, ReportTableColumn } from '@/types/reportTable';
 import { reportTableService } from '@/services/reportTables';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -56,6 +58,74 @@ class ColumnEditorPointerSensor extends PointerSensor {
   ];
 }
 
+interface CollapseSignal {
+  collapsed: boolean;
+  version: number;
+}
+
+interface SortableColumnItemProps {
+  column: ReportTableColumn;
+  index: number;
+  disabled: boolean;
+  onUpdate: (index: number, field: keyof ReportTableColumn, value: unknown) => void;
+  onRemove: (index: number) => void;
+  onDuplicate: (index: number) => void;
+  hasErrors: boolean;
+  errors?: string[];
+  collapseSignal?: CollapseSignal;
+}
+
+function SortableColumnItem({
+  column,
+  index,
+  disabled,
+  onUpdate,
+  onRemove,
+  onDuplicate,
+  hasErrors,
+  errors,
+  collapseSignal,
+}: SortableColumnItemProps) {
+  const id = column.key || `col-${index}`;
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.45 : 1,
+    position: 'relative',
+    zIndex: isDragging ? 1000 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ColumnEditor
+        column={column}
+        index={index}
+        disabled={disabled}
+        onUpdate={onUpdate}
+        onRemove={onRemove}
+        onDuplicate={() => onDuplicate(index)}
+        hasErrors={hasErrors}
+        errors={errors}
+        collapseSignal={collapseSignal}
+        dragHandleProps={{
+          attributes: attributes as Record<string, unknown>,
+          listeners: listeners as Record<string, unknown>,
+          ref: (_node: HTMLElement | null) => { /* node ref is on wrapper div */ },
+        }}
+      />
+    </div>
+  );
+}
+
 interface Step2ColumnsProps extends StepProps {
   isEditing: boolean;
   canEditColumns: boolean;
@@ -70,6 +140,7 @@ export function Step2Columns({
 }: Step2ColumnsProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [importPopoverOpen, setImportPopoverOpen] = useState(false);
+  const [collapseSignal, setCollapseSignal] = useState<CollapseSignal | undefined>(undefined);
 
   const sensors = useSensors(
     useSensor(ColumnEditorPointerSensor, {
@@ -83,6 +154,7 @@ export function Step2Columns({
     addColumn,
     removeColumn,
     updateColumn,
+    duplicateColumn,
     reorderColumns,
     importColumns,
   } = useColumnManagement(formData.columns, (newColumns) => {
@@ -112,6 +184,14 @@ export function Step2Columns({
     importColumns(table.columns ?? []);
     setImportPopoverOpen(false);
     toast.success(`"${table.title}" cədvəlinin sütunları yükləndi`);
+  };
+
+  const handleCollapseAll = () => {
+    setCollapseSignal((prev) => ({ collapsed: true, version: (prev?.version ?? 0) + 1 }));
+  };
+
+  const handleExpandAll = () => {
+    setCollapseSignal((prev) => ({ collapsed: false, version: (prev?.version ?? 0) + 1 }));
   };
 
   const { columnErrors } = validation.step2;
@@ -222,7 +302,7 @@ export function Step2Columns({
       )}
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         {!isEditing && (
           <Popover open={importPopoverOpen} onOpenChange={setImportPopoverOpen}>
             <PopoverTrigger asChild>
@@ -261,6 +341,32 @@ export function Step2Columns({
           </Popover>
         )}
 
+        {/* Collapse / Expand All — only shown when there are columns */}
+        {canEditColumns && columns.length > 1 && (
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-xs text-gray-500 hover:text-gray-700"
+              onClick={handleCollapseAll}
+              title="Hamısını yığışdır"
+            >
+              <ChevronsDownUp className="h-3.5 w-3.5" />
+              Yığışdır
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 gap-1 text-xs text-gray-500 hover:text-gray-700"
+              onClick={handleExpandAll}
+              title="Hamısını aç"
+            >
+              <ChevronsUpDown className="h-3.5 w-3.5" />
+              Aç
+            </Button>
+          </div>
+        )}
+
         <Button
           variant="outline"
           size="sm"
@@ -295,15 +401,17 @@ export function Step2Columns({
               >
                 <div className="space-y-2 max-h-[400px] overflow-y-auto pr-1">
                   {columns.map((col, idx) => (
-                    <ColumnEditor
+                    <SortableColumnItem
                       key={col.key || `col-${idx}`}
                       column={col}
                       index={idx}
                       disabled={!canEditColumns}
                       onUpdate={updateColumn}
                       onRemove={removeColumn}
+                      onDuplicate={duplicateColumn}
                       hasErrors={!!columnErrors?.[idx]}
                       errors={columnErrors?.[idx]}
+                      collapseSignal={collapseSignal}
                     />
                   ))}
                 </div>
@@ -320,6 +428,11 @@ export function Step2Columns({
                     <span className="text-gray-400">{idx + 1}.</span>
                     <span className="font-medium">{col.label || col.key}</span>
                     <span className="text-xs text-gray-400">({col.type})</span>
+                    {col.multiple && (
+                      <span className="text-xs text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded">
+                        çoxlu
+                      </span>
+                    )}
                   </div>
                 </div>
               ))}

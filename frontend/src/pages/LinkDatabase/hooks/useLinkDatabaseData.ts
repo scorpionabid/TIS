@@ -86,7 +86,7 @@ export function useLinkDatabaseData({
     queryFn: () =>
       linkDatabaseService.getLinksBySector(selectedSector!, apiFilters),
     enabled: isOnSectorsTab && !!selectedSector,
-    staleTime: 0, // Cache disabled for debugging
+    staleTime: 30_000,
     placeholderData: (previousData: any) => previousData,
   });
 
