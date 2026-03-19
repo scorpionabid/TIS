@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { scheduleService } from '@/services/schedule';
 import { useAuth } from '@/contexts/AuthContext';
-// import { regionAdminService } from '@/services/regionAdmin';
+import { regionAdminService } from '@/services/regionAdmin';
 
 export default function RegionSchedules() {
   const { currentUser: user } = useAuth();
@@ -32,10 +32,10 @@ export default function RegionSchedules() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [selectedInstitution, setSelectedInstitution] = useState<any>(null);
 
-  // Fetch regional institutions - mock data for testing
+  // Fetch regional institutions from real API
   const { data: institutionsData } = useQuery({
     queryKey: ['region-institutions', user?.institution_id],
-    queryFn: () => Promise.resolve({ data: [] }),
+    queryFn: () => regionAdminService.getRegionInstitutions(),
     enabled: !!user?.institution_id,
   });
 
@@ -44,7 +44,7 @@ export default function RegionSchedules() {
     queryKey: ['region-schedule-overview', user?.institution_id, institutionFilter, statusFilter],
     queryFn: async () => {
       // This would be a new endpoint that aggregates schedule data across institutions
-      const institutions = institutionsData?.data || [];
+      const institutions = institutionsData?.institutions || [];
       const scheduleData = await Promise.all(
         institutions.map(async (institution) => {
           try {
@@ -68,7 +68,7 @@ export default function RegionSchedules() {
       );
       return scheduleData;
     },
-    enabled: !!institutionsData?.data,
+    enabled: !!institutionsData?.institutions,
   });
 
   // Fetch regional statistics
@@ -81,7 +81,7 @@ export default function RegionSchedules() {
     enabled: !!scheduleOverview,
   });
 
-  const institutions = institutionsData?.data || [];
+  const institutions = institutionsData?.institutions || [];
   const overviewData = scheduleOverview || [];
 
   // Filter institutions based on search and institution filter

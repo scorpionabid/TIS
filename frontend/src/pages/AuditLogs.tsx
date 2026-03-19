@@ -43,20 +43,7 @@ export default function AuditLogs() {
   const [eventFilter, setEventFilter] = useState('all');
   const [dateRange, setDateRange] = useState('all');
 
-  // Security check
-  if (!currentUser || !['superadmin', 'regionadmin'].includes(currentUser.role)) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <div className="text-center">
-          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
-          <p className="text-muted-foreground">
-            Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const hasAccess = !!currentUser && ['superadmin', 'regionadmin'].includes(currentUser.role);
 
   const dateRangeToFilter = (range: string): Partial<AuditLogFilters> => {
     const now = new Date();
@@ -79,22 +66,40 @@ export default function AuditLogs() {
     queryKey: ['audit-logs-summary'],
     queryFn: () => auditLogService.getSummary(),
     staleTime: 60_000,
+    enabled: hasAccess,
   });
 
   const { data: eventTypes } = useQuery({
     queryKey: ['audit-log-event-types'],
     queryFn: () => auditLogService.getEventTypes(),
     staleTime: 300_000,
+    enabled: hasAccess,
   });
 
   const { data: logsData, isLoading: logsLoading } = useQuery({
     queryKey: ['audit-logs', activeFilters],
     queryFn: () => auditLogService.getLogs(activeFilters),
     staleTime: 30_000,
+    enabled: hasAccess,
   });
 
   const logs = logsData?.data ?? [];
   const meta = logsData?.meta;
+
+  // Security check — after all hooks
+  if (!hasAccess) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Giriş icazəsi yoxdur</h3>
+          <p className="text-muted-foreground">
+            Bu səhifəyə yalnız SuperAdmin və RegionAdmin istifadəçiləri daxil ola bilər
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const getEventBadgeVariant = (event: string): "default" | "destructive" | "secondary" | "outline" => {
     if (['deleted', 'authorization', 'password_change'].includes(event)) return 'destructive';

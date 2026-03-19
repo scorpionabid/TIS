@@ -63,14 +63,16 @@ const getRelativeTime = (activity: SektorDashboardStats["recentActivities"][numb
   return activity.time || "—";
 };
 
-// Mock data for charts
-const schoolPerformanceData = [
-  { name: "Məktəb #1", score: 85 },
-  { name: "Məktəb #12", score: 92 },
-  { name: "Lisey #3", score: 78 },
-  { name: "Gimnaziya", score: 88 },
-  { name: "Məktəb #5", score: 72 },
-];
+interface SchoolPerformanceItem {
+  school_name: string;
+  attendance_rate: number;
+  academic_score: number;
+  teacher_ratio: number;
+}
+
+interface SektorAnalytics {
+  school_performance: SchoolPerformanceItem[];
+}
 
 interface SektorDashboardStats {
   totalSchools: number;
@@ -128,6 +130,24 @@ export const SektorAdminDashboard = () => {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });
+
+  const { data: analyticsData } = useQuery<SektorAnalytics>({
+    queryKey: ["sektoradmin-analytics"],
+    queryFn: async () => {
+      const response = await dashboardService.getSektorAnalytics();
+      if (response && typeof response === 'object' && 'data' in response) {
+        return (response as { data: SektorAnalytics }).data;
+      }
+      return response as SektorAnalytics;
+    },
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const schoolPerformanceData = (analyticsData?.school_performance ?? []).map((item) => ({
+    name: item.school_name,
+    score: item.academic_score,
+  }));
 
   // Use stats directly - backend already filters by sector
   const statsData = stats;
