@@ -4,10 +4,16 @@ namespace App\Services\AI\Providers;
 
 use App\Services\AI\Contracts\AiProviderInterface;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class OpenAiProvider implements AiProviderInterface
 {
-    private const BASE_URL = 'https://api.openai.com/v1';
+    private const BASE_URL   = 'https://api.openai.com/v1';
+    private const MAX_RETRY  = 2;
+    private const RETRY_WAIT = [0, 1, 3]; // saniyə (0-indexed)
+
+    /** @var array{prompt_tokens: int, completion_tokens: int, total_tokens: int} */
+    private array $lastTokenUsage = ['prompt_tokens' => 0, 'completion_tokens' => 0, 'total_tokens' => 0];
 
     public function __construct(
         private string $apiKey,
@@ -16,7 +22,7 @@ class OpenAiProvider implements AiProviderInterface
 
     /**
      * OpenAI Chat Completions API-a sorğu göndər.
-     * options['model'] verilsə, constructor model-ini override edir.
+     * Şəbəkə xətaları üçün maksimum 2 retry (exponential backoff).
      */
     public function chat(array $messages, array $options = []): string
     {
@@ -27,52 +33,73 @@ class OpenAiProvider implements AiProviderInterface
             'max_tokens'  => 2048,
         ], $options);
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $this->apiKey,
-            'Content-Type'  => 'application/json',
-        ])
-            ->timeout(30)
-            ->post(self::BASE_URL . '/chat/completions', $payload);
+        $attempt  = 0;
+        $lastError = null;
 
-        if ($response->failed()) {
-            $error = $response->json('error.message', 'OpenAI API xətası');
-            throw new \RuntimeException('OpenAI: ' . $error);
+        while ($attempt <= self::MAX_RETRY) {
+            if ($attempt > 0) {
+                sleep(self::RETRY_WAIT[$attempt] ?? 3);
+                Log::info("OpenAI retry #{$attempt}", ['model' => $this->model]);
+            }
+
+            try {
+                $response = Http::withHeaders([
+                    'Authorization' => 'Bearer ' . $this->apiKey,
+                    'Content-Type'  => 'application/json',
+                ])
+                    ->timeout(30)
+                    ->post(self::BASE_URL . '/chat/completions', $payload);
+
+                if ($response->successful()) {
+                    // Token istifadəsini saxla
+                    $usage = $response->json('usage', []);
+                    $this->lastTokenUsage = [
+                        'prompt_tokens'     => $usage['prompt_tokens'] ?? 0,
+                        'completion_tokens' => $usage['completion_tokens'] ?? 0,
+                        'total_tokens'      => $usage['total_tokens'] ?? 0,
+                    ];
+
+                    return $response->json('choices.0.message.content', '');
+                }
+
+                // 429 Rate Limit → retry, 4xx auth xəta → dərhal çıx
+                $statusCode = $response->status();
+                $errorMsg   = $response->json('error.message', 'OpenAI API xətası');
+
+                if ($statusCode === 429 || $statusCode >= 500) {
+                    $lastError = "OpenAI {$statusCode}: {$errorMsg}";
+                    $attempt++;
+                    continue;
+                }
+
+                throw new \RuntimeException("OpenAI {$statusCode}: {$errorMsg}");
+
+            } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                $lastError = 'Şəbəkə xətası: ' . $e->getMessage();
+                $attempt++;
+            }
         }
 
-        return $response->json('choices.0.message.content', '');
+        throw new \RuntimeException($lastError ?? 'OpenAI API-da bilinməyən xəta');
     }
 
-    /**
-     * API key-i yoxlamaq üçün /models endpoint-inə sorğu göndər.
-     */
+    public function getLastTokenUsage(): array
+    {
+        return $this->lastTokenUsage;
+    }
+
     public function testConnection(): array
     {
         try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . $this->apiKey,
-            ])
+            $response = Http::withHeaders(['Authorization' => 'Bearer ' . $this->apiKey])
                 ->timeout(10)
                 ->get(self::BASE_URL . '/models');
 
-            if ($response->successful()) {
-                return [
-                    'success' => true,
-                    'message' => 'OpenAI bağlantısı uğurludur',
-                    'model'   => $this->model,
-                ];
-            }
-
-            return [
-                'success' => false,
-                'message' => 'API key yanlışdır: ' . $response->json('error.message', ''),
-                'model'   => '',
-            ];
+            return $response->successful()
+                ? ['success' => true,  'message' => 'OpenAI bağlantısı uğurludur',            'model' => $this->model]
+                : ['success' => false, 'message' => 'API key yanlışdır: ' . $response->json('error.message', ''), 'model' => ''];
         } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'message' => 'Bağlantı xətası: ' . $e->getMessage(),
-                'model'   => '',
-            ];
+            return ['success' => false, 'message' => 'Bağlantı xətası: ' . $e->getMessage(), 'model' => ''];
         }
     }
 

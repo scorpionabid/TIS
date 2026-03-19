@@ -57,13 +57,39 @@ export interface QueryResult {
   explanation: string;
   suggested_visualization: VisualizationType;
   log_id: number;
+  /** Redis cache-dən gəlibsə true (Faza 3) */
+  from_cache?: boolean;
 }
 
 export interface ExecuteRequest {
   prompt: string;
   clarifications?: ClarificationAnswers;
   raw_sql?: string;
+  /** SmartAnalysis-dən gələn hazır SQL (dəqiqləşdirmə tələb etmədi) */
+  presupplied_sql?: string;
+  /** SmartAnalysis-dən gələn izahat */
+  explanation?: string;
+  /** SmartAnalysis-dən gələn vizualizasiya tövsiyəsi */
+  suggested_visualization?: VisualizationType;
 }
+
+// ─── Smart Analysis Types ─────────────────────────────────────
+
+/** SmartAnalysis aydın prompt üçün SQL qaytardıqda */
+export interface SmartAnalysisSqlResult {
+  mode: 'sql';
+  sql: string;
+  explanation: string;
+  suggested_visualization: VisualizationType;
+}
+
+/** SmartAnalysis qeyri-müəyyən prompt üçün suallar qaytardıqda */
+export interface SmartAnalysisClarifyResult {
+  mode: 'clarify';
+  questions: ClarificationQuestion[];
+}
+
+export type SmartAnalysisResult = SmartAnalysisSqlResult | SmartAnalysisClarifyResult;
 
 // ─── AI Settings Types ───────────────────────────────────────
 
@@ -109,9 +135,8 @@ export interface TestConnectionResponse {
 
 export type AnalysisStep =
   | 'idle'        // Başlanğıc
-  | 'enhancing'   // AI dəqiqləşdirici suallar alır
+  | 'analyzing'   // SmartAnalysis: aydın mi, sual lazımmı? (yeni)
   | 'clarifying'  // İstifadəçi cavab verir
-  | 'generating'  // SQL yaradılır
   | 'executing'   // SQL icra edilir
   | 'done'        // Nəticə göstərilir
   | 'error';      // Xəta

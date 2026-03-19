@@ -8,6 +8,7 @@ use App\Services\AI\AiProviderFactory;
 use App\Services\AI\DatabaseSchemaService;
 use App\Services\AI\PromptEnhancementService;
 use App\Services\AI\SafeQueryExecutor;
+use App\Services\AI\SmartAnalysisService;
 use App\Services\AI\SqlGenerationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -15,63 +16,59 @@ use Illuminate\Http\Request;
 class AiAnalysisController extends BaseController
 {
     public function __construct(
-        private DatabaseSchemaService $schemaService,
+        private DatabaseSchemaService    $schemaService,
         private PromptEnhancementService $promptEnhancementService,
-        private SqlGenerationService $sqlGenerationService,
-        private SafeQueryExecutor $queryExecutor
+        private SqlGenerationService     $sqlGenerationService,
+        private SafeQueryExecutor        $queryExecutor,
+        private SmartAnalysisService     $smartAnalysisService
     ) {}
 
     /**
-     * DB schema-nı qaytarır (cache ilə).
+     * GET /api/ai-analysis/schema
+     * DB schema-nı qaytarır (Redis cache ilə, 6 saat).
      * Permission: ai_analysis.view
      */
     public function schema(Request $request): JsonResponse
     {
         $forceRefresh = $request->boolean('refresh', false);
-
-        $schema = $this->schemaService->getSchema($forceRefresh);
+        $schema       = $this->schemaService->getSchema($forceRefresh);
 
         return $this->successResponse([
-            'tables' => $schema,
+            'tables'       => $schema,
             'total_tables' => count($schema),
-            'cached_at' => now()->toISOString(),
+            'cached_at'    => now()->toISOString(),
         ], 'Schema uğurla alındı');
     }
 
     /**
-     * AI analiz loglarını qaytarır.
-     * SuperAdmin — bütün loglar, regionadmin — yalnız öz logları.
+     * GET /api/ai-analysis/logs
+     * SuperAdmin → bütün loglar, RegionAdmin → yalnız öz logları.
      * Permission: ai_analysis.view
      */
     public function logs(Request $request): JsonResponse
     {
-        $user = $request->user();
-
+        $user  = $request->user();
         $query = AiAnalysisLog::with('user:id,first_name,last_name,username')
             ->orderByDesc('created_at');
 
-        // Regionadmin yalnız öz loglarını görür
         if ($user->hasRole('regionadmin')) {
             $query->where('user_id', $user->id);
         }
 
-        $logs = $query->paginate(20);
-
-        return $this->paginatedResponse($logs, 'Loglar uğurla alındı');
+        return $this->paginatedResponse($query->paginate(20), 'Loglar uğurla alındı');
     }
 
     /**
      * POST /api/ai-analysis/enhance-prompt
-     * İstifadəçinin promptu əsasında dəqiqləşdirici suallar qaytarır
+     * Köhnə axın: yalnız dəqiqləşdirici suallar qaytarır (legacy, hələ dəstəklənir).
      * Permission: ai_analysis.execute
+     *
+     * @deprecated Yeni axın üçün /analyze endpoint-i istifadə edin.
      */
     public function enhancePrompt(Request $request): JsonResponse
     {
-        $request->validate([
-            'prompt' => 'required|string|min:5|max:1000',
-        ]);
+        $request->validate(['prompt' => 'required|string|min:5|max:1000']);
 
-        // AI konfiqurasiya yoxlaması
         if (!AiProviderFactory::isConfigured()) {
             return $this->errorResponse(
                 'AI provider konfiqurasiya edilməyib. Superadmin AI İdarəetmə səhifəsindən API key əlavə edin.',
@@ -87,8 +84,44 @@ class AiAnalysisController extends BaseController
     }
 
     /**
+     * POST /api/ai-analysis/analyze
+     *
+     * YENİ AXIN — tək AI call ilə həm qərar, həm (mümkünsə) SQL:
+     *   - Aydın prompt  → {mode: "sql", ...sqlData}   → Frontend birbaşa execute çağırır
+     *   - Qeyri-müəyyən → {mode: "clarify", questions} → Frontend dialog göstərir
+     *
+     * Bu endpoint köhnə enhance-prompt + execute ikili axınını əvəz edir.
+     * Permission: ai_analysis.execute
+     */
+    public function analyze(Request $request): JsonResponse
+    {
+        $request->validate(['prompt' => 'required|string|min:5|max:1000']);
+
+        if (!AiProviderFactory::isConfigured()) {
+            return $this->errorResponse(
+                'AI provider konfiqurasiya edilməyib. Superadmin AI İdarəetmə səhifəsindən API key əlavə edin.',
+                503
+            );
+        }
+
+        $user     = $request->user();
+        $userRole = $user->getRoleNames()->first() ?? 'unknown';
+        $regionId = $user->hasRole('regionadmin')
+            ? ($user->institution?->region_id ?? $user->institution_id)
+            : null;
+
+        $result = $this->smartAnalysisService->analyze(
+            $request->input('prompt'),
+            $userRole,
+            $regionId
+        );
+
+        return $this->successResponse($result);
+    }
+
+    /**
      * POST /api/ai-analysis/execute
-     * SQL yaradır, validate edir, icra edir, nəticəni qaytarır
+     * SQL yaradır (AI və ya manual), validate edir, icra edir.
      * Permission: ai_analysis.execute
      */
     public function execute(Request $request): JsonResponse
@@ -97,16 +130,14 @@ class AiAnalysisController extends BaseController
             'prompt'         => 'required|string|min:5|max:1000',
             'clarifications' => 'nullable|array',
             'raw_sql'        => 'nullable|string|max:5000',
+            'presupplied_sql' => 'nullable|string|max:5000',
         ]);
 
         $user     = $request->user();
         $userRole = $user->getRoleNames()->first() ?? 'unknown';
-        $regionId = null;
-
-        // RegionAdmin üçün institution region id-ni tap
-        if ($user->hasRole('regionadmin')) {
-            $regionId = $user->institution?->region_id ?? $user->institution_id;
-        }
+        $regionId = $user->hasRole('regionadmin')
+            ? ($user->institution?->region_id ?? $user->institution_id)
+            : null;
 
         // Audit log başlat
         $log = AiAnalysisLog::create([
@@ -120,62 +151,78 @@ class AiAnalysisController extends BaseController
         ]);
 
         try {
-            // SQL ya manual ya da AI ilə yaradılır
-            if ($request->filled('raw_sql')) {
-                // Manual SQL mode (superadmin üçün)
-                $sqlData = [
-                    'sql'                    => $request->input('raw_sql'),
-                    'explanation'            => 'Manuel SQL sorğusu',
-                    'suggested_visualization' => 'table',
-                ];
-            } else {
-                // AI SQL generasiyası
-                if (!AiProviderFactory::isConfigured()) {
-                    throw new \RuntimeException('AI provider konfiqurasiya edilməyib.');
-                }
+            $sqlData = $this->resolveSql($request, $userRole, $regionId);
 
-                $sqlData = $this->sqlGenerationService->generateSql(
-                    $request->input('prompt'),
-                    $request->input('clarifications', []),
-                    $userRole,
-                    $regionId
-                );
-            }
-
-            // SQL icra et
             $result = $this->queryExecutor->execute($sqlData['sql']);
 
-            // Log yenilə - uğurlu
+            $tokenUsage = $sqlData['token_usage'] ?? [];
             $log->update([
-                'generated_sql'  => $sqlData['sql'],
-                'enhanced_prompt' => $sqlData['explanation'],
-                'row_count'      => $result['row_count'],
-                'execution_ms'   => $result['execution_ms'],
-                'status'         => 'success',
+                'generated_sql'     => $sqlData['sql'],
+                'enhanced_prompt'   => $sqlData['explanation'],
+                'row_count'         => $result['row_count'],
+                'execution_ms'      => $result['execution_ms'],
+                'prompt_tokens'     => $tokenUsage['prompt_tokens'] ?? null,
+                'completion_tokens' => $tokenUsage['completion_tokens'] ?? null,
+                'total_tokens'      => $tokenUsage['total_tokens'] ?? null,
+                'from_cache'        => $result['from_cache'] ?? false,
+                'status'            => 'success',
             ]);
 
             return $this->successResponse([
-                'data'                   => $result['data'],
-                'columns'                => $result['columns'],
-                'row_count'              => $result['row_count'],
-                'execution_ms'           => $result['execution_ms'],
-                'sql_used'               => $result['sql_used'],
-                'explanation'            => $sqlData['explanation'],
+                'data'                    => $result['data'],
+                'columns'                 => $result['columns'],
+                'row_count'               => $result['row_count'],
+                'execution_ms'            => $result['execution_ms'],
+                'sql_used'                => $result['sql_used'],
+                'explanation'             => $sqlData['explanation'],
                 'suggested_visualization' => $sqlData['suggested_visualization'],
-                'log_id'                 => $log->id,
+                'log_id'                  => $log->id,
+                'from_cache'              => $result['from_cache'] ?? false,
             ]);
 
         } catch (\InvalidArgumentException $e) {
-            // SQL validation xətası
             $log->update(['status' => 'blocked', 'error_message' => $e->getMessage()]);
-
             return $this->errorResponse($e->getMessage(), 422);
 
         } catch (\RuntimeException $e) {
-            // Execution xətası
             $log->update(['status' => 'error', 'error_message' => $e->getMessage()]);
-
             return $this->errorResponse($e->getMessage(), 500);
         }
+    }
+
+    /**
+     * SQL mənbəyini müəyyən edir:
+     *  1. raw_sql → superadmin manual SQL
+     *  2. presupplied_sql → SmartAnalysis-dən gələn SQL (dəqiqləşdirmə tələb etmədi)
+     *  3. clarifications → SqlGenerationService ilə SQL yarat
+     */
+    private function resolveSql(Request $request, string $userRole, ?int $regionId): array
+    {
+        if ($request->filled('raw_sql')) {
+            return [
+                'sql'                    => $request->input('raw_sql'),
+                'explanation'            => 'Manuel SQL sorğusu',
+                'suggested_visualization' => 'table',
+            ];
+        }
+
+        if ($request->filled('presupplied_sql')) {
+            return [
+                'sql'                    => $request->input('presupplied_sql'),
+                'explanation'            => $request->input('explanation', 'AI tərəfindən yaradılmış SQL'),
+                'suggested_visualization' => $request->input('suggested_visualization', 'table'),
+            ];
+        }
+
+        if (!AiProviderFactory::isConfigured()) {
+            throw new \RuntimeException('AI provider konfiqurasiya edilməyib.');
+        }
+
+        return $this->sqlGenerationService->generateSql(
+            $request->input('prompt'),
+            $request->input('clarifications', []),
+            $userRole,
+            $regionId
+        );
     }
 }

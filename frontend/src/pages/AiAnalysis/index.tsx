@@ -27,6 +27,7 @@ import {
   Sparkles,
   Table2,
   BarChart3,
+  Zap,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { aiAnalysisService } from '@/services/aiAnalysisService';
@@ -37,6 +38,7 @@ import type {
   ClarificationAnswers,
   ClarificationQuestion,
   QueryResult,
+  SmartAnalysisSqlResult,
 } from '@/types/aiAnalysis';
 import SchemaExplorer from './components/SchemaExplorer';
 import PromptInput from './components/PromptInput';
@@ -52,13 +54,15 @@ interface StepIndicatorProps {
 }
 
 const STEPS: { key: AnalysisStep; label: string }[] = [
-  { key: 'enhancing', label: 'Analiz' },
-  { key: 'clarifying', label: 'Dəqiqləşdirmə' },
-  { key: 'executing', label: 'İcra' },
-  { key: 'done', label: 'Nəticə' },
+  { key: 'analyzing',  label: 'Analiz'         },
+  { key: 'clarifying', label: 'Dəqiqləşdirmə'  },
+  { key: 'executing',  label: 'İcra'            },
+  { key: 'done',       label: 'Nəticə'          },
 ];
 
-const STEP_ORDER: AnalysisStep[] = ['idle', 'enhancing', 'clarifying', 'executing', 'done', 'error'];
+const STEP_ORDER: AnalysisStep[] = [
+  'idle', 'analyzing', 'clarifying', 'executing', 'done', 'error',
+];
 
 function getStepIndex(step: AnalysisStep): number {
   return STEP_ORDER.indexOf(step);
@@ -66,27 +70,26 @@ function getStepIndex(step: AnalysisStep): number {
 
 const StepIndicator: React.FC<StepIndicatorProps> = ({ currentStep }) => {
   if (currentStep === 'idle') return null;
-
   const currentIdx = getStepIndex(currentStep);
 
   return (
     <div className="flex items-center gap-1 flex-wrap">
       {STEPS.map((s, i) => {
-        const stepIdx = getStepIndex(s.key);
-        const isActive = s.key === currentStep;
-        const isCompleted = currentIdx > stepIdx && currentStep !== 'error';
-        const isError = currentStep === 'error';
+        const stepIdx   = getStepIndex(s.key);
+        const isActive  = s.key === currentStep;
+        const isDone    = currentIdx > stepIdx && currentStep !== 'error';
+        const isErr     = currentStep === 'error';
 
-        let badgeVariant: 'default' | 'secondary' | 'outline' | 'destructive' = 'outline';
-        if (isError && i === 0) badgeVariant = 'destructive';
-        else if (isCompleted) badgeVariant = 'secondary';
-        else if (isActive) badgeVariant = 'default';
+        let variant: 'default' | 'secondary' | 'outline' | 'destructive' = 'outline';
+        if (isErr && i === 0) variant = 'destructive';
+        else if (isDone)      variant = 'secondary';
+        else if (isActive)    variant = 'default';
 
         return (
           <React.Fragment key={s.key}>
-            <Badge variant={badgeVariant} className="text-xs gap-1">
-              {isCompleted && !isError && <CheckCircle2 className="h-3 w-3" />}
-              {isActive && !isError && <Loader2 className="h-3 w-3 animate-spin" />}
+            <Badge variant={variant} className="text-xs gap-1">
+              {isDone   && !isErr && <CheckCircle2 className="h-3 w-3" />}
+              {isActive && !isErr && <Loader2 className="h-3 w-3 animate-spin" />}
               {s.label}
             </Badge>
             {i < STEPS.length - 1 && (
@@ -108,7 +111,7 @@ interface LogSheetProps {
 
 const statusColors: Record<AiAnalysisLog['status'], string> = {
   success: 'bg-green-100 text-green-700 border-green-200',
-  error: 'bg-red-100 text-red-700 border-red-200',
+  error:   'bg-red-100 text-red-700 border-red-200',
   pending: 'bg-yellow-100 text-yellow-700 border-yellow-200',
   blocked: 'bg-gray-100 text-gray-600 border-gray-200',
 };
@@ -127,9 +130,7 @@ const LogSheet: React.FC<LogSheetProps> = ({ logs, isLoading }) => (
           <ScrollText className="h-4 w-4" />
           Analiz Logları
         </SheetTitle>
-        <SheetDescription>
-          Son AI analiz sorğularının qeydləri
-        </SheetDescription>
+        <SheetDescription>Son AI analiz sorğularının qeydləri</SheetDescription>
       </SheetHeader>
 
       <div className="mt-4 flex flex-col gap-3">
@@ -158,11 +159,8 @@ const LogSheet: React.FC<LogSheetProps> = ({ logs, isLoading }) => (
                 <span className="text-xs text-muted-foreground flex items-center gap-1 shrink-0">
                   <Clock className="h-3 w-3" />
                   {new Date(log.created_at).toLocaleString('az-AZ', {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit',
                   })}
                 </span>
               </div>
@@ -170,15 +168,11 @@ const LogSheet: React.FC<LogSheetProps> = ({ logs, isLoading }) => (
                 {log.original_prompt}
               </p>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                {log.user && (
-                  <span className="font-medium">{log.user.name}</span>
-                )}
+                {log.user && <span className="font-medium">{log.user.name}</span>}
                 {log.row_count > 0 && (
                   <span>{log.row_count.toLocaleString()} sətir</span>
                 )}
-                {log.execution_ms > 0 && (
-                  <span>{log.execution_ms} ms</span>
-                )}
+                {log.execution_ms > 0 && <span>{log.execution_ms} ms</span>}
                 {log.error_message && (
                   <span className="text-red-600 truncate">{log.error_message}</span>
                 )}
@@ -201,25 +195,23 @@ interface ResultPanelProps {
 }
 
 const ResultPanel: React.FC<ResultPanelProps> = ({
-  result,
-  activeView,
-  onViewChange,
-  chartRef,
+  result, activeView, onViewChange, chartRef,
 }) => (
   <div className="flex flex-col gap-3">
-    {/* SQL explanation */}
     {result.explanation && (
-      <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
+      <div className="rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-sm text-muted-foreground flex items-start gap-2">
+        {result.from_cache && (
+          <Badge variant="outline" className="text-xs shrink-0 gap-1 border-green-200 text-green-700 bg-green-50">
+            <Zap className="h-3 w-3" />
+            Cache
+          </Badge>
+        )}
         {result.explanation}
       </div>
     )}
 
-    {/* View tabs + export */}
     <div className="flex items-center justify-between gap-2 flex-wrap">
-      <Tabs
-        value={activeView}
-        onValueChange={(v) => onViewChange(v as 'table' | 'chart')}
-      >
+      <Tabs value={activeView} onValueChange={(v) => onViewChange(v as 'table' | 'chart')}>
         <TabsList className="h-8">
           <TabsTrigger value="table" className="text-xs gap-1.5 h-7 px-3">
             <Table2 className="h-3.5 w-3.5" />
@@ -239,25 +231,26 @@ const ResultPanel: React.FC<ResultPanelProps> = ({
       />
     </div>
 
-    {/* Content */}
-    {activeView === 'table' ? (
-      <DataTable
-        data={result.data}
-        columns={result.columns}
-        rowCount={result.row_count}
-        executionMs={result.execution_ms}
-      />
-    ) : (
-      <div ref={chartRef}>
-        <DataChart
+    {/* Suppress unused TabsContent warning — tabs controlled via activeView state */}
+    <div>
+      {activeView === 'table' ? (
+        <DataTable
           data={result.data}
           columns={result.columns}
-          chartType={result.suggested_visualization}
+          rowCount={result.row_count}
+          executionMs={result.execution_ms}
         />
-      </div>
-    )}
+      ) : (
+        <div ref={chartRef}>
+          <DataChart
+            data={result.data}
+            columns={result.columns}
+            chartType={result.suggested_visualization}
+          />
+        </div>
+      )}
+    </div>
 
-    {/* SQL used */}
     {result.sql_used && (
       <details className="text-xs">
         <summary className="cursor-pointer text-muted-foreground hover:text-foreground select-none">
@@ -286,54 +279,62 @@ const AiAnalysis: React.FC = () => {
   const { hasRole } = useAuth();
   const isSuperAdmin = hasRole('superadmin');
 
-  // ─── State ────────────────────────────────────────────────
-  const [step, setStep] = useState<AnalysisStep>('idle');
-  const [prompt, setPrompt] = useState('');
+  // ─── State ─────────────────────────────────────────────────
+  const [step, setStep]         = useState<AnalysisStep>('idle');
+  const [prompt, setPrompt]     = useState('');
   const [questions, setQuestions] = useState<ClarificationQuestion[]>([]);
-  const [answers, setAnswers] = useState<ClarificationAnswers>({});
-  const [result, setResult] = useState<QueryResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult]     = useState<QueryResult | null>(null);
+  const [error, setError]       = useState<string | null>(null);
   const [activeView, setActiveView] = useState<'table' | 'chart'>('table');
+
+  /**
+   * Aydın prompt üçün SmartAnalysis-dən gələn hazır SQL saxlanır.
+   * İstifadəçi "clarify" seçibsə bu null olur.
+   */
+  const [presuppliedSql, setPresuppliedSql] = useState<SmartAnalysisSqlResult | null>(null);
+
   const chartRef = useRef<HTMLDivElement>(null);
 
-  // ─── Schema ───────────────────────────────────────────────
-  const {
-    data: schemaData,
-    isLoading: schemaLoading,
-    refetch: refetchSchema,
-  } = useQuery({
+  // ─── Queries ───────────────────────────────────────────────
+  const { data: schemaData, isLoading: schemaLoading, refetch: refetchSchema } = useQuery({
     queryKey: ['ai-schema'],
-    queryFn: () => aiAnalysisService.getSchema(),
+    queryFn:  () => aiAnalysisService.getSchema(),
     staleTime: 6 * 60 * 60 * 1000,
   });
 
-  // ─── AI Settings ──────────────────────────────────────────
   const { data: settingsData } = useQuery({
     queryKey: ['ai-settings'],
-    queryFn: () => aiSettingsService.getSettings(),
+    queryFn:  () => aiSettingsService.getSettings(),
     staleTime: 5 * 60 * 1000,
   });
   const isConfigured = settingsData?.is_configured ?? false;
 
-  // ─── Logs ─────────────────────────────────────────────────
   const { data: logsData, isLoading: logsLoading } = useQuery({
     queryKey: ['ai-logs'],
-    queryFn: () => aiAnalysisService.getLogs(),
+    queryFn:  () => aiAnalysisService.getLogs(),
     staleTime: 30 * 1000,
   });
 
-  // ─── Actions ──────────────────────────────────────────────
+  // ─── Actions ───────────────────────────────────────────────
 
+  /** DB-dən SQL icra et (AI çağırışı yoxdur) */
   const executeQuery = async (
     p: string,
     clarifications: ClarificationAnswers,
+    sqlOverride?: SmartAnalysisSqlResult,
   ): Promise<void> => {
     setStep('executing');
     try {
-      const queryResult = await aiAnalysisService.execute({
-        prompt: p,
-        clarifications,
-      });
+      const payload = sqlOverride
+        ? {
+            prompt,
+            presupplied_sql:          sqlOverride.sql,
+            explanation:              sqlOverride.explanation,
+            suggested_visualization:  sqlOverride.suggested_visualization,
+          }
+        : { prompt: p, clarifications };
+
+      const queryResult = await aiAnalysisService.execute(payload);
       setResult(queryResult);
       setStep('done');
     } catch (err) {
@@ -342,28 +343,40 @@ const AiAnalysis: React.FC = () => {
     }
   };
 
+  /**
+   * YENİ AXIN — SmartAnalysis:
+   *  1. analyze() → tək AI call
+   *  2a. mode="sql"     → birbaşa executeQuery() (2-ci AI call YOX)
+   *  2b. mode="clarify" → dialog açılır, istifadəçi cavablar → executeQuery() (2-ci AI call)
+   */
   const handleSubmit = async (): Promise<void> => {
-    setStep('enhancing');
+    setStep('analyzing');
     setError(null);
     setResult(null);
+    setPresuppliedSql(null);
+
     try {
-      const enhancement = await aiAnalysisService.enhancePrompt(prompt);
-      if (enhancement.questions.length > 0) {
-        setQuestions(enhancement.questions);
-        setStep('clarifying');
+      const analysisResult = await aiAnalysisService.analyze(prompt);
+
+      if (analysisResult.mode === 'sql') {
+        // Prompt aydın idi — SQL hazırdır, yalnız DB icra lazımdır
+        setPresuppliedSql(analysisResult);
+        await executeQuery(prompt, {}, analysisResult);
       } else {
-        await executeQuery(prompt, {});
+        // Dəqiqləşdirmə lazımdır
+        setQuestions(analysisResult.questions);
+        setStep('clarifying');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Xəta baş verdi');
+      setError(err instanceof Error ? err.message : 'Analiz xətası');
       setStep('error');
     }
   };
 
+  /** Dialog-dan cavablar gəldikdə: SqlGenerationService ilə SQL yarat + icra et */
   const handleClarificationSubmit = async (
     clarificationAnswers: ClarificationAnswers,
   ): Promise<void> => {
-    setAnswers(clarificationAnswers);
     await executeQuery(prompt, clarificationAnswers);
   };
 
@@ -371,15 +384,13 @@ const AiAnalysis: React.FC = () => {
     await executeQuery(prompt, {});
   };
 
+  /** SuperAdmin manual SQL modu */
   const handleRawSql = async (sql: string): Promise<void> => {
     setStep('executing');
     setError(null);
     setResult(null);
     try {
-      const queryResult = await aiAnalysisService.execute({
-        prompt: sql,
-        raw_sql: sql,
-      });
+      const queryResult = await aiAnalysisService.execute({ prompt: sql, raw_sql: sql });
       setResult(queryResult);
       setStep('done');
     } catch (err) {
@@ -393,13 +404,12 @@ const AiAnalysis: React.FC = () => {
     setError(null);
     setResult(null);
     setQuestions([]);
-    setAnswers({});
+    setPresuppliedSql(null);
   };
 
-  const isLoading =
-    step === 'enhancing' || step === 'executing';
+  const isLoading = step === 'analyzing' || step === 'executing';
 
-  // ─── Render ───────────────────────────────────────────────
+  // ─── Render ────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -423,16 +433,13 @@ const AiAnalysis: React.FC = () => {
               </Link>
             </Button>
           )}
-          <LogSheet
-            logs={logsData?.data ?? []}
-            isLoading={logsLoading}
-          />
+          <LogSheet logs={logsData?.data ?? []} isLoading={logsLoading} />
         </div>
       </div>
 
       {/* Body */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Left: Schema Explorer — fixed 280px */}
+        {/* Left: Schema Explorer */}
         <div className="w-[280px] shrink-0 border-r overflow-hidden flex flex-col">
           <SchemaExplorer
             tables={schemaData?.tables ?? []}
@@ -448,7 +455,6 @@ const AiAnalysis: React.FC = () => {
 
         {/* Right: Prompt + Result */}
         <div className="flex-1 min-w-0 overflow-y-auto p-4 flex flex-col gap-4">
-          {/* Prompt card */}
           <Card>
             <CardHeader className="pb-2 pt-4 px-4">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
@@ -469,8 +475,7 @@ const AiAnalysis: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Result area */}
-          {(step === 'executing' || step === 'enhancing') && (
+          {isLoading && (
             <Card>
               <CardContent className="px-4 pt-4 pb-4">
                 <ResultSkeleton />

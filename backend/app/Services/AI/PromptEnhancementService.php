@@ -8,116 +8,119 @@ use Illuminate\Support\Facades\Log;
 class PromptEnhancementService
 {
     public function __construct(
-        private DatabaseSchemaService $schemaService
+        private DatabaseSchemaService $schemaService,
+        private SchemaRelevanceFilter $relevanceFilter
     ) {}
 
     /**
-     * İstifadəçinin sadə promptu əsasında dəqiqləşdirici suallar qaytarır
+     * İstifadəçinin sadə promptu əsasında dəqiqləşdirici suallar qaytarır.
+     *
+     * Token optimizasiyası:
+     *  - SchemaRelevanceFilter: yalnız əlaqəli cədvəllər göndərilir (60-80% azalma)
+     *  - max_tokens: 1024 → 512 (suallar qısa olur)
+     *  - Qısaldılmış sistem promptu (duplikat qaydalar silindi)
      *
      * @return array{questions: array<array{id: string, question: string, type: string, options: array}>}
      */
     public function generateClarificationQuestions(string $userPrompt): array
     {
-        $condensedSchema = $this->schemaService->getCondensedSchema();
+        $fullSchema      = $this->schemaService->getSchema();
+        $filteredSchema  = $this->relevanceFilter->filter($userPrompt, $fullSchema);
+        $condensedSchema = $this->buildCondensedSchema($filteredSchema);
 
         $systemPrompt = <<<SYSTEM
-        Sən ATİS (Azərbaycan Təhsil İdarəetmə Sistemi) verilənlər bazası ekspertisən.
+ATİS DB eksperti. Sxem (yalnız əlaqəli cədvəllər):
+{$condensedSchema}
 
-        Verilənlər bazası sxemi:
-        {$condensedSchema}
-
-        Sənin vəzifən: İstifadəçinin sadə Azərbaycan dilindəki sualını daha dəqiq SQL sorğusuna çevirmək üçün
-        lazımi məlumatları toplamaq.
-
-        QAYDALAR:
-        1. Azərbaycan dilində cavab ver
-        2. Yalnız sorğunu konkretləşdirəcək 2-4 sual ver
-        3. Artıq məlum olan məlumatları soruşma
-        4. Sadə seçim sualları qoy (radio, checkbox, ya da qısa mətn)
-        5. JSON formatında cavab ver
-
-        JSON FORMATI (YALNIZ JSON, heç bir izah yox):
-        {
-          "questions": [
-            {
-              "id": "q1",
-              "question": "Sual mətni burada",
-              "type": "single",
-              "options": ["Seçim 1", "Seçim 2", "Seçim 3"]
-            },
-            {
-              "id": "q2",
-              "question": "Başqa sual",
-              "type": "multi",
-              "options": ["A", "B", "C"]
-            },
-            {
-              "id": "q3",
-              "question": "Açıq sual",
-              "type": "text",
-              "options": []
-            }
-          ]
-        }
-
-        type dəyərləri:
-        - "single": tək seçim (radio)
-        - "multi": çoxlu seçim (checkbox)
-        - "text": sərbəst mətn
-        SYSTEM;
+Azərbaycan dilində 2-4 konkretləşdirici sual ver. YALNIZ JSON:
+{"questions":[{"id":"q1","question":"...","type":"single","options":["A","B"]},{"id":"q2","question":"...","type":"text","options":[]}]}
+type: single=radio, multi=checkbox, text=açıq mətn
+SYSTEM;
 
         $messages = [
             ['role' => 'system', 'content' => $systemPrompt],
-            ['role' => 'user', 'content' => 'İstifadəçi soruşur: ' . $userPrompt],
+            ['role' => 'user',   'content' => $userPrompt],
         ];
 
         try {
             $provider = AiProviderFactory::make();
-            $response = $provider->chat($messages, ['max_tokens' => 1024]);
+            $response = $provider->chat($messages, ['max_tokens' => 512]);
 
-            $json = $this->extractJson($response);
-            $data = json_decode($json, true);
+            $data = $this->decodeJson($response);
 
-            if (!isset($data['questions']) || !is_array($data['questions'])) {
-                throw new \RuntimeException('AI cavabı gözlənilən formatda deyil');
+            if (empty($data['questions']) || !is_array($data['questions'])) {
+                throw new \RuntimeException('Gözlənilməz AI cavab formatı');
             }
 
             return $data;
-        } catch (\RuntimeException $e) {
+        } catch (\Exception $e) {
             Log::warning('PromptEnhancement xətası: ' . $e->getMessage());
-            // Fallback: standart suallar
-            return $this->getFallbackQuestions($userPrompt);
+            return $this->getFallbackQuestions();
         }
     }
 
-    private function extractJson(string $text): string
+    /**
+     * Filtrlənmiş cədvəllərdən kondensə sxema mətni qurur.
+     * Sample data daxil edilmir — token qənaəti.
+     */
+    private function buildCondensedSchema(array $schema): string
     {
-        // Markdown code block-u çıxar
-        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/i', $text, $matches)) {
-            return trim($matches[1]);
-        }
-        // JSON object tap
-        if (preg_match('/\{[\s\S]*\}/s', $text, $matches)) {
-            return $matches[0];
-        }
-        return $text;
+        return implode("\n", array_map(
+            fn ($t) => $t['table_name'] . '(' . $t['row_count'] . '): '
+                . implode(', ', array_map(
+                    fn ($c) => $c['name'] . ':' . $this->shortType($c['type']),
+                    $t['columns']
+                )),
+            $schema
+        ));
     }
 
-    private function getFallbackQuestions(string $prompt): array
+    /**
+     * PostgreSQL tipi → qısa etiket (token qənaəti üçün).
+     */
+    private function shortType(string $type): string
+    {
+        return match (true) {
+            str_contains($type, 'int')       => 'int',
+            str_contains($type, 'char'),
+            str_contains($type, 'text')      => 'str',
+            str_contains($type, 'bool')      => 'bool',
+            str_contains($type, 'timestamp') => 'ts',
+            str_contains($type, 'date')      => 'date',
+            str_contains($type, 'numeric'),
+            str_contains($type, 'decimal'),
+            str_contains($type, 'float'),
+            str_contains($type, 'real')      => 'num',
+            str_contains($type, 'json')      => 'json',
+            default                          => $type,
+        };
+    }
+
+    private function decodeJson(string $text): array
+    {
+        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/i', $text, $m)) {
+            $text = trim($m[1]);
+        } elseif (preg_match('/(\{[\s\S]*\})/s', $text, $m)) {
+            $text = $m[1];
+        }
+        return json_decode($text, true) ?? [];
+    }
+
+    private function getFallbackQuestions(): array
     {
         return [
             'questions' => [
                 [
-                    'id' => 'q1',
+                    'id'       => 'q1',
                     'question' => 'Hansı tədris ilini nəzərdə tutursunuz?',
-                    'type' => 'single',
-                    'options' => ['2023-2024', '2024-2025', 'Hamısı'],
+                    'type'     => 'single',
+                    'options'  => ['2023-2024', '2024-2025', 'Hamısı'],
                 ],
                 [
-                    'id' => 'q2',
-                    'question' => 'Nəticənin hansı sütunlarını görmək istəyirsiniz?',
-                    'type' => 'text',
-                    'options' => [],
+                    'id'       => 'q2',
+                    'question' => 'Hansı müəssisəyə aid məlumat lazımdır?',
+                    'type'     => 'text',
+                    'options'  => [],
                 ],
             ],
         ];

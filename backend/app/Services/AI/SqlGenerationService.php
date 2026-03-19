@@ -8,18 +8,26 @@ use Illuminate\Support\Facades\Log;
 class SqlGenerationService
 {
     public function __construct(
-        private DatabaseSchemaService $schemaService
+        private DatabaseSchemaService $schemaService,
+        private SchemaRelevanceFilter $relevanceFilter
     ) {}
 
     /**
-     * Dəqiqləşdirilmiş prompt əsasında SQL yaradır
+     * Dəqiqləşdirilmiş prompt əsasında PostgreSQL SELECT sorğusu yaradır.
      *
-     * @param string $userPrompt Orijinal istifadəçi promptu
-     * @param array $clarifications {question_id: answer} formatında cavablar
-     * @param string $userRole İstifadəçi rolu
-     * @param int|null $regionId RegionAdmin üçün region ID
+     * Token optimizasiyası:
+     *  - SchemaRelevanceFilter: yalnız əlaqəli cədvəllər (60-80% azalma)
+     *  - Sample data yalnız seçilmiş cədvəllər üçün (1 sətir)
+     *  - max_tokens: 1500 → 800 (SQL adətən 100-400 token)
+     *  - Qısaldılmış sistem promptu
+     *
+     * @param string   $userPrompt      Orijinal istifadəçi promptu
+     * @param array    $clarifications  {question_id: answer} formatında cavablar
+     * @param string   $userRole        İstifadəçi rolu (superadmin | regionadmin)
+     * @param int|null $regionId        RegionAdmin üçün region ID
      *
      * @return array{sql: string, explanation: string, suggested_visualization: string}
+     * @throws \RuntimeException
      */
     public function generateSql(
         string $userPrompt,
@@ -27,116 +35,117 @@ class SqlGenerationService
         string $userRole = 'superadmin',
         ?int $regionId = null
     ): array {
-        $fullSchema = $this->schemaService->getSchema();
-        $schemaForPrompt = $this->buildSchemaForPrompt($fullSchema);
-
-        $clarificationText = '';
-        if (!empty($clarifications)) {
-            $clarificationText = "\nDəqiqləşdirmələr:\n";
-            foreach ($clarifications as $qId => $answer) {
-                $clarificationText .= "- {$qId}: {$answer}\n";
-            }
-        }
+        $fullSchema     = $this->schemaService->getSchema();
+        $filteredSchema = $this->relevanceFilter->filter($userPrompt, $fullSchema);
+        $schemaText     = $this->buildSchemaText($filteredSchema);
 
         $regionConstraint = '';
         if ($userRole === 'regionadmin' && $regionId) {
-            $regionConstraint = "\n\n⚠️ KRİTİK MƏHDUDIYYƏT: Bu istifadəçi regionadmin-dir. " .
-                "Bütün sorğulara region_id = {$regionId} filtri əlavə et. " .
-                "Bu olmadan sorğu qaytarma.";
+            $regionConstraint = "\nMƏHDUDİYYƏT: region_id={$regionId} filtrini bütün sorğulara əlavə et.";
+        }
+
+        $clarText = '';
+        foreach ($clarifications as $qId => $answer) {
+            $clarText .= "\n- {$qId}: {$answer}";
         }
 
         $systemPrompt = <<<SYSTEM
-        Sən PostgreSQL 16 verilənlər bazası ekspertisən. ATİS - Azərbaycan Təhsil İdarəetmə Sistemidir.
+PostgreSQL 16 eksperti. ATİS (Azərbaycan Təhsil İdarəetmə Sistemi).
+Sxem:{$regionConstraint}
+{$schemaText}
 
-        VERİLƏNLƏR BAZASI SXEMİ:
-        {$schemaForPrompt}
+Qaydalar: SELECT-only, LIMIT 5000, table.column formatı, YALNIZ JSON cavab.
+{"sql":"SELECT...LIMIT 5000","explanation":"...","suggested_visualization":"table|bar|pie|line"}
+SYSTEM;
 
-        QAYDALAR:
-        1. YALNIZ SELECT sorğusu yaz - INSERT, UPDATE, DELETE, DROP qadağandır
-        2. LIMIT 5000 əlavə et (LIMIT artıq yoxdursa)
-        3. JOIN-ları optimallaşdır - yalnız lazımi JOIN-ları istifadə et
-        4. Sütun adlarını cədvəl adı ilə birlikdə yaz (table.column formatı)
-        5. Azərbaycan kontekstinə uyğun filter et{$regionConstraint}
-        6. JSON formatında cavab ver - başqa heç nə yazma
-
-        JSON FORMATI (YALNIZ JSON):
-        {
-          "sql": "SELECT ... FROM ... WHERE ... LIMIT 5000",
-          "explanation": "Bu sorğu ... məlumatları göstərir",
-          "suggested_visualization": "table"
-        }
-
-        suggested_visualization dəyərləri: table, bar, pie, line
-        - table: ümumi cədvəl məlumatı
-        - bar: müqayisəli məlumat (say, faiz)
-        - pie: nisbət/paylanma
-        - line: zamanla dəyişən məlumat
-        SYSTEM;
-
-        $userMessage = "İstifadəçi soruşur: {$userPrompt}{$clarificationText}";
+        $userMessage = $userPrompt . ($clarText ? "\nDəqiqləşdirmələr:{$clarText}" : '');
 
         $messages = [
             ['role' => 'system', 'content' => $systemPrompt],
-            ['role' => 'user', 'content' => $userMessage],
+            ['role' => 'user',   'content' => $userMessage],
         ];
 
         try {
             $provider = AiProviderFactory::make(useSqlModel: true);
             $response = $provider->chat($messages, [
-                'max_tokens'  => 1500,
+                'max_tokens'  => 800,
                 'temperature' => 0.1,
             ]);
 
-            $json = $this->extractJson($response);
-            $data = json_decode($json, true);
+            $data = $this->decodeJson($response);
 
-            if (!isset($data['sql'])) {
+            if (empty($data['sql'])) {
                 throw new \RuntimeException('AI SQL cavabı gözlənilən formatda deyil');
             }
 
+            $tokenUsage = $provider->getLastTokenUsage();
+
             return [
-                'sql' => trim($data['sql']),
-                'explanation' => $data['explanation'] ?? 'SQL uğurla yaradıldı',
+                'sql'                    => trim($data['sql']),
+                'explanation'            => $data['explanation'] ?? 'SQL uğurla yaradıldı',
                 'suggested_visualization' => $data['suggested_visualization'] ?? 'table',
+                'token_usage'            => $tokenUsage,
             ];
         } catch (\Exception $e) {
             Log::error('SqlGeneration xətası: ' . $e->getMessage(), [
                 'prompt' => $userPrompt,
-                'role' => $userRole,
+                'role'   => $userRole,
             ]);
             throw new \RuntimeException('SQL yaratma zamanı xəta: ' . $e->getMessage());
         }
     }
 
-    private function buildSchemaForPrompt(array $schema): string
+    /**
+     * Filtrlənmiş sxemadan kompakt mətn qurur.
+     * Sample data: yalnız 1 sətir (əvvəlki 3-dən azaldıldı).
+     */
+    private function buildSchemaText(array $schema): string
     {
         $lines = [];
         foreach ($schema as $table) {
-            $colDefs = array_map(
-                fn ($c) => $c['name'] . '(' . $c['type'] . ($c['nullable'] ? ',nullable' : '') . ')',
+            $cols = implode(', ', array_map(
+                fn ($c) => $c['name'] . ':' . $this->shortType($c['type']) . ($c['nullable'] ? '?' : ''),
                 $table['columns']
-            );
+            ));
 
-            $sampleStr = '';
-            if (!empty($table['sample_data'])) {
-                $firstRow = $table['sample_data'][0];
-                $sampleStr = ' -- nümunə: ' . json_encode($firstRow, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $sample = '';
+            if (!empty($table['sample_data'][0])) {
+                $sample = ' ex:' . json_encode($table['sample_data'][0], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
             }
 
-            $lines[] = "CƏDVƏL {$table['table_name']} ({$table['row_count']} sətir): "
-                . implode(', ', $colDefs) . $sampleStr;
+            $lines[] = "{$table['table_name']}({$table['row_count']}): {$cols}{$sample}";
         }
         return implode("\n", $lines);
     }
 
-    private function extractJson(string $text): string
+    /**
+     * PostgreSQL tipi → qısa etiket (token qənaəti üçün).
+     */
+    private function shortType(string $type): string
     {
-        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/i', $text, $matches)) {
-            return trim($matches[1]);
+        return match (true) {
+            str_contains($type, 'int')       => 'int',
+            str_contains($type, 'char'),
+            str_contains($type, 'text')      => 'str',
+            str_contains($type, 'bool')      => 'bool',
+            str_contains($type, 'timestamp') => 'ts',
+            str_contains($type, 'date')      => 'date',
+            str_contains($type, 'numeric'),
+            str_contains($type, 'decimal'),
+            str_contains($type, 'float'),
+            str_contains($type, 'real')      => 'num',
+            str_contains($type, 'json')      => 'json',
+            default                          => $type,
+        };
+    }
+
+    private function decodeJson(string $text): array
+    {
+        if (preg_match('/```(?:json)?\s*([\s\S]*?)```/i', $text, $m)) {
+            $text = trim($m[1]);
+        } elseif (preg_match('/(\{[\s\S]*\})/s', $text, $m)) {
+            $text = $m[1];
         }
-        if (preg_match('/\{[\s\S]*\}/s', $text, $matches)) {
-            return $matches[0];
-        }
-        return $text;
+        return json_decode($text, true) ?? [];
     }
 }

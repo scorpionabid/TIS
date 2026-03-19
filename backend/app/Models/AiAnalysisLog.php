@@ -17,6 +17,10 @@ class AiAnalysisLog extends Model
         'generated_sql',
         'row_count',
         'execution_ms',
+        'prompt_tokens',
+        'completion_tokens',
+        'total_tokens',
+        'from_cache',
         'status',
         'error_message',
         'ip_address',
@@ -24,6 +28,7 @@ class AiAnalysisLog extends Model
 
     protected $casts = [
         'clarifications' => 'array',
+        'from_cache'     => 'boolean',
     ];
 
     public function user(): BelongsTo

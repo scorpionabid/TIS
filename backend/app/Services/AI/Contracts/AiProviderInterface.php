@@ -18,6 +18,14 @@ interface AiProviderInterface
     public function chat(array $messages, array $options = []): string;
 
     /**
+     * Son chat() çağırışının token istifadəsini qaytarır.
+     * chat() çağırıldıqdan sonra istifadə edilməlidir.
+     *
+     * @return array{prompt_tokens: int, completion_tokens: int, total_tokens: int}
+     */
+    public function getLastTokenUsage(): array;
+
+    /**
      * API key-in düzgün olduğunu yoxla.
      *
      * @return array{success: bool, message: string, model: string}
