@@ -246,25 +246,20 @@ Route::prefix('teacher-workplaces')->middleware('permission:teachers.read')->gro
     Route::post('/{workplace}/deactivate', [App\Http\Controllers\TeacherWorkplaceController::class, 'deactivate'])->middleware('permission:teachers.write');
 });
 
-// Class Management Routes
-// Note: Using role-based access for read operations due to guard incompatibility
+// Class Management Routes — Migrated to GradeUnifiedController (/api/grades)
+// Note: /api/classes routes now proxy to GradeUnifiedController for backward compatibility
 Route::prefix('classes')->group(function () {
-    Route::get('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::post('/', [App\Http\Controllers\ClassesControllerRefactored::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::put('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::delete('/{class}', [App\Http\Controllers\ClassesControllerRefactored::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/{class}/students', [App\Http\Controllers\ClassesControllerRefactored::class, 'getStudents'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::post('/{class}/students', [App\Http\Controllers\ClassesControllerRefactored::class, 'addStudents'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::delete('/{class}/students/{student}', [App\Http\Controllers\ClassesControllerRefactored::class, 'removeStudent'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/{class}/teachers', [App\Http\Controllers\ClassesControllerRefactored::class, 'getTeachers'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::post('/{class}/teachers', [App\Http\Controllers\ClassesControllerRefactored::class, 'assignTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::delete('/{class}/teachers/{teacher}', [App\Http\Controllers\ClassesControllerRefactored::class, 'unassignTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
-    Route::get('/{class}/schedule', [App\Http\Controllers\ClassesControllerRefactored::class, 'getSchedule'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::get('/{class}/attendance', [App\Http\Controllers\ClassesControllerRefactored::class, 'getAttendance'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::get('/{class}/grades', [App\Http\Controllers\ClassesControllerRefactored::class, 'getGrades'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
-    Route::post('/bulk-create', [App\Http\Controllers\ClassesControllerRefactored::class, 'bulkCreate'])->middleware('role:superadmin|regionadmin');
-    Route::get('/analytics/overview', [App\Http\Controllers\ClassesControllerRefactored::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/', [GradeUnifiedController::class, 'index'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::post('/', [GradeUnifiedController::class, 'store'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/{grade}', [GradeUnifiedController::class, 'show'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::put('/{grade}', [GradeUnifiedController::class, 'update'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::delete('/{grade}', [GradeUnifiedController::class, 'destroy'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/{grade}/students', [GradeUnifiedController::class, 'students'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin|teacher');
+    Route::post('/{grade}/students', [GradeUnifiedController::class, 'enrollMultipleStudents'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::delete('/{grade}/students/{student}', [GradeUnifiedController::class, 'unenrollStudent'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::post('/{grade}/teachers', [GradeUnifiedController::class, 'assignTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::delete('/{grade}/teachers/{teacher}', [GradeUnifiedController::class, 'removeTeacher'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
+    Route::get('/{grade}/analytics', [GradeUnifiedController::class, 'getAnalytics'])->middleware('role:superadmin|regionadmin|sektoradmin|schooladmin');
 });
 
 // Unified Grades Management Routes (New Implementation)

@@ -69,19 +69,43 @@ class InstitutionController extends Controller
     }
 
     /**
-     * Proxy to InstitutionCRUDController@getDeleteImpact
+     * Proxy to InstitutionCRUDController@getDeleteImpact (model binding version)
      */
     public function getDeleteImpact(Institution $institution): JsonResponse
     {
-        return $this->crudController->getDeleteImpact($institution);
+        return $this->crudController->getDeleteImpact($institution->id);
     }
 
     /**
-     * Proxy to InstitutionCRUDController@destroy
+     * Proxy to InstitutionCRUDController@getDeleteImpact (ID version for soft-deleted institutions)
+     */
+    public function getDeleteImpactById($id): JsonResponse
+    {
+        return $this->crudController->getDeleteImpact($id);
+    }
+
+    /**
+     * Proxy to InstitutionCRUDController@getDeleteProgress
+     */
+    public function getDeleteProgress(Request $request, $operationId): JsonResponse
+    {
+        return $this->crudController->getDeleteProgress($request, $operationId);
+    }
+
+    /**
+     * Proxy to InstitutionCRUDController@destroy (model binding version)
      */
     public function destroy(Request $request, Institution $institution): JsonResponse
     {
-        return $this->crudController->destroy($request, $institution);
+        return $this->crudController->destroy($request, $institution->id);
+    }
+
+    /**
+     * Proxy to InstitutionCRUDController@destroy (ID version for soft-deleted institutions)
+     */
+    public function destroyById(Request $request, $id): JsonResponse
+    {
+        return $this->crudController->destroy($request, $id);
     }
 
     /**

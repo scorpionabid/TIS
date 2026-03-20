@@ -2,8 +2,8 @@
  * Teacher Rating Services - Main Export
  */
 
-export * from './teacherRatingService';
+export * from './teacherRating';
 export * from './ratingCalculationService';
 export * from './leaderboardService';
-export * from './importService';
+export * from './teacherRatingImportService';
 export * from './configurationService';

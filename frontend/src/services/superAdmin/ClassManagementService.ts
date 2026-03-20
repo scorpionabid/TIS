@@ -18,7 +18,7 @@ class ClassManagementService {
         data: { params }
       });
 
-      const endpoint = '/classes';
+      const endpoint = '/grades';
       const response = await apiClient.get<Grade[]>(endpoint, params);
       return handleArrayResponse<Grade>(response, 'ClassManagementService.getClasses');
 
@@ -30,7 +30,7 @@ class ClassManagementService {
 
   async getClass(classId: number): Promise<Grade> {
     try {
-      const response = await apiClient.get<Grade>(`/classes/${classId}`);
+      const response = await apiClient.get<Grade>(`/grades/${classId}`);
       return handleApiResponseWithError<Grade>(response, `ClassManagementService.getClass(${classId})`, 'ClassManagementService');
     } catch (error) {
       logger.error(`Failed to fetch class ${classId}`, error);
@@ -40,7 +40,7 @@ class ClassManagementService {
 
   async createClass(data: Partial<Grade>): Promise<Grade> {
     try {
-      const response = await apiClient.post<Grade>('/classes', data);
+      const response = await apiClient.post<Grade>('/grades', data);
       return handleApiResponseWithError<Grade>(response, 'ClassManagementService.createClass', 'ClassManagementService');
     } catch (error) {
       logger.error('Failed to create class as SuperAdmin', error);
@@ -50,7 +50,7 @@ class ClassManagementService {
 
   async updateClass(classId: number, data: Partial<Grade>): Promise<Grade> {
     try {
-      const response = await apiClient.put<Grade>(`/classes/${classId}`, data);
+      const response = await apiClient.put<Grade>(`/grades/${classId}`, data);
       return handleApiResponseWithError<Grade>(response, `ClassManagementService.updateClass(${classId})`, 'ClassManagementService');
     } catch (error) {
       logger.error(`Failed to update class ${classId}`, error);
@@ -60,7 +60,7 @@ class ClassManagementService {
 
   async deleteClass(classId: number): Promise<void> {
     try {
-      await apiClient.delete(`/classes/${classId}`);
+      await apiClient.delete(`/grades/${classId}`);
       logger.info(`Successfully deleted class ${classId}`, {
         component: 'ClassManagementService',
         action: 'deleteClass'
@@ -73,7 +73,7 @@ class ClassManagementService {
 
   async getClassStudents(classId: number): Promise<SchoolStudent[]> {
     try {
-      const response = await apiClient.get<SchoolStudent[]>(`/classes/${classId}/students`);
+      const response = await apiClient.get<SchoolStudent[]>(`/grades/${classId}/students`);
       return handleArrayResponse<SchoolStudent>(response, `ClassManagementService.getClassStudents(${classId})`);
     } catch (error) {
       logger.error(`Failed to fetch students for class ${classId}`, error);
@@ -83,7 +83,7 @@ class ClassManagementService {
 
   async getClassTeachers(classId: number): Promise<SchoolTeacher[]> {
     try {
-      const response = await apiClient.get<SchoolTeacher[]>(`/classes/${classId}/teachers`);
+      const response = await apiClient.get<SchoolTeacher[]>(`/grades/${classId}/teachers`);
       return handleArrayResponse<SchoolTeacher>(response, `ClassManagementService.getClassTeachers(${classId})`);
     } catch (error) {
       logger.error(`Failed to fetch teachers for class ${classId}`, error);
