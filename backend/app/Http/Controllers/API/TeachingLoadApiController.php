@@ -29,7 +29,7 @@ class TeachingLoadApiController extends Controller
                 'users.username as teacher_name',
                 'subjects.name as subject_name',
                 'grade_map.id as grade_id',
-                DB::raw("COALESCE(grade_map.full_name, CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
+                DB::raw("COALESCE(CONCAT(grade_map.name, ' ', grade_map.section), CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
             ])
             ->orderBy('users.username');
 
@@ -295,7 +295,7 @@ class TeachingLoadApiController extends Controller
                 'grade_subjects.is_teaching_activity',
                 'grade_subjects.is_extracurricular',
                 'grade_subjects.is_club',
-                DB::raw("COALESCE(grade_map.full_name, CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
+                DB::raw("COALESCE(CONCAT(grade_map.name, ' ', grade_map.section), CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
             ])
             ->first();
 
@@ -335,7 +335,7 @@ class TeachingLoadApiController extends Controller
                 'users.username as teacher_name',
                 'subjects.name as subject_name',
                 'grade_map.id as grade_id',
-                DB::raw("COALESCE(grade_map.full_name, CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
+                DB::raw("COALESCE(CONCAT(grade_map.name, ' ', grade_map.section), CONCAT(classes.grade_level, '-', classes.section)) as class_name"),
             ])
             ->orderBy('users.username')
             ->get();
