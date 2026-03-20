@@ -92,6 +92,15 @@ class GradePolicy
     }
 
     /**
+     * Determine whether the user can permanently (hard) delete the grade.
+     * Only superadmin is allowed.
+     */
+    public function forceDelete(User $user, Grade $grade): bool
+    {
+        return $user->hasRole('superadmin');
+    }
+
+    /**
      * Determine whether the user can duplicate the grade.
      */
     public function duplicate(User $user, Grade $grade): bool

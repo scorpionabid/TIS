@@ -1,10 +1,15 @@
 import React from 'react';
 import { Grade, GradeFilters, gradeService } from '@/services/grades';
-import { studentService } from '@/services/students';
-// TODO: import { GradeFilters as GradeFiltersComponent } from './GradeFilters';
 import { EntityConfig } from '@/components/generic/types';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { logger } from '@/utils/logger';
 import {
   Users,
@@ -22,7 +27,11 @@ import {
   Copy,
   LayoutGrid,
   CheckCircle,
-  XCircle
+  XCircle,
+  DoorOpen,
+  UserX,
+  RefreshCw,
+  Building2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -153,7 +162,29 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       },
       icon: XCircle,
       variant: 'danger',
-    }
+    },
+    {
+      key: 'no_room',
+      label: 'Otaqsız',
+      filter: (grades: Grade[]) => grades.filter(g => !g.room_id && g.is_active),
+      serverFilters: {
+        has_room: false,
+        is_active: true,
+      },
+      icon: DoorOpen,
+      variant: 'warning',
+    },
+    {
+      key: 'no_teacher',
+      label: 'Müəllimsiz',
+      filter: (grades: Grade[]) => grades.filter(g => !g.homeroom_teacher_id && g.is_active),
+      serverFilters: {
+        has_teacher: false,
+        is_active: true,
+      },
+      icon: UserX,
+      variant: 'warning',
+    },
   ],
   
   // Table configuration
@@ -173,13 +204,13 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     },
     {
       key: 'student_count',
-      label: 'Tələbələr',
-      width: 120,
+      label: 'Şagirdlər',
+      width: 130,
       sortable: true,
       align: 'center',
       render: (grade: Grade) => {
-        const maleCount = (grade as any).male_student_count || 0;
-        const femaleCount = (grade as any).female_student_count || 0;
+        const maleCount = grade.male_student_count ?? 0;
+        const femaleCount = grade.female_student_count ?? 0;
         const totalCount = grade.student_count || 0;
         const hasGenderData = maleCount > 0 || femaleCount > 0;
 
@@ -191,12 +222,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
             </div>
             {hasGenderData && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <span className="flex items-center gap-0.5">
-                  <span className="text-blue-600 font-medium">{maleCount}</span> oğlan
-                </span>
-                <span className="flex items-center gap-0.5">
-                  <span className="text-pink-600 font-medium">{femaleCount}</span> qız
-                </span>
+                <span className="text-blue-600 font-medium">{maleCount}</span>♂
+                <span className="text-pink-600 font-medium">{femaleCount}</span>♀
               </div>
             )}
           </div>
@@ -204,34 +231,44 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       }
     },
     {
-      key: 'assigned_student_count',
-      label: 'Şagirdlər',
-      width: 130,
-      sortable: true,
+      key: 'capacity_status',
+      label: 'Doluluk',
+      width: 120,
       align: 'center',
       render: (grade: Grade) => {
-        const maleCount = (grade as any).assigned_male_count || 0;
-        const femaleCount = (grade as any).assigned_female_count || 0;
-        const totalCount = (grade as any).assigned_student_count || 0;
-        const hasGenderData = true; // Hər zaman göstərilsin ki, dizayn mərkəzə tam otursun
-
+        if (!grade.room_id) {
+          return (
+            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
+              <DoorOpen className="h-3 w-3" /> Otaqsız
+            </span>
+          );
+        }
+        const configs: Record<string, { label: string; className: string }> = {
+          available:     { label: `Müsait (${grade.utilization_rate}%)`,      className: 'bg-green-100 text-green-700' },
+          near_capacity: { label: `Dolmağa yaxın (${grade.utilization_rate}%)`, className: 'bg-yellow-100 text-yellow-700' },
+          full:          { label: 'Dolu',                                      className: 'bg-orange-100 text-orange-700' },
+          over_capacity: { label: 'Həddindən çox',                             className: 'bg-red-100 text-red-700' },
+        };
+        const cfg = configs[grade.capacity_status] ?? configs.available;
         return (
-          <div className="flex flex-col items-center gap-0.5">
-            <div className="flex items-center gap-1.5">
-              <Users className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="font-semibold">{totalCount}</span>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-0.5">
-                <span className="text-blue-600 font-medium">{maleCount}</span> oğlan
-              </span>
-              <span className="flex items-center gap-0.5">
-                <span className="text-pink-600 font-medium">{femaleCount}</span> qız
-              </span>
-            </div>
-          </div>
+          <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', cfg.className)}>
+            {cfg.label}
+          </span>
         );
       }
+    },
+    {
+      key: 'room',
+      label: 'Otaq',
+      width: 110,
+      render: (grade: Grade) => grade.room ? (
+        <div className="flex items-center gap-1 text-sm">
+          <Building2 className="h-3 w-3 text-muted-foreground" />
+          <span className="truncate">{grade.room.full_identifier || grade.room.name}</span>
+        </div>
+      ) : (
+        <span className="text-muted-foreground text-xs italic">-</span>
+      )
     },
     {
       key: 'teaching_shift',
@@ -386,11 +423,21 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       }
     },
     {
+      key: 'activate',
+      label: 'Aktivləşdir',
+      icon: RefreshCw,
+      variant: 'ghost' as const,
+      onClick: (_grade: Grade) => {
+        // Handle activate action - will be overridden in component
+      },
+      isVisible: (grade: Grade) => !grade.is_active
+    },
+    {
       key: 'soft-delete',
       label: 'Deaktiv Et',
       icon: Archive,
       variant: 'ghost' as const,
-      onClick: (grade: Grade) => {
+      onClick: (_grade: Grade) => {
         // Handle soft delete action - will be overridden in component
       },
       isVisible: (grade: Grade) => grade.is_active
@@ -547,51 +594,163 @@ export const gradeCustomLogic = {
   }
 };
 
-// Enhanced filter component for grades - simplified to only show Status filter
+const CLASS_LEVELS = Array.from({ length: 12 }, (_, i) => i + 1);
+
+// Filter component for grades
 export const GradeFiltersComponent: React.FC<{
   filters: GradeFilters;
   onFiltersChange: (filters: GradeFilters) => void;
-  availableInstitutions?: Array<{id: number; name: string}>;
-  availableAcademicYears?: Array<{id: number; name: string; is_active: boolean}>;
-}> = ({ 
-  filters, 
-  onFiltersChange,
-}) => {
+  availableInstitutions?: Array<{ id: number; name: string }>;
+  availableAcademicYears?: Array<{ id: number; name: string; is_active: boolean }>;
+}> = ({ filters, onFiltersChange, availableInstitutions = [], availableAcademicYears = [] }) => {
   const currentFilters = filters || {};
-  const applyFilterChange = (patch: Partial<GradeFilters>, options?: { resetPage?: boolean }) => {
-    const nextFilters: GradeFilters = {
-      ...currentFilters,
-      ...patch,
-    };
-    if (options?.resetPage !== false) {
-      nextFilters.page = 1;
-    }
-    onFiltersChange(nextFilters);
+
+  const applyFilterChange = (patch: Partial<GradeFilters>) => {
+    onFiltersChange({ ...currentFilters, ...patch, page: 1 });
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-4">
-      {/* Status Filter - only one filter */}
-      <div className="flex items-center gap-2">
-        <label className="text-sm font-medium text-slate-700">Status:</label>
-        <select
-          value={
-            currentFilters.is_active !== undefined
-              ? currentFilters.is_active.toString()
-              : ''
+    <div className="flex flex-wrap items-center gap-3">
+
+      {/* Institution filter — yalnız superadmin/regionadmin üçün görünür */}
+      {availableInstitutions.length > 1 && (
+        <Select
+          value={currentFilters.institution_id?.toString() ?? ''}
+          onValueChange={(v) =>
+            applyFilterChange({ institution_id: v ? Number(v) : undefined })
           }
-          onChange={(e) =>
-            applyFilterChange({
-              is_active: e.target.value === '' ? undefined : e.target.value === 'true',
-            })
-          }
-          className="px-3 py-2 border border-slate-200 rounded-md text-sm bg-white min-w-[140px]"
         >
-          <option value="">Hamısı</option>
-          <option value="true">Aktiv</option>
-          <option value="false">Deaktiv</option>
-        </select>
-      </div>
+          <SelectTrigger className="h-9 min-w-[180px] text-sm">
+            <SelectValue placeholder="Məktəb seçin..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Bütün məktəblər</SelectItem>
+            {availableInstitutions.map((inst) => (
+              <SelectItem key={inst.id} value={inst.id.toString()}>
+                {inst.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Academic year filter */}
+      {availableAcademicYears.length > 0 && (
+        <Select
+          value={currentFilters.academic_year_id?.toString() ?? ''}
+          onValueChange={(v) =>
+            applyFilterChange({ academic_year_id: v ? Number(v) : undefined })
+          }
+        >
+          <SelectTrigger className="h-9 min-w-[150px] text-sm">
+            <SelectValue placeholder="Tədris ili..." />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Bütün illər</SelectItem>
+            {availableAcademicYears.map((y) => (
+              <SelectItem key={y.id} value={y.id.toString()}>
+                {y.name}{y.is_active ? ' (cari)' : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
+      {/* Class level filter */}
+      <Select
+        value={currentFilters.class_level?.toString() ?? ''}
+        onValueChange={(v) =>
+          applyFilterChange({ class_level: v ? Number(v) : undefined })
+        }
+      >
+        <SelectTrigger className="h-9 min-w-[130px] text-sm">
+          <SelectValue placeholder="Sinif səviyyəsi..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">Bütün səviyyələr</SelectItem>
+          {CLASS_LEVELS.map((lvl) => (
+            <SelectItem key={lvl} value={lvl.toString()}>
+              {lvl}. sinif
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
+      {/* Room filter */}
+      <Select
+        value={
+          currentFilters.has_room === true
+            ? 'true'
+            : currentFilters.has_room === false
+              ? 'false'
+              : ''
+        }
+        onValueChange={(v) =>
+          applyFilterChange({
+            has_room: v === '' ? undefined : v === 'true',
+          })
+        }
+      >
+        <SelectTrigger className="h-9 min-w-[130px] text-sm">
+          <SelectValue placeholder="Otaq..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">Otaq (hamısı)</SelectItem>
+          <SelectItem value="true">Otaqlı</SelectItem>
+          <SelectItem value="false">Otaqsız</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Teacher filter */}
+      <Select
+        value={
+          currentFilters.has_teacher === true
+            ? 'true'
+            : currentFilters.has_teacher === false
+              ? 'false'
+              : ''
+        }
+        onValueChange={(v) =>
+          applyFilterChange({
+            has_teacher: v === '' ? undefined : v === 'true',
+          })
+        }
+      >
+        <SelectTrigger className="h-9 min-w-[150px] text-sm">
+          <SelectValue placeholder="Müəllim..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">Müəllim (hamısı)</SelectItem>
+          <SelectItem value="true">Müəllimli</SelectItem>
+          <SelectItem value="false">Müəllimsiz</SelectItem>
+        </SelectContent>
+      </Select>
+
+      {/* Status filter */}
+      <Select
+        value={
+          currentFilters.is_active === true
+            ? 'true'
+            : currentFilters.is_active === false
+              ? 'false'
+              : ''
+        }
+        onValueChange={(v) =>
+          applyFilterChange({
+            is_active: v === '' ? undefined : v === 'true',
+          })
+        }
+      >
+        <SelectTrigger className="h-9 min-w-[120px] text-sm">
+          <SelectValue placeholder="Status..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="">Hər status</SelectItem>
+          <SelectItem value="true">Aktiv</SelectItem>
+          <SelectItem value="false">Deaktiv</SelectItem>
+        </SelectContent>
+      </Select>
+
     </div>
   );
 };

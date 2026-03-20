@@ -67,6 +67,15 @@ class GradeCRUDController extends Controller
         $className = mb_strtoupper(trim($validated['name']));
         $classLevel = (int) $validated['class_level'];
 
+        // Check if user has access to the given institution
+        $user = $request->user();
+        if (! $user->hasRole('superadmin') && ! InstitutionAccessService::canAccess($user, (int) $validated['institution_id'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Bu müəssisə üçün sinif yaratmaq icazəniz yoxdur',
+            ], 403);
+        }
+
         // Check for unique grade name within institution, academic year, and class level
         $existingGrade = Grade::where('institution_id', $validated['institution_id'])
             ->where('academic_year_id', $validated['academic_year_id'])
@@ -127,7 +136,7 @@ class GradeCRUDController extends Controller
                 'student_count' => $validated['student_count'] ?? 0,
                 'male_student_count' => $validated['male_student_count'] ?? 0,
                 'female_student_count' => $validated['female_student_count'] ?? 0,
-                'education_program' => $validated['education_program'] ?? null,
+                'education_program' => $validated['education_program'] ?? 'umumi',
                 'class_type' => $validated['class_type'] ?? null,
                 'class_profile' => $validated['class_profile'] ?? null,
                 'teaching_shift' => $validated['teaching_shift'] ?? null,
@@ -297,7 +306,10 @@ class GradeCRUDController extends Controller
 
         try {
             // Deactivate instead of hard delete
-            $grade->update(['is_active' => false]);
+            $grade->update([
+                'is_active' => false,
+                'deactivated_at' => now(),
+            ]);
 
             return response()->json([
                 'success' => true,
@@ -318,8 +330,8 @@ class GradeCRUDController extends Controller
      */
     public function destroy(Grade $grade): JsonResponse
     {
-        // Check authorization using Policy
-        Gate::authorize('delete', $grade);
+        // Check authorization using Policy (hard delete = superadmin only)
+        Gate::authorize('forceDelete', $grade);
 
         // Check if grade has active students
         $activeStudents = \App\Models\StudentEnrollment::where('grade_id', $grade->id)

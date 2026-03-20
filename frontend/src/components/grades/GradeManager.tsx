@@ -1,10 +1,20 @@
 import React from 'react';
-import { Plus, Loader2, RefreshCw } from 'lucide-react';
+import {
+  Plus,
+  Loader2,
+  RefreshCw,
+  GraduationCap,
+  CheckCircle2,
+  UserX,
+  DoorOpen,
+  Users,
+  TrendingUp,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
 import { Grade, GradeFilters } from '@/services/grades';
-import { gradeEntityConfig, gradeCustomLogic, GradeFiltersComponent, calculateAssignedStudents } from './configurations/gradeConfig';
+import { gradeEntityConfig, GradeFiltersComponent } from './configurations/gradeConfig';
 import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
 import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
@@ -17,7 +27,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import { academicYearService } from '@/services/academicYears';
 import { gradeService } from '@/services/grades';
-import { studentService } from '@/services/students';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
 import {
@@ -84,13 +93,6 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     staleTime: 1000 * 60 * 5, // 5 minutes cache
   });
 
-  // Fetch all students to calculate assigned_student_count per grade
-  const { data: studentsResponse } = useQuery({
-    queryKey: ['students', 'for-grade-counts'],
-    queryFn: () => studentService.getAll({ per_page: 1000 }),
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
-  });
-
   // Process available institutions based on user role
   const availableInstitutions = React.useMemo(() => {
     if (!institutionsResponse?.data || !currentUser) return [];
@@ -146,7 +148,9 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
 
   // Build stats cards from statistics API
   const statsCards = React.useMemo((): StatsConfig[] => {
-    const overview = statisticsResponse?.data?.overview;
+    const stats = statisticsResponse?.data;
+    const overview = stats?.overview;
+    const students = stats?.students;
     if (!overview) return [];
     return [
       {
@@ -162,6 +166,22 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         value: overview.active_grades,
         icon: CheckCircle2,
         color: 'green',
+      },
+      {
+        key: 'total_students',
+        label: 'Cəmi Şagird',
+        value: students?.total_students ?? 0,
+        icon: Users,
+        color: 'blue',
+      },
+      {
+        key: 'avg_students',
+        label: 'Ortalama / Sinif',
+        value: students?.average_per_grade != null
+          ? Math.round(students.average_per_grade)
+          : 0,
+        icon: TrendingUp,
+        color: 'blue',
       },
       {
         key: 'no_teacher',
@@ -240,51 +260,11 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
       defaultFilters.institution_id = currentUser.institution.id;
     }
 
-    // Get students data for assigned_student_count calculation
-    const students = studentsResponse?.data?.students || [];
-
     return {
       ...gradeEntityConfig,
 
       // Override defaultFilters with role-based institution filtering
       defaultFilters,
-
-      // Data transformer to calculate assigned_student_count from students data
-      dataTransformer: (grades: Grade[]) => {
-        if (!grades || !students || students.length === 0) return grades;
-        
-        // Create a map of grade_id to count of students
-        const gradeStudentCounts = new Map<number, { total: number, male: number, female: number }>();
-        
-        students.forEach((student: any) => {
-          // Check various possible grade ID fields
-          const gradeId = student.grade_id || student.grade?.id || student.current_class?.id || student.current_class_id;
-          if (gradeId) {
-            const currentCounts = gradeStudentCounts.get(gradeId) || { total: 0, male: 0, female: 0 };
-            currentCounts.total += 1;
-            
-            const gender = (student.gender || student.profile?.gender || '').toLowerCase();
-            if (gender === 'male' || gender === 'm' || gender === 'oğlan') {
-              currentCounts.male += 1;
-            } else if (gender === 'female' || gender === 'f' || gender === 'qız') {
-              currentCounts.female += 1;
-            }
-            
-            gradeStudentCounts.set(gradeId, currentCounts);
-          }
-        });
-        
-        // Merge counts into grades
-        return grades.map(grade => {
-          const counts = gradeStudentCounts.get(grade.id) || { total: 0, male: 0, female: 0 };
-          return {
-            ...grade,
-            assigned_student_count: counts.total,
-            assigned_male_count: counts.male,
-            assigned_female_count: counts.female
-          };
-        });
-      },
 
       // Filter columns based on user role
       columns: gradeEntityConfig.columns.filter(column => {
@@ -344,7 +324,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         }
       }))
     };
-  }, [currentUser, softDeleteMutation, hardDeleteMutation, studentsResponse]);
+  }, [currentUser, softDeleteMutation, hardDeleteMutation]);
 
   // Sync mutation
   const syncMutation = useMutation({

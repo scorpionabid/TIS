@@ -12,9 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
-import GradeBookCreatePage from './GradeBookCreate';
 import { hierarchyService, HierarchyNode as InstitutionHierarchyNode } from '@/services/hierarchy';
-import { gradeBookService } from '@/services/gradeBook';
+import { gradeService } from '@/services/grades';
 import { Button } from '@/components/ui/button';
 
 type GradeBookTab = 'list' | 'analysis' | 'admin' | 'create';
@@ -24,8 +23,6 @@ const GradeBooksPage: React.FC = () => {
   const { viewMode, canViewHierarchy, isRegionAdmin, isSectorAdmin, canCreate: roleCanCreate } = useGradeBookRole();
   const [searchParams, setSearchParams] = useSearchParams();
 
-  const anyUser = currentUser as any;
-  
   // Auto-select institution for school admin
   useEffect(() => {
     if (!canViewHierarchy && currentUser?.institution?.id) {
@@ -39,7 +36,7 @@ const GradeBooksPage: React.FC = () => {
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<number | null>(null);
   const [selectedGradeId, setSelectedGradeId] = useState<number | null>(null);
 
-  const [gradesForInstitution, setGradesForInstitution] = useState<Array<{ id: number; label: string; journalCount: number }>>([]);
+  const [gradesForInstitution, setGradesForInstitution] = useState<Array<{ id: number; label: string; studentCount: number }>>([]);
   const [gradesLoading, setGradesLoading] = useState(false);
   const [hierarchySearch, setHierarchySearch] = useState('');
   const [gradesSearch, setGradesSearch] = useState('');
@@ -185,29 +182,16 @@ const GradeBooksPage: React.FC = () => {
           return;
         }
 
-        // Disable cache to ensure fresh data when switching schools
-        const result = await gradeBookService.getGradeBooks({ institution_id: selectedInstitutionId, per_page: 200 }, { cache: false });
-        const items = result?.data ?? [];
+        const result = await gradeService.get({ institution_id: selectedInstitutionId, is_active: true, per_page: 200 });
+        const items = result.items;
 
-        const map = new Map<number, { id: number; label: string; journalCount: number }>();
-        (items as any[]).forEach((gb) => {
-          const g = gb?.grade;
-          if (!g?.id) return;
-
-          const id = Number(g.id);
-          const composite = `${g.class_level || ''}-${g.name || ''}`.replace(/^-/, '');
-          const gradeName = g.full_name || composite || g.name;
-          const label = gradeName || `Sinif ${id}`;
-
-          const existing = map.get(id);
-          if (existing) {
-            existing.journalCount += 1;
-          } else {
-            map.set(id, { id, label, journalCount: 1 });
-          }
-        });
-
-        const list = Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+        const list = items
+          .map((grade) => ({
+            id: grade.id,
+            label: grade.full_name || grade.display_name || grade.name || `Sinif ${grade.id}`,
+            studentCount: grade.student_count ?? 0,
+          }))
+          .sort((a, b) => a.label.localeCompare(b.label, 'az'));
         setGradesForInstitution(list);
       } catch (error) {
         console.error('[GradesForInstitution] Error:', error);
@@ -286,12 +270,12 @@ const GradeBooksPage: React.FC = () => {
   };
 
   const institutionChipText = useMemo(() => {
-    const regionOrDept = anyUser?.region?.name || anyUser?.department?.name || '';
-    const institution = anyUser?.institution?.name || '';
+    const regionOrDept = currentUser?.region?.name || currentUser?.department?.name || '';
+    const institution = currentUser?.institution?.name || '';
 
     if (regionOrDept && institution) return `${regionOrDept} · ${institution}`;
     return regionOrDept || institution;
-  }, [anyUser?.department?.name, anyUser?.institution?.name, anyUser?.region?.name]);
+  }, [currentUser?.department?.name, currentUser?.institution?.name, currentUser?.region?.name]);
 
   // Render hierarchy breadcrumb for Region/Sector Admins
   const renderHierarchyInfo = () => {
@@ -382,7 +366,7 @@ const GradeBooksPage: React.FC = () => {
             {/* Show hierarchy navigator for region/sector admins */}
             {canViewHierarchy ? (
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                <div className="lg:col-span-4">
+                <div className="lg:col-span-3">
                   <Card className="border-slate-200 h-full">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -415,7 +399,7 @@ const GradeBooksPage: React.FC = () => {
                   </Card>
                 </div>
 
-                <div className="lg:col-span-4">
+                <div className="lg:col-span-3">
                   <Card className="border-slate-200 h-full">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -452,6 +436,7 @@ const GradeBooksPage: React.FC = () => {
                               onClick={() => setSelectedGradeId(null)}
                             >
                               Bütün siniflər
+                              <Badge variant="secondary" className="ml-1 text-xs">{filteredGrades.length}</Badge>
                             </Button>
                           </div>
 
@@ -471,7 +456,7 @@ const GradeBooksPage: React.FC = () => {
                                   onClick={() => setSelectedGradeId(g.id)}
                                 >
                                   <span className="truncate">{g.label}</span>
-                                  <span className="text-xs opacity-70">{g.journalCount}</span>
+                                  <span className="text-xs opacity-70">{g.studentCount}</span>
                                 </Button>
                               ))}
                             </div>
@@ -482,7 +467,7 @@ const GradeBooksPage: React.FC = () => {
                   </Card>
                 </div>
 
-                <div className="lg:col-span-4">
+                <div className="lg:col-span-6">
                   {!selectedInstitutionId ? (
                     <Card className="border-slate-200 h-full">
                       <CardHeader className="pb-3">
@@ -510,7 +495,7 @@ const GradeBooksPage: React.FC = () => {
             ) : (
               /* Two column layout for school admin and teacher */
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                <div className="lg:col-span-4">
+                <div className="lg:col-span-3">
                   <Card className="border-slate-200 h-full">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -545,6 +530,7 @@ const GradeBooksPage: React.FC = () => {
                             onClick={() => setSelectedGradeId(null)}
                           >
                             Bütün siniflər
+                            <Badge variant="secondary" className="ml-1 text-xs">{filteredGrades.length}</Badge>
                           </Button>
                           {filteredGrades.map((g) => (
                             <Button
@@ -554,7 +540,7 @@ const GradeBooksPage: React.FC = () => {
                               onClick={() => setSelectedGradeId(g.id)}
                             >
                               <span className="truncate">{g.label}</span>
-                              <span className="text-xs opacity-70">{g.journalCount}</span>
+                              <span className="text-xs opacity-70">{g.studentCount}</span>
                             </Button>
                           ))}
                         </div>
@@ -563,7 +549,7 @@ const GradeBooksPage: React.FC = () => {
                   </Card>
                 </div>
 
-                <div className="lg:col-span-8">
+                <div className="lg:col-span-9">
                   <GradeBookList
                     institutionId={selectedInstitutionId}
                     institutionName={currentUser?.institution?.name}
