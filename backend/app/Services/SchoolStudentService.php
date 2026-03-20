@@ -263,51 +263,86 @@ class SchoolStudentService
         }
 
         return DB::transaction(function () use ($student, $data) {
-            // Update user
-            $student->user->update([
-                'name' => $data['name'] ?? $student->user->name,
-                'email' => $data['email'] ?? $student->user->email,
-            ]);
+            // Update user (if relationship exists)
+            if ($student->user) {
+                $student->user->update([
+                    'name' => $data['name'] ?? $student->user->name,
+                    'email' => $data['email'] ?? $student->user->email,
+                ]);
 
-            // Update user profile
-            $student->user->profile->update([
-                'first_name' => $data['first_name'] ?? $student->user->profile->first_name,
-                'last_name' => $data['last_name'] ?? $student->user->profile->last_name,
-                'phone' => $data['phone'] ?? $student->user->profile->phone,
-                'birth_date' => $data['date_of_birth'] ?? $student->user->profile->birth_date,
-                'gender' => $data['gender'] ?? $student->user->profile->gender,
-                'address' => $data['address'] ?? $student->user->profile->address,
-                'emergency_contact' => $data['emergency_contact'] ?? $student->user->profile->emergency_contact,
-                'parent_name' => $data['parent_name'] ?? $student->user->profile->parent_name,
-                'parent_phone' => $data['parent_phone'] ?? $student->user->profile->parent_phone,
-                'parent_email' => $data['parent_email'] ?? $student->user->profile->parent_email,
-            ]);
+                // Update user profile (if relationship exists)
+                if ($student->user->profile) {
+                    $student->user->profile->update([
+                        'first_name'       => $data['first_name'] ?? $student->user->profile->first_name,
+                        'last_name'        => $data['last_name'] ?? $student->user->profile->last_name,
+                        'contact_phone'    => $data['phone'] ?? $student->user->profile->contact_phone,
+                        'birth_date'       => $data['date_of_birth'] ?? $student->user->profile->birth_date,
+                        'gender'           => $data['gender'] ?? $student->user->profile->gender,
+                        'address'          => $data['address'] ?? $student->user->profile->address,
+                        'emergency_contact' => $data['emergency_contact'] ?? $student->user->profile->emergency_contact,
+                        'parent_name'      => $data['parent_name'] ?? $student->user->profile->parent_name,
+                        'parent_phone'     => $data['parent_phone'] ?? $student->user->profile->parent_phone,
+                        'parent_email'     => $data['parent_email'] ?? $student->user->profile->parent_email,
+                    ]);
+                }
+            }
 
-            // Update student
+            // Update student record (all relevant fields)
             $student->update([
-                'grade_id' => $data['grade_id'] ?? $student->grade_id,
-                'student_number' => $data['student_number'] ?? $student->student_number,
-                'special_needs' => $data['special_needs'] ?? $student->special_needs,
+                'grade_id'          => $data['grade_id'] ?? $student->grade_id,
+                'student_number'    => $data['student_number'] ?? $student->student_number,
+                'first_name'        => $data['first_name'] ?? $student->first_name,
+                'last_name'         => $data['last_name'] ?? $student->last_name,
+                'birth_date'        => $data['date_of_birth'] ?? $student->birth_date,
+                'gender'            => $data['gender'] ?? $student->gender,
+                'address'           => $data['address'] ?? $student->address,
+                'enrollment_date'   => $data['enrollment_date'] ?? $student->enrollment_date,
+                'status'            => $data['status'] ?? $student->status,
+                'is_active'         => isset($data['status']) ? ($data['status'] === 'active') : $student->is_active,
+                'special_needs'     => $data['special_needs'] ?? $student->special_needs,
                 'medical_conditions' => $data['medical_conditions'] ?? $student->medical_conditions,
+                'notes'             => $data['notes'] ?? $student->notes,
             ]);
 
-            // Sync enrollment record if grade_id is provided or changed
+            // Sync enrollment record if grade_id is provided
             if (!empty($data['grade_id'])) {
                 $academicYearId = $this->getCurrentAcademicYear();
-                
-                // Update or create enrollment for the current academic year
-                StudentEnrollment::updateOrCreate(
-                    [
-                        'student_id' => $student->id,
-                        'academic_year_id' => $academicYearId,
-                    ],
-                    [
-                        'grade_id' => $data['grade_id'],
-                        'student_number' => $student->student_number,
+
+                // 1. Cari academic year üçün enrollment axtar
+                $enrollment = StudentEnrollment::where('student_id', $student->id)
+                    ->where('academic_year_id', $academicYearId)
+                    ->first();
+
+                if ($enrollment) {
+                    // Mövcuddur — sadəcə UPDATE et (INSERT yoxdur, unique violation yoxdur)
+                    $enrollment->update([
+                        'grade_id'         => $data['grade_id'],
+                        'student_number'   => $student->student_number,
                         'enrollment_status' => 'active',
-                        'enrollment_date' => $data['enrollment_date'] ?? now(),
-                    ]
-                );
+                    ]);
+                } else {
+                    // 2. Bu student üçün hər hansı enrollment varsa — onu UPDATE et
+                    $anyEnrollment = StudentEnrollment::where('student_id', $student->id)->first();
+
+                    if ($anyEnrollment) {
+                        $anyEnrollment->update([
+                            'grade_id'         => $data['grade_id'],
+                            'academic_year_id' => $academicYearId,
+                            'student_number'   => $student->student_number,
+                            'enrollment_status' => 'active',
+                        ]);
+                    } else {
+                        // 3. Heç enrollment yoxdur — təhlükəsiz CREATE et
+                        StudentEnrollment::create([
+                            'student_id'       => $student->id,
+                            'student_number'   => $student->student_number,
+                            'grade_id'         => $data['grade_id'],
+                            'academic_year_id' => $academicYearId,
+                            'enrollment_status' => 'active',
+                            'enrollment_date'  => $data['enrollment_date'] ?? now(),
+                        ]);
+                    }
+                }
             }
 
             return $student->load(['user.profile', 'grade']);

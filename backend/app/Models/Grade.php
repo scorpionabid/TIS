@@ -215,6 +215,15 @@ class Grade extends Model
     }
 
     /**
+     * Get students assigned from /students page (Student model, not via student_enrollments).
+     */
+    public function assignedStudents(): HasMany
+    {
+        return $this->hasMany(Student::class, 'grade_id')
+                    ->where('is_active', true);
+    }
+
+    /**
      * Get student enrollments for this grade.
      */
     public function studentEnrollments(): HasMany

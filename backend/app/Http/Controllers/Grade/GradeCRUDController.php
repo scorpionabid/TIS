@@ -28,6 +28,13 @@ class GradeCRUDController extends Controller
         // Build query with filters
         $query = $this->applyFilters($request);
 
+        // Real student counts from students table (added via /students page)
+        $query->withCount([
+            'assignedStudents as real_student_count',
+            'assignedStudents as real_male_count'   => fn ($q) => $q->where('gender', 'male'),
+            'assignedStudents as real_female_count' => fn ($q) => $q->where('gender', 'female'),
+        ]);
+
         // Apply eager loading based on includes
         $query->with($this->getIncludes($request));
 

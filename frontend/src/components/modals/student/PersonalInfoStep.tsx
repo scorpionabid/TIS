@@ -1,6 +1,6 @@
 import React from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { User, Hash, Calendar, Mail, Phone, MapPin, GraduationCap, ImagePlus } from 'lucide-react';
+import { User, Hash, Calendar, GraduationCap, ImagePlus, CalendarDays } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
 
 interface PersonalInfoStepProps {
   form: UseFormReturn<any>;
@@ -155,6 +156,22 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
           </div>
 
           <div className="space-y-2">
+            <Label htmlFor="enrollment_date" className="text-sm font-medium flex items-center gap-2">
+              <CalendarDays className="w-4 h-4 text-primary" />
+              Qeydiyyat Tarixi
+            </Label>
+            <div className="relative">
+              <CalendarDays className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                id="enrollment_date"
+                type="date"
+                {...register('enrollment_date')}
+                className="pl-10"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="class_id" className="text-sm font-medium">
               Sinif
             </Label>
@@ -177,67 +194,6 @@ export const PersonalInfoStep: React.FC<PersonalInfoStepProps> = ({
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Contact Information Card */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Mail className="w-4 h-4 text-primary" />
-            Əlaqə Məlumatları
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-sm font-medium">
-              Email
-            </Label>
-            <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="email"
-                type="email"
-                {...register('email')}
-                placeholder="email@example.com"
-                className={cn('pl-10', errors.email && 'border-red-500')}
-              />
-            </div>
-            {errors.email && (
-              <p className="text-xs text-red-500">{errors.email.message as string}</p>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="text-sm font-medium">
-              Telefon
-            </Label>
-            <div className="relative">
-              <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                id="phone"
-                {...register('phone')}
-                placeholder="+994501234567"
-                className="pl-10"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="address" className="text-sm font-medium">
-              Ünvan
-            </Label>
-            <div className="relative">
-              <MapPin className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
-              <textarea
-                id="address"
-                {...register('address')}
-                placeholder="Yaşayış ünvanı"
-                rows={2}
-                className="w-full min-h-[60px] rounded-md border border-input bg-background px-3 py-2 pl-10 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-y"
-              />
             </div>
           </div>
         </CardContent>

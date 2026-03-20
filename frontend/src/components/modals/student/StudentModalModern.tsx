@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,24 +16,9 @@ import { Student, StudentCreateData } from '@/services/students';
 import { gradeService } from '@/services/grades';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
-import {
-  User,
-  Users,
-  Heart,
-  FileText,
-  ChevronLeft,
-  ChevronRight,
-  Save,
-  GraduationCap,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Save, GraduationCap } from 'lucide-react';
 
-// Import step components
-import StepIndicator from './StepIndicator';
 import PersonalInfoStep from './PersonalInfoStep';
-import GuardianStep from './GuardianStep';
-import AdditionalInfoStep from './AdditionalInfoStep';
-import ReviewStep from './ReviewStep';
 
 interface StudentModalModernProps {
   open: boolean;
@@ -56,37 +41,11 @@ const studentSchema = z.object({
   class_id: z.union([z.number(), z.string()]).optional(),
   institution_id: z.union([z.number(), z.string()]).optional(),
   status: z.enum(['active', 'inactive']).optional(),
-  
-  // Guardian information
-  guardian_name: z.string().optional(),
-  guardian_phone: z.string().optional(),
-  guardian_email: z.string().email().optional().or(z.literal('')),
-  guardian_relation: z.string().optional(),
-  guardian2_name: z.string().optional(),
-  guardian2_phone: z.string().optional(),
-  guardian2_email: z.string().email().optional().or(z.literal('')),
-  guardian2_relation: z.string().optional(),
-  
-  // Medical information
-  medical_conditions: z.string().optional(),
-  allergies: z.string().optional(),
-  emergency_contact: z.string().optional(),
-  
-  // Notes
-  notes: z.string().optional(),
 });
-
-const steps = [
-  { id: 1, label: 'Şəxsi Məlumat', icon: <User className="w-4 h-4" /> },
-  { id: 2, label: 'Valideyn', icon: <Users className="w-4 h-4" /> },
-  { id: 3, label: 'Əlavə Məlumat', icon: <Heart className="w-4 h-4" /> },
-  { id: 4, label: 'Yoxlama', icon: <FileText className="w-4 h-4" /> },
-];
 
 export function StudentModalModern({ open, onClose, student, onSave }: StudentModalModernProps) {
   const { toast } = useToast();
   const { currentUser } = useAuth();
-  const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [avatarUrl, setAvatarUrl] = useState<string>('');
 
@@ -102,8 +61,8 @@ export function StudentModalModern({ open, onClose, student, onSave }: StudentMo
 
   const grades = React.useMemo(() => {
     const rawData = gradesResponse as any;
-    const items = rawData?.items || 
-                 (Array.isArray(rawData) ? rawData : 
+    const items = rawData?.items ||
+                 (Array.isArray(rawData) ? rawData :
                  (rawData?.data?.grades || rawData?.data || []));
     const list = Array.isArray(items) ? items : [];
     return [...list].sort(
@@ -127,18 +86,6 @@ export function StudentModalModern({ open, onClose, student, onSave }: StudentMo
       class_id: '',
       institution_id: institutionId || '',
       status: 'active',
-      guardian_name: '',
-      guardian_phone: '',
-      guardian_email: '',
-      guardian_relation: '',
-      guardian2_name: '',
-      guardian2_phone: '',
-      guardian2_email: '',
-      guardian2_relation: '',
-      medical_conditions: '',
-      allergies: '',
-      emergency_contact: '',
-      notes: '',
     },
     mode: 'onChange',
   });
@@ -146,9 +93,8 @@ export function StudentModalModern({ open, onClose, student, onSave }: StudentMo
   // Reset form when modal opens
   useEffect(() => {
     if (open) {
-      setCurrentStep(1);
       setAvatarUrl('');
-      
+
       if (student) {
         form.reset({
           first_name: (student as any).first_name || '',
@@ -163,14 +109,6 @@ export function StudentModalModern({ open, onClose, student, onSave }: StudentMo
           class_id: (student as any).current_class?.id ? String((student as any).current_class.id) : ((student as any).class_id ? String((student as any).class_id) : ''),
           institution_id: (student as any).institution_id || institutionId || '',
           status: (student as any).status || 'active',
-          guardian_name: (student as any).guardian_name || '',
-          guardian_phone: (student as any).guardian_phone || '',
-          guardian_email: (student as any).guardian_email || '',
-          guardian_relation: (student as any).guardian_relation || '',
-          medical_conditions: (student as any).medical_conditions || '',
-          allergies: (student as any).allergies || '',
-          emergency_contact: (student as any).emergency_contact || '',
-          notes: (student as any).notes || '',
         });
       } else {
         form.reset({
@@ -186,63 +124,26 @@ export function StudentModalModern({ open, onClose, student, onSave }: StudentMo
           class_id: '',
           institution_id: institutionId || '',
           status: 'active',
-          guardian_name: '',
-          guardian_phone: '',
-          guardian_email: '',
-          guardian_relation: '',
-          guardian2_name: '',
-          guardian2_phone: '',
-          guardian2_email: '',
-          guardian2_relation: '',
-          medical_conditions: '',
-          allergies: '',
-          emergency_contact: '',
-          notes: '',
         });
       }
     }
   }, [open, student, institutionId, form]);
 
-  const handleNext = async () => {
-    // Validate current step fields before proceeding
-    let fieldsToValidate: string[] = [];
-    
-    switch (currentStep) {
-      case 1:
-        fieldsToValidate = ['first_name', 'last_name', 'student_number'];
-        break;
-      default:
-        break;
-    }
-
-    if (fieldsToValidate.length > 0) {
-      const isValid = await form.trigger(fieldsToValidate as any);
-      if (!isValid) {
-        toast({
-          title: 'Xəta',
-          description: 'Zəhmət olmasa, bütün tələb olunan sahələri doldurun',
-          variant: 'destructive',
-        });
-        return;
-      }
-    }
-
-    if (currentStep < 4) {
-      setCurrentStep(currentStep + 1);
-    }
-  };
-
-  const handleBack = () => {
-    if (currentStep > 1) {
-      setCurrentStep(currentStep - 1);
-    }
-  };
-
   const handleSubmit = async () => {
+    const isValid = await form.trigger(['first_name', 'last_name', 'student_number'] as any);
+    if (!isValid) {
+      toast({
+        title: 'Xəta',
+        description: 'Zəhmət olmasa, bütün tələb olunan sahələri doldurun',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     try {
       setLoading(true);
       const data = form.getValues();
-      
+
       // Clean empty strings to undefined
       const cleanedData = Object.entries(data).reduce((acc: any, [key, value]) => {
         acc[key] = value === '' ? undefined : value;
@@ -262,16 +163,16 @@ export function StudentModalModern({ open, onClose, student, onSave }: StudentMo
       };
 
       await onSave(studentData);
-      
+
       const studentName = `${data.first_name || ''} ${data.last_name || ''}`.trim();
-      
+
       toast({
         title: student?.id ? "Şagird yeniləndi" : "Yeni şagird yaradıldı",
         description: student?.id
-          ? `${studentName} məlumatları yeniləndi` 
+          ? `${studentName} məlumatları yeniləndi`
           : `${studentName} sistemə əlavə edildi`,
       });
-      
+
       onClose();
     } catch (error: any) {
       toast({
@@ -284,115 +185,63 @@ export function StudentModalModern({ open, onClose, student, onSave }: StudentMo
     }
   };
 
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <PersonalInfoStep
-            form={form}
-            grades={grades}
-            avatarUrl={avatarUrl}
-            onAvatarChange={setAvatarUrl}
-          />
-        );
-      case 2:
-        return <GuardianStep form={form} />;
-      case 3:
-        return <AdditionalInfoStep form={form} />;
-      case 4:
-        return (
-          <ReviewStep
-            form={form}
-            grades={grades}
-            avatarUrl={avatarUrl}
-          />
-        );
-      default:
-        return null;
-    }
-  };
-
   return (
     <Dialog open={open} onOpenChange={(val) => !val && onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] p-0 overflow-hidden">
         {/* Header */}
-        <DialogHeader className="px-6 pt-6 pb-2">
+        <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle className="flex items-center gap-2 text-xl">
             <GraduationCap className="h-6 w-6 text-primary" />
             {(student as any)?.id ? 'Şagird Məlumatlarını Redaktə Et' : 'Yeni Şagird Əlavə Et'}
           </DialogTitle>
           <DialogDescription>
-            {(student as any)?.id 
-              ? 'Şagird məlumatlarını yeniləyin və yadda saxlayın' 
-              : 'Yeni şagird üçün məlumatları addım-addım daxil edin'}
+            {(student as any)?.id
+              ? 'Şagird məlumatlarını yeniləyin və yadda saxlayın'
+              : 'Yeni şagird üçün məlumatları daxil edin'}
           </DialogDescription>
         </DialogHeader>
 
-        {/* Step Indicator */}
-        <div className="px-6 py-4 bg-gray-50/50 border-y">
-          <StepIndicator steps={steps} currentStep={currentStep} />
-        </div>
-
-        {/* Step Content */}
-        <div className="px-6 py-4 overflow-y-auto max-h-[50vh]">
+        {/* Form Content */}
+        <div className="px-6 py-4 overflow-y-auto max-h-[65vh]">
           <Card className="border-0 shadow-none">
-            {renderStepContent()}
+            <PersonalInfoStep
+              form={form}
+              grades={grades}
+              avatarUrl={avatarUrl}
+              onAvatarChange={setAvatarUrl}
+            />
           </Card>
         </div>
 
         {/* Footer Actions */}
-        <div className="px-6 py-4 bg-gray-50 border-t flex items-center justify-between">
+        <div className="px-6 py-4 bg-gray-50 border-t flex items-center justify-end gap-3">
           <Button
             type="button"
             variant="outline"
-            onClick={handleBack}
-            disabled={currentStep === 1 || loading}
-            className={cn(currentStep === 1 && 'invisible')}
+            onClick={onClose}
+            disabled={loading}
           >
-            <ChevronLeft className="w-4 h-4 mr-2" />
-            Geri
+            Ləğv et
           </Button>
 
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onClose}
-              disabled={loading}
-            >
-              Ləğv et
-            </Button>
-            
-            {currentStep < 4 ? (
-              <Button
-                type="button"
-                onClick={handleNext}
-                disabled={loading}
-              >
-                Növbəti
-                <ChevronRight className="w-4 h-4 ml-2" />
-              </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+            className="bg-primary"
+          >
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
+                Yadda saxlanılır...
+              </>
             ) : (
-              <Button
-                type="button"
-                onClick={handleSubmit}
-                disabled={loading}
-                className="bg-primary"
-              >
-                {loading ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2" />
-                    Yadda saxlanılır...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Yadda Saxla
-                  </>
-                )}
-              </Button>
+              <>
+                <Save className="w-4 h-4 mr-2" />
+                Yadda Saxla
+              </>
             )}
-          </div>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

@@ -33,7 +33,6 @@ import {
   RefreshCw,
   Building2,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 // Calculate assigned students count from students data
 export const calculateAssignedStudents = (grades: Grade[], students: any[]): Grade[] => {
@@ -204,7 +203,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     },
     {
       key: 'student_count',
-      label: 'Şagirdlər',
+      label: 'Tələbələr',
       width: 130,
       sortable: true,
       align: 'center',
@@ -231,29 +230,30 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       }
     },
     {
-      key: 'capacity_status',
-      label: 'Doluluk',
-      width: 120,
+      key: 'real_student_count',
+      label: 'Şagirdlər',
+      width: 130,
+      sortable: true,
       align: 'center',
       render: (grade: Grade) => {
-        if (!grade.room_id) {
-          return (
-            <span className="inline-flex items-center gap-1 text-xs text-muted-foreground italic">
-              <DoorOpen className="h-3 w-3" /> Otaqsız
-            </span>
-          );
-        }
-        const configs: Record<string, { label: string; className: string }> = {
-          available:     { label: `Müsait (${grade.utilization_rate}%)`,      className: 'bg-green-100 text-green-700' },
-          near_capacity: { label: `Dolmağa yaxın (${grade.utilization_rate}%)`, className: 'bg-yellow-100 text-yellow-700' },
-          full:          { label: 'Dolu',                                      className: 'bg-orange-100 text-orange-700' },
-          over_capacity: { label: 'Həddindən çox',                             className: 'bg-red-100 text-red-700' },
-        };
-        const cfg = configs[grade.capacity_status] ?? configs.available;
+        const total  = grade.real_student_count ?? 0;
+        const male   = grade.real_male_count    ?? 0;
+        const female = grade.real_female_count  ?? 0;
+        const hasGender = male > 0 || female > 0;
+
         return (
-          <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium', cfg.className)}>
-            {cfg.label}
-          </span>
+          <div className="flex flex-col items-center gap-0.5">
+            <div className="flex items-center gap-1.5">
+              <Users className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="font-semibold">{total}</span>
+            </div>
+            {hasGender && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <span className="text-blue-600 font-medium">{male}</span>♂
+                <span className="text-pink-600 font-medium">{female}</span>♀
+              </div>
+            )}
+          </div>
         );
       }
     },

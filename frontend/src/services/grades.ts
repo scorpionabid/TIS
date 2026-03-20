@@ -33,6 +33,11 @@ export interface Grade {
   male_student_count?: number;
   female_student_count?: number;
   assigned_student_count?: number; // Students assigned from Students page
+
+  // Real student counts from /students page (students table)
+  real_student_count?: number;
+  real_male_count?: number;
+  real_female_count?: number;
   specialty?: string;
   description?: string;
   education_program?: string;

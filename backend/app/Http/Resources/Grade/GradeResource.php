@@ -23,6 +23,11 @@ class GradeResource extends JsonResource
             'student_count' => $this->student_count,
             'male_student_count' => $this->male_student_count ?? 0,
             'female_student_count' => $this->female_student_count ?? 0,
+
+            // Real student counts from /students page (students table)
+            'real_student_count' => $this->real_student_count ?? 0,
+            'real_male_count'    => $this->real_male_count ?? 0,
+            'real_female_count'  => $this->real_female_count ?? 0,
             'education_program' => $this->education_program,
             'class_type' => $this->class_type,
             'class_profile' => $this->class_profile,
