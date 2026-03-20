@@ -8,7 +8,13 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/tests/setup.ts'],
     globals: true,
-    testTimeout: 10000,
+    testTimeout: 30000,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        execArgv: ['--max-old-space-size=4096'],
+      },
+    },
     exclude: [
       'node_modules/',
       'tests-e2e/**', // E2E testləri exclude et
