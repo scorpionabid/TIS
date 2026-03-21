@@ -6,7 +6,6 @@ import {
   GraduationCap,
   CheckCircle2,
   UserX,
-  DoorOpen,
   Users,
   TrendingUp,
 } from 'lucide-react';
@@ -189,13 +188,6 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         value: overview.grades_without_teachers,
         icon: UserX,
         color: overview.grades_without_teachers > 0 ? 'yellow' : 'green',
-      },
-      {
-        key: 'no_room',
-        label: 'Otaqsız',
-        value: overview.grades_without_rooms,
-        icon: DoorOpen,
-        color: overview.grades_without_rooms > 0 ? 'yellow' : 'green',
       },
     ];
   }, [statisticsResponse]);

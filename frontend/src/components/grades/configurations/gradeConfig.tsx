@@ -28,10 +28,10 @@ import {
   LayoutGrid,
   CheckCircle,
   XCircle,
-  DoorOpen,
   UserX,
   RefreshCw,
-  Building2,
+  Activity,
+  Music,
 } from 'lucide-react';
 
 // Calculate assigned students count from students data
@@ -126,13 +126,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
 
   tabs: [
     {
-      key: 'stats',
-      label: 'Statistika',
-      isStatsTab: true,
-      icon: BarChart3,
-      variant: 'primary',
-    },
-    {
       key: 'all',
       label: 'Bütün Siniflər',
       filter: (grades: Grade[]) => grades,
@@ -161,17 +154,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       },
       icon: XCircle,
       variant: 'danger',
-    },
-    {
-      key: 'no_room',
-      label: 'Otaqsız',
-      filter: (grades: Grade[]) => grades.filter(g => !g.room_id && g.is_active),
-      serverFilters: {
-        has_room: false,
-        is_active: true,
-      },
-      icon: DoorOpen,
-      variant: 'warning',
     },
     {
       key: 'no_teacher',
@@ -258,19 +240,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       }
     },
     {
-      key: 'room',
-      label: 'Otaq',
-      width: 110,
-      render: (grade: Grade) => grade.room ? (
-        <div className="flex items-center gap-1 text-sm">
-          <Building2 className="h-3 w-3 text-muted-foreground" />
-          <span className="truncate">{grade.room.full_identifier || grade.room.name}</span>
-        </div>
-      ) : (
-        <span className="text-muted-foreground text-xs italic">-</span>
-      )
-    },
-    {
       key: 'teaching_shift',
       label: 'Növbə',
       width: 90,
@@ -309,6 +278,60 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       ) : (
         <span className="text-muted-foreground text-xs italic">-</span>
       )
+    },
+    {
+      key: 'lesson_load_hours',
+      label: 'Dərs yükü',
+      width: 110,
+      align: 'center' as const,
+      render: (grade: Grade) => {
+        const hours = grade.lesson_load_hours ?? 0;
+        return hours > 0 ? (
+          <div className="flex items-center justify-center gap-1 text-sm">
+            <BookOpen className="h-3 w-3 text-blue-500" />
+            <span className="font-medium">{hours}</span>
+            <span className="text-muted-foreground text-xs">saat</span>
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-xs italic">-</span>
+        );
+      }
+    },
+    {
+      key: 'extracurricular_hours',
+      label: 'Dərsdənkənar',
+      width: 130,
+      align: 'center' as const,
+      render: (grade: Grade) => {
+        const hours = grade.extracurricular_hours ?? 0;
+        return hours > 0 ? (
+          <div className="flex items-center justify-center gap-1 text-sm">
+            <Activity className="h-3 w-3 text-green-500" />
+            <span className="font-medium">{hours}</span>
+            <span className="text-muted-foreground text-xs">saat</span>
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-xs italic">-</span>
+        );
+      }
+    },
+    {
+      key: 'club_hours',
+      label: 'Dərnək',
+      width: 100,
+      align: 'center' as const,
+      render: (grade: Grade) => {
+        const hours = grade.club_hours ?? 0;
+        return hours > 0 ? (
+          <div className="flex items-center justify-center gap-1 text-sm">
+            <Music className="h-3 w-3 text-purple-500" />
+            <span className="font-medium">{hours}</span>
+            <span className="text-muted-foreground text-xs">saat</span>
+          </div>
+        ) : (
+          <span className="text-muted-foreground text-xs italic">-</span>
+        );
+      }
     },
     {
       key: 'homeroom_teacher',

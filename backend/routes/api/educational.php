@@ -315,6 +315,12 @@ Route::prefix('grades')->group(function () {
     Route::put('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'update'])->middleware('permission:grades.manage');
     Route::delete('/{grade}/subjects/{gradeSubject}', [GradeSubjectController::class, 'destroy'])->middleware('permission:grades.manage');
     Route::get('/{grade}/subjects/statistics', [GradeSubjectController::class, 'statistics'])->middleware('permission:grades.read');
+
+    // Bulk Import/Export
+    Route::get('/bulk/download-template', [GradeUnifiedController::class, 'downloadTemplate'])->middleware('permission:grades.read');
+    Route::post('/bulk/import', [GradeUnifiedController::class, 'importGrades'])->middleware('permission:grades.create');
+    Route::post('/bulk/export', [GradeUnifiedController::class, 'exportGrades'])->middleware('permission:grades.read');
+    Route::get('/bulk/statistics', [GradeUnifiedController::class, 'getImportExportStats'])->middleware('permission:grades.read');
 });
 
 // Room Management Routes

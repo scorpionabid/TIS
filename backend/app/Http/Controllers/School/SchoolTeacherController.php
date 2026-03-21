@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\School;
 
+use App\Exports\TeachersExport;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\User;
@@ -11,7 +12,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class SchoolTeacherController extends Controller
 {
@@ -699,68 +702,58 @@ class SchoolTeacherController extends Controller
     }
 
     /**
-     * Export teachers to Excel/CSV
+     * Export teachers to Excel
      */
-    public function exportTeachers(Request $request): JsonResponse
+    public function exportTeachers(Request $request): BinaryFileResponse
     {
-        try {
-            if (! auth()->user()->can('teachers.read')) {
-                return response()->json(['success' => false, 'message' => 'Bu əməliyyat üçün icazəniz yoxdur.'], 403);
-            }
+        if (! auth()->user()->can('teachers.read')) {
+            abort(403, 'Bu əməliyyat üçün icazəniz yoxdur.');
+        }
 
-            $user = Auth::user();
-            $school = $user->institution;
+        $user = Auth::user();
+        $school = $user->institution;
 
-            if (! $school && ! $user->hasRole('superadmin')) {
-                return response()->json(['error' => 'İcazə yoxdur'], 403);
-            }
+        if (! $school && ! $user->hasRole('superadmin')) {
+            abort(403, 'İcazə yoxdur');
+        }
 
-            // Get teachers based on role
-            $query = User::with(['roles', 'profile', 'department'])
-                ->whereHas('roles', function ($query) {
-                    $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
-                });
-
-            if (! $user->hasRole('superadmin')) {
-                $query->where('institution_id', $school->id);
-            }
-
-            $teachers = $query->get();
-
-            // Prepare export data
-            $exportData = $teachers->map(function ($teacher) {
-                $profile = $teacher->profile;
-
-                return [
-                    'ID' => $teacher->id,
-                    'Ad' => $profile->first_name ?? '',
-                    'Soyad' => $profile->last_name ?? '',
-                    'Email' => $teacher->email,
-                    'Rol' => $teacher->roles->first()?->display_name ?? '',
-                    'Vəzifə' => $profile->position_type ?? '',
-                    'İş Statusu' => $profile->employment_status ?? '',
-                    'Telefon' => $profile->contact_phone ?? '',
-                    'İxtisas' => $profile->specialty ?? '',
-                    'Təcrübə (il)' => $profile->experience_years ?? 0,
-                    'MİQ Balı' => $profile->miq_score ?? 0,
-                    'Sertifikasiya Balı' => $profile->certification_score ?? 0,
-                    'İşə Qəbul Tarixi' => $profile->hire_date ?? '',
-                    'Müqavilə Başlama' => $profile->contract_start_date ?? '',
-                    'Müqavilə Bitmə' => $profile->contract_end_date ?? '',
-                    'Status' => $teacher->is_active ? 'Aktiv' : 'Passiv',
-                ];
+        $query = User::with(['roles', 'profile', 'department'])
+            ->whereHas('roles', function ($query) {
+                $query->whereIn('name', ['müəllim', 'muavin', 'ubr', 'psixoloq', 'tesarrufat']);
             });
 
-            return response()->json([
-                'success' => true,
-                'data' => $exportData,
-                'count' => $exportData->count(),
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'error' => 'İxrac zamanı səhv baş verdi: ' . $e->getMessage(),
-            ], 500);
+        if (! $user->hasRole('superadmin')) {
+            $query->where('institution_id', $school->id);
         }
+
+        $teachers = $query->get();
+
+        $exportData = $teachers->map(function ($teacher) {
+            $profile = $teacher->profile;
+
+            return [
+                'ID' => $teacher->id,
+                'Ad' => $profile->first_name ?? '',
+                'Soyad' => $profile->last_name ?? '',
+                'Email' => $teacher->email,
+                'Rol' => $teacher->roles->first()?->display_name ?? '',
+                'Vəzifə' => $profile->position_type ?? '',
+                'İş Statusu' => $profile->employment_status ?? '',
+                'Telefon' => $profile->contact_phone ?? '',
+                'İxtisas' => $profile->specialty ?? '',
+                'Təcrübə (il)' => $profile->experience_years ?? 0,
+                'MİQ Balı' => $profile->miq_score ?? 0,
+                'Sertifikasiya Balı' => $profile->certification_score ?? 0,
+                'İşə Qəbul Tarixi' => $profile->hire_date ?? '',
+                'Müqavilə Başlama' => $profile->contract_start_date ?? '',
+                'Müqavilə Bitmə' => $profile->contract_end_date ?? '',
+                'Status' => $teacher->is_active ? 'Aktiv' : 'Passiv',
+            ];
+        });
+
+        $fileName = 'muellimler_' . date('Y-m-d_H-i-s') . '.xlsx';
+
+        return Excel::download(new TeachersExport($exportData), $fileName);
     }
 
     /**

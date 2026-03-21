@@ -28,6 +28,11 @@ class GradeResource extends JsonResource
             'real_student_count' => $this->real_student_count ?? 0,
             'real_male_count'    => $this->real_male_count ?? 0,
             'real_female_count'  => $this->real_female_count ?? 0,
+
+            // Lesson load hours from grade_subjects (curriculum)
+            'lesson_load_hours'     => (int) ($this->lesson_load_hours ?? 0),
+            'extracurricular_hours' => (int) ($this->extracurricular_hours ?? 0),
+            'club_hours'            => (int) ($this->club_hours ?? 0),
             'education_program' => $this->education_program,
             'class_type' => $this->class_type,
             'class_profile' => $this->class_profile,

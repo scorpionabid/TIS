@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Grade;
 
+use App\Exports\ClassesTemplateExport;
+use App\Exports\GradesExport;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Grade\DuplicateGradeRequest;
 use App\Http\Requests\Grade\FilterGradesRequest;
 use App\Http\Requests\Grade\StoreGradeRequest;
 use App\Http\Requests\Grade\UpdateGradeRequest;
+use App\Imports\ClassesImport;
 use App\Models\Grade;
 use App\Services\GradeManagementService;
 use App\Services\GradeNamingEngine;
@@ -17,6 +20,8 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 /**
  * Unified Grade Controller
@@ -614,5 +619,156 @@ class GradeUnifiedController extends Controller
         $controller = app(GradeCRUDController::class);
 
         return $controller->duplicate($request, $grade);
+    }
+
+    /**
+     * Download grade import template (Excel)
+     */
+    public function downloadTemplate(): BinaryFileResponse
+    {
+        $user = Auth::user();
+
+        $institutionsQuery = \App\Models\Institution::query()
+            ->where('is_active', true)
+            ->whereNotNull('institution_code');
+
+        if ($user->hasRole(['superadmin', 'regionadmin'])) {
+            $institutions = $institutionsQuery->limit(3)->get();
+        } else {
+            $institutions = $institutionsQuery
+                ->where('id', $user->institution_id ?? 0)
+                ->get();
+        }
+
+        $fileName = 'sinif_import_template_' . date('Y-m-d') . '.xlsx';
+
+        return Excel::download(new ClassesTemplateExport($institutions), $fileName);
+    }
+
+    /**
+     * Import grades from Excel/CSV file
+     */
+    public function importGrades(Request $request): JsonResponse
+    {
+        $request->validate([
+            'file' => 'required|file|mimes:xlsx,xls,csv|max:10240',
+        ]);
+
+        $user = Auth::user();
+        $region = $user->institution?->parent ?? $user->institution;
+
+        try {
+            $import = new ClassesImport($region);
+            Excel::import($import, $request->file('file'));
+
+            return response()->json([
+                'success' => true,
+                'message' => 'İdxal tamamlandı',
+                'created' => $import->getSuccessCount(),
+                'errors' => $import->getErrors(),
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'İdxal zamanı xəta baş verdi: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Export grades to Excel
+     */
+    public function exportGrades(Request $request): BinaryFileResponse
+    {
+        $user = Auth::user();
+
+        $query = Grade::with(['institution', 'academicYear', 'homeroomTeacher'])
+            ->select([
+                'id', 'name', 'class_level', 'institution_id', 'academic_year_id',
+                'homeroom_teacher_id', 'class_profile', 'education_program',
+                'teaching_shift', 'is_active',
+            ])
+            // Real counts from Şagirdlər (Students) page
+            ->withCount([
+                'assignedStudents as real_student_count',
+                'assignedStudents as real_male_count'   => fn ($q) => $q->where('gender', 'male'),
+                'assignedStudents as real_female_count' => fn ($q) => $q->where('gender', 'female'),
+            ])
+            // Lesson load hours from curriculum
+            ->withSum(
+                ['gradeSubjects as lesson_load_hours' => fn ($q) => $q->where('is_teaching_activity', true)],
+                'weekly_hours'
+            )
+            ->withSum(
+                ['gradeSubjects as extracurricular_hours' => fn ($q) => $q->where('is_extracurricular', true)],
+                'weekly_hours'
+            )
+            ->withSum(
+                ['gradeSubjects as club_hours' => fn ($q) => $q->where('is_club', true)],
+                'weekly_hours'
+            );
+
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
+            $query->where('institution_id', $user->institution_id ?? 0);
+        }
+
+        if ($request->filled('institution_id')) {
+            $query->where('institution_id', $request->institution_id);
+        }
+
+        if ($request->filled('is_active')) {
+            $query->where('is_active', filter_var($request->is_active, FILTER_VALIDATE_BOOLEAN));
+        }
+
+        $grades = $query->orderBy('institution_id')->orderBy('class_level')->orderBy('name')->get();
+
+        $data = $grades->map(fn ($g) => [
+            'Sinif'                => $g->name,
+            'Sinif Səviyyəsi'      => $g->class_level,
+            'Şagirdlər'           => $g->real_student_count ?? 0,
+            'Oğlan'               => $g->real_male_count ?? 0,
+            'Qız'                 => $g->real_female_count ?? 0,
+            'Növbə'               => $g->teaching_shift ?? '',
+            'Təhsil Proqramı'     => $g->education_program ?? '',
+            'Profil'              => $g->class_profile ?? '',
+            'Dərs yükü (saat)'    => (int) ($g->lesson_load_hours ?? 0),
+            'Dərsdənkənar (saat)' => (int) ($g->extracurricular_hours ?? 0),
+            'Dərnək (saat)'       => (int) ($g->club_hours ?? 0),
+            'Sinif Rəhbəri'       => $g->homeroomTeacher?->name ?? '',
+            'Təhsil İli'          => $g->academicYear?->name ?? '',
+            'Məktəb'              => $g->institution?->name ?? '',
+        ]);
+
+        $fileName = 'siniflər_' . date('Y-m-d_H-i-s') . '.xlsx';
+
+        return Excel::download(new GradesExport($data), $fileName);
+    }
+
+    /**
+     * Get statistics for import/export modal
+     */
+    public function getImportExportStats(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        $query = Grade::query();
+
+        if (! $user->hasRole(['superadmin', 'regionadmin'])) {
+            $query->where('institution_id', $user->institution_id ?? 0);
+        }
+
+        $total    = (clone $query)->count();
+        $active   = (clone $query)->where('is_active', true)->count();
+        $inactive = (clone $query)->where('is_active', false)->count();
+
+        return response()->json([
+            'success' => true,
+            'data'    => [
+                'total_grades'    => $total,
+                'active_grades'   => $active,
+                'inactive_grades' => $inactive,
+                'by_institution'  => [],
+            ],
+        ]);
     }
 }

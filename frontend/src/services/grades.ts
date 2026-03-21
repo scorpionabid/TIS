@@ -38,6 +38,12 @@ export interface Grade {
   real_student_count?: number;
   real_male_count?: number;
   real_female_count?: number;
+
+  // Lesson load hours from curriculum (grade_subjects)
+  lesson_load_hours?: number;
+  extracurricular_hours?: number;
+  club_hours?: number;
+
   specialty?: string;
   description?: string;
   education_program?: string;
@@ -759,6 +765,63 @@ class GradeService {
     });
 
     return apiClient.post<Grade>(`${this.baseURL}/${gradeId}/duplicate`, data);
+  }
+
+  /**
+   * Download grade import template
+   */
+  async downloadTemplate(): Promise<Blob> {
+    const response = await apiClient.get<Blob>(
+      `${this.baseURL}/bulk/download-template`,
+      undefined,
+      { responseType: 'blob' }
+    );
+    return (response as any).data || response;
+  }
+
+  /**
+   * Import grades from Excel/CSV file
+   */
+  async importGrades(file: File): Promise<any> {
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const response = await apiClient.post<any>(`${this.baseURL}/bulk/import`, formData);
+      return response;
+    } catch (error: any) {
+      console.error('Grade import error:', error);
+      throw new Error(error.message || 'İdxal xətası');
+    }
+  }
+
+  /**
+   * Export grades to Excel/CSV
+   */
+  async exportGrades(filters?: any): Promise<Blob> {
+    const response = await apiClient.post<Blob>(
+      `${this.baseURL}/bulk/export`,
+      { filters: filters || {} },
+      { responseType: 'blob' }
+    );
+    return (response as any).data || response;
+  }
+
+  /**
+   * Get export statistics for grades
+   */
+  async getExportStats(filters?: any): Promise<any> {
+    try {
+      const response = await apiClient.get<any>(`${this.baseURL}/bulk/statistics`, filters);
+      if ((response as any).data && (response as any).data.data) {
+        return (response as any).data.data;
+      } else if ((response as any).data) {
+        return (response as any).data;
+      }
+      return { total_grades: 0, active_grades: 0, inactive_grades: 0, by_institution: {} };
+    } catch (error) {
+      console.error('Grade export stats error:', error);
+      return { total_grades: 0, active_grades: 0, inactive_grades: 0, by_institution: {} };
+    }
   }
 }
 

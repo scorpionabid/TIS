@@ -31,6 +31,15 @@ class ClassesTemplateExport implements FromCollection, WithColumnWidths, WithEve
     {
         $examples = collect();
 
+        // If no institutions provided, use generic placeholder data
+        if (empty($this->institutions) || $this->institutions->isEmpty()) {
+            $this->institutions = collect([(object) [
+                'utis_code'        => '1234567',
+                'institution_code' => 'MMK001',
+                'name'             => 'Nümunə Məktəb',
+            ]]);
+        }
+
         // Add 5 diverse example rows for first 3 institutions
         foreach ($this->institutions->take(3) as $index => $institution) {
             // Example 1: Standard Azerbaijani class
@@ -155,10 +164,10 @@ class ClassesTemplateExport implements FromCollection, WithColumnWidths, WithEve
             'Müəssisə Kodu',
             'Müəssisə Adı',
             'Sinif Səviyyəsi (1-12)',
-            'Sinif index-i (məs: A, r2, 11)',
-            'Şagird Sayı',
-            'Oğlan Sayı',
-            'Qız Sayı',
+            'Sinif İndeksi (məs: A, r2, 11)',
+            'Şagirdlər',
+            'Oğlan',
+            'Qız',
             'Tədris Dili',
             'Növbə',
             'Tədris Həftəsi',
@@ -166,7 +175,7 @@ class ClassesTemplateExport implements FromCollection, WithColumnWidths, WithEve
             'Sinfin Tipi',
             'Profil',
             'Təhsil Proqramı',
-            'Tədris İli',
+            'Təhsil İli',
         ];
     }
 

@@ -51,7 +51,7 @@ class TeacherService {
    * Download teacher import template
    */
   async downloadTemplate(): Promise<Blob> {
-    const response = await fetch(`${apiClient['baseURL']}/users/bulk/download-template?user_type=teachers`, {
+    const response = await fetch(`${apiClient['baseURL']}/import/template/download/teachers`, {
       method: 'GET',
       headers: apiClient['getHeaders'](),
     });
@@ -74,13 +74,19 @@ class TeacherService {
    * Export teachers with filters
    */
   async exportTeachers(filters?: any): Promise<Blob> {
-    const response = await fetch(`${apiClient['baseURL']}/users/bulk/export`, {
-      method: 'POST',
+    const params = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          params.append(key, String(value));
+        }
+      });
+    }
+
+    const url = `${apiClient['baseURL']}/teachers/export${params.toString() ? '?' + params.toString() : ''}`;
+    const response = await fetch(url, {
+      method: 'GET',
       headers: apiClient['getHeaders'](),
-      body: JSON.stringify({
-        user_type: 'teachers',
-        filters: filters || {}
-      }),
     });
 
     if (!response.ok) {

@@ -35,6 +35,18 @@ class GradeCRUDController extends Controller
             'assignedStudents as real_female_count' => fn ($q) => $q->where('gender', 'female'),
         ]);
 
+        // Lesson load hours from grade_subjects (curriculum assignments)
+        $query->withSum(
+            ['gradeSubjects as lesson_load_hours' => fn ($q) => $q->where('is_teaching_activity', true)],
+            'weekly_hours'
+        )->withSum(
+            ['gradeSubjects as extracurricular_hours' => fn ($q) => $q->where('is_extracurricular', true)],
+            'weekly_hours'
+        )->withSum(
+            ['gradeSubjects as club_hours' => fn ($q) => $q->where('is_club', true)],
+            'weekly_hours'
+        );
+
         // Apply eager loading based on includes
         $query->with($this->getIncludes($request));
 

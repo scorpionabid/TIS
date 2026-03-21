@@ -10,14 +10,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import { cn } from '@/lib/utils';
-import { Upload, Calendar } from 'lucide-react';
+import { Upload, Calendar, Briefcase, Clock, CalendarRange } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TeacherWorkloadPanel } from './TeacherWorkloadPanel';
 import { TeacherWorkloadStats } from './TeacherWorkloadStats';
-import { TeacherDetailedStats } from './TeacherDetailedStats';
 import { AvailabilityManager } from './AvailabilityManager';
 import { TeacherScheduleStats } from './TeacherScheduleStats';
 import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
@@ -399,11 +398,19 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
             {drawerTeacher && (
               <div className="flex-1 overflow-y-auto px-6 py-4">
                 <Tabs defaultValue="workload" className="w-full">
-                  <TabsList className="grid w-full grid-cols-4 mb-4">
-                    <TabsTrigger value="workload">Dərs Yükü</TabsTrigger>
-                    <TabsTrigger value="schedule">İş vaxtı</TabsTrigger>
-                    <TabsTrigger value="timetable">Dərs cədvəli</TabsTrigger>
-                    <TabsTrigger value="stats">Statistika</TabsTrigger>
+                  <TabsList className="grid w-full grid-cols-3 p-1 bg-muted/50 rounded-xl h-14 mb-6">
+                    <TabsTrigger value="workload" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all h-11 flex items-center justify-center gap-2 font-medium">
+                      <Briefcase className="h-4 w-4" />
+                      Dərs Yükü
+                    </TabsTrigger>
+                    <TabsTrigger value="schedule" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all h-11 flex items-center justify-center gap-2 font-medium">
+                      <Clock className="h-4 w-4" />
+                      İş vaxtı
+                    </TabsTrigger>
+                    <TabsTrigger value="timetable" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm transition-all h-11 flex items-center justify-center gap-2 font-medium">
+                      <CalendarRange className="h-4 w-4" />
+                      Dərs cədvəli
+                    </TabsTrigger>
                   </TabsList>
                   
                   <TabsContent value="workload" className="mt-0">
@@ -469,9 +476,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
                     </Card>
                   </TabsContent>
                   
-                  <TabsContent value="stats" className="mt-0">
-                    <TeacherDetailedStats teacherId={drawerTeacher.id} />
-                  </TabsContent>
+
                 </Tabs>
               </div>
             )}

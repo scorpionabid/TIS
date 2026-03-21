@@ -16,64 +16,30 @@ class TeacherTemplateExport implements FromArray, WithColumnWidths, WithHeadings
             [
                 'Nərmin',
                 'Əliyeva',
-                'Hüseyn',
-                'nerminaliyeva',
                 'nermin.aliyeva@edu.az',
-                '',
                 '+994701234567',
                 '1985-08-12',
                 'female',
-                'AZE1234567',
                 'müəllim',
-                '32 (6 nömrəli tam orta məktəb)',
-                'Riyaziyyat müəllimi',
-                '1,3,5', // Subject IDs (Riyaziyyat, Fizika, Kimya)
-                15,
-                95.50,
-                88.75,
-                '2023-05-15',
-                'bachelor',
-                'Azərbaycan Dövlət Pedaqoji Universiteti',
-                2005,
-                3.65,
+                'Riyaziyyat şöbəsi',
                 'Bakı şəhəri, Səbail rayonu',
-                'Əli Həsənov',
-                '+994501234567',
-                'ali.hasanov@example.com',
+                'Ali təhsil - Azərbaycan Dövlət Pedaqoji Universiteti, 2005',
+                '15 il pedaqoji iş stajı',
                 '', // UTIS avtomatik yaradılacaq
-                'Riyaziyyat və informatika sahəsində ixtisaslaşmış müəllim',
-                'active',
             ],
             [
                 'Rəşad',
                 'Məmmədov',
-                'Əli',
-                'resadmemmedov',
                 'resad.memmedov@edu.az',
-                '',
                 '+994551234567',
                 '1980-12-05',
                 'male',
-                'AZE7654321',
-                'müəllim',
-                '34 (7 nömrəli tam orta məktəb)',
-                'Tarix müəllimi',
-                '7,8', // Subject IDs (Tarix, Coğrafiya)
-                20,
-                98.25,
-                92.00,
-                '2024-01-10',
-                'master',
-                'Bakı Dövlət Universiteti',
-                2002,
-                3.85,
+                'muavin',
+                'Tarix şöbəsi',
                 'Bakı şəhəri, Nəsimi rayonu',
-                'Leyla Məmmədova',
-                '+994705555555',
-                'leyla.memmedova@example.com',
+                'Magistr - Bakı Dövlət Universiteti, 2002',
+                '20 il pedaqoji iş stajı',
                 '', // UTIS avtomatik yaradılacaq
-                'Tarix və coğrafiya sahəsində təcrübəli müəllim',
-                'active',
             ],
         ];
     }
@@ -81,35 +47,18 @@ class TeacherTemplateExport implements FromArray, WithColumnWidths, WithHeadings
     public function headings(): array
     {
         return [
-            'first_name',
-            'last_name',
-            'patronymic',
-            'username',
-            'email',
-            'password',
-            'contact_phone',
-            'birth_date',
-            'gender',
-            'national_id',
-            'role_id',
-            'institution_id (ID və ya "ID (Ad)" formatında)',
-            'specialty',
-            'subjects', // Comma separated subject IDs
-            'experience_years',
-            'miq_score',
-            'certification_score',
-            'last_certification_date',
-            'degree_level',
-            'graduation_university',
-            'graduation_year',
-            'university_gpa',
-            'address',
-            'emergency_contact_name',
-            'emergency_contact_phone',
-            'emergency_contact_email',
-            'utis_code',
-            'notes',
-            'status',
+            'first_name',      // Ad (məcburi)
+            'last_name',       // Soyad (məcburi)
+            'email',           // Email (məcburi, unikal)
+            'phone',           // Telefon
+            'date_of_birth',   // Doğum tarixi (YYYY-MM-DD)
+            'gender',          // Cins (male/female)
+            'position',        // Vəzifə (müəllim/muavin/ubr/psixoloq/tesarrufat)
+            'department_name', // Şöbə adı
+            'address',         // Ünvan
+            'education',       // Təhsil
+            'experience',      // Təcrübə
+            'utis_code',       // UTİS kodu (7 simvol, boş buraxıla bilər)
         ];
     }
 
@@ -125,29 +74,16 @@ class TeacherTemplateExport implements FromArray, WithColumnWidths, WithHeadings
         return [
             'A' => 15, // first_name
             'B' => 15, // last_name
-            'C' => 15, // patronymic
-            'D' => 25, // email
-            'E' => 15, // contact_phone
-            'F' => 15, // birth_date
-            'G' => 10, // gender
-            'H' => 15, // national_id
-            'I' => 20, // specialty
-            'J' => 15, // subjects
-            'K' => 12, // experience_years
-            'L' => 12, // miq_score
-            'M' => 15, // certification_score
-            'N' => 18, // last_certification_date
-            'O' => 15, // degree_level
-            'P' => 25, // graduation_university
-            'Q' => 15, // graduation_year
-            'R' => 12, // university_gpa
-            'S' => 30, // address
-            'T' => 20, // emergency_contact_name
-            'U' => 15, // emergency_contact_phone
-            'V' => 25, // emergency_contact_email
-            'W' => 12, // utis_code
-            'X' => 30, // notes
-            'Y' => 10, // status
+            'C' => 30, // email
+            'D' => 18, // phone
+            'E' => 18, // date_of_birth
+            'F' => 10, // gender
+            'G' => 20, // position
+            'H' => 20, // department_name
+            'I' => 30, // address
+            'J' => 35, // education
+            'K' => 25, // experience
+            'L' => 15, // utis_code
         ];
     }
 }
