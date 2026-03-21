@@ -192,7 +192,7 @@ Route::prefix('students')->middleware('auth:sanctum')->group(function () {
     Route::get('/bulk/download-template', [StudentController::class, 'downloadTemplate'])->middleware('permission:students.import');
     Route::post('/bulk/import', [StudentController::class, 'importStudents'])->middleware('permission:students.import');
     Route::post('/bulk/export', [StudentController::class, 'exportStudents'])->middleware('permission:students.export');
-    Route::get('/bulk/statistics', [StudentController::class, 'getExportStats'])->middleware('permission:students.read');
+    // Route::get('/bulk/statistics', [StudentController::class, 'getExportStats'])->middleware('permission:students.read');
 
     // Available students for grade enrollment
     Route::get('/available-for-grade/{grade}', [App\Http\Controllers\School\SchoolStudentController::class, 'getAvailableForGrade'])->middleware('permission:students.read');
@@ -305,7 +305,7 @@ Route::prefix('grades')->group(function () {
     Route::get('/naming/system-stats', [GradeUnifiedController::class, 'getNamingSystemStats'])->middleware('permission:grades.read');
 
     // Statistics and reporting
-    Route::get('/statistics/overview', [GradeUnifiedController::class, 'statistics'])->middleware('permission:grades.statistics');
+    // Route::get('/statistics/overview', [GradeUnifiedController::class, 'statistics'])->middleware('permission:grades.statistics');
     Route::get('/reports/capacity', [GradeUnifiedController::class, 'capacityReport'])->middleware('permission:grades.reports');
 
     // Curriculum management (grade subjects)

@@ -34,12 +34,12 @@ const GradeBooksPage: React.FC = () => {
   const [institutionTree, setInstitutionTree] = useState<HierarchyNode[]>([]);
   const [institutionTreeLoading, setInstitutionTreeLoading] = useState(true);
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<number | null>(null);
-  const [selectedGradeId, setSelectedGradeId] = useState<number | null>(null);
+  const [selectedClassLevel, setSelectedClassLevel] = useState<number | null>(null);
+  const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
 
-  const [gradesForInstitution, setGradesForInstitution] = useState<Array<{ id: number; label: string; studentCount: number }>>([]);
+  const [gradesForInstitution, setGradesForInstitution] = useState<Array<{ id: number; name: string; classLevel: number; label: string; studentCount: number }>>([]);
   const [gradesLoading, setGradesLoading] = useState(false);
   const [hierarchySearch, setHierarchySearch] = useState('');
-  const [gradesSearch, setGradesSearch] = useState('');
   
   const {
     expandedIds,
@@ -149,7 +149,8 @@ const GradeBooksPage: React.FC = () => {
 
     if (node.type === 'institution') {
       setSelectedInstitutionId(node.id);
-      setSelectedGradeId(null);
+      setSelectedClassLevel(null);
+      setSelectedLetter(null);
       return;
     }
   };
@@ -178,7 +179,8 @@ const GradeBooksPage: React.FC = () => {
         setGradesForInstitution([]);
 
         if (!selectedInstitutionId) {
-          setSelectedGradeId(null);
+          setSelectedClassLevel(null);
+          setSelectedLetter(null);
           return;
         }
 
@@ -188,6 +190,8 @@ const GradeBooksPage: React.FC = () => {
         const list = items
           .map((grade) => ({
             id: grade.id,
+            name: grade.name || '',
+            classLevel: grade.class_level || 0,
             label: grade.full_name || grade.display_name || grade.name || `Sinif ${grade.id}`,
             studentCount: grade.student_count ?? 0,
           }))
@@ -203,6 +207,33 @@ const GradeBooksPage: React.FC = () => {
 
     loadGradesForInstitution();
   }, [selectedInstitutionId]);
+
+  const classLevels = useMemo(() => {
+    const levelsMap = new Map<number, { level: number; studentCount: number }>();
+    gradesForInstitution.forEach(g => {
+      if (!g.classLevel) return;
+      if (!levelsMap.has(g.classLevel)) {
+        levelsMap.set(g.classLevel, { level: g.classLevel, studentCount: 0 });
+      }
+      levelsMap.get(g.classLevel)!.studentCount += g.studentCount;
+    });
+    return Array.from(levelsMap.values()).sort((a, b) => a.level - b.level);
+  }, [gradesForInstitution]);
+
+  const classLetters = useMemo(() => {
+    if (!selectedClassLevel) return [];
+    return gradesForInstitution
+      .filter(g => g.classLevel === selectedClassLevel)
+      .sort((a, b) => a.name.localeCompare(b.name, 'az'));
+  }, [gradesForInstitution, selectedClassLevel]);
+
+  const selectedGradeId = useMemo(() => {
+    if (!selectedClassLevel || !selectedLetter) return null;
+    const grade = gradesForInstitution.find(
+      g => g.classLevel === selectedClassLevel && g.name === selectedLetter
+    );
+    return grade ? grade.id : null;
+  }, [selectedClassLevel, selectedLetter, gradesForInstitution]);
 
   const filteredInstitutionTree = useMemo(() => {
     if (!hierarchySearch.trim()) return institutionTree;
@@ -224,11 +255,7 @@ const GradeBooksPage: React.FC = () => {
     return filterNodes(institutionTree);
   }, [institutionTree, hierarchySearch]);
 
-  const filteredGrades = useMemo(() => {
-    if (!gradesSearch.trim()) return gradesForInstitution;
-    const query = gradesSearch.toLowerCase();
-    return gradesForInstitution.filter((g) => g.label.toLowerCase().includes(query));
-  }, [gradesForInstitution, gradesSearch]);
+
 
   const allowedTabs = useMemo(() => {
     const tabs: GradeBookTab[] = [];
@@ -399,75 +426,81 @@ const GradeBooksPage: React.FC = () => {
                   </Card>
                 </div>
 
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-2">
                   <Card className="border-slate-200 h-full">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
                         <Calculator className="w-4 h-4" />
-                        Siniflər
+                        Səviyyə
                       </CardTitle>
                       {selectedInstitutionName && (
                         <span className="text-xs text-slate-500 truncate block" title={selectedInstitutionName}>
                           {selectedInstitutionName}
                         </span>
                       )}
-                      <div className="relative">
-                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          placeholder="Sinif axtar..."
-                          value={gradesSearch}
-                          onChange={(e) => setGradesSearch(e.target.value)}
-                          className="pl-8 h-9 text-sm"
-                          disabled={!selectedInstitutionId}
-                        />
-                      </div>
                     </CardHeader>
                     <CardContent className="p-4">
                       {!selectedInstitutionId ? (
                         <div className="text-sm text-slate-500 text-center py-10">
                           Məktəb seçin
                         </div>
+                      ) : gradesLoading ? (
+                        <div className="text-sm text-slate-500 text-center py-10">Yüklənir...</div>
+                      ) : classLevels.length === 0 ? (
+                        <div className="text-sm text-slate-500 text-center py-10">Sinif tapılmadı</div>
                       ) : (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
+                        <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
+                          {classLevels.map((lvl) => (
                             <Button
-                              variant={selectedGradeId === null ? 'default' : 'outline'}
+                              key={lvl.level}
+                              variant={selectedClassLevel === lvl.level ? 'default' : 'outline'}
                               className="w-full justify-between"
-                              onClick={() => setSelectedGradeId(null)}
+                              onClick={() => { setSelectedClassLevel(lvl.level); setSelectedLetter(null); }}
                             >
-                              Bütün siniflər
-                              <Badge variant="secondary" className="ml-1 text-xs">{filteredGrades.length}</Badge>
+                              <span className="truncate">{lvl.level}-ci sinif</span>
+                              <Badge variant="secondary" className="ml-1 text-xs">{lvl.studentCount}</Badge>
                             </Button>
-                          </div>
-
-                          {gradesLoading ? (
-                            <div className="text-sm text-slate-500 text-center py-10">Yüklənir...</div>
-                          ) : filteredGrades.length === 0 ? (
-                            <div className="text-sm text-slate-500 text-center py-10">
-                              {gradesSearch.trim() ? 'Axtarışa uyğun sinif tapılmadı' : 'Sinif tapılmadı'}
-                            </div>
-                          ) : (
-                            <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
-                              {filteredGrades.map((g) => (
-                                <Button
-                                  key={g.id}
-                                  variant={selectedGradeId === g.id ? 'default' : 'outline'}
-                                  className="w-full justify-between"
-                                  onClick={() => setSelectedGradeId(g.id)}
-                                >
-                                  <span className="truncate">{g.label}</span>
-                                  <span className="text-xs opacity-70">{g.studentCount}</span>
-                                </Button>
-                              ))}
-                            </div>
-                          )}
+                          ))}
                         </div>
                       )}
                     </CardContent>
                   </Card>
                 </div>
 
-                <div className="lg:col-span-6">
+                <div className="lg:col-span-2">
+                  <Card className="border-slate-200 h-full">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        İndeks
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      {!selectedClassLevel ? (
+                        <div className="text-sm text-slate-500 text-center py-10">
+                          Səviyyə seçin
+                        </div>
+                      ) : classLetters.length === 0 ? (
+                        <div className="text-sm text-slate-500 text-center py-10">İndeks yoxdur</div>
+                      ) : (
+                        <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
+                          {classLetters.map((g) => (
+                            <Button
+                              key={g.id}
+                              variant={selectedLetter === g.name ? 'default' : 'outline'}
+                              className="w-full justify-between"
+                              onClick={() => setSelectedLetter(g.name)}
+                            >
+                              <span className="truncate">{g.name}</span>
+                              <Badge variant="secondary" className="ml-1 text-xs">{g.studentCount}</Badge>
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="lg:col-span-4">
                   {!selectedInstitutionId ? (
                     <Card className="border-slate-200 h-full">
                       <CardHeader className="pb-3">
@@ -487,60 +520,45 @@ const GradeBooksPage: React.FC = () => {
                       institutionId={selectedInstitutionId}
                       institutionName={selectedInstitutionName}
                       selectedGradeId={selectedGradeId}
-                      selectedGradeLabel={filteredGrades.find(g => g.id === selectedGradeId)?.label}
+                      selectedGradeLabel={
+                        selectedClassLevel && selectedLetter
+                          ? `${selectedClassLevel}-${selectedLetter}`
+                          : undefined
+                      }
                     />
                   )}
                 </div>
               </div>
             ) : (
-              /* Two column layout for school admin and teacher */
+              /* Three column layout for school admin and teacher */
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                <div className="lg:col-span-3">
+                <div className="lg:col-span-2">
                   <Card className="border-slate-200 h-full">
                     <CardHeader className="pb-3">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
                         <Calculator className="w-4 h-4" />
-                        Siniflər
+                        Səviyyə
                       </CardTitle>
                       <span className="text-xs text-slate-500 truncate block" title={institutionChipText || undefined}>
                         {institutionChipText || currentUser?.institution?.name}
                       </span>
-                      <div className="relative mt-2">
-                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                        <Input
-                          placeholder="Sinif axtar..."
-                          value={gradesSearch}
-                          onChange={(e) => setGradesSearch(e.target.value)}
-                          className="pl-8 h-9 text-sm"
-                        />
-                      </div>
                     </CardHeader>
                     <CardContent className="p-4">
                       {gradesLoading ? (
                         <div className="text-sm text-slate-500 text-center py-10">Yüklənir...</div>
-                      ) : filteredGrades.length === 0 ? (
-                        <div className="text-sm text-slate-500 text-center py-10">
-                          {gradesSearch.trim() ? 'Axtarışa uyğun sinif tapılmadı' : 'Sinif tapılmadı'}
-                        </div>
+                      ) : classLevels.length === 0 ? (
+                        <div className="text-sm text-slate-500 text-center py-10">Sinif tapılmadı</div>
                       ) : (
-                        <div className="space-y-2 max-h-[520px] overflow-y-auto pr-1">
-                          <Button
-                            variant={selectedGradeId === null ? 'default' : 'outline'}
-                            className="w-full justify-between"
-                            onClick={() => setSelectedGradeId(null)}
-                          >
-                            Bütün siniflər
-                            <Badge variant="secondary" className="ml-1 text-xs">{filteredGrades.length}</Badge>
-                          </Button>
-                          {filteredGrades.map((g) => (
+                        <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
+                          {classLevels.map((lvl) => (
                             <Button
-                              key={g.id}
-                              variant={selectedGradeId === g.id ? 'default' : 'outline'}
+                              key={lvl.level}
+                              variant={selectedClassLevel === lvl.level ? 'default' : 'outline'}
                               className="w-full justify-between"
-                              onClick={() => setSelectedGradeId(g.id)}
+                              onClick={() => { setSelectedClassLevel(lvl.level); setSelectedLetter(null); }}
                             >
-                              <span className="truncate">{g.label}</span>
-                              <span className="text-xs opacity-70">{g.studentCount}</span>
+                              <span className="truncate">{lvl.level}-ci sinif</span>
+                              <Badge variant="secondary" className="ml-1 text-xs">{lvl.studentCount}</Badge>
                             </Button>
                           ))}
                         </div>
@@ -549,12 +567,49 @@ const GradeBooksPage: React.FC = () => {
                   </Card>
                 </div>
 
-                <div className="lg:col-span-9">
+                <div className="lg:col-span-2">
+                  <Card className="border-slate-200 h-full">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base font-medium flex items-center gap-2">
+                        İndeks
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-4">
+                      {!selectedClassLevel ? (
+                        <div className="text-sm text-slate-500 text-center py-10">
+                          Səviyyə seçin
+                        </div>
+                      ) : classLetters.length === 0 ? (
+                        <div className="text-sm text-slate-500 text-center py-10">İndeks yoxdur</div>
+                      ) : (
+                        <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
+                          {classLetters.map((g) => (
+                            <Button
+                              key={g.id}
+                              variant={selectedLetter === g.name ? 'default' : 'outline'}
+                              className="w-full justify-between"
+                              onClick={() => setSelectedLetter(g.name)}
+                            >
+                              <span className="truncate">{g.name}</span>
+                              <Badge variant="secondary" className="ml-1 text-xs">{g.studentCount}</Badge>
+                            </Button>
+                          ))}
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <div className="lg:col-span-8">
                   <GradeBookList
                     institutionId={selectedInstitutionId}
                     institutionName={currentUser?.institution?.name}
                     selectedGradeId={selectedGradeId}
-                    selectedGradeLabel={filteredGrades.find(g => g.id === selectedGradeId)?.label}
+                    selectedGradeLabel={
+                      selectedClassLevel && selectedLetter
+                        ? `${selectedClassLevel}-${selectedLetter}`
+                        : undefined
+                    }
                   />
                 </div>
               </div>

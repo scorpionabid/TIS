@@ -10,9 +10,6 @@ import { StudentImportExportModal } from '@/components/modals/StudentImportExpor
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { studentService } from '@/services/students';
-import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
-import { Users, UserX, UserCheck, GraduationCap } from 'lucide-react';
-import type { StatsConfig } from '@/components/generic/types';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -43,51 +40,6 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
   const queryClient = useQueryClient();
 
   const institutionId = currentUser?.institution_id;
-
-  // Fetch student statistics for summary cards
-  const { data: statisticsResponse } = useQuery({
-    queryKey: ['students', 'statistics', institutionId],
-    queryFn: () => studentService.getExportStats(
-      institutionId ? { institution_id: institutionId } : undefined
-    ),
-    staleTime: 1000 * 60 * 2,
-  });
-
-  // Build stats cards
-  const statsCards = React.useMemo((): StatsConfig[] => {
-    const stats = statisticsResponse;
-    if (!stats) return [];
-    return [
-      {
-        key: 'total',
-        label: 'CƏMİ ŞAGİRD',
-        value: stats.total_students || 0,
-        icon: Users,
-        color: 'blue',
-      },
-      {
-        key: 'active',
-        label: 'AKTİV',
-        value: stats.active_students || 0,
-        icon: UserCheck,
-        color: 'green',
-      },
-      {
-        key: 'inactive',
-        label: 'DEAKTİV',
-        value: stats.inactive_students || 0,
-        icon: UserX,
-        color: 'red',
-      },
-      {
-        key: 'classes',
-        label: 'SİNİFLƏR',
-        value: Object.keys(stats.by_class || {}).length,
-        icon: GraduationCap,
-        color: 'orange',
-      }
-    ];
-  }, [statisticsResponse]);
 
   // Student-specific logic
   const handleStudentCreate = async (data: any) => {
@@ -283,15 +235,6 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Summary stats */}
-      {statsCards.length > 0 && (
-        <GenericStatsCards
-          stats={statsCards}
-          variant="compact"
-          className="mb-4"
-        />
-      )}
-
       {/* Main Generic Manager with integrated modal */}
       <GenericManagerV2
         config={enhancedConfig}

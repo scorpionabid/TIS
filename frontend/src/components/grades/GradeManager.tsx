@@ -11,7 +11,6 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
-import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
 import { Grade, GradeFilters } from '@/services/grades';
 import { gradeEntityConfig, GradeFiltersComponent } from './configurations/gradeConfig';
 import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
@@ -132,65 +131,9 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     return academicYearsResponse.data;
   }, [academicYearsResponse]);
 
-  // Fetch grade statistics for summary cards
   const institutionFilter = currentUser && !['superadmin', 'regionadmin'].includes(currentUser.role)
     ? currentUser.institution?.id
     : undefined;
-
-  const { data: statisticsResponse } = useQuery({
-    queryKey: ['grades', 'statistics', institutionFilter],
-    queryFn: () => gradeService.getStatistics(
-      institutionFilter ? { institution_id: institutionFilter } : undefined
-    ),
-    staleTime: 1000 * 60 * 2,
-  });
-
-  // Build stats cards from statistics API
-  const statsCards = React.useMemo((): StatsConfig[] => {
-    const stats = statisticsResponse?.data;
-    const overview = stats?.overview;
-    const students = stats?.students;
-    if (!overview) return [];
-    return [
-      {
-        key: 'total',
-        label: 'Cəmi Sinif',
-        value: overview.total_grades,
-        icon: GraduationCap,
-        color: 'blue',
-      },
-      {
-        key: 'active',
-        label: 'Aktiv',
-        value: overview.active_grades,
-        icon: CheckCircle2,
-        color: 'green',
-      },
-      {
-        key: 'total_students',
-        label: 'Cəmi Şagird',
-        value: students?.total_students ?? 0,
-        icon: Users,
-        color: 'blue',
-      },
-      {
-        key: 'avg_students',
-        label: 'Ortalama / Sinif',
-        value: students?.average_per_grade != null
-          ? Math.round(students.average_per_grade)
-          : 0,
-        icon: TrendingUp,
-        color: 'blue',
-      },
-      {
-        key: 'no_teacher',
-        label: 'Müəllimsiz',
-        value: overview.grades_without_teachers,
-        icon: UserX,
-        color: overview.grades_without_teachers > 0 ? 'yellow' : 'green',
-      },
-    ];
-  }, [statisticsResponse]);
 
   const invalidateGrades = React.useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['grades'] });
@@ -491,15 +434,6 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
 
   return (
     <>
-      {/* Summary stats */}
-      {statsCards.length > 0 && (
-        <GenericStatsCards
-          stats={statsCards}
-          variant="compact"
-          className="mb-4"
-        />
-      )}
-
       <GenericManagerV2
         key={`grade-manager-${currentUser?.institution?.id || 'no-institution'}`}
         config={enhancedConfig}
