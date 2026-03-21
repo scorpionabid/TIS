@@ -311,6 +311,33 @@ class NotificationController extends Controller
     }
 
     /**
+     * Track click on a notification action link.
+     * Sets clicked_at timestamp and optionally marks as read.
+     */
+    public function click(int $id): JsonResponse
+    {
+        $user = Auth::user();
+        $notification = Notification::forUser($user->id)->find($id);
+
+        if (! $notification) {
+            return response()->json(['success' => false, 'message' => 'Bildiriş tapılmadı.'], 404);
+        }
+
+        $update = ['clicked_at' => now()];
+
+        // Auto-mark as read on click if not yet read
+        if (! $notification->is_read) {
+            $update['is_read'] = true;
+            $update['read_at'] = now();
+            $this->notificationService->invalidateBadgeCache($user->id);
+        }
+
+        $notification->update($update);
+
+        return response()->json(['success' => true, 'message' => 'Klik qeyd edildi.']);
+    }
+
+    /**
      * Resend failed notification
      */
     public function resend(int $id): JsonResponse

@@ -184,13 +184,21 @@ class NotificationService extends BaseService<Notification> {
   async markAsRead(id: number): Promise<{ success: boolean; message: string }> {
     logger.debug('NotificationService.markAsRead called');
     try {
-      // Backend supports both /read and /mark-read
       const response = await this.post<void>(`${this.baseUrl}/${id}/read`, {});
       logger.debug('NotificationService.markAsRead successful');
       return response as unknown as { success: boolean; message: string };
     } catch (error) {
       logger.error('NotificationService.markAsRead failed', error);
       throw error;
+    }
+  }
+
+  async trackClick(id: number): Promise<void> {
+    try {
+      await this.post<void>(`${this.baseUrl}/${id}/click`, {});
+    } catch (error) {
+      // Click tracking is non-critical — log and continue
+      logger.warn('NotificationService.trackClick failed', error);
     }
   }
 

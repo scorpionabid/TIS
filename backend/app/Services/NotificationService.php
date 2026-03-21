@@ -45,9 +45,10 @@ class NotificationService
             }
 
             // Check for duplicate notification (prevent spam)
-            // Enhanced: Check for any survey-related notification for the same user and survey
+            // Window: 5 minutes by default, configurable via NOTIFICATION_DEDUP_MINUTES
+            $dedupMinutes = (int) config('notification.dedup_minutes', 5);
             $duplicateQuery = Notification::where('user_id', $data['user_id'])
-                ->where('created_at', '>', now()->subMinutes(2)); // 2 minute window
+                ->where('created_at', '>', now()->subMinutes($dedupMinutes));
 
             // For survey notifications, check for any survey notification type
             if (isset($data['type']) && str_starts_with($data['type'], 'survey') &&
@@ -813,6 +814,9 @@ class NotificationService
     protected function broadcastNotification(Notification $notification, User $user): void
     {
         try {
+            // Invalidate badge cache so event broadcasts fresh counts
+            $this->invalidateBadgeCache($user->id);
+
             // Use existing NotificationSent event for broadcasting
             NotificationSent::dispatch($notification, $user);
 

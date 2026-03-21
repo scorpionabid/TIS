@@ -4,6 +4,7 @@ namespace App\Events;
 
 use App\Models\Notification;
 use App\Models\User;
+use App\Services\NotificationService;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
@@ -76,8 +77,9 @@ class NotificationSent implements ShouldBroadcast
                 'id'       => $this->user->id,
                 'username' => $this->user->username,
             ],
-            'unread_count' => $this->user->receivedNotifications()->where('is_read', false)->count(),
-            'timestamp'    => now()->toISOString(),
+            'unread_count'  => $this->user->receivedNotifications()->where('is_read', false)->count(),
+            'badge_counts'  => app(NotificationService::class)->getPageBadgeCounts($this->user->id),
+            'timestamp'     => now()->toISOString(),
         ];
     }
 

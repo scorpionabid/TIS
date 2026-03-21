@@ -434,9 +434,13 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     echo.private(channelName)
       .listen('.notification.sent', (data: any) => {
         logger.info('Received notification via Laravel Echo', data);
-        // Invalidate React Query cache for real-time UI updates
+        // Invalidate notification + task caches
         queryClient.invalidateQueries({ queryKey: ['notifications'] });
         queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        // Push badge_counts directly into cache — no extra API call needed
+        if (data.badge_counts) {
+          queryClient.setQueryData(['notification-badge-counts'], data.badge_counts);
+        }
         callback(data);
       });
 

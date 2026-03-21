@@ -23,12 +23,10 @@ services:
       - REDIS_PASSWORD=null
       - REDIS_PORT=6379
       - REDIS_DB=0
-<<<<<<< HEAD
       - VITE_API_URL=https://atis.sim.edu.az
       - VITE_API_BASE_URL=https://atis.sim.edu.az/api
       - VITE_SANCTUM_BASE_URL=https://atis.sim.edu.az
       - SANCTUM_STATEFUL_DOMAINS=https://atis.sim.edu.az
-=======
       - BROADCAST_CONNECTION=reverb
       - QUEUE_CONNECTION=redis
       - REVERB_APP_ID=atis-app
@@ -37,7 +35,6 @@ services:
       - REVERB_HOST=localhost
       - REVERB_PORT=8080
       - REVERB_SCHEME=http
->>>>>>> 9ca8932bc8e521ca866b4fdbc63c01dd4f99e3b2
     ports:
       - "8000:8000"
       - "8080:8080"

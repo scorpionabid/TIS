@@ -186,11 +186,20 @@ class TestWebSocketController extends Controller
      */
     public function connectionInfo(): JsonResponse
     {
+        $reverbHost = env('REVERB_HOST', 'localhost');
+        $reverbPort = (int) env('REVERB_PORT', 8080);
+        $reverbScheme = env('REVERB_SCHEME', 'http');
+        $appKey = env('REVERB_APP_KEY', 'atis-reverb-key');
+
+        $wsProtocol = $reverbScheme === 'https' ? 'wss' : 'ws';
+
         return $this->successResponse([
-            'reverb_host' => config('broadcasting.connections.reverb.host', '127.0.0.1'),
-            'reverb_port' => config('broadcasting.connections.reverb.port', 8080),
-            'app_key' => config('broadcasting.connections.reverb.key', 'atis-key'),
-            'websocket_url' => 'ws://127.0.0.1:8080/app/atis-key',
+            'reverb_host' => $reverbHost,
+            'reverb_port' => $reverbPort,
+            'reverb_scheme' => $reverbScheme,
+            'app_key' => $appKey,
+            'websocket_url' => "{$wsProtocol}://{$reverbHost}:{$reverbPort}/app/{$appKey}",
+            'broadcast_connection' => env('BROADCAST_CONNECTION', 'log'),
             'status' => 'WebSocket server should be running on the configured host and port',
             'test_endpoints' => [
                 'POST /api/test/websocket/notification' => 'Test notification broadcasting',
