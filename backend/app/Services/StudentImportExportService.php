@@ -165,15 +165,24 @@ class StudentImportExportService extends BaseService
                     continue;
                 }
 
-                // Resolve grade by name within institution
+                // Resolve grade within institution
+                // Template format: "5-A" → class_level=5, name="A"
                 $gradeId = null;
-                $gradeName = trim($row[6] ?? '');
-                if ($gradeName) {
-                    $grade = Grade::where('institution_id', $institution->id)
-                        ->where('name', $gradeName)
-                        ->first();
+                $gradeRaw = trim($row[6] ?? '');
+                if ($gradeRaw) {
+                    $query = Grade::where('institution_id', $institution->id);
+
+                    if (preg_match('/^(\d+)-(.+)$/', $gradeRaw, $m)) {
+                        // "5-A" format — split into level + section name
+                        $query->where('class_level', (int) $m[1])->where('name', trim($m[2]));
+                    } else {
+                        // Plain name fallback (e.g. just "A")
+                        $query->where('name', $gradeRaw);
+                    }
+
+                    $grade = $query->first();
                     if (! $grade) {
-                        $results['errors'][] = "Sətir {$rowNum}: Bu qurumda '{$gradeName}' sinfi tapılmadı";
+                        $results['errors'][] = "Sətir {$rowNum}: Bu qurumda '{$gradeRaw}' sinfi tapılmadı";
                         continue;
                     }
                     $gradeId = $grade->id;
