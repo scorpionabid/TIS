@@ -604,22 +604,22 @@ class ApiClientOptimized {
   }
 
   // POST/PUT/DELETE methods (no caching, but with deduplication for safety)
-  async post<T>(endpoint: string, data?: any, options?: { headers?: Record<string, string> }): Promise<ApiResponse<T>> {
+  async post<T>(endpoint: string, data?: any, options?: { responseType?: 'json' | 'blob'; headers?: Record<string, string> }): Promise<ApiResponse<T>> {
     this.invalidateCachesForMutation(endpoint);
     return this.performRequest<T>('POST', endpoint, data, undefined, options);
   }
 
-  async put<T>(endpoint: string, data?: any, options?: { headers?: Record<string, string> }): Promise<ApiResponse<T>> {
+  async put<T>(endpoint: string, data?: any, options?: { responseType?: 'json' | 'blob'; headers?: Record<string, string> }): Promise<ApiResponse<T>> {
     this.invalidateCachesForMutation(endpoint);
     return this.performRequest<T>('PUT', endpoint, data, undefined, options);
   }
 
-  async patch<T>(endpoint: string, data?: any, options?: { headers?: Record<string, string> }): Promise<ApiResponse<T>> {
+  async patch<T>(endpoint: string, data?: any, options?: { responseType?: 'json' | 'blob'; headers?: Record<string, string> }): Promise<ApiResponse<T>> {
     this.invalidateCachesForMutation(endpoint);
     return this.performRequest<T>('PATCH', endpoint, data, undefined, options);
   }
 
-  async delete<T>(endpoint: string, data?: any, options?: { headers?: Record<string, string> }): Promise<ApiResponse<T>> {
+  async delete<T>(endpoint: string, data?: any, options?: { responseType?: 'json' | 'blob'; headers?: Record<string, string> }): Promise<ApiResponse<T>> {
     this.invalidateCachesForMutation(endpoint);
     return this.performRequest<T>('DELETE', endpoint, data, undefined, options);
   }

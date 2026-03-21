@@ -433,6 +433,7 @@ class PermissionSeeder extends Seeder
                 'analytics.view',
                 'preschool.attendance.read', 'preschool.attendance.reports', 'preschool.attendance.export',
                 'ai_analysis.view', 'ai_analysis.execute',
+                'students.read', 'students.export', 'students.analytics', 'students.reports',
             ],
             'schooladmin' => [
                 'users.read', 'users.create', 'users.update',
@@ -457,6 +458,7 @@ class PermissionSeeder extends Seeder
                 'links.read',
                 'reports.read',
                 'preschool.groups.manage', 'preschool.attendance.read', 'preschool.attendance.write',
+                'students.create', 'students.read', 'students.update', 'students.delete', 'students.write', 'students.manage', 'students.export', 'students.import', 'students.bulk', 'students.grades', 'students.attendance', 'students.schedule', 'students.enroll', 'students.transfer', 'students.graduate', 'students.analytics', 'students.reports',
             ],
             'regionoperator' => [
                 // regionadmin permissions EXCEPT users.create and users.update
@@ -612,6 +614,7 @@ class PermissionSeeder extends Seeder
                 'links.read',
                 'reports.read',
                 'preschool.attendance.read', 'preschool.attendance.reports',
+                'students.read', 'students.export', 'students.analytics', 'students.reports',
             ],
             'muavin' => [
                 'schedules.create', 'schedules.read', 'schedules.update',

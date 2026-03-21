@@ -166,6 +166,8 @@ class SchoolStudentController extends Controller
             'emergency_contact' => 'nullable|string',
             'special_needs' => 'nullable|string',
             'medical_conditions' => 'nullable|string',
+            'is_active' => 'nullable|boolean',
+            'status' => 'nullable|in:active,inactive',
         ]);
 
         if ($validator->fails()) {

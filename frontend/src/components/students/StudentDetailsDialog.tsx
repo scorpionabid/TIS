@@ -25,7 +25,6 @@ interface StudentDetailsDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onEdit: (student: Student) => void;
-  onEnroll: (student: Student) => void;
   getStatusText: (status?: string) => string;
   getStatusColor: (status?: string) => string;
   getGenderText: (gender?: string) => string;
@@ -51,7 +50,6 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
   isOpen,
   onClose,
   onEdit,
-  onEnroll,
   getStatusText,
   getStatusColor,
   getGenderText,
@@ -169,12 +167,6 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
               <Calendar className="h-4 w-4 mr-1" />
               Davamiyyət
             </Button>
-            {status !== 'active' && (
-              <Button variant="outline" size="sm" onClick={() => onEnroll(student)}>
-                <UserPlus className="h-4 w-4 mr-1" />
-                Sinifə yaz
-              </Button>
-            )}
             <Button size="sm" onClick={() => onEdit(student)}>
               <Edit className="h-4 w-4 mr-1" />
               Redaktə et

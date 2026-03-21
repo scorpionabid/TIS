@@ -57,7 +57,7 @@ export interface TabConfig {
   serverFilters?: Record<string, any>;
   isStatsTab?: boolean; // When true, shows statistics cards instead of table
   icon?: LucideIcon; // Icon for the tab
-  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'purple' | 'orange'; // Color variant for modern tabs
+  variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'purple' | 'orange' | 'indigo' | 'rose' | 'amber'; // Color variant for modern tabs
 }
 
 // Stats card configuration
@@ -66,7 +66,7 @@ export interface StatsConfig {
   label: string;
   value: number;
   icon: LucideIcon;
-  color?: 'default' | 'green' | 'red' | 'blue' | 'yellow' | 'purple';
+  color?: 'default' | 'green' | 'red' | 'blue' | 'yellow' | 'purple' | 'orange' | 'amber' | 'indigo' | 'rose' | 'sky' | 'emerald' | 'violet';
   trend?: {
     value: number;
     isPositive: boolean;
@@ -79,7 +79,7 @@ export interface HeaderStatConfig {
   label: string;
   value: number;
   icon?: LucideIcon;
-  color?: 'default' | 'green' | 'red' | 'blue' | 'amber';
+  color?: 'default' | 'green' | 'red' | 'blue' | 'amber' | 'orange' | 'rose' | 'indigo' | 'sky' | 'emerald';
   tooltip?: string;
 }
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { SchoolTeacher } from '@/services/schoolAdmin';
-import { teacherEntityConfig, teacherCustomLogic } from './configurations/teacherConfig';
+import { teacherEntityConfig, teacherCustomLogic, calculateTeacherStats } from './configurations/teacherConfig';
 import { TeacherModal } from '@/components/modals/TeacherModal';
 import { TeacherDetailsDialog } from './TeacherDetailsDialog';
 import { TeacherImportExportModal } from '@/components/modals/TeacherImportExportModal';
@@ -20,6 +20,7 @@ import { TeacherWorkloadStats } from './TeacherWorkloadStats';
 import { TeacherDetailedStats } from './TeacherDetailedStats';
 import { AvailabilityManager } from './AvailabilityManager';
 import { TeacherScheduleStats } from './TeacherScheduleStats';
+import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
 
 interface SchoolTeacherManagerStandardizedProps {
   className?: string;
@@ -97,6 +98,28 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
         return institutions.filter((inst: any) => inst.id === user.institution_id);
     }
   }, [institutionsResponse, user]);
+
+  // Fetch teachers for stats calculation
+  const { data: teachersForStats } = useQuery({
+    queryKey: ['teachers', 'for-stats', institutionFilter],
+    queryFn: () => {
+      return schoolAdminService.getTeachers({ 
+        per_page: 500, 
+        institution_id: institutionFilter !== 'all' ? Number(institutionFilter) : undefined 
+      });
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const statsCards = React.useMemo(() => {
+    if (!teachersForStats) return [];
+    // Ensure it's an array
+    const teachersArray = Array.isArray(teachersForStats) ? teachersForStats : (teachersForStats as any).data || [];
+    if (!Array.isArray(teachersArray)) return [];
+    // Filter stats to match other pages (4 columns)
+    const allStats = calculateTeacherStats(teachersArray);
+    return allStats.filter(s => ['total', 'active', 'inactive', 'full_time'].includes(s.key));
+  }, [teachersForStats]);
 
   // Enhanced configuration with modal and action handlers
   const enhancedConfig = React.useMemo(() => ({
@@ -279,6 +302,15 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
 
   return (
     <div className={cn("space-y-6", className)}>
+      {/* Summary stats */}
+      {statsCards.length > 0 && (
+        <GenericStatsCards
+          stats={statsCards}
+          variant="compact"
+          className="mb-4"
+        />
+      )}
+
       {/* Main Generic Manager - contains search and table */}
       <GenericManagerV2
         config={enhancedConfig}

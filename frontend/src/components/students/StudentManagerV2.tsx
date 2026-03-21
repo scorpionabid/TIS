@@ -6,13 +6,13 @@ import { StudentFilters } from './configurations/studentConfig';
 import { unifiedStudentConfig, studentCustomLogic } from './configurations/studentConfig';
 import { StudentModalModern } from '@/components/modals/student/StudentModalModern';
 import { StudentDetailsDialog } from './StudentDetailsDialog';
-import { EnrollmentModal } from './EnrollmentModal';
-// StudentImportExportModal handled by GenericManagerV2
+import { StudentImportExportModal } from '@/components/modals/StudentImportExportModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { institutionService } from '@/services/institutions';
-import { gradeService } from '@/services/grades';
 import { studentService } from '@/services/students';
+import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
+import { Users, UserX, UserCheck, GraduationCap } from 'lucide-react';
+import type { StatsConfig } from '@/components/generic/types';
 import { logger } from '@/utils/logger';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -37,76 +37,57 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
   // Modal states for student-specific operations  
   const [selectedStudent, setSelectedStudent] = React.useState<Student | null>(null);
   const [editingStudent, setEditingStudent] = React.useState<Student | null>(null);
-  const [enrollmentModalOpen, setEnrollmentModalOpen] = React.useState(false);
-  const [enrollmentStudent, setEnrollmentStudent] = React.useState<Student | null>(null);
-  // Import/Export modal handled by GenericManagerV2
-  // EnrollmentModal expects string ('all' | '1' | '2' | ...)
-  const [selectedGradeForEnrollment, setSelectedGradeForEnrollment] = React.useState<string>('all');
 
   // Role-based access and filtering
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
 
-  // Fetch supporting data for filters
-  const { data: institutionsResponse } = useQuery({
-    queryKey: ['institutions', 'for-student-filter'],
-    queryFn: () => institutionService.getAll({ per_page: 100 }),
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
-  });
-
   const institutionId = currentUser?.institution_id;
-  const { data: gradesResponse } = useQuery({
-    queryKey: ['grades', 'for-enrollment', institutionId],
-    queryFn: () => gradeService.get({ institution_id: institutionId, per_page: 200, is_active: true }),
-    enabled: !!institutionId,
-    staleTime: 1000 * 60 * 5, // 5 minutes cache
+
+  // Fetch student statistics for summary cards
+  const { data: statisticsResponse } = useQuery({
+    queryKey: ['students', 'statistics', institutionId],
+    queryFn: () => studentService.getExportStats(
+      institutionId ? { institution_id: institutionId } : undefined
+    ),
+    staleTime: 1000 * 60 * 2,
   });
 
-  // Process available institutions based on user role
-  const availableInstitutions = React.useMemo(() => {
-    if (!institutionsResponse?.data || !currentUser) return [];
-    
-    logger.debug('Processing institutions for student filtering', {
-      component: 'StudentManagerV2',
-      action: 'filterInstitutions',
-      data: { userRole: currentUser.role, institutionCount: institutionsResponse.data.length }
-    });
-    
-    const institutions = institutionsResponse.data;
-    
-    // Role-based institution filtering logic (same as grades)
-    switch (currentUser.role) {
-      case 'superadmin':
-        return institutions.filter((inst: any) => inst.level && inst.level >= 3);
-        
-      case 'regionadmin':
-        return institutions.filter((inst: any) => 
-          inst.id === currentUser.institution_id || (inst.level && inst.level >= 3)
-        );
-        
-      case 'sektoradmin':
-        return institutions.filter((inst: any) => 
-          inst.id === currentUser.institution_id || inst.level === 4
-        );
-        
-      default:
-        return institutions.filter((inst: any) => inst.id === currentUser.institution_id);
-    }
-  }, [institutionsResponse, currentUser]);
-
-  // Process available grades — gradeService.get() returns { items: Grade[] } normalized shape
-  const availableGrades = React.useMemo(() => {
-    if (!gradesResponse) return [];
-    const raw: any = gradesResponse;
-    // Normalized shape from useEntityManagerV2: { items: Grade[] }
-    if (Array.isArray(raw.items)) return raw.items;
-    // Backend wrapped: { data: { grades: [] } }
-    if (raw.data?.grades && Array.isArray(raw.data.grades)) return raw.data.grades;
-    if (raw.data?.data && Array.isArray(raw.data.data)) return raw.data.data;
-    if (raw.data && Array.isArray(raw.data)) return raw.data;
-    if (Array.isArray(raw)) return raw;
-    return [];
-  }, [gradesResponse]);
+  // Build stats cards
+  const statsCards = React.useMemo((): StatsConfig[] => {
+    const stats = statisticsResponse;
+    if (!stats) return [];
+    return [
+      {
+        key: 'total',
+        label: 'CƏMİ ŞAGİRD',
+        value: stats.total_students || 0,
+        icon: Users,
+        color: 'blue',
+      },
+      {
+        key: 'active',
+        label: 'AKTİV',
+        value: stats.active_students || 0,
+        icon: UserCheck,
+        color: 'green',
+      },
+      {
+        key: 'inactive',
+        label: 'DEAKTİV',
+        value: stats.inactive_students || 0,
+        icon: UserX,
+        color: 'red',
+      },
+      {
+        key: 'classes',
+        label: 'SİNİFLƏR',
+        value: Object.keys(stats.by_class || {}).length,
+        icon: GraduationCap,
+        color: 'orange',
+      }
+    ];
+  }, [statisticsResponse]);
 
   // Student-specific logic
   const handleStudentCreate = async (data: any) => {
@@ -148,15 +129,19 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
           }
         };
       }
-      if (action.key === 'enroll') {
+      if (action.key === 'activate') {
         return {
           ...action,
-          // Show enroll for ALL students (remove the status check in config)
-          isVisible: () => true,
-          onClick: (student: Student) => {
-            logger.debug('Opening enrollment modal', { data: { studentId: student.id } });
-            setEnrollmentStudent(student);
-            setEnrollmentModalOpen(true);
+          isVisible: (student: Student) => student.is_active === false,
+          onClick: async (student: Student) => {
+            if (!confirm(`${student.first_name} ${student.last_name} yenidən aktiv edilsin?`)) return;
+            try {
+              await studentService.update(student.id, { is_active: true, status: 'active' } as any);
+              toast.success(`${student.first_name} ${student.last_name} aktiv edildi`);
+              queryClient.invalidateQueries({ queryKey: ['students'] });
+            } catch (e) {
+              toast.error('Aktivləşdirmə uğursuz oldu');
+            }
           }
         };
       }
@@ -233,24 +218,13 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
       setImportExportModalOpen(true);
     },
 
-    // Custom filters showing counts
-    renderCustomFilters: () => (
-      <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-        <div className="text-sm text-muted-foreground">
-          {availableInstitutions.length} müəssisə, {availableGrades.length} sinif mövcuddur
-        </div>
-      </div>
-    )
-  }), [availableInstitutions, availableGrades]);
+  }), []);
 
   // Handle close modals
   const handleCloseModals = React.useCallback(() => {
     setSelectedStudent(null);
     setEditingStudent(null);
-    setEnrollmentModalOpen(false);
-    setEnrollmentStudent(null);
-    // Import/Export modal closed by GenericManagerV2
-    setSelectedGradeForEnrollment('all');
+    setImportExportModalOpen(false);
   }, []);
 
   // Save handler for edit — must invalidate students cache so the list refreshes
@@ -268,42 +242,6 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
       throw error;
     }
   }, [editingStudent, queryClient]);
-
-  // Simplified enrollment handler
-  const handleEnrollment = React.useCallback(async (classId: number) => {
-    try {
-      logger.debug('Processing student enrollment', {
-        data: {
-          studentId: enrollmentStudent?.id,
-          classId
-        }
-      });
-      
-      if (enrollmentStudent) {
-        await studentService.update(enrollmentStudent.id, {
-          status: 'active',
-          class_id: classId
-        } as any);
-        toast.success(`${enrollmentStudent.first_name} ${enrollmentStudent.last_name} uğurla qeydiyyatdan keçirildi`);
-        
-        // Explicitly invalidate cache so the list refreshes immediately
-        queryClient.invalidateQueries({ queryKey: ['students'] });
-        queryClient.invalidateQueries({ queryKey: ['grades'] });
-        
-        // Force refetch to ensure UI updates
-        setTimeout(() => {
-          queryClient.refetchQueries({ queryKey: ['students'] });
-        }, 100);
-      }
-      
-      handleCloseModals();
-      
-    } catch (error) {
-      logger.error('Failed to enroll student', error);
-      toast.error('Qeydiyyat əməliyyatı uğursuz oldu');
-      throw error;
-    }
-  }, [enrollmentStudent, handleCloseModals]);
 
   // Utility functions for student-specific dialogs
   const utilityFunctions = React.useMemo(() => ({
@@ -345,6 +283,15 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
 
   return (
     <div className={cn("space-y-6", className)}>
+      {/* Summary stats */}
+      {statsCards.length > 0 && (
+        <GenericStatsCards
+          stats={statsCards}
+          variant="compact"
+          className="mb-4"
+        />
+      )}
+
       {/* Main Generic Manager with integrated modal */}
       <GenericManagerV2
         config={enhancedConfig}
@@ -371,33 +318,19 @@ export const StudentManagerV2: React.FC<StudentManagerV2Props> = ({ className })
 
       <StudentDetailsDialog
         student={selectedStudent}
-        isOpen={!!selectedStudent && !enrollmentModalOpen}
         onClose={handleCloseModals}
         onEdit={(student) => {
           setEditingStudent(student);
           setSelectedStudent(null);
         }}
-        onEnroll={(student) => {
-          setEnrollmentStudent(student);
-          setEnrollmentModalOpen(true);
-          setSelectedStudent(null);
-        }}
         {...utilityFunctions}
       />
 
-      <EnrollmentModal
-        isOpen={enrollmentModalOpen}
-        onClose={handleCloseModals}
-        student={enrollmentStudent}
-        classes={availableGrades} // Using grades as classes
-        selectedGradeForEnrollment={selectedGradeForEnrollment}
-        setSelectedGradeForEnrollment={setSelectedGradeForEnrollment}
-        onEnroll={handleEnrollment}
-        isEnrolling={false}
-        getGradeLevelText={utilityFunctions.getGradeLevelText}
-      />
 
-      {/* Import/Export modal handled by GenericManagerV2 */}
+      <StudentImportExportModal
+        isOpen={importExportModalOpen}
+        onClose={() => setImportExportModalOpen(false)}
+      />
     </div>
   );
 };

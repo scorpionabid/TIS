@@ -367,7 +367,7 @@ const filterFields: FilterFieldConfig[] = [
 ];
 
 // Custom stats calculation
-const calculateTeacherStats = (teachers: SchoolTeacher[]): StatsConfig[] => {
+export const calculateTeacherStats = (teachers: SchoolTeacher[]): StatsConfig[] => {
   const total = teachers.length;
   const active = teachers.filter(t => t.is_active === true).length;
   const inactive = teachers.filter(t => t.is_active === false).length;

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Student;
 use App\Models\User;
 use App\Services\StudentImportExportService;
 use App\Services\StudentManagementService;
@@ -260,16 +261,24 @@ class StudentControllerRefactored extends BaseController
     public function exportStudents(Request $request): BinaryFileResponse
     {
         return $this->executeWithErrorHandling(function () use ($request) {
-            $request->validate([
-                'filters' => 'nullable|array',
-                'include_inactive' => 'boolean',
-            ]);
-
             $user = Auth::user();
 
-            // Get students based on filters
-            $studentQuery = $this->studentManagementService->getStudents($request, $user);
-            $students = $studentQuery['students'];
+            // Query the Student model (students table) — not User model
+            $query = Student::with(['institution', 'grade']);
+
+            // Role-based access control
+            if (! $user->hasRole('superadmin')) {
+                if ($user->hasRole('regionadmin') || $user->hasRole('sektoradmin')) {
+                    $query->whereHas('institution', function ($q) use ($user) {
+                        $q->where('parent_id', $user->institution_id)
+                            ->orWhere('id', $user->institution_id);
+                    });
+                } else {
+                    $query->where('institution_id', $user->institution_id ?? 0);
+                }
+            }
+
+            $students = $query->get();
 
             $fileName = 'students_export_' . date('Y-m-d_H-i-s') . '.xlsx';
             $filePath = $this->importExportService->generateExportFile($students, $fileName);

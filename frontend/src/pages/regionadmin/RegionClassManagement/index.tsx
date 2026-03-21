@@ -2,7 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { USER_ROLES } from "@/constants/roles";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { GraduationCap, Users, School, TrendingUp } from "lucide-react";
+import { GraduationCap, Users, School, TrendingUp, Calendar } from "lucide-react";
 import { AcademicYearManager } from "@/components/academic-years/AcademicYearManager";
 import { RegionClassImportModal } from "@/components/modals/RegionClassImportModal";
 
@@ -53,9 +53,21 @@ export const RegionClassManagement = () => {
         onValueChange={(value) => state.setActiveTab(value as ActiveTab)}
         className="space-y-6"
       >
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="classes">Siniflər</TabsTrigger>
-          <TabsTrigger value="academic-years">Təhsil illəri</TabsTrigger>
+        <TabsList className="inline-flex h-auto items-center justify-start rounded-2xl bg-muted/50 p-1.5 text-muted-foreground shadow-sm w-full sm:w-auto overflow-hidden border border-border/50">
+          <TabsTrigger 
+            value="classes"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-xl px-6 py-3 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm gap-2 w-full sm:w-auto"
+          >
+            <GraduationCap className="h-4 w-4" />
+            Siniflər
+          </TabsTrigger>
+          <TabsTrigger 
+            value="academic-years"
+            className="inline-flex items-center justify-center whitespace-nowrap rounded-xl px-6 py-3 text-sm font-semibold ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm gap-2 w-full sm:w-auto"
+          >
+            <Calendar className="h-4 w-4" />
+            Təhsil illəri
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="classes" className="space-y-6">

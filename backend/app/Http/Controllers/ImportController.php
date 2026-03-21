@@ -278,9 +278,8 @@ class ImportController extends Controller
                 'students' => [
                     'filename' => 'students_import_template.xlsx',
                     'headers' => [
-                        'first_name', 'last_name', 'email', 'date_of_birth', 'gender',
-                        'guardian_name', 'guardian_phone', 'guardian_email', 'grade_name',
-                        'address', 'utis_code',
+                        'first_name', 'last_name', 'utis_code', 'date_of_birth', 'gender',
+                        'enrollment_date', 'grade_name',
                     ],
                 ],
                 'teachers' => [

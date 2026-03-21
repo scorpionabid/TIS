@@ -16,51 +16,91 @@ export function GenericStatsCards({ stats, className, variant = 'default' }: Gen
   const getColorClasses = (color: StatsConfig['color']) => {
     switch (color) {
       case 'green':
+      case 'emerald':
         return {
-          icon: 'text-green-600',
-          background: 'bg-green-50',
-          border: 'border-green-200',
+          icon: 'text-emerald-600',
+          background: 'bg-emerald-50',
+          border: 'border-emerald-100',
+          gradient: 'from-emerald-500/10 to-transparent',
+          accent: 'bg-emerald-500',
         };
       case 'red':
+      case 'rose':
         return {
-          icon: 'text-red-600',
-          background: 'bg-red-50',
-          border: 'border-red-200',
+          icon: 'text-rose-600',
+          background: 'bg-rose-50',
+          border: 'border-rose-100',
+          gradient: 'from-rose-500/10 to-transparent',
+          accent: 'bg-rose-500',
         };
       case 'blue':
+      case 'sky':
         return {
-          icon: 'text-blue-600',
-          background: 'bg-blue-50',
-          border: 'border-blue-200',
+          icon: 'text-sky-600',
+          background: 'bg-sky-50',
+          border: 'border-sky-100',
+          gradient: 'from-sky-500/10 to-transparent',
+          accent: 'bg-sky-500',
+        };
+      case 'indigo':
+        return {
+          icon: 'text-indigo-600',
+          background: 'bg-indigo-50',
+          border: 'border-indigo-100',
+          gradient: 'from-indigo-500/10 to-transparent',
+          accent: 'bg-indigo-500',
         };
       case 'yellow':
+      case 'amber':
         return {
-          icon: 'text-yellow-600',
-          background: 'bg-yellow-50',
-          border: 'border-yellow-200',
+          icon: 'text-amber-600',
+          background: 'bg-amber-50',
+          border: 'border-amber-100',
+          gradient: 'from-amber-500/10 to-transparent',
+          accent: 'bg-amber-500',
         };
       case 'purple':
+      case 'violet':
         return {
-          icon: 'text-purple-600',
-          background: 'bg-purple-50',
-          border: 'border-purple-200',
+          icon: 'text-violet-600',
+          background: 'bg-violet-50',
+          border: 'border-violet-100',
+          gradient: 'from-violet-500/10 to-transparent',
+          accent: 'bg-violet-500',
+        };
+      case 'orange':
+        return {
+          icon: 'text-orange-600',
+          background: 'bg-orange-50',
+          border: 'border-orange-100',
+          gradient: 'from-orange-500/10 to-transparent',
+          accent: 'bg-orange-500',
         };
       default:
         return {
-          icon: 'text-primary',
-          background: 'bg-primary/5',
-          border: 'border-primary/20',
+          icon: 'text-slate-600',
+          background: 'bg-slate-50',
+          border: 'border-slate-200',
+          gradient: 'from-slate-500/10 to-transparent',
+          accent: 'bg-slate-500',
         };
     }
   };
 
   const getCompactIconColor = (color: StatsConfig['color']): string => {
     switch (color) {
-      case 'green': return 'text-green-500';
-      case 'red': return 'text-red-500';
-      case 'blue': return 'text-blue-500';
-      case 'yellow': return 'text-yellow-500';
-      case 'purple': return 'text-purple-500';
+      case 'green':
+      case 'emerald': return 'text-emerald-500';
+      case 'red':
+      case 'rose': return 'text-rose-500';
+      case 'blue':
+      case 'sky':
+      case 'indigo': return 'text-indigo-500';
+      case 'yellow':
+      case 'amber': return 'text-amber-500';
+      case 'purple':
+      case 'violet': return 'text-violet-500';
+      case 'orange': return 'text-orange-500';
       default: return 'text-muted-foreground';
     }
   };
@@ -88,7 +128,7 @@ export function GenericStatsCards({ stats, className, variant = 'default' }: Gen
     return (
       <div
         className={cn(
-          "grid gap-2",
+          "grid gap-3",
           getCompactGridCols(),
           className
         )}
@@ -100,18 +140,19 @@ export function GenericStatsCards({ stats, className, variant = 'default' }: Gen
           return (
             <Card
               key={stat.key}
-              className="border shadow-none bg-card hover:border-primary/30 transition-colors"
+              className="border shadow-sm bg-card/50 backdrop-blur-sm hover:border-primary/30 transition-all hover:shadow-md group overflow-hidden"
             >
-              <CardContent className="flex items-center gap-3 px-4 py-3">
-                <Icon className={cn("h-4 w-4 shrink-0", iconColor)} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-muted-foreground truncate">
+              <CardContent className="flex items-center gap-3 px-4 py-3 relative">
+                 <div className={cn("absolute inset-0 bg-gradient-to-r opacity-0 group-hover:opacity-100 transition-opacity", getColorClasses(stat.color).gradient)} />
+                <Icon className={cn("h-4 w-4 shrink-0 transition-transform group-hover:scale-110 relative z-10", iconColor)} />
+                <div className="min-w-0 flex-1 relative z-10">
+                  <p className="text-[10px] sm:text-xs font-medium text-muted-foreground uppercase tracking-wider truncate">
                     {stat.label}
                   </p>
+                  <p className="text-base sm:text-lg font-bold text-foreground tabular-nums">
+                    {stat.value.toLocaleString()}
+                  </p>
                 </div>
-                <p className="text-lg font-semibold text-foreground tabular-nums shrink-0">
-                  {stat.value.toLocaleString()}
-                </p>
               </CardContent>
             </Card>
           );
@@ -123,7 +164,7 @@ export function GenericStatsCards({ stats, className, variant = 'default' }: Gen
   return (
     <div
       className={cn(
-        "grid gap-4 sm:gap-5",
+        "grid gap-4 sm:gap-6",
         getGridCols(),
         className
       )}
@@ -135,27 +176,29 @@ export function GenericStatsCards({ stats, className, variant = 'default' }: Gen
         return (
           <Card
             key={stat.key}
-            align="center"
             className={cn(
-              "backdrop-blur-sm",
-              colors.border
+              "relative overflow-hidden group transition-all hover:shadow-xl hover:-translate-y-1 border border-slate-200/60 bg-white/80 backdrop-blur-md",
             )}
           >
-            <CardContent className="flex flex-col items-center gap-4 py-5">
+            {/* Design elements */}
+            <div className={cn("absolute top-0 right-0 h-24 w-24 bg-gradient-to-br opacity-[0.03] group-hover:opacity-[0.07] transition-opacity rounded-bl-full", colors.gradient)} />
+            <div className={cn("absolute top-0 left-0 w-full h-[3px]", colors.accent)} />
+            
+            <CardContent className="flex flex-col items-center gap-4 py-8 relative z-10">
               <div
                 className={cn(
-                  "flex h-12 w-12 items-center justify-center rounded-lg",
+                  "flex h-14 w-14 items-center justify-center rounded-2xl shadow-sm transition-transform group-hover:scale-110 animate-in zoom-in-50 duration-500",
                   colors.background
                 )}
               >
-                <Icon className={cn("h-6 w-6", colors.icon)} />
+                <Icon className={cn("h-7 w-7", colors.icon)} />
               </div>
 
-              <div className="space-y-2">
-                <p className="text-xs uppercase tracking-wide text-muted-foreground/90">
+              <div className="space-y-1.5 text-center">
+                <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground/80">
                   {stat.label}
                 </p>
-                <p className="text-2xl font-semibold text-foreground sm:text-3xl">
+                <p className="text-3xl font-black text-slate-900 sm:text-4xl tracking-tight tabular-nums">
                   {stat.value.toLocaleString()}
                 </p>
               </div>
@@ -163,8 +206,8 @@ export function GenericStatsCards({ stats, className, variant = 'default' }: Gen
               {stat.trend && (
                 <div
                   className={cn(
-                    "flex items-center gap-1 text-xs font-medium",
-                    stat.trend.isPositive ? "text-green-600" : "text-red-600"
+                    "flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-50 border border-slate-100",
+                    stat.trend.isPositive ? "text-emerald-600" : "text-rose-600"
                   )}
                 >
                   {stat.trend.isPositive ? (

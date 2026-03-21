@@ -2,38 +2,28 @@
 
 import React from 'react';
 import { 
-  EntityConfig, 
-  ColumnConfig, 
-  ActionConfig, 
-  TabConfig, 
-  FilterFieldConfig, 
-  StatsConfig,
-  ManagerCustomLogic 
+  EntityConfig,
+  ColumnConfig,
+  ActionConfig,
+  TabConfig,
+  FilterFieldConfig,
+  ManagerCustomLogic
 } from '@/components/generic/types';
 import { Student, StudentFilters, StudentCreateData, studentService } from '@/services/students';
-import { 
-  Users, 
-  CheckCircle, 
-  XCircle, 
-  UserPlus,
+import {
+  CheckCircle,
+  XCircle,
   GraduationCap,
   ArrowRightLeft,
-  Eye, 
-  Edit, 
+  Eye,
+  Edit,
   Trash2,
-  UserCheck,
   Download,
-  Upload,
   UserMinus,
-  UserX,
   Calendar,
-  MapPin,
   Clock,
   Badge as BadgeIcon,
-  BarChart3,
   LayoutGrid,
-  UserCog,
-  AlertCircle,
   School
 } from 'lucide-react';
 
@@ -227,13 +217,13 @@ const actions: ActionConfig<Student>[] = [
     },
   },
   {
-    key: 'enroll',
-    icon: UserCheck,
-    label: 'Sinifə yaz',
+    key: 'activate',
+    icon: CheckCircle,
+    label: 'Aktivləşdir',
     variant: 'ghost',
     onClick: (student) => {
     },
-    condition: (student) => student.status !== 'active', // Only show for non-active students
+    isVisible: (student) => student.is_active === false, // Only show for deactivated students
   },
   {
     key: 'soft-delete',
@@ -242,7 +232,7 @@ const actions: ActionConfig<Student>[] = [
     variant: 'ghost',
     onClick: (student) => {
     },
-    condition: (student) => student.is_active !== false, // Only show for active students
+    isVisible: (student) => student.is_active !== false, // Only show for active students
   },
   {
     key: 'hard-delete',
@@ -251,18 +241,12 @@ const actions: ActionConfig<Student>[] = [
     variant: 'ghost',
     onClick: (student) => {
     },
+    isVisible: (student) => student.is_active === false || student.status === 'inactive' || student.enrollment_status === 'inactive', // Only show for inactive students
   },
 ];
 
 // Enhanced tab configuration with proper filtering and modern design
 const tabs: TabConfig[] = [
-  {
-    key: 'stats',
-    label: 'Statistika',
-    isStatsTab: true,
-    icon: BarChart3,
-    variant: 'primary',
-  },
   {
     key: 'all',
     label: 'Hamısı',
@@ -272,47 +256,31 @@ const tabs: TabConfig[] = [
   {
     key: 'active',
     label: 'Aktiv Şagirdlər',
-    filter: (students: Student[]) => students.filter(s => 
-      s.is_active !== false && (s.status === 'active' || s.enrollment_status === 'active')
-    ),
+    filter: (students: Student[]) => students.filter(s => {
+      const hasClass = !!(s.grade?.name || s.class_name || s.current_class?.name);
+      return s.is_active !== false && (s.status === 'active' || s.enrollment_status === 'active') && hasClass;
+    }),
     icon: CheckCircle,
     variant: 'success',
   },
   {
-    key: 'inactive',
-    label: 'Passiv Şagirdlər',
+    key: 'needs_class',
+    label: 'Sinif Tələb Edir',
+    filter: (students: Student[]) => students.filter(s => {
+      const hasClass = !!(s.grade?.name || s.class_name || s.current_class?.name);
+      return s.is_active !== false && !hasClass && (s.status === 'active' || s.enrollment_status === 'active');
+    }),
+    icon: School,
+    variant: 'orange',
+  },
+  {
+    key: 'deactivated',
+    label: 'Deaktiv Edilmişlər',
     filter: (students: Student[]) => students.filter(s => 
       s.is_active === false || s.status === 'inactive' || s.enrollment_status === 'inactive'
     ),
     icon: XCircle,
     variant: 'danger',
-  },
-  {
-    key: 'transferred',
-    label: 'Köçürülmüş',
-    filter: (students: Student[]) => students.filter(s => 
-      s.enrollment_status === 'transferred' || s.status === 'transferred'
-    ),
-    icon: ArrowRightLeft,
-    variant: 'warning',
-  },
-  {
-    key: 'graduated',
-    label: 'Məzun',
-    filter: (students: Student[]) => students.filter(s => 
-      s.enrollment_status === 'graduated' || s.status === 'graduated'
-    ),
-    icon: GraduationCap,
-    variant: 'purple',
-  },
-  {
-    key: 'needs_class',
-    label: 'Sinif Tələb Edir',
-    filter: (students: Student[]) => students.filter(s => 
-      !s.class_name && !s.current_class && s.is_active !== false
-    ),
-    icon: School,
-    variant: 'orange',
   },
 ];
 
@@ -369,70 +337,6 @@ const filterFields: FilterFieldConfig[] = [
   },
 ];
 
-// Enhanced custom stats calculation
-const calculateStudentStats = (students: Student[]): StatsConfig[] => {
-  const total = students.length;
-  const active = students.filter(s => 
-    s.is_active !== false && (s.status === 'active' || s.enrollment_status === 'active')
-  ).length;
-  const inactive = students.filter(s => 
-    s.is_active === false || s.status === 'inactive' || s.enrollment_status === 'inactive'
-  ).length;
-  const transferred = students.filter(s => 
-    s.enrollment_status === 'transferred' || s.status === 'transferred'
-  ).length;
-  const graduated = students.filter(s => 
-    s.enrollment_status === 'graduated' || s.status === 'graduated'
-  ).length;
-  const needsClass = students.filter(s => 
-    !s.class_name && !s.current_class && s.is_active !== false
-  ).length;
-
-  return [
-    {
-      key: 'total',
-      label: 'Ümumi Şagird',
-      value: total,
-      icon: Users,
-      color: 'default',
-    },
-    {
-      key: 'active',
-      label: 'Aktiv',
-      value: active,
-      icon: CheckCircle,
-      color: 'green',
-    },
-    {
-      key: 'inactive',
-      label: 'Passiv',
-      value: inactive,
-      icon: XCircle,
-      color: 'red',
-    },
-    {
-      key: 'transferred',
-      label: 'Köçürülmüş',
-      value: transferred,
-      icon: ArrowRightLeft,
-      color: 'blue',
-    },
-    {
-      key: 'graduated',
-      label: 'Məzun',
-      value: graduated,
-      icon: GraduationCap,
-      color: 'purple',
-    },
-    {
-      key: 'needs_class',
-      label: 'Sinif Tələb Edir',
-      value: needsClass,
-      icon: UserPlus,
-      color: 'orange',
-    },
-  ];
-};
 
 // Main unified configuration
 export const unifiedStudentConfig: EntityConfig<Student, StudentFilters, StudentCreateData> = {
@@ -443,7 +347,7 @@ export const unifiedStudentConfig: EntityConfig<Student, StudentFilters, Student
   
   // API service - Using unified student service with proper this binding
   service: {
-    get: (filters) => studentService.get({ ...filters, _t: Date.now() }),
+    get: (filters) => studentService.get({ ...filters, _t: Date.now() } as any),
     create: (data) => studentService.create(data),
     update: (id, data) => studentService.update(id, data),
     delete: (id) => studentService.delete(id),
@@ -464,7 +368,7 @@ export const unifiedStudentConfig: EntityConfig<Student, StudentFilters, Student
   features: {
     search: true,
     filters: true,
-    stats: true,
+    stats: false,
     tabs: true,
     bulk: true,
     export: true,
@@ -480,7 +384,7 @@ export const unifiedStudentConfig: EntityConfig<Student, StudentFilters, Student
     description: 'Məktəb şagirdlərinin qeydiyyatı və idarə edilməsi',
     searchPlaceholder: 'Ad, soyad və ya UTİS nömrəsinə görə axtar...',
     createLabel: 'Yeni Şagird',
-    showStats: true,
+    showStats: false,
     showSearch: true,
     showRefresh: true,
     showImport: true,
@@ -492,9 +396,6 @@ export const unifiedStudentConfig: EntityConfig<Student, StudentFilters, Student
 
 // Enhanced custom logic for student management
 export const studentCustomLogic: ManagerCustomLogic<Student> = {
-  // Custom stats calculation
-  calculateCustomStats: calculateStudentStats,
-  
   // Permission checks - Enhanced with context awareness
   permissionCheck: (action: string, student?: Student) => {
     // Basic permission logic - extend based on your requirements

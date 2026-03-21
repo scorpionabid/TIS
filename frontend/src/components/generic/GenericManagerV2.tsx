@@ -244,28 +244,48 @@ export function GenericManagerV2<
                     <CardContent className="pt-6">
                       <div className="text-center py-12">
                         <AlertTriangle className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-medium mb-2">
-                          {config.entityName} tapılmadı
-                        </h3>
-                        <p className="text-muted-foreground">
-                          {manager.searchTerm ? 
-                            'Axtarış kriteriyasına uyğun məlumat tapılmadı' : 
-                            tab.key === 'all' ? 
-                              `Hələ ki yaradılmış ${config.entityName.toLowerCase()} yoxdur` :
-                              `${tab.label} ${config.entityName.toLowerCase()} yoxdur`
-                          }
-                        </p>
-                        {features.create !== false && (
-                          <Button 
-                            className="mt-4" 
-                            onClick={() => {
-                              manager.setEditingEntity(null);
-                              manager.setCreateModalOpen(true);
-                            }}
-                          >
-                            <Plus className="h-4 w-4 mr-2" />
-                            İlk {config.entityName.toLowerCase()}i yarat
-                          </Button>
+                        {manager.searchTerm ? (
+                          /* Search returned no results */
+                          <>
+                            <h3 className="text-lg font-medium mb-2">Nəticə tapılmadı</h3>
+                            <p className="text-muted-foreground">
+                              Axtarış kriteriyasına uyğun {config.entityName.toLowerCase()} tapılmadı
+                            </p>
+                          </>
+                        ) : tab.key === 'all' ? (
+                          /* All tab, truly empty dataset — offer create */
+                          <>
+                            <h3 className="text-lg font-medium mb-2">
+                              {config.entityNamePlural} tapılmadı
+                            </h3>
+                            <p className="text-muted-foreground mb-4">
+                              Hələ ki heç bir {config.entityName.toLowerCase()} əlavə edilməyib
+                            </p>
+                            {features.create !== false && (
+                              <Button
+                                className="mt-2"
+                                onClick={() => {
+                                  if (customLogic?.onCreateClick) {
+                                    customLogic.onCreateClick();
+                                  } else {
+                                    manager.setEditingEntity(null);
+                                    manager.setCreateModalOpen(true);
+                                  }
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-2" />
+                                Yeni {config.entityName}
+                              </Button>
+                            )}
+                          </>
+                        ) : (
+                          /* Filtered tab — no data, no action needed */
+                          <>
+                            <h3 className="text-lg font-medium mb-2">Məlumat yoxdur</h3>
+                            <p className="text-muted-foreground">
+                              Bu kateqoriyada {config.entityName.toLowerCase()} tapılmadı
+                            </p>
+                          </>
                         )}
                       </div>
                     </CardContent>

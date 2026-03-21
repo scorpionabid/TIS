@@ -1,6 +1,5 @@
 import { apiClient } from './api';
 import { BaseEntity } from '@/components/generic/types';
-import { toast } from 'sonner';
 
 // Enhanced Student interface that extends BaseEntity for GenericManagerV2 compatibility
 export interface Student extends BaseEntity {
@@ -36,6 +35,11 @@ export interface Student extends BaseEntity {
   };
   grade_level?: number;
   is_active: boolean;
+  grade?: {
+    id: number;
+    name: string;
+    class_level: number;
+  };
   
   // Academic performance fields
   gpa?: number;
@@ -71,8 +75,9 @@ export interface StudentFilters {
   search?: string;
   page?: number;
   per_page?: number;
-  is_active?: boolean;
+  is_active?: boolean | string;
   academic_year?: string;
+  _t?: number;
   enrollment_date_from?: string;
   enrollment_date_to?: string;
 }
@@ -209,13 +214,6 @@ class StudentService {
         finalResult = { items: response.data, raw: response.data } as any;
       }
       
-      // Temporary debug toast
-      setTimeout(() => {
-        toast.info(`Fetched ${finalResult.items?.length || 0} students. Raw response keys: ${Object.keys(response.data || {}).join(',')}`, {
-          duration: 10000
-        });
-      }, 500);
-      
       return finalResult;
     } catch (error: any) {
       console.error('StudentService.get error:', error);
@@ -263,8 +261,8 @@ class StudentService {
   async getGradeLevels(institutionId: number): Promise<string[]> {
     try {
       const url = `${this.baseURL}/institutions/${institutionId}/grade-levels`;
-      const response = await apiClient.get(url);
-      return response.data.data;
+      const response = await apiClient.get<any>(url);
+      return (response as any).data?.data || [];
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Sinif səviyyələri yüklənərkən xəta baş verdi');
     }
@@ -279,8 +277,8 @@ class StudentService {
       if (gradeLevel) params.append('grade_level', gradeLevel);
 
       const url = `${this.baseURL}/institutions/${institutionId}/classes${params.toString() ? `?${params.toString()}` : ''}`;
-      const response = await apiClient.get(url);
-      return response.data.data;
+      const response = await apiClient.get<any>(url);
+      return (response as any).data?.data || [];
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Siniflər yüklənərkən xəta baş verdi');
     }
@@ -403,7 +401,7 @@ class StudentService {
 
       const url = `${this.baseURL}/institutions/${institutionId}/count${params.toString() ? `?${params.toString()}` : ''}`;
       const response = await apiClient.get<any>(url);
-      return response.data.data;
+      return response.data?.data || 0;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Şagird sayı yüklənərkən xəta baş verdi');
     }
@@ -413,21 +411,12 @@ class StudentService {
    * Download student import template
    */
   async downloadTemplate(): Promise<Blob> {
-    const headers: Record<string, string> = {
-      ...apiClient.getAuthHeaders(),
-    };
-
-    const response = await fetch(`${apiClient['baseURL']}/students/bulk/download-template`, {
-      method: 'GET',
-      headers,
-      credentials: 'include',
-    });
-
-    if (!response.ok) {
-      throw new Error('Template download failed');
-    }
-
-    return response.blob();
+    const response = await apiClient.get<Blob>(
+      '/students/bulk/download-template',
+      undefined,
+      { responseType: 'blob' }
+    );
+    return (response as any).data || response;
   }
 
   /**
@@ -437,39 +426,25 @@ class StudentService {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${apiClient['baseURL']}/students/bulk/import`, {
-      method: 'POST',
-      headers: apiClient.getAuthHeaders(),
-      body: formData,
-      credentials: 'include',
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) {
-      throw new Error(result.message || result.error || 'Import failed');
+    try {
+      const response = await apiClient.post<any>('/students/bulk/import', formData);
+      return response;
+    } catch (error: any) {
+      console.error('Import error:', error);
+      throw new Error(error.message || 'İdxal xətası');
     }
-
-    return result;
   }
 
   /**
    * Export students with filters
    */
   async exportStudents(filters?: any): Promise<Blob> {
-    const response = await fetch(`${apiClient['baseURL']}/students/bulk/export`, {
-      method: 'POST',
-      headers: apiClient['getHeaders'](),
-      body: JSON.stringify({
-        filters: filters || {}
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Export failed');
-    }
-
-    return response.blob();
+    const response = await apiClient.post<Blob>(
+      '/students/bulk/export',
+      { filters: filters || {} },
+      { responseType: 'blob' }
+    );
+    return (response as any).data || response;
   }
 
   /**
@@ -477,12 +452,12 @@ class StudentService {
    */
   async getExportStats(filters?: any): Promise<any> {
     try {
-      const response = await apiClient.get('/students/bulk/statistics', filters);
+      const response = await apiClient.get<any>('/students/bulk/statistics', filters);
       
-      if (response.data && response.data.data) {
-        return response.data.data;
-      } else if (response.data) {
-        return response.data;
+      if ((response as any).data && (response as any).data.data) {
+        return (response as any).data.data;
+      } else if ((response as any).data) {
+        return (response as any).data;
       }
       
       return {
@@ -522,7 +497,7 @@ class StudentService {
       ? `${this.baseURL}/available-for-grade/${gradeId}?${params}`
       : `${this.baseURL}/available-for-grade/${gradeId}`;
     
-    return apiClient.get<any>(url);
+    return apiClient.get<any>(url).then(res => (res as any).data?.data || res.data || res);
   }
 }
 

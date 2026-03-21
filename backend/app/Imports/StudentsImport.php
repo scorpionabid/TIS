@@ -96,13 +96,8 @@ class StudentsImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
                 'last_name' => $lastName,
                 'birth_date' => $row['date_of_birth'],
                 'gender' => ! empty($row['gender']) ? $row['gender'] : null,
-                'contact_phone' => ! empty($row['guardian_phone']) ? $row['guardian_phone'] : null,
-                'emergency_contact' => json_encode([
-                    'name' => ! empty($row['guardian_name']) ? $row['guardian_name'] : null,
-                    'phone' => ! empty($row['guardian_phone']) ? $row['guardian_phone'] : null,
-                    'email' => ! empty($row['guardian_email']) ? $row['guardian_email'] : null,
-                ]),
-                'address' => ! empty($row['address']) ? $row['address'] : '',
+                'enrollment_date' => ! empty($row['enrollment_date']) ? $row['enrollment_date'] : now()->format('Y-m-d'),
+                'address' => '',
             ]);
 
             // Create enrollment if grade is found
@@ -116,7 +111,7 @@ class StudentsImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
                         'grade_id' => $grade->id,
                         'academic_year_id' => $currentAcademicYear->id,
                         'student_number' => $studentNumber,
-                        'enrollment_date' => now(),
+                        'enrollment_date' => ! empty($row['enrollment_date']) ? $row['enrollment_date'] : now(),
                         'enrollment_status' => 'active',
                     ]);
                 }
@@ -145,15 +140,11 @@ class StudentsImport implements ToModel, WithBatchInserts, WithChunkReading, Wit
         return [
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
-            'email' => 'nullable|email',
             'date_of_birth' => 'required|date|before:today',
-            'gender' => 'nullable|in:male,female',
-            'guardian_name' => 'nullable|string|max:255',
-            'guardian_phone' => 'nullable|string|max:20',
-            'guardian_email' => 'nullable|email',
+            'gender' => 'nullable|in:male,female,other',
             'grade_name' => 'nullable|string',
-            'address' => 'nullable|string|max:500',
-            'utis_code' => 'nullable|string|size:7|unique:user_profiles,utis_code',
+            'utis_code' => 'nullable|string|max:20|unique:user_profiles,utis_code',
+            'enrollment_date' => 'nullable|date',
         ];
     }
 

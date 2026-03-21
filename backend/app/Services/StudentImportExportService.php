@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\Grade;
 use App\Models\Institution;
 use App\Models\Role;
+use App\Models\Student;
 use App\Models\User;
 use Exception;
 use PhpOffice\PhpSpreadsheet\IOFactory;
@@ -17,99 +18,62 @@ class StudentImportExportService extends BaseService
 
     public function __construct(StudentManagementService $studentManagementService)
     {
+        // studentManagementService kept for backward compatibility (getExportStats, etc.)
         $this->studentManagementService = $studentManagementService;
     }
 
     /**
-     * Generate import template for students
+     * Generate import template for students (Azerbaijani headers, 7 columns)
+     * Column order: Ad, Soyad, Şagird Nömrəsi, Doğum tarixi, Cins, Qeydiyyat tarixi, Sinif
      */
     public function generateImportTemplate($fileName): string
     {
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Şagirdlər');
 
-        // Set headers - Standardized English headers to match StudentsImport
+        // Azerbaijani headers
         $headers = [
-            'first_name',      // Əvvəl: 'Ad'
-            'last_name',       // Əvvəl: 'Soyad'
-            'patronymic',      // Əvvəl: 'Ata adı'
-            'username',        // Əvvəl: 'İstifadəçi adı'
-            'email',           // Əvvəl: 'Email'
-            'password',        // Əvvəl: 'Şifrə'
-            'contact_phone',   // Əvvəl: 'Telefon'
-            'birth_date',      // Əvvəl: 'Doğum tarixi'
-            'gender',          // Əvvəl: 'Cins'
-            'national_id',     // Əvvəl: 'Şəxsiyyət vəsiqəsi'
-            'institution_id',  // Əvvəl: 'Qurum ID'
-            'class_id',        // Əvvəl: 'Sinif ID'
-            'address',         // Əvvəl: 'Ünvan'
-            'emergency_contact_name',   // Əvvəl: 'Təcili əlaqə (Ad)'
-            'emergency_contact_phone',  // Əvvəl: 'Təcili əlaqə (Telefon)'
-            'emergency_contact_email',  // Əvvəl: 'Təcili əlaqə (Email)'
-            'notes',           // Əvvəl: 'Qeydlər'
-            'status',          // Əvvəl: 'Status'
+            'Ad',               // A - first_name (məcburi)
+            'Soyad',            // B - last_name (məcburi)
+            'Şagird Nömrəsi',   // C - student_number (məcburi)
+            'Doğum tarixi',     // D - date_of_birth (YYYY-MM-DD)
+            'Cins',             // E - gender: kişi / qadın / digər
+            'Qeydiyyat tarixi', // F - enrollment_date (YYYY-MM-DD)
+            'Sinif',            // G - grade name, e.g. 5-A
         ];
 
         foreach ($headers as $index => $header) {
-            $sheet->setCellValue(chr(65 + $index) . '1', $header);
-            $sheet->getStyle(chr(65 + $index) . '1')->getFont()->setBold(true);
+            $col = chr(65 + $index) . '1';
+            $sheet->setCellValue($col, $header);
+            $sheet->getStyle($col)->getFont()->setBold(true);
+            $sheet->getStyle($col)->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('D9E1F2');
         }
 
-        // Add sample data
+        // Sample data rows
         $sampleData = [
-            [
-                'first_name' => 'Əhməd',
-                'last_name' => 'Məmmədov',
-                'patronymic' => 'Əli',
-                'username' => 'ahmed.memmedov',
-                'email' => 'ahmed@student.edu.az',
-                'password' => 'student123',
-                'contact_phone' => '+994501234567',
-                'birth_date' => '2010-05-15',
-                'gender' => 'male',
-                'national_id' => 'AZE1234567',
-                'institution_id' => '32',
-                'class_id' => '15',
-                'address' => 'Bakı şəhəri, Nəsimi rayonu',
-                'emergency_contact_name' => 'Fatimə Məmmədova',
-                'emergency_contact_phone' => '+994701234567',
-                'emergency_contact_email' => 'fatime@example.com',
-                'notes' => 'Yaxşı şagirddir',
-                'status' => 'active',
-            ],
-            [
-                'first_name' => 'Leyla',
-                'last_name' => 'Həsənova',
-                'patronymic' => 'Rəşad',
-                'username' => 'leyla.hasanova',
-                'email' => '',
-                'password' => '',
-                'contact_phone' => '',
-                'birth_date' => '2011-03-20',
-                'gender' => 'female',
-                'national_id' => '',
-                'institution_id' => '32',
-                'class_id' => '14',
-                'address' => 'Bakı şəhəri, Yasamal rayonu',
-                'emergency_contact_name' => 'Gülnar Həsənova',
-                'emergency_contact_phone' => '+994551234567',
-                'emergency_contact_email' => '',
-                'notes' => 'Dil fənlərində güclüdür',
-                'status' => 'active',
-            ],
+            ['Əhməd',  'Məmmədov', '1234567', '2010-05-15', 'kişi',  '2024-09-15', '5-A'],
+            ['Leyla',  'Həsənova', '7654321', '2011-03-20', 'qadın', '2024-09-15', '4-B'],
         ];
 
-        foreach ($sampleData as $rowIndex => $data) {
-            $colIndex = 0;
-            foreach ($data as $value) {
+        foreach ($sampleData as $rowIndex => $rowData) {
+            foreach ($rowData as $colIndex => $value) {
                 $sheet->setCellValue(chr(65 + $colIndex) . ($rowIndex + 2), $value);
-                $colIndex++;
             }
         }
 
-        // Style the sheet
-        foreach (range('A', 'R') as $column) {
-            $sheet->getColumnDimension($column)->setAutoSize(true);
+        // Add a notes row
+        $notesRow = count($sampleData) + 3;
+        $sheet->setCellValue('A' . $notesRow, '* Ad, Soyad və Şagird Nömrəsi məcburidir. Cins: kişi / qadın / digər. Tarix formatı: YYYY-MM-DD');
+        $sheet->getStyle('A' . $notesRow)->getFont()->setItalic(true)->setSize(9);
+        $sheet->mergeCells('A' . $notesRow . ':G' . $notesRow);
+
+        // Column widths
+        $widths = ['A' => 18, 'B' => 18, 'C' => 18, 'D' => 16, 'E' => 10, 'F' => 18, 'G' => 10];
+        foreach ($widths as $col => $width) {
+            $sheet->getColumnDimension($col)->setWidth($width);
         }
 
         // Save to temporary file
@@ -125,7 +89,15 @@ class StudentImportExportService extends BaseService
     }
 
     /**
-     * Process import file and create students
+     * Process import file and create students.
+     * Template columns (A–G):
+     *   A: Ad (first_name) — məcburi
+     *   B: Soyad (last_name) — məcburi
+     *   C: Şagird Nömrəsi (student_number) — məcburi
+     *   D: Doğum tarixi (YYYY-MM-DD)
+     *   E: Cins (kişi / qadın / digər)
+     *   F: Qeydiyyat tarixi (YYYY-MM-DD)
+     *   G: Sinif (grade name, e.g. 5-A)
      */
     public function processImportFile($file, $user): array
     {
@@ -143,105 +115,89 @@ class StudentImportExportService extends BaseService
                 'created_students' => [],
             ];
 
-            $studentRole = Role::where('name', 'şagird')->firstOrFail();
+            // Resolve institution from authenticated user
+            $institution = Institution::find($user->institution_id);
+            if (! $institution) {
+                throw new Exception('İstifadəçi heç bir qurum ilə əlaqəli deyil');
+            }
+
+            $schoolStudentService = app(SchoolStudentService::class);
+
+            // Gender mapping: Azerbaijani → English DB values
+            $genderMap = [
+                'kişi'   => 'male',
+                'qadin'  => 'female',
+                'qadın'  => 'female',
+                'digər'  => 'other',
+                'diger'  => 'other',
+                'male'   => 'male',
+                'female' => 'female',
+                'other'  => 'other',
+            ];
 
             foreach ($data as $index => $row) {
+                $rowNum = $index + 2;
+
+                // Skip blank rows
+                if (empty(trim($row[0] ?? '')) && empty(trim($row[1] ?? ''))) {
+                    continue;
+                }
+
+                // Skip notes/instruction rows (start with *)
+                if (str_starts_with(trim($row[0] ?? ''), '*')) {
+                    continue;
+                }
+
+                // Validate required fields
+                if (empty(trim($row[0] ?? '')) || empty(trim($row[1] ?? ''))) {
+                    $results['errors'][] = "Sətir {$rowNum}: Ad və soyad tələb olunur";
+                    continue;
+                }
+                if (empty(trim($row[2] ?? ''))) {
+                    $results['errors'][] = "Sətir {$rowNum}: Şagird nömrəsi tələb olunur";
+                    continue;
+                }
+
+                // Check student_number uniqueness
+                $studentNumber = trim($row[2]);
+                if (Student::where('student_number', $studentNumber)->exists()) {
+                    $results['errors'][] = "Sətir {$rowNum}: Şagird nömrəsi artıq mövcuddur: {$studentNumber}";
+                    continue;
+                }
+
+                // Resolve grade by name within institution
+                $gradeId = null;
+                $gradeName = trim($row[6] ?? '');
+                if ($gradeName) {
+                    $grade = Grade::where('institution_id', $institution->id)
+                        ->where('name', $gradeName)
+                        ->first();
+                    if (! $grade) {
+                        $results['errors'][] = "Sətir {$rowNum}: Bu qurumda '{$gradeName}' sinfi tapılmadı";
+                        continue;
+                    }
+                    $gradeId = $grade->id;
+                }
+
+                $genderRaw = strtolower(trim($row[4] ?? ''));
+                $gender = $genderMap[$genderRaw] ?? null;
+
+                $studentData = [
+                    'first_name'      => trim($row[0]),
+                    'last_name'       => trim($row[1]),
+                    'student_number'  => $studentNumber,
+                    'date_of_birth'   => ! empty(trim($row[3] ?? '')) ? $this->parseDate(trim($row[3])) : null,
+                    'gender'          => $gender,
+                    'enrollment_date' => ! empty(trim($row[5] ?? '')) ? $this->parseDate(trim($row[5])) : null,
+                    'grade_id'        => $gradeId,
+                ];
+
                 try {
-                    $rowNum = $index + 2; // Account for header row
-
-                    // Skip empty rows
-                    if (empty(trim($row[0])) && empty(trim($row[1]))) {
-                        continue;
-                    }
-
-                    // Validate required fields
-                    if (empty(trim($row[0])) || empty(trim($row[1]))) {
-                        $results['errors'][] = "Sətir {$rowNum}: Ad və soyad sahələri tələb olunur";
-
-                        continue;
-                    }
-
-                    // Prepare student data
-                    $studentData = [
-                        'first_name' => trim($row[0]),
-                        'last_name' => trim($row[1]),
-                        'patronymic' => trim($row[2]) ?: null,
-                        'username' => trim($row[3]) ?: null,
-                        'email' => trim($row[4]) ?: null,
-                        'password' => trim($row[5]) ?: 'student123',
-                        'contact_phone' => trim($row[6]) ?: null,
-                        'birth_date' => ! empty(trim($row[7])) ? $this->parseDate(trim($row[7])) : null,
-                        'gender' => in_array(trim($row[8]), ['male', 'female']) ? trim($row[8]) : null,
-                        'national_id' => trim($row[9]) ?: null,
-                        'institution_id' => ! empty(trim($row[10])) ? (int) trim($row[10]) : null,
-                        'class_id' => ! empty(trim($row[11])) ? (int) trim($row[11]) : null,
-                        'address' => trim($row[12]) ?: null,
-                        'emergency_contact_name' => trim($row[13]) ?: null,
-                        'emergency_contact_phone' => trim($row[14]) ?: null,
-                        'emergency_contact_email' => trim($row[15]) ?: null,
-                        'notes' => trim($row[16]) ?: null,
-                        'is_active' => trim($row[17]) !== 'inactive',
-                    ];
-
-                    // Validate institution
-                    if ($studentData['institution_id']) {
-                        if (! Institution::where('id', $studentData['institution_id'])->exists()) {
-                            $results['errors'][] = "Sətir {$rowNum}: Qurum tapılmadı: {$studentData['institution_id']}";
-
-                            continue;
-                        }
-
-                        // Check if user can access this institution
-                        $institution = Institution::find($studentData['institution_id']);
-                        if (! $this->studentManagementService->canManageStudentsInInstitution($user, $institution->id)) {
-                            $results['errors'][] = "Sətir {$rowNum}: Bu quruma şagird əlavə etmək icazəniz yoxdur";
-
-                            continue;
-                        }
-                    } else {
-                        // Use user's institution if not specified
-                        $studentData['institution_id'] = $user->institution_id;
-                    }
-
-                    // Validate class/grade
-                    if ($studentData['class_id']) {
-                        $grade = Grade::where('id', $studentData['class_id'])
-                            ->where('institution_id', $studentData['institution_id'])
-                            ->first();
-                        if (! $grade) {
-                            $results['errors'][] = "Sətir {$rowNum}: Bu qurumda sinif tapılmadı: {$studentData['class_id']}";
-
-                            continue;
-                        }
-                    }
-
-                    // Validate username uniqueness if provided
-                    if ($studentData['username']) {
-                        if (User::where('username', $studentData['username'])->exists()) {
-                            $results['errors'][] = "Sətir {$rowNum}: İstifadəçi adı artıq mövcuddur: {$studentData['username']}";
-
-                            continue;
-                        }
-                    }
-
-                    // Validate email uniqueness if provided
-                    if ($studentData['email']) {
-                        if (User::where('email', $studentData['email'])->exists()) {
-                            $results['errors'][] = "Sətir {$rowNum}: Email artıq mövcuddur: {$studentData['email']}";
-
-                            continue;
-                        }
-                    }
-
-                    // Create student
-                    $student = $this->studentManagementService->createStudent($studentData, $user);
-
+                    $student = $schoolStudentService->createStudent($institution, $studentData);
                     $results['success']++;
                     $results['created_students'][] = [
-                        'id' => $student->id,
-                        'name' => $student->profile->first_name . ' ' . $student->profile->last_name,
-                        'username' => $student->username,
-                        'institution' => $student->institution->name ?? '',
+                        'id'   => $student->id,
+                        'name' => $student->first_name . ' ' . $student->last_name,
                     ];
                 } catch (Exception $e) {
                     $results['errors'][] = "Sətir {$rowNum}: " . $e->getMessage();
@@ -255,59 +211,72 @@ class StudentImportExportService extends BaseService
     }
 
     /**
-     * Generate export file for students
+     * Generate export file for students (uses Student model from students table)
      */
     public function generateExportFile($students, $fileName): string
     {
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Set headers
+        // Azerbaijani headers matching Student model fields
         $headers = [
-            'ID', 'Ad', 'Soyad', 'Ata adı', 'İstifadəçi adı', 'Email',
-            'Telefon', 'Doğum tarixi', 'Cins', 'Şəxsiyyət vəsiqəsi',
-            'Qurum', 'Sinif', 'Qeydiyyat tarixi', 'Şagird nömrəsi',
-            'Ünvan', 'Təcili əlaqə (Ad)', 'Təcili əlaqə (Telefon)',
-            'Status', 'Son giriş', 'Yaradılma tarixi',
+            'ID',
+            'Ad',
+            'Soyad',
+            'Şagird Nömrəsi',
+            'Doğum tarixi',
+            'Cins',
+            'Sinif',
+            'Sinif Səviyyəsi',
+            'Qurum',
+            'Status',
+            'Yaradılma tarixi',
         ];
 
         foreach ($headers as $index => $header) {
-            $sheet->setCellValue(chr(65 + $index) . '1', $header);
-            $sheet->getStyle(chr(65 + $index) . '1')->getFont()->setBold(true);
+            $col = chr(65 + $index) . '1';
+            $sheet->setCellValue($col, $header);
+            $sheet->getStyle($col)->getFont()->setBold(true);
         }
 
-        // Add data rows
-        foreach ($students as $index => $student) {
-            $row = $index + 2;
-            $profile = $student->profile;
-            $enrollment = $student->studentEnrollments->where('is_active', true)->first();
+        $genderMap = ['male' => 'Kişi', 'female' => 'Qadın', 'other' => 'Digər'];
 
-            $sheet->setCellValue('A' . $row, $student->id);
-            $sheet->setCellValue('B' . $row, $profile->first_name ?? '');
-            $sheet->setCellValue('C' . $row, $profile->last_name ?? '');
-            $sheet->setCellValue('D' . $row, $profile->patronymic ?? '');
-            $sheet->setCellValue('E' . $row, $student->username);
-            $sheet->setCellValue('F' . $row, $student->email);
-            $sheet->setCellValue('G' . $row, $profile->contact_phone ?? '');
-            $sheet->setCellValue('H' . $row, $profile->birth_date ?? '');
-            $sheet->setCellValue('I' . $row, $profile->gender ?? '');
-            $sheet->setCellValue('J' . $row, $profile->national_id ?? '');
-            $sheet->setCellValue('K' . $row, $student->institution->name ?? '');
-            $sheet->setCellValue('L' . $row, $enrollment->grade->name ?? '');
-            $sheet->setCellValue('M' . $row, $enrollment->enrollment_date ?? '');
-            $sheet->setCellValue('N' . $row, $enrollment->student_number ?? '');
-            $sheet->setCellValue('O' . $row, $profile->address ?? '');
-            $sheet->setCellValue('P' . $row, $profile->emergency_contact_name ?? '');
-            $sheet->setCellValue('Q' . $row, $profile->emergency_contact_phone ?? '');
-            $sheet->setCellValue('R' . $row, $student->is_active ? 'Aktiv' : 'Qeyri-aktiv');
-            $sheet->setCellValue('S' . $row, $student->last_login_at ?? '');
-            $sheet->setCellValue('T' . $row, $student->created_at);
+        // Add data rows — Student model fields
+        $dataRowCount = 0;
+        foreach ($students as $student) {
+            $row = $dataRowCount + 2;
+
+            // grade->class_level is the actual grade number (1-12)
+            $gradeLevel = $student->grade->class_level ?? ($student->grade_level ?: '');
+            $gradeName  = $student->grade->name ?? ($student->class_name ?? '');
+
+            $sheet->setCellValueExplicit('A' . $row, $student->id, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_NUMERIC);
+            $sheet->setCellValue('B' . $row, $student->first_name);
+            $sheet->setCellValue('C' . $row, $student->last_name);
+            $sheet->setCellValue('D' . $row, $student->student_number ?? '');
+            $sheet->setCellValue('E' . $row, $student->birth_date ? $student->birth_date->format('d.m.Y') : '');
+            $sheet->setCellValue('F' . $row, $genderMap[$student->gender] ?? ($student->gender ?? ''));
+            $sheet->setCellValue('G' . $row, $gradeName);
+            $sheet->setCellValue('H' . $row, $gradeLevel);
+            $sheet->setCellValue('I' . $row, $student->institution->name ?? '');
+            $sheet->setCellValue('J' . $row, $student->is_active ? 'Aktiv' : 'Qeyri-aktiv');
+            $sheet->setCellValue('K' . $row, $student->created_at ? $student->created_at->format('d.m.Y') : '');
+
+            $dataRowCount++;
         }
 
-        // Auto-size columns
-        foreach (range('A', 'T') as $column) {
+        // Set explicit sheet dimensions to prevent phantom empty rows/columns
+        $lastRow = $dataRowCount + 1; // header + data rows
+        $sheet->calculateColumnWidths();
+        foreach (range('A', 'K') as $column) {
             $sheet->getColumnDimension($column)->setAutoSize(true);
         }
+
+        // Freeze header row
+        $sheet->freezePane('A2');
+
+        // Set print area to actual data only
+        $sheet->getPageSetup()->setPrintArea('A1:K' . $lastRow);
 
         // Save to temporary file
         $filePath = storage_path('app/temp/' . $fileName);
