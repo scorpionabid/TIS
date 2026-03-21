@@ -99,6 +99,12 @@ class SchoolStudentService
                 'enrollment_date' => $student->enrollment_date ?? $student->created_at,
                 'current_grade_level' => $student->grade_level,
                 'class_name' => $student->class_name,
+                'current_class' => $student->grade ? [
+                    'id' => $student->grade->id,
+                    'name' => $student->grade->name,
+                    'grade_level' => $student->grade->class_level,
+                ] : null,
+                'grade_id' => $student->grade_id,
                 'grade' => $student->grade ? [
                     'id' => $student->grade->id,
                     'name' => $student->grade->name,
