@@ -39,19 +39,48 @@ check_docker_running() {
     return 1
 }
 
+# Auto-backup database before stopping
+auto_backup_db() {
+    if ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^atis_postgres$'; then
+        return
+    fi
+
+    print_status "Dayanmadan əvvəl DB backup götürülür..."
+
+    local SNAPSHOT_DIR="backend/database/snapshots"
+    mkdir -p "$SNAPSHOT_DIR"
+
+    local SNAPSHOT_FILE="$SNAPSHOT_DIR/auto_$(date +%Y%m%d_%H%M%S).sql"
+
+    docker exec atis_postgres pg_dump \
+        -U atis_dev_user -d atis_dev \
+        --no-owner --no-privileges --clean --if-exists \
+        > "$SNAPSHOT_FILE" 2>/dev/null
+
+    local SIZE
+    SIZE=$(du -h "$SNAPSHOT_FILE" 2>/dev/null | cut -f1)
+    print_success "DB backup götürüldü: $SNAPSHOT_FILE ($SIZE)"
+
+    # Son 5 auto backup saxla, qalanlarını sil
+    ls -1t "$SNAPSHOT_DIR"/auto_*.sql 2>/dev/null | tail -n +6 | xargs rm -f 2>/dev/null || true
+}
+
 # Stop Docker containers
 stop_docker() {
     print_status "Docker konteynerləri dayandır..."
-    
+
+    # Backup DB before stopping
+    auto_backup_db
+
     # Stop and remove containers
     docker-compose down 2>/dev/null || true
-    
+
     # Clean up orphaned containers
     docker container prune -f 2>/dev/null || true
-    
+
     # Clean up unused networks
     docker network prune -f 2>/dev/null || true
-    
+
     print_success "Docker konteynerləri dayandırıldı"
 }
 
