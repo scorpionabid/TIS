@@ -75,4 +75,4 @@ COPY docker/backend/supervisord.conf /etc/supervisord.conf
 EXPOSE 8000
 
 # Start with supervisor (manages Nginx, PHP-FPM, queue worker, scheduler)
-CMD ["sh", "-c", "php artisan config:clear; php artisan cache:clear; if [ -f .env ]; then php artisan key:generate --force 2>/dev/null || echo 'Key exists'; else echo 'No .env; skipping key:generate'; fi; php artisan migrate --force 2>/dev/null || echo 'Migration skipped'; supervisord -c /etc/supervisord.conf"]
+CMD ["sh", "-c", "php artisan config:clear; php artisan cache:clear; php artisan key:generate --force 2>/dev/null || echo 'Key exists'; php artisan migrate --force 2>/dev/null || echo 'Migration skipped'; supervisord -c /etc/supervisord.conf"]

@@ -26,6 +26,8 @@ import {
   Upload,
   UserMinus,
   UserX,
+  Mail,
+  Phone,
   Calendar,
   MapPin,
   Clock,
@@ -82,6 +84,35 @@ const columns: ColumnConfig<Student>[] = [
             <BadgeIcon className="h-3 w-3" />
             UTİS: {student.student_number || student.student_id || 'Yoxdur'}
           </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    key: 'contact',
+    label: 'Əlaqə',
+    width: 'w-[160px]',
+    align: 'center',
+    render: (student) => (
+      <div className="flex justify-center">
+        <div className="space-y-1 text-center">
+          {student.email && (
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <Mail className="h-3 w-3 text-muted-foreground" />
+              <span className="truncate max-w-[140px]" title={student.email}>
+                {student.email}
+              </span>
+            </div>
+          )}
+          {student.phone && (
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <Phone className="h-3 w-3 text-muted-foreground" />
+              <span>{student.phone}</span>
+            </div>
+          )}
+          {!student.email && !student.phone && (
+            <span className="text-muted-foreground text-sm">Məlumat yoxdur</span>
+          )}
         </div>
       </div>
     ),
@@ -308,17 +339,9 @@ const tabs: TabConfig[] = [
   {
     key: 'needs_class',
     label: 'Sinif Tələb Edir',
-    filter: (students: Student[]) => students.filter(s => {
-      // Yoxla: class_name, current_class, grade obyekti, və ya grade_id
-      const hasClass = !!(
-        s.class_name || 
-        s.current_class || 
-        s.grade?.id || 
-        s.grade_id ||
-        (s.grade_level && s.grade_level !== '')
-      );
-      return !hasClass && s.is_active !== false;
-    }),
+    filter: (students: Student[]) => students.filter(s => 
+      !s.class_name && !s.current_class && s.is_active !== false
+    ),
     icon: School,
     variant: 'orange',
   },
@@ -392,16 +415,9 @@ const calculateStudentStats = (students: Student[]): StatsConfig[] => {
   const graduated = students.filter(s => 
     s.enrollment_status === 'graduated' || s.status === 'graduated'
   ).length;
-  const needsClass = students.filter(s => {
-    const hasClass = !!(
-      s.class_name || 
-      s.current_class || 
-      s.grade?.id || 
-      s.grade_id ||
-      (s.grade_level && s.grade_level !== '')
-    );
-    return !hasClass && s.is_active !== false;
-  }).length;
+  const needsClass = students.filter(s => 
+    !s.class_name && !s.current_class && s.is_active !== false
+  ).length;
 
   return [
     {

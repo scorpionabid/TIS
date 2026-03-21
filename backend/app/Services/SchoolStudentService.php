@@ -99,17 +99,6 @@ class SchoolStudentService
                 'enrollment_date' => $student->enrollment_date ?? $student->created_at,
                 'current_grade_level' => $student->grade_level,
                 'class_name' => $student->class_name,
-                
-                // Add current_class object for frontend compatibility
-                'current_class' => $student->grade ? [
-                    'id' => $student->grade->id,
-                    'name' => $student->grade->name,
-                    'grade_level' => $student->grade->class_level,
-                ] : null,
-                
-                // Add grade_id for direct access
-                'grade_id' => $student->grade_id,
-                
                 'grade' => $student->grade ? [
                     'id' => $student->grade->id,
                     'name' => $student->grade->name,

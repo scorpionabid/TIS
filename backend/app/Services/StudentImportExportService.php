@@ -28,26 +28,12 @@ class StudentImportExportService extends BaseService
         $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
 
-        // Set headers - Standardized English headers to match StudentsImport
+        // Set headers
         $headers = [
-            'first_name',      // Əvvəl: 'Ad'
-            'last_name',       // Əvvəl: 'Soyad'
-            'patronymic',      // Əvvəl: 'Ata adı'
-            'username',        // Əvvəl: 'İstifadəçi adı'
-            'email',           // Əvvəl: 'Email'
-            'password',        // Əvvəl: 'Şifrə'
-            'contact_phone',   // Əvvəl: 'Telefon'
-            'birth_date',      // Əvvəl: 'Doğum tarixi'
-            'gender',          // Əvvəl: 'Cins'
-            'national_id',     // Əvvəl: 'Şəxsiyyət vəsiqəsi'
-            'institution_id',  // Əvvəl: 'Qurum ID'
-            'class_id',        // Əvvəl: 'Sinif ID'
-            'address',         // Əvvəl: 'Ünvan'
-            'emergency_contact_name',   // Əvvəl: 'Təcili əlaqə (Ad)'
-            'emergency_contact_phone',  // Əvvəl: 'Təcili əlaqə (Telefon)'
-            'emergency_contact_email',  // Əvvəl: 'Təcili əlaqə (Email)'
-            'notes',           // Əvvəl: 'Qeydlər'
-            'status',          // Əvvəl: 'Status'
+            'Ad', 'Soyad', 'Ata adı', 'İstifadəçi adı', 'Email', 'Şifrə',
+            'Telefon', 'Doğum tarixi', 'Cins', 'Şəxsiyyət vəsiqəsi', 'Qurum ID',
+            'Sinif ID', 'Ünvan', 'Təcili əlaqə (Ad)', 'Təcili əlaqə (Telefon)',
+            'Təcili əlaqə (Email)', 'Qeydlər', 'Status',
         ];
 
         foreach ($headers as $index => $header) {
@@ -58,52 +44,22 @@ class StudentImportExportService extends BaseService
         // Add sample data
         $sampleData = [
             [
-                'first_name' => 'Əhməd',
-                'last_name' => 'Məmmədov',
-                'patronymic' => 'Əli',
-                'username' => 'ahmed.memmedov',
-                'email' => 'ahmed@student.edu.az',
-                'password' => 'student123',
-                'contact_phone' => '+994501234567',
-                'birth_date' => '2010-05-15',
-                'gender' => 'male',
-                'national_id' => 'AZE1234567',
-                'institution_id' => '32',
-                'class_id' => '15',
-                'address' => 'Bakı şəhəri, Nəsimi rayonu',
-                'emergency_contact_name' => 'Fatimə Məmmədova',
-                'emergency_contact_phone' => '+994701234567',
-                'emergency_contact_email' => 'fatime@example.com',
-                'notes' => 'Yaxşı şagirddir',
-                'status' => 'active',
+                'Əhməd', 'Məmmədov', 'Əli', 'ahmed.memmedov', 'ahmed@student.edu.az', 'student123',
+                '+994501234567', '2010-05-15', 'male', 'AZE1234567', '32',
+                '15', 'Bakı şəhəri, Nəsimi rayonu', 'Fatimə Məmmədova', '+994701234567',
+                'fatime@example.com', 'Yaxşı şagirddir', 'active',
             ],
             [
-                'first_name' => 'Leyla',
-                'last_name' => 'Həsənova',
-                'patronymic' => 'Rəşad',
-                'username' => 'leyla.hasanova',
-                'email' => '',
-                'password' => '',
-                'contact_phone' => '',
-                'birth_date' => '2011-03-20',
-                'gender' => 'female',
-                'national_id' => '',
-                'institution_id' => '32',
-                'class_id' => '14',
-                'address' => 'Bakı şəhəri, Yasamal rayonu',
-                'emergency_contact_name' => 'Gülnar Həsənova',
-                'emergency_contact_phone' => '+994551234567',
-                'emergency_contact_email' => '',
-                'notes' => 'Dil fənlərində güclüdür',
-                'status' => 'active',
+                'Leyla', 'Həsənova', 'Rəşad', 'leyla.hasanova', '', '',
+                '', '2011-03-20', 'female', '', '32',
+                '14', 'Bakı şəhəri, Yasamal rayonu', 'Gülnar Həsənova', '+994551234567',
+                '', 'Dil fənlərində güclüdür', 'active',
             ],
         ];
 
         foreach ($sampleData as $rowIndex => $data) {
-            $colIndex = 0;
-            foreach ($data as $value) {
+            foreach ($data as $colIndex => $value) {
                 $sheet->setCellValue(chr(65 + $colIndex) . ($rowIndex + 2), $value);
-                $colIndex++;
             }
         }
 

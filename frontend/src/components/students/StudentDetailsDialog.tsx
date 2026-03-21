@@ -1,20 +1,22 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { 
+  Users, 
   User,
-  Hash,
   Calendar,
   Phone,
+  Mail,
   MapPin,
+  FileText,
   Edit,
   BookOpen,
   UserPlus,
   GraduationCap,
-  CalendarDays,
-  X,
+  Star,
+  Clock,
+  Award
 } from 'lucide-react';
 import { Student } from '@/services/students';
 import { format } from 'date-fns';
@@ -32,22 +34,6 @@ interface StudentDetailsDialogProps {
   getGradeLevelText: (level?: number) => string;
 }
 
-const InfoRow: React.FC<{ icon: React.ReactNode; label: string; value?: string | null }> = ({
-  icon,
-  label,
-  value,
-}) => (
-  <div className="flex items-start gap-3 py-2">
-    <div className="mt-0.5 text-muted-foreground">{icon}</div>
-    <div className="flex-1 min-w-0">
-      <p className="text-xs text-muted-foreground mb-0.5">{label}</p>
-      <p className="text-sm font-medium text-foreground truncate">
-        {value || 'Məlumat yoxdur'}
-      </p>
-    </div>
-  </div>
-);
-
 export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
   student,
   isOpen,
@@ -57,152 +43,270 @@ export const StudentDetailsDialog: React.FC<StudentDetailsDialogProps> = ({
   getStatusText,
   getStatusColor,
   getGenderText,
-  getGradeLevelText,
+  getGradeLevelText
 }) => {
   if (!student) return null;
 
-  const fullName = [student.first_name, student.last_name].filter(Boolean).join(' ') || 'İsimsiz Şagird';
-
-  const className = student.grade?.name
-    ? `${student.grade.class_level}-${student.grade.name}`
-    : student.current_class?.name
-    ? `${student.current_class.grade_level ?? ''}-${student.current_class.name}`.replace(/^-/, '')
-    : student.class_name || null;
-
-  const formattedBirthDate = student.date_of_birth
-    ? (() => { try { return format(new Date(student.date_of_birth), 'dd MMMM yyyy', { locale: az }); } catch { return String(student.date_of_birth); } })()
-    : null;
-
-  const formattedEnrollDate = student.enrollment_date
-    ? (() => { try { return format(new Date(student.enrollment_date), 'dd MMMM yyyy', { locale: az }); } catch { return String(student.enrollment_date); } })()
-    : null;
-
-  const genderLabel: Record<string, string> = { male: 'Kişi', female: 'Qadın', other: 'Digər' };
-  const genderText = student.gender ? (genderLabel[student.gender] ?? getGenderText(student.gender)) : null;
-
-  const status = student.enrollment_status || student.status;
-
   return (
-    <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="max-w-2xl max-h-[90vh] p-0 overflow-hidden">
-        {/* Header */}
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center ring-2 ring-blue-50 shrink-0">
-              <GraduationCap className="h-6 w-6 text-blue-600" />
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="max-w-4xl">
+        <DialogHeader>
+          <DialogTitle>
+            {student.first_name} {student.last_name} - Ətraflı məlumat
+          </DialogTitle>
+        </DialogHeader>
+        <div className="space-y-6">
+          {/* Basic Info */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Ad və Soyad</label>
+              <p className="text-foreground">{student.first_name} {student.last_name}</p>
             </div>
-            <div className="flex-1 min-w-0">
-              <DialogTitle className="text-lg font-semibold truncate">{fullName}</DialogTitle>
-              <div className="flex items-center gap-2 mt-1 flex-wrap">
-                {student.student_number && (
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <Hash className="h-3 w-3" />
-                    UTİS: {student.student_number}
-                  </span>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Şagird ID</label>
+              <p className="text-foreground">{student.student_id || 'Təyin edilməyib'}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Cins</label>
+              <p className="text-foreground">{getGenderText(student.gender)}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Status</label>
+              <div>
+                <Badge variant={getStatusColor(student.enrollment_status)}>
+                  {getStatusText(student.enrollment_status)}
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Email</label>
+              <div className="flex items-center gap-2">
+                <Mail className="h-4 w-4 text-muted-foreground" />
+                <p className="text-foreground">{student.email || 'Təyin edilməyib'}</p>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Telefon</label>
+              <div className="flex items-center gap-2">
+                <Phone className="h-4 w-4 text-muted-foreground" />
+                <p className="text-foreground">{student.phone || 'Təyin edilməyib'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Academic Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Cari sinif</label>
+              <div className="space-y-2">
+                {student.current_class ? (
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-blue-500" />
+                    <span className="text-lg font-bold">{student.current_class.name}</span>
+                    <Badge variant="outline">
+                      {getGradeLevelText(student.current_class.grade_level)}
+                    </Badge>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">Sinifə təyin edilməyib</p>
                 )}
-                {status && (
-                  <Badge variant={getStatusColor(status) as any} className="text-xs">
-                    {getStatusText(status)}
-                  </Badge>
+              </div>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Səviyyə</label>
+              <div className="space-y-2">
+                {student.grade_level ? (
+                  <div className="flex items-center gap-2">
+                    <GraduationCap className="h-5 w-5 text-green-500" />
+                    <span className="text-lg font-bold">{getGradeLevelText(student.grade_level)}</span>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">Təyin edilməyib</p>
                 )}
               </div>
             </div>
           </div>
-          <DialogDescription className="sr-only">
-            {fullName} haqqında ətraflı məlumat
-          </DialogDescription>
-        </DialogHeader>
 
-        {/* Body */}
-        <div className="px-6 py-4 overflow-y-auto max-h-[60vh]">
-          <Card className="border shadow-sm">
-            <CardHeader className="pb-2 pt-4 px-4">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2 text-muted-foreground uppercase tracking-wide">
-                <User className="h-4 w-4" />
-                Şəxsi Məlumatlar
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="px-4 pb-4 divide-y divide-border/50">
-              <div className="grid grid-cols-1 sm:grid-cols-2">
-                <InfoRow
-                  icon={<User className="h-4 w-4" />}
-                  label="Ad"
-                  value={student.first_name}
-                />
-                <InfoRow
-                  icon={<User className="h-4 w-4" />}
-                  label="Soyad"
-                  value={student.last_name}
-                />
+          {/* Academic Performance */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Orta bal (GPA)</label>
+              <div className="space-y-2">
+                {student.gpa ? (
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 text-yellow-500" />
+                    <span className="text-lg font-bold">{student.gpa.toFixed(2)}</span>
+                    <Badge 
+                      variant={student.gpa >= 4.0 ? 'default' : student.gpa >= 3.0 ? 'secondary' : 'destructive'}
+                    >
+                      {student.gpa >= 4.0 ? 'Əla' : student.gpa >= 3.0 ? 'Yaxşı' : 'Zəif'}
+                    </Badge>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">Qiymətləndirilməyib</p>
+                )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2">
-                <InfoRow
-                  icon={<Hash className="h-4 w-4" />}
-                  label="UTİS Kod"
-                  value={student.student_number || student.student_id}
-                />
-                <InfoRow
-                  icon={<Phone className="h-4 w-4" />}
-                  label="Əlaqə nömrəsi"
-                  value={student.phone}
-                />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Davamiyyət nisbəti</label>
+              <div className="space-y-2">
+                {student.attendance_rate ? (
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5 text-blue-500" />
+                    <span className="text-lg font-bold">{student.attendance_rate}%</span>
+                    <Badge 
+                      variant={student.attendance_rate >= 90 ? 'default' : student.attendance_rate >= 75 ? 'secondary' : 'destructive'}
+                    >
+                      {student.attendance_rate >= 90 ? 'Yaxşı' : student.attendance_rate >= 75 ? 'Orta' : 'Zəif'}
+                    </Badge>
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">Məlumat yoxdur</p>
+                )}
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2">
-                <InfoRow
-                  icon={<Calendar className="h-4 w-4" />}
-                  label="Doğum Tarixi"
-                  value={formattedBirthDate}
-                />
-                <InfoRow
-                  icon={<User className="h-4 w-4" />}
-                  label="Cins"
-                  value={genderText}
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2">
-                <InfoRow
-                  icon={<CalendarDays className="h-4 w-4" />}
-                  label="Qeydiyyat Tarixi"
-                  value={formattedEnrollDate}
-                />
-                <InfoRow
-                  icon={<GraduationCap className="h-4 w-4" />}
-                  label="Sinif"
-                  value={className}
-                />
-              </div>
-              <InfoRow
-                icon={<MapPin className="h-4 w-4" />}
-                label="Ünvan"
-                value={student.address}
-              />
-            </CardContent>
-          </Card>
-        </div>
+            </div>
+          </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 bg-gray-50 border-t flex items-center justify-between gap-2">
-          <Button variant="outline" size="sm" onClick={onClose}>
-            <X className="h-4 w-4 mr-1" />
-            Bağla
-          </Button>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm">
-              <BookOpen className="h-4 w-4 mr-1" />
+          {/* Personal Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Doğum tarixi</label>
+              <p className="text-foreground">
+                {student.date_of_birth 
+                  ? format(new Date(student.date_of_birth), 'dd MMMM yyyy', { locale: az })
+                  : 'Məlumat yoxdur'
+                }
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Ünvan</label>
+              <div className="flex items-center gap-2">
+                <MapPin className="h-4 w-4 text-muted-foreground" />
+                <p className="text-foreground">{student.address || 'Təyin edilməyib'}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Guardian Information */}
+          <div>
+            <label className="text-sm font-medium text-muted-foreground">Valideyn məlumatları</label>
+            <div className="mt-2 grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-xs text-muted-foreground">Ad</div>
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-foreground">{student.guardian_name || 'Təyin edilməyib'}</p>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground">Telefon</div>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <p className="text-foreground">{student.guardian_phone || 'Təyin edilməyib'}</p>
+                </div>
+              </div>
+              {student.guardian_email && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Email</div>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <p className="text-foreground">{student.guardian_email}</p>
+                  </div>
+                </div>
+              )}
+              {student.guardian_relation && (
+                <div>
+                  <div className="text-xs text-muted-foreground">Qohumluq</div>
+                  <p className="text-foreground">{student.guardian_relation}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Enrollment Information */}
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Qeydiyyat tarixi</label>
+              <p className="text-foreground">
+                {student.enrollment_date 
+                  ? format(new Date(student.enrollment_date), 'dd MMMM yyyy', { locale: az })
+                  : 'Məlumat yoxdur'
+                }
+              </p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Son yeniləmə</label>
+              <p className="text-foreground">
+                {student.updated_at 
+                  ? format(new Date(student.updated_at), 'dd MMMM yyyy', { locale: az })
+                  : 'Məlumat yoxdur'
+                }
+              </p>
+            </div>
+          </div>
+
+          {/* Medical Information */}
+          {(student.medical_conditions || student.allergies || student.emergency_contact) && (
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Tibbi məlumatlar</label>
+              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-4">
+                {student.medical_conditions && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Tibbi vəziyyət</div>
+                    <p className="text-foreground">{student.medical_conditions}</p>
+                  </div>
+                )}
+                {student.allergies && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Allergiyalar</div>
+                    <p className="text-foreground">{student.allergies}</p>
+                  </div>
+                )}
+                {student.emergency_contact && (
+                  <div>
+                    <div className="text-xs text-muted-foreground">Təcili əlaqə</div>
+                    <p className="text-foreground">{student.emergency_contact}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Special Notes */}
+          {student.notes && (
+            <div>
+              <label className="text-sm font-medium text-muted-foreground">Qeydlər</label>
+              <div className="mt-1 p-3 bg-muted/30 rounded-lg">
+                <p className="text-foreground">{student.notes}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button variant="outline" onClick={onClose}>
+              Bağla
+            </Button>
+            <Button variant="outline">
+              <BookOpen className="h-4 w-4 mr-2" />
               Qiymətlər
             </Button>
-            <Button variant="outline" size="sm">
-              <Calendar className="h-4 w-4 mr-1" />
+            <Button variant="outline">
+              <Calendar className="h-4 w-4 mr-2" />
               Davamiyyət
             </Button>
-            {status !== 'active' && (
-              <Button variant="outline" size="sm" onClick={() => onEnroll(student)}>
-                <UserPlus className="h-4 w-4 mr-1" />
+            {student.enrollment_status !== 'active' && (
+              <Button variant="outline" onClick={() => onEnroll(student)}>
+                <UserPlus className="h-4 w-4 mr-2" />
                 Sinifə yaz
               </Button>
             )}
-            <Button size="sm" onClick={() => onEdit(student)}>
-              <Edit className="h-4 w-4 mr-1" />
+            <Button onClick={() => onEdit(student)}>
+              <Edit className="h-4 w-4 mr-2" />
               Redaktə et
             </Button>
           </div>
