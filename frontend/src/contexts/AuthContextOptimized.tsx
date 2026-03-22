@@ -508,6 +508,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       toast({
         title: 'Uğurlu giriş',
         description: `Xoş gəlmisiniz, ${mappedUser.name}!`,
+        duration: 2000,
       });
 
       return true;
