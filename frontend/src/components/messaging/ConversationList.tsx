@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { az } from 'date-fns/locale';
-import { Search, ArrowDownLeft, ArrowUpRight, MessageSquare } from 'lucide-react';
+import { Search, ArrowDownLeft, ArrowUpRight, MessageSquare, Check, CheckCheck, Inbox, Send, ListFilter } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useDebounce } from '@/hooks/useDebounce';
-import { useInbox, useSent } from '@/hooks/messages/useMessages';
+import { useInbox, useSent, useUnreadCount } from '@/hooks/messages/useMessages';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 import type { Message, MessageTab } from '@/types/message';
 
 interface ConversationListProps {
@@ -64,36 +65,43 @@ function ConversationItem({
     ? message.recipients.filter((r) => r.is_read).length
     : 0;
   const totalCount = !isInbox ? (message.recipients?.length ?? 0) : 0;
+  const allRead = readCount === totalCount && totalCount > 0;
 
   return (
     <motion.button
       layout
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.2 }}
       type="button"
       onClick={onClick}
       className={cn(
-        'w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-muted/60',
-        isSelected && 'bg-primary/5 dark:bg-primary/10'
+        'w-full flex items-center gap-3 px-4 py-3 text-left transition-all duration-200',
+        'hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-transparent',
+        'border-l-2',
+        isSelected 
+          ? 'bg-gradient-to-r from-blue-50 to-transparent border-l-blue-500 shadow-sm' 
+          : 'border-l-transparent hover:border-l-blue-300',
+        isUnread && 'bg-gradient-to-r from-blue-50/80 to-transparent'
       )}
     >
-      {/* Avatar with direction badge */}
+      {/* Modern Avatar with online indicator */}
       <div className="relative flex-shrink-0">
         <div className={cn(
-          "h-9 w-9 rounded-full flex items-center justify-center text-xs font-semibold shadow-sm border",
-          isInbox
-            ? "bg-primary/10 text-primary border-primary/15"
-            : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/15"
+          "h-11 w-11 rounded-xl flex items-center justify-center text-sm font-bold shadow-md",
+          "bg-gradient-to-br from-[#0059E1] to-[#003d99] text-white",
+          isSelected && "ring-2 ring-blue-300 ring-offset-1"
         )}>
           {getInitials(displayName)}
         </div>
-        {/* Direction icon badge */}
+        {/* Online indicator */}
+        <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-white shadow-sm" />
+        {/* Direction badge */}
         <span className={cn(
-          "absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full flex items-center justify-center ring-2 ring-background",
+          "absolute -top-1 -right-1 h-4 w-4 rounded-full flex items-center justify-center shadow-sm",
           isInbox
-            ? "bg-primary text-primary-foreground"
+            ? "bg-blue-500 text-white"
             : "bg-emerald-500 text-white"
         )}>
           {isInbox
@@ -103,37 +111,44 @@ function ConversationItem({
         </span>
       </div>
 
-      {/* Content */}
+      {/* Modern Content Layout */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-1">
+        <div className="flex items-center justify-between gap-2">
           <span
             className={cn(
-              'text-sm truncate',
-              isUnread ? 'font-semibold text-foreground' : 'text-foreground/80'
+              'text-sm truncate font-medium',
+              isUnread ? 'text-gray-900 font-semibold' : 'text-gray-700'
             )}
           >
             {displayName}
           </span>
-          <span className="text-[10px] text-muted-foreground flex-shrink-0">
+          <span className="text-[10px] text-gray-400 flex-shrink-0 font-medium">
             {formatShortTime(message.created_at)}
           </span>
         </div>
-        <div className="flex items-center justify-between gap-1 mt-0.5">
-          <p className="text-xs text-muted-foreground truncate max-w-[160px]">
-            {!isInbox && <span className="font-medium">Siz: </span>}
-            {message.body.slice(0, 50)}
-            {message.body.length > 50 ? '…' : ''}
+        <div className="flex items-center justify-between gap-2 mt-1">
+          <p className={cn(
+            "text-xs truncate max-w-[140px]",
+            isUnread ? 'text-gray-700 font-medium' : 'text-gray-500'
+          )}>
+            {!isInbox && <span className="text-gray-400">Siz: </span>}
+            {message.body.slice(0, 45)}
+            {message.body.length > 45 ? '…' : ''}
           </p>
-          {isUnread && (
-            <Badge variant="default" className="h-4 min-w-4 px-1 text-[10px] flex-shrink-0 animate-pulse">
-              Yeni
-            </Badge>
-          )}
-          {!isInbox && totalCount > 0 && (
-            <span className="text-[10px] text-muted-foreground flex-shrink-0">
-              {readCount}/{totalCount} oxuyub
-            </span>
-          )}
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            {isUnread && (
+              <span className="h-2 w-2 rounded-full bg-blue-500 animate-pulse" />
+            )}
+            {!isInbox && totalCount > 0 && (
+              <span className={cn(
+                "text-[10px] flex items-center gap-0.5 font-medium",
+                allRead ? "text-emerald-500" : "text-gray-400"
+              )}>
+                {allRead ? <CheckCheck className="h-3 w-3" /> : <Check className="h-3 w-3" />}
+                {readCount}/{totalCount}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </motion.button>
@@ -160,10 +175,12 @@ function CombinedList({
   selectedId,
   onSelect,
   searchTerm,
+  filterTab,
 }: {
   selectedId: number | null;
   onSelect: (id: number) => void;
   searchTerm: string;
+  filterTab: 'all' | 'inbox' | 'sent';
 }) {
   const {
     data: inboxData,
@@ -182,19 +199,27 @@ function CombinedList({
   } = useSent(searchTerm, true);
 
   const combined: TaggedMessage[] = useMemo(() => {
-    const inbox = (inboxData?.pages.flatMap((p) => p.data) ?? []).map(
-      (m): TaggedMessage => ({ message: m, isInbox: true })
-    );
-    const sent = (sentData?.pages.flatMap((p) => p.data) ?? []).map(
-      (m): TaggedMessage => ({ message: m, isInbox: false })
-    );
+    let inbox: TaggedMessage[] = [];
+    let sent: TaggedMessage[] = [];
+
+    if (filterTab === 'all' || filterTab === 'inbox') {
+      inbox = (inboxData?.pages.flatMap((p) => p.data) ?? []).map(
+        (m): TaggedMessage => ({ message: m, isInbox: true })
+      );
+    }
+
+    if (filterTab === 'all' || filterTab === 'sent') {
+      sent = (sentData?.pages.flatMap((p) => p.data) ?? []).map(
+        (m): TaggedMessage => ({ message: m, isInbox: false })
+      );
+    }
 
     return [...inbox, ...sent].sort(
       (a, b) =>
         new Date(b.message.created_at).getTime() -
         new Date(a.message.created_at).getTime()
     );
-  }, [inboxData, sentData]);
+  }, [inboxData, sentData, filterTab]);
 
   const isLoading = inboxLoading || sentLoading;
   if (isLoading) return <ListSkeleton />;
@@ -204,13 +229,20 @@ function CombinedList({
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-center justify-center py-16 gap-3 text-center px-4"
+        className="flex flex-col items-center justify-center py-20 gap-4 text-center px-6"
       >
-        <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-1">
-          <MessageSquare className="h-6 w-6 text-muted-foreground/50" />
+        <div className="relative">
+          <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-50 flex items-center justify-center shadow-lg">
+            <MessageSquare className="h-8 w-8 text-blue-500" />
+          </div>
+          <div className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-white shadow-md flex items-center justify-center">
+            <span className="text-lg">💬</span>
+          </div>
         </div>
-        <p className="text-sm font-medium text-muted-foreground">Mesaj yoxdur</p>
-        <p className="text-xs text-muted-foreground/70">Yeni mesajlar burada görünəcək.</p>
+        <div className="space-y-1">
+          <p className="text-sm font-semibold text-gray-700">Mesaj yoxdur</p>
+          <p className="text-xs text-gray-400 max-w-[200px]">Yeni mesajlar burada görünəcək. İlk mesajınızı göndərək!</p>
+        </div>
       </motion.div>
     );
   }
@@ -266,45 +298,115 @@ export function ConversationList({
   onSelect,
 }: ConversationListProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterTab, setFilterTab] = useState<'all' | 'inbox' | 'sent'>('all');
   const debouncedSearch = useDebounce(searchTerm, 200);
+  const { isEchoConnected } = useWebSocket();
+  const { data: unreadData } = useUnreadCount(isEchoConnected);
+  const unreadCount = unreadData?.count ?? 0;
+
+  // Get counts for filter buttons
+  const { data: inboxData } = useInbox('', true);
+  const { data: sentData } = useSent('', true);
+  
+  const inboxCount = inboxData?.pages?.[0]?.data?.length ?? 0;
+  const sentCount = sentData?.pages?.[0]?.data?.length ?? 0;
+  const allCount = inboxCount + sentCount;
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Search bar */}
-      <div className="px-2 pt-2 pb-1 flex-shrink-0">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+    <div className="flex flex-col h-full bg-gradient-to-b from-white to-gray-50/50">
+      {/* Modern Search bar */}
+      <div className="px-3 pt-3 pb-2 flex-shrink-0">
+        <div className="relative group">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
           <Input
-            placeholder="Axtar..."
-            className="pl-8 h-8 text-xs"
+            placeholder="Mesaj axtar..."
+            className="pl-10 h-10 text-sm bg-white border-gray-200 rounded-xl shadow-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="px-3 py-1.5 flex items-center gap-4 flex-shrink-0 border-b border-border/30">
-        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="h-3.5 w-3.5 rounded-full bg-primary flex items-center justify-center ring-1 ring-background">
-            <ArrowDownLeft className="h-2 w-2 text-primary-foreground" />
-          </span>
-          Gələn
-        </span>
-        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <span className="h-3.5 w-3.5 rounded-full bg-emerald-500 flex items-center justify-center ring-1 ring-background">
-            <ArrowUpRight className="h-2 w-2 text-white" />
-          </span>
-          Gedən
-        </span>
+      {/* Filter Buttons - Modern Segmented Control */}
+      <div className="px-3 py-2 flex-shrink-0">
+        <div className="overflow-x-auto">
+          <div className="flex items-center gap-1 p-1 bg-gray-100 rounded-xl min-w-max">
+          {/* Hamısı */}
+          <button
+            onClick={() => setFilterTab('all')}
+            className={cn(
+              "flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap",
+              filterTab === 'all'
+                ? "bg-white text-gray-900 shadow-sm"
+                : "text-gray-500 hover:text-gray-700 hover:bg-gray-200/50"
+            )}
+          >
+            <ListFilter className="h-3.5 w-3.5" />
+            <span>Hamısı</span>
+            {allCount > 0 && (
+              <span className={cn(
+                "hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
+                filterTab === 'all' ? "bg-gray-100 text-gray-600" : "bg-gray-200 text-gray-500"
+              )}>
+                {allCount}
+              </span>
+            )}
+          </button>
+
+          {/* Gələn */}
+          <button
+            onClick={() => setFilterTab('inbox')}
+            className={cn(
+              "flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap",
+              filterTab === 'inbox'
+                ? "bg-blue-500 text-white shadow-sm"
+                : "text-gray-500 hover:text-blue-600 hover:bg-blue-50/50"
+            )}
+          >
+            <ArrowDownLeft className="h-3.5 w-3.5" />
+            <span>Gələn</span>
+            {inboxCount > 0 && (
+              <span className={cn(
+                "hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
+                filterTab === 'inbox' ? "bg-blue-400 text-white" : "bg-blue-100 text-blue-600"
+              )}>
+                {unreadCount > 0 ? `${unreadCount}/${inboxCount}` : inboxCount}
+              </span>
+            )}
+          </button>
+
+          {/* Gedən */}
+          <button
+            onClick={() => setFilterTab('sent')}
+            className={cn(
+              "flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium transition-all duration-200 whitespace-nowrap",
+              filterTab === 'sent'
+                ? "bg-emerald-500 text-white shadow-sm"
+                : "text-gray-500 hover:text-emerald-600 hover:bg-emerald-50/50"
+            )}
+          >
+            <ArrowUpRight className="h-3.5 w-3.5" />
+            <span>Gedən</span>
+            {sentCount > 0 && (
+              <span className={cn(
+                "hidden sm:inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-semibold",
+                filterTab === 'sent' ? "bg-emerald-400 text-white" : "bg-emerald-100 text-emerald-600"
+              )}>
+                {sentCount}
+              </span>
+            )}
+          </button>
+          </div>
+        </div>
       </div>
 
-      {/* Combined scrollable list */}
-      <div className="flex-1 overflow-y-auto">
+      {/* Combined scrollable list with padding */}
+      <div className="flex-1 overflow-y-auto px-2 py-2">
         <CombinedList
           selectedId={selectedId}
           onSelect={onSelect}
           searchTerm={debouncedSearch}
+          filterTab={filterTab}
         />
       </div>
     </div>

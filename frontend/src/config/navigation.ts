@@ -53,7 +53,7 @@ export interface MenuItem {
   permissions?: string[];
   permissionMatch?: "any" | "all";
   /** Sidebar badge key — maps to unread notification count category */
-  badgeKey?: 'tasks' | 'tasks_assigned' | 'surveys' | 'documents' | 'report_tables' | 'attendance';
+  badgeKey?: 'tasks' | 'tasks_assigned' | 'surveys' | 'documents' | 'report_tables' | 'attendance' | 'messages';
 }
 
 export interface MenuGroup {

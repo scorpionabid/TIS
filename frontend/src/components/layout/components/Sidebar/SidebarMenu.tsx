@@ -17,6 +17,7 @@ interface SidebarMenuProps {
 // Hər bölməyə rəngli sol kənar + başlıq rəngi
 const GROUP_STYLES: Record<string, { border: string; label: string; dot: string }> = {
   'dashboard':           { border: 'border-l-blue-400',    label: 'text-blue-500',    dot: 'bg-blue-400' },
+  'messages':            { border: 'border-l-indigo-400',  label: 'text-indigo-500',  dot: 'bg-indigo-400' },
   'academic-tracking':   { border: 'border-l-violet-400',  label: 'text-violet-500',  dot: 'bg-violet-400' },
   'content':             { border: 'border-l-amber-500',   label: 'text-amber-600',   dot: 'bg-amber-400' },
   'education-rating':    { border: 'border-l-emerald-400', label: 'text-emerald-600', dot: 'bg-emerald-400' },

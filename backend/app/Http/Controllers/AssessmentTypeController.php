@@ -189,6 +189,14 @@ class AssessmentTypeController extends Controller
     {
         $user = Auth::user();
 
+        // Block editing name/category of system types
+        if ($assessmentType->is_system && ($request->has('name') || $request->has('category'))) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sistem qiymətləndirmə növlərinin adı və kateqoriyası dəyişdirilə bilməz',
+            ], 422);
+        }
+
         // Check if user can edit this assessment type
         if (! $assessmentType->canBeEditedBy($user)) {
             return response()->json([
@@ -268,6 +276,14 @@ class AssessmentTypeController extends Controller
     public function destroy(AssessmentType $assessmentType): JsonResponse
     {
         $user = Auth::user();
+
+        // Block deletion of system assessment types
+        if ($assessmentType->is_system) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Sistem qiymətləndirmə növləri silinə bilməz (BSQ, KSQ, Buraxılış, Diaqnostik, Monitorinq, Milli)',
+            ], 422);
+        }
 
         // Check if user can delete this assessment type
         if (! $assessmentType->canBeEditedBy($user)) {

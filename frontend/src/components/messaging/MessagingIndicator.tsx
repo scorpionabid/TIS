@@ -1,7 +1,6 @@
-import { MessageSquare } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { ModernMessageIcon } from '@/components/icons/ModernMessageIcon';
 import { useUnreadCount, useInbox } from '@/hooks/messages/useMessages';
 import { useWebSocket } from '@/contexts/WebSocketContext';
 import { cn } from '@/lib/utils';
@@ -14,11 +13,16 @@ export function MessagingIndicator({ onClick }: MessagingIndicatorProps) {
   const { isEchoConnected } = useWebSocket();
   // WebSocket aktiv olduqda polling lazım deyil — cache invalidation real-time gəlir
   const { data: unreadData } = useUnreadCount(isEchoConnected);
-  const unreadCount = unreadData?.count ?? 0;
+
+  const { data: inboxData } = useInbox('', true);
+  const inboxItems = inboxData?.pages?.flatMap((p) => p.data) ?? [];
+  const computedUnreadCount = inboxItems.filter((m) => m.is_read === false).length;
+
+  // Prefer computed unread count to avoid showing a constant "1" when there are no unread messages.
+  const unreadCount = computedUnreadCount > 0 ? computedUnreadCount : (unreadData?.count ?? 0);
 
   // Ən son gələn mesajı göstərmək üçün
-  const { data: inboxData } = useInbox('', true);
-  const latestMessage = inboxData?.pages?.[0]?.data?.[0];
+  const latestMessage = inboxItems?.[0];
 
   return (
     <Button
@@ -26,7 +30,12 @@ export function MessagingIndicator({ onClick }: MessagingIndicatorProps) {
       onClick={onClick}
       className="relative flex items-center gap-2.5 h-10 px-3 xl:px-4 text-sm font-normal text-muted-foreground hover:text-foreground hover:bg-muted/60 border-border/60 xl:min-w-[240px] xl:max-w-[280px] xl:justify-start transition-all"
     >
-      <MessageSquare className="h-4 w-4 flex-shrink-0" />
+      <ModernMessageIcon 
+        size={20} 
+        unreadCount={unreadCount} 
+        animated={true}
+        className="flex-shrink-0"
+      />
       
       <div className="hidden xl:flex flex-col items-start overflow-hidden flex-1 truncate">
         <span className="text-[12px] font-medium leading-none mb-1.5 text-foreground">Mesajlar</span>
@@ -45,25 +54,6 @@ export function MessagingIndicator({ onClick }: MessagingIndicatorProps) {
            </span>
         )}
       </div>
-
-      <AnimatePresence>
-        {unreadCount > 0 && (
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: [0, 1.2, 1] }}
-            exit={{ scale: 0 }}
-            transition={{ type: "spring", stiffness: 400, damping: 10 }}
-            className="absolute -top-1.5 -right-1.5 xl:static xl:ml-auto flex-shrink-0"
-          >
-            <Badge
-              variant="destructive"
-              className="h-4 min-w-4 px-1 text-[10px] font-medium flex items-center justify-center shadow-sm shadow-destructive/30"
-            >
-              {unreadCount > 99 ? '99+' : unreadCount}
-            </Badge>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </Button>
   );
 }

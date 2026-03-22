@@ -81,6 +81,7 @@ export function AddColumnModal({
     }
     if (category === 'monitoring') return 'Monitorinq';
     if (category === 'diagnostic') return 'Diaqnostik';
+    if (category === 'national') return 'Milli';
 
     if (lowerName.includes('burax')) return 'Buraxılış';
     if (lowerName.includes('monitor')) return 'Monitorinq';
@@ -104,18 +105,6 @@ export function AddColumnModal({
       default: return tag;
     }
   };
-
-  // Hardcoded assessment types - these 6 always appear
-  const hardcodedAssessmentTypes = [
-    { id: 'ksq', name: 'Kiçik Summativ Qiymətləndirmə', __tag: 'KSQ', category: 'ksq' },
-    { id: 'bsq', name: 'Böyük Summativ Qiymətləndirmə', __tag: 'BSQ', category: 'bsq' },
-    { id: 'monitoring', name: 'Monitorinq', __tag: 'Monitorinq', category: 'monitoring' },
-    { id: 'diagnostic', name: 'Diaqnostik', __tag: 'Diaqnostik', category: 'diagnostic' },
-    { id: 'buraxilis', name: 'Buraxılış imtahanı', __tag: 'Buraxılış', category: 'bsq' },
-    { id: 'milli', name: 'Milli', __tag: 'Milli', category: 'custom' },
-  ];
-
-  const gradeBookAssessmentTypes = hardcodedAssessmentTypes;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,8 +151,8 @@ export function AddColumnModal({
         assessment_date: new Date().toISOString().split('T')[0],
         max_score: 100,
       });
-    } catch (error) {
-      const err: any = error;
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { message?: string; errors?: Record<string, string[]> } }; message?: string };
       const errorMessage =
         err?.response?.data?.message ||
         err?.message ||
@@ -186,7 +175,7 @@ export function AddColumnModal({
 
   // Auto-suggest column label based on assessment type and semester
   const suggestColumnLabel = (assessmentTypeId: string, semester: 'I' | 'II') => {
-    const selectedType = gradeBookAssessmentTypes.find(t => String(t.id) === assessmentTypeId);
+    const selectedType = assessmentTypes.find(t => String(t.id) === assessmentTypeId);
     if (!selectedType) return '';
 
     const category = (selectedType.category || '').toLowerCase();
@@ -281,9 +270,9 @@ export function AddColumnModal({
                 <SelectValue placeholder="İmtahan növü seçin" />
               </SelectTrigger>
               <SelectContent>
-                {gradeBookAssessmentTypes.map((type: any) => (
+                {assessmentTypes.map((type) => (
                   <SelectItem key={type.id} value={String(type.id)}>
-                    {getFullDisplayName(type.__tag)}
+                    {getFullDisplayName(getAssessmentTypeTag(type))}
                   </SelectItem>
                 ))}
               </SelectContent>

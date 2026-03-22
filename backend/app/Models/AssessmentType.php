@@ -18,6 +18,7 @@ class AssessmentType extends Model
         'description',
         'category',
         'is_active',
+        'is_system',
         'criteria',
         'max_score',
         'scoring_method',

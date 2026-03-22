@@ -4,7 +4,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { surveyService } from "@/services/surveys";
-import { MessagingIndicator, MessagingPanel } from "@/components/messaging";
 
 interface DashboardHeaderProps {
   title: string;
@@ -44,7 +43,6 @@ export const DashboardHeader = ({
 }: DashboardHeaderProps) => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
-  const [messagingOpen, setMessagingOpen] = useState(false);
   const [surveyNotifications, setSurveyNotifications] = useState<SurveyNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -265,9 +263,6 @@ export const DashboardHeader = ({
 
         {/* Actions Section */}
         <div className="flex items-center space-x-1 sm:space-x-2 lg:space-x-3 flex-shrink-0">
-          {/* Messaging Indicator - Replaces search */}
-          <MessagingIndicator onClick={() => setMessagingOpen(true)} />
-
           {/* Notifications */}
           <div className="relative">
             <NotificationDropdown
@@ -292,9 +287,6 @@ export const DashboardHeader = ({
           )}
         </div>
       </div>
-
-      {/* Messaging Panel — portal-rendered Sheet, flex layout-dan kənar */}
-      <MessagingPanel open={messagingOpen} onClose={() => setMessagingOpen(false)} />
     </>
   );
 };

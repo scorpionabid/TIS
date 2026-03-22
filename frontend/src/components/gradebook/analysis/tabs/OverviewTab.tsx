@@ -40,9 +40,10 @@ interface OverviewData {
 
 const COLORS = ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444'];
 
-export function OverviewTab({ filters, loading, setLoading }: OverviewTabProps) {
+export function OverviewTab({ filters }: Pick<OverviewTabProps, 'filters'>) {
   const { toast } = useToast();
   const [data, setData] = useState<OverviewData | null>(null);
+  const [localLoading, setLocalLoading] = useState(false);
 
   useEffect(() => {
     loadOverviewData();
@@ -50,37 +51,48 @@ export function OverviewTab({ filters, loading, setLoading }: OverviewTabProps) 
 
   const loadOverviewData = async () => {
     try {
-      setLoading(true);
-      
-      // Build params from filters
-      const params: any = {};
-      if (filters.institution_id) params.institution_id = filters.institution_id;
-      if (filters.academic_year_id) params.academic_year_id = filters.academic_year_id;
-      if (filters.grade_id) params.grade_id = filters.grade_id;
-      if (filters.subject_id) params.subject_id = filters.subject_id;
-      if (filters.status && filters.status !== 'all') params.status = filters.status;
-      
-      // Get real overview data from API
-      const result = await gradeBookService.getOverviewStats(params);
-      
+      setLocalLoading(true);
+
+      const params: Record<string, number | string | number[] | string[]> = {};
+      if (filters.institution_id)                    params.institution_id    = filters.institution_id;
+      if (filters.academic_year_ids?.length)         params.academic_year_ids = filters.academic_year_ids;
+      if (filters.subject_ids?.length)               params.subject_ids       = filters.subject_ids;
+      if (filters.grade_ids?.length)                 params.grade_ids         = filters.grade_ids;
+      if (filters.sector_ids?.length)                params.sector_ids        = filters.sector_ids;
+      if (filters.school_ids?.length)                params.school_ids        = filters.school_ids;
+      if (filters.class_levels?.length)              params.class_levels      = filters.class_levels;
+      if (filters.teaching_languages?.length)        params.teaching_languages = filters.teaching_languages;
+      if (filters.gender)                            params.gender            = filters.gender;
+      if (filters.status && filters.status !== 'all') params.status           = filters.status;
+
+      const result = await gradeBookService.getOverviewStats(params as Parameters<typeof gradeBookService.getOverviewStats>[0]);
+
       if (result.success && result.data) {
         setData(result.data);
       } else {
         throw new Error('Failed to load overview data');
       }
-    } catch (error: any) {
+    } catch {
       toast({
         title: 'Xəta',
         description: 'Statistikalar yüklənərkən xəta baş verdi',
         variant: 'destructive',
       });
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
 
-  if (loading || !data) {
+  if (localLoading) {
     return <OverviewSkeleton />;
+  }
+
+  if (!data || data.totalJournals === 0) {
+    return (
+      <div className="flex items-center justify-center h-48 text-slate-500 text-sm">
+        Seçilmiş filtrlər üzrə məlumat tapılmadı.
+      </div>
+    );
   }
 
   return (
@@ -91,8 +103,7 @@ export function OverviewTab({ filters, loading, setLoading }: OverviewTabProps) 
           title="Şagirdlər"
           value={data.totalStudents}
           icon={<Users className="w-5 h-5" />}
-          trend="+12%"
-          trendUp={true}
+          subValue="Aktiv şagird"
         />
         <KpiCard
           title="Jurnallar"
@@ -104,24 +115,22 @@ export function OverviewTab({ filters, loading, setLoading }: OverviewTabProps) 
           title="İmtahanlar"
           value={data.examCount}
           icon={<Target className="w-5 h-5" />}
-          trend="Bu ay +8"
-          trendUp={true}
+          subValue="Ümumi sütun"
         />
         <KpiCard
-          title="Tamamlanma"
-          value={`${data.completionRate}%`}
+          title="Aktiv jurnallar"
+          value={`${data.activeJournals}`}
           icon={<Calendar className="w-5 h-5" />}
-          subValue="Tədris ili"
+          subValue={`${data.archivedJournals} arxiv`}
         />
         <KpiCard
           title="Ortalama Bal"
           value={data.averageScore?.toFixed(1) || '0.0'}
           icon={<TrendingUp className="w-5 h-5" />}
-          trend="+2.1%"
-          trendUp={true}
+          subValue="Bütün imtahanlar"
         />
         <KpiCard
-          title="Ən Yüksək"
+          title="Ən Yüksək Bal"
           value={data.highestScore?.toFixed(1) || '0.0'}
           icon={<Award className="w-5 h-5" />}
           subValue="Maksimum"
@@ -198,32 +207,41 @@ export function OverviewTab({ filters, loading, setLoading }: OverviewTabProps) 
       {/* Progress Section */}
       <Card className="border-slate-200">
         <CardHeader>
-          <CardTitle className="text-base font-medium">Tədris İli İrəliləyişi</CardTitle>
+          <CardTitle className="text-base font-medium">Jurnallar Statusu</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600">I Yarımil tamamlanma</span>
-              <span className="text-sm font-medium">{Math.min(100, data.completionRate + 15)}%</span>
+              <span className="text-sm text-slate-600">Aktiv jurnallar</span>
+              <span className="text-sm font-medium">{data.activeJournals} / {data.totalJournals}</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
-              <div className="bg-blue-500 h-2 rounded-full" style={{ width: `${Math.min(100, data.completionRate + 15)}%` }} />
+              <div
+                className="bg-blue-500 h-2 rounded-full"
+                style={{ width: `${data.totalJournals > 0 ? Math.round((data.activeJournals / data.totalJournals) * 100) : 0}%` }}
+              />
             </div>
-            
+
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600">II Yarımil tamamlanma</span>
-              <span className="text-sm font-medium">{Math.max(0, data.completionRate - 15)}%</span>
+              <span className="text-sm text-slate-600">Arxivlənmiş jurnallar</span>
+              <span className="text-sm font-medium">{data.archivedJournals} / {data.totalJournals}</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
-              <div className="bg-emerald-500 h-2 rounded-full" style={{ width: `${Math.max(0, data.completionRate - 15)}%` }} />
+              <div
+                className="bg-slate-400 h-2 rounded-full"
+                style={{ width: `${data.totalJournals > 0 ? Math.round((data.archivedJournals / data.totalJournals) * 100) : 0}%` }}
+              />
             </div>
-            
+
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600">Ümumi hesablanma</span>
-              <span className="text-sm font-medium">{data.completionRate}%</span>
+              <span className="text-sm text-slate-600">Ortalama bal (bütün imtahanlar)</span>
+              <span className="text-sm font-medium">{data.averageScore?.toFixed(1) || '0.0'} / 100</span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
-              <div className="bg-amber-500 h-2 rounded-full" style={{ width: `${data.completionRate}%` }} />
+              <div
+                className="bg-emerald-500 h-2 rounded-full"
+                style={{ width: `${data.averageScore || 0}%` }}
+              />
             </div>
           </div>
         </CardContent>

@@ -1,302 +1,381 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AnalysisFilters } from '../filters/AnalysisFilters';
 import { gradeBookService } from '@/services/gradeBook';
-import { useToast } from '@/hooks/use-toast';
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-  AreaChart,
-  Area,
+  LineChart, Line, BarChart, Bar,
+  XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
-import { TrendingUp, Calendar, Filter } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, BarChart3 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface TrendsTabProps {
   filters: AnalysisFilters;
   loading: boolean;
-  setLoading: (loading: boolean) => void;
+  setLoading: (v: boolean) => void;
 }
 
-interface TrendData {
-  month: string;
-  average: number;
-  target: number;
-  previous: number;
+const LINE_COLORS = [
+  '#3B82F6', '#10B981', '#F59E0B', '#EF4444',
+  '#8B5CF6', '#06B6D4', '#EC4899', '#84CC16',
+];
+
+function scoreColor(v: number) {
+  if (v >= 80) return 'text-green-600';
+  if (v >= 60) return 'text-yellow-700';
+  if (v >= 30) return 'text-orange-600';
+  return 'text-red-600';
 }
 
-interface SubjectTrend {
-  subject: string;
-  data: { month: string; score: number }[];
-}
+export function TrendsTab({ filters }: TrendsTabProps) {
+  const [groupBy, setGroupBy] = useState<'semester' | 'assessment_type'>('semester');
+  const [activeView, setActiveView] = useState<'overall' | 'class' | 'subject'>('overall');
 
-export function TrendsTab({ filters, loading, setLoading }: TrendsTabProps) {
-  const { toast } = useToast();
-  const [timeRange, setTimeRange] = useState<'semester' | 'year' | 'all'>('year');
-  const [selectedSubject, setSelectedSubject] = useState<string>('all');
-  const [trendData, setTrendData] = useState<TrendData[]>([]);
-  const [subjectTrends, setSubjectTrends] = useState<SubjectTrend[]>([]);
+  const params = useMemo(() => {
+    const p: Record<string, number | string | number[] | string[]> = { group_by: groupBy };
+    if (filters.institution_id)              p.institution_id      = filters.institution_id;
+    if (filters.academic_year_ids?.length)   p.academic_year_ids   = filters.academic_year_ids!;
+    if (filters.sector_ids?.length)          p.sector_ids          = filters.sector_ids!;
+    if (filters.school_ids?.length)          p.school_ids          = filters.school_ids!;
+    if (filters.class_levels?.length)        p.class_levels        = filters.class_levels!;
+    if (filters.teaching_languages?.length)  p.teaching_languages  = filters.teaching_languages!;
+    return p;
+  }, [filters.institution_id, filters.academic_year_ids, filters.sector_ids, filters.school_ids,
+      filters.class_levels, filters.teaching_languages, groupBy]);
 
-  const [stats, setStats] = useState<{
-    averageScore: number;
-    growthRate: number;
-    highestMonth: string;
-    lowestMonth: string;
-    highestScore: number;
-    lowestScore: number;
-  } | null>(null);
+  const { data, isLoading } = useQuery({
+    queryKey: ['regionTrends', params],
+    queryFn: () => gradeBookService.getRegionTrends(params as Parameters<typeof gradeBookService.getRegionTrends>[0]),
+    staleTime: 5 * 60 * 1000,
+  });
 
-  useEffect(() => {
-    loadTrendsData();
-  }, [filters, timeRange, selectedSubject]);
+  const trendData     = data?.data?.trend_data    ?? [];
+  const classTrends   = data?.data?.class_trends  ?? [];
+  const subjectTrends = data?.data?.subject_trends ?? [];
 
-  const loadTrendsData = async () => {
-    try {
-      setLoading(true);
-
-      // Build params from filters
-      const params: any = {
-        time_range: timeRange,
-      };
-      if (filters.institution_id) params.institution_id = filters.institution_id;
-      if (filters.academic_year_id) params.academic_year_id = filters.academic_year_id;
-
-      // Get trends data from API
-      const response = await gradeBookService.getTrendsData(params);
-
-      if (response.success && response.data) {
-        setTrendData(response.data.trendData || []);
-        setSubjectTrends(response.data.subjectTrends || []);
-        setStats(response.data.stats || null);
-      } else {
-        throw new Error('Failed to load trends data');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Xəta',
-        description: 'Trend məlumatları yüklənərkən xəta baş verdi',
-        variant: 'destructive',
+  // Build chart data for class trends (pivot: period as X, class as line)
+  const classTrendChart = useMemo(() => {
+    const periods = [...new Set(classTrends.flatMap((c) => c.trend.map((t) => t.period)))].sort();
+    return periods.map((period) => {
+      const row: Record<string, string | number> = { period };
+      classTrends.forEach((c) => {
+        const point = c.trend.find((t) => t.period === period);
+        if (point) row[c.label] = point.avg_score;
       });
-      // Set empty data on error
-      setTrendData([]);
-      setSubjectTrends([]);
-      setStats(null);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return row;
+    });
+  }, [classTrends]);
 
+  // Build chart data for subject trends
+  const subjectTrendChart = useMemo(() => {
+    const periods = [...new Set(subjectTrends.flatMap((s) => s.trend.map((t) => t.period)))].sort();
+    return periods.map((period) => {
+      const row: Record<string, string | number> = { period };
+      subjectTrends.forEach((s) => {
+        const point = s.trend.find((t) => t.period === period);
+        if (point) row[s.subject_name] = point.avg_score;
+      });
+      return row;
+    });
+  }, [subjectTrends]);
 
-  const getGrowthRate = () => {
-    return stats?.growthRate || 0;
-  };
-
-  const getAverageScore = () => {
-    return stats?.averageScore || 0;
-  };
-
-  if (loading) {
-    return <TrendsSkeleton />;
-  }
-
-  return (
+  if (isLoading) return (
     <div className="space-y-4">
-      {/* Controls */}
-      <Card className="border-slate-200">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="flex items-center gap-2">
-              <Filter className="w-5 h-5 text-slate-500" />
-              <span className="font-medium">Vaxt aralığı:</span>
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {[
-                { value: 'semester', label: 'Cari yarımil' },
-                { value: 'year', label: 'Tədris ili' },
-                { value: 'all', label: 'Bütün dövr' },
-              ].map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setTimeRange(option.value as any)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-                    timeRange === option.value
-                      ? 'bg-blue-100 text-blue-700 border border-blue-200'
-                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          title="Ortalama bal"
-          value={getAverageScore().toFixed(1)}
-          trend="Bu dövr"
-        />
-        <StatCard
-          title="İnkişaf"
-          value={`+${getGrowthRate().toFixed(1)}%`}
-          trend="Dövr üzrə"
-          positive={getGrowthRate() > 0}
-        />
-        <StatCard
-          title="Ən yüksək"
-          value={stats?.highestScore?.toFixed(1) || '0.0'}
-          trend={stats?.highestMonth || '-'}
-        />
-        <StatCard
-          title="Ən aşağı"
-          value={stats?.lowestScore?.toFixed(1) || '0.0'}
-          trend={stats?.lowestMonth || '-'}
-        />
-      </div>
-
-      {/* Main Trend Chart */}
-      <Card className="border-slate-200">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium flex items-center gap-2">
-            <TrendingUp className="w-4 h-4" />
-            Ümumi Trend Analizi
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={350}>
-            <AreaChart data={trendData}>
-              <defs>
-                <linearGradient id="colorAverage" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" />
-              <YAxis domain={[60, 85]} />
-              <Tooltip
-                formatter={(value: number) => [`${value.toFixed(1)} bal`, '']}
-              />
-              <Legend />
-              <Area
-                type="monotone"
-                dataKey="average"
-                name="Ortalama"
-                stroke="#3b82f6"
-                fillOpacity={1}
-                fill="url(#colorAverage)"
-                strokeWidth={2}
-              />
-              <Line
-                type="monotone"
-                dataKey="target"
-                name="Hədəf"
-                stroke="#16a34a"
-                strokeDasharray="5 5"
-                strokeWidth={2}
-                dot={false}
-              />
-              <Line
-                type="monotone"
-                dataKey="previous"
-                name="Keçən il"
-                stroke="#94a3b8"
-                strokeDasharray="3 3"
-                strokeWidth={2}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Subject Comparison Chart */}
-      <Card className="border-slate-200">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">Fənn Üzrə Trend Müqayisəsi</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="month" allowDuplicatedCategory={false} />
-              <YAxis domain={[50, 90]} />
-              <Tooltip />
-              <Legend />
-              {subjectTrends.map((subject, index) => (
-                <Line
-                  key={subject.subject}
-                  data={subject.data}
-                  type="monotone"
-                  dataKey="score"
-                  name={subject.subject}
-                  stroke={['#3b82f6', '#22c55e', '#f59e0b'][index]}
-                  strokeWidth={2}
-                  dot={{ r: 3 }}
-                  activeDot={{ r: 5 }}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
+      <Skeleton className="h-10 w-full" />
+      <div className="grid grid-cols-4 gap-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-20" />)}</div>
+      <Skeleton className="h-64 w-full" />
+      <Skeleton className="h-64 w-full" />
     </div>
   );
-}
 
-interface StatCardProps {
-  title: string;
-  value: string;
-  trend: string;
-  positive?: boolean;
-}
-
-function StatCard({ title, value, trend, positive = true }: StatCardProps) {
-  return (
-    <Card className="border-slate-200">
-      <CardContent className="p-4">
-        <p className="text-sm text-slate-500">{title}</p>
-        <p className={`text-2xl font-bold ${positive ? 'text-slate-900' : 'text-rose-600'}`}>
-          {value}
-        </p>
-        <p className="text-xs text-slate-400">{trend}</p>
-      </CardContent>
-    </Card>
+  if (!trendData.length) return (
+    <div className="text-center py-16 text-slate-400">
+      <TrendingUp className="w-12 h-12 mx-auto mb-3 opacity-40" />
+      <p className="font-medium">Məlumat tapılmadı</p>
+      <p className="text-sm mt-1">Tədris ili seçin və ya data daxil edilməsini gözləyin</p>
+    </div>
   );
-}
 
-function TrendsSkeleton() {
   return (
     <div className="space-y-4">
-      <Card className="border-slate-200">
-        <CardContent className="p-4">
-          <Skeleton className="h-10 w-full" />
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <Card key={i} className="border-slate-200">
-            <CardContent className="p-4">
-              <Skeleton className="h-8 w-20" />
-              <Skeleton className="h-6 w-16 mt-2" />
-            </CardContent>
-          </Card>
-        ))}
+      {/* ── Controls ── */}
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Group by toggle */}
+        <div className="flex rounded-md border border-slate-200 overflow-hidden text-sm h-9">
+          {(['semester', 'assessment_type'] as const).map((v) => (
+            <button
+              key={v}
+              className={cn('px-3 py-1.5 transition-colors',
+                groupBy === v ? 'bg-blue-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50')}
+              onClick={() => setGroupBy(v)}
+            >
+              {v === 'semester' ? 'Semestr üzrə' : 'İmtahan növü üzrə'}
+            </button>
+          ))}
+        </div>
+
+        {/* View toggle */}
+        <div className="flex rounded-md border border-slate-200 overflow-hidden text-sm h-9 ml-auto">
+          {(['overall', 'class', 'subject'] as const).map((v) => (
+            <button
+              key={v}
+              className={cn('px-3 py-1.5 transition-colors',
+                activeView === v ? 'bg-slate-700 text-white' : 'bg-white text-slate-600 hover:bg-slate-50')}
+              onClick={() => setActiveView(v)}
+            >
+              {v === 'overall' ? 'Ümumi' : v === 'class' ? 'Sinif' : 'Fənn'}
+            </button>
+          ))}
+        </div>
       </div>
-      <Card className="border-slate-200">
-        <CardContent className="p-4">
-          <Skeleton className="h-[350px] w-full" />
-        </CardContent>
-      </Card>
+
+      {/* ── Summary cards (overall period comparison) ── */}
+      {trendData.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {trendData.map((p) => (
+            <Card key={p.period}>
+              <CardContent className="pt-4 pb-3 px-4">
+                <p className="text-xs text-slate-500 mb-1 font-medium">{p.period}</p>
+                <p className={cn('text-2xl font-bold', scoreColor(p.avg_score))}>{p.avg_score.toFixed(1)}</p>
+                <div className="mt-2 space-y-0.5 text-xs text-slate-500">
+                  <div className="flex justify-between">
+                    <span>Şagird:</span><span className="font-medium">{p.student_count}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Keçid:</span>
+                    <span className={cn('font-medium', p.pass_rate >= 70 ? 'text-green-600' : 'text-orange-600')}>
+                      {p.pass_rate.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>0–30 bal:</span>
+                    <span className="font-medium text-red-600">{p.below_30_pct.toFixed(1)}%</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* ── Overall: score distribution bar chart ── */}
+      {activeView === 'overall' && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">
+              Bal paylanması — {groupBy === 'semester' ? 'semestr' : 'imtahan növü'} üzrə (%)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} unit="%" />
+                <Tooltip formatter={(v: number) => `${v.toFixed(1)}%`} />
+                <Legend />
+                <Bar dataKey="r0_30_pct"   name="≤30 bal"   stackId="a" fill="#EF4444" />
+                <Bar dataKey="r30_60_pct"  name="31–60 bal" stackId="a" fill="#F97316" />
+                <Bar dataKey="r60_80_pct"  name="61–80 bal" stackId="a" fill="#EAB308" />
+                <Bar dataKey="r80_100_pct" name="81+ bal"   stackId="a" fill="#22C55E" radius={[3, 3, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Overall: avg score line ── */}
+      {activeView === 'overall' && trendData.length > 1 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-slate-600">Ortalama bal — dinamika</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={trendData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                <Tooltip formatter={(v: number) => v.toFixed(1)} />
+                <Legend />
+                <Line dataKey="avg_score"  name="Ortalama bal" stroke="#3B82F6" strokeWidth={2} dot={{ r: 5 }} />
+                <Line dataKey="pass_rate"  name="Keçid %" stroke="#22C55E" strokeWidth={2} strokeDasharray="4 2" dot={{ r: 4 }} />
+                <Line dataKey="below_30_pct" name="0–30 bal %" stroke="#EF4444" strokeWidth={2} strokeDasharray="4 2" dot={{ r: 4 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Class level trends ── */}
+      {activeView === 'class' && (
+        <>
+          {classTrendChart.length > 0 ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Sinif səviyyəsi üzrə ortalama bal dinamikası
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={classTrendChart} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v: number) => v?.toFixed(1)} />
+                    <Legend />
+                    {classTrends.map((c, i) => (
+                      <Line
+                        key={c.class_level}
+                        dataKey={c.label}
+                        stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="text-center py-10 text-slate-400 text-sm">Sinif trend məlumatı yoxdur</div>
+          )}
+
+          {/* Class level table */}
+          {classTrends.length > 0 && (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="text-left px-4 py-2.5 font-medium text-slate-600">Sinif</th>
+                        {trendData.map((p) => (
+                          <th key={p.period} className="text-right px-4 py-2.5 font-medium text-slate-600">{p.period}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {classTrends.map((c, idx) => (
+                        <tr key={c.class_level} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                          <td className="px-4 py-2.5 font-medium">{c.label}</td>
+                          {trendData.map((p) => {
+                            const point = c.trend.find((t) => t.period === p.period);
+                            return (
+                              <td key={p.period} className="px-4 py-2.5 text-right">
+                                {point ? (
+                                  <span className={cn('font-semibold', scoreColor(point.avg_score))}>
+                                    {point.avg_score.toFixed(1)}
+                                  </span>
+                                ) : '—'}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* ── Subject trends ── */}
+      {activeView === 'subject' && (
+        <>
+          {subjectTrendChart.length > 0 ? (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium text-slate-600">
+                  Fənn üzrə ortalama bal dinamikası
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={subjectTrendChart} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="period" tick={{ fontSize: 12 }} />
+                    <YAxis domain={[0, 100]} tick={{ fontSize: 12 }} />
+                    <Tooltip formatter={(v: number) => v?.toFixed(1)} />
+                    <Legend />
+                    {subjectTrends.slice(0, 8).map((s, i) => (
+                      <Line
+                        key={s.subject_id}
+                        dataKey={s.subject_name}
+                        stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                        strokeWidth={2}
+                        dot={{ r: 4 }}
+                        connectNulls
+                      />
+                    ))}
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="text-center py-10 text-slate-400 text-sm">Fənn trend məlumatı yoxdur</div>
+          )}
+
+          {/* Subject table */}
+          {subjectTrends.length > 0 && (
+            <Card>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200">
+                        <th className="text-left px-4 py-2.5 font-medium text-slate-600">Fənn</th>
+                        {trendData.map((p) => (
+                          <th key={p.period} className="text-right px-4 py-2.5 font-medium text-slate-600">{p.period}</th>
+                        ))}
+                        <th className="text-right px-4 py-2.5 font-medium text-slate-600">Trend</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subjectTrends.map((s, idx) => {
+                        const first = s.trend[0]?.avg_score ?? 0;
+                        const last  = s.trend[s.trend.length - 1]?.avg_score ?? 0;
+                        const diff  = last - first;
+                        return (
+                          <tr key={s.subject_id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
+                            <td className="px-4 py-2.5 font-medium">{s.subject_name}</td>
+                            {trendData.map((p) => {
+                              const point = s.trend.find((t) => t.period === p.period);
+                              return (
+                                <td key={p.period} className="px-4 py-2.5 text-right">
+                                  {point ? (
+                                    <span className={cn('font-semibold', scoreColor(point.avg_score))}>
+                                      {point.avg_score.toFixed(1)}
+                                    </span>
+                                  ) : '—'}
+                                </td>
+                              );
+                            })}
+                            <td className="px-4 py-2.5 text-right">
+                              {s.trend.length > 1 ? (
+                                <span className={cn('text-xs font-medium flex items-center justify-end gap-0.5',
+                                  diff > 0 ? 'text-green-600' : diff < 0 ? 'text-red-600' : 'text-slate-500')}>
+                                  {diff > 0 ? '▲' : diff < 0 ? '▼' : '—'} {Math.abs(diff).toFixed(1)}
+                                </span>
+                              ) : '—'}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
     </div>
   );
 }

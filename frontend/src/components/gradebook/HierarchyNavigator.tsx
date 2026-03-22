@@ -30,6 +30,7 @@ interface HierarchyNavigatorProps {
   onSelect?: (node: HierarchyNode) => void;
   expandedIds?: Set<number>;
   onToggleExpand?: (id: number) => void;
+  onLoadChildren?: (node: HierarchyNode) => Promise<HierarchyNode[]>;
 }
 
 const typeIcons = {
@@ -64,6 +65,7 @@ export function HierarchyNavigator({
   onSelect,
   expandedIds = new Set(),
   onToggleExpand,
+  onLoadChildren,
 }: HierarchyNavigatorProps) {
   const { viewMode, isRegionAdmin, isSectorAdmin } = useGradeBookRole();
 
@@ -98,6 +100,7 @@ export function HierarchyNavigator({
                 onSelect={onSelect}
                 expandedIds={expandedIds}
                 onToggleExpand={onToggleExpand}
+                onLoadChildren={onLoadChildren}
               />
             ))
           )}
@@ -115,6 +118,7 @@ interface HierarchyNodeItemProps {
   onSelect?: (node: HierarchyNode) => void;
   expandedIds: Set<number>;
   onToggleExpand?: (id: number) => void;
+  onLoadChildren?: (node: HierarchyNode) => Promise<HierarchyNode[]>;
 }
 
 function HierarchyNodeItem({
@@ -125,6 +129,7 @@ function HierarchyNodeItem({
   onSelect,
   expandedIds,
   onToggleExpand,
+  onLoadChildren,
 }: HierarchyNodeItemProps) {
   const Icon = typeIcons[node.type] || Building2;
   const isExpanded = expandedIds.has(node.id);
@@ -139,25 +144,29 @@ function HierarchyNodeItem({
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     // If expanding and has children flag but no children loaded yet, we need to load them
     if (!isExpanded && node.has_children && (!node.children || node.children.length === 0)) {
       setIsLoading(true);
       try {
-        // Import gradeBookService dynamically to avoid circular dependencies
-        const { gradeBookService } = await import('@/services/gradeBook');
-        const response = await gradeBookService.getHierarchy({
-          parent_id: node.id,
-          parent_type: node.type,
-          depth: 1,
-        });
-        
-        if (response.success && response.data?.items) {
-          // Update node with loaded children
-          node.children = response.data.items.map((child: any) => ({
-            ...child,
-            has_children: !!(child.stats?.institutions || child.stats?.grade_books),
-          }));
+        if (onLoadChildren) {
+          // Use custom loader (institution hierarchy context)
+          node.children = await onLoadChildren(node);
+        } else {
+          // Default: gradeBookService hierarchy (AdminDashboard context)
+          const { gradeBookService } = await import('@/services/gradeBook');
+          const response = await gradeBookService.getHierarchy({
+            parent_id: node.id,
+            parent_type: node.type,
+            depth: 1,
+          });
+
+          if (response.success && response.data?.items) {
+            node.children = response.data.items.map((child: { stats?: { institutions?: number; grade_books?: number }; [key: string]: unknown }) => ({
+              ...child,
+              has_children: !!(child.stats?.institutions || child.stats?.grade_books),
+            }));
+          }
         }
       } catch (error) {
         console.error('Failed to load children:', error);
@@ -165,7 +174,7 @@ function HierarchyNodeItem({
         setIsLoading(false);
       }
     }
-    
+
     onToggleExpand?.(node.id);
   };
 
@@ -234,6 +243,7 @@ function HierarchyNodeItem({
               onSelect={onSelect}
               expandedIds={expandedIds}
               onToggleExpand={onToggleExpand}
+              onLoadChildren={onLoadChildren}
             />
           ))}
         </div>

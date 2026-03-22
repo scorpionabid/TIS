@@ -15,12 +15,17 @@ export interface GradeBookSession {
     id: number;
     name: string;
     class_level: number;
+    real_student_count?: number;
   };
   subject?: {
     id: number;
     name: string;
   };
   academic_year?: {
+    id: number;
+    name: string;
+  };
+  institution?: {
     id: number;
     name: string;
   };
@@ -170,7 +175,7 @@ class GradeBookService {
     page?: number;
     per_page?: number;
   }): Promise<{ data: GradeBookSession[]; meta: any }> {
-    const response = await apiClient.get(this.baseUrl, { params });
+    const response = await apiClient.get(this.baseUrl, params ?? {});
     // Handle different response formats
     const responseData = response.data;
  
@@ -431,13 +436,24 @@ class GradeBookService {
     return response.data;
   }
 
+  // Bulk export all journals for a grade (all subjects as sheets)
+  async bulkExportByGrade(gradeId: number, academicYearId?: number): Promise<Blob> {
+    const params: Record<string, number> = { grade_id: gradeId };
+    if (academicYearId) params.academic_year_id = academicYearId;
+    const response = await apiClient.get(`${this.baseUrl}/bulk-export/grade`, params, {
+      responseType: 'blob',
+      cache: false,
+    });
+    return response.data;
+  }
+
   // Import scores from Excel
   async importScores(gradeBookId: number, file: File): Promise<{ message: string; data: { imported: number; updated: number; errors: string[] } }> {
     const formData = new FormData();
     formData.append('file', file);
 
     const response = await apiClient.post(`${this.baseUrl}/${gradeBookId}/import`, formData);
-    return response as any;
+    return response.data;
   }
 
   /**
@@ -529,14 +545,10 @@ class GradeBookService {
   }
 
   // Export analysis data
-  async exportAnalysis(params?: {
-    type?: string;
-    format?: 'excel' | 'pdf';
-    filters?: Record<string, any>;
-  }): Promise<Blob> {
-    const response = await apiClient.get(`${this.baseUrl}/analysis/export`, {
-      params,
+  async exportAnalysis(params?: Record<string, number | string>): Promise<Blob> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/export`, params, {
       responseType: 'blob',
+      cache: false,
     });
     return response.data;
   }
@@ -577,7 +589,7 @@ class GradeBookService {
       });
     }
 
-    const response = await apiClient.get(`${this.baseUrl}/hierarchy`, { params: cleanParams });
+    const response = await apiClient.get(`${this.baseUrl}/hierarchy`, cleanParams);
     return response.data;
   }
 
@@ -598,16 +610,21 @@ class GradeBookService {
       rankings?: any[];
     };
   }> {
-    const response = await apiClient.get(`${this.baseUrl}/analysis/multi-level`, { params });
+    const response = await apiClient.get(`${this.baseUrl}/analysis/multi-level`, params);
     return response.data;
   }
 
   // Get overview statistics
   async getOverviewStats(params?: {
     institution_id?: number;
-    academic_year_id?: number;
-    grade_id?: number;
-    subject_id?: number;
+    academic_year_ids?: number[];
+    subject_ids?: number[];
+    grade_ids?: number[];
+    sector_ids?: number[];
+    school_ids?: number[];
+    class_levels?: number[];
+    teaching_languages?: string[];
+    gender?: string;
     status?: string;
   }): Promise<{
     success: boolean;
@@ -624,8 +641,8 @@ class GradeBookService {
       subjectAverages: { subject: string; average: number }[];
     };
   }> {
-    const response = await apiClient.get(`${this.baseUrl}/analysis/overview`, { params });
-    return response;
+    const response = await apiClient.get(`${this.baseUrl}/analysis/overview`, params);
+    return response as any;
   }
 
   // Get comparison data for radar and bar charts
@@ -633,6 +650,8 @@ class GradeBookService {
     institution_id?: number;
     academic_year_id?: number;
     compare_by?: string;
+    grade_id?: number;
+    subject_id?: number;
   }): Promise<{
     success: boolean;
     data: {
@@ -647,19 +666,19 @@ class GradeBookService {
       };
     };
   }> {
-    const response = await apiClient.get(`${this.baseUrl}/analysis/comparison`, { params });
-    return response;
+    const response = await apiClient.get(`${this.baseUrl}/analysis/comparison`, params);
+    return response as any;
   }
 
   // Get trends data over time
   async getTrendsData(params?: {
     institution_id?: number;
-    academic_year_id?: number;
+    academic_year_ids?: number[];
     time_range?: string;
   }): Promise<{
     success: boolean;
     data: {
-      trendData: { month: string; average: number; target: number; previous: number }[];
+      trendData: { month: string; average: number; target: number }[];
       subjectTrends: { subject: string; data: { month: string; score: number }[] }[];
       stats: {
         averageScore: number;
@@ -671,26 +690,311 @@ class GradeBookService {
       };
     };
   }> {
-    const response = await apiClient.get(`${this.baseUrl}/analysis/trends`, { params });
-    return response;
+    const response = await apiClient.get(`${this.baseUrl}/analysis/trends`, params);
+    return response as any;
+  }
+
+  // Pivot analysis: class_level rows × (year+semester+type) columns
+  async getPivotAnalysis(params?: {
+    institution_id?: number;
+    academic_year_ids?: number[];
+    subject_ids?: number[];
+    group_by?: 'class_level' | 'sector' | 'school' | 'grade' | 'subject' | 'language';
+    sector_ids?: number[];
+    school_ids?: number[];
+    class_levels?: number[];
+    grade_ids?: number[];
+    teaching_languages?: string[];
+    gender?: 'male' | 'female';
+  }): Promise<{
+    success: boolean;
+    data: {
+      rows: { id: number | string; name: number | string; type: string }[];
+      group_by: string;
+      subjects: { id: number; name: string }[];
+      available_columns: {
+        key: string;
+        academic_year_id: number;
+        year_name: string;
+        semester: string;
+        type_id: number;
+        type_name: string;
+        type_category: string;
+      }[];
+      cells: Record<string, {
+        students: number;
+        avg: number;
+        min_score: number;
+        max_score: number;
+        journal_count: number;
+        teacher_count: number;
+        pass_rate: number;
+        institution_count: number;
+        male_avg: number;
+        female_avg: number;
+        male_pass_rate: number;
+        female_pass_rate: number;
+        r0_30:   { count: number; pct: number };
+        r30_60:  { count: number; pct: number };
+        r60_80:  { count: number; pct: number };
+        r80_100: { count: number; pct: number };
+      }>;
+    };
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/pivot`, params);
+    return response as any;
+  }
+
+  // Class level × subject cross-analysis
+  async getClassLevelSubjectAnalysis(params?: {
+    institution_id?: number;
+    academic_year_id?: number;
+    class_level?: number;
+    subject_id?: number;
+    assessment_type_id?: number;
+    semester?: string;
+  }): Promise<{
+    success: boolean;
+    data: {
+      rows: {
+        class_level: number;
+        subject_id: number;
+        subject_name: string;
+        institution_count: number;
+        journal_count: number;
+        student_count: number;
+        total_scores: number;
+        avg_score: number;
+        min_score: number;
+        max_score: number;
+        below_30_count: number;
+        below_30_pct: number;
+        pass_rate: number;
+        ranges: { label: string; count: number; pct: number; avg: number }[];
+      }[];
+      class_levels: number[];
+      subjects: { id: number; name: string }[];
+      assessment_types: { id: number; name: string; category: string }[];
+    };
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/class-level-subject`, params);
+    return response as any;
+  }
+
+  // Region/sector/school trend analysis grouped by semester or assessment type
+  async getRegionTrends(params?: {
+    institution_id?: number;
+    academic_year_ids?: number[];
+    sector_ids?: number[];
+    school_ids?: number[];
+    class_levels?: number[];
+    teaching_languages?: string[];
+    group_by?: 'semester' | 'assessment_type';
+  }): Promise<{
+    success: boolean;
+    data: {
+      trend_data: {
+        period: string;
+        avg_score: number;
+        student_count: number;
+        pass_rate: number;
+        below_30_pct: number;
+        r0_30_pct: number;
+        r30_60_pct: number;
+        r60_80_pct: number;
+        r80_100_pct: number;
+      }[];
+      class_trends: {
+        class_level: number;
+        label: string;
+        trend: { period: string; avg_score: number; students: number }[];
+      }[];
+      subject_trends: {
+        subject_id: number;
+        subject_name: string;
+        trend: { period: string; avg_score: number; students: number }[];
+      }[];
+    };
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/region-trends`, params);
+    return response as any;
+  }
+
+  // Journal completion / fill rate per institution
+  async getJournalCompletion(params?: {
+    institution_id?: number;
+    academic_year_id?: number;
+  }): Promise<{
+    success: boolean;
+    data: {
+      rows: {
+        institution_id: number;
+        institution_name: string;
+        sector_name: string;
+        total_journals: number;
+        active_journals: number;
+        journals_with_data: number;
+        journals_empty: number;
+        cells_filled: number;
+        fill_rate: number;
+        last_entry_date: string | null;
+      }[];
+      summary: {
+        total_institutions: number;
+        avg_fill_rate: number;
+        full_count: number;
+        partial_count: number;
+        empty_count: number;
+      };
+    };
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/journal-completion`, params);
+    return response as any;
+  }
+
+  // Comprehensive multi-sheet export
+  async exportComprehensive(params?: {
+    institution_id?: number;
+    academic_year_id?: number;
+  }): Promise<Blob> {
+    const queryString = params
+      ? '?' + new URLSearchParams(Object.entries(params).filter(([, v]) => v !== undefined).map(([k, v]) => [k, String(v)])).toString()
+      : '';
+    const response = await apiClient.get(`${this.baseUrl}/analysis/export-comprehensive${queryString}`, { responseType: 'blob' });
+    return response as unknown as Blob;
   }
 
   // Get deep dive analysis: risk students, top students, subject details
   async getDeepDiveData(params?: {
     institution_id?: number;
-    academic_year_id?: number;
-    grade_id?: number;
-    subject_id?: number;
+    academic_year_ids?: number[];
+    grade_ids?: number[];
+    subject_ids?: number[];
+    sector_ids?: number[];
+    school_ids?: number[];
+    class_levels?: number[];
+    teaching_languages?: string[];
+    gender?: string;
   }): Promise<{
     success: boolean;
     data: {
-      riskStudents: { id: number; name: string; class: string; average: number; failedSubjects: number; attendance: number; trend: string }[];
+      riskStudents: { id: number; name: string; class: string; average: number; failedSubjects: number; attendance: number | null; trend: string }[];
       topStudents: { id: number; name: string; class: string; average: number; bestSubject: string; improvement: number }[];
       subjectAnalysis: { subject: string; average: number; passRate: number; riskCount: number; trend: string }[];
     };
   }> {
-    const response = await apiClient.get(`${this.baseUrl}/analysis/deep-dive`, { params });
-    return response;
+    const response = await apiClient.get(`${this.baseUrl}/analysis/deep-dive`, params);
+    return response as any;
+  }
+
+  // Available grades (4A, 4B …) for given filter scope
+  async getAvailableGrades(params?: {
+    institution_id?: number;
+    academic_year_ids?: number[];
+    sector_ids?: number[];
+    school_ids?: number[];
+  }): Promise<{
+    success: boolean;
+    data: { id: number; name: string; class_level: number; full_name: string }[];
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/available-grades`, params);
+    return response as any;
+  }
+
+  // Nested hierarchical pivot: sector → school → class_level
+  async getNestedPivotAnalysis(params?: {
+    institution_id?: number;
+    academic_year_ids?: number[];
+    subject_ids?: number[];
+    group_bys?: string[];
+    sector_ids?: number[];
+    school_ids?: number[];
+    class_levels?: number[];
+    grade_ids?: number[];
+    teaching_languages?: string[];
+    gender?: string;
+  }): Promise<{
+    success: boolean;
+    data: {
+      nodes: { nodeId: string; label: string; type: string; level: number; parentId: string | null }[];
+      available_columns: {
+        key: string;
+        academic_year_id: number;
+        year_name: string;
+        semester: string;
+        type_id: number;
+        type_name: string;
+        type_category: string;
+      }[];
+      cells: Record<string, {
+        students: number; avg: number; min_score: number; max_score: number;
+        journal_count: number; teacher_count: number; pass_rate: number; institution_count: number;
+        male_avg: number; female_avg: number; male_pass_rate: number; female_pass_rate: number;
+        r0_30: { count: number; pct: number };
+        r30_60: { count: number; pct: number };
+        r60_80: { count: number; pct: number };
+        r80_100: { count: number; pct: number };
+      }>;
+      group_bys: string[];
+    };
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/pivot-nested`, params);
+    return response as any;
+  }
+
+  // Scoreboard: ranked school/sector performance summary
+  async getScoreboardData(params?: {
+    institution_id?: number;
+    academic_year_ids?: number[];
+    subject_ids?: number[];
+    sector_ids?: number[];
+    school_ids?: number[];
+    class_levels?: number[];
+    grade_ids?: number[];
+    teaching_languages?: string[];
+    gender?: string;
+  }): Promise<{
+    success: boolean;
+    data: {
+      summary: {
+        region_avg: number;
+        region_pass_rate: number;
+        total_schools: number;
+        total_students: number;
+        best_school:  { name: string; avg: number; sector: string } | null;
+        worst_school: { name: string; avg: number; sector: string } | null;
+      };
+      schools: {
+        rank: number;
+        school_id: number;
+        school_name: string;
+        sector_id: number;
+        sector_name: string;
+        avg: number;
+        pass_rate: number;
+        r0_30_pct: number;
+        r30_60_pct: number;
+        r60_80_pct: number;
+        r80_100_pct: number;
+        student_count: number;
+        journal_count: number;
+        teacher_count: number;
+        min_score: number;
+        max_score: number;
+      }[];
+      sectors: {
+        sector_id: number;
+        sector_name: string;
+        avg: number;
+        pass_rate: number;
+        r0_30_pct: number;
+        school_count: number;
+        student_count: number;
+      }[];
+    };
+  }> {
+    const response = await apiClient.get(`${this.baseUrl}/analysis/scoreboard`, params);
+    return response as any;
   }
 }
 

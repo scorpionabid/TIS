@@ -54,6 +54,7 @@ export function AdminDashboard() {
   const [hierarchyData, setHierarchyData] = useState<HierarchyNode[]>([]);
   const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [expandedClassLevels, setExpandedClassLevels] = useState<Set<string>>(new Set());
   const [selectedNode, setSelectedNode] = useState<HierarchyNode | null>(null);
   const [breadcrumbPath, setBreadcrumbPath] = useState<HierarchyNode[]>([]);
 
@@ -117,6 +118,19 @@ export function AdminDashboard() {
         newSet.delete(id);
       } else {
         newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleClassLevel = (key: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedClassLevels(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
       }
       return newSet;
     });
@@ -360,7 +374,63 @@ export function AdminDashboard() {
 
         {hasChildren && isExpanded && node.children && (
           <div className="mt-1">
-            {node.children.map((child) => renderHierarchyNode(child, level + 1))}
+            {node.type === 'institution' && node.children.some(c => c.type === 'grade') ? (
+              (() => {
+                // Group grade children by class_level extracted from name (e.g. "5-A" → 5, "A" → 0)
+                const gradeChildren = node.children.filter(c => c.type === 'grade');
+                const nonGradeChildren = node.children.filter(c => c.type !== 'grade');
+                const grouped = new Map<number, HierarchyNode[]>();
+                gradeChildren.forEach(child => {
+                  const match = child.name.match(/^(\d+)/);
+                  const lvl = match ? parseInt(match[1]) : 0;
+                  if (!grouped.has(lvl)) grouped.set(lvl, []);
+                  grouped.get(lvl)!.push(child);
+                });
+                const sortedLevels = Array.from(grouped.keys()).sort((a, b) => a - b);
+                return (
+                  <>
+                    {nonGradeChildren.map(child => renderHierarchyNode(child, level + 1))}
+                    {sortedLevels.map(lvl => {
+                      const key = `${node.id}-${lvl}`;
+                      const isLevelExpanded = expandedClassLevels.has(key);
+                      const levelGrades = grouped.get(lvl)!;
+                      return (
+                        <div key={key} className={cn('ml-4 mt-1')}>
+                          <div
+                            className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-slate-50 transition-colors"
+                            onClick={(e) => toggleClassLevel(key, e)}
+                          >
+                            <button className="p-1 hover:bg-slate-200 rounded transition-colors">
+                              {isLevelExpanded ? (
+                                <ChevronDown className="w-4 h-4 text-slate-500" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-slate-500" />
+                              )}
+                            </button>
+                            <div className="p-1.5 rounded-lg text-orange-600 bg-orange-50">
+                              <GraduationCap className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm">
+                                {lvl > 0 ? `${lvl}-ci sinif` : 'Hazırlıq qrupu'}
+                              </p>
+                              <p className="text-xs text-slate-500">{levelGrades.length} sinif</p>
+                            </div>
+                          </div>
+                          {isLevelExpanded && (
+                            <div className="mt-1">
+                              {levelGrades.map(child => renderHierarchyNode(child, level + 2))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </>
+                );
+              })()
+            ) : (
+              node.children.map((child) => renderHierarchyNode(child, level + 1))
+            )}
           </div>
         )}
       </div>

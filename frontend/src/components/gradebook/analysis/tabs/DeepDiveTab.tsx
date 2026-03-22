@@ -6,6 +6,7 @@ import { Progress } from '@/components/ui/progress';
 import { AnalysisFilters } from '../filters/AnalysisFilters';
 import { gradeBookService } from '@/services/gradeBook';
 import { useToast } from '@/hooks/use-toast';
+import { useQuery } from '@tanstack/react-query';
 import {
   AlertTriangle,
   Target,
@@ -15,6 +16,7 @@ import {
   Award,
   AlertCircle,
   BookOpen,
+  ShieldAlert,
 } from 'lucide-react';
 
 interface DeepDiveTabProps {
@@ -29,7 +31,7 @@ interface RiskStudent {
   class: string;
   average: number;
   failedSubjects: number;
-  attendance: number;
+  attendance: number | null;
   trend: 'up' | 'down' | 'stable';
 }
 
@@ -50,30 +52,53 @@ interface SubjectAnalysis {
   trend: 'improving' | 'declining' | 'stable';
 }
 
-export function DeepDiveTab({ filters, loading, setLoading }: DeepDiveTabProps) {
+export function DeepDiveTab({ filters }: Pick<DeepDiveTabProps, 'filters'>) {
   const { toast } = useToast();
-  const [activeView, setActiveView] = useState<'risk' | 'success' | 'subjects'>('risk');
+  const [localLoading, setLocalLoading] = useState(false);
+  const [activeView, setActiveView] = useState<'risk' | 'success' | 'subjects' | 'below30'>('below30');
+
+  // Below-30 data from class level analysis
+  const below30Params = {
+    ...(filters.institution_id          ? { institution_id: filters.institution_id }            : {}),
+    ...(filters.academic_year_ids?.length ? { academic_year_ids: filters.academic_year_ids }    : {}),
+    ...(filters.subject_ids?.length     ? { subject_ids: filters.subject_ids }                  : {}),
+    ...(filters.sector_ids?.length      ? { sector_ids: filters.sector_ids }                    : {}),
+    ...(filters.school_ids?.length      ? { school_ids: filters.school_ids }                    : {}),
+    ...(filters.class_levels?.length    ? { class_levels: filters.class_levels }                : {}),
+  };
+  const { data: classData } = useQuery({
+    queryKey: ['classLevelBelow30', below30Params],
+    queryFn: () => gradeBookService.getClassLevelSubjectAnalysis(below30Params),
+    staleTime: 5 * 60 * 1000,
+    enabled: activeView === 'below30',
+  });
+  const below30Rows = (classData?.data?.rows ?? [])
+    .filter((r) => r.below_30_count > 0)
+    .sort((a, b) => b.below_30_count - a.below_30_count);
   const [riskStudents, setRiskStudents] = useState<RiskStudent[]>([]);
   const [topStudents, setTopStudents] = useState<TopStudent[]>([]);
   const [subjectAnalysis, setSubjectAnalysis] = useState<SubjectAnalysis[]>([]);
 
   useEffect(() => {
     loadDeepDiveData();
-  }, [filters, activeView]);
+  }, [filters]);
 
   const loadDeepDiveData = async () => {
     try {
-      setLoading(true);
+      setLocalLoading(true);
 
-      // Build params from filters
-      const params: any = {};
-      if (filters.institution_id) params.institution_id = filters.institution_id;
-      if (filters.academic_year_id) params.academic_year_id = filters.academic_year_id;
-      if (filters.grade_id) params.grade_id = filters.grade_id;
-      if (filters.subject_id) params.subject_id = filters.subject_id;
+      const params: Record<string, number | string | number[] | string[]> = {};
+      if (filters.institution_id)             params.institution_id     = filters.institution_id;
+      if (filters.academic_year_ids?.length)  params.academic_year_ids  = filters.academic_year_ids!;
+      if (filters.subject_ids?.length)        params.subject_ids        = filters.subject_ids!;
+      if (filters.grade_ids?.length)          params.grade_ids          = filters.grade_ids!;
+      if (filters.sector_ids?.length)         params.sector_ids         = filters.sector_ids!;
+      if (filters.school_ids?.length)         params.school_ids         = filters.school_ids!;
+      if (filters.class_levels?.length)       params.class_levels       = filters.class_levels!;
+      if (filters.teaching_languages?.length) params.teaching_languages = filters.teaching_languages!;
+      if (filters.gender)                     params.gender             = filters.gender;
 
-      // Get deep dive data from API
-      const response = await gradeBookService.getDeepDiveData(params);
+      const response = await gradeBookService.getDeepDiveData(params as Parameters<typeof gradeBookService.getDeepDiveData>[0]);
 
       if (response.success && response.data) {
         setRiskStudents(response.data.riskStudents || []);
@@ -82,7 +107,7 @@ export function DeepDiveTab({ filters, loading, setLoading }: DeepDiveTabProps) 
       } else {
         throw new Error('Failed to load deep dive data');
       }
-    } catch (error: any) {
+    } catch {
       toast({
         title: 'Xəta',
         description: 'Dərin təhlil məlumatları yüklənərkən xəta baş verdi',
@@ -92,10 +117,9 @@ export function DeepDiveTab({ filters, loading, setLoading }: DeepDiveTabProps) 
       setTopStudents([]);
       setSubjectAnalysis([]);
     } finally {
-      setLoading(false);
+      setLocalLoading(false);
     }
   };
-
 
   const getTrendIcon = (trend: string) => {
     switch (trend) {
@@ -110,8 +134,17 @@ export function DeepDiveTab({ filters, loading, setLoading }: DeepDiveTabProps) 
     }
   };
 
-  if (loading) {
+  if (localLoading) {
     return <DeepDiveSkeleton />;
+  }
+
+  const isEmpty = riskStudents.length === 0 && topStudents.length === 0 && subjectAnalysis.length === 0;
+  if (isEmpty) {
+    return (
+      <div className="flex items-center justify-center h-48 text-slate-500 text-sm">
+        Seçilmiş filtrlər üzrə dərin təhlil məlumatı tapılmadı.
+      </div>
+    );
   }
 
   return (
@@ -157,6 +190,22 @@ export function DeepDiveTab({ filters, loading, setLoading }: DeepDiveTabProps) 
           <BookOpen className="w-4 h-4" />
           Fənn Analizi
         </button>
+        <button
+          onClick={() => setActiveView('below30')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 ${
+            activeView === 'below30'
+              ? 'bg-orange-100 text-orange-700 border border-orange-200'
+              : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+          }`}
+        >
+          <ShieldAlert className="w-4 h-4" />
+          30-dan Az
+          {below30Rows.length > 0 && (
+            <Badge variant="secondary" className="ml-1 bg-orange-50 text-orange-700">
+              {below30Rows.reduce((s, r) => s + r.below_30_count, 0)}
+            </Badge>
+          )}
+        </button>
       </div>
 
       {/* Content */}
@@ -192,10 +241,12 @@ export function DeepDiveTab({ filters, loading, setLoading }: DeepDiveTabProps) 
                         <p className="text-sm text-slate-500">Zəif fənn</p>
                         <p className="font-medium text-rose-600">{student.failedSubjects}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-slate-500">Davamiyyət</p>
-                        <p className="font-medium text-slate-700">{student.attendance}%</p>
-                      </div>
+                      {student.attendance !== null && (
+                        <div className="text-right">
+                          <p className="text-sm text-slate-500">Davamiyyət</p>
+                          <p className="font-medium text-slate-700">{student.attendance}%</p>
+                        </div>
+                      )}
                       <div className="w-8">{getTrendIcon(student.trend)}</div>
                     </div>
                   </div>
@@ -249,6 +300,80 @@ export function DeepDiveTab({ filters, loading, setLoading }: DeepDiveTabProps) 
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {activeView === 'below30' && (
+        <div className="space-y-4">
+          <Card className="border-orange-200 bg-orange-50/50">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium text-orange-900 flex items-center gap-2">
+                <ShieldAlert className="w-5 h-5" />
+                30 Baldan Az Toplayan Hallər — Sinif Səv. × Fənn
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {below30Rows.length === 0 ? (
+                <p className="text-center py-6 text-slate-400 text-sm">30-dan az toplayan hal tapılmadı</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-orange-200">
+                        <th className="text-left py-2 px-3 font-medium text-slate-600">Sinif</th>
+                        <th className="text-left py-2 px-3 font-medium text-slate-600">Fənn</th>
+                        <th className="text-right py-2 px-3 font-medium text-slate-600">Şagird</th>
+                        <th className="text-right py-2 px-3 font-medium text-slate-600">30-dan az</th>
+                        <th className="text-right py-2 px-3 font-medium text-slate-600">Faiz</th>
+                        <th className="text-right py-2 px-3 font-medium text-slate-600">Ort. bal</th>
+                        <th className="py-2 px-3 font-medium text-slate-600">Keçid faizi</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {below30Rows.map((row, idx) => (
+                        <tr
+                          key={`${row.class_level}-${row.subject_id}`}
+                          className={idx % 2 === 0 ? 'bg-white' : 'bg-orange-50/30'}
+                        >
+                          <td className="py-2 px-3">
+                            <Badge variant="outline" className="text-xs">{row.class_level}-ci</Badge>
+                          </td>
+                          <td className="py-2 px-3 font-medium">{row.subject_name}</td>
+                          <td className="py-2 px-3 text-right text-slate-500">{row.student_count}</td>
+                          <td className="py-2 px-3 text-right font-bold text-orange-600">
+                            {row.below_30_count}
+                          </td>
+                          <td className="py-2 px-3 text-right">
+                            <span className={`text-xs font-medium ${row.below_30_pct > 20 ? 'text-rose-600' : 'text-orange-600'}`}>
+                              {row.below_30_pct.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-right text-slate-600">{row.avg_score.toFixed(1)}</td>
+                          <td className="py-2 px-3">
+                            <div className="flex items-center gap-2">
+                              <Progress value={row.pass_rate} className="h-1.5 flex-1" />
+                              <span className="text-xs text-slate-500 w-10 text-right">
+                                {row.pass_rate.toFixed(0)}%
+                              </span>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="border-t border-orange-200 bg-orange-50">
+                        <td colSpan={3} className="py-2 px-3 font-semibold text-slate-700">Cəmi</td>
+                        <td className="py-2 px-3 text-right font-bold text-orange-700">
+                          {below30Rows.reduce((s, r) => s + r.below_30_count, 0)}
+                        </td>
+                        <td colSpan={3} />
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

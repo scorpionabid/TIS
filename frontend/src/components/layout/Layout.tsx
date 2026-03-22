@@ -1,3 +1,6 @@
+import { FloatingChatWidget } from '@/components/messaging';
+import { MessageCircle } from 'lucide-react';
+import { useState } from 'react';
 import { Outlet, useNavigate } from "react-router-dom";
 import { LoginForm } from "@/components/auth/LoginForm";
 import { ModernSidebar } from "@/components/layout/ModernSidebar";
@@ -104,12 +107,15 @@ const MainLayout = () => {
             </div>
           </HeaderContainer>
           <main
-            className="flex-1 overflow-y-auto bg-surface pb-24 md:pb-0"
+            className="flex-1 overflow-y-auto bg-surface pb-24 md:pb-0 relative"
             style={isMobile ? { paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 4.5rem)' } : undefined}
           >
             <PageContainer padding="none" className="px-2 sm:px-3 lg:px-4 pt-1 lg:pt-2">
               <Outlet />
             </PageContainer>
+            
+            {/* Floating Chat Widget - Inside main for visibility */}
+            <FloatingChatWidget />
           </main>
         </div>
 

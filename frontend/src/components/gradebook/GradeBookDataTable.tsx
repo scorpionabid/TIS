@@ -15,6 +15,7 @@ interface GradeBookDataTableProps {
   onUpdate: () => void;
   onEditColumn?: (column: GradeBookColumn) => void;
   onDeleteColumn?: (column: GradeBookColumn) => void;
+  readOnly?: boolean;
 }
 
 export const GradeBookDataTable = React.memo(function GradeBookDataTable({
@@ -25,6 +26,7 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
   onUpdate,
   onEditColumn,
   onDeleteColumn,
+  readOnly = false,
 }: GradeBookDataTableProps) {
   const { toast } = useToast();
   const [editingCell, setEditingCell] = useState<{ studentId: number; columnId: number } | null>(null);
@@ -110,8 +112,8 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
       return localScoreOverrides[overrideKey] ?? null;
     }
 
-    const cellData = student.scores[columnId];
-    if (!cellData) return null;
+    const cellData = student.scores?.[columnId];
+    if (!cellData || typeof cellData !== 'object') return null;
   
     // For calculated grade columns (ending with _QIYMET), show grade_mark
     if (column?.column_type === 'calculated' && column?.column_label?.endsWith('_QIYMET')) {
@@ -171,9 +173,10 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
 
     const cellData = student.scores?.[Number(columnId)];
     if (!cellData || !cellData.id) {
+      console.warn('[GradeBookDataTable] Missing cell data for student:', studentId, 'column:', columnId, 'cellData:', cellData);
       toast({
         title: 'Xəta',
-        description: 'Xana tapılmadı',
+        description: 'Bu xana üçün məlumat tapılmadı. Zəhmət olmasa səhifəni yeniləyin.',
         variant: 'destructive',
       });
       return;
@@ -229,6 +232,7 @@ export const GradeBookDataTable = React.memo(function GradeBookDataTable({
   // Handle cell click
   const handleCellClick = async (student: StudentWithScores, column: GradeBookColumn) => {
     if (column.column_type === 'calculated') return; // Can't edit calculated cells
+    if (readOnly) return; // Read-only mode (region/sector admin)
     if (isSavingCell) return; // Don't switch cells while saving
 
     const studentId = Number(student.id);

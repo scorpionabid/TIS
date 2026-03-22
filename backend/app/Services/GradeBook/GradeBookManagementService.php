@@ -7,6 +7,7 @@ use App\Models\GradeBookColumn;
 use App\Models\GradeBookCell;
 use App\Services\GradeCalculationService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Collection;
 
 class GradeBookManagementService
 {
@@ -75,6 +76,7 @@ class GradeBookManagementService
     {
         $maxOrder = $gradeBook->columns()
             ->where('semester', $data['semester'])
+            ->where('column_type', 'input')
             ->max('display_order') ?? 0;
 
         $column = $gradeBook->columns()->create([
@@ -115,9 +117,10 @@ class GradeBookManagementService
      */
     public function ensureCellsExist(GradeBookSession $gradeBook, array $studentIds): void
     {
-        $columnIds = $gradeBook->columns()->pluck('id')->toArray();
+        if (empty($studentIds)) return;
         
-        if (empty($columnIds) || empty($studentIds)) return;
+        $columnIds = $gradeBook->columns()->pluck('id')->toArray();
+        if (empty($columnIds)) return;
 
         foreach ($columnIds as $columnId) {
             $existingStudentIds = GradeBookCell::where('grade_book_column_id', $columnId)
@@ -127,14 +130,117 @@ class GradeBookManagementService
 
             $missingStudentIds = array_diff($studentIds, $existingStudentIds);
 
-            foreach ($missingStudentIds as $studentId) {
-                GradeBookCell::create([
+            if (!empty($missingStudentIds)) {
+                $now = now();
+                $insertData = array_map(fn($sid) => [
                     'grade_book_column_id' => $columnId,
-                    'student_id' => $studentId,
+                    'student_id' => $sid,
                     'is_present' => true,
-                ]);
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ], $missingStudentIds);
+
+                GradeBookCell::insert($insertData);
             }
         }
+    }
+
+    /**
+     * Get all students with their scores for a grade book session
+     */
+    public function getStudentsWithScores(GradeBookSession $gradeBook): \Illuminate\Support\Collection
+    {
+        // Load relationships if not already loaded
+        if (!$gradeBook->relationLoaded('columns')) {
+            $gradeBook->load(['columns' => fn($q) => $q->where('is_archived', false)->orderBy('display_order')]);
+        }
+        if (!$gradeBook->relationLoaded('grade')) {
+            $gradeBook->load('grade');
+        }
+
+        $institutionId = $gradeBook->institution_id;
+        $gradeId = $gradeBook->grade_id;
+
+        // Fetch enrolled students
+        $enrolledStudentIds = $gradeBook->grade->studentEnrollments()
+            ->where('enrollment_status', 'active')
+            ->pluck('student_id')
+            ->toArray();
+
+        // Fetch all active students (direct + enrolled) for this grade in this institution
+        $allStudents = \App\Models\Student::withoutGlobalScope(\App\Scopes\InstitutionScope::class)
+            ->where(function ($query) use ($gradeId, $enrolledStudentIds) {
+                $query->where('grade_id', $gradeId)
+                      ->orWhereIn('id', $enrolledStudentIds);
+            })
+            ->where('institution_id', $institutionId)
+            ->where('is_active', true)
+            ->get();
+
+        $studentIds = $allStudents->pluck('id')->toArray();
+        
+        // Ensure cells exist for ALL students for ALL active columns
+        $this->ensureCellsExist($gradeBook, $studentIds);
+
+        // Fetch scores for ALL students in one go
+        $allCells = GradeBookCell::whereHas('column', fn($q) => $q->where('grade_book_session_id', $gradeBook->id))
+            ->whereIn('student_id', $studentIds)
+            ->get()
+            ->groupBy('student_id');
+
+        return $allStudents->map(function ($student) use ($allCells, $gradeBook) {
+            $studentCells = $allCells->get($student->id, collect());
+            $scores = [];
+            
+            // PRE-PAD: Ensure every column has an entry (even if null) to prevent "Xana tapılmadı"
+            foreach ($gradeBook->columns as $column) {
+                $scores[$column->id] = null;
+            }
+
+            foreach ($studentCells as $cell) {
+                $columnId = $cell->grade_book_column_id;
+                $existing = $scores[$columnId] ?? null;
+
+                $shouldReplace = true;
+                if ($existing) {
+                    $existingScore = $existing['score'] ?? null;
+                    $incomingScore = $cell->score;
+
+                    if ($existingScore !== null && $incomingScore === null) {
+                        $shouldReplace = false;
+                    } elseif ($existingScore !== null && $incomingScore !== null) {
+                        $existingAt = $existing['recorded_at'] ?? $existing['updated_at'] ?? null;
+                        $incomingAt = $cell->recorded_at ?? $cell->updated_at;
+                        if ($existingAt && $incomingAt && $existingAt >= $incomingAt) {
+                            $shouldReplace = false;
+                        }
+                    }
+                }
+
+                if ($shouldReplace) {
+                    $scores[$columnId] = [
+                        'id' => $cell->id,
+                        'score' => $cell->score,
+                        'percentage' => $cell->percentage,
+                        'is_present' => $cell->is_present,
+                        'grade_mark' => $cell->grade_mark,
+                        'recorded_at' => $cell->recorded_at,
+                        'updated_at' => $cell->updated_at,
+                    ];
+                }
+            }
+
+            return [
+                'id' => $student->id,
+                'student_number' => $student->student_number,
+                'first_name' => $student->first_name,
+                'last_name' => $student->last_name,
+                'father_name' => $student->father_name,
+                'full_name' => "{$student->last_name} {$student->first_name} {$student->father_name}",
+                'scores' => (object) $scores, // Frontend expects object for numeric keys
+                'teacher_id' => $student->teacher_id ?? null,
+            ];
+        });
     }
 
     /**

@@ -52,7 +52,9 @@ class GradeBookController extends Controller
         $query = GradeBookSession::query()
             ->withoutGlobalScope(InstitutionScope::class)
             ->with([
-                'grade' => fn($q) => $q->withoutGlobalScope(InstitutionScope::class),
+                'grade' => fn($q) => $q
+                    ->withoutGlobalScope(InstitutionScope::class)
+                    ->withCount(['assignedStudents as real_student_count']),
                 'subject',
                 'academicYear',
                 'teachers.teacher',
@@ -120,111 +122,20 @@ class GradeBookController extends Controller
             return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
         }
 
-        $gradeBook->load([
-            'grade.studentEnrollments.student',
-            'subject', 'academicYear', 'teachers.teacher',
-            'columns' => fn($q) => $q->where('is_archived', false)->orderBy('display_order'),
-            'columns.cells.student',
-        ]);
+        $gradeBook->load(['subject', 'academicYear', 'teachers.teacher', 'columns.assessmentType']);
 
-        // canView() yoxlaması artıq keçib — bu müəssisəyə girişimiz var.
-        // Student sorğularını həmin müəssisə ilə məhdudlaşdırırıq (scope bypass-sız).
-        $institutionId = $gradeBook->institution_id;
+        $students = $this->managementService->getStudentsWithScores($gradeBook);
 
-        $enrolledStudentIds = $gradeBook->grade->studentEnrollments()
-            ->where('enrollment_status', 'active')
-            ->pluck('student_id')
-            ->toArray();
-
-        // Bu müəssisənin həmin sinifdəki şagirdlərini götür
-        $directStudents = \App\Models\Student::withoutGlobalScope(InstitutionScope::class)
-            ->where('grade_id', $gradeBook->grade_id)
-            ->where('institution_id', $institutionId)
-            ->where('is_active', true)
-            ->get();
-
-        // Enrollment vasitəsilə daxil olan şagirdlər (məktəbi eynidir)
-        $enrolledStudents = \App\Models\Student::withoutGlobalScope(InstitutionScope::class)
-            ->whereIn('id', $enrolledStudentIds)
-            ->where('institution_id', $institutionId)
-            ->where('is_active', true)
-            ->get();
-
-        // Merge and unique by ID
-        $allStudents = $directStudents->concat($enrolledStudents)->unique('id');
-
-        // Ensure cells exist for ALL students for ALL columns in this session
-        $this->managementService->ensureCellsExist($gradeBook, $allStudents->pluck('id')->toArray());
-
-        // Fetch scores for ALL students in one go
-        $allCells = \App\Models\GradeBookCell::whereHas('column', fn($q) => $q->where('grade_book_session_id', $gradeBook->id))
-            ->whereIn('student_id', $allStudents->pluck('id'))
-            ->get()
-            ->groupBy('student_id');
-
-        // Fetch teacher assignments for ALL students in one go
-        // Assuming there's a student_teacher_assignments table or similar if it's not on the student table
-        // For now, let's assume it's on the cell or teacher_student table. 
-        // Based on the code, assignStudentTeacher updates something. Let's check.
-        // Actually, let's just use the scores for now and add teacher_id if we can find it.
-        
-        $students = $allStudents->map(function($student) use ($allCells, $gradeBook) {
-            $studentCells = $allCells->get($student->id, collect());
-            $scores = [];
-            foreach ($studentCells as $cell) {
-                $columnId = $cell->grade_book_column_id;
-                $existing = $scores[$columnId] ?? null;
-
-                // If duplicates exist for the same column/student, prefer a non-null score.
-                // If both have a score, prefer the one with the latest recorded_at/updated_at.
-                $shouldReplace = true;
-                if ($existing) {
-                    $existingScore = $existing['score'] ?? null;
-                    $incomingScore = $cell->score;
-
-                    if ($existingScore !== null && $incomingScore === null) {
-                        $shouldReplace = false;
-                    } elseif ($existingScore !== null && $incomingScore !== null) {
-                        $existingAt = $existing['recorded_at'] ?? $existing['updated_at'] ?? null;
-                        $incomingAt = $cell->recorded_at ?? $cell->updated_at;
-                        if ($existingAt && $incomingAt && $existingAt >= $incomingAt) {
-                            $shouldReplace = false;
-                        }
-                    }
-                }
-
-                if ($shouldReplace) {
-                    $scores[$columnId] = [
-                        'id' => $cell->id,
-                        'score' => $cell->score,
-                        'is_present' => $cell->is_present,
-                        'grade_mark' => $cell->grade_mark,
-                        'recorded_at' => $cell->recorded_at,
-                        'updated_at' => $cell->updated_at,
-                    ];
-                }
-            }
-
-            return [
-                'id' => $student->id,
-                'student_number' => $student->student_number,
-                'first_name' => $student->first_name,
-                'last_name' => $student->last_name,
-                'father_name' => $student->father_name,
-                'full_name' => "{$student->last_name} {$student->first_name} {$student->father_name}",
-                'scores' => $scores,
-                'teacher_id' => $student->teacher_id ?? null, // Fallback if exists on student
-            ];
-        });
+        $activeColumns = $gradeBook->columns->where('is_archived', false);
 
         return response()->json([
             'success' => true,
             'data' => [
                 'grade_book' => $gradeBook,
                 'students' => $students,
-                'columns_by_semester' => $gradeBook->columns->groupBy('semester'),
-                'input_columns' => $gradeBook->columns->where('column_type', 'input'),
-                'calculated_columns' => $gradeBook->columns->where('column_type', 'calculated'),
+                'columns_by_semester' => $activeColumns->groupBy('semester'),
+                'input_columns' => $activeColumns->where('column_type', 'input')->values(),
+                'calculated_columns' => $activeColumns->where('column_type', 'calculated')->values(),
             ],
         ]);
     }
@@ -305,6 +216,26 @@ class GradeBookController extends Controller
         return response()->json(['success' => true, 'message' => 'Teacher assignment removed successfully.']);
     }
 
+    public function assignStudentTeacher(Request $request, GradeBookSession $gradeBook, int $studentId): JsonResponse
+    {
+        if (!$this->canModify($gradeBook)) {
+            return response()->json(['success' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'teacher_id' => 'nullable|exists:users,id',
+        ]);
+
+        $teacherId = $validated['teacher_id'] ?? null;
+
+        // Update all cells for this student in this grade book to the new teacher
+        \App\Models\GradeBookCell::whereHas('column', function ($q) use ($gradeBook) {
+            $q->where('grade_book_session_id', $gradeBook->id);
+        })->where('student_id', $studentId)->update(['teacher_id' => $teacherId]);
+
+        return response()->json(['success' => true, 'message' => 'Student teacher assigned successfully.']);
+    }
+
     public function archiveColumn(GradeBookColumn $column): JsonResponse
     {
         if (!$this->canModify($column->session)) return response()->json(['error' => 'Unauthorized'], 403);
@@ -338,74 +269,7 @@ class GradeBookController extends Controller
 
     public function getStudentsWithScores(GradeBookSession $gradeBook): JsonResponse
     {
-        $enrolledStudentIds = $gradeBook->grade->studentEnrollments()
-            ->where('enrollment_status', 'active')
-            ->pluck('student_id')
-            ->toArray();
-
-        $directStudents = \App\Models\Student::where('grade_id', $gradeBook->grade_id)
-            ->where('is_active', true)
-            ->get();
-
-        $enrolledStudents = \App\Models\Student::whereIn('id', $enrolledStudentIds)
-            ->where('is_active', true)
-            ->get();
-
-        $allStudents = $directStudents->concat($enrolledStudents)->unique('id');
-
-        // Ensure cells exist for ALL students for ALL columns in this session
-        $this->managementService->ensureCellsExist($gradeBook, $allStudents->pluck('id')->toArray());
-
-        // Fetch scores for ALL students in one go
-        $allCells = \App\Models\GradeBookCell::whereHas('column', fn($q) => $q->where('grade_book_session_id', $gradeBook->id))
-            ->whereIn('student_id', $allStudents->pluck('id'))
-            ->get()
-            ->groupBy('student_id');
-
-        $studentsData = $allStudents->map(function ($student) use ($allCells) {
-                $studentCells = $allCells->get($student->id, collect());
-                $scoresByColumn = [];
-                foreach ($studentCells as $cell) {
-                    $columnId = $cell->grade_book_column_id;
-                    $existing = $scoresByColumn[$columnId] ?? null;
-
-                    $shouldReplace = true;
-                    if ($existing) {
-                        $existingScore = $existing['score'] ?? null;
-                        $incomingScore = $cell->score;
-
-                        if ($existingScore !== null && $incomingScore === null) {
-                            $shouldReplace = false;
-                        } elseif ($existingScore !== null && $incomingScore !== null) {
-                            $existingAt = $existing['recorded_at'] ?? $existing['updated_at'] ?? null;
-                            $incomingAt = $cell->recorded_at ?? $cell->updated_at;
-                            if ($existingAt && $incomingAt && $existingAt >= $incomingAt) {
-                                $shouldReplace = false;
-                            }
-                        }
-                    }
-
-                    if ($shouldReplace) {
-                        $scoresByColumn[$columnId] = [
-                            'id' => $cell->id,
-                            'score' => $cell->score,
-                            'percentage' => $cell->percentage,
-                            'grade_mark' => $cell->grade_mark,
-                            'is_present' => $cell->is_present,
-                            'recorded_at' => $cell->recorded_at,
-                            'updated_at' => $cell->updated_at,
-                        ];
-                    }
-                }
-
-                return [
-                    'id' => $student->id, 'student_number' => $student->student_number,
-                    'full_name' => "{$student->last_name} {$student->first_name} {$student->father_name}",
-                    'scores' => $scoresByColumn,
-                    'teacher_id' => $student->teacher_id ?? null,
-                ];
-            });
-
+        $studentsData = $this->managementService->getStudentsWithScores($gradeBook);
         return response()->json(['success' => true, 'data' => $studentsData]);
     }
 
@@ -426,6 +290,25 @@ class GradeBookController extends Controller
     {
         $spreadsheet = $excelService->exportGradeBook($gradeBook->id);
         $filename = str_replace([' ', '/'], '_', "jurnal_{$gradeBook->grade->name}_{$gradeBook->subject->name}_{$gradeBook->academicYear->name}.xlsx");
+
+        return new StreamedResponse(function () use ($spreadsheet) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+        }, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    public function bulkExportByGrade(Request $request, GradeBookExcelService $excelService): StreamedResponse
+    {
+        $validated = $request->validate([
+            'grade_id' => 'required|integer|exists:grades,id',
+            'academic_year_id' => 'nullable|integer|exists:academic_years,id',
+        ]);
+
+        $grade = \App\Models\Grade::withoutGlobalScope(InstitutionScope::class)->findOrFail($validated['grade_id']);
+        $spreadsheet = $excelService->bulkExportByGrade($validated['grade_id'], $validated['academic_year_id'] ?? null);
+        $filename = str_replace([' ', '/'], '_', "jurnal_{$grade->name}_butun_fennler.xlsx");
 
         return new StreamedResponse(function () use ($spreadsheet) {
             (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
@@ -514,47 +397,327 @@ class GradeBookController extends Controller
 
     public function getAnalysisOverview(Request $request): JsonResponse
     {
-        $institutionId = $request->input('institution_id') ?? auth()->user()->institution_id;
-        $academicYearId = $request->input('academic_year_id');
-        $gradeId = $request->input('grade_id');
-        $subjectId = $request->input('subject_id');
+        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        if (empty($academicYearIds) && $request->input('academic_year_id')) {
+            $academicYearIds = [(int) $request->input('academic_year_id')];
+        }
+        $subjectIds        = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        if (empty($subjectIds) && $request->input('subject_id')) {
+            $subjectIds = [(int) $request->input('subject_id')];
+        }
+        $gradeIds    = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $sectorIds   = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds   = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
+        $gender      = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
-        $data = $this->analysisService->getOverviewData($institutionId, $academicYearId, $gradeId, $subjectId);
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getOverviewData(
+            $institutionIds, $academicYearIds, $gradeIds, $subjectIds,
+            $sectorIds, $schoolIds, $classLevels, $teachingLanguages, $gender
+        );
 
         return response()->json(['success' => true, 'data' => $data]);
     }
 
     public function getAnalysisComparison(Request $request): JsonResponse
     {
-        $institutionId = $request->input('institution_id') ?? auth()->user()->institution_id;
-        $academicYearId = $request->input('academic_year_id');
-        $compareBy = $request->input('compare_by', 'subject');
+        $institutionId  = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearId = $request->input('academic_year_id') ? (int) $request->input('academic_year_id') : null;
+        $compareBy      = $request->input('compare_by', 'subject');
+        $gradeId        = $request->input('grade_id')   ? (int) $request->input('grade_id')   : null;
+        $subjectId      = $request->input('subject_id') ? (int) $request->input('subject_id') : null;
 
-        $data = $this->analysisService->getComparisonData($institutionId, $academicYearId, $compareBy);
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getComparisonData($institutionIds, $academicYearId, $compareBy, $gradeId, $subjectId);
 
         return response()->json(['success' => true, 'data' => $data]);
     }
 
     public function getAnalysisTrends(Request $request): JsonResponse
     {
-        $institutionId = $request->input('institution_id') ?? auth()->user()->institution_id;
-        $academicYearId = $request->input('academic_year_id');
-        $timeRange = $request->input('time_range', 'year');
+        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        if (empty($academicYearIds) && $request->input('academic_year_id')) {
+            $academicYearIds = [(int) $request->input('academic_year_id')];
+        }
+        $timeRange         = $request->input('time_range', 'year');
+        $sectorIds         = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds         = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels       = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
 
-        $data = $this->analysisService->getTrendsData($institutionId, $academicYearId, $timeRange);
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getTrendsData(
+            $institutionIds, $academicYearIds, $timeRange,
+            $sectorIds, $schoolIds, $classLevels, $teachingLanguages
+        );
 
         return response()->json(['success' => true, 'data' => $data]);
     }
 
     public function getAnalysisDeepDive(Request $request): JsonResponse
     {
-        $institutionId = $request->input('institution_id') ?? auth()->user()->institution_id;
-        $academicYearId = $request->input('academic_year_id');
-        $gradeId = $request->input('grade_id');
-        $subjectId = $request->input('subject_id');
+        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        if (empty($academicYearIds) && $request->input('academic_year_id')) {
+            $academicYearIds = [(int) $request->input('academic_year_id')];
+        }
+        $gradeIds    = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $subjectIds  = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        $sectorIds   = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds   = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
+        $gender      = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
-        $data = $this->analysisService->getDeepDiveData($institutionId, $academicYearId, $gradeId, $subjectId);
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getDeepDiveData(
+            $institutionIds, $academicYearIds, $gradeIds, $subjectIds,
+            $sectorIds, $schoolIds, $classLevels, $teachingLanguages, $gender
+        );
 
         return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    /**
+     * Resolve allowed institution IDs based on user role.
+     * Returns null for SuperAdmin (no restriction), array for scoped roles.
+     */
+    private function resolveInstitutionIds(?int $explicitId): ?array
+    {
+        if ($explicitId) {
+            $inst = \App\Models\Institution::withoutGlobalScope(InstitutionScope::class)->find($explicitId);
+            // If non-leaf institution (ministry/region/sector), expand to all school-level children
+            if ($inst && $inst->level < 4) {
+                $childIds = $inst->getAllChildrenIds();
+                return !empty($childIds) ? $childIds : [$explicitId];
+            }
+            return [$explicitId];
+        }
+        $user = auth()->user();
+        $roleName = strtolower($user->roles->first()?->name ?? '');
+
+        if ($roleName === 'superadmin') {
+            return null; // no restriction
+        }
+
+        $institution = $user->institution;
+        if (!$institution) {
+            return []; // no access
+        }
+
+        if (in_array($roleName, ['regionadmin', 'regionoperator', 'sektoradmin'])) {
+            return $institution->getAllChildrenIds();
+        }
+
+        // schooladmin, müəllim, and others — own institution only
+        return $user->institution_id ? [$user->institution_id] : [];
+    }
+
+    public function getPivotAnalysis(Request $request): JsonResponse
+    {
+        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $groupBy           = in_array($request->input('group_by'), ['class_level', 'sector', 'school', 'grade', 'subject', 'language'])
+                             ? $request->input('group_by') : 'class_level';
+
+        // Support both single and array params for backward compatibility
+        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        if (empty($academicYearIds) && $request->input('academic_year_id')) {
+            $academicYearIds = [(int) $request->input('academic_year_id')];
+        }
+        $subjectIds        = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        if (empty($subjectIds) && $request->input('subject_id')) {
+            $subjectIds = [(int) $request->input('subject_id')];
+        }
+        $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
+        if (empty($teachingLanguages) && $request->input('teaching_language')) {
+            $teachingLanguages = [$request->input('teaching_language')];
+        }
+
+        $sectorIds   = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds   = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $gradeIds    = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $gender      = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
+
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getPivotAnalysis(
+            $institutionIds, $academicYearIds, $subjectIds, $groupBy,
+            $sectorIds, $schoolIds, $classLevels, $gradeIds, $teachingLanguages, $gender
+        );
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function getClassLevelSubjectAnalysis(Request $request): JsonResponse
+    {
+        $institutionId    = $request->input('institution_id')    ? (int) $request->input('institution_id')    : null;
+        $academicYearId   = $request->input('academic_year_id')  ? (int) $request->input('academic_year_id')  : null;
+        $classLevel       = $request->input('class_level')       ? (int) $request->input('class_level')       : null;
+        $subjectId        = $request->input('subject_id')        ? (int) $request->input('subject_id')        : null;
+        $assessmentTypeId = $request->input('assessment_type_id') ? (int) $request->input('assessment_type_id') : null;
+        $semester         = $request->input('semester') ?: null;
+
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getClassLevelSubjectAnalysis(
+            $institutionIds, $academicYearId, $classLevel, $subjectId, $assessmentTypeId, $semester
+        );
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function getRegionTrends(Request $request): JsonResponse
+    {
+        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        if (empty($academicYearIds) && $request->input('academic_year_id')) {
+            $academicYearIds = [(int) $request->input('academic_year_id')];
+        }
+        $groupBy           = in_array($request->input('group_by'), ['semester', 'assessment_type'])
+            ? $request->input('group_by') : 'semester';
+        $sectorIds         = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds         = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels       = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
+
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getRegionTrends(
+            $institutionIds, $academicYearIds, $groupBy,
+            $sectorIds, $schoolIds, $classLevels, $teachingLanguages
+        );
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function getJournalCompletion(Request $request): JsonResponse
+    {
+        $institutionId  = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearId = $request->input('academic_year_id') ? (int) $request->input('academic_year_id') : null;
+
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getJournalCompletion(
+            $institutionIds, $academicYearId
+        );
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function exportComprehensive(Request $request, GradeBookExcelService $excelService): StreamedResponse
+    {
+        $institutionId  = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearId = $request->input('academic_year_id') ? (int) $request->input('academic_year_id') : null;
+
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $overviewData   = $this->analysisService->getOverviewData($institutionIds, $academicYearId, null, null);
+        $classLevelData = $this->analysisService->getClassLevelSubjectAnalysis($institutionIds, $academicYearId, null, null, null, null);
+        $completionData = $this->analysisService->getJournalCompletion($institutionIds, $academicYearId);
+        $deepDiveData   = $this->analysisService->getDeepDiveData($institutionId, $academicYearId, null, null);
+
+        $spreadsheet = $excelService->exportComprehensive($overviewData, $classLevelData, $completionData, $deepDiveData);
+
+        $filename = 'hesabat_' . now()->format('Y-m-d') . '.xlsx';
+
+        return new StreamedResponse(function () use ($spreadsheet) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+        }, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    public function getScoreboard(Request $request): JsonResponse
+    {
+        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        $subjectIds        = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        $sectorIds         = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds         = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels       = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $gradeIds          = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
+        $gender            = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
+
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getScoreboardData(
+            $institutionIds, $academicYearIds, $subjectIds,
+            $sectorIds, $schoolIds, $classLevels, $gradeIds, $teachingLanguages, $gender
+        );
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function getAnalysisAvailableGrades(Request $request): JsonResponse
+    {
+        $institutionId   = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $academicYearIds = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        $sectorIds       = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds       = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getAvailableGrades($institutionIds, $academicYearIds, $sectorIds, $schoolIds);
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function getNestedPivotAnalysis(Request $request): JsonResponse
+    {
+        $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
+        $groupBys          = array_values(array_filter((array) $request->input('group_bys', ['sector', 'school'])));
+
+        $academicYearIds   = array_values(array_filter(array_map('intval', (array) $request->input('academic_year_ids', []))));
+        if (empty($academicYearIds) && $request->input('academic_year_id')) {
+            $academicYearIds = [(int) $request->input('academic_year_id')];
+        }
+        $subjectIds        = array_values(array_filter(array_map('intval', (array) $request->input('subject_ids', []))));
+        $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
+        $sectorIds         = array_values(array_filter(array_map('intval', (array) $request->input('sector_ids', []))));
+        $schoolIds         = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
+        $classLevels       = array_values(array_filter(array_map('intval', (array) $request->input('class_levels', []))));
+        $gradeIds          = array_values(array_filter(array_map('intval', (array) $request->input('grade_ids', []))));
+        $gender            = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
+
+        $institutionIds = $this->resolveInstitutionIds($institutionId);
+
+        $data = $this->analysisService->getNestedPivotAnalysis(
+            $institutionIds, $academicYearIds, $subjectIds, $groupBys,
+            $sectorIds, $schoolIds, $classLevels, $gradeIds, $teachingLanguages, $gender
+        );
+
+        return response()->json(['success' => true, 'data' => $data]);
+    }
+
+    public function exportAnalysis(Request $request, GradeBookExcelService $excelService): \Symfony\Component\HttpFoundation\StreamedResponse
+    {
+        $institutionId = (int) ($request->input('institution_id') ?? auth()->user()->institution_id);
+        $academicYearId = $request->input('academic_year_id') ? (int) $request->input('academic_year_id') : null;
+        $gradeId = $request->input('grade_id') ? (int) $request->input('grade_id') : null;
+
+        $overviewData = $this->analysisService->getOverviewData($institutionId, $academicYearId, $gradeId, null);
+        $deepDiveData = $this->analysisService->getDeepDiveData($institutionId, $academicYearId, $gradeId, null);
+
+        $spreadsheet = $excelService->exportAnalysisSummary($overviewData, $deepDiveData);
+
+        $filename = 'analiz_export_' . now()->format('Y-m-d') . '.xlsx';
+
+        return new \Symfony\Component\HttpFoundation\StreamedResponse(function () use ($spreadsheet) {
+            (new \PhpOffice\PhpSpreadsheet\Writer\Xlsx($spreadsheet))->save('php://output');
+        }, 200, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
     }
 }

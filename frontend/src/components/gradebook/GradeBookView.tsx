@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Plus, RotateCcw, FileDown, FileUp, Download, History } from 'lucide-react';
 import { gradeBookService, GradeBookSession, GradeBookColumn, StudentWithScores } from '@/services/gradeBook';
+import { useGradeBookRole } from '@/contexts/GradeBookRoleContext';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { GradeBookDataTable } from './GradeBookDataTable';
@@ -16,6 +17,8 @@ export function GradeBookView({ id: propId }: { id?: number }) {
   const { id: paramId } = useParams<{ id: string }>();
   const id = propId || Number(paramId);
   const { toast } = useToast();
+  const { isRegionAdmin, isSectorAdmin } = useGradeBookRole();
+  const isReadOnlyRole = isRegionAdmin || isSectorAdmin;
   const [loading, setLoading] = useState(true);
   const [gradeBook, setGradeBook] = useState<GradeBookSession | null>(null);
   const [students, setStudents] = useState<StudentWithScores[]>([]);
@@ -50,10 +53,12 @@ export function GradeBookView({ id: propId }: { id?: number }) {
       ].sort((a, b) => a.display_order - b.display_order);
 
       setColumns(allColumns);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : 'Failed to load grade book';
+      const axiosMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
       toast({
         title: 'Error',
-        description: error.response?.data?.message || error.message || 'Failed to load grade book',
+        description: axiosMessage || message,
         variant: 'destructive',
       });
     } finally {
@@ -195,54 +200,68 @@ export function GradeBookView({ id: propId }: { id?: number }) {
     <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-start">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {gradeBook.grade?.name} - {gradeBook.subject?.name}
+        <div className="flex items-center gap-3 flex-wrap">
+          <Badge variant="outline" className="text-xs font-semibold uppercase tracking-wider bg-blue-50 text-blue-700 border-blue-100 shrink-0">
+            Sinif Jurnalı
+          </Badge>
+          <h1 className="text-lg font-bold">
+            {gradeBook.grade?.class_level
+              ? `${gradeBook.grade.class_level}${gradeBook.grade.name}`
+              : gradeBook.grade?.name
+            } - {gradeBook.subject?.name}
           </h1>
-          <p className="text-gray-500">
+          {gradeBook.institution?.name && (
+            <span className="text-sm text-slate-500 hidden sm:inline">•</span>
+          )}
+          {gradeBook.institution?.name && (
+            <p className="text-sm text-slate-600 hidden sm:block">{gradeBook.institution.name}</p>
+          )}
+          <span className="text-sm text-slate-500 hidden sm:inline">•</span>
+          <p className="text-sm text-slate-500 hidden sm:block">
             {gradeBook.academic_year?.name}
             {gradeBook.title && ` • ${gradeBook.title}`}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportTemplate}>
-            <Download className="w-4 h-4 mr-2" />
-            Şablon
-          </Button>
-          <Button variant="outline" onClick={handleExport}>
-            <FileDown className="w-4 h-4 mr-2" />
-            Export
-          </Button>
-          <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-            <FileUp className="w-4 h-4 mr-2" />
-            Import
-          </Button>
-          <Button variant="outline" onClick={handleRecalculate} disabled={isRecalculating || isColumnLoading}>
-            <RotateCcw className={cn("w-4 h-4 mr-2", isRecalculating && "animate-spin")} />
-            {isRecalculating ? 'Hesablanır...' : 'Yenidən Hesabla'}
-          </Button>
-          <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
-            <History className="w-4 h-4 mr-2" />
-            {showHistory ? 'Tarixçəni Gizlət' : 'Tarixçəni Göstər'}
-          </Button>
-          <Button onClick={() => setIsAddColumnOpen(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            İmtahan Əlavə Et
-          </Button>
+          {isReadOnlyRole ? (
+            <Button variant="outline" onClick={handleExport}>
+              <FileDown className="w-4 h-4 mr-2" />
+              Export
+            </Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={handleExportTemplate}>
+                <Download className="w-4 h-4 mr-2" />
+                Şablon
+              </Button>
+              <Button variant="outline" onClick={handleExport}>
+                <FileDown className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+              <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                <FileUp className="w-4 h-4 mr-2" />
+                Import
+              </Button>
+              <Button variant="outline" onClick={handleRecalculate} disabled={isRecalculating || isColumnLoading}>
+                <RotateCcw className={cn("w-4 h-4 mr-2", isRecalculating && "animate-spin")} />
+                {isRecalculating ? 'Hesablanır...' : 'Yenidən Hesabla'}
+              </Button>
+              <Button variant="outline" onClick={() => setShowHistory(!showHistory)}>
+                <History className="w-4 h-4 mr-2" />
+                {showHistory ? 'Tarixçəni Gizlət' : 'Tarixçəni Göstər'}
+              </Button>
+              <Button onClick={() => setIsAddColumnOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                İmtahan Əlavə Et
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Grade Book Table - All Semesters Combined */}
       <Card className="mt-4">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Badge variant="secondary">Sinif Jurnalı</Badge>
-            <span className="text-sm font-normal text-gray-500">
-              ({columns.filter(c => c.column_type === 'input' && !c.is_archived).length} imtahan)
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <GradeBookDataTable
             students={memoizedStudents}
             columns={memoizedColumns}
@@ -251,6 +270,7 @@ export function GradeBookView({ id: propId }: { id?: number }) {
             onEditColumn={handleEditColumn}
             onDeleteColumn={handleDeleteColumn}
             onUpdate={memoizedOnUpdate}
+            readOnly={isReadOnlyRole}
           />
         </CardContent>
       </Card>

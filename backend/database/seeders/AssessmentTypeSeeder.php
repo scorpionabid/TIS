@@ -26,12 +26,13 @@ class AssessmentTypeSeeder extends Seeder
         }
 
         $assessmentTypes = [
-            // Grade Book Assessment Types
+            // ===== Sistem İmtahan Növləri (dəyişdirilə/silinə bilməz) =====
             [
-                'name' => 'Kiçik summativ qiymətləndirmə',
-                'description' => 'Kiçik summativ qiymətləndirmə (KSQ)',
+                'name' => 'Kiçik Summativ Qiymətləndirmə',
+                'description' => 'Kiçik Summativ Qiymətləndirmə (KSQ)',
                 'category' => 'ksq',
                 'is_active' => true,
+                'is_system' => true,
                 'criteria' => [
                     'Bilik və anlayış' => 40,
                     'Tətbiq etmə bacarığı' => 30,
@@ -46,10 +47,11 @@ class AssessmentTypeSeeder extends Seeder
                 'institution_id' => null,
             ],
             [
-                'name' => 'Böyük Summativ qiymətləndirmə',
-                'description' => 'Böyük Summativ qiymətləndirmə (BSQ)',
+                'name' => 'Böyük Summativ Qiymətləndirmə',
+                'description' => 'Böyük Summativ Qiymətləndirmə (BSQ)',
                 'category' => 'bsq',
                 'is_active' => true,
+                'is_system' => true,
                 'criteria' => [
                     'Nəzəri bilik və anlayış' => 30,
                     'Praktik tətbiq' => 25,
@@ -69,6 +71,7 @@ class AssessmentTypeSeeder extends Seeder
                 'description' => 'Buraxılış imtahanı (Buraxılış)',
                 'category' => 'bsq',
                 'is_active' => true,
+                'is_system' => true,
                 'criteria' => [
                     'Yekun bilik və bacarıqlar' => 100,
                 ],
@@ -80,10 +83,28 @@ class AssessmentTypeSeeder extends Seeder
                 'institution_id' => null,
             ],
             [
-                'name' => 'Monitorinq',
-                'description' => 'Monitorinq (monitorinq)',
-                'category' => 'custom',
+                'name' => 'Diaqnostik',
+                'description' => 'Diaqnostik qiymətləndirmə (DQ)',
+                'category' => 'diagnostic',
                 'is_active' => true,
+                'is_system' => true,
+                'criteria' => [
+                    'Bilik səviyyəsi' => 60,
+                    'Bacarıqlar' => 40,
+                ],
+                'max_score' => 100,
+                'scoring_method' => 'percentage',
+                'grade_levels' => ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'],
+                'subjects' => ['Bütün fənlər'],
+                'created_by' => $superAdmin->id,
+                'institution_id' => null,
+            ],
+            [
+                'name' => 'Monitorinq',
+                'description' => 'Monitorinq qiymətləndirməsi',
+                'category' => 'monitoring',
+                'is_active' => true,
+                'is_system' => true,
                 'criteria' => [
                     'Mövzu mənimsəmə' => 50,
                     'Bacarıqlar' => 30,
@@ -97,10 +118,11 @@ class AssessmentTypeSeeder extends Seeder
                 'institution_id' => null,
             ],
             [
-                'name' => 'Milli',
-                'description' => 'Milli (milli)',
-                'category' => 'custom',
+                'name' => 'Milli qiymətləndirmə',
+                'description' => 'Milli qiymətləndirmə (Milli)',
+                'category' => 'national',
                 'is_active' => true,
+                'is_system' => true,
                 'criteria' => [
                     'Nəticə' => 100,
                 ],

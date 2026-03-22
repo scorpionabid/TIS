@@ -607,6 +607,120 @@ class GradeBookExcelService
     }
 
     /**
+     * Bulk export all grade books for a specific grade (all subjects as separate sheets)
+     */
+    public function bulkExportByGrade(int $gradeId, ?int $academicYearId = null): Spreadsheet
+    {
+        $query = GradeBookSession::with([
+            'columns' => fn ($q) => $q->where('is_archived', false)->orderBy('display_order'),
+            'subject',
+            'academicYear',
+            'grade',
+        ])->where('grade_id', $gradeId)->where('status', 'active');
+
+        if ($academicYearId) {
+            $query->where('academic_year_id', $academicYearId);
+        }
+
+        $sessions = $query->get();
+
+        $spreadsheet = new Spreadsheet();
+        $spreadsheet->removeSheetByIndex(0); // Remove default sheet
+
+        foreach ($sessions as $index => $session) {
+            $sheet = $spreadsheet->createSheet($index);
+            $sheetTitle = mb_substr($session->subject->name ?? "Fənn {$index}", 0, 31);
+            $sheet->setTitle($sheetTitle);
+
+            // Title row
+            $sheet->mergeCells('A1:O1');
+            $sheet->setCellValue('A1', "{$session->grade->name} - {$session->subject->name} - {$session->academicYear->name}");
+            $sheet->getStyle('A1')->getFont()->setBold(true)->setSize(12);
+            $sheet->getStyle('A1')->getAlignment()->setHorizontal('center');
+
+            // Headers
+            $sheet->setCellValue('A3', '№');
+            $sheet->setCellValue('B3', 'Şagird Nömrəsi');
+            $sheet->setCellValue('C3', 'Soyad');
+            $sheet->setCellValue('D3', 'Ad');
+            $sheet->setCellValue('E3', 'Ata Adı');
+
+            $colIndex = 6;
+            $columnCoordinates = [];
+
+            foreach ($session->columns as $column) {
+                $coord = Coordinate::stringFromColumnIndex($colIndex);
+                $sheet->setCellValue("{$coord}3", $this->formatColumnLabel($column));
+                $columnCoordinates[$column->id] = $coord;
+
+                if ($column->column_type === 'calculated') {
+                    $sheet->getStyle("{$coord}3")->getFill()
+                        ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                        ->getStartColor()->setRGB('D9E1F2');
+                    $sheet->getStyle("{$coord}3")->getFont()->setBold(true);
+                }
+
+                $colIndex++;
+            }
+
+            $lastColumn = Coordinate::stringFromColumnIndex($colIndex - 1);
+            $sheet->getStyle("A3:{$lastColumn}3")->getFont()->setBold(true);
+            $sheet->getStyle("A3:{$lastColumn}3")->getFill()
+                ->setFillType(\PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID)
+                ->getStartColor()->setRGB('4472C4');
+            $sheet->getStyle("A3:{$lastColumn}3")->getFont()->getColor()->setRGB('FFFFFF');
+
+            $students = \App\Models\Student::where('grade_id', $session->grade_id)
+                ->where('is_active', true)
+                ->orderBy('last_name')
+                ->get();
+
+            $row = 4;
+            $counter = 1;
+
+            // Preload all cells for this session to avoid N+1
+            $columnIds = $session->columns->pluck('id')->toArray();
+            $allCells = GradeBookCell::whereIn('grade_book_column_id', $columnIds)
+                ->get()
+                ->groupBy('student_id');
+
+            foreach ($students as $student) {
+                $sheet->setCellValue("A{$row}", $counter++);
+                $sheet->setCellValue("B{$row}", $student->utis_code ?: $student->student_number);
+                $sheet->setCellValue("C{$row}", $student->last_name);
+                $sheet->setCellValue("D{$row}", $student->first_name);
+                $sheet->setCellValue("E{$row}", $student->father_name);
+
+                $studentCells = $allCells->get($student->id, collect())->keyBy('grade_book_column_id');
+
+                foreach ($session->columns as $column) {
+                    $cell = $studentCells->get($column->id);
+                    $coord = $columnCoordinates[$column->id] ?? null;
+                    if (!$coord) continue;
+                    $value = $cell && $cell->score !== null ? $cell->score : '';
+                    $sheet->setCellValue("{$coord}{$row}", $value);
+                }
+
+                $row++;
+            }
+
+            foreach (range('A', $lastColumn) as $col) {
+                $sheet->getColumnDimension($col)->setAutoSize(true);
+            }
+        }
+
+        if ($spreadsheet->getSheetCount() === 0) {
+            $sheet = $spreadsheet->createSheet(0);
+            $sheet->setTitle('Boş');
+            $sheet->setCellValue('A1', 'Bu sinif üçün aktiv jurnal tapılmadı.');
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        return $spreadsheet;
+    }
+
+    /**
      * Format column label for display
      */
     private function formatColumnLabel(GradeBookColumn $column): string
@@ -621,5 +735,270 @@ class GradeBookExcelService
         ];
 
         return $labels[$column->column_label] ?? $column->column_label;
+    }
+
+    /**
+     * Export analysis summary as multi-sheet Excel
+     */
+    public function exportAnalysisSummary(array $overviewData, array $deepDiveData): Spreadsheet
+    {
+        $spreadsheet = new Spreadsheet();
+
+        // === Sheet 1: Overview ===
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setTitle('Ümumi Baxış');
+
+        $headerStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '3B82F6']],
+        ];
+
+        $sheet->setCellValue('A1', 'Nəticə Analizi - Ümumi Baxış');
+        $sheet->mergeCells('A1:B1');
+        $sheet->getStyle('A1')->applyFromArray($headerStyle);
+
+        $row = 3;
+        $metrics = [
+            ['Şagird sayı', $overviewData['totalStudents']],
+            ['Ümumi jurnallar', $overviewData['totalJournals']],
+            ['Aktiv jurnallar', $overviewData['activeJournals']],
+            ['Arxivlənmiş jurnallar', $overviewData['archivedJournals']],
+            ['İmtahan sütunları', $overviewData['examCount']],
+            ['Ortalama bal', $overviewData['averageScore']],
+            ['Ən yüksək bal', $overviewData['highestScore']],
+        ];
+        foreach ($metrics as [$label, $value]) {
+            $sheet->setCellValue("A{$row}", $label);
+            $sheet->setCellValue("B{$row}", $value);
+            $row++;
+        }
+
+        $row += 2;
+        $sheet->setCellValue("A{$row}", 'Qiymət Paylanması');
+        $sheet->getStyle("A{$row}")->applyFromArray($headerStyle);
+        $row++;
+        $sheet->setCellValue('A' . $row, 'Qiymət');
+        $sheet->setCellValue('B' . $row, 'Şagird sayı');
+        $sheet->setCellValue('C' . $row, 'Faiz');
+        $row++;
+        foreach ($overviewData['gradeDistribution'] as $dist) {
+            $sheet->setCellValue("A{$row}", $dist['grade']);
+            $sheet->setCellValue("B{$row}", $dist['count']);
+            $sheet->setCellValue("C{$row}", $dist['percentage'] . '%');
+            $row++;
+        }
+
+        $row += 2;
+        $sheet->setCellValue("A{$row}", 'Fənn Üzrə Ortalamalar');
+        $sheet->getStyle("A{$row}")->applyFromArray($headerStyle);
+        $row++;
+        $sheet->setCellValue('A' . $row, 'Fənn');
+        $sheet->setCellValue('B' . $row, 'Ortalama bal');
+        $row++;
+        foreach ($overviewData['subjectAverages'] as $sub) {
+            $sheet->setCellValue("A{$row}", $sub['subject']);
+            $sheet->setCellValue("B{$row}", $sub['average']);
+            $row++;
+        }
+
+        $sheet->getColumnDimension('A')->setWidth(35);
+        $sheet->getColumnDimension('B')->setWidth(20);
+        $sheet->getColumnDimension('C')->setWidth(15);
+
+        // === Sheet 2: Risk Students ===
+        $riskSheet = $spreadsheet->createSheet();
+        $riskSheet->setTitle('Risk Şagirdlər');
+
+        $riskSheet->setCellValue('A1', 'Risk Qrupundakı Şagirdlər (Ortalama < 50)');
+        $riskSheet->mergeCells('A1:E1');
+        $riskSheet->getStyle('A1')->applyFromArray($headerStyle);
+
+        $riskSheet->setCellValue('A2', '#');
+        $riskSheet->setCellValue('B2', 'Ad Soyad');
+        $riskSheet->setCellValue('C2', 'Sinif');
+        $riskSheet->setCellValue('D2', 'Ortalama');
+        $riskSheet->setCellValue('E2', 'Zəif fənn sayı');
+        $riskSheet->getStyle('A2:E2')->getFont()->setBold(true);
+
+        $r = 3;
+        foreach ($deepDiveData['riskStudents'] as $i => $student) {
+            $riskSheet->setCellValue("A{$r}", $i + 1);
+            $riskSheet->setCellValue("B{$r}", $student['name']);
+            $riskSheet->setCellValue("C{$r}", $student['class']);
+            $riskSheet->setCellValue("D{$r}", $student['average']);
+            $riskSheet->setCellValue("E{$r}", $student['failedSubjects']);
+            $r++;
+        }
+
+        foreach (['A' => 5, 'B' => 30, 'C' => 15, 'D' => 15, 'E' => 18] as $col => $width) {
+            $riskSheet->getColumnDimension($col)->setWidth($width);
+        }
+
+        // === Sheet 3: Top Students ===
+        $topSheet = $spreadsheet->createSheet();
+        $topSheet->setTitle('Uğurlu Şagirdlər');
+
+        $topSheet->setCellValue('A1', 'Ən Yüksək Nəticə Göstərənlər (Ortalama ≥ 85)');
+        $topSheet->mergeCells('A1:E1');
+        $topSheet->getStyle('A1')->applyFromArray($headerStyle);
+
+        $topSheet->setCellValue('A2', '#');
+        $topSheet->setCellValue('B2', 'Ad Soyad');
+        $topSheet->setCellValue('C2', 'Sinif');
+        $topSheet->setCellValue('D2', 'Ortalama');
+        $topSheet->setCellValue('E2', 'Ən güclü fənn');
+        $topSheet->getStyle('A2:E2')->getFont()->setBold(true);
+
+        $r = 3;
+        foreach ($deepDiveData['topStudents'] as $i => $student) {
+            $topSheet->setCellValue("A{$r}", $i + 1);
+            $topSheet->setCellValue("B{$r}", $student['name']);
+            $topSheet->setCellValue("C{$r}", $student['class']);
+            $topSheet->setCellValue("D{$r}", $student['average']);
+            $topSheet->setCellValue("E{$r}", $student['bestSubject']);
+            $r++;
+        }
+
+        foreach (['A' => 5, 'B' => 30, 'C' => 15, 'D' => 15, 'E' => 25] as $col => $width) {
+            $topSheet->getColumnDimension($col)->setWidth($width);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+
+        return $spreadsheet;
+    }
+
+    /**
+     * Export comprehensive analysis: 4 sheets
+     */
+    public function exportComprehensive(array $overviewData, array $classLevelData, array $completionData, array $deepDiveData): Spreadsheet
+    {
+        $spreadsheet = new Spreadsheet();
+
+        $hdrStyle = [
+            'font' => ['bold' => true, 'color' => ['rgb' => 'FFFFFF']],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => '1E40AF']],
+        ];
+        $subHdrStyle = [
+            'font' => ['bold' => true],
+            'fill' => ['fillType' => \PhpOffice\PhpSpreadsheet\Style\Fill::FILL_SOLID, 'startColor' => ['rgb' => 'DBEAFE']],
+        ];
+
+        // === Sheet 1: Ümumi Baxış ===
+        $s1 = $spreadsheet->getActiveSheet();
+        $s1->setTitle('Ümumi Baxış');
+        $s1->setCellValue('A1', 'Ümumi Baxış — ' . now()->format('d.m.Y'));
+        $s1->mergeCells('A1:C1');
+        $s1->getStyle('A1')->applyFromArray($hdrStyle);
+
+        $row = 3;
+        foreach ([
+            ['Cəmi şagird', $overviewData['totalStudents']],
+            ['Cəmi jurnal', $overviewData['totalJournals']],
+            ['Aktiv jurnal', $overviewData['activeJournals']],
+            ['Arxiv jurnal', $overviewData['archivedJournals']],
+            ['İmtahan sütunu', $overviewData['examCount']],
+            ['Ortalama bal', $overviewData['averageScore']],
+            ['Ən yüksək bal', $overviewData['highestScore']],
+        ] as [$lbl, $val]) {
+            $s1->setCellValue("A{$row}", $lbl);
+            $s1->setCellValue("B{$row}", $val);
+            $row++;
+        }
+
+        $row += 2;
+        $s1->setCellValue("A{$row}", 'Fənn');
+        $s1->setCellValue("B{$row}", 'Ortalama bal');
+        $s1->getStyle("A{$row}:B{$row}")->applyFromArray($subHdrStyle);
+        $row++;
+        foreach ($overviewData['subjectAverages'] as $sub) {
+            $s1->setCellValue("A{$row}", $sub['subject']);
+            $s1->setCellValue("B{$row}", $sub['average']);
+            $row++;
+        }
+        foreach (['A' => 35, 'B' => 18, 'C' => 15] as $c => $w) {
+            $s1->getColumnDimension($c)->setWidth($w);
+        }
+
+        // === Sheet 2: Sinif Səviyyəsi × Fənn ===
+        $s2 = $spreadsheet->createSheet();
+        $s2->setTitle('Sinif Analizi');
+        $headers = ['Sinif səv.', 'Fənn', 'Məktəb sayı', 'Jurnal', 'Şagird', 'Ort. bal', 'Min', 'Max', '30-dan az', '30-dan az %', 'Keçid %'];
+        foreach ($headers as $i => $h) {
+            $s2->setCellValueByColumnAndRow($i + 1, 1, $h);
+        }
+        $s2->getStyle('A1:K1')->applyFromArray($subHdrStyle);
+        $r = 2;
+        foreach ($classLevelData['rows'] as $row2) {
+            $s2->setCellValue("A{$r}", $row2['class_level']);
+            $s2->setCellValue("B{$r}", $row2['subject_name']);
+            $s2->setCellValue("C{$r}", $row2['institution_count']);
+            $s2->setCellValue("D{$r}", $row2['journal_count']);
+            $s2->setCellValue("E{$r}", $row2['student_count']);
+            $s2->setCellValue("F{$r}", $row2['avg_score']);
+            $s2->setCellValue("G{$r}", $row2['min_score']);
+            $s2->setCellValue("H{$r}", $row2['max_score']);
+            $s2->setCellValue("I{$r}", $row2['below_30_count']);
+            $s2->setCellValue("J{$r}", $row2['below_30_pct'] . '%');
+            $s2->setCellValue("K{$r}", $row2['pass_rate'] . '%');
+            $r++;
+        }
+        foreach (['A' => 12, 'B' => 28, 'C' => 13, 'D' => 10, 'E' => 10, 'F' => 12, 'G' => 8, 'H' => 8, 'I' => 14, 'J' => 14, 'K' => 12] as $c => $w) {
+            $s2->getColumnDimension($c)->setWidth($w);
+        }
+
+        // === Sheet 3: Jurnal Dolduruluşu ===
+        $s3 = $spreadsheet->createSheet();
+        $s3->setTitle('Jurnal Dolduruluşu');
+        $hd3 = ['Məktəb', 'Sektor', 'Cəmi jurnal', 'Aktiv', 'Dolu', 'Boş', 'Dolduruluş %', 'Son giriş'];
+        foreach ($hd3 as $i => $h) {
+            $s3->setCellValueByColumnAndRow($i + 1, 1, $h);
+        }
+        $s3->getStyle('A1:H1')->applyFromArray($subHdrStyle);
+        $r = 2;
+        foreach ($completionData['rows'] as $row3) {
+            $s3->setCellValue("A{$r}", $row3['institution_name']);
+            $s3->setCellValue("B{$r}", $row3['sector_name']);
+            $s3->setCellValue("C{$r}", $row3['total_journals']);
+            $s3->setCellValue("D{$r}", $row3['active_journals']);
+            $s3->setCellValue("E{$r}", $row3['journals_with_data']);
+            $s3->setCellValue("F{$r}", $row3['journals_empty']);
+            $s3->setCellValue("G{$r}", $row3['fill_rate'] . '%');
+            $s3->setCellValue("H{$r}", $row3['last_entry_date'] ?? '-');
+            $r++;
+        }
+        // Summary row
+        $r++;
+        $s3->setCellValue("A{$r}", 'YEKUN');
+        $s3->setCellValue("C{$r}", $completionData['summary']['total_institutions'] . ' məktəb');
+        $s3->setCellValue("G{$r}", $completionData['summary']['avg_fill_rate'] . '% (ort.)');
+        $s3->getStyle("A{$r}:H{$r}")->getFont()->setBold(true);
+        foreach (['A' => 40, 'B' => 20, 'C' => 13, 'D' => 10, 'E' => 10, 'F' => 8, 'G' => 15, 'H' => 14] as $c => $w) {
+            $s3->getColumnDimension($c)->setWidth($w);
+        }
+
+        // === Sheet 4: Risk Şagirdlər (avg < 50) ===
+        $s4 = $spreadsheet->createSheet();
+        $s4->setTitle('Risk Şagirdlər');
+        $hd4 = ['#', 'Ad Soyad', 'Sinif', 'Ortalama bal', 'Zəif fənn sayı'];
+        foreach ($hd4 as $i => $h) {
+            $s4->setCellValueByColumnAndRow($i + 1, 1, $h);
+        }
+        $s4->getStyle('A1:E1')->applyFromArray($subHdrStyle);
+        $r = 2;
+        foreach ($deepDiveData['riskStudents'] as $i => $student) {
+            $s4->setCellValue("A{$r}", $i + 1);
+            $s4->setCellValue("B{$r}", $student['name']);
+            $s4->setCellValue("C{$r}", $student['class']);
+            $s4->setCellValue("D{$r}", $student['average']);
+            $s4->setCellValue("E{$r}", $student['failedSubjects']);
+            $r++;
+        }
+        foreach (['A' => 5, 'B' => 30, 'C' => 15, 'D' => 14, 'E' => 18] as $c => $w) {
+            $s4->getColumnDimension($c)->setWidth($w);
+        }
+
+        $spreadsheet->setActiveSheetIndex(0);
+        return $spreadsheet;
     }
 }

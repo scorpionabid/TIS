@@ -1,0 +1,1 @@
+export { ModernMessageIcon } from './ModernMessageIcon';

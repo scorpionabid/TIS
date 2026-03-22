@@ -40,7 +40,7 @@ export const GradeBookRoleProvider: React.FC<{ children: React.ReactNode }> = ({
     const isRegionAdmin = hasRole('regionadmin');
     const isSektorAdmin = hasRole('sektoradmin');
     const isSchoolAdmin = hasRole('schooladmin');
-    const isTeacher = hasRole('müəllim');
+    const isTeacher = hasRole('teacher');
     
     // Determine view mode based on role
     let viewMode: GradeBookViewMode = 'teacher';

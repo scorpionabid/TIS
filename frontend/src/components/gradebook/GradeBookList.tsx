@@ -90,7 +90,7 @@ const getStatusLabel = (status: string): string => {
 const getGradeDisplayName = (grade: GradeBookSession['grade']): string => {
   if (!grade) return 'Sinif adı yoxdur';
   const composite = grade.class_level && grade.name
-    ? `${grade.class_level}-${grade.name}`
+    ? `${grade.class_level}${grade.name}`
     : grade.name;
   return composite || `Sinif ${grade.id}`;
 };
@@ -260,7 +260,7 @@ export function GradeBookList({
   }, [selectedJournalId, gradeBooks]);
 
   return (
-    <Card className="border-slate-200 h-full flex flex-col">
+    <Card className="border-slate-200 flex flex-col min-h-[580px]">
       <CardHeader className="pb-3">
         <CardTitle className="text-base font-medium flex items-center gap-2">
           <School className="w-4 h-4" />
@@ -274,7 +274,7 @@ export function GradeBookList({
         </span>
 
         {/* Search */}
-        <div className="relative mt-2">
+        <div className="relative mt-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
             placeholder="Jurnal axtar..."
@@ -356,7 +356,10 @@ export function GradeBookList({
                             {group.gradeDisplayName}
                           </h2>
                           <span className="text-sm text-slate-500">
-                            ({group.items.length} fənn)
+                            {group.items.length} jurnal
+                            {(group.items[0]?.grade?.real_student_count ?? 0) > 0 && (
+                              <> • {group.items[0].grade!.real_student_count} şagird</>
+                            )}
                           </span>
                           {/* Academic year badge */}
                           {group.gradeAcademicYearName && (
@@ -481,16 +484,17 @@ export function GradeBookList({
         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetContent
             side="right"
-            className="p-0 overflow-hidden w-[80vw] max-w-[80vw]"
+            className="p-0 overflow-hidden w-[80vw] max-w-[80vw] [&>button:last-child]:hidden"
           >
             <div className="h-full flex flex-col">
-              <div className="flex items-center justify-between p-4 border-b border-slate-200 bg-slate-50">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">Sinif Jurnalı</h2>
-                  {selectedJournalInfo && (
-                    <p className="text-sm text-slate-500">{selectedJournalInfo}</p>
-                  )}
-                </div>
+              {/* Custom header with close button */}
+              <div className="flex items-center justify-between px-4 py-2 border-b border-slate-200 bg-slate-50 flex-shrink-0">
+                <span className="text-sm font-medium text-slate-700 truncate max-w-[60%]">
+                  {selectedJournalInfo || 'Jurnal'}
+                </span>
+                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 shrink-0" onClick={closeJournal}>
+                  <span className="text-slate-500 text-lg leading-none">✕</span>
+                </Button>
               </div>
               <div className="flex-1 overflow-auto">
                 {selectedJournalId ? (

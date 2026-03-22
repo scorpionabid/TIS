@@ -1,11 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
-import { Calculator, School, BarChart3, Building2, MapPin } from 'lucide-react';
+import { Calculator, School, BarChart3, Building2, MapPin, GraduationCap, BookOpen, FileDown, ChevronRight, ChevronDown } from 'lucide-react';
 import { GradeBookList } from '@/components/gradebook';
 import { GradeBookAnalysis } from '@/components/gradebook/analysis/GradeBookAnalysis';
-import { AdminDashboard } from '@/components/gradebook/admin';
 import { GradeBookRoleProvider, useGradeBookRole } from '@/contexts/GradeBookRoleContext';
 import { HierarchyNavigator, useHierarchyState, HierarchyNode } from '@/components/gradebook/HierarchyNavigator';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,21 +13,19 @@ import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { hierarchyService, HierarchyNode as InstitutionHierarchyNode } from '@/services/hierarchy';
 import { gradeService } from '@/services/grades';
+import { gradeBookService } from '@/services/gradeBook';
+import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
-type GradeBookTab = 'list' | 'analysis' | 'admin' | 'create';
+type GradeBookTab = 'list' | 'analysis' | 'create';
 
 const GradeBooksPage: React.FC = () => {
   const { hasPermission, currentUser } = useAuth();
   const { viewMode, canViewHierarchy, isRegionAdmin, isSectorAdmin, canCreate: roleCanCreate } = useGradeBookRole();
   const [searchParams, setSearchParams] = useSearchParams();
-
-  // Auto-select institution for school admin
-  useEffect(() => {
-    if (!canViewHierarchy && currentUser?.institution?.id) {
-      setSelectedInstitutionId(currentUser.institution.id);
-    }
-  }, [canViewHierarchy, currentUser?.institution?.id]);
+  const { toast } = useToast();
+  const [bulkExporting, setBulkExporting] = useState(false);
 
   // Institution hierarchy (Region->Sector->School) for Region/Sektor admins
   const [institutionTree, setInstitutionTree] = useState<HierarchyNode[]>([]);
@@ -36,10 +33,17 @@ const GradeBooksPage: React.FC = () => {
   const [selectedInstitutionId, setSelectedInstitutionId] = useState<number | null>(null);
   const [selectedClassLevel, setSelectedClassLevel] = useState<number | null>(null);
   const [selectedLetter, setSelectedLetter] = useState<string | null>(null);
+  const [expandedClassLevelIds, setExpandedClassLevelIds] = useState<Set<number>>(new Set());
 
-  const [gradesForInstitution, setGradesForInstitution] = useState<Array<{ id: number; name: string; classLevel: number; label: string; studentCount: number }>>([]);
+  const [gradesForInstitution, setGradesForInstitution] = useState<Array<{ id: number; name: string; classLevel: number; label: string; studentCount: number; journalCount: number }>>([]);
   const [gradesLoading, setGradesLoading] = useState(false);
   const [hierarchySearch, setHierarchySearch] = useState('');
+  const [levelSearch, setLevelSearch] = useState('');
+  const [letterSearch, setLetterSearch] = useState('');
+  // Tam ağac — axtarış aktivləşdikdə bir dəfə yüklənir
+  const [fullInstitutionTree, setFullInstitutionTree] = useState<HierarchyNode[] | null>(null);
+  const [fullTreeLoading, setFullTreeLoading] = useState(false);
+  const fullTreeLoadStartedRef = React.useRef(false);
   
   const {
     expandedIds,
@@ -48,6 +52,21 @@ const GradeBooksPage: React.FC = () => {
     toggleExpand,
     selectNode,
   } = useHierarchyState();
+
+  // Auto-select institution for school admin
+  useEffect(() => {
+    if (!canViewHierarchy && currentUser?.institution?.id) {
+      setSelectedInstitutionId(currentUser.institution.id);
+    }
+  }, [canViewHierarchy, currentUser?.institution?.id]);
+
+  // Fallback: if we still don't have an institution ID, try currentUser again
+  useEffect(() => {
+    if (!selectedInstitutionId && currentUser?.institution?.id) {
+      console.log('[GradeBooks] Fallback: Setting institution ID from currentUser:', currentUser.institution.id);
+      setSelectedInstitutionId(currentUser.institution.id);
+    }
+  }, [selectedInstitutionId, currentUser?.institution?.id]);
 
   const mapInstitutionNodeType = (type: string): HierarchyNode['type'] | null => {
     if (type === 'region' || type === 'regional_education_department') return 'region';
@@ -65,7 +84,12 @@ const GradeBooksPage: React.FC = () => {
   const countSchoolsInSubtree = (node: InstitutionHierarchyNode): number => {
     if (node.level === 4) return 1;
     const children = Array.isArray(node.children) ? node.children : [];
-    return children.reduce((sum, child) => sum + countSchoolsInSubtree(child), 0);
+    if (children.length > 0) {
+      return children.reduce((sum, child) => sum + countSchoolsInSubtree(child), 0);
+    }
+    // Uşaqlar hələ yüklənməyib — sektor üçün children_count məktəb sayıdır
+    if (node.level === 3) return node.children_count ?? 0;
+    return 0;
   };
 
   const toNavigatorNodes = (nodes: InstitutionHierarchyNode[]): HierarchyNode[] => {
@@ -114,20 +138,24 @@ const GradeBooksPage: React.FC = () => {
           return;
         }
 
-        const response = await hierarchyService.getHierarchy({ max_depth: 4, include_inactive: false, expand_all: true });
+        const response = await hierarchyService.getHierarchy({ max_depth: 2, include_inactive: false });
         const rootNodes = response?.data ?? [];
         const mapped = toNavigatorNodes(rootNodes);
         setInstitutionTree(mapped);
 
-        const allIds = new Set<number>();
-        const collectIds = (items: HierarchyNode[]) => {
+        // Yalnız region səviyyəsini açıq göstər; sektorlar bağlı başlasın (kliklə lazy load)
+        const regionIds = new Set<number>();
+        const collectRegions = (items: HierarchyNode[]) => {
           items.forEach(item => {
-            allIds.add(item.id);
-            if (item.children) collectIds(item.children);
+            if (item.type === 'region') {
+              regionIds.add(item.id);
+            } else if (item.type === 'sector') {
+              // Sektorlar bağlı — kliklə məktəblər lazy load ediləcək
+            }
           });
         };
-        collectIds(mapped);
-        setExpandedIds(allIds);
+        collectRegions(mapped);
+        setExpandedIds(regionIds);
       } catch (error) {
         console.error('[InstitutionHierarchy] Error:', error);
         setInstitutionTree([]);
@@ -139,9 +167,38 @@ const GradeBooksPage: React.FC = () => {
     loadInstitutionTree();
   }, [canViewHierarchy, setExpandedIds]);
 
+  // Lazy-load children for institution nodes (schools) when expanded
+  const handleLoadChildren = useCallback(async (node: HierarchyNode): Promise<HierarchyNode[]> => {
+    try {
+      const response = await hierarchyService.getSubTree(node.id, { depth: 2, include_inactive: false });
+      if (response.success && response.data) {
+        const children = Array.isArray(response.data.children) ? response.data.children : [];
+        return toNavigatorNodes(children);
+      }
+    } catch (error) {
+      console.error('[HierarchyLazyLoad] Error:', error);
+    }
+    return [];
+  }, []);
+
+  // Mount olduqda arxa planda tam ağacı yüklə (axtarış gözləmədən)
+  useEffect(() => {
+    if (!canViewHierarchy || fullTreeLoadStartedRef.current) return;
+    fullTreeLoadStartedRef.current = true;
+    setFullTreeLoading(true);
+    hierarchyService.getHierarchy({ max_depth: 3, include_inactive: false })
+      .then(response => {
+        setFullInstitutionTree(toNavigatorNodes(response?.data ?? []));
+      })
+      .catch(e => {
+        console.error('[FullTree]', e);
+        fullTreeLoadStartedRef.current = false; // Xəta olarsa yenidən cəhd et
+      })
+      .finally(() => setFullTreeLoading(false));
+  }, [canViewHierarchy]);
+
   const canViewList = hasPermission('assessments.read');
   const canCreate = hasPermission('assessments.create') && roleCanCreate;
-  const canAccessAdmin = isRegionAdmin || isSectorAdmin;
 
   // Selection handler: we select school nodes here
   const handleSelectNode = (node: HierarchyNode) => {
@@ -184,8 +241,20 @@ const GradeBooksPage: React.FC = () => {
           return;
         }
 
-        const result = await gradeService.get({ institution_id: selectedInstitutionId, is_active: true, per_page: 200 });
-        const items = result.items;
+        const [gradesResult, gradeBooksResult] = await Promise.all([
+          gradeService.get({ institution_id: selectedInstitutionId, is_active: true, per_page: 100 }),
+          gradeBookService.getGradeBooks({ institution_id: selectedInstitutionId }),
+        ]);
+        const items = gradesResult.items;
+        const gradeBooks = gradeBooksResult.data ?? [];
+
+        // Hər grade_id üçün jurnal sayı
+        const journalCountMap = new Map<number, number>();
+        gradeBooks.forEach(gb => {
+          if (gb.grade?.id) {
+            journalCountMap.set(gb.grade.id, (journalCountMap.get(gb.grade.id) ?? 0) + 1);
+          }
+        });
 
         const list = items
           .map((grade) => ({
@@ -193,7 +262,8 @@ const GradeBooksPage: React.FC = () => {
             name: grade.name || '',
             classLevel: grade.class_level || 0,
             label: grade.full_name || grade.display_name || grade.name || `Sinif ${grade.id}`,
-            studentCount: grade.student_count ?? 0,
+            studentCount: grade.real_student_count ?? grade.student_count ?? 0,
+            journalCount: journalCountMap.get(grade.id) ?? 0,
           }))
           .sort((a, b) => a.label.localeCompare(b.label, 'az'));
         setGradesForInstitution(list);
@@ -209,34 +279,80 @@ const GradeBooksPage: React.FC = () => {
   }, [selectedInstitutionId]);
 
   const classLevels = useMemo(() => {
-    const levelsMap = new Map<number, { level: number; studentCount: number }>();
+    const levelsMap = new Map<number, { level: number; studentCount: number; journalCount: number }>();
     gradesForInstitution.forEach(g => {
-      if (!g.classLevel) return;
+      if (g.classLevel === null || g.classLevel === undefined) return;
       if (!levelsMap.has(g.classLevel)) {
-        levelsMap.set(g.classLevel, { level: g.classLevel, studentCount: 0 });
+        levelsMap.set(g.classLevel, { level: g.classLevel, studentCount: 0, journalCount: 0 });
       }
-      levelsMap.get(g.classLevel)!.studentCount += g.studentCount;
+      const entry = levelsMap.get(g.classLevel)!;
+      entry.studentCount += g.studentCount;
+      entry.journalCount += g.journalCount;
     });
     return Array.from(levelsMap.values()).sort((a, b) => a.level - b.level);
   }, [gradesForInstitution]);
 
   const classLetters = useMemo(() => {
-    if (!selectedClassLevel) return [];
+    if (selectedClassLevel === null || selectedClassLevel === undefined) return [];
     return gradesForInstitution
       .filter(g => g.classLevel === selectedClassLevel)
       .sort((a, b) => a.name.localeCompare(b.name, 'az'));
   }, [gradesForInstitution, selectedClassLevel]);
 
   const selectedGradeId = useMemo(() => {
-    if (!selectedClassLevel || !selectedLetter) return null;
+    if ((selectedClassLevel === null || selectedClassLevel === undefined) || !selectedLetter) return null;
     const grade = gradesForInstitution.find(
       g => g.classLevel === selectedClassLevel && g.name === selectedLetter
     );
     return grade ? grade.id : null;
   }, [selectedClassLevel, selectedLetter, gradesForInstitution]);
 
+  // "4A" kimi tam adı da axtarır; uyğun hərfə görə tapılan səviyyəni avtomatik açır
+  const filteredLevelsWithLetters = useMemo(() => {
+    type LevelItem = { level: number; studentCount: number; journalCount: number };
+    type GradeItem = typeof gradesForInstitution[number];
+    type Row = { lvl: LevelItem; letters: GradeItem[]; autoExpand: boolean };
+
+    const allLettersFor = (lvl: number) =>
+      gradesForInstitution.filter(g => g.classLevel === lvl).sort((a, b) => a.name.localeCompare(b.name, 'az'));
+
+    if (!levelSearch.trim()) {
+      return classLevels.map<Row>(lvl => ({ lvl, letters: allLettersFor(lvl.level), autoExpand: false }));
+    }
+
+    const q = levelSearch.toLowerCase();
+    const rows: Row[] = [];
+    for (const lvl of classLevels) {
+      const letters = allLettersFor(lvl.level);
+      const levelMatches = `${lvl.level}-ci sinif`.toLowerCase().includes(q) || `${lvl.level}`.includes(q);
+      const matchingLetters = letters.filter(g => `${lvl.level}${g.name}`.toLowerCase().includes(q));
+      if (!levelMatches && matchingLetters.length === 0) continue;
+      rows.push({ lvl, letters: levelMatches ? letters : matchingLetters, autoExpand: !levelMatches });
+    }
+    return rows;
+  }, [classLevels, levelSearch, gradesForInstitution]);
+
+  const filteredClassLetters = useMemo(() => {
+    if (!letterSearch.trim()) return classLetters;
+    const q = letterSearch.toLowerCase();
+    return classLetters.filter(g => g.name.toLowerCase().includes(q));
+  }, [classLetters, letterSearch]);
+
+  // Reset letter search when level changes
+  useEffect(() => {
+    setLetterSearch('');
+  }, [selectedClassLevel]);
+
+  // Reset level + letter search when institution changes
+  useEffect(() => {
+    setLevelSearch('');
+    setLetterSearch('');
+    setExpandedClassLevelIds(new Set());
+  }, [selectedInstitutionId]);
+
   const filteredInstitutionTree = useMemo(() => {
-    if (!hierarchySearch.trim()) return institutionTree;
+    const baseTree = hierarchySearch.trim() ? (fullInstitutionTree ?? institutionTree) : institutionTree;
+    if (!hierarchySearch.trim()) return baseTree;
     const query = hierarchySearch.toLowerCase();
     const filterNodes = (nodes: HierarchyNode[]): HierarchyNode[] => {
       return nodes.reduce<HierarchyNode[]>((acc, node) => {
@@ -252,17 +368,30 @@ const GradeBooksPage: React.FC = () => {
         return acc;
       }, []);
     };
-    return filterNodes(institutionTree);
-  }, [institutionTree, hierarchySearch]);
+    return filterNodes(baseTree);
+  }, [institutionTree, fullInstitutionTree, hierarchySearch]);
+
+  // Axtarış aktiv olduqda filtrlənmiş ağacdakı bütün node-ları açıq göstər
+  const activeExpandedIds = useMemo(() => {
+    if (!hierarchySearch.trim()) return expandedIds;
+    const ids = new Set<number>();
+    const collectAll = (nodes: HierarchyNode[]) => {
+      nodes.forEach(n => {
+        ids.add(n.id);
+        if (n.children) collectAll(n.children);
+      });
+    };
+    collectAll(filteredInstitutionTree);
+    return ids;
+  }, [hierarchySearch, filteredInstitutionTree, expandedIds]);
 
 
 
   const allowedTabs = useMemo(() => {
     const tabs: GradeBookTab[] = [];
     if (canViewList) tabs.push('list', 'analysis');
-    if (canAccessAdmin) tabs.push('admin');
     return tabs;
-  }, [canViewList, canCreate, canAccessAdmin]);
+  }, [canViewList]);
 
   const requestedTab = (searchParams.get('tab') as GradeBookTab | null) ?? null;
 
@@ -296,6 +425,26 @@ const GradeBooksPage: React.FC = () => {
     setSearchParams(next, { replace: true });
   };
 
+  const handleBulkExport = async (gradeId: number, gradeLabel: string) => {
+    setBulkExporting(true);
+    try {
+      const blob = await gradeBookService.bulkExportByGrade(gradeId);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `jurnal_${gradeLabel}_butun_fennler.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast({ title: 'Uğurlu', description: `${gradeLabel} jurnalları export edildi` });
+    } catch {
+      toast({ title: 'Xəta', description: 'Export zamanı xəta baş verdi', variant: 'destructive' });
+    } finally {
+      setBulkExporting(false);
+    }
+  };
+
   const institutionChipText = useMemo(() => {
     const regionOrDept = currentUser?.region?.name || currentUser?.department?.name || '';
     const institution = currentUser?.institution?.name || '';
@@ -305,47 +454,9 @@ const GradeBooksPage: React.FC = () => {
   }, [currentUser?.department?.name, currentUser?.institution?.name, currentUser?.region?.name]);
 
   // Render hierarchy breadcrumb for Region/Sector Admins
-  const renderHierarchyInfo = () => {
-    if (!canViewHierarchy) return null;
-    
-    return (
-      <Card className="border-slate-200 mb-4 bg-blue-50/50">
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 flex-wrap">
-            {isRegionAdmin && (
-              <>
-                <Badge variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-100">
-                  <MapPin className="w-3 h-3 mr-1" />
-                  Region Admin
-                </Badge>
-                <span className="text-slate-500">→</span>
-              </>
-            )}
-            {isSectorAdmin && (
-              <>
-                <Badge variant="secondary" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-100">
-                  <Building2 className="w-3 h-3 mr-1" />
-                  Sektor Admin
-                </Badge>
-                <span className="text-slate-500">→</span>
-              </>
-            )}
-            <span className="text-sm text-slate-600">
-              {viewMode === 'region' && 'Bütün sektor və məktəbləri görürsünüz (Yalnız baxış)'}
-              {viewMode === 'sector' && 'Bütün məktəbləri görürsünüz (Yalnız baxış)'}
-              {viewMode === 'school' && 'Yalnız öz məktəbinizi görürsünüz'}
-            </span>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
 
   return (
     <div className="px-2 sm:px-3 lg:px-4 pt-0 pb-2 sm:pb-3 lg:pb-4 space-y-4">
-      {/* Hierarchy Info Banner for Region/Sector Admins */}
-      {renderHierarchyInfo()}
-
       <Tabs value={activeTab} onValueChange={handleTabChange}>
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <TabsList className="inline-flex w-full sm:w-auto rounded-2xl bg-slate-100 p-1 gap-1 h-auto">
@@ -367,15 +478,6 @@ const GradeBooksPage: React.FC = () => {
                 Nəticə Analizi
               </TabsTrigger>
             )}
-            {allowedTabs.includes('admin') && (
-              <TabsTrigger
-                value="admin"
-                className="rounded-xl px-4 py-2 text-xs sm:text-sm font-semibold text-slate-500 hover:bg-white/60 hover:text-slate-900 transition data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm data-[state=active]:border data-[state=active]:border-slate-200"
-              >
-                <Building2 className="w-4 h-4 mr-2" />
-                Admin İcmalı
-              </TabsTrigger>
-            )}
           </TabsList>
 
           {institutionChipText && (
@@ -392,126 +494,187 @@ const GradeBooksPage: React.FC = () => {
           <TabsContent value="list" className="mt-4">
             {/* Show hierarchy navigator for region/sector admins */}
             {canViewHierarchy ? (
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                <div className="lg:col-span-3">
-                  <Card className="border-slate-200 h-full">
-                    <CardHeader className="pb-3">
+              /* 3-block layout: I=Region/Sektor/Məktəblər  II=Siniflər  III=Jurnallar */
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                {/* Block I: Region / Sektor / Məktəblər */}
+                <div className="lg:col-span-4 flex flex-col">
+                  <Card className="border-slate-200 flex flex-col min-h-[580px]">
+                    <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
                         <Building2 className="w-4 h-4" />
-                        Hiyerarşiya
+                        Region / Sektor / Məktəblər
                       </CardTitle>
-                      <div className="relative">
-                        <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                      <span className="text-xs text-slate-500 block">&nbsp;</span>
+                      <div className="relative mt-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                         <Input
                           placeholder="Məktəb və ya sektor axtar..."
                           value={hierarchySearch}
                           onChange={(e) => setHierarchySearch(e.target.value)}
-                          className="pl-8 h-9 text-sm"
+                          className="pl-10 h-9 border-slate-200"
                         />
                       </div>
                     </CardHeader>
-                    <CardContent className="p-0">
-                      <div className="p-4 max-h-[460px] overflow-y-auto">
+                    <CardContent className="p-0 flex-1 overflow-y-auto">
+                      <div className="p-4">
+                        {fullTreeLoading && (
+                          <p className="text-xs text-slate-400 text-center pb-2 animate-pulse">
+                            Məktəblər axtarış üçün yüklənir...
+                          </p>
+                        )}
                         <HierarchyNavigator
                           nodes={filteredInstitutionTree}
                           loading={institutionTreeLoading}
                           selectedId={selectedNode?.id}
                           selectedType={selectedNode?.type}
                           onSelect={handleSelectNode}
-                          expandedIds={expandedIds}
+                          expandedIds={activeExpandedIds}
                           onToggleExpand={toggleExpand}
+                          onLoadChildren={handleLoadChildren}
                         />
                       </div>
                     </CardContent>
                   </Card>
                 </div>
 
-                <div className="lg:col-span-2">
-                  <Card className="border-slate-200 h-full">
-                    <CardHeader className="pb-3">
+                {/* Block II: Siniflər (səviyyə + hərf) */}
+                <div className="lg:col-span-4 flex flex-col">
+                  <Card className="border-slate-200 flex flex-col min-h-[580px]">
+                    <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
-                        <Calculator className="w-4 h-4" />
-                        Səviyyə
+                        <GraduationCap className="w-4 h-4" />
+                        Siniflər
                       </CardTitle>
-                      {selectedInstitutionName && (
-                        <span className="text-xs text-slate-500 truncate block" title={selectedInstitutionName}>
-                          {selectedInstitutionName}
-                        </span>
-                      )}
+                      <span className="text-xs text-slate-500 truncate block" title={selectedInstitutionName || undefined}>
+                        {selectedInstitutionName || '\u00a0'}
+                      </span>
+                      <div className="relative mt-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Sinif axtar..."
+                          value={levelSearch}
+                          onChange={(e) => setLevelSearch(e.target.value)}
+                          disabled={!selectedInstitutionId}
+                          className="pl-10 h-9 border-slate-200 disabled:opacity-50"
+                        />
+                      </div>
                     </CardHeader>
-                    <CardContent className="p-4">
+                    <CardContent className="p-4 flex-1 overflow-y-auto space-y-4">
                       {!selectedInstitutionId ? (
-                        <div className="text-sm text-slate-500 text-center py-10">
-                          Məktəb seçin
-                        </div>
+                        <div className="text-sm text-slate-500 text-center py-10">Məktəb seçin</div>
                       ) : gradesLoading ? (
                         <div className="text-sm text-slate-500 text-center py-10">Yüklənir...</div>
-                      ) : classLevels.length === 0 ? (
-                        <div className="text-sm text-slate-500 text-center py-10">Sinif tapılmadı</div>
-                      ) : (
-                        <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
-                          {classLevels.map((lvl) => (
-                            <Button
-                              key={lvl.level}
-                              variant={selectedClassLevel === lvl.level ? 'default' : 'outline'}
-                              className="w-full justify-between"
-                              onClick={() => { setSelectedClassLevel(lvl.level); setSelectedLetter(null); }}
-                            >
-                              <span className="truncate">{lvl.level}-ci sinif</span>
-                              <Badge variant="secondary" className="ml-1 text-xs">{lvl.studentCount}</Badge>
-                            </Button>
-                          ))}
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className="lg:col-span-2">
-                  <Card className="border-slate-200 h-full">
-                    <CardHeader className="pb-3">
-                      <CardTitle className="text-base font-medium flex items-center gap-2">
-                        İndeks
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-4">
-                      {!selectedClassLevel ? (
+                      ) : filteredLevelsWithLetters.length === 0 ? (
                         <div className="text-sm text-slate-500 text-center py-10">
-                          Səviyyə seçin
+                          {levelSearch ? 'Axtarışa uyğun sinif tapılmadı' : 'Sinif tapılmadı'}
                         </div>
-                      ) : classLetters.length === 0 ? (
-                        <div className="text-sm text-slate-500 text-center py-10">İndeks yoxdur</div>
                       ) : (
-                        <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
-                          {classLetters.map((g) => (
-                            <Button
-                              key={g.id}
-                              variant={selectedLetter === g.name ? 'default' : 'outline'}
-                              className="w-full justify-between"
-                              onClick={() => setSelectedLetter(g.name)}
-                            >
-                              <span className="truncate">{g.name}</span>
-                              <Badge variant="secondary" className="ml-1 text-xs">{g.studentCount}</Badge>
-                            </Button>
-                          ))}
+                        <div className="space-y-1">
+                          {filteredLevelsWithLetters.map(({ lvl, letters, autoExpand }) => {
+                            const isOpen = expandedClassLevelIds.has(lvl.level) || autoExpand;
+                            return (
+                              <div key={lvl.level} className="border border-slate-200 rounded-lg overflow-hidden">
+                                {/* Accordion header */}
+                                <button
+                                  className={cn(
+                                    'w-full flex items-center justify-between px-3 py-2.5 text-sm font-medium transition-colors',
+                                    isOpen ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-800 hover:bg-slate-100'
+                                  )}
+                                  onClick={() => {
+                                    setExpandedClassLevelIds(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(lvl.level)) next.delete(lvl.level);
+                                      else next.add(lvl.level);
+                                      return next;
+                                    });
+                                    if (!isOpen) setSelectedClassLevel(lvl.level);
+                                  }}
+                                >
+                                  <span className="flex items-center gap-2">
+                                    {isOpen
+                                      ? <ChevronDown className="w-4 h-4 shrink-0" />
+                                      : <ChevronRight className="w-4 h-4 shrink-0" />
+                                    }
+                                    {lvl.level}-ci sinif
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Badge variant="secondary" className={cn('text-xs', isOpen ? 'bg-blue-500 text-white' : '')}>
+                                      {lvl.studentCount} şagird
+                                    </Badge>
+                                    <Badge variant="secondary" className={cn('text-xs', isOpen ? 'bg-blue-500 text-white' : '')}>
+                                      {lvl.journalCount} jurnal
+                                    </Badge>
+                                  </span>
+                                </button>
+
+                                {/* Accordion body: class letters */}
+                                {isOpen && (
+                                  <div className="p-2 space-y-1 bg-white">
+                                    {letters.length === 0 ? (
+                                      <p className="text-xs text-slate-500 text-center py-2">Bölmə tapılmadı</p>
+                                    ) : (
+                                      letters.map((g) => (
+                                        <div key={g.id} className="flex gap-1">
+                                          <Button
+                                            variant={selectedLetter === g.name && selectedClassLevel === lvl.level ? 'default' : 'outline'}
+                                            size="sm"
+                                            className="flex-1 justify-between h-8 text-xs"
+                                            onClick={() => { setSelectedClassLevel(lvl.level); setSelectedLetter(g.name); }}
+                                          >
+                                            <span>{lvl.level}{g.name}</span>
+                                            <span className="flex items-center gap-1 ml-1">
+                                              <Badge variant="secondary" className="text-xs">{g.studentCount} şagird</Badge>
+                                              {g.journalCount > 0 && <Badge variant="secondary" className="text-xs">{g.journalCount} jurnal</Badge>}
+                                            </span>
+                                          </Button>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="shrink-0 h-8 w-8 text-slate-400 hover:text-slate-700"
+                                            title={`${lvl.level}${g.name} - Bütün fənnləri export et`}
+                                            disabled={bulkExporting}
+                                            onClick={() => handleBulkExport(g.id, `${lvl.level}-${g.name}`)}
+                                          >
+                                            <FileDown className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </div>
+                                      ))
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </CardContent>
                   </Card>
                 </div>
 
-                <div className="lg:col-span-4">
-                  {!selectedInstitutionId ? (
-                    <Card className="border-slate-200 h-full">
-                      <CardHeader className="pb-3">
+                {/* Block III: Jurnallar */}
+                <div className="lg:col-span-4 flex flex-col min-h-[580px]">
+                  {!selectedGradeId ? (
+                    <Card className="border-slate-200 flex flex-col flex-1 min-h-[580px]">
+                      <CardHeader className="pb-3 flex-shrink-0">
                         <CardTitle className="text-base font-medium flex items-center gap-2">
-                          <School className="w-4 h-4" />
+                          <BookOpen className="w-4 h-4" />
                           Jurnallar
                         </CardTitle>
+                        <span className="text-xs text-slate-500 block">&nbsp;</span>
+                        <div className="relative mt-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                          <Input
+                            placeholder="Jurnal axtar..."
+                            disabled
+                            className="pl-10 h-9 border-slate-200 opacity-50"
+                          />
+                        </div>
                       </CardHeader>
-                      <CardContent className="p-4">
-                        <div className="text-sm text-slate-500 text-center py-10">
-                          Jurnalları görmək üçün məktəb seçin
+                      <CardContent className="p-4 flex-1 flex items-center justify-center">
+                        <div className="text-sm text-slate-500 text-center">
+                          {!selectedInstitutionId
+                            ? 'Jurnalları görmək üçün məktəb seçin'
+                            : 'Jurnalları görmək üçün sinif seçin'}
                         </div>
                       </CardContent>
                     </Card>
@@ -521,7 +684,7 @@ const GradeBooksPage: React.FC = () => {
                       institutionName={selectedInstitutionName}
                       selectedGradeId={selectedGradeId}
                       selectedGradeLabel={
-                        selectedClassLevel && selectedLetter
+                        selectedClassLevel !== null && selectedClassLevel !== undefined && selectedLetter
                           ? `${selectedClassLevel}-${selectedLetter}`
                           : undefined
                       }
@@ -530,27 +693,39 @@ const GradeBooksPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              /* Three column layout for school admin and teacher */
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                <div className="lg:col-span-2">
-                  <Card className="border-slate-200 h-full">
-                    <CardHeader className="pb-3">
+              /* 3-block layout for school admin: I=Sinif Səviyyələri  II=Siniflər  III=Jurnallar */
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+                {/* Block I: Sinif Səviyyələri */}
+                <div className="lg:col-span-4 flex flex-col">
+                  <Card className="border-slate-200 flex flex-col min-h-[580px]">
+                    <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
                         <Calculator className="w-4 h-4" />
-                        Səviyyə
+                        Sinif Səviyyələri
                       </CardTitle>
                       <span className="text-xs text-slate-500 truncate block" title={institutionChipText || undefined}>
-                        {institutionChipText || currentUser?.institution?.name}
+                        {institutionChipText || currentUser?.institution?.name || '\u00a0'}
                       </span>
+                      <div className="relative mt-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Sinif axtar..."
+                          value={levelSearch}
+                          onChange={(e) => setLevelSearch(e.target.value)}
+                          className="pl-10 h-9 border-slate-200"
+                        />
+                      </div>
                     </CardHeader>
-                    <CardContent className="p-4">
+                    <CardContent className="p-4 flex-1 overflow-y-auto">
                       {gradesLoading ? (
                         <div className="text-sm text-slate-500 text-center py-10">Yüklənir...</div>
-                      ) : classLevels.length === 0 ? (
-                        <div className="text-sm text-slate-500 text-center py-10">Sinif tapılmadı</div>
+                      ) : filteredLevelsWithLetters.length === 0 ? (
+                        <div className="text-sm text-slate-500 text-center py-10">
+                          {levelSearch ? 'Axtarışa uyğun sinif tapılmadı' : 'Sinif tapılmadı'}
+                        </div>
                       ) : (
-                        <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
-                          {classLevels.map((lvl) => (
+                        <div className="space-y-2">
+                          {filteredLevelsWithLetters.map(({ lvl }) => (
                             <Button
                               key={lvl.level}
                               variant={selectedClassLevel === lvl.level ? 'default' : 'outline'}
@@ -558,7 +733,10 @@ const GradeBooksPage: React.FC = () => {
                               onClick={() => { setSelectedClassLevel(lvl.level); setSelectedLetter(null); }}
                             >
                               <span className="truncate">{lvl.level}-ci sinif</span>
-                              <Badge variant="secondary" className="ml-1 text-xs">{lvl.studentCount}</Badge>
+                              <span className="flex items-center gap-1 ml-1">
+                                <Badge variant="secondary" className="text-xs">{lvl.studentCount} şagird</Badge>
+                                <Badge variant="secondary" className="text-xs">{lvl.journalCount} jurnal</Badge>
+                              </span>
                             </Button>
                           ))}
                         </div>
@@ -567,32 +745,62 @@ const GradeBooksPage: React.FC = () => {
                   </Card>
                 </div>
 
-                <div className="lg:col-span-2">
-                  <Card className="border-slate-200 h-full">
-                    <CardHeader className="pb-3">
+                {/* Block II: Siniflər (A, B...) */}
+                <div className="lg:col-span-4 flex flex-col">
+                  <Card className="border-slate-200 flex flex-col min-h-[580px]">
+                    <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
-                        İndeks
+                        <GraduationCap className="w-4 h-4" />
+                        Siniflər
                       </CardTitle>
+                      <span className="text-xs text-slate-500 truncate block">
+                        {selectedClassLevel !== null && selectedClassLevel !== undefined
+                          ? `${selectedClassLevel}-ci sinif bölmələri`
+                          : '\u00a0'}
+                      </span>
+                      <div className="relative mt-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <Input
+                          placeholder="Bölmə axtar..."
+                          value={letterSearch}
+                          onChange={(e) => setLetterSearch(e.target.value)}
+                          disabled={selectedClassLevel === null || selectedClassLevel === undefined}
+                          className="pl-10 h-9 border-slate-200 disabled:opacity-50"
+                        />
+                      </div>
                     </CardHeader>
-                    <CardContent className="p-4">
-                      {!selectedClassLevel ? (
+                    <CardContent className="p-4 flex-1 overflow-y-auto">
+                      {selectedClassLevel === null || selectedClassLevel === undefined ? (
                         <div className="text-sm text-slate-500 text-center py-10">
-                          Səviyyə seçin
+                          Sinif səviyyəsi seçin
                         </div>
-                      ) : classLetters.length === 0 ? (
-                        <div className="text-sm text-slate-500 text-center py-10">İndeks yoxdur</div>
+                      ) : filteredClassLetters.length === 0 ? (
+                        <div className="text-sm text-slate-500 text-center py-10">
+                          {letterSearch ? 'Axtarışa uyğun bölmə tapılmadı' : 'Bu səviyyədə sinif tapılmadı'}
+                        </div>
                       ) : (
-                        <div className="space-y-2 max-h-[560px] overflow-y-auto pr-1">
-                          {classLetters.map((g) => (
-                            <Button
-                              key={g.id}
-                              variant={selectedLetter === g.name ? 'default' : 'outline'}
-                              className="w-full justify-between"
-                              onClick={() => setSelectedLetter(g.name)}
-                            >
-                              <span className="truncate">{g.name}</span>
-                              <Badge variant="secondary" className="ml-1 text-xs">{g.studentCount}</Badge>
-                            </Button>
+                        <div className="space-y-2">
+                          {filteredClassLetters.map((g) => (
+                            <div key={g.id} className="flex gap-1">
+                              <Button
+                                variant={selectedLetter === g.name ? 'default' : 'outline'}
+                                className="flex-1 justify-between"
+                                onClick={() => setSelectedLetter(g.name)}
+                              >
+                                <span className="truncate">{g.name}</span>
+                                <Badge variant="secondary" className="ml-1 text-xs">{g.studentCount}</Badge>
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="shrink-0 h-9 w-9 text-slate-400 hover:text-slate-700"
+                                title={`${g.name} - Bütün fənnləri export et`}
+                                disabled={bulkExporting}
+                                onClick={() => handleBulkExport(g.id, `${selectedClassLevel}-${g.name}`)}
+                              >
+                                <FileDown className="w-4 h-4" />
+                              </Button>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -600,17 +808,43 @@ const GradeBooksPage: React.FC = () => {
                   </Card>
                 </div>
 
-                <div className="lg:col-span-8">
-                  <GradeBookList
-                    institutionId={selectedInstitutionId}
-                    institutionName={currentUser?.institution?.name}
-                    selectedGradeId={selectedGradeId}
-                    selectedGradeLabel={
-                      selectedClassLevel && selectedLetter
-                        ? `${selectedClassLevel}-${selectedLetter}`
-                        : undefined
-                    }
-                  />
+                {/* Block III: Jurnallar */}
+                <div className="lg:col-span-4 flex flex-col min-h-[580px]">
+                  {!selectedGradeId ? (
+                    <Card className="border-slate-200 flex flex-col flex-1 min-h-[580px]">
+                      <CardHeader className="pb-3 flex-shrink-0">
+                        <CardTitle className="text-base font-medium flex items-center gap-2">
+                          <BookOpen className="w-4 h-4" />
+                          Jurnallar
+                        </CardTitle>
+                        <span className="text-xs text-slate-500 block">&nbsp;</span>
+                        <div className="relative mt-1">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                          <Input
+                            placeholder="Jurnal axtar..."
+                            disabled
+                            className="pl-10 h-9 border-slate-200 opacity-50"
+                          />
+                        </div>
+                      </CardHeader>
+                      <CardContent className="p-4 flex-1 flex items-center justify-center">
+                        <div className="text-sm text-slate-500 text-center">
+                          Jurnalları görmək üçün sinif seçin
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    <GradeBookList
+                      institutionId={selectedInstitutionId}
+                      institutionName={currentUser?.institution?.name}
+                      selectedGradeId={selectedGradeId}
+                      selectedGradeLabel={
+                        selectedClassLevel !== null && selectedClassLevel !== undefined && selectedLetter
+                          ? `${selectedClassLevel}-${selectedLetter}`
+                          : undefined
+                      }
+                    />
+                  )}
                 </div>
               </div>
             )}
@@ -623,11 +857,7 @@ const GradeBooksPage: React.FC = () => {
           </TabsContent>
         )}
 
-        {allowedTabs.includes('admin') && (
-          <TabsContent value="admin" className="mt-4">
-            <AdminDashboard />
-          </TabsContent>
-        )}
+
       </Tabs>
     </div>
   );
