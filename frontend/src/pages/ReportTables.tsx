@@ -314,6 +314,11 @@ function TableCard({
                 <DropdownMenuItem onClick={() => onConfirm('clone', table)}>
                   <Copy className="h-4 w-4 mr-2" /> Kopyala
                 </DropdownMenuItem>
+                {(table.status === 'published' || table.status === 'archived') && (
+                  <DropdownMenuItem onClick={() => onPreview?.(table)}>
+                    <Table2 className="h-4 w-4 mr-2" /> Quruluşa bax
+                  </DropdownMenuItem>
+                )}
                 {table.status === 'draft' && (
                   <>
                     <DropdownMenuItem onClick={() => onPreview?.(table)}>
