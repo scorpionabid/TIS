@@ -1,13 +1,15 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWebSocket } from '@/contexts/WebSocketContext';
 import { notificationService, type PageBadgeCounts } from '@/services/notification';
 
 /** Badge key type — maps to sidebar badgeKey field */
 export type BadgeKey = keyof PageBadgeCounts;
 
 const QUERY_KEY = ['notification-badge-counts'] as const;
-const POLL_INTERVAL = 60_000; // 60 seconds
+// When WebSocket is active, badge counts arrive via push — poll only as safety net
+const POLL_INTERVAL_WS = 300_000;  // 5 minutes (WS active)
+const POLL_INTERVAL_POLL = 60_000; // 60 seconds  (fallback)
 
 const EMPTY_COUNTS: PageBadgeCounts = {
   tasks: 0,
@@ -30,7 +32,10 @@ const EMPTY_COUNTS: PageBadgeCounts = {
  */
 export function useNotificationBadges(): PageBadgeCounts {
   const { currentUser } = useAuth();
+  const { isEchoConnected } = useWebSocket();
   const isAuthenticated = !!currentUser;
+
+  const pollInterval = isEchoConnected ? POLL_INTERVAL_WS : POLL_INTERVAL_POLL;
 
   const { data } = useQuery({
     queryKey: QUERY_KEY,
@@ -39,7 +44,7 @@ export function useNotificationBadges(): PageBadgeCounts {
       return res.data ?? EMPTY_COUNTS;
     },
     enabled: isAuthenticated,
-    refetchInterval: POLL_INTERVAL,
+    refetchInterval: pollInterval,
     staleTime: 30_000,
     gcTime: 120_000,
   });

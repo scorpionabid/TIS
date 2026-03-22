@@ -163,6 +163,21 @@ export const CellInput = React.memo(function CellInput({
     );
   }
 
+  const isUrl = disabled && col.type === 'text' && /^https?:\/\/.+/.test(value.trim());
+  if (isUrl) {
+    return (
+      <a
+        href={value.trim()}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center h-9 px-3 text-sm text-blue-600 underline underline-offset-2 hover:text-blue-800 truncate"
+        title={value.trim()}
+      >
+        {value.trim()}
+      </a>
+    );
+  }
+
   return (
     <Input
       ref={inputRef}

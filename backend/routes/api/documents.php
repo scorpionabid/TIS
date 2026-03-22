@@ -189,9 +189,8 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
-    // Both URL variants supported for backward compatibility
-    Route::post('notifications/{notification}/read',      [NotificationController::class, 'markAsRead']);
-    Route::post('notifications/{notification}/mark-read', [NotificationController::class, 'markAsRead']);
+    Route::post('notifications/{notification}/read',  [NotificationController::class, 'markAsRead']);
+    Route::post('notifications/{notification}/click', [NotificationController::class, 'click']);
 
     Route::post('notifications/mark-all-read', [NotificationController::class, 'markAllAsRead']);
 

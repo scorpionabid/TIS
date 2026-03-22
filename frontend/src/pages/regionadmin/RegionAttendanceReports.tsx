@@ -222,10 +222,14 @@ export default function RegionAttendanceReports() {
         </TabsContent>
 
         <TabsContent value="classes" className="space-y-6">
-          <SchoolClassesTable 
-            classes={classBreakdown?.classes ?? []} 
-            loading={classLoading} 
-            schoolName={selectedSchoolName} 
+          <SchoolClassesTable
+            classes={classBreakdown?.classes ?? []}
+            loading={classLoading}
+            schoolName={selectedSchoolName}
+            schools={schools}
+            selectedSchoolId={selectedSchoolId}
+            onSchoolChange={setSelectedSchoolId}
+            summary={classBreakdown?.summary ?? null}
           />
         </TabsContent>
 

@@ -133,6 +133,28 @@ Schedule::command('preschool:cleanup-photos --older-than=30')
         \Log::error('Preschool photo cleanup failed');
     });
 
+// Notification Digest: Gündəlik xülasə — saat 09:00-da
+Schedule::command('notifications:send-digest --period=daily')
+    ->dailyAt('09:00')
+    ->description('Gündəlik bildiriş xülasəsini göndər')
+    ->onSuccess(function () {
+        \Log::info('Daily notification digest sent successfully');
+    })
+    ->onFailure(function () {
+        \Log::error('Daily notification digest failed');
+    });
+
+// Notification Digest: Həftəlik xülasə — Bazar ertəsi saat 09:00-da
+Schedule::command('notifications:send-digest --period=weekly')
+    ->weeklyOn(1, '09:00')
+    ->description('Həftəlik bildiriş xülasəsini göndər')
+    ->onSuccess(function () {
+        \Log::info('Weekly notification digest sent successfully');
+    })
+    ->onFailure(function () {
+        \Log::error('Weekly notification digest failed');
+    });
+
 // Telescope prune: 48 saatdan köhnə log sətirləri sil
 Schedule::command('telescope:prune --hours=48')
     ->daily()
