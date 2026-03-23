@@ -135,18 +135,14 @@ const safeStringify = (obj: any): string => {
 };
 
 // Utility function to safely convert children to string
-const safeChildrenToString = (children: React.ReactNode): string => {
+const safeChildrenToString = (children: React.ReactNode): any => {
   if (children === null || children === undefined) return '';
   if (typeof children === 'string') return children;
   if (typeof children === 'number' || typeof children === 'boolean') return String(children);
 
-  // If it's a React element, extract text content
+  // If it's a React element, return it as is to allow rendering
   if (React.isValidElement(children)) {
-    // For React elements, try to get their text content
-    if (children.props && typeof children.props.children === 'string') {
-      return children.props.children;
-    }
-    return '[React Element]';
+    return children;
   }
 
   // If it's an object, try to extract meaningful text
@@ -175,7 +171,7 @@ const safeChildrenToString = (children: React.ReactNode): string => {
     }
   }
 
-  // If it's a React element or other complex structure, convert to string
+  // If it's other complex structure, convert to string
   return String(children);
 };
 

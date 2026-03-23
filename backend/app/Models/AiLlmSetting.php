@@ -60,7 +60,7 @@ class AiLlmSetting extends Model
         return match ($this->provider) {
             'openai'    => 'gpt-4o-mini',
             'anthropic' => 'claude-3-5-haiku-20241022',
-            'gemini'    => 'gemini-1.5-flash',
+            'gemini'    => 'gemini-2.0-flash',
             default     => 'gpt-4o-mini',
         };
     }

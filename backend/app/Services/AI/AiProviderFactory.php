@@ -75,26 +75,31 @@ class AiProviderFactory
             [
                 'id'          => 'openai',
                 'name'        => 'OpenAI (GPT)',
-                'description' => 'GPT-4o, GPT-4o-mini',
-                'models'      => ['gpt-4o-mini', 'gpt-4o', 'gpt-4-turbo'],
+                'description' => 'GPT-4o, GPT-4o-mini və O1 seriyası',
+                'models'      => ['gpt-4o-mini', 'gpt-4o', 'o1-preview', 'o1-mini', 'gpt-4-turbo'],
                 'docs_url'    => 'https://platform.openai.com/api-keys',
             ],
             [
                 'id'          => 'anthropic',
                 'name'        => 'Anthropic (Claude)',
-                'description' => 'Claude 3.5 Haiku, Claude 3.5 Sonnet',
+                'description' => 'Claude 3.5 Sonnet v2 və Haiku modelleri',
                 'models'      => [
-                    'claude-3-5-haiku-20241022',
                     'claude-3-5-sonnet-20241022',
-                    'claude-opus-4-6',
+                    'claude-3-5-haiku-20241022',
+                    'claude-3-opus-20240229',
                 ],
                 'docs_url'    => 'https://console.anthropic.com/',
             ],
             [
                 'id'          => 'gemini',
                 'name'        => 'Google (Gemini)',
-                'description' => 'Gemini 1.5 Flash, Gemini 1.5 Pro',
-                'models'      => ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
+                'description' => 'Gemini 2.0 Flash, 1.5 Pro və Flash',
+                'models'      => [
+                    'gemini-2.0-flash', 
+                    'gemini-2.0-flash-lite-preview-02-05',
+                    'gemini-1.5-pro', 
+                    'gemini-1.5-flash'
+                ],
                 'docs_url'    => 'https://aistudio.google.com/apikey',
             ],
         ];
