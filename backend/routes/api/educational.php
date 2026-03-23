@@ -697,8 +697,23 @@ use App\Http\Controllers\GradeHistoryController;
 Route::prefix('grade-books')->middleware('auth:sanctum')->group(function () {
     // Admin Hierarchy and Analysis APIs
     Route::get('/hierarchy', [GradeBookController::class, 'getHierarchy'])->middleware('role:superadmin|regionadmin|sectoradmin');
-    Route::get('/analysis/multi-level', [GradeBookController::class, 'getMultiLevelAnalysis'])->middleware('role:superadmin|regionadmin|sectoradmin');
     Route::post('/sync', [GradeBookController::class, 'sync'])->middleware('role:superadmin|regionadmin|sectoradmin|schooladmin');
+
+    // Analysis endpoints
+    Route::get('/analysis/multi-level', [GradeBookController::class, 'getMultiLevelAnalysis'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/overview', [GradeBookController::class, 'getAnalysisOverview'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/comparison', [GradeBookController::class, 'getAnalysisComparison'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/trends', [GradeBookController::class, 'getAnalysisTrends'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/deep-dive', [GradeBookController::class, 'getAnalysisDeepDive'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/pivot', [GradeBookController::class, 'getPivotAnalysis'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/class-level-subject', [GradeBookController::class, 'getClassLevelSubjectAnalysis'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/region-trends', [GradeBookController::class, 'getRegionTrends'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/journal-completion', [GradeBookController::class, 'getJournalCompletion'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/scoreboard', [GradeBookController::class, 'getScoreboard'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/available-grades', [GradeBookController::class, 'getAnalysisAvailableGrades'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/pivot-nested', [GradeBookController::class, 'getNestedPivotAnalysis'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/export', [GradeBookController::class, 'exportAnalysis'])->middleware('role:superadmin|regionadmin|sectoradmin');
+    Route::get('/analysis/export-comprehensive', [GradeBookController::class, 'exportComprehensive'])->middleware('role:superadmin|regionadmin|sectoradmin');
 
     // CRUD
     Route::get('/', [GradeBookController::class, 'index'])->middleware('permission:assessments.read');
