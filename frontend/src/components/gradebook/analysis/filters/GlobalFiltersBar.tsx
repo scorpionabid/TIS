@@ -45,9 +45,10 @@ function extractLevelNodes(nodes: HierarchyNode[], level: number): InstitutionOp
 interface Props {
   filters: AnalysisFilters;
   onFiltersChange: (f: AnalysisFilters) => void;
+  isSchoolAdmin?: boolean;
 }
 
-export function GlobalFiltersBar({ filters, onFiltersChange }: Props) {
+export function GlobalFiltersBar({ filters, onFiltersChange, isSchoolAdmin = false }: Props) {
   const [sectorOptions,  setSectorOptions]  = useState<InstitutionOption[]>([]);
   const [schoolOptions,  setSchoolOptions]  = useState<InstitutionOption[]>([]);
   const [gradeOptions,   setGradeOptions]   = useState<AvailableGrade[]>([]);
@@ -73,6 +74,7 @@ export function GlobalFiltersBar({ filters, onFiltersChange }: Props) {
   const canNest = hierarchicalSelected.length >= 2;
 
   useEffect(() => {
+    if (isSchoolAdmin) { setLoadingHierarchy(false); return; }
     setLoadingHierarchy(true);
     hierarchyService.getHierarchy()
       .then((res) => {
@@ -83,7 +85,7 @@ export function GlobalFiltersBar({ filters, onFiltersChange }: Props) {
       })
       .catch(() => {})
       .finally(() => setLoadingHierarchy(false));
-  }, []);
+  }, [isSchoolAdmin]);
 
   useEffect(() => {
     setLoadingOptions(true);
@@ -191,65 +193,69 @@ export function GlobalFiltersBar({ filters, onFiltersChange }: Props) {
           </PopoverContent>
         </Popover>
 
-        <div className="h-4 w-px bg-slate-200" />
+        {!isSchoolAdmin && <div className="h-4 w-px bg-slate-200" />}
 
-        {/* Sektorlar */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <button className={fbtn(sectorIds.length > 0)}>
-              Sektorlar {sectorIds.length > 0 && badge(sectorIds.length)}
-              <ChevronDown className="w-3.5 h-3.5 opacity-50" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-64 p-3" align="start">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-slate-600">Sektorlar</p>
-              {sectorIds.length > 0 && <button onClick={() => set({ sector_ids: [], school_ids: [] })} className="text-xs text-blue-500">Sil</button>}
-            </div>
-            {loadingHierarchy
-              ? <p className="text-xs text-slate-400 text-center py-3">Yüklənir...</p>
-              : <div className="space-y-1 max-h-48 overflow-y-auto">
-                  {sectorOptions.map((s) => (
-                    <label key={s.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer">
-                      <Checkbox checked={sectorIds.includes(s.id)}
-                        onCheckedChange={(c) => set({ sector_ids: c ? [...sectorIds, s.id] : sectorIds.filter((x) => x !== s.id), school_ids: [] })} />
-                      <span className="text-xs text-slate-700">{s.name}</span>
-                    </label>
-                  ))}
-                </div>
-            }
-          </PopoverContent>
-        </Popover>
-
-        {/* Məktəblər */}
-        <Popover>
-          <PopoverTrigger asChild>
-            <button className={fbtn(schoolIds.length > 0)}>
-              Məktəblər {schoolIds.length > 0 && badge(schoolIds.length)}
-              <ChevronDown className="w-3.5 h-3.5 opacity-50" />
-            </button>
-          </PopoverTrigger>
-          <PopoverContent className="w-72 p-3" align="start">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-semibold text-slate-600">Məktəblər</p>
-              {schoolIds.length > 0 && <button onClick={() => set({ school_ids: [] })} className="text-xs text-blue-500">Sil</button>}
-            </div>
-            {loadingHierarchy
-              ? <p className="text-xs text-slate-400 text-center py-3">Yüklənir...</p>
-              : filteredSchoolOptions.length === 0
-                ? <p className="text-xs text-slate-400 text-center py-3">{sectorIds.length > 0 ? 'Məktəb tapılmadı' : 'Əvvəlcə sektor seçin'}</p>
-                : <div className="space-y-1 max-h-52 overflow-y-auto">
-                    {filteredSchoolOptions.map((s) => (
+        {/* Sektorlar — yalnız region/sektor/superadmin üçün */}
+        {!isSchoolAdmin && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={fbtn(sectorIds.length > 0)}>
+                Sektorlar {sectorIds.length > 0 && badge(sectorIds.length)}
+                <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 p-3" align="start">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600">Sektorlar</p>
+                {sectorIds.length > 0 && <button onClick={() => set({ sector_ids: [], school_ids: [] })} className="text-xs text-blue-500">Sil</button>}
+              </div>
+              {loadingHierarchy
+                ? <p className="text-xs text-slate-400 text-center py-3">Yüklənir...</p>
+                : <div className="space-y-1 max-h-48 overflow-y-auto">
+                    {sectorOptions.map((s) => (
                       <label key={s.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer">
-                        <Checkbox checked={schoolIds.includes(s.id)}
-                          onCheckedChange={(c: boolean | 'indeterminate') => set({ school_ids: c === true ? [...schoolIds, s.id] : schoolIds.filter((x) => x !== s.id) })} />
+                        <Checkbox checked={sectorIds.includes(s.id)}
+                          onCheckedChange={(c) => set({ sector_ids: c ? [...sectorIds, s.id] : sectorIds.filter((x) => x !== s.id), school_ids: [] })} />
                         <span className="text-xs text-slate-700">{s.name}</span>
                       </label>
                     ))}
                   </div>
-            }
-          </PopoverContent>
-        </Popover>
+              }
+            </PopoverContent>
+          </Popover>
+        )}
+
+        {/* Məktəblər — yalnız region/sektor/superadmin üçün */}
+        {!isSchoolAdmin && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <button className={fbtn(schoolIds.length > 0)}>
+                Məktəblər {schoolIds.length > 0 && badge(schoolIds.length)}
+                <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="w-72 p-3" align="start">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-semibold text-slate-600">Məktəblər</p>
+                {schoolIds.length > 0 && <button onClick={() => set({ school_ids: [] })} className="text-xs text-blue-500">Sil</button>}
+              </div>
+              {loadingHierarchy
+                ? <p className="text-xs text-slate-400 text-center py-3">Yüklənir...</p>
+                : filteredSchoolOptions.length === 0
+                  ? <p className="text-xs text-slate-400 text-center py-3">{sectorIds.length > 0 ? 'Məktəb tapılmadı' : 'Əvvəlcə sektor seçin'}</p>
+                  : <div className="space-y-1 max-h-52 overflow-y-auto">
+                      {filteredSchoolOptions.map((s) => (
+                        <label key={s.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-slate-50 cursor-pointer">
+                          <Checkbox checked={schoolIds.includes(s.id)}
+                            onCheckedChange={(c: boolean | 'indeterminate') => set({ school_ids: c === true ? [...schoolIds, s.id] : schoolIds.filter((x) => x !== s.id) })} />
+                          <span className="text-xs text-slate-700">{s.name}</span>
+                        </label>
+                      ))}
+                    </div>
+              }
+            </PopoverContent>
+          </Popover>
+        )}
 
         {/* Sinif səviyyəsi */}
         <Popover>

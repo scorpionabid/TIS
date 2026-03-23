@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { BarChart3, TrendingUp, Target, GraduationCap, BookOpen, Trophy } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useGradeBookRole } from '@/contexts/GradeBookRoleContext';
 import { cn } from '@/lib/utils';
 import { OverviewTab } from './tabs/OverviewTab';
 import { TrendsTab } from './tabs/TrendsTab';
@@ -37,6 +38,7 @@ const noopSetLoading = () => undefined;
 // ─── Main Component ───────────────────────────────────────────────────────────
 export function GradeBookAnalysis() {
   const { currentUser } = useAuth();
+  const { isSchoolAdmin } = useGradeBookRole();
   const [activeTab, setActiveTab] = useState<TabId>('class-level');
   const [filters, setFilters] = useState<AnalysisFilters>({ status: 'all' });
 
@@ -52,7 +54,7 @@ export function GradeBookAnalysis() {
   return (
     <div className="space-y-3">
       {/* ── Filters (data + row display) ── */}
-      <GlobalFiltersBar filters={filters} onFiltersChange={setFilters} />
+      <GlobalFiltersBar filters={filters} onFiltersChange={setFilters} isSchoolAdmin={isSchoolAdmin} />
 
       {/* ── Top Navigation Tabs ── */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">

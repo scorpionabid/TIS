@@ -492,6 +492,14 @@ class GradeBookController extends Controller
      */
     private function resolveInstitutionIds(?int $explicitId): ?array
     {
+        $user     = auth()->user();
+        $roleName = strtolower($user->roles->first()?->name ?? '');
+
+        // schooladmin həmişə yalnız öz məktəbini görür — explicit param ignore edilir
+        if (in_array($roleName, ['schooladmin', 'teacher'])) {
+            return $user->institution_id ? [$user->institution_id] : [];
+        }
+
         if ($explicitId) {
             $inst = \App\Models\Institution::withoutGlobalScope(InstitutionScope::class)->find($explicitId);
             // If non-leaf institution (ministry/region/sector), expand to all school-level children
@@ -501,8 +509,6 @@ class GradeBookController extends Controller
             }
             return [$explicitId];
         }
-        $user = auth()->user();
-        $roleName = strtolower($user->roles->first()?->name ?? '');
 
         if ($roleName === 'superadmin') {
             return null; // no restriction
@@ -517,7 +523,6 @@ class GradeBookController extends Controller
             return $institution->getAllChildrenIds();
         }
 
-        // schooladmin, müəllim, and others — own institution only
         return $user->institution_id ? [$user->institution_id] : [];
     }
 
