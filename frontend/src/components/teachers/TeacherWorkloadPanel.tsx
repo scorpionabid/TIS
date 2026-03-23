@@ -64,6 +64,7 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
   const [selectedClasses, setSelectedClasses] = useState<number[]>([]); // Bulk selection
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
+  const userSelectedSubjectRef = React.useRef(false);
   const [isAdding, setIsAdding] = useState(false);
   const [searchClass, setSearchClass] = useState('');
   const [searchSubject, setSearchSubject] = useState('');
@@ -139,8 +140,10 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
   }, [gradeSubjectsResponse]);
 
   const workload = workloadData?.data;
-  const rawLoads: WorkloadItem[] = workload?.loads || [];
-  const loads = rawLoads.filter(l => l.weekly_hours > 0);
+  const loads = useMemo<WorkloadItem[]>(() => {
+    const rawLoads: WorkloadItem[] = workload?.loads || [];
+    return rawLoads.filter(l => l.weekly_hours > 0);
+  }, [workload]);
 
   // Group loads by class_name for card-based display
   const groupedLoads = useMemo(() => {
@@ -168,24 +171,36 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
 
     if (!selectedClass) return base;
 
+    // Filter out subjects already assigned to THIS teacher in this class (client-side)
+    const assignedSubjectIds = new Set<number>(
+      loads
+        .filter((l) => l.class_id === selectedClass && l.subject_id !== undefined)
+        .map((l) => l.subject_id as number)
+    );
+
     // Filter out already assigned subjects for this class
     return base.filter((gs: GradeSubject) => {
+      // Hide if already assigned to this teacher in this class
+      if (assignedSubjectIds.has(gs.subject_id)) return false;
       // If it's a split-groups subject, it can be assigned multiple times (e.g. boys/girls or different levels)
       if (gs.is_split_groups) {
         return true;
       }
-
       // If NOT split groups, hide if it's already assigned TO ANYONE anywhere in the class
       return !gs.is_assigned;
     });
-  }, [gradeSubjects, teacherSubjects, selectedClass, loads, grades]);
+  }, [gradeSubjects, teacherSubjects, selectedClass, loads]);
 
-  // Auto-select subject when class changes
+  // Reset subject when class changes
   React.useEffect(() => {
-    if (selectedClass && availableSubjects.length > 0) {
+    setSelectedSubject(null);
+    userSelectedSubjectRef.current = false;
+  }, [selectedClass]);
+
+  // Auto-select first subject only if user hasn't manually selected
+  React.useEffect(() => {
+    if (!userSelectedSubjectRef.current && selectedClass && availableSubjects.length > 0) {
       setSelectedSubject(availableSubjects[0].subject_id);
-    } else {
-      setSelectedSubject(null);
     }
   }, [selectedClass, availableSubjects]);
 
@@ -218,13 +233,15 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
         academic_year_id: academicYearId,
       });
     },
-    onSuccess: () => {
-      // Invalidate workload queries to refresh stats and table
-      queryClient.invalidateQueries({ queryKey: ['teacher-workload', teacherId] });
-      // Also invalidate ALL grade-subjects to refresh is_assigned flags across all teachers
-      queryClient.invalidateQueries({ queryKey: ['grade-subjects'] });
+    onSuccess: async () => {
+      // Wait for both queries to refetch before resetting form — ensures loads is up-to-date
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['teacher-workload', teacherId] }),
+        queryClient.invalidateQueries({ queryKey: ['grade-subjects'] }),
+      ]);
       toast({ title: 'Dərs yükü əlavə edildi' });
       setSelectedSubject(null);
+      userSelectedSubjectRef.current = false;
     },
     onError: (error: any) => {
       console.error('❌ Create mutation error:', error);
@@ -411,7 +428,7 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
                 <label className="text-xs font-semibold text-slate-700">Fənn *</label>
                 <Select 
                   value={selectedSubject?.toString() || ''} 
-                  onValueChange={(v) => setSelectedSubject(parseInt(v))}
+                  onValueChange={(v) => { userSelectedSubjectRef.current = true; setSelectedSubject(parseInt(v)); }}
                   disabled={!selectedClass || availableSubjects.length === 0}
                   modal={false}
                 >

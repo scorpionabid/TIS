@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -137,9 +137,12 @@ export default function AddWorkloadModal({
     );
   }, [existingLoads, selectedClass]);
 
-  // Auto-select subject and hours when class is selected
+  const [hasUserSelectedSubject, setHasUserSelectedSubject] = useState(false);
+  const hasUserSelectedSubjectRef = useRef(false);
+
+  // Auto-select subject and hours when class is selected (only once per class)
   useEffect(() => {
-    if (selectedClass && teacherSubjects && gradeSubjects.length > 0) {
+    if (selectedClass && teacherSubjects && gradeSubjects.length > 0 && !hasUserSelectedSubjectRef.current) {
 
       // Find matching subject: teacher's subject that exists in selected grade
       const matchingSubject = gradeSubjects.find((gs: GradeSubject) =>
@@ -158,6 +161,7 @@ export default function AddWorkloadModal({
         setAutoSelectedInfo(`Bu sinifdə ${gradeSubjects.length} fənn tapıldı. Seçim edin.`);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClass, teacherSubjects, gradeSubjects]);
 
   // Reset form when modal closes
@@ -177,11 +181,15 @@ export default function AddWorkloadModal({
     setSelectedSubject(null);
     setWeeklyHours(0);
     setAutoSelectedInfo(null);
+    setHasUserSelectedSubject(false); // Reset for new class
+    hasUserSelectedSubjectRef.current = false;
   };
 
   const handleSubjectChange = (value: string) => {
     const subjectId = parseInt(value);
     setSelectedSubject(subjectId);
+    setHasUserSelectedSubject(true); // Mark that user has manually selected
+    hasUserSelectedSubjectRef.current = true;
 
     // Auto-fill weekly hours from grade_subjects
     const gradeSubject = gradeSubjects.find((gs: GradeSubject) => gs.subject_id === subjectId);
