@@ -4,9 +4,12 @@ description: |
   ATİS proyektinin standartlarına uyğun yeni modulları (Backend Service/Controller və Frontend Page/Component) sürətlə yaratmaq üçün bacarıq.
   Bu skill .claude/templates qovluğundakı şablonlardan istifadə edir və avtomatik olaraq 'Institution Hierarchy' və 'Role-based Access' məntiqlərini tətbiq edir.
 allowed-tools:
-  - run_command
-  - write_to_file
-  - replace_file_content
+  - Bash
+  - Read
+  - Write
+  - Edit
+  - Grep
+  - Glob
 ---
 
 # ATİS Module Generator - Sürətli Modul Yaradıcısı

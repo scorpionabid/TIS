@@ -6,13 +6,13 @@ description: ATİS layihəsində debug və troubleshooting
 ATİS layihəsində debugging və problem həlli:
 
 ## Container Status Debug
-1. **Konteinər statusu**: `docker-compose -f docker-compose.simple.yml ps`
+1. **Konteinər statusu**: `docker compose ps`
 2. **Running proseslər**: `docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"`
 3. **Container resource istifadəsi**: `docker stats atis_backend atis_frontend --no-stream`
 
 ## Log Təhlili
-1. **Backend loglar (son 50 sətir)**: `docker-compose -f docker-compose.simple.yml logs backend --tail=50 -f`
-2. **Frontend loglar**: `docker-compose -f docker-compose.simple.yml logs frontend --tail=50 -f`
+1. **Backend loglar (son 50 sətir)**: `docker compose logs atis_backend --tail=50 -f`
+2. **Frontend loglar**: `docker compose logs atis_frontend --tail=50 -f`
 3. **Laravel loglar**: `docker exec atis_backend tail -f /var/www/storage/logs/laravel.log`
 4. **Error logları**: `docker exec atis_backend grep -i error /var/www/storage/logs/laravel.log | tail -10`
 

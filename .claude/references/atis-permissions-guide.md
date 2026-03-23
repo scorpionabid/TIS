@@ -18,19 +18,20 @@ Nümunələr:
 - survey.view.all
 ```
 
-### 2. Role Hierarchy (1-10, 1=ən yüksək)
+### 2. Role Hierarchy (10 rol, 1=ən yüksək)
 ```
-Level 1: SuperAdmin (bütün səlahiyyətlər)
-Level 2: RegionAdmin
-Level 3: RegionOperator
-Level 4: SektorAdmin
-Level 5: SektorOperator
-Level 6: SchoolAdmin
-Level 7: SchoolOperator
-Level 8: Müəllim (Teacher)
-Level 9: Şagird (Student)
-Level 10: Valideyn (Parent)
+Level 1: superadmin      — bütün səlahiyyətlər
+Level 2: regionadmin     — region səviyyəsi idarəetmə
+Level 3: regionoperator  — region əməliyyatçısı
+Level 4: sektoradmin     — sektor idarəetmə
+Level 5: schooladmin     — məktəb idarəetmə
+Level 6: müəllim         — müəllim (əsas)
+Level 6: muavin          — müavin direktor
+Level 6: ubr             — UBR mütəxəssisi
+Level 6: tesarrufat      — təsərrüfat müdiri
+Level 6: psixoloq        — psixoloq
 ```
+> Qeyd: Level 6 rollar eyni hierarchy-dədirlər, schooladmin-dən aşağı.
 
 ### 3. Institution Hierarchy Filter
 ```php
@@ -353,7 +354,7 @@ const canAssignPermissions = hasPermission('user.assign.permissions');
 // Amma göstərilən permissionlar role-a görə filterləniR:
 const availablePermissions = useMemo(() => {
     if (user.hasRole('SuperAdmin')) {
-        return allPermissions; // Bütün 290+ permission
+        return allPermissions; // Bütün 255 permission (SELECT COUNT(*) FROM permissions)
     } else if (user.hasRole('RegionAdmin')) {
         return allPermissions.filter(p =>
             p.scope !== 'global' &&

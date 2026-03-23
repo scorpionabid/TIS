@@ -16,9 +16,12 @@ ATİS database idarəetmə əmrləri:
 4. **Rollback son migration**: `docker exec atis_backend php artisan migrate:rollback --step=1`
 
 ## Seeder Əməliyyatları
-1. **Bütün seederlər**: `docker exec atis_backend php artisan db:seed`
-2. **SuperAdmin seeder**: `docker exec atis_backend php artisan db:seed --class=SuperAdminSeeder`
-3. **Institution seeder**: `docker exec atis_backend php artisan db:seed --class=InstitutionHierarchySeeder`
+> ⚠️ `php artisan db:seed` (ümumi) HEÇVAXT işlətmə — fake data yaradır. Yalnız fərdi seeders:
+
+1. **SuperAdmin**: `docker exec atis_backend php artisan db:seed --class=SuperAdminSeeder --force`
+2. **Rollar**: `docker exec atis_backend php artisan db:seed --class=RoleSeeder --force`
+3. **İcazələr**: `docker exec atis_backend php artisan db:seed --class=PermissionSeeder --force`
+4. **Institution seeder**: `docker exec atis_backend php artisan db:seed --class=InstitutionHierarchySeeder --force`
 
 ## Database Monitoring
 1. **Cədvəl siyahısı**: `docker exec atis_backend php artisan tinker --execute="Schema::getTableListing() |> dd();"`
@@ -26,8 +29,8 @@ ATİS database idarəetmə əmrləri:
 3. **Institution count**: `docker exec atis_backend php artisan tinker --execute="echo 'Təşkilat sayı: ' . App\Models\Institution::count();"`
 
 ## Backup və Restore
-1. **Database backup**: `docker exec atis_backend pg_dump -h localhost -U postgres atis_db > atis_backup_$(date +%Y%m%d_%H%M%S).sql`
-2. **Backup restore**: `docker exec atis_backend psql -h localhost -U postgres atis_db < backup_file.sql`
+1. **Database backup**: `docker exec atis_postgres pg_dump -U atis_dev_user -d atis_dev > atis_backup_$(date +%Y%m%d_%H%M%S).sql`
+2. **Backup restore**: `docker exec -i atis_postgres psql -U atis_dev_user -d atis_dev < backup_file.sql`
 
 ## Performance Monitoring
 1. **Slow query log**: `docker exec atis_backend php artisan telescope:clear`

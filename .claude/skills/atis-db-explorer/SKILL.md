@@ -4,8 +4,10 @@ description: |
   ATİS proyektinin PostgreSQL verilənlər bazasını araşdırmaq və məlumatları analiz etmək üçün xüsusi bacarıq.
   Bu skill mənə Docker mühitində 'atis_postgres' konteynerinə qoşulub SQL sorğuları icra etməyə imkan verir.
 allowed-tools:
-  - run_command
-  - command_status
+  - Bash
+  - Read
+  - Grep
+  - Glob
 ---
 
 # ATİS DB Explorer - Verilənlər Bazası Analitiki

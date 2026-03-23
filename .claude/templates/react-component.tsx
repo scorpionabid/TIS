@@ -19,9 +19,8 @@ import {
 import { useToast } from '@/components/ui/use-toast';
 
 // ATİS Components
-import { LoadingSpinner } from '@/components/common/LoadingSpinner';
-import { ErrorDisplay } from '@/components/common/ErrorDisplay';
-import { ConfirmDialog } from '@/components/common/ConfirmDialog';
+import { LoadingSpinner } from '@/components/common/loading/LoadingStates';
+import { ConfirmDialog } from '@/components/modals/ConfirmDialog';
 import { {{ModelName}}Modal } from '@/components/modals/{{ModelName}}Modal';
 
 interface {{ComponentName}}Props {
@@ -159,7 +158,7 @@ export const {{ComponentName}}: React.FC<{{ComponentName}}Props> = ({
   const canDelete = ['SuperAdmin', 'RegionAdmin'].includes(userRole || '');
 
   if (isLoading) return <LoadingSpinner />;
-  if (error) return <ErrorDisplay error={error} onRetry={refetch} />;
+  if (error) return <div className="p-4 text-red-600">Xəta baş verdi. <button onClick={refetch} className="underline">Yenidən cəhd et</button></div>;
 
   const items = response?.data?.data || [];
   const pagination = response?.data?.meta || {};

@@ -11,22 +11,45 @@ ATİS (Alignment, Training & Inspection System) - Educational Institution Manage
 - **Infrastructure**: Docker (4 containers: atis_backend, atis_frontend, atis_postgres, atis_redis)
 - **Permissions**: spatie/laravel-permission with hierarchical RBAC
 
-## Natural Language → Technical Translation Rule
+## Vibe Coding Rejimi
 
-When user gives instructions in simple Azerbaijani:
+ATİS-də iki işləmə rejimi var. Claude tapşırığın mürəkkəbliyinə görə avtomatik rejim seçir:
 
-1. First, translate to clear technical English
-2. Then restate as formal development task
-3. Then implement
+### Rejim A — Sürətli (kiçik dəyişikliklər)
 
-Always follow this format:
+Sadə fix, UI tweak, kiçik əlavə üçün:
+- Mövcud kodu oxu → dərhal implement et
+- Format tələb olunmur, yalnız **nə etdiyini bir cümlə ilə yaz**
+- "Button rəngini dəyiş", "bu xəta mesajını düzəlt", "filter əlavə et" tipli tapşırıqlar
 
-### User Intent (AZ)
-### Technical Interpretation (EN)
-### Implementation Plan
-### Code Changes
-### Tests (if any)
-### Quality Gates (if any)
+### Rejim B — Planlı (böyük dəyişikliklər)
+
+Yeni modul, schema dəyişikliyi, refactor üçün aşağıdakı format:
+
+**User Intent (AZ)** — istifadəçinin yazdığı
+**Technical Interpretation (EN)** — texniki ekvivalent
+**Impact** — hansı fayllar dəyişəcək, hansı sistemlər təsirlənəcək
+**Implementation Plan** — addım-addım
+**Quality Gates** — test + lint
+
+### Rejim Seçimi
+
+| Tapşırıq tipi | Rejim |
+|---|---|
+| UI dəyişikliyi, fix, kiçik əlavə | A |
+| Yeni API endpoint | B |
+| DB migration | B |
+| Yeni səhifə/modul | B |
+| Refactor (50+ sətir) | B |
+| Sadə text/label dəyişikliyi | A |
+
+### Sürətli İşləmə Qaydaları
+
+- **Əvvəlcə oxu, sonra yaz** — mövcud kodu gör, pattern-i tanı
+- **Soru verməmək üçün** — fayl oxu, kontekst çıxar, varsayımı əsaslandır
+- **Bir soru varsa** — ən vacibini ver, hamısını bir anda deyil
+- **Natamam tələb** — ən məntiqli şərhi et, implement et, sonunda "X olaraq başa düşdüm, düzgündürmü?" de
+- **Hər dəyişiklikdən sonra** — nə dəyişdiyini qısaca izah et (kod deyil, nəticə)
 
 ## ⚠️ Critical Rules
 
@@ -76,9 +99,11 @@ docker exec atis_backend composer audit
 
 ## Architecture
 
-### Role Hierarchy (12 roles)
+### Role Hierarchy (10 roles)
 ```
-SuperAdmin → RegionAdmin → RegionOperator → SektorAdmin → SchoolAdmin → Teachers
+SuperAdmin → RegionAdmin → RegionOperator → SektorAdmin → SchoolAdmin
+                                                               ↓
+                                              müəllim | muavin | ubr | tesarrufat | psixoloq
 ```
 
 ### Institution Hierarchy (4 levels)

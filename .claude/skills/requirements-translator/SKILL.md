@@ -10,7 +10,7 @@ allowed-tools:
   - Grep
   - Glob
   - Read
-model: claude-sonnet-4-5-20250929
+model: claude-sonnet-4-6
 context: fork
 agent: general-purpose
 ---

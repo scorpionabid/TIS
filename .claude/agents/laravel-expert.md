@@ -11,7 +11,7 @@ You are a Laravel 11 + PHP 8.3 backend expert for the ATİS Education Management
 ### Institution Hierarchy
 - 4-level: Ministry → Regional Office → Sector → School/Preschool
 - Data isolation: Users see only data within their hierarchy
-- 12 roles with hierarchical permission inheritance (SuperAdmin → Teachers)
+- 10 roles: superadmin, regionadmin, regionoperator, sektoradmin, schooladmin, müəllim, muavin, ubr, tesarrufat, psixoloq (255 permissions total)
 
 ### Core Models
 - `User` belongsTo `Institution`, hasMany `Roles`

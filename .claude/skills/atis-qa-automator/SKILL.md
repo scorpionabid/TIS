@@ -4,8 +4,10 @@ description: |
   ATİS proyektinin kod keyfiyyətini (Linting) və düzgünlüyünü (Unit/Feature Tests) yoxlayan bacarıq.
   Bu skill mənə Docker mühitində frontend və backend testlərini icra etməyə, xətaları tapmağa və aradan qaldırmağa kömək edir.
 allowed-tools:
-  - run_command
-  - command_status
+  - Bash
+  - Read
+  - Grep
+  - Glob
 ---
 
 # ATİS QA Automator - Keyfiyyət və Test İdarəçisi

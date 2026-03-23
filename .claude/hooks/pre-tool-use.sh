@@ -23,13 +23,13 @@ if [[ "$TOOL" == "Bash" ]]; then
     fi
 fi
 
-# Code duplication check
+# Code duplication check (only in source directories, not node_modules/vendor)
 if [[ "$FILE_PATH" == *"components"* ]] || [[ "$FILE_PATH" == *"pages"* ]]; then
     filename=$(basename "$FILE_PATH" .tsx)
     filename=$(basename "$filename" .ts)
     filename=$(basename "$filename" .php)
-    similar_count=$(find . -name "*$filename*" 2>/dev/null | wc -l | tr -d ' ')
-    if [ "$similar_count" -gt 0 ]; then
+    similar_count=$(find ./frontend/src ./backend/app -name "*$filename*" 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$similar_count" -gt 1 ]; then
         echo "⚠️ Similar files found for '$filename' ($similar_count matches). Check for duplication." >&2
     fi
 fi
