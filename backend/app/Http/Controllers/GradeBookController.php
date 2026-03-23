@@ -414,6 +414,7 @@ class GradeBookController extends Controller
         $gender      = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
+        [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
 
         $data = $this->analysisService->getOverviewData(
             $institutionIds, $academicYearIds, $gradeIds, $subjectIds,
@@ -452,6 +453,7 @@ class GradeBookController extends Controller
         $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
+        [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
 
         $data = $this->analysisService->getTrendsData(
             $institutionIds, $academicYearIds, $timeRange,
@@ -477,6 +479,7 @@ class GradeBookController extends Controller
         $gender      = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
+        [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
 
         $data = $this->analysisService->getDeepDiveData(
             $institutionIds, $academicYearIds, $gradeIds, $subjectIds,
@@ -526,6 +529,19 @@ class GradeBookController extends Controller
         return $user->institution_id ? [$user->institution_id] : [];
     }
 
+    /**
+     * Schooladmin/teacher üçün sector_ids və school_ids parametrlərini sıfırla.
+     * Bu rollar yalnız öz məktəbini görür — sub-filtr mənasızdır.
+     */
+    private function sanitizeHierarchyFilters(array $sectorIds, array $schoolIds): array
+    {
+        $roleName = strtolower(auth()->user()->roles->first()?->name ?? '');
+        if (in_array($roleName, ['schooladmin', 'teacher'])) {
+            return [[], []];
+        }
+        return [$sectorIds, $schoolIds];
+    }
+
     public function getPivotAnalysis(Request $request): JsonResponse
     {
         $institutionId     = $request->input('institution_id') ? (int) $request->input('institution_id') : null;
@@ -553,6 +569,7 @@ class GradeBookController extends Controller
         $gender      = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
+        [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
 
         $data = $this->analysisService->getPivotAnalysis(
             $institutionIds, $academicYearIds, $subjectIds, $groupBy,
@@ -595,6 +612,7 @@ class GradeBookController extends Controller
         $teachingLanguages = array_values(array_filter((array) $request->input('teaching_languages', [])));
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
+        [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
 
         $data = $this->analysisService->getRegionTrends(
             $institutionIds, $academicYearIds, $groupBy,
@@ -655,6 +673,7 @@ class GradeBookController extends Controller
         $gender            = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
+        [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
 
         $data = $this->analysisService->getScoreboardData(
             $institutionIds, $academicYearIds, $subjectIds,
@@ -672,6 +691,7 @@ class GradeBookController extends Controller
         $schoolIds       = array_values(array_filter(array_map('intval', (array) $request->input('school_ids', []))));
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
+        [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
 
         $data = $this->analysisService->getAvailableGrades($institutionIds, $academicYearIds, $sectorIds, $schoolIds);
 
@@ -696,6 +716,7 @@ class GradeBookController extends Controller
         $gender            = in_array($request->input('gender'), ['male', 'female']) ? $request->input('gender') : null;
 
         $institutionIds = $this->resolveInstitutionIds($institutionId);
+        [$sectorIds, $schoolIds] = $this->sanitizeHierarchyFilters($sectorIds, $schoolIds);
 
         $data = $this->analysisService->getNestedPivotAnalysis(
             $institutionIds, $academicYearIds, $subjectIds, $groupBys,
