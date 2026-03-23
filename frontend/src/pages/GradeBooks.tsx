@@ -495,9 +495,9 @@ const GradeBooksPage: React.FC = () => {
             {/* Show hierarchy navigator for region/sector admins */}
             {canViewHierarchy ? (
               /* 3-block layout: I=Region/Sektor/Məktəblər  II=Siniflər  III=Jurnallar */
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
                 {/* Block I: Region / Sektor / Məktəblər */}
-                <div className="lg:col-span-4 flex flex-col">
+                <div className="md:col-span-4 flex flex-col">
                   <Card className="border-slate-200 flex flex-col min-h-[580px]">
                     <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -538,7 +538,7 @@ const GradeBooksPage: React.FC = () => {
                 </div>
 
                 {/* Block II: Siniflər (səviyyə + hərf) */}
-                <div className="lg:col-span-4 flex flex-col">
+                <div className="md:col-span-4 flex flex-col">
                   <Card className="border-slate-200 flex flex-col min-h-[580px]">
                     <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -652,7 +652,7 @@ const GradeBooksPage: React.FC = () => {
                 </div>
 
                 {/* Block III: Jurnallar */}
-                <div className="lg:col-span-4 flex flex-col min-h-[580px]">
+                <div className="md:col-span-4 flex flex-col min-h-[580px]">
                   {!selectedGradeId ? (
                     <Card className="border-slate-200 flex flex-col flex-1 min-h-[580px]">
                       <CardHeader className="pb-3 flex-shrink-0">
@@ -694,9 +694,9 @@ const GradeBooksPage: React.FC = () => {
               </div>
             ) : (
               /* 3-block layout for school admin: I=Sinif Səviyyələri  II=Siniflər  III=Jurnallar */
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-stretch">
                 {/* Block I: Sinif Səviyyələri */}
-                <div className="lg:col-span-4 flex flex-col">
+                <div className="md:col-span-4 flex flex-col">
                   <Card className="border-slate-200 flex flex-col min-h-[580px]">
                     <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -746,7 +746,7 @@ const GradeBooksPage: React.FC = () => {
                 </div>
 
                 {/* Block II: Siniflər (A, B...) */}
-                <div className="lg:col-span-4 flex flex-col">
+                <div className="md:col-span-4 flex flex-col">
                   <Card className="border-slate-200 flex flex-col min-h-[580px]">
                     <CardHeader className="pb-3 flex-shrink-0">
                       <CardTitle className="text-base font-medium flex items-center gap-2">
@@ -809,7 +809,7 @@ const GradeBooksPage: React.FC = () => {
                 </div>
 
                 {/* Block III: Jurnallar */}
-                <div className="lg:col-span-4 flex flex-col min-h-[580px]">
+                <div className="md:col-span-4 flex flex-col min-h-[580px]">
                   {!selectedGradeId ? (
                     <Card className="border-slate-200 flex flex-col flex-1 min-h-[580px]">
                       <CardHeader className="pb-3 flex-shrink-0">
