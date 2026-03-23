@@ -1,5 +1,3 @@
-import { FloatingChatWidget } from '@/components/messaging';
-import { MessageCircle } from 'lucide-react';
 import { useState } from 'react';
 import { Outlet, useNavigate } from "react-router-dom";
 import { LoginForm } from "@/components/auth/LoginForm";
@@ -114,8 +112,6 @@ const MainLayout = () => {
               <Outlet />
             </PageContainer>
             
-            {/* Floating Chat Widget - Inside main for visibility */}
-            <FloatingChatWidget />
           </main>
         </div>
 

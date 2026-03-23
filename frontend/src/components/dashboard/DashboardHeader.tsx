@@ -1,5 +1,7 @@
 import { UserProfile } from "@/components/layout/components/Header/UserProfile";
 import { NotificationDropdown } from "@/components/layout/components/Header/NotificationDropdown";
+import { MessagingIndicator } from "@/components/messaging/MessagingIndicator";
+import { MessagingPanel } from "@/components/messaging/MessagingPanel";
 import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -46,6 +48,7 @@ export const DashboardHeader = ({
   const [surveyNotifications, setSurveyNotifications] = useState<SurveyNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [isMessagingOpen, setIsMessagingOpen] = useState(false);
 
   const toBoolean = (value: unknown) => {
     if (value === null || typeof value === 'undefined') return false;
@@ -281,12 +284,17 @@ export const DashboardHeader = ({
             )}
           </div>
 
+          {/* Messaging */}
+          <MessagingIndicator onClick={() => setIsMessagingOpen(true)} />
+
           {/* User Profile */}
           {currentUser && onLogout && (
             <UserProfile user={currentUser} onLogout={onLogout} />
           )}
         </div>
       </div>
+
+      <MessagingPanel open={isMessagingOpen} onClose={() => setIsMessagingOpen(false)} />
     </>
   );
 };
