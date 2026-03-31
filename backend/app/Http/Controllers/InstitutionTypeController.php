@@ -23,7 +23,7 @@ class InstitutionTypeController extends Controller
         try {
             $request->validate([
                 'include_inactive' => 'nullable|in:true,false,1,0',
-                'level' => 'nullable|integer|between:1,4',
+                'level' => 'nullable|integer|between:1,5',
                 'is_system' => 'nullable|in:true,false,1,0',
             ]);
 
@@ -98,7 +98,7 @@ class InstitutionTypeController extends Controller
             'label' => 'required|string|max:100',
             'label_az' => 'required|string|max:100',
             'label_en' => 'required|string|max:100',
-            'default_level' => 'nullable|integer|between:1,4',
+            'default_level' => 'nullable|integer|between:1,5',
             'allowed_parent_types' => 'nullable|array',
             'allowed_parent_types.*' => 'string|exists:institution_types,key',
             'icon' => 'nullable|string|max:50',
@@ -177,7 +177,7 @@ class InstitutionTypeController extends Controller
             'label' => 'string|max:100',
             'label_az' => 'string|max:100',
             'label_en' => 'string|max:100',
-            'default_level' => 'nullable|integer|between:1,4',
+            'default_level' => 'nullable|integer|between:1,5',
             'allowed_parent_types' => 'nullable|array',
             'allowed_parent_types.*' => 'string|exists:institution_types,key',
             'icon' => 'nullable|string|max:50',
