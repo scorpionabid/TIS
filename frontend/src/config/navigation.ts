@@ -53,7 +53,14 @@ export interface MenuItem {
   permissions?: string[];
   permissionMatch?: "any" | "all";
   /** Sidebar badge key — maps to unread notification count category */
-  badgeKey?: 'tasks' | 'tasks_assigned' | 'surveys' | 'documents' | 'report_tables' | 'attendance' | 'messages';
+  badgeKey?:
+    | "tasks"
+    | "tasks_assigned"
+    | "surveys"
+    | "documents"
+    | "report_tables"
+    | "attendance"
+    | "messages";
 }
 
 export interface MenuGroup {
@@ -824,7 +831,11 @@ export const improvedNavigationConfig: MenuGroup[] = [
         label: "Məktəbəqədər",
         path: "/preschools",
         icon: Baby,
-        roles: [USER_ROLES.SUPERADMIN, USER_ROLES.REGIONADMIN],
+        roles: [
+          USER_ROLES.SUPERADMIN,
+          USER_ROLES.REGIONADMIN,
+          USER_ROLES.PRESCHOOLADMIN,
+        ],
       },
       {
         id: "hierarchy",

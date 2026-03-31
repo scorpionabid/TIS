@@ -124,9 +124,7 @@ const SchoolScheduleManagement = lazy(
 const BulkAttendanceEntry = lazy(
   () => import("./pages/school/BulkAttendanceEntry"),
 );
-const PreschoolGroups = lazy(
-  () => import("./pages/preschool/PreschoolGroups"),
-);
+const PreschoolGroups = lazy(() => import("./pages/preschool/PreschoolGroups"));
 const PreschoolAttendanceEntry = lazy(
   () => import("./pages/preschool/PreschoolAttendanceEntry"),
 );
@@ -1266,6 +1264,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.SCHOOLADMIN,
+                              USER_ROLES.PRESCHOOLADMIN,
                             ]}
                             requiredPermissions={["preschool.groups.manage"]}
                             permissionMatch="any"
@@ -1283,6 +1282,7 @@ const App = () => {
                             allowedRoles={[
                               USER_ROLES.SUPERADMIN,
                               USER_ROLES.SCHOOLADMIN,
+                              USER_ROLES.PRESCHOOLADMIN,
                             ]}
                             requiredPermissions={["preschool.attendance.write"]}
                             permissionMatch="any"
@@ -1302,6 +1302,7 @@ const App = () => {
                               USER_ROLES.REGIONADMIN,
                               USER_ROLES.REGIONOPERATOR,
                               USER_ROLES.SEKTORADMIN,
+                              USER_ROLES.PRESCHOOLADMIN,
                             ]}
                             requiredPermissions={[
                               "preschool.attendance.reports",
