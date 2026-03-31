@@ -19,7 +19,7 @@ class PreschoolController extends Controller
 
         $query = Institution::with(['parent', 'children', 'users', 'manager'])
             ->whereIn('type', $preschoolTypes)
-            ->where('level', 4);
+            ->where('level', 5);
 
         // Apply user-based access control
         $user = Auth::user();

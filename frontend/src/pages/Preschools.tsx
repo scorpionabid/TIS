@@ -1,50 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  School,
-  MapPin,
-  Phone,
-  Mail,
-  User,
   Plus,
   Search,
-  Filter,
-  MoreHorizontal,
-  Edit,
-  Trash2,
   AlertTriangle,
   Building2,
   Users,
   BookOpen,
-  TrendingUp,
-  Eye,
-  Calendar,
   CheckCircle,
-  XCircle,
   Upload,
 } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/card";
-import { Badge } from "../components/ui/badge";
-import { Avatar, AvatarFallback } from "../components/ui/avatar";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "../components/ui/dialog";
+import { Card, CardContent } from "../components/ui/card";
 import {
   Select,
   SelectContent,
@@ -59,13 +27,14 @@ import {
   type PreschoolCreateData,
 } from "../services/preschools";
 import { sectorsService } from "../services/sectors";
-import { userService } from "../services/users";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { PreschoolCreateModal } from "../components/modals/PreschoolCreateModal";
 import { PreschoolEditModal } from "../components/modals/PreschoolEditModal";
 import { PreschoolDetailModal } from "../components/modals/PreschoolDetailModal";
 import { PreschoolsImportExportModal } from "../components/modals/PreschoolsImportExportModal";
+import { PreschoolsList } from "./Preschools/PreschoolsList";
+import { useRoleCheck } from "@/hooks/useRoleCheck";
 
 const PRESCHOOL_TYPES = [
   { value: "kindergarten", label: "Uşaq Bağçası", icon: "🏫" },
@@ -79,6 +48,7 @@ const PRESCHOOL_TYPES = [
 
 export default function Preschools() {
   const { currentUser } = useAuth();
+  const { isSuperAdmin, isRegionAdmin, isSektorAdmin } = useRoleCheck();
 
   // State hooks - all at the top
   const [searchTerm, setSearchTerm] = useState("");
@@ -92,6 +62,10 @@ export default function Preschools() {
   const [selectedPreschool, setSelectedPreschool] = useState<Preschool | null>(
     null,
   );
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [perPage, setPerPage] = useState(15);
 
   const queryClient = useQueryClient();
 
@@ -457,203 +431,32 @@ export default function Preschools() {
         </CardContent>
       </Card>
 
-      {/* Preschools Grid */}
-      {isLoading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[...Array(6)].map((_, i) => (
-            <Card key={i} className="animate-pulse">
-              <CardContent className="p-6">
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-4"></div>
-                <div className="h-3 bg-gray-200 rounded w-1/2 mb-2"></div>
-                <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : preschools.length === 0 ? (
-        <Card>
-          <CardContent className="p-12 text-center">
-            <School className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">
-              Məktəbəqədər müəssisə tapılmadı
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              Axtarış kriteriyalarınıza uyğun məktəbəqədər müəssisə yoxdur
-            </p>
-            {currentUser?.role &&
-              ["superadmin", "regionadmin", "sektoradmin"].includes(
-                currentUser.role,
-              ) && (
-                <Button onClick={handleOpenCreateModal}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  İlk məktəbəqədər müəssisəni yaradın
-                </Button>
-              )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {preschools.map((preschool) => {
-            const typeInfo = getTypeInfo(preschool.type);
-            return (
-              <Card
-                key={preschool.id}
-                className="hover:shadow-md transition-shadow"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-lg">{typeInfo.icon}</span>
-                        <Badge
-                          variant={
-                            preschool.is_active ? "default" : "secondary"
-                          }
-                        >
-                          {typeInfo.label}
-                        </Badge>
-                        {preschool.is_active ? (
-                          <CheckCircle className="h-4 w-4 text-green-600" />
-                        ) : (
-                          <XCircle className="h-4 w-4 text-gray-400" />
-                        )}
-                      </div>
-                      <CardTitle className="text-lg leading-tight">
-                        {preschool.name}
-                      </CardTitle>
-                      {preschool.short_name && (
-                        <p className="text-sm text-muted-foreground">
-                          {preschool.short_name}
-                        </p>
-                      )}
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="sm">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => handleOpenDetailModal(preschool)}
-                        >
-                          <Eye className="h-4 w-4 mr-2" />
-                          Ətraflı baxış
-                        </DropdownMenuItem>
-                        {/* Only superadmin, regionadmin, and sektoradmin can edit/delete preschools */}
-                        {currentUser?.role &&
-                          ["superadmin", "regionadmin", "sektoradmin"].includes(
-                            currentUser.role,
-                          ) && (
-                            <>
-                              <DropdownMenuItem
-                                onClick={() => handleOpenEditModal(preschool)}
-                              >
-                                <Edit className="h-4 w-4 mr-2" />
-                                Redaktə et
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(preschool.id)}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Sil
-                              </DropdownMenuItem>
-                            </>
-                          )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-
-                <CardContent className="pt-0">
-                  <div className="space-y-3">
-                    {/* Sector Info */}
-                    <div className="flex items-center text-sm text-muted-foreground">
-                      <Building2 className="h-4 w-4 mr-2" />
-                      <span>{preschool.sector_name}</span>
-                    </div>
-
-                    {/* Location */}
-                    {preschool.address && (
-                      <div className="flex items-start text-sm text-muted-foreground">
-                        <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-                        <span className="line-clamp-2">
-                          {preschool.address}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Contact */}
-                    <div className="flex items-center justify-between text-sm">
-                      {preschool.phone && (
-                        <div className="flex items-center text-muted-foreground">
-                          <Phone className="h-3 w-3 mr-1" />
-                          <span className="text-xs">{preschool.phone}</span>
-                        </div>
-                      )}
-                      {preschool.email && (
-                        <div className="flex items-center text-muted-foreground">
-                          <Mail className="h-3 w-3 mr-1" />
-                          <span className="text-xs">{preschool.email}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Manager Info */}
-                    {preschool.manager ? (
-                      <div className="flex items-center text-sm text-muted-foreground">
-                        <User className="h-4 w-4 mr-2" />
-                        <span>
-                          {preschool.manager.first_name &&
-                          preschool.manager.last_name
-                            ? `${preschool.manager.first_name} ${preschool.manager.last_name}`
-                            : preschool.manager.username ||
-                              preschool.manager.email?.split("@")[0] ||
-                              "Admin"}
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center text-sm text-amber-600">
-                        <AlertTriangle className="h-4 w-4 mr-2" />
-                        <span>Menecer təyin edilməyib</span>
-                      </div>
-                    )}
-
-                    {/* Statistics */}
-                    <div className="grid grid-cols-3 gap-2 pt-2 border-t">
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-blue-600">
-                          {preschool.statistics.total_children}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Uşaq
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-green-600">
-                          {preschool.statistics.total_teachers}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          Müəllim
-                        </div>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold text-orange-600">
-                          {preschool.statistics.total_staff}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          İşçi
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+      {/* Results Summary */}
+      {preschools.length > 0 && (
+        <div className="text-sm text-muted-foreground">
+          {preschools.length} məktəbəqədər müəssisə tapıldı
         </div>
       )}
+
+      {/* Preschools Table */}
+      <PreschoolsList
+        preschools={preschools}
+        pagination={{
+          currentPage: currentPage,
+          perPage: perPage,
+          total: preschools.length,
+          lastPage: Math.ceil(preschools.length / perPage) || 1,
+        }}
+        isLoading={isLoading}
+        onEdit={handleOpenEditModal}
+        onDelete={(preschool) => handleDelete(preschool.id)}
+        onViewDetails={handleOpenDetailModal}
+        onPageChange={setCurrentPage}
+        onPerPageChange={setPerPage}
+        isSuperAdmin={isSuperAdmin}
+        isRegionAdmin={isRegionAdmin}
+        isSektorAdmin={isSektorAdmin}
+      />
 
       {/* Modal Components */}
       <PreschoolCreateModal
