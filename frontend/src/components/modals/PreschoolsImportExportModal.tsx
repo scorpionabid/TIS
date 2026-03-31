@@ -215,12 +215,14 @@ export function PreschoolsImportExportModal({
       setImportResult(result.data);
 
       // Brief success toast
-      const hasErrors = result.data?.errors && result.data.errors.length > 0;
+      const hasErrors =
+        result.data?.data?.errors && result.data.data.errors.length > 0;
+      const duplicateCount = result.data?.data?.duplicate_count || 0;
       toast({
         title: hasErrors ? "İdxal tamamlandı (xətalarla)" : "Uğurlu idxal",
         description: hasErrors
-          ? `${result.data.success || 0} uğurlu, ${result.data.errors.length} xəta`
-          : `${result.data?.success || 0} məktəbəqədər müəssisə əlavə edildi`,
+          ? `${result.data?.data?.success || 0} uğurlu, ${result.data.data.errors.length} xəta`
+          : `${result.data?.data?.success || 0} məktəbəqədər müəssisə əlavə edildi${duplicateCount > 0 ? ` (${duplicateCount} duplikat)` : ""}`,
         variant: hasErrors ? "default" : "default",
       });
 

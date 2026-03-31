@@ -89,9 +89,20 @@ class ImportOrchestrator
 
             Log::info('Excel data parsed', [
                 'institution_type' => $institutionTypeKey,
+                'institution_level' => $institutionType->level ?? $institutionType->default_level,
                 'parsed_rows' => count($data),
                 'sample_data' => $data ? array_slice($data, 0, 2) : [],
             ]);
+
+            // Check if data is empty
+            if (empty($data)) {
+                Log::warning('No data parsed from Excel file');
+                return $this->responseBuilder->buildErrorResponse(
+                    'Excel faylından məlumat oxuna bilmədi və ya fayl boşdur',
+                    [],
+                    []
+                );
+            }
 
             // 5. Validate parsed data
             $this->validator->validateImportData($data, $institutionType);
@@ -103,18 +114,25 @@ class ImportOrchestrator
 
             // Check for validation errors
             if ($this->validator->hasValidationErrors()) {
+                Log::warning('Validation failed', [
+                    'errors' => $this->validator->getValidationErrors(),
+                ]);
                 return $this->buildValidationErrorResponse($this->validator->getValidationErrors());
             }
 
             // 6. Import institutions with transaction
             Log::info('Starting import execution', [
                 'data_count' => count($data),
+                'institution_level' => $institutionType->level ?? $institutionType->default_level,
             ]);
 
-            $importedCount = $this->executeImport($data, $institutionType);
+            $importResult = $this->executeImport($data, $institutionType);
+            $importedCount = $importResult['imported_count'];
+            $duplicateCount = $importResult['duplicate_count'];
 
             Log::info('Import execution completed', [
                 'imported_count' => $importedCount,
+                'duplicate_count' => $duplicateCount,
                 'import_results' => $this->stateManager->getImportResults(),
             ]);
 
@@ -145,17 +163,21 @@ class ImportOrchestrator
      * - Small (<50 rows): Single transaction
      * - Large (>50 rows): Chunked processing with batch optimization
      *
-     * @return int Imported count
+     * @return array ['imported_count' => int, 'duplicate_count' => int]
      */
-    protected function executeImport(array $data, InstitutionType $institutionType): int
+    protected function executeImport(array $data, InstitutionType $institutionType): array
     {
         $totalRows = count($data);
 
         // For large datasets (>50 rows), use chunked processing
         if ($totalRows > 50) {
             $importResults = $this->stateManager->getImportResults();
-
-            return $this->chunkProcessor->executeChunkedImport($data, $institutionType, $importResults);
+            $importedCount = $this->chunkProcessor->executeChunkedImport($data, $institutionType, $importResults);
+            
+            return [
+                'imported_count' => $importedCount,
+                'duplicate_count' => 0, // ChunkProcessor doesn't track duplicates yet
+            ];
         }
 
         // For small datasets, use single transaction
@@ -167,17 +189,32 @@ class ImportOrchestrator
     /**
      * Process small dataset in single transaction
      *
-     * @return int Imported count
+     * @return array ['imported_count' => int, 'duplicate_count' => int]
      */
-    protected function processSmallDataset(array $data, InstitutionType $institutionType): int
+    protected function processSmallDataset(array $data, InstitutionType $institutionType): array
     {
         $importedCount = 0;
+        $duplicateCount = 0;
         $institutionLevel = $institutionType->level ?? $institutionType->default_level;
 
-        foreach ($data as $rowData) {
+        Log::info('Processing small dataset', [
+            'row_count' => count($data),
+            'institution_level' => $institutionLevel,
+            'first_row_sample' => $data[0] ?? null,
+        ]);
+
+        foreach ($data as $index => $rowData) {
             try {
+                Log::info('Processing row', [
+                    'row_index' => $index,
+                    'row_number' => $rowData['row'] ?? 'unknown',
+                    'name' => $rowData['name'] ?? 'N/A',
+                    'has_preschooladmin' => isset($rowData['preschooladmin']),
+                ]);
+
                 // Skip sample data rows
                 if ($this->dataTypeParser->isSampleRow($rowData)) {
+                    Log::info('Skipping sample row', ['row' => $rowData['row'] ?? 'unknown']);
                     $this->stateManager->addResult(
                         $this->messageFormatter->formatSkipMessage($rowData, 'Nümunə sətri')
                     );
@@ -191,6 +228,7 @@ class ImportOrchestrator
                     $this->stateManager->addResult(
                         $this->messageFormatter->formatDuplicateMessage($rowData, $existingInstitution)
                     );
+                    $duplicateCount++;
 
                     continue;
                 }
@@ -213,6 +251,20 @@ class ImportOrchestrator
                     ];
                 }
 
+                // Create PreschoolAdmin user if level 5
+                if ($institutionLevel == 5 && isset($rowData['preschooladmin'])) {
+                    $preschoolAdmin = $this->schoolAdminCreator->createPreschoolAdmin(
+                        $rowData['preschooladmin'],
+                        $institution
+                    );
+                    $schoolAdminInfo = [
+                        'username' => $preschoolAdmin->username,
+                        'email' => $preschoolAdmin->email,
+                        'original_username' => $rowData['preschooladmin']['username'] ?? '',
+                        'original_email' => $rowData['preschooladmin']['email'] ?? '',
+                    ];
+                }
+
                 $importedCount++;
                 $this->stateManager->addResult(
                     $this->messageFormatter->formatSuccessMessage($rowData, $institution, $schoolAdminInfo)
@@ -230,7 +282,15 @@ class ImportOrchestrator
             }
         }
 
-        return $importedCount;
+        Log::info('processSmallDataset completed', [
+            'total_imported' => $importedCount,
+            'total_rows' => count($data),
+        ]);
+
+        return [
+            'imported_count' => $importedCount,
+            'duplicate_count' => $duplicateCount,
+        ];
     }
 
     /**

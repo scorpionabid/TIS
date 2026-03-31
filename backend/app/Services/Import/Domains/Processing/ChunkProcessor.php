@@ -152,6 +152,7 @@ class ChunkProcessor
                 if ($this->duplicateDetector->isDuplicateUtisCodeBatch($rowData['utis_code'])) {
                     $existingInstitution = $this->duplicateDetector->getInstitutionByUtisCodeBatch($rowData['utis_code']);
                     $importResults[] = $this->messageFormatter->formatDuplicateMessage($rowData, $existingInstitution);
+                    $duplicateCount++;
 
                     continue;
                 }
@@ -175,6 +176,21 @@ class ChunkProcessor
                     ];
                 }
 
+                // Create PreschoolAdmin user if level 5
+                if ($institutionLevel == 5 && isset($rowData['preschooladmin'])) {
+                    $preschoolAdmin = $this->schoolAdminCreator->createPreschoolAdmin(
+                        $rowData['preschooladmin'],
+                        $institution,
+                        $this->batchOptimizer
+                    );
+                    $schoolAdminInfo = [
+                        'username' => $preschoolAdmin->username,
+                        'email' => $preschoolAdmin->email,
+                        'original_username' => $rowData['preschooladmin']['username'] ?? '',
+                        'original_email' => $rowData['preschooladmin']['email'] ?? '',
+                    ];
+                }
+
                 $importedCount++;
                 $importResults[] = $this->messageFormatter->formatSuccessMessage($rowData, $institution, $schoolAdminInfo);
             } catch (\Exception $e) {
@@ -188,6 +204,9 @@ class ChunkProcessor
             }
         }
 
-        return $importedCount;
+        return [
+            'imported_count' => $importedCount,
+            'duplicate_count' => $duplicateCount,
+        ];
     }
 }

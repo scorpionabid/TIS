@@ -569,6 +569,8 @@ class InstitutionBulkController extends Controller
             \Log::info('Large import started', [
                 'type' => $validated['type'],
                 'file_size' => $validated['file']->getSize(),
+                'file_original_name' => $validated['file']->getClientOriginalName(),
+                'file_mime' => $validated['file']->getMimeType(),
                 'memory_limit' => ini_get('memory_limit'),
                 'time_limit' => ini_get('max_execution_time'),
             ]);
@@ -580,12 +582,20 @@ class InstitutionBulkController extends Controller
                 $validated['type']
             );
 
+            \Log::info('Import result from orchestrator', [
+                'result' => $result,
+                'success' => $result['success'] ?? false,
+                'imported_count' => $result['imported_count'] ?? 0,
+                'message' => $result['message'] ?? 'no message',
+            ]);
+
             // Return the result from the orchestrator
             if ($result['success']) {
                 return response()->json([
                     'success' => true,
                     'data' => [
                         'success' => $result['imported_count'],
+                        'duplicate_count' => $result['duplicate_count'] ?? 0,
                         'created_institutions' => $result['details'],
                         'errors' => [],
                     ],

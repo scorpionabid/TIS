@@ -55,6 +55,45 @@ class SchoolAdminCreator
     }
 
     /**
+     * Create PreschoolAdmin user for institution
+     *
+     * Steps:
+     * 1. Ensure unique username (with counter if needed)
+     * 2. Ensure unique email (with counter if needed)
+     * 3. Hash password
+     * 4. Create user record
+     * 5. Assign 'preschooladmin' role
+     *
+     * @param BatchOptimizer|null $batchOptimizer Optional for batch processing
+     */
+    public function createPreschoolAdmin(
+        array $preschoolAdminData,
+        Institution $institution,
+        ?BatchOptimizer $batchOptimizer = null
+    ): User {
+        // Ensure unique username and email
+        $username = $this->ensureUniqueUsername($preschoolAdminData['username'], $batchOptimizer);
+        $email = $this->ensureUniqueEmail($preschoolAdminData['email'], $batchOptimizer);
+
+        $userData = [
+            'username' => $username,
+            'email' => $email,
+            'password' => Hash::make($preschoolAdminData['password']),
+            'first_name' => $preschoolAdminData['first_name'],
+            'last_name' => $preschoolAdminData['last_name'],
+            'phone' => $preschoolAdminData['phone'] ?? '',
+            'department' => $preschoolAdminData['department'] ?? '',
+            'institution_id' => $institution->id,
+            'is_active' => true,
+        ];
+
+        $user = User::create($userData);
+        $user->assignRole('preschooladmin');
+
+        return $user;
+    }
+
+    /**
      * Ensure username is unique by appending numbers if needed
      *
      * Algorithm:

@@ -577,6 +577,14 @@ class InstitutionController extends Controller
     }
 
     /**
+     * Import institutions from template (legacy support)
+     */
+    public function importFromTemplate(Request $request): JsonResponse
+    {
+        return $this->bulkController->importFromTemplateByType($request);
+    }
+
+    /**
      * Import institutions from template by type
      */
     public function importFromTemplateByType(Request $request): JsonResponse

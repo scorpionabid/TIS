@@ -91,6 +91,19 @@ class ExcelDataParser
                 ];
             }
 
+            // Add PreschoolAdmin data for level 5 institutions
+            if ($institutionLevel == 5) {
+                $rowData['preschooladmin'] = [
+                    'username' => trim($sheet->getCell('N' . $row)->getCalculatedValue()),
+                    'email' => trim($sheet->getCell('O' . $row)->getCalculatedValue()),
+                    'password' => trim($sheet->getCell('P' . $row)->getCalculatedValue()),
+                    'first_name' => trim($sheet->getCell('Q' . $row)->getCalculatedValue()),
+                    'last_name' => trim($sheet->getCell('R' . $row)->getCalculatedValue()),
+                    'phone' => trim($sheet->getCell('S' . $row)->getCalculatedValue()),
+                    'department' => trim($sheet->getCell('T' . $row)->getCalculatedValue()),
+                ];
+            }
+
             $data[] = $rowData;
         }
 

@@ -96,8 +96,8 @@ class DataTypeParser
      */
     public function isSampleRow(array $rowData): bool
     {
-        // Check for common sample indicators
-        $sampleIndicators = ['nümunə', 'sample', 'example', 'test', 'INST001'];
+        // Check for clear sample indicators - be less aggressive
+        $sampleIndicators = ['sample', 'example', 'test'];
 
         $name = strtolower($rowData['name'] ?? '');
         $code = $rowData['institution_code'] ?? '';
@@ -105,10 +105,19 @@ class DataTypeParser
 
         foreach ($sampleIndicators as $indicator) {
             if (stripos($name, $indicator) !== false ||
-                stripos($code, $indicator) !== false ||
-                $utisCode === '12345678') { // Common sample UTIS code
+                stripos($code, $indicator) !== false) {
                 return true;
             }
+        }
+
+        // Only skip if UTIS is exactly the common sample code
+        if ($utisCode === '12345678' || $utisCode === '123456789') {
+            return true;
+        }
+
+        // Check for INST001 pattern only if it's exactly INST001 (not BAG001, etc.)
+        if ($code === 'INST001') {
+            return true;
         }
 
         return false;

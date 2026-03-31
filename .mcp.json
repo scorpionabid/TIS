@@ -4,7 +4,7 @@
       "type": "stdio",
       "command": "mcp-server-filesystem",
       "args": [
-        "/Users/home/Library/CloudStorage/OneDrive-BureauonICTforEducation,MinistryofEducation/Desktop/ATİS"
+        "/Users/home/Desktop/apps.nosync/TIS_LOCAL"
       ],
       "env": {}
     },

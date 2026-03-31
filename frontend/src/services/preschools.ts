@@ -485,11 +485,8 @@ class PreschoolsService {
     formData.append("file", file);
     formData.append("type", type);
 
-    const response = await apiClient.post("/institutions/import", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    });
+    // Don't set Content-Type - let browser set it automatically with boundary
+    const response = await apiClient.post("/institutions/import", formData);
     return response.data;
   }
 
