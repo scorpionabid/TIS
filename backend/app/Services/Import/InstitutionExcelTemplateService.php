@@ -471,6 +471,17 @@ class InstitutionExcelTemplateService extends BaseService
             $headers['T1'] = 'SchoolAdmin Department';
         }
 
+        // Add PreschoolAdmin fields for level 5
+        if ($institutionLevel == 5) {
+            $headers['N1'] = 'PreschoolAdmin İstifadəçi Adı*';
+            $headers['O1'] = 'PreschoolAdmin Email*';
+            $headers['P1'] = 'PreschoolAdmin Şifrə*';
+            $headers['Q1'] = 'PreschoolAdmin Ad';
+            $headers['R1'] = 'PreschoolAdmin Soyad';
+            $headers['S1'] = 'PreschoolAdmin Telefon';
+            $headers['T1'] = 'PreschoolAdmin Department';
+        }
+
         return $headers;
     }
 
@@ -551,6 +562,17 @@ class InstitutionExcelTemplateService extends BaseService
             $sampleData['T' . $sampleRow] = 'İdarəetmə';
         }
 
+        // Add PreschoolAdmin sample data for level 5
+        if ($institutionLevel == 5) {
+            $sampleData['N' . $sampleRow] = 'preschooladmin001';
+            $sampleData['O' . $sampleRow] = 'admin@preschool001.edu.az';
+            $sampleData['P' . $sampleRow] = 'SecurePassword123';
+            $sampleData['Q' . $sampleRow] = 'Müdir';
+            $sampleData['R' . $sampleRow] = 'Həsənova';
+            $sampleData['S' . $sampleRow] = '+994502345678';
+            $sampleData['T' . $sampleRow] = 'İdarəetmə';
+        }
+
         foreach ($sampleData as $cell => $value) {
             $sheet->setCellValue($cell, $value);
             $sheet->getStyle($cell)->getFont()->setItalic(true);
@@ -597,6 +619,15 @@ class InstitutionExcelTemplateService extends BaseService
         if ($institutionLevel == 4) {
             $startRow = $institutionLevel > 1 ? 16 : 11;
             $instructions['A' . $startRow] = ($startRow - 6) . '. SchoolAdmin sahələri (məktəblər üçün):';
+            $instructions['A' . ($startRow + 1)] = '   - İstifadəçi adı unikal olmalıdır';
+            $instructions['A' . ($startRow + 2)] = '   - Email unikal olmalıdır və düzgün formatda';
+            $instructions['A' . ($startRow + 3)] = '   - Şifrə minimum 8 simvol olmalıdır';
+            $instructions['A' . ($startRow + 5)] = ($startRow - 5) . '. Nümunə məlumatları silib, öz məlumatlarınızı daxil edin';
+            $instructions['A' . ($startRow + 6)] = ($startRow - 4) . '. Fayl ölçüsü maksimum 10MB ola bilər';
+        } elseif ($institutionLevel == 5) {
+            // Add PreschoolAdmin instructions for level 5
+            $startRow = 16;
+            $instructions['A' . $startRow] = ($startRow - 6) . '. PreschoolAdmin sahələri (bağçalar üçün):';
             $instructions['A' . ($startRow + 1)] = '   - İstifadəçi adı unikal olmalıdır';
             $instructions['A' . ($startRow + 2)] = '   - Email unikal olmalıdır və düzgün formatda';
             $instructions['A' . ($startRow + 3)] = '   - Şifrə minimum 8 simvol olmalıdır';
@@ -734,7 +765,7 @@ class InstitutionExcelTemplateService extends BaseService
     /**
      * Get potential parent institutions based on level
      */
-    private function getPotentialParentInstitutions(int $currentLevel): \Illuminate\Database\Eloquent\Collection
+    private function getPotentialParentInstitutions(int $currentLevel): \Illuminate\Support\Collection
     {
         // Get institutions that can be parents (lower level numbers)
         $institutions = \App\Models\Institution::where('level', '<', $currentLevel)

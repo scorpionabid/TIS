@@ -460,6 +460,23 @@ class PermissionSeeder extends Seeder
                 'preschool.groups.manage', 'preschool.attendance.read', 'preschool.attendance.write',
                 'students.create', 'students.read', 'students.update', 'students.delete', 'students.write', 'students.manage', 'students.export', 'students.import', 'students.bulk', 'students.grades', 'students.attendance', 'students.schedule', 'students.enroll', 'students.transfer', 'students.graduate', 'students.analytics', 'students.reports',
             ],
+            'preschooladmin' => [
+                'users.read', 'users.create', 'users.update',
+                'institutions.read',
+                'surveys.read', 'surveys.respond', 'survey_responses.read', 'survey_responses.write',
+                'documents.create', 'documents.read', 'documents.update', 'documents.share',
+                'tasks.read', 'tasks.update', 'tasks.create',
+                'events.create', 'events.read', 'events.update', 'events.manage', 'events.register', 'events.cancel',
+                'psychology.read', 'psychology.manage',
+                'inventory.create', 'inventory.read', 'inventory.update', 'inventory.manage', 'inventory.assign', 'inventory.maintenance',
+                'links.read', 'links.create', 'links.share',
+                'reports.read', 'reports.create', 'reports.export',
+                'preschool.groups.manage', 'preschool.groups.create', 'preschool.groups.read', 'preschool.groups.update', 'preschool.groups.delete',
+                'preschool.attendance.read', 'preschool.attendance.write', 'preschool.attendance.export', 'preschool.attendance.reports',
+                'preschool.children.manage', 'preschool.children.read', 'preschool.children.update', 'preschool.children.enroll', 'preschool.children.transfer',
+                'preschool.educators.manage', 'preschool.educators.read', 'preschool.educators.update', 'preschool.educators.assign',
+                'students.create', 'students.read', 'students.update', 'students.delete', 'students.write', 'students.manage', 'students.export', 'students.enroll', 'students.transfer', 'students.analytics', 'students.reports',
+            ],
             'regionoperator' => [
                 // regionadmin permissions EXCEPT users.create and users.update
                 'analytics.view',

@@ -155,7 +155,11 @@ Route::middleware('permission:institutions.write')->group(function () {
     Route::put('institutions/{institution}', [InstitutionController::class, 'update']);
     Route::delete('institutions/{id}', [InstitutionController::class, 'destroyById']); // Use ID instead of model binding for soft deleted institutions
 
-    // Import/Export routes
+    // Import/Export routes - GET versions for frontend compatibility
+    Route::get('institutions/template/{type}', [InstitutionController::class, 'downloadImportTemplateByType']);
+    Route::get('institutions/export', [InstitutionController::class, 'exportInstitutionsByType']);
+    
+    // Import/Export routes - POST versions
     Route::post('institutions/import/template', [InstitutionController::class, 'downloadImportTemplate']);
     Route::post('institutions/import', [InstitutionController::class, 'importFromTemplate']);
     // Export operations - unified under single pattern

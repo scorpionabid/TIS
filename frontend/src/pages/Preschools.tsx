@@ -1,14 +1,14 @@
-import React, { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
-  School, 
-  MapPin, 
-  Phone, 
-  Mail, 
-  User, 
-  Plus, 
-  Search, 
-  Filter, 
+import React, { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  School,
+  MapPin,
+  Phone,
+  Mail,
+  User,
+  Plus,
+  Search,
+  Filter,
   MoreHorizontal,
   Edit,
   Trash2,
@@ -20,78 +20,114 @@ import {
   Eye,
   Calendar,
   CheckCircle,
-  XCircle
-} from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
-import { Badge } from '../components/ui/badge';
-import { Avatar, AvatarFallback } from '../components/ui/avatar';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
-} from '../components/ui/dropdown-menu';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle 
-} from '../components/ui/dialog';
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '../components/ui/select';
-import { preschoolsService, type Preschool, type PreschoolFilters, type PreschoolCreateData } from '../services/preschools';
-import { sectorsService } from '../services/sectors';
-import { userService } from '../services/users';
-import { useAuth } from '@/contexts/AuthContext';
-import { toast } from 'sonner';
-import { PreschoolCreateModal } from '../components/modals/PreschoolCreateModal';
-import { PreschoolEditModal } from '../components/modals/PreschoolEditModal';
-import { PreschoolDetailModal } from '../components/modals/PreschoolDetailModal';
+  XCircle,
+  Upload,
+} from "lucide-react";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { Badge } from "../components/ui/badge";
+import { Avatar, AvatarFallback } from "../components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
+  preschoolsService,
+  type Preschool,
+  type PreschoolFilters,
+  type PreschoolCreateData,
+} from "../services/preschools";
+import { sectorsService } from "../services/sectors";
+import { userService } from "../services/users";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
+import { PreschoolCreateModal } from "../components/modals/PreschoolCreateModal";
+import { PreschoolEditModal } from "../components/modals/PreschoolEditModal";
+import { PreschoolDetailModal } from "../components/modals/PreschoolDetailModal";
+import { PreschoolsImportExportModal } from "../components/modals/PreschoolsImportExportModal";
 
 const PRESCHOOL_TYPES = [
-  { value: 'kindergarten', label: 'Uşaq Bağçası', icon: '🏫' },
-  { value: 'preschool_center', label: 'Məktəbəqədər Təhsil Mərkəzi', icon: '🎓' },
-  { value: 'nursery', label: 'Uşaq Evləri', icon: '🏡' }
+  { value: "kindergarten", label: "Uşaq Bağçası", icon: "🏫" },
+  {
+    value: "preschool_center",
+    label: "Məktəbəqədər Təhsil Mərkəzi",
+    icon: "🎓",
+  },
+  { value: "nursery", label: "Uşaq Evləri", icon: "🏡" },
 ] as const;
 
 export default function Preschools() {
   const { currentUser } = useAuth();
 
   // State hooks - all at the top
-  const [searchTerm, setSearchTerm] = useState('');
-  const [selectedType, setSelectedType] = useState<string>('all');
-  const [selectedSector, setSelectedSector] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedType, setSelectedType] = useState<string>("all");
+  const [selectedSector, setSelectedSector] = useState<string>("all");
+  const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedPreschool, setSelectedPreschool] = useState<Preschool | null>(null);
+  const [isImportExportModalOpen, setIsImportExportModalOpen] = useState(false);
+  const [selectedPreschool, setSelectedPreschool] = useState<Preschool | null>(
+    null,
+  );
 
   const queryClient = useQueryClient();
 
   // Check access permissions
-  const hasAccess = currentUser && ['superadmin', 'regionadmin', 'sektoradmin', 'schooladmin', 'müəllim'].includes(currentUser.role);
+  const hasAccess =
+    currentUser &&
+    [
+      "superadmin",
+      "regionadmin",
+      "sektoradmin",
+      "schooladmin",
+      "müəllim",
+    ].includes(currentUser.role);
 
   // Build filters
   const filters: PreschoolFilters = {
     ...(searchTerm && { search: searchTerm }),
-    ...(selectedType !== 'all' && { type: selectedType as any }),
-    ...(selectedSector !== 'all' && { sector_id: parseInt(selectedSector) }),
-    ...(selectedStatus !== 'all' && { is_active: selectedStatus === 'active' }),
-    sort_by: 'name',
-    sort_order: 'asc'
+    ...(selectedType !== "all" && { type: selectedType as any }),
+    ...(selectedSector !== "all" && { sector_id: parseInt(selectedSector) }),
+    ...(selectedStatus !== "all" && { is_active: selectedStatus === "active" }),
+    sort_by: "name",
+    sort_order: "asc",
   };
 
   // Fetch preschools - use enabled prop
-  const { data: preschoolsResponse, isLoading, error } = useQuery({
-    queryKey: ['preschools', filters, currentUser?.role, currentUser?.institution?.id],
+  const {
+    data: preschoolsResponse,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: [
+      "preschools",
+      filters,
+      currentUser?.role,
+      currentUser?.institution?.id,
+    ],
     queryFn: () => preschoolsService.getPreschools(filters),
     refetchOnWindowFocus: false,
     enabled: hasAccess,
@@ -99,17 +135,19 @@ export default function Preschools() {
 
   // Load sectors for filters - role-based - use enabled prop
   const { data: sectorsResponse } = useQuery({
-    queryKey: ['sectors', currentUser?.role, currentUser?.institution?.id],
+    queryKey: ["sectors", currentUser?.role, currentUser?.institution?.id],
     queryFn: async () => {
-      if (currentUser?.role === 'superadmin') {
+      if (currentUser?.role === "superadmin") {
         // SuperAdmin can see all sectors
         return await sectorsService.getSectors();
-      } else if (currentUser?.role === 'regionadmin') {
+      } else if (currentUser?.role === "regionadmin") {
         // RegionAdmin can only see sectors under their region
         if (currentUser.institution?.id) {
-          return await sectorsService.getSectorsByRegion(currentUser.institution.id);
+          return await sectorsService.getSectorsByRegion(
+            currentUser.institution.id,
+          );
         }
-      } else if (currentUser?.role === 'sektoradmin') {
+      } else if (currentUser?.role === "sektoradmin") {
         // SektorAdmin can only see their own sector
         if (currentUser.institution) {
           return { data: [currentUser.institution] };
@@ -123,32 +161,45 @@ export default function Preschools() {
 
   // Fetch statistics - use enabled prop
   const { data: statisticsResponse } = useQuery({
-    queryKey: ['preschool-statistics', currentUser?.role, currentUser?.institution?.id],
+    queryKey: [
+      "preschool-statistics",
+      currentUser?.role,
+      currentUser?.institution?.id,
+    ],
     queryFn: () => preschoolsService.getPreschoolStatistics(),
     refetchOnWindowFocus: false,
     enabled: hasAccess,
   });
 
-  const preschools = Array.isArray(preschoolsResponse?.data) ? preschoolsResponse.data : [];
-  const sectors = Array.isArray(sectorsResponse?.data) ? sectorsResponse.data : [];
+  const preschools = Array.isArray(preschoolsResponse?.data)
+    ? preschoolsResponse.data
+    : [];
+  const sectors = Array.isArray(sectorsResponse?.data)
+    ? sectorsResponse.data
+    : [];
   const statistics = statisticsResponse?.data;
 
   // Log statistics for debugging if needed
   if (!statistics && currentUser) {
-    console.log('⚠️ No preschool statistics loaded for user role:', currentUser.role);
+    console.log(
+      "⚠️ No preschool statistics loaded for user role:",
+      currentUser.role,
+    );
   }
 
   // Mutations
   const createMutation = useMutation({
     mutationFn: preschoolsService.createPreschool,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['preschools'] });
-      queryClient.invalidateQueries({ queryKey: ['preschool-statistics'] });
+      queryClient.invalidateQueries({ queryKey: ["preschools"] });
+      queryClient.invalidateQueries({ queryKey: ["preschool-statistics"] });
       setIsCreateModalOpen(false);
-      toast.success('Məktəbəqədər müəssisə uğurla yaradıldı');
+      toast.success("Məktəbəqədər müəssisə uğurla yaradıldı");
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Məktəbəqədər müəssisə yaratmaq mümkün olmadı');
+      toast.error(
+        error.message || "Məktəbəqədər müəssisə yaratmaq mümkün olmadı",
+      );
     },
   });
 
@@ -156,24 +207,28 @@ export default function Preschools() {
     mutationFn: ({ id, data }: { id: number; data: any }) =>
       preschoolsService.updatePreschool(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['preschools'] });
+      queryClient.invalidateQueries({ queryKey: ["preschools"] });
       setIsEditModalOpen(false);
-      toast.success('Məktəbəqədər müəssisə uğurla yeniləndi');
+      toast.success("Məktəbəqədər müəssisə uğurla yeniləndi");
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Məktəbəqədər müəssisə yeniləmək mümkün olmadı');
+      toast.error(
+        error.message || "Məktəbəqədər müəssisə yeniləmək mümkün olmadı",
+      );
     },
   });
 
   const deleteMutation = useMutation({
     mutationFn: preschoolsService.deletePreschool,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['preschools'] });
-      queryClient.invalidateQueries({ queryKey: ['preschool-statistics'] });
-      toast.success('Məktəbəqədər müəssisə uğurla silindi');
+      queryClient.invalidateQueries({ queryKey: ["preschools"] });
+      queryClient.invalidateQueries({ queryKey: ["preschool-statistics"] });
+      toast.success("Məktəbəqədər müəssisə uğurla silindi");
     },
     onError: (error: any) => {
-      toast.error(error.message || 'Məktəbəqədər müəssisə silmək mümkün olmadı');
+      toast.error(
+        error.message || "Məktəbəqədər müəssisə silmək mümkün olmadı",
+      );
     },
   });
 
@@ -218,15 +273,15 @@ export default function Preschools() {
   };
 
   const handleDelete = (id: number) => {
-    if (confirm('Bu məktəbəqədər müəssisəni silmək istədiyinizə əminsiniz?')) {
+    if (confirm("Bu məktəbəqədər müəssisəni silmək istədiyinizə əminsiniz?")) {
       deleteMutation.mutate(id);
     }
   };
 
   // Get type icon and color
   const getTypeInfo = (type: string) => {
-    const typeInfo = PRESCHOOL_TYPES.find(t => t.value === type);
-    return typeInfo || { icon: '🏫', label: type };
+    const typeInfo = PRESCHOOL_TYPES.find((t) => t.value === type);
+    return typeInfo || { icon: "🏫", label: type };
   };
 
   if (error) {
@@ -235,7 +290,9 @@ export default function Preschools() {
         <div className="text-center">
           <AlertTriangle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium mb-2">Xəta baş verdi</h3>
-          <p className="text-muted-foreground">Məktəbəqədər müəssisələr yüklənərkən xəta baş verdi</p>
+          <p className="text-muted-foreground">
+            Məktəbəqədər müəssisələr yüklənərkən xəta baş verdi
+          </p>
         </div>
       </div>
     );
@@ -246,18 +303,37 @@ export default function Preschools() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Məktəbəqədər Müəssisələr</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Məktəbəqədər Müəssisələr
+          </h1>
           <p className="text-muted-foreground">
-            Uşaq bağçaları, məktəbəqədər təhsil mərkəzləri və uşaq evlərini idarə edin
+            Uşaq bağçaları, məktəbəqədər təhsil mərkəzləri və uşaq evlərini
+            idarə edin
           </p>
         </div>
         {/* Only superadmin, regionadmin, and sektoradmin can create preschools */}
-        {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) && (
-          <Button onClick={handleOpenCreateModal} className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
-            <Plus className="h-4 w-4" />
-            Yeni Məktəbəqədər Müəssisə
-          </Button>
-        )}
+        {currentUser?.role &&
+          ["superadmin", "regionadmin", "sektoradmin"].includes(
+            currentUser.role,
+          ) && (
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setIsImportExportModalOpen(true)}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Upload className="h-4 w-4" />
+                İdxal/İxrac
+              </Button>
+              <Button
+                onClick={handleOpenCreateModal}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Yeni Məktəbəqədər Müəssisə
+              </Button>
+            </div>
+          )}
       </div>
 
       {/* Statistics Cards */}
@@ -268,8 +344,12 @@ export default function Preschools() {
               <div className="flex items-center">
                 <Building2 className="h-8 w-8 text-blue-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Ümumi</p>
-                  <p className="text-2xl font-bold">{statistics?.total_preschools || 0}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Ümumi
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {statistics?.total_preschools || 0}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -279,8 +359,12 @@ export default function Preschools() {
               <div className="flex items-center">
                 <CheckCircle className="h-8 w-8 text-green-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Aktiv</p>
-                  <p className="text-2xl font-bold">{statistics?.active_preschools || 0}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Aktiv
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {statistics?.active_preschools || 0}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -290,8 +374,12 @@ export default function Preschools() {
               <div className="flex items-center">
                 <Users className="h-8 w-8 text-purple-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Uşaqlar</p>
-                  <p className="text-2xl font-bold">{statistics?.performance_summary?.total_children || 0}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Uşaqlar
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {statistics?.performance_summary?.total_children || 0}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -301,8 +389,12 @@ export default function Preschools() {
               <div className="flex items-center">
                 <BookOpen className="h-8 w-8 text-orange-600" />
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-muted-foreground">Müəllimlər</p>
-                  <p className="text-2xl font-bold">{statistics?.performance_summary?.total_teachers || 0}</p>
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Müəllimlər
+                  </p>
+                  <p className="text-2xl font-bold">
+                    {statistics?.performance_summary?.total_teachers || 0}
+                  </p>
                 </div>
               </div>
             </CardContent>
@@ -382,16 +474,21 @@ export default function Preschools() {
         <Card>
           <CardContent className="p-12 text-center">
             <School className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-medium mb-2">Məktəbəqədər müəssisə tapılmadı</h3>
+            <h3 className="text-lg font-medium mb-2">
+              Məktəbəqədər müəssisə tapılmadı
+            </h3>
             <p className="text-muted-foreground mb-4">
               Axtarış kriteriyalarınıza uyğun məktəbəqədər müəssisə yoxdur
             </p>
-            {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) && (
-              <Button onClick={handleOpenCreateModal}>
-                <Plus className="h-4 w-4 mr-2" />
-                İlk məktəbəqədər müəssisəni yaradın
-              </Button>
-            )}
+            {currentUser?.role &&
+              ["superadmin", "regionadmin", "sektoradmin"].includes(
+                currentUser.role,
+              ) && (
+                <Button onClick={handleOpenCreateModal}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  İlk məktəbəqədər müəssisəni yaradın
+                </Button>
+              )}
           </CardContent>
         </Card>
       ) : (
@@ -399,13 +496,20 @@ export default function Preschools() {
           {preschools.map((preschool) => {
             const typeInfo = getTypeInfo(preschool.type);
             return (
-              <Card key={preschool.id} className="hover:shadow-md transition-shadow">
+              <Card
+                key={preschool.id}
+                className="hover:shadow-md transition-shadow"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <span className="text-lg">{typeInfo.icon}</span>
-                        <Badge variant={preschool.is_active ? 'default' : 'secondary'}>
+                        <Badge
+                          variant={
+                            preschool.is_active ? "default" : "secondary"
+                          }
+                        >
                           {typeInfo.label}
                         </Badge>
                         {preschool.is_active ? (
@@ -418,7 +522,9 @@ export default function Preschools() {
                         {preschool.name}
                       </CardTitle>
                       {preschool.short_name && (
-                        <p className="text-sm text-muted-foreground">{preschool.short_name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {preschool.short_name}
+                        </p>
                       )}
                     </div>
                     <DropdownMenu>
@@ -428,26 +534,33 @@ export default function Preschools() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleOpenDetailModal(preschool)}>
+                        <DropdownMenuItem
+                          onClick={() => handleOpenDetailModal(preschool)}
+                        >
                           <Eye className="h-4 w-4 mr-2" />
                           Ətraflı baxış
                         </DropdownMenuItem>
                         {/* Only superadmin, regionadmin, and sektoradmin can edit/delete preschools */}
-                        {currentUser?.role && ['superadmin', 'regionadmin', 'sektoradmin'].includes(currentUser.role) && (
-                          <>
-                            <DropdownMenuItem onClick={() => handleOpenEditModal(preschool)}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Redaktə et
-                            </DropdownMenuItem>
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(preschool.id)}
-                              className="text-red-600"
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Sil
-                            </DropdownMenuItem>
-                          </>
-                        )}
+                        {currentUser?.role &&
+                          ["superadmin", "regionadmin", "sektoradmin"].includes(
+                            currentUser.role,
+                          ) && (
+                            <>
+                              <DropdownMenuItem
+                                onClick={() => handleOpenEditModal(preschool)}
+                              >
+                                <Edit className="h-4 w-4 mr-2" />
+                                Redaktə et
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(preschool.id)}
+                                className="text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Sil
+                              </DropdownMenuItem>
+                            </>
+                          )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -465,7 +578,9 @@ export default function Preschools() {
                     {preschool.address && (
                       <div className="flex items-start text-sm text-muted-foreground">
                         <MapPin className="h-4 w-4 mr-2 mt-0.5 flex-shrink-0" />
-                        <span className="line-clamp-2">{preschool.address}</span>
+                        <span className="line-clamp-2">
+                          {preschool.address}
+                        </span>
                       </div>
                     )}
 
@@ -490,9 +605,12 @@ export default function Preschools() {
                       <div className="flex items-center text-sm text-muted-foreground">
                         <User className="h-4 w-4 mr-2" />
                         <span>
-                          {(preschool.manager.first_name && preschool.manager.last_name) 
+                          {preschool.manager.first_name &&
+                          preschool.manager.last_name
                             ? `${preschool.manager.first_name} ${preschool.manager.last_name}`
-                            : preschool.manager.username || preschool.manager.email?.split('@')[0] || 'Admin'}
+                            : preschool.manager.username ||
+                              preschool.manager.email?.split("@")[0] ||
+                              "Admin"}
                         </span>
                       </div>
                     ) : (
@@ -508,19 +626,25 @@ export default function Preschools() {
                         <div className="text-lg font-bold text-blue-600">
                           {preschool.statistics.total_children}
                         </div>
-                        <div className="text-xs text-muted-foreground">Uşaq</div>
+                        <div className="text-xs text-muted-foreground">
+                          Uşaq
+                        </div>
                       </div>
                       <div className="text-center">
                         <div className="text-lg font-bold text-green-600">
                           {preschool.statistics.total_teachers}
                         </div>
-                        <div className="text-xs text-muted-foreground">Müəllim</div>
+                        <div className="text-xs text-muted-foreground">
+                          Müəllim
+                        </div>
                       </div>
                       <div className="text-center">
                         <div className="text-lg font-bold text-orange-600">
                           {preschool.statistics.total_staff}
                         </div>
-                        <div className="text-xs text-muted-foreground">İşçi</div>
+                        <div className="text-xs text-muted-foreground">
+                          İşçi
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -550,6 +674,16 @@ export default function Preschools() {
         onClose={() => setIsDetailModalOpen(false)}
         preschool={selectedPreschool}
         onEdit={handleOpenEditModal}
+      />
+
+      <PreschoolsImportExportModal
+        open={isImportExportModalOpen}
+        onClose={() => setIsImportExportModalOpen(false)}
+        onImportComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["preschools"] });
+          queryClient.invalidateQueries({ queryKey: ["preschool-statistics"] });
+          toast.success("Siyahı yeniləndi");
+        }}
       />
     </div>
   );

@@ -423,16 +423,19 @@ class InstitutionBulkController extends Controller
     /**
      * Download import template by institution type
      */
-    public function downloadImportTemplateByType(Request $request)
+    public function downloadImportTemplateByType(Request $request, string $type = null)
     {
         try {
+            // Get type from route parameter or query parameter
+            $type = $type ?? $request->input('type');
+
             // Validate the request
             $validTypes = InstitutionType::active()->pluck('key')->toArray();
             $validTypesString = implode(',', $validTypes);
 
-            $validated = $request->validate([
+            $validated = validator(['type' => $type], [
                 'type' => "required|string|in:{$validTypesString}",
-            ]);
+            ])->validate();
 
             // Use the enhanced template service to generate the template
             $templateService = new \App\Services\Import\InstitutionExcelTemplateService;

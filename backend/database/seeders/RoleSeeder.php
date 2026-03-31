@@ -44,6 +44,12 @@ class RoleSeeder extends Seeder
                 'level' => 5,
             ],
             [
+                'name' => 'preschooladmin',
+                'display_name' => 'Preschool Administrator',
+                'description' => 'Preschool/kindergarten director and management',
+                'level' => 5,
+            ],
+            [
                 'name' => 'muavin',
                 'display_name' => 'Müavin (Dərs İdarəetməsi)',
                 'description' => 'Dərs cədvəli, sinif bölgüsü və akademik proseslərin idarəetməsi',
