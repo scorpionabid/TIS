@@ -260,12 +260,12 @@ class UserPermissionService extends BaseService
     private const ASSIGNABLE_ROLES = [
         'regionadmin' => [
             'regionoperator', 'sektoradmin',
-            'schooladmin', 'məktəbadmin',
+            'schooladmin', 'məktəbadmin', 'preschooladmin',
             'muavin', 'ubr', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
         'sektoradmin' => [
-            'schooladmin', 'məktəbadmin',
+            'schooladmin', 'məktəbadmin', 'preschooladmin',
             'muavin', 'ubr', 'tesarrufat', 'psixoloq',
             'müəllim', 'teacher',
         ],
