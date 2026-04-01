@@ -35,7 +35,7 @@ class ImportDataValidator
                 'name' => 'required|string|max:255',
                 'short_name' => 'nullable|string|max:100',
                 'institution_code' => 'nullable|string|max:50',
-                'utis_code' => 'nullable|string|max:50',
+                'utis_code' => $institutionLevel == 5 ? 'required|string|max:50' : 'nullable|string|max:50',
                 'region_code' => 'nullable|string|max:10',
                 'contact_info' => 'nullable|json',
                 'location' => 'nullable|json',
@@ -44,8 +44,10 @@ class ImportDataValidator
             ];
 
             // Add parent_id validation for levels 2+
-            if ($institutionLevel >= 2) {
+            if ($institutionLevel >= 2 && $institutionLevel != 5) {
                 $rules['parent_id'] = 'required|integer|exists:institutions,id';
+            } elseif ($institutionLevel == 5) {
+                $rules['parent_id'] = 'nullable|integer|exists:institutions,id';
             }
 
             // Custom validation messages
@@ -62,6 +64,14 @@ class ImportDataValidator
                 'schooladmin.username.unique' => 'Bu istifadəçi adı artıq istifadə olunur',
                 'schooladmin.password.required' => 'SchoolAdmin şifrəsi mütləqdir (P sütunu)',
                 'schooladmin.password.min' => 'SchoolAdmin şifrəsi minimum 8 simvol olmalıdır',
+                'preschooladmin.username.required' => 'PreschoolAdmin istifadəçi adı mütləqdir (N sütunu)',
+                'preschooladmin.email.required' => 'PreschoolAdmin email mütləqdir (O sütunu)',
+                'preschooladmin.email.email' => 'PreschoolAdmin email formatı düzgün deyil',
+                'preschooladmin.email.unique' => 'Bu email artıq istifadə olunur',
+                'preschooladmin.username.unique' => 'Bu istifadəçi adı artıq istifadə olunur',
+                'preschooladmin.password.required' => 'PreschoolAdmin şifrəsi mütləqdir (P sütunu)',
+                'preschooladmin.password.min' => 'PreschoolAdmin şifrəsi minimum 8 simvol olmalıdır',
+                'utis_code.required' => 'UTİS Kodu mütləqdir',
             ];
 
             // Add SchoolAdmin validation for level 4
@@ -73,6 +83,17 @@ class ImportDataValidator
                 $rules['schooladmin.last_name'] = 'nullable|string|max:255';
                 $rules['schooladmin.phone'] = 'nullable|string|max:20';
                 $rules['schooladmin.department'] = 'nullable|string|max:255';
+            }
+
+            // Add PreschoolAdmin validation for level 5
+            if ($institutionLevel == 5) {
+                $rules['preschooladmin.username'] = 'required|string|max:255|unique:users,username';
+                $rules['preschooladmin.email'] = 'nullable|email|max:255|unique:users,email';
+                $rules['preschooladmin.password'] = 'required|string|min:8';
+                $rules['preschooladmin.first_name'] = 'nullable|string|max:255';
+                $rules['preschooladmin.last_name'] = 'nullable|string|max:255';
+                $rules['preschooladmin.phone'] = 'nullable|string|max:20';
+                $rules['preschooladmin.department'] = 'nullable|string|max:255';
             }
 
             $validator = Validator::make($rowData, $rules, $messages);

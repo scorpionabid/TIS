@@ -71,8 +71,8 @@ class ExcelDataParser
                 $rowData['parent_id'] = $this->dataTypeParser->parseParentId($parentIdRaw);
             }
 
-            // Add school-specific fields
-            if (in_array($institutionType->key, ['secondary_school', 'lyceum', 'gymnasium', 'tam_orta_mekteb'])) {
+            // Add school and preschool specific fields
+            if (in_array($institutionType->key, ['secondary_school', 'lyceum', 'gymnasium', 'tam_orta_mekteb', 'kindergarten', 'preschool_center', 'nursery'])) {
                 $rowData['class_count'] = (int) $sheet->getCell('K' . $row)->getCalculatedValue();
                 $rowData['student_count'] = (int) $sheet->getCell('L' . $row)->getCalculatedValue();
                 $rowData['teacher_count'] = (int) $sheet->getCell('M' . $row)->getCalculatedValue();

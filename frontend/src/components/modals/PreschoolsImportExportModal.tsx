@@ -212,17 +212,19 @@ export function PreschoolsImportExportModal({
       setImportStatus("complete");
 
       // Store result for detailed modal
-      setImportResult(result.data);
+      setImportResult(result);
 
       // Brief success toast
-      const hasErrors =
-        result.data?.data?.errors && result.data.data.errors.length > 0;
-      const duplicateCount = result.data?.data?.duplicate_count || 0;
+      const errors = result?.errors || [];
+      const hasErrors = errors.length > 0;
+      const duplicateCount = result?.duplicate_count || 0;
+      const successCount = result?.success || 0;
+      
       toast({
         title: hasErrors ? "İdxal tamamlandı (xətalarla)" : "Uğurlu idxal",
         description: hasErrors
-          ? `${result.data?.data?.success || 0} uğurlu, ${result.data.data.errors.length} xəta`
-          : `${result.data?.data?.success || 0} məktəbəqədər müəssisə əlavə edildi${duplicateCount > 0 ? ` (${duplicateCount} duplikat)` : ""}`,
+          ? `${successCount} uğurlu, ${errors.length} xəta`
+          : `${successCount} məktəbəqədər müəssisə əlavə edildi${duplicateCount > 0 ? ` (${duplicateCount} duplikat)` : ""}`,
         variant: hasErrors ? "default" : "default",
       });
 

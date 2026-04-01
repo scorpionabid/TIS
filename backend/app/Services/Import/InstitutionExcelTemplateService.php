@@ -440,7 +440,7 @@ class InstitutionExcelTemplateService extends BaseService
             'A1' => 'Ad (name)*',
             'B1' => 'Qısa Ad (short_name)',
             'C1' => 'Müəssisə Kodu (institution_code)',
-            'D1' => 'UTIS Kod (utis_code)',
+            'D1' => 'UTIS Kod (utis_code)' . ($institutionLevel == 5 ? '*' : ''),
             'E1' => 'Region Kodu (region_code)',
             'F1' => 'Əlaqə Məlumatları (contact_info)',
             'G1' => 'Yer Məlumatları (location)',
@@ -458,6 +458,10 @@ class InstitutionExcelTemplateService extends BaseService
             $headers['K1'] = 'Sinif Sayı';
             $headers['L1'] = 'Şagird Sayı';
             $headers['M1'] = 'Müəllim Sayı';
+        } elseif (in_array($institutionType->key, ['kindergarten', 'preschool_center', 'nursery'])) {
+            $headers['K1'] = 'Qrup Sayı';
+            $headers['L1'] = 'Uşaq Sayı';
+            $headers['M1'] = 'Tərbiyəçi Sayı';
         }
 
         // Add SchoolAdmin fields for level 4
@@ -549,6 +553,10 @@ class InstitutionExcelTemplateService extends BaseService
             $sampleData['K' . $sampleRow] = '11';
             $sampleData['L' . $sampleRow] = '300';
             $sampleData['M' . $sampleRow] = '25';
+        } elseif (in_array($institutionType->key, ['kindergarten', 'preschool_center', 'nursery'])) {
+            $sampleData['K' . $sampleRow] = '4';
+            $sampleData['L' . $sampleRow] = '85';
+            $sampleData['M' . $sampleRow] = '12';
         }
 
         // Add SchoolAdmin sample data for level 4
