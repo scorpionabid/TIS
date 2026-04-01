@@ -4,9 +4,13 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use App\Models\User;
+use App\Models\Institution;
+use App\Models\Subject;
 use App\Models\TeacherProfile;
 use App\Models\TeacherAchievement;
 use App\Models\TeacherCertificate;
+use App\Models\TeacherWorkplace;
+use App\Models\TeacherSubject;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
@@ -17,59 +21,122 @@ class TeacherProfileSeeder extends Seeder
      */
     public function run(): void
     {
+        // DB-dən real institution və subject ID-lərini al
+        $institution = Institution::first();
+        $subjects = Subject::take(5)->get();
+
         // Mövcud müəllim user-larını tapaq
         $teachers = User::whereHas('roles', function ($query) {
             $query->where('name', 'müəllim');
         })->get();
 
         if ($teachers->isEmpty()) {
-            // Əgər müəllim yoxdursa, test müəllim yaradaq
-            $teacher = User::create([
-                'name' => 'Test Müəllim',
-                'username' => 'teacher',
-                'email' => 'teacher@atis.az',
-                'password' => Hash::make('teacher123'),
-                'email_verified_at' => now(),
-                'remember_token' => Str::random(10),
-            ]);
+            // 3 test müəllim yarat
+            $teacherData = [
+                [
+                    'name'     => 'Əli Hüseynov',
+                    'username' => 'teacher1',
+                    'email'    => 'teacher1@atis.az',
+                    'subject'  => $subjects->get(0),
+                ],
+                [
+                    'name'     => 'Nigar Məmmədova',
+                    'username' => 'teacher2',
+                    'email'    => 'teacher2@atis.az',
+                    'subject'  => $subjects->get(1),
+                ],
+                [
+                    'name'     => 'Rauf Əliyev',
+                    'username' => 'teacher3',
+                    'email'    => 'teacher3@atis.az',
+                    'subject'  => $subjects->get(2),
+                ],
+            ];
 
-            // Müəllim rolunu təyin et
-            $teacher->assignRole('müəllim');
-            $teachers = collect([$teacher]);
+            $createdTeachers = [];
+            foreach ($teacherData as $data) {
+                $user = User::firstOrCreate(
+                    ['email' => $data['email']],
+                    [
+                        'name'              => $data['name'],
+                        'username'          => $data['username'],
+                        'password'          => Hash::make('teacher123'),
+                        'email_verified_at' => now(),
+                        'remember_token'    => Str::random(10),
+                    ]
+                );
+                $user->assignRole('müəllim');
+                $user->_subject = $data['subject']; // geçici saxla
+                $createdTeachers[] = $user;
+            }
+            $teachers = collect($createdTeachers);
         }
 
-        foreach ($teachers as $teacher) {
-            // Teacher profile yaradaq
+        foreach ($teachers as $idx => $teacher) {
+            // Bu müəllim üçün fənn təyin et
+            $teacherSubject = $teacher->_subject ?? $subjects->get($idx % $subjects->count());
+
+            // Mövcud profili yoxla (duplicate-i önlə)
+            if (TeacherProfile::where('user_id', $teacher->id)->exists()) {
+                continue;
+            }
+
+            // Teacher profile yarat — institution_id və subject_id FK istifadə edir
             $profile = TeacherProfile::create([
-                'user_id' => $teacher->id,
-                'phone' => '+994 50 123 45 67',
-                'bio' => 'Təcrübəli riyaziyyat müəllimi. 8 ildir tədris fəaliyyətindəyəm. Şagirdlərin riyaziyyat sevgisini aşıltmaq və müasir tədris metodlarındən istifadə etmək məqsədim güdürəm.',
-                'qualifications' => [
-                    'Ali təhsil (Magistr)',
-                    'Pedaqoji təcrübə (8 il)',
-                    'İxtisasartırma kursları (Google Certified Educator)',
-                    'Riyaziyyat olimpiadaları məsləhətçisi'
-                ],
-                'experience_years' => 8,
-                'specialization' => 'Riyaziyyat və Cəbr',
-                'photo' => 'https://ui-avatars.com/api/?name=' . urlencode($teacher->name) . '&background=random',
-                'school' => 'Bakı Şəhər 123 nömrəli tam orta məktəb',
-                'subject' => 'Riyaziyyat',
-                'address' => 'Bakı şəhəri, Nəsimani rayonu, Əhmədli Cəfərova küçəsi 25',
-                'emergency_contact_name' => 'Xəyalı Müəllimova',
-                'emergency_contact_phone' => '+994 55 987 65 43',
+                'user_id'                 => $teacher->id,
+                'institution_id'          => $institution?->id,  // ✅ FK (köhnə 'school' varchar deyil)
+                'subject_id'              => $teacherSubject?->id, // ✅ FK (köhnə 'subject' varchar deyil)
+                'phone'                   => '+994 50 ' . rand(100, 999) . ' ' . rand(10, 99) . ' ' . rand(10, 99),
+                'bio'                     => 'Təcrübəli müəllim. ' . rand(5, 15) . ' ildir tədris fəaliyyətindəyəm.',
+                'qualifications'          => ['Ali təhsil (Magistr)', 'Pedaqoji sertifikat'],
+                'experience_years'        => rand(5, 15),
+                'specialization'          => $teacherSubject?->name ?? 'Ümumi',
+                'photo'                   => 'https://ui-avatars.com/api/?name=' . urlencode($teacher->name) . '&background=random',
+                'address'                 => 'Bakı şəhəri, test ünvanı',
+                'emergency_contact_name'  => 'Təcili əlaqə şəxsi',
+                'emergency_contact_phone' => '+994 55 000 00 00',
                 'emergency_contact_email' => 'emergency@atis.az',
-                'social_links' => [
+                'social_links'            => [
                     'linkedin' => 'https://linkedin.com/in/' . Str::slug($teacher->name),
-                    'twitter' => 'https://twitter.com/' . Str::slug($teacher->name)
                 ],
-                'preferences' => [
-                    'theme' => 'light',
-                    'language' => 'az',
-                    'notifications' => true,
-                    'public_profile' => true
-                ]
+                'preferences'             => ['theme' => 'light', 'language' => 'az'],
+                'status'                  => 'approved',
             ]);
+
+            // TeacherWorkplace yarat (teacher_workplaces cədvəli)
+            if ($institution) {
+                TeacherWorkplace::firstOrCreate(
+                    [
+                        'user_id'            => $teacher->id,
+                        'institution_id'     => $institution->id,
+                        'workplace_priority' => 'primary',
+                    ],
+                    [
+                        'position_type'   => 'muəllim',
+                        'employment_type' => 'full_time',
+                        'weekly_hours'    => 24,
+                        'work_days'       => ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+                        'start_date'      => now()->subYears(rand(1, 5))->toDateString(),
+                        'status'          => 'active',
+                        'salary_currency' => 'AZN',
+                    ]
+                );
+            }
+
+            // TeacherSubject yarat (teacher_subjects cədvəli)
+            if ($teacherSubject) {
+                TeacherSubject::firstOrCreate(
+                    ['teacher_id' => $teacher->id, 'subject_id' => $teacherSubject->id],
+                    [
+                        'grade_levels'         => [1, 2, 3, 4, 5],
+                        'specialization_level' => 'advanced',
+                        'is_primary_subject'   => true,
+                        'is_active'            => true,
+                        'valid_from'           => now()->toDateString(),
+                        'years_experience'     => rand(3, 10),
+                    ]
+                );
+            }
 
             // Nailiyyətlər əlavə edək
             $achievements = [

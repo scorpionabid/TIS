@@ -84,28 +84,32 @@ class TeacherProfile extends Model
     }
 
     /**
-     * Get the education history for the teacher.
+     * Müəllimin iş yeri qeydləri (teacher_workplaces cədvəli).
      */
-    public function educationHistory(): HasMany
+    public function workplaces(): HasMany
     {
-        return $this->hasMany(TeacherEducation::class);
+        return $this->hasMany(TeacherWorkplace::class, 'user_id', 'user_id');
     }
 
     /**
-     * Get the work experience for the teacher.
+     * Müəllimin tədris etdiyi fənlər (teacher_subjects cədvəli).
      */
-    public function workExperience(): HasMany
+    public function teacherSubjects(): HasMany
     {
-        return $this->hasMany(TeacherWorkExperience::class);
+        return $this->hasMany(TeacherSubject::class, 'teacher_id', 'user_id');
     }
 
     /**
-     * Get the skills for the teacher.
+     * Müəllimin qiymətləndirmələri (teacher_evaluations cədvəli).
      */
-    public function skills(): HasMany
+    public function evaluations(): HasMany
     {
-        return $this->hasMany(TeacherSkill::class);
+        return $this->hasMany(TeacherEvaluation::class, 'teacher_id', 'user_id');
     }
+
+    // NOTE: educationHistory(), workExperience(), skills() metodları silindi.
+    // Səbəb: TeacherEducation, TeacherWorkExperience, TeacherSkill modelleri
+    // və müvafiq DB cədvəlləri mövcud deyil. Gələcəkdə əlavə ediləcək.
 
     /**
      * Get the approval requests for the teacher profile.
@@ -125,7 +129,16 @@ class TeacherProfile extends Model
     }
 
     /**
-     * Scope to get teachers by subject.
+     * Fənnə görə filter (yeni FK-əsaslı).
+     */
+    public function scopeBySubjectId($query, int $subjectId)
+    {
+        return $query->where('subject_id', $subjectId);
+    }
+
+    /**
+     * @deprecated Köhnə varchar 'subject' sütununu istifadə edir.
+     * Bunun əvəzinə scopeBySubjectId() istifadə edin.
      */
     public function scopeBySubject($query, $subject)
     {
@@ -133,7 +146,16 @@ class TeacherProfile extends Model
     }
 
     /**
-     * Scope to get teachers by school.
+     * İnstitusiyaya görə filter (yeni FK-əsaslı).
+     */
+    public function scopeByInstitutionId($query, int $institutionId)
+    {
+        return $query->where('institution_id', $institutionId);
+    }
+
+    /**
+     * @deprecated Köhnə varchar 'school' sütununu istifadə edir.
+     * Bunun əvəzinə scopeByInstitutionId() istifadə edin.
      */
     public function scopeBySchool($query, $school)
     {
@@ -239,22 +261,24 @@ class TeacherProfile extends Model
     public function getProfileCompletionAttribute(): int
     {
         $fields = [
-            'phone' => $this->phone ? 10 : 0,
-            'bio' => $this->bio ? 10 : 0,
-            'qualifications' => !empty($this->qualifications) ? 15 : 0,
-            'specialization' => $this->specialization ? 10 : 0,
-            'school' => $this->school ? 10 : 0,
-            'subject' => $this->subject ? 10 : 0,
-            'address' => $this->address ? 5 : 0,
+            'phone'                  => $this->phone ? 10 : 0,
+            'bio'                    => $this->bio ? 10 : 0,
+            'qualifications'         => !empty($this->qualifications) ? 15 : 0,
+            'specialization'         => $this->specialization ? 10 : 0,
+            // institution_id (FK) istifadə edilir — köhnə 'school' varchar deyil
+            'institution'            => $this->institution_id ? 10 : 0,
+            // subject_id (FK) istifadə edilir — köhnə 'subject' varchar deyil
+            'subject'                => $this->subject_id ? 10 : 0,
+            'address'                => $this->address ? 5 : 0,
             'emergency_contact_name' => $this->emergency_contact_name ? 5 : 0,
-            'emergency_contact_phone' => $this->emergency_contact_phone ? 5 : 0,
-            'photo' => $this->photo ? 10 : 0,
+            'emergency_contact_phone'=> $this->emergency_contact_phone ? 5 : 0,
+            'photo'                  => $this->photo ? 10 : 0,
         ];
 
-        // Add achievements, certificates, and education completion
+        // Nailiyyət və sertifikat tamamlanması
         $fields['achievements'] = $this->achievements()->count() > 0 ? 5 : 0;
         $fields['certificates'] = $this->certificates()->count() > 0 ? 5 : 0;
-        $fields['education'] = $this->educationHistory()->count() > 0 ? 5 : 0;
+        // NOTE: educationHistory() silindi — cədvəl mövcud deyil
 
         return array_sum($fields);
     }
