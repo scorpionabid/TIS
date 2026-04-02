@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { GenericManagerV2 } from '@/components/generic/GenericManagerV2';
 import { Grade, GradeFilters } from '@/services/grades';
 import { gradeEntityConfig, GradeFiltersComponent } from './configurations/gradeConfig';
+import { EntityConfig } from '@/components/generic/types';
 import { GradeCreateDialogSimplified as GradeCreateDialog } from './GradeCreateDialogSimplified';
 import { GradeDetailsDialogWithTabs } from './GradeDetailsDialogWithTabs';
 import { GradeStudentsDialog } from './GradeStudentsDialog';
@@ -42,6 +43,11 @@ import type { StatsConfig } from '@/components/generic/types';
 
 interface GradeManagerProps {
   className?: string;
+  baseConfig?: EntityConfig<Grade, GradeFilters, any>;
+  onAfterCreate?: () => void;
+  initialFilters?: Partial<GradeFilters>;
+  masterPlan?: any;
+  categoryLimits?: Record<number, any>;
 }
 
 /**
@@ -54,7 +60,14 @@ interface GradeManagerProps {
  * - Features enhanced search and filtering capabilities
  * - Maintains consistent error handling and loading states
  */
-export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
+export const GradeManager: React.FC<GradeManagerProps> = ({ 
+  className, 
+  baseConfig, 
+  onAfterCreate, 
+  initialFilters,
+  masterPlan,
+  categoryLimits
+}) => {
   // Modal states for grade-specific operations
   const [createModalOpen, setCreateModalOpen] = React.useState(false);
   const [selectedGrade, setSelectedGrade] = React.useState<Grade | null>(null);
@@ -77,6 +90,14 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
   // Role-based access and filtering
   const { currentUser } = useAuth();
   const queryClient = useQueryClient();
+
+  if (!currentUser) {
+    return (
+      <div className="flex items-center justify-center p-6">
+        <Loader2 className="h-5 w-5 animate-spin" />
+      </div>
+    );
+  }
 
   // Fetch supporting data for filters
   const { data: institutionsResponse } = useQuery({
@@ -195,14 +216,21 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
       defaultFilters.institution_id = currentUser.institution.id;
     }
 
+    // Merge explicitly provided initial filters (these should take priority)
+    if (initialFilters) {
+      Object.assign(defaultFilters, initialFilters);
+    }
+
+    const effectiveConfig = baseConfig ?? gradeEntityConfig;
+
     return {
-      ...gradeEntityConfig,
+      ...effectiveConfig,
 
       // Override defaultFilters with role-based institution filtering
       defaultFilters,
 
       // Filter columns based on user role
-      columns: gradeEntityConfig.columns.filter(column => {
+      columns: effectiveConfig.columns.filter(column => {
         // Check if column has visibility condition
         const col = column as any;
         if (col.isVisible && typeof col.isVisible === 'function') {
@@ -212,7 +240,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
       }),
 
       // Override actions to connect with local modal handlers
-      actions: gradeEntityConfig.actions.map(action => ({
+      actions: effectiveConfig.actions.map(action => ({
         ...action,
         onClick: (grade: Grade) => {
           logger.debug(`Grade action triggered: ${action.key}`, {
@@ -259,7 +287,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         }
       }))
     };
-  }, [currentUser, softDeleteMutation, hardDeleteMutation]);
+  }, [currentUser, softDeleteMutation, hardDeleteMutation, baseConfig]);
 
   // Sync mutation
   const syncMutation = useMutation({
@@ -336,13 +364,15 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
     onExportClick: () => setImportExportModalOpen(true),
     onTemplateClick: () => gradeService.downloadTemplate(),
     headerActions: [
-      {
-        key: 'sync-grade-books',
-        label: 'Jurnalları Sinxronlaşdır',
-        icon: RefreshCw as any,
-        onClick: handleSync,
-        variant: 'outline' as const
-      }
+      ...(enhancedConfig.headerConfig?.showRefresh !== false ? [
+        {
+          key: 'sync-grade-books',
+          label: 'Jurnalları Sinxronlaşdır',
+          icon: RefreshCw as any,
+          onClick: handleSync,
+          variant: 'outline' as const
+        }
+      ] : [])
     ],
     renderCustomFilters: (manager: any) => {
       logger.debug('Rendering custom filters with manager state', {
@@ -448,6 +478,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({ className }) => {
         currentUser={currentUser}
         availableInstitutions={availableInstitutions}
         availableAcademicYears={availableAcademicYears}
+        onAfterCreate={onAfterCreate}
       />
 
       {/* Grade Curriculum Modal */}

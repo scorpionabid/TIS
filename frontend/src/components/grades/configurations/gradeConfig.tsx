@@ -32,6 +32,7 @@ import {
   RefreshCw,
   Activity,
   Music,
+  Eye,
 } from 'lucide-react';
 
 // Calculate assigned students count from students data
@@ -88,10 +89,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   service: gradeService,
   queryKey: ['grades'],
 
-  // Display configuration
-  title: 'Sinif İdarəetməsi',
-  description: 'Məktəb siniflərinin idarə edilməsi və tələbə yazılışları',
-  
   // Feature configuration
   features: {
     create: true,    // Enable create button
@@ -173,7 +170,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'name',
       label: 'Sinif',
-      width: 120,
+      width: 'w-[120px]',
       render: (grade: Grade) => (
         <div className="flex flex-col">
           <span className="font-semibold text-base">{grade.full_name || `${grade.class_level || ''}-${grade.name || ''}`}</span>
@@ -186,7 +183,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'student_count',
       label: 'Tələbələr',
-      width: 130,
+      width: 'w-[130px]',
       sortable: true,
       align: 'center',
       render: (grade: Grade) => {
@@ -214,7 +211,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'real_student_count',
       label: 'Şagirdlər',
-      width: 130,
+      width: 'w-[130px]',
       sortable: true,
       align: 'center',
       render: (grade: Grade) => {
@@ -242,7 +239,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'teaching_shift',
       label: 'Növbə',
-      width: 90,
+      width: 'w-[90px]',
       align: 'center',
       render: (grade: Grade) => {
         const teachingShift = (grade as any).teaching_shift;
@@ -258,7 +255,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'education_program',
       label: 'Təhsil Proqramı',
-      width: 150,
+      width: 'w-[150px]',
       render: (grade: Grade) => grade.education_program ? (
         <Badge variant="outline" className="text-xs py-0.5 text-center justify-center">
           {grade.education_program === 'umumi' ? 'Ümumi' : grade.education_program}
@@ -270,7 +267,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'class_profile',
       label: 'Profil',
-      width: 150,
+      width: 'w-[150px]',
       render: (grade: Grade) => grade.class_profile ? (
         <Badge variant="secondary" className="text-xs py-0.5">
           {grade.class_profile}
@@ -280,63 +277,9 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       )
     },
     {
-      key: 'lesson_load_hours',
-      label: 'Dərs yükü',
-      width: 110,
-      align: 'center' as const,
-      render: (grade: Grade) => {
-        const hours = grade.lesson_load_hours ?? 0;
-        return hours > 0 ? (
-          <div className="flex items-center justify-center gap-1 text-sm">
-            <BookOpen className="h-3 w-3 text-blue-500" />
-            <span className="font-medium">{hours}</span>
-            <span className="text-muted-foreground text-xs">saat</span>
-          </div>
-        ) : (
-          <span className="text-muted-foreground text-xs italic">-</span>
-        );
-      }
-    },
-    {
-      key: 'extracurricular_hours',
-      label: 'Dərsdənkənar',
-      width: 130,
-      align: 'center' as const,
-      render: (grade: Grade) => {
-        const hours = grade.extracurricular_hours ?? 0;
-        return hours > 0 ? (
-          <div className="flex items-center justify-center gap-1 text-sm">
-            <Activity className="h-3 w-3 text-green-500" />
-            <span className="font-medium">{hours}</span>
-            <span className="text-muted-foreground text-xs">saat</span>
-          </div>
-        ) : (
-          <span className="text-muted-foreground text-xs italic">-</span>
-        );
-      }
-    },
-    {
-      key: 'club_hours',
-      label: 'Dərnək',
-      width: 100,
-      align: 'center' as const,
-      render: (grade: Grade) => {
-        const hours = grade.club_hours ?? 0;
-        return hours > 0 ? (
-          <div className="flex items-center justify-center gap-1 text-sm">
-            <Music className="h-3 w-3 text-purple-500" />
-            <span className="font-medium">{hours}</span>
-            <span className="text-muted-foreground text-xs">saat</span>
-          </div>
-        ) : (
-          <span className="text-muted-foreground text-xs italic">-</span>
-        );
-      }
-    },
-    {
       key: 'homeroom_teacher',
       label: 'Sinif Rəhbəri',
-      width: 160,
+      width: 'w-[160px]',
       render: (grade: Grade) => grade.homeroom_teacher ? (
         <div className="flex items-center gap-1 text-sm">
           <UserCheck className="h-3 w-3 text-muted-foreground" />
@@ -349,7 +292,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'academic_year',
       label: 'Təhsil İli',
-      width: 110,
+      width: 'w-[110px]',
       align: 'center',
       render: (grade: Grade) => {
         if (!grade.academic_year) {
@@ -379,7 +322,7 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     {
       key: 'institution',
       label: 'Məktəb',
-      width: 200,
+      width: 'w-[200px]',
       // Hide for SchoolAdmin, SektorAdmin and below - they already know their institution
       isVisible: (grade: Grade, userRole?: string) => {
         return ['superadmin', 'regionadmin'].includes(userRole || '');
@@ -398,17 +341,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
   // Other actions are grouped in dropdown menu
   actions: [
     {
-      key: 'view',
-      label: 'Tədris planı',
-      icon: BookOpen,
-      variant: 'default' as const,
-      isPrimary: true, // Mark as primary action - always visible
-      onClick: (grade: Grade) => {
-        // Handle view action - will be overridden in component
-        logger.log('View grade', { component: 'gradeConfig', action: 'viewGrade', data: { gradeId: grade.id } });
-      }
-    },
-    {
       key: 'edit',
       label: 'Redaktə Et',
       icon: Edit,
@@ -425,24 +357,6 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
       variant: 'ghost' as const,
       onClick: (grade: Grade) => {
         // Handle duplicate action - will be overridden in component
-      }
-    },
-    {
-      key: 'students',
-      label: 'Tələbələr',
-      icon: UserPlus,
-      variant: 'ghost' as const,
-      onClick: (grade: Grade) => {
-        // Handle students action - will be overridden in component
-      }
-    },
-    {
-      key: 'analytics',
-      label: 'Analitika',
-      icon: BarChart3,
-      variant: 'ghost' as const,
-      onClick: (grade: Grade) => {
-        // Handle analytics action - will be overridden in component
       }
     },
     {
@@ -493,24 +407,8 @@ export const gradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
     description: '',
     student_count: 0
   },
-
-  // Search configuration
-  searchConfig: {
-    placeholder: 'Sinif adına və ya ixtisasına görə axtar...',
-    searchKey: 'search'
-  },
-
-  // Pagination configuration
-  paginationConfig: {
-    defaultPageSize: 20,
-    pageSizeOptions: [10, 20, 50, 100]
-  },
-
-  // Loading states
-  loadingConfig: {
-    tableRows: 5,
-    showSkeleton: true
-  }
+  
+  filterFields: [],
 };
 
 // Custom logic for grade-specific operations
@@ -615,6 +513,230 @@ export const gradeCustomLogic = {
       return '';
     }
   }
+};
+
+const renderHours = (val: number | null | undefined) =>
+  val != null ? (
+    <span className="font-bold tabular-nums text-sm text-slate-700">{val}</span>
+  ) : (
+    <span className="text-muted-foreground text-xs italic opacity-40">-</span>
+  );
+
+// Curriculum-specific grade config — includes workload columns + Tədris planı action
+// Used in CurriculumPlan → "Sinif tədris planı" tab
+export const curriculumGradeEntityConfig: EntityConfig<Grade, GradeFilters, any> = {
+  ...gradeEntityConfig,
+
+  // Feature configuration
+  features: {
+    ...gradeEntityConfig.features,
+    create: false,
+    tabs: false,
+    export: false,
+    import: false,
+    bulk: false,
+    showTotals: true,
+  },
+
+  // Header: yalnız axtarış qalsın
+  headerConfig: {
+    ...gradeEntityConfig.headerConfig,
+    title: '',
+    description: '',
+    showStats: false,
+    showSearch: true,
+    showExport: false,
+    showImport: false,
+    showTemplate: false,
+    showRefresh: false,
+    showCreate: false,
+    hideTitleSection: true,
+  },
+
+  // Pre-calculate derived fields for proper footer summation
+  dataTransformer: (grades: Grade[]) => {
+    return grades.map(grade => {
+      const gs = grade.grade_subjects || [];
+      
+      // Calculate raw totals from subjects - STRICTLY FROM GRADE_SUBJECTS (Order/Əmr)
+      const club = gs.filter(i => Number(i.subject_id) === 57).reduce((a, b) => a + (Number(b.weekly_hours) * (Number((b as any).group_count) || 1)), 0);
+      const extra = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== 57).reduce((a, b) => a + (Number(b.weekly_hours) * (Number((b as any).group_count) || 1)), 0);
+      
+      const umumi = gs.filter(i => {
+         const ed = i.education_type?.toLowerCase() || '';
+         const sid = Number(i.subject_id);
+         return (ed === 'umumi' || ed === 'ümumi' || ed === '') && !i.is_extracurricular && sid !== 57 && !!i.is_teaching_activity;
+      }).reduce((a, b) => a + (Number(b.weekly_hours) * (Number((b as any).group_count) || 1)), 0);
+      
+      const ferdi = gs.filter(i => i.education_type?.toLowerCase() === 'ferdi').reduce((a, b) => a + (Number(b.weekly_hours) * (Number((b as any).group_count) || 1)), 0);
+      const evde = gs.filter(i => i.education_type?.toLowerCase() === 'evde').reduce((a, b) => a + (Number(b.weekly_hours) * (Number((b as any).group_count) || 1)), 0);
+      const xususi = gs.filter(i => i.education_type?.toLowerCase() === 'xususi').reduce((a, b) => a + (Number(b.weekly_hours) * (Number((b as any).group_count) || 1)), 0);
+
+      return {
+        ...grade,
+        club_hours: club,
+        extracurricular_hours: extra,
+        umumi_edu_hours: umumi,
+        ferdi_edu_hours: ferdi,
+        evde_edu_hours: evde,
+        xususi_edu_hours: xususi,
+        lesson_load_hours: umumi + extra + ferdi + evde + xususi + club
+      };
+    });
+  },
+
+  // Sütunlar: 14 sütunlu tam struktur (İstifadəçi tələbi ilə)
+  columns: [
+    // 1-7: Baza sütunlar
+    {
+      key: 'name',
+      label: 'Sinif',
+      width: 'w-[120px]',
+      render: (grade: Grade) => (
+        <div className="flex flex-col">
+          <span className="font-semibold text-base">{grade.full_name || `${grade.class_level || ''}-${grade.name || ''}`}</span>
+          <span className="text-xs text-muted-foreground">{grade.class_level || 0}. sinif səviyyəsi</span>
+        </div>
+      ),
+    },
+    {
+      key: 'real_student_count',
+      label: 'Şagirdlər',
+      width: 'w-[100px]',
+      align: 'center' as const,
+      showTotal: true,
+      render: (grade: Grade) => (
+        <div className="flex items-center justify-center gap-1.5 font-bold">
+          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+          <span>{grade.real_student_count ?? 0}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'teaching_shift',
+      label: 'Növbə',
+      width: 'w-[90px]',
+      align: 'center' as const,
+      render: (grade: Grade) => {
+        const shift = (grade as any).teaching_shift;
+        return shift ? <Badge variant="outline" className="text-xs">{shift}</Badge> : <span className="text-muted-foreground italic">-</span>;
+      },
+    },
+    {
+      key: 'education_program',
+      label: 'Təhsil Proqramı',
+      width: 'w-[140px]',
+      render: (grade: Grade) => grade.education_program ? (
+        <Badge variant="outline" className="text-xs">
+          {grade.education_program === 'umumi' ? 'Ümumi' : grade.education_program}
+        </Badge>
+      ) : <span className="text-muted-foreground italic">-</span>,
+    },
+    {
+      key: 'class_profile',
+      label: 'Profil',
+      width: 'w-[130px]',
+      render: (grade: Grade) => grade.class_profile ? (
+        <Badge variant="secondary" className="text-xs">{grade.class_profile}</Badge>
+      ) : <span className="text-muted-foreground italic">-</span>,
+    },
+    {
+      key: 'homeroom_teacher',
+      label: 'Sinif Rəhbəri',
+      width: 'w-[150px]',
+      render: (grade: Grade) => grade.homeroom_teacher ? (
+        <div className="flex items-center gap-1 text-xs font-medium">
+          <UserCheck className="h-3 w-3 text-muted-foreground" />
+          <span className="truncate">{grade.homeroom_teacher.full_name}</span>
+        </div>
+      ) : <span className="text-muted-foreground italic">-</span>,
+    },
+    // 8-14: Saat kateqoriyaları (education_type əsaslı, grade_subjects-dən hesablanmış)
+    {
+      key: 'lesson_load_hours',
+      label: 'Cəmi dərs yükü',
+      width: 'w-[130px]',
+      align: 'center' as const,
+      showTotal: true,
+      render: (grade: Grade) => {
+        const total = grade.lesson_load_hours ?? 0;
+        return total > 0
+          ? <span className="font-black text-indigo-700 tabular-nums text-base underline decoration-indigo-200 underline-offset-4">{total}</span>
+          : <span className="text-muted-foreground italic opacity-40">-</span>;
+      },
+    },
+    {
+      key: 'umumi_edu_hours',
+      label: 'Ümumi',
+      width: 'w-[90px]',
+      align: 'center' as const,
+      showTotal: true,
+      render: (grade: Grade) => renderHours(grade.umumi_edu_hours),
+    },
+    {
+      key: 'extracurricular_hours',
+      label: 'Dərsdənkənar',
+      width: 'w-[110px]',
+      align: 'center' as const,
+      showTotal: true,
+      render: (grade: Grade) => renderHours(grade.extracurricular_hours),
+    },
+    {
+      key: 'club_hours',
+      label: 'Dərnək',
+      width: 'w-[90px]',
+      align: 'center' as const,
+      showTotal: true,
+      render: (grade: Grade) => renderHours(grade.club_hours),
+    },
+    {
+      key: 'ferdi_edu_hours',
+      label: 'Fərdi',
+      width: 'w-[90px]',
+      align: 'center' as const,
+      showTotal: true,
+      render: (grade: Grade) => renderHours(grade.ferdi_edu_hours),
+    },
+    {
+      key: 'evde_edu_hours',
+      label: 'Evdə',
+      width: 'w-[90px]',
+      align: 'center' as const,
+      showTotal: true,
+      render: (grade: Grade) => renderHours(grade.evde_edu_hours),
+    },
+    {
+      key: 'xususi_edu_hours',
+      label: 'Xüsusi',
+      width: 'w-[90px]',
+      align: 'center' as const,
+      showTotal: true,
+      render: (grade: Grade) => renderHours(grade.xususi_edu_hours),
+    },
+    {
+      key: 'academic_year',
+      label: 'Təhsil İli',
+      width: 'w-[100px]',
+      align: 'center' as const,
+      render: (grade: Grade) => grade.academic_year ? (
+        <Badge variant={grade.academic_year.is_active ? 'default' : 'secondary'} className="text-xs">
+          {grade.academic_year.name}
+        </Badge>
+      ) : <span className="text-muted-foreground italic">-</span>,
+    },
+  ],
+
+  actions: [
+    {
+      key: 'view',
+      label: 'Tədris planı',
+      icon: Eye,
+      variant: 'default' as const,
+      isPrimary: true,
+      onClick: (_grade: Grade) => {},
+    },
+    ...gradeEntityConfig.actions,
+  ],
 };
 
 const CLASS_LEVELS = Array.from({ length: 12 }, (_, i) => i + 1);

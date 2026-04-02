@@ -1,4 +1,5 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { GradeManager } from '@/components/grades/GradeManager';
 
 /**
@@ -7,7 +8,12 @@ import { GradeManager } from '@/components/grades/GradeManager';
  * Uses GradeManager with simplified dialog
  */
 const SchoolClasses: React.FC = () => {
-  return <GradeManager />;
+  const navigate = useNavigate();
+  return (
+    <GradeManager
+      onAfterCreate={() => navigate('/school/curriculum-plan?tab=grades')}
+    />
+  );
 };
 
 export default SchoolClasses;

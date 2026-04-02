@@ -145,29 +145,41 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
     }
 
     // Only auto-activate if not manually overridden
-    setShifts(prev => ({
-      ...prev,
-      shift1: {
-        ...prev.shift1,
-        enabled: manualOverride.shift1 !== undefined ? prev.shift1.enabled : neededShifts.has('shift1')
-      },
-      shift2: {
-        ...prev.shift2,
-        enabled: manualOverride.shift2 !== undefined ? prev.shift2.enabled : neededShifts.has('shift2')
-      }
-    }));
+    setShifts(prev => {
+      // If prev is null/undefined, use internal defaults
+      const p = prev || DEFAULT_SHIFTS;
+      
+      // Safety check: Ensure shift1 and shift2 exist in p
+      const s1 = p.shift1 || DEFAULT_SHIFTS.shift1;
+      const s2 = p.shift2 || DEFAULT_SHIFTS.shift2;
+      
+      return {
+        ...p,
+        shift1: {
+          ...s1,
+          enabled: manualOverride.shift1 !== undefined ? s1.enabled : neededShifts.has('shift1')
+        },
+        shift2: {
+          ...s2,
+          enabled: manualOverride.shift2 !== undefined ? s2.enabled : neededShifts.has('shift2')
+        }
+      };
+    });
   }, [workloadData, gradesData, manualOverride]);
 
   // Toggle shift enabled state manually
   const toggleShiftEnabled = (shiftKey: string) => {
     setManualOverride(prev => ({ ...prev, [shiftKey]: true }));
-    setShifts(prev => ({
-      ...prev,
-      [shiftKey]: {
-        ...prev[shiftKey],
-        enabled: !prev[shiftKey].enabled
-      }
-    }));
+    setShifts(prev => {
+      const p = prev || DEFAULT_SHIFTS;
+      return {
+        ...p,
+        [shiftKey]: {
+          ...p[shiftKey],
+          enabled: !p[shiftKey].enabled
+        }
+      };
+    });
   };
   
   // Default: Monday-Friday active (green), Saturday-Sunday inactive
@@ -206,10 +218,14 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
       currentMinutes += shift.lessonDuration;
       
       if (i < shift.lessonCount - 1) {
-        if (i + 1 === shift.breaks.bigBreakAfterLesson) {
-          currentMinutes += shift.breaks.bigBreakDuration;
+        const bigBreakAfter = shift.breaks?.bigBreakAfterLesson || 2;
+        const bigBreakDuration = shift.breaks?.bigBreakDuration || 20;
+        const smallBreakDuration = shift.breaks?.smallBreakDuration || 10;
+        
+        if (i + 1 === bigBreakAfter) {
+          currentMinutes += bigBreakDuration;
         } else {
-          currentMinutes += shift.breaks.smallBreakDuration;
+          currentMinutes += smallBreakDuration;
         }
       }
     }
@@ -430,7 +446,7 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Dərs saatı sayı</label>
                     <Select
-                      value={shift.lessonCount.toString()}
+                      value={(shift.lessonCount || 0).toString()}
                       onValueChange={(v) => updateShift(shiftKey, 'lessonCount', parseInt(v))}
                     >
                       <SelectTrigger className="h-9 text-sm">
@@ -449,7 +465,7 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Dərs müddəti</label>
                     <Select
-                      value={shift.lessonDuration.toString()}
+                      value={(shift.lessonDuration || 0).toString()}
                       onValueChange={(v) => updateShift(shiftKey, 'lessonDuration', parseInt(v))}
                     >
                       <SelectTrigger className="h-9 text-sm">
@@ -466,7 +482,7 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Kiçik fasilə</label>
                     <Select
-                      value={shift.breaks.smallBreakDuration.toString()}
+                      value={(shift.breaks?.smallBreakDuration || 0).toString()}
                       onValueChange={(v) => updateBreakConfig(shiftKey, 'smallBreakDuration', parseInt(v))}
                     >
                       <SelectTrigger className="h-9 text-sm">
@@ -485,7 +501,7 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Böyük fasilə</label>
                     <Select
-                      value={shift.breaks.bigBreakDuration.toString()}
+                      value={(shift.breaks?.bigBreakDuration || 0).toString()}
                       onValueChange={(v) => updateBreakConfig(shiftKey, 'bigBreakDuration', parseInt(v))}
                     >
                       <SelectTrigger className="h-9 text-sm">
@@ -502,7 +518,7 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">Böyük fasilə hansı dərsdən sonra</label>
                     <Select
-                      value={shift.breaks.bigBreakAfterLesson.toString()}
+                      value={(shift.breaks?.bigBreakAfterLesson || 0).toString()}
                       onValueChange={(v) => updateBreakConfig(shiftKey, 'bigBreakAfterLesson', parseInt(v))}
                     >
                       <SelectTrigger className="h-9 text-sm">
@@ -523,7 +539,7 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
                 )}>
                   Bitmə saati: {calculateEndTime(shift)}
                   <div className="text-xs opacity-75 mt-1">
-                    Hər dərs {shift.lessonDuration} dəq, böyük fasilə {formatOrdinal(shift.breaks.bigBreakAfterLesson)} dərsdən sonra ({shift.breaks.bigBreakDuration} dəq)
+                    Hər dərs {shift.lessonDuration} dəq, böyük fasilə {formatOrdinal(shift.breaks?.bigBreakAfterLesson || 0)} dərsdən sonra ({shift.breaks?.bigBreakDuration || 0} dəq)
                   </div>
                 </div>
               </CardContent>

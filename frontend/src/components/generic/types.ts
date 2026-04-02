@@ -33,6 +33,7 @@ export interface ColumnConfig<T = any> {
   sortable?: boolean;
   render?: (item: T, value: any) => ReactNode;
   isVisible?: (item: T, userRole?: string) => boolean;
+  showTotal?: boolean;
 }
 
 // Action button configuration
@@ -58,6 +59,7 @@ export interface TabConfig {
   isStatsTab?: boolean; // When true, shows statistics cards instead of table
   icon?: LucideIcon; // Icon for the tab
   variant?: 'default' | 'primary' | 'success' | 'warning' | 'danger' | 'purple' | 'orange' | 'indigo' | 'rose' | 'amber'; // Color variant for modern tabs
+  renderContent?: () => ReactNode; // When set, renders custom content instead of the default table
 }
 
 // Stats card configuration
@@ -116,6 +118,9 @@ export interface HeaderConfig {
   
   // Custom actions
   actions?: HeaderActionConfig[];
+
+  // Layout
+  hideTitleSection?: boolean;
 }
 
 // Filter field configuration
@@ -196,6 +201,8 @@ export interface EntityConfig<T extends BaseEntity, TFilters extends BaseFilters
   columns: ColumnConfig<T>[];
   actions: ActionConfig<T>[];
   tabs: TabConfig[];
+  defaultTab?: string;
+  onTabChange?: (tab: string) => void;
   filterFields: FilterFieldConfig[];
   serverSide?: {
     pagination?: boolean;
@@ -215,6 +222,7 @@ export interface EntityConfig<T extends BaseEntity, TFilters extends BaseFilters
     create?: boolean;
     edit?: boolean;
     delete?: boolean;
+    showTotals?: boolean;
   };
   
   // Header configuration

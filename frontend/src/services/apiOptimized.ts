@@ -582,10 +582,16 @@ class ApiClientOptimized {
   private invalidateCachesForMutation(endpoint: string): void {
     const resourcePath = endpoint.split('?')[0]; // Remove query params
     const parts = resourcePath.split('/').filter(Boolean);
-    const basePath = parts.slice(0, parts.length > 2 ? 3 : 2).join('/'); 
+    
+    // Pattern logic: if we mutate 'grades/123', we should invalidate 'grades' to clear list queries
+    const pattern = parts[0] || ''; 
+    const resourceSpecificPattern = parts.slice(0, Math.min(parts.length, 3)).join('/');
 
     // 1. Clear apiOptimized in-memory cache
-    this.clearCache(basePath);
+    this.clearCache(pattern);
+    if (resourceSpecificPattern !== pattern) {
+      this.clearCache(resourceSpecificPattern);
+    }
 
     // Special case for report-tables: if any report-table is mutated, clear the approval queue
     if (resourcePath.includes('report-tables')) {
@@ -594,7 +600,7 @@ class ApiClientOptimized {
 
     // 2. Clear CacheService cache (tag-based)
     try {
-      cacheService.clearByTags([basePath, resourcePath]);
+      cacheService.clearByTags([pattern, resourcePath]);
       if (resourcePath.includes('report-tables')) {
         cacheService.clearByTags(['report-tables/approval-queue']);
       }

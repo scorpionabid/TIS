@@ -32,3 +32,10 @@ coverage
 # Temporary files
 *.tmp
 *.temp
+
+# Large project files
+*.sql
+*.tar.gz
+*.zip
+*.log
+!backend/storage/logs/.gitignore

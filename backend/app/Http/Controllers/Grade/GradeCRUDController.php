@@ -43,7 +43,19 @@ class GradeCRUDController extends Controller
             ['gradeSubjects as extracurricular_hours' => fn ($q) => $q->where('is_extracurricular', true)],
             'weekly_hours'
         )->withSum(
-            ['gradeSubjects as club_hours' => fn ($q) => $q->where('is_club', true)],
+            ['gradeSubjects as club_subjects_sum' => fn ($q) => $q->where('is_club', true)],
+            'weekly_hours'
+        )->withSum(
+            ['gradeSubjects as umumi_edu_hours' => fn ($q) => $q->where('education_type', 'umumi')],
+            'weekly_hours'
+        )->withSum(
+            ['gradeSubjects as ferdi_edu_hours' => fn ($q) => $q->where('education_type', 'ferdi')],
+            'weekly_hours'
+        )->withSum(
+            ['gradeSubjects as evde_edu_hours' => fn ($q) => $q->where('education_type', 'evde')],
+            'weekly_hours'
+        )->withSum(
+            ['gradeSubjects as xususi_edu_hours' => fn ($q) => $q->where('education_type', 'xususi')],
             'weekly_hours'
         );
 
@@ -286,6 +298,11 @@ class GradeCRUDController extends Controller
                 'room_id', 'homeroom_teacher_id', 'specialty', 'student_count',
                 'male_student_count', 'female_student_count', 'education_program',
                 'is_active', 'metadata', 'class_type', 'class_profile', 'teaching_shift',
+                'extra_hours', 'individual_hours', 'home_hours', 'special_hours',
+                'curriculum_hours',
+                'split_foreign_lang_1', 'split_foreign_lang_2', 'split_physical_ed',
+                'split_informatics', 'split_technology', 'split_state_lang',
+                'split_steam', 'split_digital_skills', 'club_hours',
             ]), ARRAY_FILTER_USE_KEY);
 
             $updateData['name'] = $className;
@@ -413,13 +430,13 @@ class GradeCRUDController extends Controller
         // Apply regional access control
         $user = $request->user();
         if (! $user->hasRole('superadmin')) {
-            $accessibleInstitutions = InstitutionAccessService::getAccessibleInstitutions($user);
+            $accessibleInstitutions = \App\Services\InstitutionAccessService::getAccessibleInstitutions($user);
             $query->whereIn('institution_id', $accessibleInstitutions);
         }
 
         // Apply filters
         if ($request->has('institution_id')) {
-            $query->where('institution_id', $request->institution_id);
+            $query->where('institution_id', (int) $request->institution_id);
         }
 
         if ($request->has('class_level')) {
@@ -503,11 +520,11 @@ class GradeCRUDController extends Controller
         if (str_contains($includes, 'students')) {
             $with[] = 'students.profile';
         }
-        if (str_contains($includes, 'subjects')) {
+        if (str_contains($includes, 'subjects') || str_contains($includes, 'grade_subjects')) {
             $with[] = 'subjects.activeTeacherAssignments.teacher.profile';
             $with[] = 'gradeSubjects.subject';
             $with[] = 'gradeSubjects.teacher';
-            $with[] = 'gradeSubjects.gradeBook';
+//            $with[] = 'gradeSubjects.gradeBook'; // Disabled because whereColumn breaks eager loading
         }
 
         return $with;

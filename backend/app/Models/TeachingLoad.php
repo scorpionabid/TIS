@@ -15,6 +15,7 @@ class TeachingLoad extends Model
     protected $fillable = [
         'teacher_id',
         'subject_id',
+        'education_type',
         'class_id',
         'weekly_hours',
         'total_hours',
@@ -47,7 +48,8 @@ class TeachingLoad extends Model
         'is_scheduled' => 'boolean',
         'last_scheduled_at' => 'datetime',
         'priority_level' => 'integer',
-        'weekly_hours' => 'integer',
+        'weekly_hours' => 'float',
+        'total_hours' => 'float',
         'preferred_consecutive_hours' => 'integer',
     ];
 

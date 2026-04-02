@@ -18,6 +18,7 @@ class GradeSubject extends Model
     protected $fillable = [
         'grade_id',
         'subject_id',
+        'education_type',
         'weekly_hours',
         'is_teaching_activity',
         'is_extracurricular',
@@ -39,13 +40,14 @@ class GradeSubject extends Model
         return [
             'grade_id' => 'integer',
             'subject_id' => 'integer',
-            'weekly_hours' => 'integer',
+            'education_type' => 'string',
+            'weekly_hours' => 'float',
             'is_teaching_activity' => 'boolean',
             'is_extracurricular' => 'boolean',
             'is_club' => 'boolean',
             'is_split_groups' => 'boolean',
             'group_count' => 'integer',
-            'calculated_hours' => 'integer',
+            'calculated_hours' => 'float',
             'teacher_id' => 'integer',
         ];
     }
@@ -94,7 +96,7 @@ class GradeSubject extends Model
             GradeBookSession::class,
             'grade_id',
             'grade_id'
-        )->whereColumn('subject_id', 'grade_subjects.subject_id')
+        )->where('subject_id', $this->subject_id ?? \DB::raw('grade_book_sessions.subject_id'))
             ->where(function ($query) {
                 $query->whereNull('deleted_at');
             });

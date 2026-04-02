@@ -21,12 +21,14 @@ interface GradeDetailsDialogWithTabsProps {
   grade: Grade;
   onClose: () => void;
   onUpdate?: () => void;
+  categoryLimits?: Record<number, any>;
 }
 
 export const GradeDetailsDialogWithTabs: React.FC<GradeDetailsDialogWithTabsProps> = ({
   grade,
   onClose,
   onUpdate,
+  categoryLimits,
 }) => {
   return (
     <Sheet open onOpenChange={onClose}>
@@ -35,9 +37,9 @@ export const GradeDetailsDialogWithTabs: React.FC<GradeDetailsDialogWithTabsProp
           <SheetTitle className="flex items-center gap-2 text-xl">
             <BookOpen className="h-6 w-6 text-primary" />
             <span>{grade.display_name || grade.full_name} - Tədris planı</span>
-            <Badge variant={grade.is_active ? 'default' : 'secondary'} className="ml-2">
-              {grade.is_active ? 'Aktiv' : 'Deaktiv'}
-            </Badge>
+            {!grade.is_active && (
+              <Badge variant="secondary" className="ml-2">Deaktiv</Badge>
+            )}
           </SheetTitle>
         </SheetHeader>
 
@@ -46,6 +48,7 @@ export const GradeDetailsDialogWithTabs: React.FC<GradeDetailsDialogWithTabsProp
             gradeId={grade.id}
             gradeName={grade.display_name || grade.full_name}
             onUpdate={onUpdate}
+            categoryLimits={categoryLimits}
           />
         </div>
       </SheetContent>

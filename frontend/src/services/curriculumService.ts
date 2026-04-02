@@ -45,12 +45,142 @@ class CurriculumService {
   /**
    * Get available subjects for a grade (not yet assigned)
    */
-  async getAvailableSubjects(gradeId: number): Promise<AvailableSubject[]> {
+  async getAvailableSubjects(gradeId: number, educationType?: string): Promise<AvailableSubject[]> {
     const response = await api.get<AvailableSubjectsResponse>(
-      `${this.baseUrl}/${gradeId}/subjects/available`
+      `${this.baseUrl}/${gradeId}/subjects/available`,
+      { education_type: educationType }
     );
     // API client already unwraps the response, so response.data is the array
     return response.data as unknown as AvailableSubject[];
+  }
+
+   /**
+   * Get the master curriculum plan for an institution and academic year
+   */
+  async getMasterPlan(institutionId: number, academicYearId: number): Promise<{ 
+    items: any[], 
+    assignedHours: any[],
+    approval?: {
+      status: 'draft' | 'submitted' | 'approved' | 'returned';
+      return_comment?: string;
+      submitted_at?: string;
+      approved_at?: string;
+      returned_at?: string;
+    };
+    deadline?: string | null;
+    is_locked?: boolean;
+  }> {
+    const response = await api.get<any>(`/curriculum-plans`, {
+      institution_id: institutionId,
+      academic_year_id: academicYearId,
+    });
+    
+    const data = response as any;
+    return {
+      items: data.items || [],
+      assignedHours: data.assigned_hours || [],
+      approval: data.approval,
+      deadline: data.deadline,
+      is_locked: data.is_locked,
+    };
+  }
+
+  /**
+   * Submit plan for approval
+   */
+  async submitPlan(institutionId: number, academicYearId: number): Promise<void> {
+    await api.post(`/curriculum-plans/submit`, {
+      institution_id: institutionId,
+      academic_year_id: academicYearId
+    });
+  }
+
+  /**
+   * Approve plan (Sector Admin)
+   */
+  async approvePlan(institutionId: number, academicYearId: number): Promise<void> {
+    await api.post(`/curriculum-plans/approve`, {
+      institution_id: institutionId,
+      academic_year_id: academicYearId
+    });
+  }
+
+  /**
+   * Return plan with comment (Sector Admin)
+   */
+  async returnPlan(institutionId: number, academicYearId: number, comment: string): Promise<void> {
+    await api.post(`/curriculum-plans/return`, {
+      institution_id: institutionId,
+      academic_year_id: academicYearId,
+      comment
+    });
+  }
+
+  /**
+   * Reset plan (Region Admin)
+   */
+  async resetPlan(institutionId: number, academicYearId: number): Promise<void> {
+    await api.post(`/curriculum-plans/reset`, {
+      institution_id: institutionId,
+      academic_year_id: academicYearId
+    });
+  }
+
+  /**
+   * Get regional curriculum settings
+   */
+  async getSettings(): Promise<{ 
+    deadline: string | null; 
+    is_locked: boolean;
+    can_sektor_edit: boolean;
+    can_operator_edit: boolean;
+  }> {
+    const response = await api.get<any>(`/curriculum-plans/settings`);
+    return response as any;
+  }
+
+  /**
+   * Update regional curriculum settings
+   */
+  async updateSettings(data: { 
+    deadline: string | null; 
+    is_locked: boolean;
+    can_sektor_edit: boolean;
+    can_operator_edit: boolean;
+  }): Promise<void> {
+    await api.post(`/curriculum-plans/settings`, data);
+  }
+
+  /**
+   * Get detailed teaching workload for an institution
+   */
+  async getDetailedWorkload(institutionId: number, academicYearId: number): Promise<any[]> {
+    const params = academicYearId ? `?academic_year_id=${academicYearId}` : '';
+    const response = await api.get<any>(`/teaching-loads/institution/${institutionId}${params}`);
+    return (response as any)?.data || [];
+  }
+
+  /**
+   * Save/Update bulk curriculum plan entries
+   */
+  async saveMasterPlan(institutionId: number, academicYearId: number, items: any[]): Promise<void> {
+    await api.post(`/curriculum-plans`, {
+      institution_id: institutionId,
+      academic_year_id: academicYearId,
+      items
+    });
+  }
+
+  /**
+   * Delete a whole subject row from the master plan
+   */
+  async deleteMasterPlanSubject(institutionId: number, academicYearId: number, subjectId: number, educationType: string): Promise<void> {
+    await api.post(`/curriculum-plans/delete`, {
+      institution_id: institutionId,
+      academic_year_id: academicYearId,
+      subject_id: subjectId,
+      education_type: educationType
+    });
   }
 
   /**
@@ -64,8 +194,8 @@ class CurriculumService {
       `${this.baseUrl}/${gradeId}/subjects`,
       data
     );
-    // Clear cache for this grade's subjects
-    api.clearCache(`/grades/${gradeId}/subjects`);
+    // Clear ALL cache for this grade to ensure available subjects and lists are refreshed
+    api.clearCache(`/grades/${gradeId}`);
     return response.data as unknown as GradeSubject;
   }
 
@@ -81,8 +211,8 @@ class CurriculumService {
       `${this.baseUrl}/${gradeId}/subjects/${gradeSubjectId}`,
       data
     );
-    // Clear cache for this grade's subjects
-    api.clearCache(`/grades/${gradeId}/subjects`);
+    // Clear grades list + individual grade cache
+    api.clearCache('/grades');
     return response.data as unknown as GradeSubject;
   }
 
@@ -96,8 +226,8 @@ class CurriculumService {
     const response = await api.delete<DeleteGradeSubjectResponse>(
       `${this.baseUrl}/${gradeId}/subjects/${gradeSubjectId}`
     );
-    // Clear cache for this grade's subjects
-    api.clearCache(`/grades/${gradeId}/subjects`);
+    // Clear ALL cache for this grade
+    api.clearCache(`/grades/${gradeId}`);
     return response.message || '';
   }
 
@@ -164,8 +294,8 @@ class CurriculumService {
       errors.push('Fənn seçilməlidir');
     }
 
-    if (data.weekly_hours < 1 || data.weekly_hours > 10) {
-      errors.push('Həftəlik saat sayı 1-10 arasında olmalıdır');
+    if (data.weekly_hours < 0.5 || data.weekly_hours > 10) {
+      errors.push('Həftəlik saat sayı 0.5-10 arasında olmalıdır');
     }
 
     if (data.group_count < 1 || data.group_count > 4) {

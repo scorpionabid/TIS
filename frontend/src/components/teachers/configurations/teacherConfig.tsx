@@ -13,19 +13,19 @@ import {
 import { SchoolTeacher, schoolAdminService } from '@/services/schoolAdmin';
 import { TeacherFilters, NewTeacherData } from '../hooks/useSchoolTeacherManagerGeneric';
 import { 
-  Users, 
-  CheckCircle, 
-  XCircle, 
-  Clock, 
+  Users,
+  CheckCircle,
+  XCircle,
+  Clock,
   Briefcase,
   UserCheck,
-  Eye, 
-  Edit, 
+  Eye,
+  Edit,
   Trash2,
   Download,
   Upload,
   BarChart3,
-  LayoutGrid
+  BookOpen
 } from 'lucide-react';
 
 // Default filters and create data
@@ -169,58 +169,6 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
     },
   },
   {
-    key: 'workload_teaching_hours',
-    label: 'Dərs',
-    width: 'w-[90px]',
-    align: 'center',
-    render: (teacher: any) => (
-      <div className="flex justify-center">
-        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm min-w-[2.5rem]">
-          {teacher.workload_teaching_hours ?? 0}
-        </span>
-      </div>
-    ),
-  },
-  {
-    key: 'workload_extracurricular_hours',
-    label: 'Məşğələ',
-    width: 'w-[90px]',
-    align: 'center',
-    render: (teacher: any) => (
-      <div className="flex justify-center">
-        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm min-w-[2.5rem]">
-          {teacher.workload_extracurricular_hours ?? 0}
-        </span>
-      </div>
-    ),
-  },
-  {
-    key: 'workload_club_hours',
-    label: 'DƏRNƏK',
-    width: 'w-[90px]',
-    align: 'center',
-    render: (teacher: any) => (
-      <div className="flex justify-center">
-        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-purple-50 text-purple-700 border border-purple-200 shadow-sm min-w-[2.5rem]">
-          {teacher.workload_club_hours ?? 0}
-        </span>
-      </div>
-    ),
-  },
-  {
-    key: 'workload_total_hours',
-    label: 'HƏFTƏLİK SAAT',
-    width: 'w-[110px]',
-    align: 'center',
-    render: (teacher: any) => (
-      <div className="flex justify-center">
-        <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-lg text-sm font-bold bg-emerald-100 text-emerald-800 border-2 border-emerald-300 shadow-sm min-w-[2.5rem]">
-          {teacher.workload_total_hours ?? 0}
-        </span>
-      </div>
-    ),
-  },
-  {
     key: 'is_active',
     label: 'Status',
     width: 'w-[100px]',
@@ -239,18 +187,120 @@ const columns: ColumnConfig<SchoolTeacher>[] = [
   },
 ];
 
+// Workload-specific column configuration (Dərs bölgüsü)
+export const workloadColumns: ColumnConfig<SchoolTeacher>[] = [
+  {
+    key: 'full_name',
+    label: 'Müəllimin Soyadı, Adı, Ata adı',
+    width: 'w-[250px]',
+    align: 'left',
+    render: (teacher) => (
+      <div className="font-medium text-sm text-slate-900">
+        {teacher.last_name} {teacher.first_name} {teacher.patronymic || ''}
+      </div>
+    ),
+  },
+  {
+    key: 'position_type',
+    label: 'Vəzifəsi',
+    width: 'w-[150px]',
+    align: 'center',
+    render: (teacher: any) => {
+      const positionLabels: Record<string, string> = {
+        direktor: 'Direktor',
+        direktor_muavini_tedris: 'Direktor Müavini (Tədris)',
+        direktor_muavini_inzibati: 'Direktor Müavini (İnzibati)',
+        terbiye_isi_uzre_direktor_muavini: 'Direktor Müavini (Tərbiyə)',
+        'muəllim': 'Müəllim',
+      };
+      return <span className="text-xs">{positionLabels[teacher.position_type] || teacher.position_type || 'Müəllim'}</span>;
+    },
+  },
+  {
+    key: 'employee_id',
+    label: 'Müəllimin UTİS kodu',
+    width: 'w-[120px]',
+    align: 'center',
+    render: (teacher) => <span className="text-xs font-mono">{teacher.employee_id || '—'}</span>,
+  },
+  {
+    key: 'specialty',
+    label: 'Müəllimin ixtisası',
+    width: 'w-[150px]',
+    align: 'center',
+    render: (teacher) => <span className="text-xs">{teacher.specialty || '—'}</span>,
+  },
+  {
+    key: 'assessment_type',
+    label: 'Qiymətləndirmə növü',
+    width: 'w-[140px]',
+    align: 'center',
+    render: (teacher: any) => <span className="text-xs">{(teacher as any).assessment_type || '—'}</span>,
+  },
+  {
+    key: 'assessment_score',
+    label: 'Qiymətləndirmə balı',
+    width: 'w-[100px]',
+    align: 'center',
+    render: (teacher: any) => <span className="text-xs font-bold">{teacher.assessment_score ?? '—'}</span>,
+  },
+  {
+    key: 'workload_teaching_hours',
+    label: 'Dərs yükü (ümumi təhsil)',
+    width: 'w-[90px]',
+    align: 'center',
+    render: (teacher: any) => <span className="text-xs font-bold text-blue-700">{teacher.workload_teaching_hours ?? 0}</span>,
+  },
+  {
+    key: 'workload_individual_school',
+    label: 'Fərdi təhsil (məktəbdə)',
+    width: 'w-[120px]',
+    align: 'center',
+    render: (teacher: any) => <span className="text-xs">{(teacher as any).workload_individual_school ?? 0}</span>,
+  },
+  {
+    key: 'workload_home_education',
+    label: 'Evdə təhsil',
+    width: 'w-[100px]',
+    align: 'center',
+    render: (teacher: any) => <span className="text-xs">{(teacher as any).workload_home_education ?? 0}</span>,
+  },
+  {
+    key: 'workload_special_education',
+    label: 'Xüsusi təhsil',
+    width: 'w-[100px]',
+    align: 'center',
+    render: (teacher: any) => <span className="text-xs">{(teacher as any).workload_special_education ?? 0}</span>,
+  },
+  {
+    key: 'workload_extracurricular_hours',
+    label: 'Dərsdən kənar məşğələ',
+    width: 'w-[120px]',
+    align: 'center',
+    render: (teacher: any) => <span className="text-xs font-bold text-amber-700">{teacher.workload_extracurricular_hours ?? 0}</span>,
+  },
+  {
+    key: 'workload_club_hours',
+    label: 'Dərnək',
+    width: 'w-[90px]',
+    align: 'center',
+    render: (teacher: any) => <span className="text-xs font-bold text-purple-700">{teacher.workload_club_hours ?? 0}</span>,
+  },
+  {
+    key: 'workload_total_hours',
+    label: 'Ümumi dərs yükü',
+    width: 'w-[110px]',
+    align: 'center',
+    render: (teacher: any) => (
+      <span className="inline-flex items-center justify-center px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs">
+        {teacher.workload_total_hours ?? 0}
+      </span>
+    ),
+  },
+];
+
 // Action configuration
 const actions: ActionConfig<SchoolTeacher>[] = [
-  {
-    key: 'details',
-    icon: Clock,
-    label: 'Dərs yükü / İş vaxtı',
-    variant: 'outline',
-    onClick: (teacher) => {
-    },
-    // @ts-expect-error - used by GenericTable for primary actions
-    isPrimary: true,
-  },
   {
     key: 'view',
     icon: Eye,
@@ -290,20 +340,14 @@ const tabs: TabConfig[] = [
     variant: 'primary',
   },
   {
-    key: 'all',
-    label: 'Hamısı',
-    icon: LayoutGrid,
-    variant: 'default',
-  },
-  {
     key: 'active',
     label: 'Aktiv',
     filter: (teachers) => teachers.filter(t => t.is_active === true),
     icon: CheckCircle,
-    variant: 'success',
+    variant: 'primary',
   },
   {
-    key: 'inactive', 
+    key: 'inactive',
     label: 'Passiv',
     filter: (teachers) => teachers.filter(t => t.is_active === false),
     icon: XCircle,
@@ -453,6 +497,7 @@ export const teacherEntityConfig: EntityConfig<SchoolTeacher, TeacherFilters, Ne
   columns,
   actions,
   tabs,
+  defaultTab: 'active',
   filterFields,
   
   // Feature flags

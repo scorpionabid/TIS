@@ -37,18 +37,22 @@ class SchoolTeacherController extends Controller
 
         $user = Auth::user();
         $school = $user->institution;
+        $requestedInstitutionId = $request->get('institution_id');
 
-        // SuperAdmin can access all schools
-        if (! $school && ! $user->hasRole('superadmin')) {
-            return response()->json(['error' => 'User is not associated with a school'], 400);
+        // Determine target institution ID (use requested if provided, fallback to user's institution)
+        $targetInstitutionId = $requestedInstitutionId ?: ($school->id ?? null);
+
+        // Access control: Non-superadmins must have an institution (school, sector, or region)
+        if (! $targetInstitutionId && ! $user->hasRole('superadmin')) {
+            return response()->json(['error' => 'Müəssisə ID təyin edilməyib'], 400);
         }
 
         // Get users with teacher roles in this school with their profiles
         $query = User::query();
 
-        // If school is provided, filter by school, otherwise get all (for SuperAdmin)
-        if ($school) {
-            $query->where('institution_id', $school->id);
+        // Filter by institution if available
+        if ($targetInstitutionId) {
+            $query->where('institution_id', $targetInstitutionId);
         }
 
         $teachers = $query
@@ -105,15 +109,23 @@ class SchoolTeacherController extends Controller
                 })
                 ->leftJoin('grade_subjects', function ($join) {
                     $join->on('grade_subjects.grade_id', '=', 'grade_map.id')
-                        ->on('grade_subjects.subject_id', '=', 'teaching_loads.subject_id');
+                        ->on('grade_subjects.subject_id', '=', 'teaching_loads.subject_id')
+                        ->on('grade_subjects.education_type', '=', 'teaching_loads.education_type');
                 })
                 ->whereIn('teaching_loads.teacher_id', $teacherIds->all())
+                ->when($request->get('academic_year_id'), fn($q, $yr) =>
+                    $q->where('classes.academic_year_id', (int) $yr)
+                )
                 ->select([
                     'teaching_loads.teacher_id',
                     DB::raw('COALESCE(SUM(teaching_loads.weekly_hours), 0) as total_hours'),
-                    DB::raw('COALESCE(SUM(CASE WHEN grade_subjects.is_teaching_activity = true THEN teaching_loads.weekly_hours ELSE 0 END), 0) as teaching_hours'),
+                    DB::raw("COALESCE(SUM(CASE WHEN teaching_loads.education_type = 'umumi' OR teaching_loads.education_type IS NULL THEN teaching_loads.weekly_hours ELSE 0 END), 0) as teaching_hours"),
                     DB::raw('COALESCE(SUM(CASE WHEN grade_subjects.is_club = true THEN teaching_loads.weekly_hours ELSE 0 END), 0) as club_hours'),
                     DB::raw('COALESCE(SUM(CASE WHEN grade_subjects.is_extracurricular = true THEN teaching_loads.weekly_hours ELSE 0 END), 0) as extracurricular_hours'),
+                    // Education type breakdown based on teaching load education_type
+                    DB::raw("COALESCE(SUM(CASE WHEN teaching_loads.education_type = 'ferdi' THEN teaching_loads.weekly_hours ELSE 0 END), 0) as individual_school_hours"),
+                    DB::raw("COALESCE(SUM(CASE WHEN teaching_loads.education_type = 'evde' THEN teaching_loads.weekly_hours ELSE 0 END), 0) as home_education_hours"),
+                    DB::raw("COALESCE(SUM(CASE WHEN teaching_loads.education_type = 'xususi' THEN teaching_loads.weekly_hours ELSE 0 END), 0) as special_education_hours"),
                 ])
                 ->groupBy('teaching_loads.teacher_id')
                 ->get();
@@ -123,10 +135,13 @@ class SchoolTeacherController extends Controller
 
         $teachers = $teachers->map(function ($teacher) use ($workloadSummary) {
             $summary = $workloadSummary->get($teacher['id']);
-            $teacher['workload_total_hours'] = (int) ($summary->total_hours ?? 0);
-            $teacher['workload_teaching_hours'] = (int) ($summary->teaching_hours ?? 0);
-            $teacher['workload_club_hours'] = (int) ($summary->club_hours ?? 0);
-            $teacher['workload_extracurricular_hours'] = (int) ($summary->extracurricular_hours ?? 0);
+            $teacher['workload_total_hours'] = (float) ($summary->total_hours ?? 0);
+            $teacher['workload_teaching_hours'] = (float) ($summary->teaching_hours ?? 0);
+            $teacher['workload_club_hours'] = (float) ($summary->club_hours ?? 0);
+            $teacher['workload_extracurricular_hours'] = (float) ($summary->extracurricular_hours ?? 0);
+            $teacher['workload_individual_school'] = (float) ($summary->individual_school_hours ?? 0);
+            $teacher['workload_home_education'] = (float) ($summary->home_education_hours ?? 0);
+            $teacher['workload_special_education'] = (float) ($summary->special_education_hours ?? 0);
             return $teacher;
         });
 

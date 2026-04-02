@@ -80,6 +80,24 @@ class Institution extends Model
     }
 
     /**
+     * Check if this institution is a descendant of the given institution.
+     */
+    public function isDescendantOf(?Institution $parent): bool
+    {
+        if (! $parent) {
+            return false;
+        }
+
+        if ($this->id === $parent->id) {
+            return true;
+        }
+
+        $ancestors = $this->getAncestors();
+
+        return $ancestors->pluck('id')->contains($parent->id);
+    }
+
+    /**
      * Get the parent institution.
      */
     public function parent(): BelongsTo

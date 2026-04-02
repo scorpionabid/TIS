@@ -39,8 +39,9 @@ const TOTAL_DAYS = 7;
 
 export const TeacherScheduleStats: React.FC<TeacherScheduleStatsProps> = ({ 
   teacherId, 
-  shifts = DEFAULT_SHIFTS 
+  shifts: providedShifts 
 }) => {
+  const shifts = providedShifts || DEFAULT_SHIFTS;
   // Default active days (Mon-Fri)
   const activeDays = 5;
   const totalDays = TOTAL_DAYS;
@@ -198,7 +199,7 @@ export const TeacherScheduleStats: React.FC<TeacherScheduleStatsProps> = ({
             </div>
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">Gündəlik:</span>
-              <span className="font-semibold">{totalSlotsPerDay} dərs</span>
+              <span className="font-semibold">{totalLessonsPerDay} dərs</span>
             </div>
             <div className="flex items-center justify-between text-xs text-muted-foreground mt-2 pt-2 border-t">
               <span>I NÖVBƏ:</span>

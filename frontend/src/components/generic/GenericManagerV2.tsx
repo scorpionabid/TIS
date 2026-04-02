@@ -118,7 +118,7 @@ export function GenericManagerV2<
         searchTerm={manager.searchTerm}
         onSearchChange={manager.setSearchTerm}
         searchPlaceholder={config.headerConfig?.searchPlaceholder || 'Axtar...'}
-        tabs={config.tabs?.map(tab => ({
+        tabs={features.tabs !== false ? config.tabs?.map(tab => ({
           key: tab.key,
           label: tab.label,
           count: tab.count !== undefined
@@ -130,9 +130,12 @@ export function GenericManagerV2<
                 : (manager.entities || []).length,
           icon: tab.icon,
           variant: tab.variant as any
-        }))}
+        })) : []}
         activeTab={manager.selectedTab}
-        onTabChange={manager.setSelectedTab}
+        onTabChange={(tab) => {
+          manager.setSelectedTab(tab);
+          config.onTabChange?.(tab);
+        }}
         primaryAction={features.create !== false ? {
           label: config.headerConfig?.createLabel || `Yeni ${config.entityName}`,
           icon: Plus,
@@ -153,6 +156,7 @@ export function GenericManagerV2<
         showExport={features.export === true}
         showTemplate={config.headerConfig?.showTemplate === true}
         onTemplate={features.import && customLogic?.onTemplateClick ? customLogic.onTemplateClick : undefined}
+        hideTitleSection={config.headerConfig?.hideTitleSection}
       />
 
       {/* Bulk Actions */}
@@ -174,6 +178,8 @@ export function GenericManagerV2<
             {/* Stats Tab Content */}
             {tab.isStatsTab ? (
               <GenericStatsCards stats={manager.stats} />
+            ) : tab.renderContent ? (
+              tab.renderContent()
             ) : (
               <>
                 {/* Table Content */}
@@ -202,6 +208,7 @@ export function GenericManagerV2<
                       isAllSelected={isAllSelected}
                       isIndeterminate={isIndeterminate}
                       customRowRender={customLogic?.renderCustomRow}
+                      showTotals={features.showTotals}
                     />
                     
                     {/* Pagination */}

@@ -70,6 +70,7 @@ const Approvals = lazy(() => import("./pages/Approvals"));
 const SurveyAnalytics = lazy(() => import("./pages/SurveyAnalytics"));
 const SurveyExport = lazy(() => import("./pages/SurveyExport"));
 const PasswordReset = lazy(() => import("./pages/PasswordReset"));
+const AdminCurriculumDashboard = lazy(() => import("./pages/curriculum/AdminCurriculumDashboard"));
 
 // Report Tables pages
 const ReportTables = lazy(() => import("./pages/ReportTables"));
@@ -111,6 +112,7 @@ const RegionAttendanceReports = lazy(
 // School pages
 const SchoolTeachers = lazy(() => import("./pages/school/SchoolTeachers"));
 const SchoolClasses = lazy(() => import("./pages/school/SchoolClasses"));
+const CurriculumPlan = lazy(() => import("./pages/school/CurriculumPlan"));
 const SchoolAttendanceRecord = lazy(
   () => import("./pages/school/SchoolAttendanceRecord"),
 );
@@ -965,6 +967,49 @@ const App = () => {
                       element={
                         <LazyWrapper>
                           <SchoolSchedules />
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="school/curriculum-plan/:institutionId?"
+                      element={
+                        <LazyWrapper>
+                          <CurriculumPlan />
+                        </LazyWrapper>
+                      }
+                    />
+
+                    <Route
+                      path="curriculum/dashboard"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.REGIONADMIN,
+                              USER_ROLES.SEKTORADMIN,
+                              USER_ROLES.REGIONOPERATOR,
+                            ]}
+                          >
+                            <AdminCurriculumDashboard />
+                          </RoleProtectedRoute>
+                        </LazyWrapper>
+                      }
+                    />
+                    <Route
+                      path="curriculum/plan/:institutionId"
+                      element={
+                        <LazyWrapper>
+                          <RoleProtectedRoute
+                            allowedRoles={[
+                              USER_ROLES.SUPERADMIN,
+                              USER_ROLES.REGIONADMIN,
+                              USER_ROLES.SEKTORADMIN,
+                              USER_ROLES.REGIONOPERATOR,
+                            ]}
+                          >
+                            <CurriculumPlan />
+                          </RoleProtectedRoute>
                         </LazyWrapper>
                       }
                     />

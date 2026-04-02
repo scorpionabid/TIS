@@ -38,7 +38,7 @@ export function useEntityManagerV2<
   // State management
   const [searchTerm, setSearchTerm] = useState<string>((initialFilters as any)?.search || '');
   const [filters, setFilters] = useState<TFilters>(initialFilters);
-  const [selectedTab, setSelectedTab] = useState('active');
+  const [selectedTab, setSelectedTab] = useState(config.defaultTab || 'active');
   const [selectedEntity, setSelectedEntity] = useState<T | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<T | null>(null);

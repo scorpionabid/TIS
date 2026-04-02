@@ -14,6 +14,10 @@ export interface GradeSubject {
   has_grade_book: boolean;
   grade_book_id?: number;
   grade_book_status?: string;
+  education_type?: string;
+  is_split_groups?: boolean;
+  group_count?: number;
+  is_extracurricular?: boolean;
 }
 
 export interface Grade {
@@ -25,6 +29,10 @@ export interface Grade {
   class_type?: string | null;
   class_profile?: string | null;
   teaching_shift?: string | null;
+  extra_hours?: number | null;
+  individual_hours?: number | null;
+  home_hours?: number | null;
+  special_hours?: number | null;
   academic_year_id: number;
   institution_id: number;
   room_id?: number;
@@ -42,7 +50,12 @@ export interface Grade {
   // Lesson load hours from curriculum (grade_subjects)
   lesson_load_hours?: number;
   extracurricular_hours?: number;
-  club_hours?: number;
+
+  // Education-type based hour totals (computed from grade_subjects)
+  umumi_edu_hours?: number;
+  ferdi_edu_hours?: number;
+  evde_edu_hours?: number;
+  xususi_edu_hours?: number;
 
   specialty?: string;
   description?: string;
@@ -52,6 +65,18 @@ export interface Grade {
   teacher_removed_at?: string;
   deactivated_at?: string;
   deactivated_by?: number;
+  education_type?: string;
+  curriculum_hours?: number | null;
+  split_foreign_lang_1?: number | null;
+  split_foreign_lang_2?: number | null;
+  split_physical_ed?: number | null;
+  split_informatics?: number | null;
+  split_technology?: number | null;
+  split_state_lang?: number | null;
+  split_steam?: number | null;
+  split_digital_skills?: number | null;
+  club_hours?: number | null;
+  hours_per_week?: number;
   
   // Related data
   academic_year?: {
@@ -161,6 +186,20 @@ export interface GradeUpdateData {
   female_student_count?: number;
   tag_ids?: number[];
   is_active?: boolean;
+  curriculum_hours?: number | null;
+  extra_hours?: number | null;
+  individual_hours?: number | null;
+  home_hours?: number | null;
+  special_hours?: number | null;
+  split_foreign_lang_1?: number | null;
+  split_foreign_lang_2?: number | null;
+  split_physical_ed?: number | null;
+  split_informatics?: number | null;
+  split_technology?: number | null;
+  split_state_lang?: number | null;
+  split_steam?: number | null;
+  split_digital_skills?: number | null;
+  club_hours?: number | null;
   metadata?: Record<string, any>;
 }
 

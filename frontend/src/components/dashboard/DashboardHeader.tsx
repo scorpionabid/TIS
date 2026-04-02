@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { surveyService } from "@/services/surveys";
+import { CurriculumCountdown } from "@/components/curriculum/CurriculumCountdown";
 
 interface DashboardHeaderProps {
   title: string;
@@ -260,8 +261,11 @@ export const DashboardHeader = ({
     <>
       <div className="flex items-center justify-between w-full">
         {/* Title Section */}
-        <div className="min-w-0 flex-1 pr-4">
+        <div className="min-w-0 flex-1 pr-4 flex items-center gap-4">
           <h1 className="text-lg lg:text-xl font-bold text-foreground font-heading truncate">{title}</h1>
+          <div className="hidden md:block">
+            <CurriculumCountdown />
+          </div>
         </div>
 
         {/* Actions Section */}

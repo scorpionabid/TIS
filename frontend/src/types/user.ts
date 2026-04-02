@@ -61,6 +61,7 @@ export interface User {
   
   // Additional profile information
   profile?: UserProfile;
+  academic_year_id?: number;
   region_operator_permissions?: Record<string, boolean>;
 }
 

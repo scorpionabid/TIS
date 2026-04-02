@@ -10,7 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { institutionService } from '@/services/institutions';
 import { cn } from '@/lib/utils';
-import { Upload, Calendar, Briefcase, Clock, CalendarRange } from 'lucide-react';
+import { Upload, Calendar, Briefcase, Clock, CalendarRange, Download } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
@@ -20,9 +20,14 @@ import { TeacherWorkloadStats } from './TeacherWorkloadStats';
 import { AvailabilityManager } from './AvailabilityManager';
 import { TeacherScheduleStats } from './TeacherScheduleStats';
 import { GenericStatsCards } from '@/components/generic/GenericStatsCards';
+import { exportWorkloadToExcel } from './utils/workloadExport';
+import { toast } from 'sonner';
+import { schoolAdminService } from '@/services/schoolAdmin';
+import { TeacherWorkloadDetailTable } from './TeacherWorkloadDetailTable';
 
 interface SchoolTeacherManagerStandardizedProps {
   className?: string;
+  onAfterCreate?: () => void;
 }
 
 /**
@@ -36,8 +41,9 @@ interface SchoolTeacherManagerStandardizedProps {
  * - Production-safe logging
  * - Type-safe configuration-driven approach
  */
-export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStandardizedProps> = ({ 
-  className 
+export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStandardizedProps> = ({
+  className,
+  onAfterCreate,
 }) => {
   // Local modal state
   const [teacherModalOpen, setTeacherModalOpen] = React.useState(false);
@@ -48,6 +54,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
   const [importExportModalOpen, setImportExportModalOpen] = React.useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = React.useState(false);
   const [teacherToDelete, setTeacherToDelete] = React.useState<SchoolTeacher | null>(null);
+  const [activeTab, setActiveTab] = React.useState<string>('stats');
   
   // Shift configuration state for availability management
   const [shiftConfig, setShiftConfig] = React.useState({
@@ -172,7 +179,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
         ],
       }] : []),
     ],
-  }), [availableInstitutions]);
+  }), [availableInstitutions, institutionFilter, user]);
 
   // Enhanced custom logic with modal rendering
   const enhancedCustomLogic = React.useMemo(() => ({
@@ -180,6 +187,41 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
     
     // Custom header actions
     headerActions: [
+      ...(activeTab === 'workload_distribution' ? [{
+        key: 'export-workload',
+        label: 'Excel İxrac',
+        icon: Download,
+        onClick: async () => {
+          logger.info('Exporting workload distribution to Excel');
+          
+          try {
+            // Fetch all teachers for the current institution filter
+            const response = await schoolAdminService.getTeachers({
+              per_page: 1000,
+              institution_id: institutionFilter !== 'all' ? Number(institutionFilter) : (user?.institution_id || undefined)
+            });
+            
+            const teachers = Array.isArray(response) ? response : (response as any).data || [];
+            
+            if (teachers.length === 0) {
+              toast.error("İxrac etmək üçün məlumat tapılmadı");
+              return;
+            }
+
+            const instName = availableInstitutions.find(i => i.id.toString() === institutionFilter)?.name || user?.institution?.name || 'Məktəb';
+            
+            toast.promise(exportWorkloadToExcel(teachers, instName), {
+              loading: 'Excel faylı hazırlanır...',
+              success: 'Fayl uğurla yükləndi',
+              error: 'Excel ixracı zamanı xəta baş verdi',
+            });
+          } catch (error) {
+            logger.error('Workload export failed', error);
+            toast.error("Məlumatları çəkərkən xəta baş verdi");
+          }
+        },
+        variant: 'default' as const,
+      }] : []),
       {
         key: 'import-export',
         label: 'İdxal/İxrac',
@@ -228,8 +270,8 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
       // Template download will be handled by TeacherImportExportModal
       setImportExportModalOpen(true);
     },
-    
-  }), []);
+
+  }), [activeTab, institutionFilter, user, availableInstitutions]);
 
   // Modal event handlers with error handling
   const handleUserSave = async (userData: any) => {
@@ -246,8 +288,9 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
       } else {
         await teacherEntityConfig.service.create(userData);
         logger.info('Successfully created new teacher');
+        onAfterCreate?.();
       }
-      
+
       // Close modal on success
       setTeacherModalOpen(false);
       setEditingUser(null);
@@ -299,6 +342,7 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
     getWorkloadColor: () => 'bg-blue-100 text-blue-800',
   }), []);
 
+  // Main Generic Manager - contains search and table
   return (
     <div className={cn("space-y-6", className)}>
       {/* Summary stats */}
@@ -310,12 +354,19 @@ export const SchoolTeacherManagerStandardized: React.FC<SchoolTeacherManagerStan
         />
       )}
 
-      {/* Main Generic Manager - contains search and table */}
       <GenericManagerV2
-        config={enhancedConfig}
+        config={{
+          ...enhancedConfig,
+          onTabChange: (tab) => {
+            setActiveTab(tab);
+            if (teacherEntityConfig.onTabChange) {
+              teacherEntityConfig.onTabChange(tab);
+            }
+          }
+        }}
         customLogic={enhancedCustomLogic}
       />
-      
+
       {/* Teacher-specific Modals */}
       <TeacherModal
         open={teacherModalOpen}

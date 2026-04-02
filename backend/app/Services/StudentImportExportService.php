@@ -14,14 +14,6 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class StudentImportExportService extends BaseService
 {
-    protected $studentManagementService;
-
-    public function __construct(StudentManagementService $studentManagementService)
-    {
-        // studentManagementService kept for backward compatibility (getExportStats, etc.)
-        $this->studentManagementService = $studentManagementService;
-    }
-
     /**
      * Generate import template for students (Azerbaijani headers, 7 columns)
      * Column order: Ad, Soyad, Şagird Nömrəsi, Doğum tarixi, Cins, Qeydiyyat tarixi, Sinif

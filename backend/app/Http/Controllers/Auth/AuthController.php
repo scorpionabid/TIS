@@ -96,6 +96,7 @@ class AuthController extends Controller
         // User data-nı hazırla
         $userData = $user->toArray();
         $userData['roles'] = $roles;
+        $userData['role'] = $roles[0] ?? null; // Frontend üçün tək rol əlavə et
         $userData['permissions'] = $permissions;
         $userData['preferences'] = $preferences;
 

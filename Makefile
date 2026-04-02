@@ -15,6 +15,7 @@ help:
 	@echo ""
 	@echo "  make snapshot      - Create dev database snapshot"
 	@echo "  make restore       - Restore from dev snapshot"
+	@echo "  make restore-front - Rebuild and recreate frontend"
 	@echo "  make list-snaps    - List available snapshots"
 	@echo ""
 	@echo "  make logs          - Show all container logs"
@@ -59,6 +60,9 @@ snapshot:
 
 restore:
 	@./restore_dev_snapshot.sh
+
+restore-front:
+	@docker compose up -d --build --force-recreate frontend
 
 list-snaps:
 	@echo "📸 Available snapshots:"

@@ -30,6 +30,9 @@ export interface Institution extends BaseEntity {
   region_code?: string;
   short_name?: string;
   established_date?: string;
+  curriculum_status?: 'draft' | 'submitted' | 'approved' | 'returned';
+  curriculum_total_hours?: number;
+  curriculum_vacancies?: number;
 }
 
 export interface InstitutionType {

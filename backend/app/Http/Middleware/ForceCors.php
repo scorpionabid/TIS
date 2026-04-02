@@ -19,12 +19,24 @@ class ForceCors
 
         // Add CORS headers
         $origin = $request->headers->get('Origin');
-        $allowedOrigins = [
+        $allowedOrigins = config('cors.allowed_origins', [
             'http://localhost:3000',
             'http://127.0.0.1:3000',
-        ];
+        ]);
 
         $isAllowedOrigin = $origin && in_array($origin, $allowedOrigins, true);
+        
+        // DEBUG: Log the result
+        if ($origin) {
+            \Illuminate\Support\Facades\Log::info("CORS Debug: Origin={$origin}, isAllowed=" . ($isAllowedOrigin ? 'true' : 'false') . ", Allowed=" . json_encode($allowedOrigins));
+        }
+        
+        // If not found in simple list, check with regex or wildcard (if * exists in config)
+        if (!$isAllowedOrigin && $origin && in_array('*', $allowedOrigins, true)) {
+            $isAllowedOrigin = true;
+        }
+
+        // Regex fallback for local IP ranges if needed
         if (! $isAllowedOrigin && $origin) {
             $isAllowedOrigin = (bool) preg_match('#^http://(?:10\.|127\.|192\.168\.|172\.(?:1[6-9]|2\d|3[0-1])\.)\d{1,3}\.\d{1,3}:3000$#', $origin);
         }

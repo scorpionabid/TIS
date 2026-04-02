@@ -102,6 +102,7 @@ export interface ModernManagerHeaderProps {
   
   // Responsive
   className?: string;
+  hideTitleSection?: boolean;
 }
 
 const getStatColorClasses = (color: string) => {
@@ -157,6 +158,7 @@ export const ModernManagerHeader: React.FC<ModernManagerHeaderProps> = ({
   showExport = false,
   showTemplate = false,
   className,
+  hideTitleSection = false,
 }) => {
   const [isSearchFocused, setIsSearchFocused] = React.useState(false);
   
@@ -174,7 +176,8 @@ export const ModernManagerHeader: React.FC<ModernManagerHeaderProps> = ({
         className
       )}>
         {/* Top Row - Title and Primary Actions */}
-        <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-white">
+        {!hideTitleSection && (
+          <div className="px-4 sm:px-6 py-4 border-b border-slate-100 bg-white">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             {/* Title Section */}
             <div className="flex-1 min-w-0">
@@ -304,8 +307,9 @@ export const ModernManagerHeader: React.FC<ModernManagerHeaderProps> = ({
               )}
             </div>
           </div>
-        </div>
-        
+          </div>
+        )}
+
         {/* Bottom Row - Search and Tabs */}
         <div className="px-4 sm:px-6 py-3 bg-slate-50 border-t border-slate-100">
           <div className="flex flex-col lg:flex-row lg:items-center gap-4">

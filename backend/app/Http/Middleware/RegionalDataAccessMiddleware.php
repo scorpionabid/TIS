@@ -274,12 +274,8 @@ class RegionalDataAccessMiddleware
             ];
         }
 
-        // Get all schools under this sector
-        $allowedInstitutions = Institution::where('parent_id', $userSector->id)
-            ->where('level', 4) // School level
-            ->pluck('id')
-            ->prepend($userSector->id) // Include sector itself
-            ->toArray();
+        // Get all descendant institutions under this sector (recursive)
+        $allowedInstitutions = $userSector->getAllChildrenIds();
 
         // Check if requested resource is within sector scope
         if ($this->hasInstitutionIdInRequest($request)) {
@@ -405,6 +401,14 @@ class RegionalDataAccessMiddleware
 
         if ($request->route('institutionId')) {
             return (int) $request->route('institutionId');
+        }
+        
+        if ($request->route('schoolId')) {
+            return (int) $request->route('schoolId');
+        }
+
+        if ($request->route('sectorId')) {
+            return (int) $request->route('sectorId');
         }
 
         return null;

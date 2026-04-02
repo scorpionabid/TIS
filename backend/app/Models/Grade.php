@@ -50,6 +50,20 @@ class Grade extends Model
         'teacher_removed_at',
         'deactivated_at',
         'deactivated_by',
+        'extra_hours',
+        'individual_hours',
+        'home_hours',
+        'special_hours',
+        'curriculum_hours',
+        'split_foreign_lang_1',
+        'split_foreign_lang_2',
+        'split_physical_ed',
+        'split_informatics',
+        'split_technology',
+        'split_state_lang',
+        'split_steam',
+        'split_digital_skills',
+        'club_hours',
     ];
 
     /**
@@ -82,6 +96,20 @@ class Grade extends Model
             'teacher_assigned_at' => 'datetime',
             'teacher_removed_at' => 'datetime',
             'deactivated_at' => 'datetime',
+            'extra_hours' => 'decimal:2',
+            'individual_hours' => 'decimal:2',
+            'home_hours' => 'decimal:2',
+            'special_hours' => 'decimal:2',
+            'curriculum_hours' => 'decimal:2',
+            'split_foreign_lang_1' => 'decimal:2',
+            'split_foreign_lang_2' => 'decimal:2',
+            'split_physical_ed' => 'decimal:2',
+            'split_informatics' => 'decimal:2',
+            'split_technology' => 'decimal:2',
+            'split_state_lang' => 'decimal:2',
+            'split_steam' => 'decimal:2',
+            'split_digital_skills' => 'decimal:2',
+            'club_hours' => 'decimal:2',
         ];
     }
 

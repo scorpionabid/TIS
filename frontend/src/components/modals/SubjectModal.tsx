@@ -106,8 +106,8 @@ export const SubjectModal: React.FC<SubjectModalProps> = ({
       newErrors.grade_levels = 'Ən azı bir sinif səviyyəsi seçilməlidir';
     }
 
-    if (!formData.weekly_hours || formData.weekly_hours < 1 || formData.weekly_hours > 40) {
-      newErrors.weekly_hours = 'Həftəlik saat 1-40 arasında olmalıdır';
+    if (!formData.weekly_hours || formData.weekly_hours < 0.5 || formData.weekly_hours > 40) {
+      newErrors.weekly_hours = 'Həftəlik saat 0.5-40 arasında olmalıdır';
     }
 
     setErrors(newErrors);
@@ -257,7 +257,8 @@ export const SubjectModal: React.FC<SubjectModalProps> = ({
               <Input
                 id="weekly_hours"
                 type="number"
-                min={1}
+                min={0.5}
+                step={0.5}
                 max={40}
                 value={formData.weekly_hours}
                 onChange={(e) => handleFieldChange('weekly_hours', parseInt(e.target.value) || 1)}

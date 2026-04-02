@@ -145,6 +145,43 @@ export const improvedNavigationConfig: MenuGroup[] = [
     ],
   },
 
+  // 📋 Tədris Planı (Monitorinq)
+  {
+    id: "curriculum-management",
+    label: "Tədris Planı",
+    panel: "work",
+    roles: [
+      USER_ROLES.SUPERADMIN,
+      USER_ROLES.REGIONADMIN,
+      USER_ROLES.SEKTORADMIN,
+      USER_ROLES.REGIONOPERATOR,
+      USER_ROLES.SCHOOLADMIN,
+    ],
+    items: [
+      {
+        id: "curriculum-dashboard",
+        label: "Dərs yükü və Vakansiya",
+        path: "/curriculum/dashboard",
+        icon: LayoutDashboard,
+        roles: [
+          USER_ROLES.SUPERADMIN,
+          USER_ROLES.REGIONADMIN,
+          USER_ROLES.SEKTORADMIN,
+          USER_ROLES.REGIONOPERATOR,
+        ],
+        description: "Dərs yükü və vakansiya saatlarının monitorinqi",
+      },
+      {
+        id: "school-curriculum-plan",
+        label: "Dərs yükü və Vakansiya",
+        path: "/school/curriculum-plan",
+        icon: LayoutDashboard,
+        roles: [USER_ROLES.SCHOOLADMIN, USER_ROLES.SUPERADMIN],
+        description: "Siniflər üzrə tədris saatlarının planı",
+      },
+    ],
+  },
+
   // 📁 Məzmun İdarəetməsi
   {
     id: "content",

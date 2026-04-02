@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Clock, BookOpen, Users, TrendingUp } from 'lucide-react';
+import { EDUCATION_TYPE_LABELS, EducationType } from '@/types/curriculum';
 
 interface TeacherWorkloadStatsProps {
   teacherId: number;
@@ -32,11 +33,11 @@ export const TeacherWorkloadStats: React.FC<TeacherWorkloadStatsProps> = ({ teac
   const extracurricularHours = loads.filter((l: any) => l.is_extracurricular).reduce((sum: number, l: any) => sum + l.weekly_hours, 0);
   const clubHours = loads.filter((l: any) => l.is_club).reduce((sum: number, l: any) => sum + l.weekly_hours, 0);
 
-  // Group by education program
+  // Group by education type (assignment type)
   const programLoads = loads.reduce((acc: any, load: any) => {
-    const prog = load.education_program || 'Təyin edilməyib';
-    if (!acc[prog]) acc[prog] = 0;
-    acc[prog] += load.weekly_hours;
+    const type = load.education_type || 'umumi';
+    if (!acc[type]) acc[type] = 0;
+    acc[type] += load.weekly_hours;
     return acc;
   }, {} as Record<string, number>);
   
@@ -132,16 +133,8 @@ export const TeacherWorkloadStats: React.FC<TeacherWorkloadStatsProps> = ({ teac
           <CardContent className="pt-0 space-y-2 text-sm">
             {Object.entries(programLoads).map(([prog, hours]) => (
               <div key={prog} className="flex items-center justify-between gap-2">
-                <span className="text-muted-foreground truncate" title={
-                  prog === 'umumi' ? 'Ümumi təhsil' : 
-                  prog === 'xususi' ? 'Xüsusi təhsil' : 
-                  prog === 'mektebde_ferdi' ? 'Məktəbdə fərdi' : 
-                  prog === 'evde_ferdi' ? 'Evdə fərdi' : prog
-                }>
-                  {prog === 'umumi' ? 'Ümumi təhsil' : 
-                   prog === 'xususi' ? 'Xüsusi təhsil' : 
-                   prog === 'mektebde_ferdi' ? 'Məktəbdə fərdi' : 
-                   prog === 'evde_ferdi' ? 'Evdə fərdi' : prog}
+                <span className="text-muted-foreground truncate" title={EDUCATION_TYPE_LABELS[prog as EducationType] || prog}>
+                  {EDUCATION_TYPE_LABELS[prog as EducationType] || prog}
                 </span>
                 <span className="font-medium whitespace-nowrap">{hours as number} saat</span>
               </div>

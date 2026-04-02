@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { MoreVertical } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { ColumnConfig, ActionConfig, BaseEntity } from './types';
 
 interface GenericTableProps<T extends BaseEntity> {
@@ -23,6 +24,7 @@ interface GenericTableProps<T extends BaseEntity> {
   isAllSelected?: boolean;
   isIndeterminate?: boolean;
   customRowRender?: (item: T, defaultRender: React.ReactNode) => React.ReactNode;
+  showTotals?: boolean;
 }
 
 export function GenericTable<T extends BaseEntity>({
@@ -36,6 +38,7 @@ export function GenericTable<T extends BaseEntity>({
   isAllSelected,
   isIndeterminate,
   customRowRender,
+  showTotals = false,
 }: GenericTableProps<T>) {
 
   const isItemSelected = (item: T) => {
@@ -110,10 +113,12 @@ export function GenericTable<T extends BaseEntity>({
             {/* Column headers */}
             {columns.map((column, index) => (
               <TableHead 
-                key={index} 
-                className={`${column.width || ''} h-12 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-700 bg-slate-50 border-b border-slate-200 text-center whitespace-nowrap`}
+                key={`${String(column.key)}-${index}`} 
+                className={`${column.width || ''} h-12 px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-slate-700 bg-slate-100 border-b-2 border-slate-300 text-center whitespace-normal leading-tight align-middle min-h-[60px]`}
               >
-                {column.label}
+                <div className="flex items-center justify-center min-h-[40px]">
+                  {column.label}
+                </div>
               </TableHead>
             ))}
             
@@ -175,7 +180,7 @@ export function GenericTable<T extends BaseEntity>({
                             <Button
                               key={action.key}
                               variant={action.variant || 'ghost'}
-                              size={action.size || 'sm'}
+                              size={(action.size === 'md' ? 'default' : action.size) as any || 'sm'}
                               onClick={() => action.onClick(item)}
                               disabled={isDisabled}
                               title={action.label}
@@ -240,6 +245,40 @@ export function GenericTable<T extends BaseEntity>({
               defaultRow;
           })}
         </TableBody>
+        
+        {showTotals && (data || []).length > 0 && (
+          <tfoot className="border-t-2 border-slate-300">
+            <TableRow className="bg-slate-100/90 font-bold hover:bg-slate-100/95 h-14">
+              {onRowSelect && <TableCell className="w-12 bg-transparent" />}
+              {columns.map((column, index) => {
+                const canSum = column.showTotal;
+                let totalStr = '';
+                
+                if (canSum) {
+                  const sum = (data || []).reduce((acc, item) => {
+                    const val = Number(item[column.key as keyof T]);
+                    return acc + (isNaN(val) ? 0 : val);
+                  }, 0);
+                  totalStr = sum % 1 === 0 ? sum.toString() : sum.toFixed(1);
+                }
+
+                return (
+                  <TableCell 
+                    key={`total-cell-${index}`} 
+                    className={cn(
+                      "px-4 py-3 text-sm font-black uppercase tracking-wider",
+                      index === 0 && !canSum ? "text-slate-600" : "text-slate-950"
+                    )}
+                    style={{ textAlign: column.align || 'left' }}
+                  >
+                    {index === 0 && !canSum ? 'YEKUN CƏM:' : canSum ? totalStr : ''}
+                  </TableCell>
+                );
+              })}
+              {actions && actions.length > 0 && <TableCell className="bg-transparent" />}
+            </TableRow>
+          </tfoot>
+        )}
       </Table>
     </div>
   );

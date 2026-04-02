@@ -24,6 +24,10 @@ class Region extends Model
         'population',
         'metadata',
         'is_active',
+        'is_curriculum_locked',
+        'curriculum_deadline',
+        'can_sektor_edit',
+        'can_operator_edit',
     ];
 
     /**
@@ -38,6 +42,8 @@ class Region extends Model
             'population' => 'integer',
             'metadata' => 'array',
             'is_active' => 'boolean',
+            'can_sektor_edit' => 'boolean',
+            'can_operator_edit' => 'boolean',
         ];
     }
 

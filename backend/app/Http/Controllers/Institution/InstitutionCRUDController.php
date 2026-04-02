@@ -9,6 +9,7 @@ use App\Services\InstitutionDeleteProgressService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class InstitutionCRUDController extends Controller
@@ -37,16 +38,20 @@ class InstitutionCRUDController extends Controller
 
         // Filter by parent institution hierarchy (for report table wizard and similar selectors)
         if ($request->has('parent_id')) {
+            // Filter by parent_id only if provided and valid.
+            // This is crucial for RegionAdmins who should see all institutions in the region.
             $parentId = $request->integer('parent_id');
-            $query->where(function ($q) use ($parentId) {
-                $q->where('id', $parentId)
-                  ->orWhere('parent_id', $parentId)
-                  ->orWhereIn('parent_id', function ($subQuery) use ($parentId) {
-                      $subQuery->select('id')
-                          ->from('institutions')
-                          ->where('parent_id', $parentId);
-                  });
-            });
+            if ($parentId > 0) {
+                $query->where(function ($q) use ($parentId) {
+                    $q->where('id', $parentId)
+                        ->orWhere('parent_id', $parentId)
+                        ->orWhereIn('parent_id', function ($subQuery) use ($parentId) {
+                            $subQuery->select('id')
+                                ->from('institutions')
+                                ->where('parent_id', $parentId);
+                        });
+                });
+            }
         }
 
         // Apply filters if provided
@@ -79,9 +84,139 @@ class InstitutionCRUDController extends Controller
             }
         }
 
+        // --- Curriculum Dashboard Stats Integration ---
+        if ($request->boolean('with_curriculum_stats', false)) {
+            // Automatically detect the active academic year if not provided
+            $academicYearId = (int) ($request->input('academic_year_id')
+                ?? \App\Models\AcademicYear::where('is_active', true)->value('id')
+                ?? 0);
+
+            // Only add curriculum stats subqueries if we have a valid academic year
+            if ($academicYearId > 0) {
+                $query->addSelect(['institutions.*'])
+                    ->addSelect([
+                        'curriculum_status' => DB::table('curriculum_plan_approvals')
+                            ->selectRaw('status')
+                            ->whereColumn('institution_id', 'institutions.id')
+                            ->where('academic_year_id', $academicYearId)
+                            ->orderBy('id', 'desc')
+                            ->limit(1),
+
+                        'curriculum_main_hours' => DB::table('curriculum_plans')
+                            ->selectRaw('COALESCE(SUM(hours), 0)')
+                            ->whereColumn('institution_id', 'institutions.id')
+                            ->where('academic_year_id', $academicYearId)
+                            ->where('subject_id', '<>', 57),
+
+                        'curriculum_total_hours' => DB::table('curriculum_plans')
+                            ->selectRaw('COALESCE(SUM(hours), 0)')
+                            ->whereColumn('institution_id', 'institutions.id')
+                            ->where('academic_year_id', $academicYearId),
+
+                        'curriculum_club_hours' => DB::table('curriculum_plans')
+                            ->selectRaw('COALESCE(SUM(hours), 0)')
+                            ->whereColumn('institution_id', 'institutions.id')
+                            ->where('academic_year_id', $academicYearId)
+                            ->where('subject_id', 57),
+                    ]);
+
+                // To avoid Cardinality Violation errors from nested subqueries selecting from grades table,
+                // we attach these raw calculations directly to the parent query builder.
+                // Using addSelect('institutions.*') first ensures we don't drop the base table columns,
+                // and addSelect prevents overwriting the previous addSelect[] array elements from above.
+                $query->addSelect('institutions.*')
+                    ->selectRaw('(
+                    (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans 
+                    WHERE institution_id = institutions.id AND academic_year_id = ? AND subject_id <> 57)
+                    -
+                    (SELECT COALESCE(SUM(tl.weekly_hours), 0) FROM teaching_loads tl
+                    INNER JOIN classes c ON tl.class_id = c.id
+                    WHERE c.institution_id = institutions.id AND c.academic_year_id = ? AND tl.subject_id <> 57 AND tl.deleted_at IS NULL)
+                  ) as curriculum_main_vacancies', [$academicYearId, $academicYearId])
+                    ->selectRaw('(
+                    (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans 
+                    WHERE institution_id = institutions.id AND academic_year_id = ?)
+                    -
+                    (SELECT COALESCE(SUM(tl.weekly_hours), 0) FROM teaching_loads tl
+                    INNER JOIN classes c ON tl.class_id = c.id
+                    WHERE c.institution_id = institutions.id AND c.academic_year_id = ? AND tl.deleted_at IS NULL)
+                  ) as curriculum_vacancies', [$academicYearId, $academicYearId])
+                    ->selectRaw('(
+                    (SELECT COALESCE(SUM(hours), 0) FROM curriculum_plans 
+                    WHERE institution_id = institutions.id AND academic_year_id = ? AND subject_id = 57)
+                    -
+                    (SELECT COALESCE(SUM(tl.weekly_hours), 0) FROM teaching_loads tl
+                    INNER JOIN classes c ON tl.class_id = c.id
+                    WHERE c.institution_id = institutions.id AND c.academic_year_id = ? AND tl.subject_id = 57 AND tl.deleted_at IS NULL)
+                  ) as curriculum_club_vacancies', [$academicYearId, $academicYearId]);
+            } // end if ($academicYearId > 0)
+        } // end if (with_curriculum_stats)
+
         // Paginate results
         $perPage = $request->input('per_page', 15);
         $institutions = $query->paginate($perPage);
+
+        // --- Post-process: fix curriculum hours with deduplicated batch query ---
+        if ($request->boolean('with_curriculum_stats', false) && isset($academicYearId) && $academicYearId > 0) {
+            $institutionIds = $institutions->pluck('id')->toArray();
+
+            if (! empty($institutionIds)) {
+                // One single DISTINCT ON query to get correctly deduplicated stats for all institutions
+                $batchStats = DB::select('
+                    SELECT
+                        institution_id,
+                        COALESCE(SUM(hours), 0) as total_hours,
+                        COALESCE(SUM(CASE WHEN subject_id <> 57 THEN hours ELSE 0 END), 0) as main_hours,
+                        COALESCE(SUM(CASE WHEN subject_id = 57 THEN hours ELSE 0 END), 0) as club_hours
+                    FROM (
+                        SELECT DISTINCT ON (institution_id, class_level, subject_id, education_type)
+                            institution_id, subject_id, hours
+                        FROM curriculum_plans
+                        WHERE academic_year_id = :year_id
+                          AND institution_id = ANY(:inst_ids)
+                        ORDER BY institution_id, class_level, subject_id, education_type, id ASC
+                    ) as deduped
+                    GROUP BY institution_id
+                ', [
+                    'year_id' => $academicYearId,
+                    'inst_ids' => '{' . implode(',', $institutionIds) . '}',
+                ]);
+
+                $statsMap = collect($batchStats)->keyBy('institution_id');
+
+                $institutions->getCollection()->transform(function ($institution) use ($statsMap) {
+                    $stats = $statsMap->get($institution->id);
+                    if ($stats) {
+                        // Correct teaching load hours = inflated_plan - raw_vacancy
+                        $inflatedMain = (float) $institution->curriculum_main_hours;
+                        $inflatedTotal = (float) $institution->curriculum_total_hours;
+                        $inflatedClub = (float) $institution->curriculum_club_hours;
+
+                        $rawMainVacancy = (float) ($institution->curriculum_main_vacancies ?? 0);
+                        $rawTotalVacancy = (float) ($institution->curriculum_vacancies ?? 0);
+                        $rawClubVacancy = (float) ($institution->curriculum_club_vacancies ?? 0);
+
+                        $mainLoad = $inflatedMain - $rawMainVacancy;
+                        $totalLoad = $inflatedTotal - $rawTotalVacancy;
+                        $clubLoad = $inflatedClub - $rawClubVacancy;
+
+                        // Apply correct deduplicated plan hours
+                        $correctMain = (float) $stats->main_hours;
+                        $correctTotal = (float) $stats->total_hours;
+                        $correctClub = (float) $stats->club_hours;
+
+                        $institution->curriculum_main_hours = $correctMain;
+                        $institution->curriculum_total_hours = $correctTotal;
+                        $institution->curriculum_club_hours = $correctClub;
+                        $institution->curriculum_main_vacancies = $correctMain - $mainLoad;
+                        $institution->curriculum_vacancies = $correctTotal - $totalLoad;
+                        $institution->curriculum_club_vacancies = $correctClub - $clubLoad;
+                    }
+
+                    return $institution;
+                });
+            }
+        }
 
         return response()->json($institutions);
     }
@@ -488,54 +623,66 @@ class InstitutionCRUDController extends Controller
      */
     private function applyAccessControl($query, $user): void
     {
+        $institutionId = $user->institution_id;
+
         if ($user->hasRole('regionadmin')) {
             // RegionAdmin can see their own region and child institutions
-            $userInstitution = $user->institution;
-            if ($userInstitution && $userInstitution->level === 2) {
-                $query->where(function ($q) use ($userInstitution) {
+            if ($institutionId) {
+                $query->where(function ($q) use ($institutionId) {
                     // Their own regional institution
-                    $q->where('id', $userInstitution->id)
+                    $q->where('id', $institutionId)
                       // Or their child institutions (sectors and schools)
-                        ->orWhere('parent_id', $userInstitution->id)
+                        ->orWhere('parent_id', $institutionId)
                       // Or grandchild institutions (schools under sectors)
-                        ->orWhereIn('parent_id', function ($subQuery) use ($userInstitution) {
+                        ->orWhereIn('parent_id', function ($subQuery) use ($institutionId) {
                             $subQuery->select('id')
                                 ->from('institutions')
-                                ->where('parent_id', $userInstitution->id);
+                                ->where('parent_id', $institutionId);
                         });
                 });
+            } else {
+                $query->whereRaw('1 = 0'); // Fail-safe: no ID, no results
             }
         } elseif ($user->hasRole('regionoperator')) {
             // RegionOperator: region comes from user's institution or, as fallback, from their department's institution
-            $regionInstitution = $user->institution;
-            if (! $regionInstitution && $user->department) {
-                $regionInstitution = $user->department->institution;
+            if (! $institutionId && $user->department) {
+                $institutionId = $user->department->institution_id;
             }
-            if ($regionInstitution && $regionInstitution->level === 2) {
-                $query->where(function ($q) use ($regionInstitution) {
-                    $q->where('id', $regionInstitution->id)
-                        ->orWhere('parent_id', $regionInstitution->id)
-                        ->orWhereIn('parent_id', function ($subQuery) use ($regionInstitution) {
+
+            if ($institutionId) {
+                $query->where(function ($q) use ($institutionId) {
+                    $q->where('id', $institutionId)
+                        ->orWhere('parent_id', $institutionId)
+                        ->orWhereIn('parent_id', function ($subQuery) use ($institutionId) {
                             $subQuery->select('id')
                                 ->from('institutions')
-                                ->where('parent_id', $regionInstitution->id);
+                                ->where('parent_id', $institutionId);
                         });
                 });
+            } else {
+                $query->whereRaw('1 = 0');
             }
         } elseif ($user->hasRole('sektoradmin')) {
-            // SectorAdmin can see their own sector and child schools
-            $userInstitution = $user->institution;
-            if ($userInstitution && $userInstitution->level === 3) {
-                $query->where(function ($q) use ($userInstitution) {
-                    $q->where('id', $userInstitution->id)
-                        ->orWhere('parent_id', $userInstitution->id);
+            // SectorAdmin can see their own sector and child institutions (schools)
+            if ($institutionId) {
+                $query->where(function ($q) use ($institutionId) {
+                    $q->where('id', $institutionId)
+                        ->orWhere('parent_id', $institutionId)
+                        ->orWhereIn('parent_id', function ($subQuery) use ($institutionId) {
+                            $subQuery->select('id')
+                                ->from('institutions')
+                                ->where('parent_id', $institutionId);
+                        });
                 });
+            } else {
+                $query->whereRaw('1 = 0');
             }
         } elseif ($user->hasRole('schooladmin')) {
             // SchoolAdmin can only see their own school
-            $userInstitution = $user->institution;
-            if ($userInstitution) {
-                $query->where('id', $userInstitution->id);
+            if ($institutionId) {
+                $query->where('id', $institutionId);
+            } else {
+                $query->whereRaw('1 = 0');
             }
         }
         // SuperAdmin sees all institutions (no additional filtering)

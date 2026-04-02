@@ -391,21 +391,12 @@ class DataIsolationHelper
                 $sectorId = (int) $userSector->parent_id;
             }
 
-            if (! $sectorId) {
-                \Log::warning('SektorAdmin getAllowedInstitutionIds: Unable to derive sector', [
-                    'user_id' => $user->id,
-                    'institution_id' => $userSector->id,
-                    'institution_level' => $userSector->level,
-                    'parent_id' => $userSector->parent_id,
-                ]);
-
-                return collect([$userSector->id]);
+            if ($sectorId) {
+                $sector = \App\Models\Institution::find($sectorId);
+                return collect($sector ? $sector->getAllChildrenIds() : [$userSector->id]);
             }
 
-            return Institution::where('parent_id', $sectorId)
-                ->where('level', 4)
-                ->pluck('id')
-                ->prepend($sectorId);
+            return collect($userSector->getAllChildrenIds());
         }
 
         if ($user->hasAnyRole(['schooladmin', 'məktəbadmin', 'müəllim'])) {

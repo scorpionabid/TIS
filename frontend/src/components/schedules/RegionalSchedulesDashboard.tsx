@@ -24,6 +24,9 @@ import {
   Award
 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import {
+  INSTITUTION_STATUS_LABELS,
+} from './constants';
 
 interface Institution {
   id: number;
@@ -181,13 +184,15 @@ export const RegionalSchedulesDashboard: React.FC = () => {
   }, [institutions, searchTerm, filterStatus]);
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'excellent': return 'bg-green-100 text-green-800';
-      case 'good': return 'bg-blue-100 text-blue-800';
-      case 'needs_attention': return 'bg-yellow-100 text-yellow-800';
-      case 'critical': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    const config = INSTITUTION_STATUS_LABELS[status];
+    if (!config) return 'bg-gray-100 text-gray-800';
+    const colorMap: Record<string, string> = {
+      success: 'bg-green-100 text-green-800',
+      warning: 'bg-yellow-100 text-yellow-800',
+      destructive: 'bg-red-100 text-red-800',
+      secondary: 'bg-gray-100 text-gray-800',
+    };
+    return colorMap[config.color] || 'bg-gray-100 text-gray-800';
   };
 
   const getStatusIcon = (status: string) => {
@@ -443,10 +448,7 @@ export const RegionalSchedulesDashboard: React.FC = () => {
                 <Badge className={getStatusColor(institution.status)}>
                   {getStatusIcon(institution.status)}
                   <span className="ml-1">
-                    {institution.status === 'excellent' && 'Əla'}
-                    {institution.status === 'good' && 'Yaxşı'}
-                    {institution.status === 'needs_attention' && 'Diqqət'}
-                    {institution.status === 'critical' && 'Kritik'}
+                    {INSTITUTION_STATUS_LABELS[institution.status]?.label || institution.status}
                   </span>
                 </Badge>
               </div>

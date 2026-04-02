@@ -11,10 +11,13 @@ import { gradeService, Grade } from '@/services/grades';
 import { teacherService, TeacherSubject } from '@/services/teachers';
 import { workloadService, TeachingLoad, GradeSubject } from '@/services/workload';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { EDUCATION_TYPE_LABELS, EducationType } from '@/types/curriculum';
 
 interface AddWorkloadModalProps {
   teacherId: number;
   teacherName: string;
+  institutionId?: number;
+  academicYearId?: number;
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
@@ -23,12 +26,15 @@ interface AddWorkloadModalProps {
 export default function AddWorkloadModal({
   teacherId,
   teacherName,
+  institutionId,
+  academicYearId: propAcademicYearId,
   isOpen,
   onClose,
   onSuccess
 }: AddWorkloadModalProps) {
   const [selectedClass, setSelectedClass] = useState<number | null>(null);
   const [selectedSubject, setSelectedSubject] = useState<number | null>(null);
+  const [selectedEducationType, setSelectedEducationType] = useState<string | null>(null);
   const [weeklyHours, setWeeklyHours] = useState<number>(0);
   const [academicYearId, setAcademicYearId] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,8 +45,12 @@ export default function AddWorkloadModal({
 
   // Load grades (classes) for the school
   const { data: gradesResponse, isLoading: gradesLoading } = useQuery({
-    queryKey: ['school-grades'],
-    queryFn: () => gradeService.getGrades({ is_active: true }),
+    queryKey: ['school-grades', institutionId, propAcademicYearId],
+    queryFn: () => gradeService.getGrades({ 
+      institution_id: institutionId, 
+      academic_year_id: propAcademicYearId,
+      is_active: true 
+    }),
     enabled: isOpen,
   });
 
@@ -63,6 +73,13 @@ export default function AddWorkloadModal({
     queryKey: ['teaching-loads', teacherId],
     queryFn: () => workloadService.getTeacherWorkload(teacherId),
     enabled: isOpen && teacherId > 0,
+  });
+
+  // Load ALL teaching loads for the selected class to calculate remaining hours
+  const { data: classLoadsResponse, isLoading: classLoadsLoading } = useQuery({
+    queryKey: ['class-teaching-loads', selectedClass],
+    queryFn: () => workloadService.getTeachingLoadsForClass(selectedClass!),
+    enabled: selectedClass !== null && selectedClass > 0,
   });
 
   const grades = useMemo(() => {
@@ -97,71 +114,111 @@ export default function AddWorkloadModal({
     return existingLoadsResponse?.data?.loads || [];
   }, [existingLoadsResponse]);
 
+  // Get all loads for the selected class
+  const classLoads = useMemo(() => {
+    return (classLoadsResponse?.data || []) as TeachingLoad[];
+  }, [classLoadsResponse]);
+
+  // Calculate remaining hours per subject for the class
+  const subjectRemainingHours = useMemo(() => {
+    const hoursMap: Record<string, number> = {};
+    
+    gradeSubjects.forEach(gs => {
+      const key = `${gs.subject_id}_${gs.education_type}`;
+      const totalPlanned = gs.weekly_hours * (gs.is_split_groups ? gs.group_count : 1);
+      
+      const assignedToThisSubject = classLoads
+        .filter(l => l.subject_id === gs.subject_id && l.education_type === gs.education_type)
+        .reduce((sum, l) => sum + Number(l.weekly_hours || 0), 0);
+        
+      hoursMap[key] = Math.max(0, totalPlanned - assignedToThisSubject);
+    });
+    
+    return hoursMap;
+  }, [gradeSubjects, classLoads]);
+
   // Group subjects by whether teacher teaches them
   const teacherSubjectIds = useMemo(() => {
     return new Set((teacherSubjects || []).map((ts: TeacherSubject) => ts.subject_id));
   }, [teacherSubjects]);
 
+  // Check if subject is already assigned to this teacher for selected class
+  const isSubjectAlreadyAssigned = useMemo(() => {
+    if (!selectedClass || !selectedSubject || !selectedEducationType) return false;
+    return existingLoads.some(
+      (load: TeachingLoad) =>
+        load.class_id === selectedClass &&
+        load.subject_id === selectedSubject &&
+        load.education_type === selectedEducationType
+    );
+  }, [existingLoads, selectedClass, selectedSubject, selectedEducationType]);
+
+  // Get list of already assigned subject IDs for the selected class
+  const assignedSubjectKeysForClass = useMemo(() => {
+    if (!selectedClass) return new Set<string>();
+    return new Set(
+      existingLoads
+        .filter((load: TeachingLoad) => load.class_id === selectedClass)
+        .map((load: TeachingLoad) => `${load.subject_id}_${load.education_type || 'umumi'}`)
+    );
+  }, [existingLoads, selectedClass]);
+
+  // List of subjects from curriculum that are available for assignment
+  // (excludes subjects that have no remaining hours)
+  const availableSubjects = useMemo(() => {
+    return gradeSubjects.filter((gs: GradeSubject) => {
+      const key = `${gs.subject_id}_${gs.education_type}`;
+      const remaining = subjectRemainingHours[key] ?? gs.weekly_hours;
+      
+      // If no hours remaining, hide it
+      if (remaining <= 0) return false;
+      
+      return true;
+    });
+  }, [gradeSubjects, subjectRemainingHours]);
+
   const { teacherSubjectsList, otherSubjectsList } = useMemo(() => {
     const teacherList: GradeSubject[] = [];
     const otherList: GradeSubject[] = [];
-    
-    gradeSubjects.forEach((gs: GradeSubject) => {
+
+    availableSubjects.forEach((gs: GradeSubject) => {
       if (teacherSubjectIds.has(gs.subject_id)) {
         teacherList.push(gs);
       } else {
         otherList.push(gs);
       }
     });
-    
+
     return { teacherSubjectsList: teacherList, otherSubjectsList: otherList };
-  }, [gradeSubjects, teacherSubjectIds]);
-
-  // Check if subject is already assigned to this teacher for selected class
-  const isSubjectAlreadyAssigned = useMemo(() => {
-    if (!selectedClass || !selectedSubject) return false;
-    return existingLoads.some(
-      (load: TeachingLoad) =>
-        load.class_id === selectedClass &&
-        load.subject_id === selectedSubject
-    );
-  }, [existingLoads, selectedClass, selectedSubject]);
-
-  // Get list of already assigned subject IDs for the selected class
-  const assignedSubjectIdsForClass = useMemo(() => {
-    if (!selectedClass) return new Set<number>();
-    return new Set(
-      existingLoads
-        .filter((load: TeachingLoad) => load.class_id === selectedClass)
-        .map((load: TeachingLoad) => load.subject_id)
-    );
-  }, [existingLoads, selectedClass]);
+  }, [availableSubjects, teacherSubjectIds]);
 
   const [hasUserSelectedSubject, setHasUserSelectedSubject] = useState(false);
   const hasUserSelectedSubjectRef = useRef(false);
 
   // Auto-select subject and hours when class is selected (only once per class)
   useEffect(() => {
-    if (selectedClass && teacherSubjects && gradeSubjects.length > 0 && !hasUserSelectedSubjectRef.current) {
+    if (selectedClass && teacherSubjects && availableSubjects.length > 0 && !hasUserSelectedSubjectRef.current) {
 
       // Find matching subject: teacher's subject that exists in selected grade
-      const matchingSubject = gradeSubjects.find((gs: GradeSubject) =>
+      const matchingSubject = availableSubjects.find((gs: GradeSubject) =>
         teacherSubjects.some((ts: TeacherSubject) => ts.subject_id === gs.subject_id)
       );
 
       if (matchingSubject) {
         setSelectedSubject(matchingSubject.subject_id);
+        setSelectedEducationType(matchingSubject.education_type);
         setWeeklyHours(matchingSubject.weekly_hours);
+        const edLabel = EDUCATION_TYPE_LABELS[matchingSubject.education_type as EducationType] || matchingSubject.education_type;
         setAutoSelectedInfo(
-          `Avtomatik seçildi: "${matchingSubject.subject_name}" (${matchingSubject.weekly_hours} saat/həftə)`
+          `Avtomatik seçildi: "${matchingSubject.subject_name}" [${edLabel}] (${matchingSubject.weekly_hours} saat/həftə)`
         );
       } else {
         setSelectedSubject(null);
+        setSelectedEducationType(null);
         setWeeklyHours(0);
         setAutoSelectedInfo(`Bu sinifdə ${gradeSubjects.length} fənn tapıldı. Seçim edin.`);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedClass, teacherSubjects, gradeSubjects]);
 
   // Reset form when modal closes
@@ -169,6 +226,7 @@ export default function AddWorkloadModal({
     if (!isOpen) {
       setSelectedClass(null);
       setSelectedSubject(null);
+      setSelectedEducationType(null);
       setWeeklyHours(0);
       setAutoSelectedInfo(null);
     }
@@ -186,13 +244,17 @@ export default function AddWorkloadModal({
   };
 
   const handleSubjectChange = (value: string) => {
-    const subjectId = parseInt(value);
+    const [idStr, educationType] = value.split('_');
+    const subjectId = parseInt(idStr);
+    setSelectedEducationType(educationType);
     setSelectedSubject(subjectId);
     setHasUserSelectedSubject(true); // Mark that user has manually selected
     hasUserSelectedSubjectRef.current = true;
 
     // Auto-fill weekly hours from grade_subjects
-    const gradeSubject = gradeSubjects.find((gs: GradeSubject) => gs.subject_id === subjectId);
+    const gradeSubject = availableSubjects.find((gs: GradeSubject) => // Use availableSubjects here
+      gs.subject_id === subjectId && gs.education_type === educationType
+    );
     if (gradeSubject) {
       setWeeklyHours(gradeSubject.weekly_hours);
     }
@@ -200,7 +262,7 @@ export default function AddWorkloadModal({
 
   const handleSubmit = async () => {
     // Validation
-    if (!selectedClass || !selectedSubject || weeklyHours <= 0) {
+    if (!selectedClass || !selectedSubject || !selectedEducationType || weeklyHours <= 0) {
       toast({
         title: 'Xəta',
         description: 'Zəhmət olmasa bütün sahələri doldurun',
@@ -224,10 +286,11 @@ export default function AddWorkloadModal({
       await workloadService.createTeachingLoad({
         teacher_id: teacherId,
         subject_id: selectedSubject,
+        education_type: selectedEducationType || 'umumi',
         class_id: selectedClass,
         weekly_hours: weeklyHours,
-        academic_year_id: academicYearId
-      });
+        academic_year_id: propAcademicYearId || 1
+      } as any);
 
       toast({
         title: 'Uğurla Əlavə Edildi',
@@ -236,7 +299,9 @@ export default function AddWorkloadModal({
 
       // Refresh data
       queryClient.invalidateQueries({ queryKey: ['teaching-loads'] });
+      queryClient.invalidateQueries({ queryKey: ['class-teaching-loads', selectedClass] });
       queryClient.invalidateQueries({ queryKey: ['workload-statistics'] });
+      queryClient.invalidateQueries({ queryKey: ['curriculum-plan-master'] }); // Refresh main table if open
 
       onSuccess();
       onClose();
@@ -333,61 +398,61 @@ export default function AddWorkloadModal({
                 />
               </SelectTrigger>
               <SelectContent>
-                {/* Teacher's subjects group */}
-                {teacherSubjectsList.length > 0 && (
-                  <>
-                    <div className="px-2 py-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50">
-                      Müəllimin Fənnləri
-                    </div>
-                    {teacherSubjectsList.map((gs: GradeSubject) => {
-                      const isAssigned = assignedSubjectIdsForClass.has(gs.subject_id);
-                      return (
-                        <SelectItem 
-                          key={gs.subject_id} 
-                          value={gs.subject_id.toString()}
-                          disabled={isAssigned}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span>{gs.subject_name} ({gs.weekly_hours} saat)</span>
-                            {isAssigned ? (
-                              <span className="text-xs text-muted-foreground ml-2">(təyin edilib)</span>
-                            ) : (
-                              <span className="text-xs text-emerald-600 ml-2">✓</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </>
-                )}
-                
-                {/* Other subjects group */}
-                {otherSubjectsList.length > 0 && (
-                  <>
-                    {teacherSubjectsList.length > 0 && (
-                      <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 mt-1">
-                        Digər Fənnlər
+                {/* Teacher's subjects group — already-assigned ones are hidden */}
+                {(() => {
+                  const unassigned = teacherSubjectsList.filter(
+                    gs => !assignedSubjectKeysForClass.has(`${gs.subject_id}_${gs.education_type}`)
+                  );
+                  if (unassigned.length === 0) return null;
+                  return (
+                    <>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-emerald-600 bg-emerald-50">
+                        Müəllimin Fənnləri
                       </div>
-                    )}
-                    {otherSubjectsList.map((gs: GradeSubject) => {
-                      const isAssigned = assignedSubjectIdsForClass.has(gs.subject_id);
-                      return (
-                        <SelectItem 
-                          key={gs.subject_id} 
-                          value={gs.subject_id.toString()}
-                          disabled={isAssigned}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <span>{gs.subject_name} ({gs.weekly_hours} saat)</span>
-                            {isAssigned && (
-                              <span className="text-xs text-muted-foreground ml-2">(təyin edilib)</span>
-                            )}
-                          </div>
-                        </SelectItem>
-                      );
-                    })}
-                  </>
-                )}
+                      {unassigned.map((gs: GradeSubject) => {
+                          const subjectKey = `${gs.subject_id}_${gs.education_type}`;
+                          const edLabel = EDUCATION_TYPE_LABELS[gs.education_type as EducationType] || gs.education_type;
+                          const remaining = subjectRemainingHours[subjectKey];
+                          return (
+                            <SelectItem key={subjectKey} value={subjectKey}>
+                              <span>{gs.subject_name} ({edLabel}, {remaining} saat qalıb)</span>
+                              <span className="text-xs text-emerald-600 ml-2">✓</span>
+                            </SelectItem>
+                          );
+                      })}
+                    </>
+                  );
+                })()}
+
+                {/* Other subjects group — already-assigned ones are hidden */}
+                {(() => {
+                  const unassignedOther = otherSubjectsList.filter(
+                    gs => !assignedSubjectKeysForClass.has(`${gs.subject_id}_${gs.education_type}`)
+                  );
+                  if (unassignedOther.length === 0) return null;
+                  const hasTeacherSubjects = teacherSubjectsList.some(
+                    gs => !assignedSubjectKeysForClass.has(`${gs.subject_id}_${gs.education_type}`)
+                  );
+                  return (
+                    <>
+                      {hasTeacherSubjects && (
+                        <div className="px-2 py-1.5 text-xs font-semibold text-slate-500 bg-slate-50 mt-1">
+                          Digər Fənnlər
+                        </div>
+                      )}
+                      {unassignedOther.map((gs: GradeSubject) => {
+                          const subjectKey = `${gs.subject_id}_${gs.education_type}`;
+                          const edLabel = EDUCATION_TYPE_LABELS[gs.education_type as EducationType] || gs.education_type;
+                          const remaining = subjectRemainingHours[subjectKey];
+                          return (
+                            <SelectItem key={subjectKey} value={subjectKey}>
+                              <span>{gs.subject_name} ({edLabel}, {remaining} saat qalıb)</span>
+                            </SelectItem>
+                          );
+                      })}
+                    </>
+                  );
+                })()}
               </SelectContent>
             </Select>
             {gradeSubjectsLoading && selectedClass && (

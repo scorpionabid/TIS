@@ -3,6 +3,11 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Eye, Clock, Users, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import {
+  BOOKING_STATUS_LABELS,
+  BOOKING_STATUS_COLORS,
+  BOOKING_PURPOSE_LABELS,
+} from './constants';
 import type { RoomBooking } from './hooks/useRoomBooking';
 
 interface BookingTimeSlotProps {
@@ -24,37 +29,14 @@ export const BookingTimeSlot: React.FC<BookingTimeSlotProps> = ({
   readOnly = false,
   className
 }) => {
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'confirmed': return 'success';
-      case 'pending': return 'warning';
-      case 'cancelled': return 'destructive';
-      case 'completed': return 'secondary';
-      default: return 'secondary';
-    }
+  const getStatusStyle = (status: string) => {
+    const style = BOOKING_STATUS_COLORS[status];
+    return style || { variant: 'secondary' as const, className: '' };
   };
 
-  const getStatusLabel = (status: string): string => {
-    const labels: Record<string, string> = {
-      'confirmed': 'Təsdiqləndi',
-      'pending': 'Gözləyir',
-      'cancelled': 'Ləğv edildi',
-      'completed': 'Tamamlandı'
-    };
-    return labels[status] || status;
-  };
+  const getStatusLabel = (status: string): string => BOOKING_STATUS_LABELS[status] || status;
 
-  const getPurposeLabel = (purpose: string): string => {
-    const labels: Record<string, string> = {
-      'class': 'Dərs',
-      'exam': 'İmtahan',
-      'meeting': 'Görüş',
-      'event': 'Tədbir',
-      'maintenance': 'Baxım',
-      'other': 'Digər'
-    };
-    return labels[purpose] || purpose;
-  };
+  const getPurposeLabel = (purpose: string): string => BOOKING_PURPOSE_LABELS[purpose] || purpose;
 
   const getPurposeIcon = (purpose: string) => {
     switch (purpose) {
@@ -102,7 +84,7 @@ export const BookingTimeSlot: React.FC<BookingTimeSlotProps> = ({
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <h4 className="font-medium text-sm">{booking.title}</h4>
-              <Badge variant={getStatusColor(booking.status)} className="text-xs">
+              <Badge variant={getStatusStyle(booking.status).variant} className={cn("text-xs", getStatusStyle(booking.status).className)}>
                 {getStatusLabel(booking.status)}
               </Badge>
             </div>
@@ -149,14 +131,14 @@ export const BookingTimeSlot: React.FC<BookingTimeSlotProps> = ({
           {/* Actions */}
           <div className="flex items-center gap-2">
             {booking.status === 'pending' && (
-              <Badge variant="warning" className="text-xs">
+              <Badge variant="secondary" className="text-xs bg-amber-100 text-amber-800 hover:bg-amber-200">
                 <Clock className="h-3 w-3 mr-1" />
                 Təsdiq gözlənir
               </Badge>
             )}
             
             {booking.status === 'confirmed' && (
-              <Badge variant="success" className="text-xs">
+              <Badge variant="default" className="text-xs bg-emerald-100 text-emerald-800 hover:bg-emerald-200">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Təsdiqləndi
               </Badge>

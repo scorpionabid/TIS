@@ -49,6 +49,7 @@ interface GradeCreateDialogSimplifiedProps {
   editingGrade?: Grade | null;
   availableInstitutions: Array<{ id: number; name: string }>;
   availableAcademicYears: Array<{ id: number; name: string; is_active: boolean }>;
+  onAfterCreate?: () => void;
 }
 
 export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedProps> = ({
@@ -58,6 +59,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
   editingGrade,
   availableInstitutions,
   availableAcademicYears,
+  onAfterCreate,
 }) => {
   const queryClient = useQueryClient();
 
@@ -161,6 +163,7 @@ export const GradeCreateDialogSimplified: React.FC<GradeCreateDialogSimplifiedPr
       toast.success('Sinif uğurla yaradıldı');
       queryClient.invalidateQueries({ queryKey: ['grades'] });
       onClose();
+      onAfterCreate?.();
     },
     onError: (error: unknown) => {
       logger.error('Failed to create grade', error);

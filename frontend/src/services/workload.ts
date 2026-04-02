@@ -10,6 +10,7 @@ export interface TeachingLoad {
   academic_year_id: number;
   teacher_name?: string;
   subject_name: string;
+  education_type?: string;
   class_name: string;
   created_at: string;
   updated_at: string;
@@ -40,17 +41,18 @@ export interface GradeSubject {
   subject_id: number;
   subject_name: string;
   subject_code: string;
+  education_type: string;
   weekly_hours: number;
   is_teaching_activity: boolean;
   is_extracurricular: boolean;
   is_club: boolean;
   is_split_groups: boolean;
   is_assigned: boolean;
+  teacher_id?: number;
   group_count: number;
   calculated_hours: number;
   formatted_hours: string;
   activity_types: string[];
-  teacher_id?: number;
   teacher_name?: string;
   notes?: string;
   created_at: string;
@@ -76,6 +78,21 @@ class WorkloadService {
       return response as { success: boolean; data: TeacherWorkload };
     } catch (error) {
       console.error('❌ WorkloadService.getTeacherWorkload failed:', error);
+      throw error;
+    }
+  }
+
+  async getTeachingLoadsForClass(classId: number): Promise<{ success: boolean; data: TeachingLoad[] }> {
+    try {
+      // Use the index endpoint with class_id filter if supported, 
+      // or we can use a more specific endpoint.
+      // Looking at TeachingLoadApiController, index() filters by institution, 
+      // but we can add a class_id filter or use another method.
+      // For now, let's assume we filter the institution-wide loads or use a dedicated query.
+      const response = await apiClient.get<TeachingLoad[]>(this.baseUrl, { class_id: classId });
+      return response as { success: boolean; data: TeachingLoad[] };
+    } catch (error) {
+      console.error('❌ WorkloadService.getTeachingLoadsForClass failed:', error);
       throw error;
     }
   }
@@ -168,17 +185,18 @@ class WorkloadService {
         subject_id: subject.subject_id,
         subject_name: subject.subject_name,
         subject_code: subject.subject_code,
+        education_type: subject.education_type,
         weekly_hours: subject.weekly_hours,
         is_teaching_activity: subject.is_teaching_activity,
         is_extracurricular: subject.is_extracurricular,
         is_club: subject.is_club,
         is_split_groups: subject.is_split_groups,
         is_assigned: subject.is_assigned,
+        teacher_id: subject.teacher_id ?? undefined,
         group_count: subject.group_count,
         calculated_hours: subject.calculated_hours,
         formatted_hours: subject.formatted_hours,
         activity_types: subject.activity_types,
-        teacher_id: subject.teacher_id ?? undefined,
         teacher_name: subject.teacher_name ?? undefined,
         notes: subject.notes ?? undefined,
         created_at: subject.created_at,

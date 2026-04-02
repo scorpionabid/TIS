@@ -11,6 +11,7 @@ export interface GradeSubject {
   subject_id: number;
   subject_name: string;
   subject_code: string;
+  education_type: EducationType;
   weekly_hours: number;
   is_teaching_activity: boolean;
   is_extracurricular: boolean;
@@ -59,6 +60,7 @@ export interface CurriculumStatistics {
 
 export interface CreateGradeSubjectDTO {
   subject_id: number;
+  education_type: EducationType;
   weekly_hours: number;
   is_teaching_activity: boolean;
   is_extracurricular: boolean;
@@ -70,6 +72,7 @@ export interface CreateGradeSubjectDTO {
 }
 
 export interface UpdateGradeSubjectDTO {
+  education_type: EducationType;
   weekly_hours: number;
   is_teaching_activity: boolean;
   is_extracurricular: boolean;
@@ -110,6 +113,7 @@ export interface DeleteGradeSubjectResponse {
 // Form state type for Add/Edit modals
 export interface GradeSubjectFormData {
   subject_id: number | null;
+  education_type: EducationType;
   weekly_hours: number;
   is_teaching_activity: boolean;
   is_extracurricular: boolean;
@@ -123,6 +127,7 @@ export interface GradeSubjectFormData {
 // Default form values
 export const defaultGradeSubjectFormData: GradeSubjectFormData = {
   subject_id: null,
+  education_type: 'umumi',
   weekly_hours: 1,
   is_teaching_activity: true,
   is_extracurricular: false,
@@ -131,6 +136,15 @@ export const defaultGradeSubjectFormData: GradeSubjectFormData = {
   group_count: 1,
   teacher_id: null,
   notes: '',
+};
+
+export type EducationType = 'umumi' | 'ferdi' | 'evde' | 'xususi';
+
+export const EDUCATION_TYPE_LABELS: Record<EducationType, string> = {
+  umumi: 'Ümumi təhsil',
+  ferdi: 'Məktəbdə fərdi təhsil',
+  evde: 'Evdə təhsil',
+  xususi: 'Xüsusi təhsil',
 };
 
 // Subject categories for filtering
@@ -156,5 +170,5 @@ export const ACTIVITY_TYPE_LABELS = {
 // Group count options (1-4 groups)
 export const GROUP_COUNT_OPTIONS = [1, 2, 3, 4] as const;
 
-// Weekly hours options (1-10 hours)
-export const WEEKLY_HOURS_OPTIONS = Array.from({ length: 10 }, (_, i) => i + 1);
+// Weekly hours options (0.5 to 10 hours with 0.5 increments)
+export const WEEKLY_HOURS_OPTIONS = Array.from({ length: 20 }, (_, i) => (i + 1) * 0.5);
