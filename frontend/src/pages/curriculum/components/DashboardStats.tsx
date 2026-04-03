@@ -37,10 +37,10 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
   const submittedCount = activeSchools.filter(s => (s.curriculum_status || 'draft') === 'submitted').length;
   const totalCount = activeSchools.length;
 
-  const mainHoursTotal = safeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_main_hours), 0);
-  const clubHoursTotal = safeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_club_hours), 0);
-  const mainVacTotal = safeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_main_vacancies), 0);
-  const clubVacTotal = safeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_club_vacancies), 0);
+  const mainHoursTotal = activeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_main_hours), 0);
+  const clubHoursTotal = activeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_club_hours), 0);
+  const mainVacTotal = activeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_main_vacancies), 0);
+  const clubVacTotal = activeSchools.reduce((acc, s) => acc + safeNum(s.curriculum_club_vacancies), 0);
 
   const totalHoursSum = mainHoursTotal + clubHoursTotal;
   const totalVacSum = mainVacTotal + clubVacTotal;
@@ -83,7 +83,7 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
       id: 'total',
       label: 'Plan Saatları',
       value: totalHoursSum.toFixed(1),
-      sub: clubHoursTotal > 0 ? `Daxildir: ${clubHoursTotal.toFixed(1)} dərnək` : 'Dərnək yoxdur',
+      sub: clubHoursTotal > 0 ? `Daxildir: ${clubHoursTotal.toFixed(1)} dərnək · ${totalCount} məktəb` : `${totalCount} məktəb üzrə`,
       subHighlight: clubHoursTotal > 0,
       icon: BookOpen,
       progressPct: null,
@@ -98,17 +98,17 @@ export const DashboardStats: React.FC<DashboardStatsProps> = ({
     {
       id: 'vacancies',
       label: 'Vakansiya',
-      value: totalVacSum.toFixed(1),
-      sub: clubVacTotal > 0 ? `Daxildir: ${clubVacTotal.toFixed(1)} dərnək` : 'Dərnək vakansi. yoxdur',
+      value: mainVacTotal.toFixed(1),
+      sub: clubVacTotal > 0 ? `+ ${clubVacTotal.toFixed(1)} dərnək · ${totalCount} məktəb` : `${totalCount} məktəb üzrə`,
       subHighlight: clubVacTotal > 0,
       icon: AlertCircle,
       progressPct: null,
-      progressColor: totalVacSum > 0 ? 'bg-rose-400' : 'bg-slate-300',
+      progressColor: (mainVacTotal + clubVacTotal) > 0 ? 'bg-rose-400' : 'bg-slate-300',
       trackColor: 'bg-rose-100',
-      border: totalVacSum > 0 ? 'border-l-rose-400' : 'border-l-slate-200',
-      bg: totalVacSum > 0 ? 'bg-rose-50/60' : 'bg-slate-50/60',
-      iconBg: totalVacSum > 0 ? 'bg-rose-500' : 'bg-slate-400',
-      labelColor: totalVacSum > 0 ? 'text-rose-600' : 'text-slate-500',
+      border: (mainVacTotal + clubVacTotal) > 0 ? 'border-l-rose-400' : 'border-l-slate-200',
+      bg: (mainVacTotal + clubVacTotal) > 0 ? 'bg-rose-50/60' : 'bg-slate-50/60',
+      iconBg: (mainVacTotal + clubVacTotal) > 0 ? 'bg-rose-500' : 'bg-slate-400',
+      labelColor: (mainVacTotal + clubVacTotal) > 0 ? 'text-rose-600' : 'text-slate-500',
       activeRing: 'ring-2 ring-rose-400 ring-offset-2 shadow-md',
     },
   ];

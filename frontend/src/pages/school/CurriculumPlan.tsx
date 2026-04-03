@@ -16,7 +16,7 @@ import { TeacherWorkloadDetailTable } from '@/components/teachers/TeacherWorkloa
 import { GradeUpdateData } from '@/services/grades';
 import { EditableNumber } from '@/components/curriculum/EditableNumber';
 import {
-  BASE_DATA, GRADE_GROUPS, SPLIT_KEYS, SPLIT_LABELS,
+  BASE_DATA, GRADE_GROUPS, SPLIT_KEYS, SPLIT_LABELS, SUBJECT_IDS,
   SplitHours, n, nn,
 } from '@/components/curriculum/curriculumConstants';
 import { exportToExcelUniversal, exportMultipleSheets, ExportMetadata, SheetConfig } from '@/utils/curriculumExport';
@@ -260,12 +260,12 @@ export default function CurriculumPlan() {
         const gPlan = gs.filter(i => {
            const ed = i.education_type?.toLowerCase() || '';
            const sid = Number(i.subject_id);
-           return (ed === 'umumi' || ed === 'ümumi' || ed === '') && !i.is_extracurricular && sid !== 57 && !!i.is_teaching_activity;
+           return (ed === 'umumi' || ed === 'ümumi' || ed === '') && !i.is_extracurricular && sid !== SUBJECT_IDS.CLUB && !!i.is_teaching_activity;
         }).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
         planHours += gPlan;
 
         // 2. Extra (STRICTLY FROM GRADE_SUBJECTS)
-        const extra = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== 57).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+        const extra = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== SUBJECT_IDS.CLUB).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
         extraHours += extra;
 
         const indiv = gs.filter(i => i.education_type?.toLowerCase() === 'ferdi').reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
@@ -277,7 +277,7 @@ export default function CurriculumPlan() {
         const special = gs.filter(i => i.education_type?.toLowerCase() === 'xususi').reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
         specialHours += special;
 
-        const club = gs.filter(i => Number(i.subject_id) === 57).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+        const club = gs.filter(i => Number(i.subject_id) === SUBJECT_IDS.CLUB).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
         clubHours += club;
 
         SPLIT_KEYS.forEach(k => {
@@ -326,11 +326,10 @@ export default function CurriculumPlan() {
       total: 0
     };
 
-    // Deduplicate Master Plan by (class_level, subject_id, education_type) to prevent double counting across sections
+    // Deduplicate Master Plan by (class_level, subject_id, education_type, is_extra) to prevent double counting across sections
     const rowMap: Record<string, any> = {};
     masterPlan.forEach((item: any) => {
-      const key = `${item.class_level}_${item.subject_id}_${item.education_type}`;
-      // Logic: If multiple sections exist for the same level/subject, the last one wins, matching FennlerVakantlar behavior
+      const key = `${item.class_level}_${item.subject_id}_${item.education_type}_${item.is_extra ? '1' : '0'}`;
       rowMap[key] = item;
     });
 
@@ -341,8 +340,8 @@ export default function CurriculumPlan() {
       const sid = Number(item.subject_id);
       const ed = item.education_type?.toLowerCase() || '';
 
-      if (sid === 56) s.cadvel3 += totalH;
-      else if (sid === 57) s.dernek += totalH;
+      if (sid === SUBJECT_IDS.EXTRACURRICULAR) s.cadvel3 += totalH;
+      else if (sid === SUBJECT_IDS.CLUB) s.dernek += totalH;
       else if (ed === 'umumi') s.cadvel2 += totalH;
       else if (ed === 'ferdi') s.cadvel4 += totalH;
       else if (ed === 'evde') s.cadvel5 += totalH;
@@ -379,7 +378,7 @@ export default function CurriculumPlan() {
       const ed = it.education_type;
       const isExtra = it.is_extracurricular;
 
-      if (sid === 57) res.dernek.ass += val;
+      if (sid === SUBJECT_IDS.CLUB) res.dernek.ass += val;
       else if (isExtra) res.c3.ass += val;
       else if (ed === 'umumi') res.c2.ass += val;
       else if (ed === 'ferdi') res.c4.ass += val;
@@ -403,7 +402,7 @@ export default function CurriculumPlan() {
       const sid = Number(item.subject_id);
       const ed = item.education_type;
       const isExtra = item.is_extracurricular;
-      if (sid === 57) limits[lvl].dernek += val;
+      if (sid === SUBJECT_IDS.CLUB) limits[lvl].dernek += val;
       else if (isExtra) limits[lvl].extra += val;
       else if (ed === 'umumi') limits[lvl].umumi += val;
       else if (ed === 'ferdi') limits[lvl].ferdi += val;
@@ -443,21 +442,38 @@ export default function CurriculumPlan() {
   };
 
   const getSplit = (cls: Grade, level: number): SplitHours => {
-    if (!cls.grade_subjects || cls.grade_subjects.length === 0) {
-      return BASE_DATA.find(b=>b.level===level)?.defaultSplit || {
-        split_foreign_lang_1: 0, split_foreign_lang_2: 0, split_physical_ed: 0,
-        split_informatics: 0, split_technology: 0, split_state_lang: 0,
-        split_steam: 0, split_digital_skills: 0
+    const empty = BASE_DATA.find(b => b.level === level)?.defaultSplit || {
+      split_foreign_lang_1: 0, split_foreign_lang_2: 0, split_physical_ed: 0,
+      split_informatics: 0, split_technology: 0, split_state_lang: 0,
+      split_steam: 0, split_digital_skills: 0,
+    };
+
+    // Grade modelindəki split_* field-lər backend tərəfindən saxlanılıbsa — birbaşa istifadə et
+    const hasSavedSplits = SPLIT_KEYS.some(k => cls[k] != null && Number(cls[k]) > 0);
+    if (hasSavedSplits) {
+      return {
+        split_foreign_lang_1: Number(cls.split_foreign_lang_1 ?? 0),
+        split_foreign_lang_2: Number(cls.split_foreign_lang_2 ?? 0),
+        split_physical_ed:    Number(cls.split_physical_ed    ?? 0),
+        split_informatics:    Number(cls.split_informatics     ?? 0),
+        split_technology:     Number(cls.split_technology      ?? 0),
+        split_state_lang:     Number(cls.split_state_lang      ?? 0),
+        split_steam:          Number(cls.split_steam           ?? 0),
+        split_digital_skills: Number(cls.split_digital_skills  ?? 0),
       };
     }
+
+    // Fallback: grade_subjects-dən ad əsaslı hesabla (köhnə davranış)
+    if (!cls.grade_subjects || cls.grade_subjects.length === 0) return empty;
+
     return {
       split_foreign_lang_1: getSubjTotal(cls, ['xarici dil', 'ingilis', 'rus dili', 'fransız', 'alman'], ['ikinci']),
       split_foreign_lang_2: getSubjTotal(cls, ['ikinci xarici dil', '2-ci xarici', 'ii xarici']),
-      split_physical_ed: getSubjTotal(cls, ['fiziki tərbiyə', 'fiziki terbiyə']),
-      split_informatics: getSubjTotal(cls, ['informatika']),
-      split_technology: getSubjTotal(cls, ['texnologiya']),
-      split_state_lang: getSubjTotal(cls, ['dövlət dili']),
-      split_steam: getSubjTotal(cls, ['steam']),
+      split_physical_ed:    getSubjTotal(cls, ['fiziki tərbiyə', 'fiziki terbiyə']),
+      split_informatics:    getSubjTotal(cls, ['informatika']),
+      split_technology:     getSubjTotal(cls, ['texnologiya']),
+      split_state_lang:     getSubjTotal(cls, ['dövlət dili']),
+      split_steam:          getSubjTotal(cls, ['steam']),
       split_digital_skills: getSubjTotal(cls, ['rəqəmsal', 'rəqəmsal bacarıq']),
     };
   };
@@ -520,7 +536,7 @@ export default function CurriculumPlan() {
         }).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
         const plan = c.curriculum_hours !== null && c.curriculum_hours !== undefined ? Number(c.curriculum_hours) : planRaw;
         const splSum = SPLIT_KEYS.reduce((sum, k) => sum + (Number(c[k]) || 0), 0);
-        const extraRaw = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== 57).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
+        const extraRaw = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== SUBJECT_IDS.CLUB).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
         const extra = c.extra_hours !== null && c.extra_hours !== undefined ? Number(c.extra_hours) : extraRaw;
         const indivRaw = gs.filter(i => i.education_type?.toLowerCase() === 'ferdi').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
         const indiv = c.individual_hours !== null && c.individual_hours !== undefined ? Number(c.individual_hours) : indivRaw;
@@ -528,7 +544,7 @@ export default function CurriculumPlan() {
         const home = c.home_hours !== null && c.home_hours !== undefined ? Number(c.home_hours) : homeRaw;
         const specialRaw = gs.filter(i => i.education_type?.toLowerCase() === 'xususi').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
         const special = c.special_hours !== null && c.special_hours !== undefined ? Number(c.special_hours) : specialRaw;
-        const clubRaw = gs.filter(i => Number(i.subject_id) === 57).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
+        const clubRaw = gs.filter(i => Number(i.subject_id) === SUBJECT_IDS.CLUB).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
         const club = c.club_hours !== null && c.club_hours !== undefined ? Number(c.club_hours) : clubRaw;
 
         exportData.push([
@@ -619,11 +635,11 @@ export default function CurriculumPlan() {
           const pRaw = gs.filter(i => (i.education_type?.toLowerCase() || '') === 'umumi').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
           const plan = c.curriculum_hours !== null && c.curriculum_hours !== undefined ? Number(c.curriculum_hours) : pRaw;
           const spl = SPLIT_KEYS.reduce((sum, k) => sum + (Number(c[k]) || 0), 0);
-          const extra = c.extra_hours ?? gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== 57).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
+          const extra = c.extra_hours ?? gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== SUBJECT_IDS.CLUB).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
           const indiv = c.individual_hours ?? gs.filter(i => i.education_type?.toLowerCase() === 'ferdi').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
           const home = c.home_hours ?? gs.filter(i => i.education_type?.toLowerCase() === 'evde').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
           const special = c.special_hours ?? gs.filter(i => i.education_type?.toLowerCase() === 'xususi').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
-          const club = c.club_hours ?? gs.filter(i => Number(i.subject_id) === 57).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
+          const club = c.club_hours ?? gs.filter(i => Number(i.subject_id) === SUBJECT_IDS.CLUB).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
           dYigim.push([cidx + 1, `${c.class_level > 0 ? c.class_level : 'MH'} ${c.name}`, c.real_student_count || c.student_count || 0, 1, plan, ...SPLIT_KEYS.map(k => Number(c[k]) || 0), spl, (plan + spl).toFixed(1), extra, indiv, home, special, club, (plan + spl + extra + indiv + home + special).toFixed(1)]);
         });
       });
@@ -675,11 +691,11 @@ export default function CurriculumPlan() {
         const spl = SPLIT_KEYS.reduce((s, k) => s + (Number(g[k]) || 0), 0);
         const gs = g.grade_subjects || [];
         const p = g.curriculum_hours ?? gs.filter(it => (it.education_type?.toLowerCase() || '') === 'umumi').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
-        const ex = g.extra_hours ?? gs.filter(it => it.is_extracurricular && Number(it.subject_id) !== 57).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
+        const ex = g.extra_hours ?? gs.filter(it => it.is_extracurricular && Number(it.subject_id) !== SUBJECT_IDS.CLUB).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
         const ind = g.individual_hours ?? gs.filter(it => it.education_type?.toLowerCase() === 'ferdi').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
         const hom = g.home_hours ?? gs.filter(it => it.education_type?.toLowerCase() === 'evde').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
         const spc = g.special_hours ?? gs.filter(it => it.education_type?.toLowerCase() === 'xususi').reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
-        const clb = g.club_hours ?? gs.filter(it => Number(it.subject_id) === 57).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
+        const clb = g.club_hours ?? gs.filter(it => Number(it.subject_id) === SUBJECT_IDS.CLUB).reduce((a, b) => a + (Number(b.weekly_hours) || 0), 0);
         return [i + 1, `${g.class_level}${g.name}`, g.student_count || 0, p, spl, ex, ind, hom, spc, clb, p + spl + ex + ind + hom + spc + clb];
       });
       sheets.push({ sheetName: 'Sinif Tədris Planı', headers: hGrades, data: dGrades, columnWidths: [5, 15, 12, 15, 15, 15, 12, 12, 12, 12, 15] });
@@ -1004,12 +1020,12 @@ export default function CurriculumPlan() {
                                   const plan = gs.filter(i => {
                                      const ed = i.education_type?.toLowerCase() || '';
                                      const sid = Number(i.subject_id);
-                                     return (ed === 'umumi' || ed === 'ümumi' || ed === '') && !i.is_extracurricular && sid !== 57 && !!i.is_teaching_activity;
+                                     return (ed === 'umumi' || ed === 'ümumi' || ed === '') && !i.is_extracurricular && sid !== SUBJECT_IDS.CLUB && !!i.is_teaching_activity;
                                   }).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
 
                                   const splSum = SPLIT_KEYS.reduce((sum, k) => sum + (Number(c[k]) || 0), 0);
 
-                                  const extra = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== 57).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+                                  const extra = gs.filter(i => i.is_extracurricular && Number(i.subject_id) !== SUBJECT_IDS.CLUB).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
 
                                   const indiv = gs.filter(i => i.education_type?.toLowerCase() === 'ferdi').reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
 
@@ -1017,7 +1033,7 @@ export default function CurriculumPlan() {
 
                                   const special = gs.filter(i => i.education_type?.toLowerCase() === 'xususi').reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
 
-                                  const club = gs.filter(i => Number(i.subject_id) === 57).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
+                                  const club = gs.filter(i => Number(i.subject_id) === SUBJECT_IDS.CLUB).reduce((a, b) => a + ((Number(b.weekly_hours) || 0) * (Number(b.group_count) || 1)), 0);
 
                                   const total = plan + splSum + extra + indiv + home + special + club;
 

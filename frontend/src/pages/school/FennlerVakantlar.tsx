@@ -110,7 +110,7 @@ export default function FennlerVakantlar({
 
       effectiveMasterPlan.forEach((it: any) => {
         const isExtra = !!it.is_extra;
-        const key = `${it.subject_id}_${it.education_type}_${isExtra}`;
+        const key = `${it.subject_id}_${it.education_type}`;
         if (!rowMap[key]) {
           rowMap[key] = {
             id: Math.random().toString(36).substr(2, 9),
@@ -124,8 +124,9 @@ export default function FennlerVakantlar({
           };
         }
         const gCnt = Number(it.group_count) || 1;
-        const currentHours = Number(rowMap[key].hours[it.class_level]) || 0;
-        rowMap[key].hours[it.class_level] = currentHours + (it.hours * gCnt); // SUM instead of overwrite
+        const levelKey = it.class_level === 0 || it.class_level === '0' ? 'MH' : it.class_level;
+        const currentHours = Number(rowMap[key].hours[levelKey]) || 0;
+        rowMap[key].hours[levelKey] = currentHours + (it.hours * gCnt); // SUM instead of overwrite
       });
 
       const assigned = masterPlanData.assignedHours || [];
@@ -198,7 +199,7 @@ export default function FennlerVakantlar({
     return rowsWithAssigned.filter(r => 
       r.educationType === 'umumi' && 
       (r.subjectId === SPEC_IDS.CLUB || r.subjectId === SPEC_IDS.EXTRACURRICULAR)
-    ).sort((a,b) => b.subjectId - a.subjectId); // Club (57) then Extra (56)
+    ).sort((a,b) => a.subjectId - b.subjectId); // Extra (56) then Club (57)
   }, [rowsWithAssigned, currentEducationType]);
 
   const activeLevels = useMemo(() => {
@@ -601,13 +602,12 @@ export default function FennlerVakantlar({
                       { id: 'xususi', label: 'Xüsusi', icon: '🌟', eduType: 'xususi' },
                       { id: 'dernek', label: 'Dərnək', icon: '🎭', ids: [SPEC_IDS.CLUB] },
                     ].map((config) => {
-                      const catRows = rows.filter(r => {
-                        if (config.ids) {
-                          const matchesId = config.ids.includes(r.subjectId);
-                          return matchesId && (config.eduType ? r.educationType === config.eduType : true);
-                        }
+                      const catRows = rowsWithAssigned.filter(r => {
                         if (config.id === 'umumi_plus_extra') {
                           return r.educationType === 'umumi' && r.subjectId !== SPEC_IDS.CLUB;
+                        }
+                        if (config.ids) {
+                          return config.ids.includes(r.subjectId);
                         }
                         return r.educationType === config.eduType;
                       });
