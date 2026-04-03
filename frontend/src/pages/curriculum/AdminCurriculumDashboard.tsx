@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { curriculumService } from '@/services/curriculumService';
 import { institutionService } from '@/services/institutions';
+import { academicYearService } from '@/services/academicYears';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   Calendar, 
@@ -23,6 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { DashboardStats } from './components/DashboardStats';
 import { DashboardFilters } from './components/DashboardFilters';
 import { DashboardTable } from './components/DashboardTable';
@@ -70,8 +72,8 @@ export default function AdminCurriculumDashboard() {
   // 3. Derived Helpers (Roles & Permission checks)
   // 3. Derived Helpers (Roles & Permission checks)
   const userRole = useMemo(() => {
-    const roles = currentUser?.roles || [];
-    const directRole = currentUser?.role;
+    const roles = (currentUser as any)?.roles || [];
+    const directRole = (currentUser as any)?.role;
     const firstRole = Array.isArray(roles) && roles.length > 0 
       ? (typeof roles[0] === 'string' ? roles[0] : roles[0]?.name)
       : null;
@@ -81,10 +83,16 @@ export default function AdminCurriculumDashboard() {
 
   const isRegionAdmin = ['regionadmin', 'superadmin', 'regionoperator'].includes(userRole);
   const isSektorAdmin = userRole === 'sektoradmin';
-  const userInstitutionId = currentUser?.institution_id || (currentUser as any)?.institutionId || currentUser?.institution?.id;
+  const userInstitutionId = (currentUser as any)?.institution_id || (currentUser as any)?.institutionId || (currentUser as any)?.institution?.id;
   const regionIdForSectors = currentUser?.region?.id || (isRegionAdmin ? userInstitutionId : undefined);
 
   // 4. Data Fetching - Global Settings (Deadline/Lock)
+  const { data: activeYear } = useQuery({
+    queryKey: ['activeAcademicYear'],
+    queryFn: () => academicYearService.getActive(),
+    staleTime: 5 * 60 * 1000,
+  });
+
   const { data: dashboardSettings } = useQuery({
     queryKey: ['curriculum-settings'],
     queryFn: () => curriculumService.getSettings(),
@@ -121,27 +129,25 @@ export default function AdminCurriculumDashboard() {
 
   // 6. Data Fetching - Schools List
   const { data: rawSchoolsPayload, isLoading: loadingSchools } = useQuery({
-    queryKey: ['curriculum-schools', userInstitutionId, userRole],
+    queryKey: ['curriculum-schools', userInstitutionId, userRole, activeYear?.id],
     queryFn: async () => {
-      console.log('Fetching schools with userInstitutionId:', userInstitutionId, isSektorAdmin);
-      if (!userInstitutionId) return [];
+      if (!userInstitutionId || !activeYear?.id) return [];
       
       const response = await institutionService.getAll({ 
         level: 4, 
         parent_id: isSektorAdmin ? userInstitutionId : undefined,
         per_page: 1000,
-        with_curriculum_stats: true 
+        with_curriculum_stats: true,
+        academic_year_id: activeYear.id
       } as any);
       
-      console.log('Raw Schools Fetch Response:', response);
       return response;
     },
-    enabled: !!userInstitutionId
+    enabled: !!userInstitutionId && !!activeYear?.id
   });
 
   const schools = useMemo(() => {
     const norm = normalizeSchoolsData(rawSchoolsPayload);
-    console.log('Normalized Schools Data:', norm);
     return norm;
   }, [rawSchoolsPayload]);
 

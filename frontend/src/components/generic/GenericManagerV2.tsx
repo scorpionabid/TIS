@@ -24,6 +24,7 @@ export function GenericManagerV2<
   className,
   statsVariant = 'default',
   filterVariant = 'default',
+  readOnly = false,
 }: GenericManagerProps<T, TFilters, TCreateData>) {
   
   const manager = useEntityManagerV2(config, customLogic);
@@ -136,7 +137,7 @@ export function GenericManagerV2<
           manager.setSelectedTab(tab);
           config.onTabChange?.(tab);
         }}
-        primaryAction={features.create !== false ? {
+        primaryAction={!readOnly && features.create !== false ? {
           label: config.headerConfig?.createLabel || `Yeni ${config.entityName}`,
           icon: Plus,
           onClick: () => {
@@ -187,7 +188,7 @@ export function GenericManagerV2<
                   <GenericTable
                     columns={config.columns}
                     data={[]}
-                    actions={config.actions}
+                    actions={readOnly ? config.actions.filter(a => a.variant !== 'destructive' && a.key !== 'edit') : config.actions}
                     isLoading={true}
                     onRowSelect={features.bulk !== false ? manager.toggleItemSelection : undefined}
                     selectedItems={manager.selectedItems}
@@ -200,7 +201,7 @@ export function GenericManagerV2<
                     <GenericTable
                       columns={config.columns}
                       data={tableItems}
-                      actions={config.actions}
+                      actions={readOnly ? config.actions.filter(a => a.variant !== 'destructive' && a.key !== 'edit') : config.actions}
                       isLoading={false}
                       onRowSelect={features.bulk !== false ? manager.toggleItemSelection : undefined}
                       selectedItems={manager.selectedItems}

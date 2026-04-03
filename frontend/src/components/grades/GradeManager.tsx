@@ -48,6 +48,7 @@ interface GradeManagerProps {
   initialFilters?: Partial<GradeFilters>;
   masterPlan?: any;
   categoryLimits?: Record<number, any>;
+  isLocked?: boolean;
 }
 
 /**
@@ -66,7 +67,8 @@ export const GradeManager: React.FC<GradeManagerProps> = ({
   onAfterCreate, 
   initialFilters,
   masterPlan,
-  categoryLimits
+  categoryLimits,
+  isLocked = false
 }) => {
   // Modal states for grade-specific operations
   const [createModalOpen, setCreateModalOpen] = React.useState(false);
@@ -364,7 +366,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({
     onExportClick: () => setImportExportModalOpen(true),
     onTemplateClick: () => gradeService.downloadTemplate(),
     headerActions: [
-      ...(enhancedConfig.headerConfig?.showRefresh !== false ? [
+      ...(!isLocked && enhancedConfig.headerConfig?.showRefresh !== false ? [
         {
           key: 'sync-grade-books',
           label: 'Jurnalları Sinxronlaşdır',
@@ -469,6 +471,7 @@ export const GradeManager: React.FC<GradeManagerProps> = ({
         config={enhancedConfig}
         customLogic={customLogic}
         className={className}
+        readOnly={isLocked}
       />
 
       {/* Grade Creation Modal */}

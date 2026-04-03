@@ -113,12 +113,17 @@ export default function CurriculumPlan() {
   // Check if current user can edit
   const isLocked = useMemo(() => {
     if (isRegionAdmin) return false;
+    
+    // SECURITY: While settings are loading, assume locked to prevent race condition/bypass
+    if (!regionSettings) return true;
+
     // Sector admin: blocked if region admin disabled sector editing
-    if (isSektorAdmin && !(regionSettings?.can_sektor_edit ?? true)) return true;
+    if (isSektorAdmin && !regionSettings.can_sektor_edit) return true;
+
     if (approval.status === 'approved') return true;
     if (isSchoolAdmin && approval.status === 'submitted') return true;
     return false;
-  }, [approval.status, isSchoolAdmin, isRegionAdmin, isSektorAdmin, regionSettings?.can_sektor_edit]);
+  }, [approval.status, isSchoolAdmin, isRegionAdmin, isSektorAdmin, regionSettings]);
 
   // Handle Workflow Actions
   const [isProcessingApproval, setIsProcessingApproval] = useState(false);
@@ -1201,6 +1206,7 @@ export default function CurriculumPlan() {
                     academicYearId={academicYearId!}
                     masterPlan={masterPlan}
                     assignedHours={assignedHours}
+                    isLocked={isLocked}
                   />
                 )}
 
@@ -1214,6 +1220,7 @@ export default function CurriculumPlan() {
                     }}
                     masterPlan={masterPlan}
                     categoryLimits={categoryLimits}
+                    isLocked={isLocked}
                   />
                 )}
 
@@ -1371,6 +1378,7 @@ export default function CurriculumPlan() {
                               teacherName={`${workloadDrawerTeacher.first_name} ${workloadDrawerTeacher.last_name}`}
                               institutionId={institutionId}
                               academicYearId={academicYearId}
+                              isLocked={isLocked}
                             />
                           </div>
                         </div>
@@ -1393,6 +1401,7 @@ export default function CurriculumPlan() {
                                   teacherId={workloadDrawerTeacher.id}
                                   externalShifts={drawerShiftConfig}
                                   onShiftsChange={setDrawerShiftConfig}
+                                  isLocked={isLocked}
                                 />
                               </CardContent>
                             </Card>

@@ -239,6 +239,7 @@ export interface GenericManagerProps<T extends BaseEntity, TFilters extends Base
   className?: string;
   statsVariant?: 'default' | 'compact';
   filterVariant?: 'default' | 'inline';
+  readOnly?: boolean;
 }
 
 // Hook return type extension

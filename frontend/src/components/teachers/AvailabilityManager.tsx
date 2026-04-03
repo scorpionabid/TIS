@@ -29,8 +29,11 @@ interface ShiftConfig {
 
 interface AvailabilityManagerProps {
   teacherId: number;
+  institutionId?: number;
+  academicYearId?: number;
   externalShifts?: Record<string, ShiftConfig>;
   onShiftsChange?: (shifts: Record<string, ShiftConfig>) => void;
+  isLocked?: boolean;
 }
 
 const DAYS = [
@@ -90,8 +93,11 @@ const formatOrdinal = (n: number) => {
 
 export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({ 
   teacherId,
+  institutionId,
+  academicYearId,
   externalShifts,
-  onShiftsChange
+  onShiftsChange,
+  isLocked = false
 }) => {
   const [internalShifts, setInternalShifts] = useState(DEFAULT_SHIFTS);
   const shifts = externalShifts || internalShifts;
@@ -604,7 +610,8 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
                           <td className="p-2">
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => toggleDay(day.key)}
+                                onClick={() => !isLocked && toggleDay(day.key)}
+                                disabled={isLocked}
                                 className={cn(
                                   "w-3 h-3 rounded-full transition-colors",
                                   activeDays[day.key] ? "bg-green-500" : "bg-gray-300"
@@ -630,10 +637,10 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
                               <td key={key} className="p-1 text-center">
                                 <button
                                   onClick={() =>
-                                    isActiveDay && isWithinLessons &&
+                                    !isLocked && isActiveDay && isWithinLessons &&
                                     toggleSlot(day.key, shiftKey, period + 1)
                                   }
-                                  disabled={!isActiveDay || !isWithinLessons}
+                                  disabled={!isActiveDay || !isWithinLessons || isLocked}
                                   className={cn(
                                     "w-8 h-8 rounded text-[10px] font-medium transition-colors",
                                     (!isActiveDay || !isWithinLessons) &&
@@ -672,6 +679,7 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
           size="sm"
           onClick={resetToDefault}
           className="gap-2"
+          disabled={isLocked}
         >
           <RotateCcw className="h-4 w-4" />
           Sıfırla
@@ -680,6 +688,7 @@ export const AvailabilityManager: React.FC<AvailabilityManagerProps> = ({
           size="sm"
           onClick={saveAvailability}
           className="gap-2 bg-primary"
+          disabled={isLocked}
         >
           <Save className="h-4 w-4" />
           Yadda Saxla

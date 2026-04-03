@@ -26,6 +26,7 @@ interface SubjectRow {
   hours: Record<string, number | ''>;
   assignedHours: number; // For vacancy calculation
   groupCount: number;
+  isExtra: boolean;
 }
 
 const CLASS_LEVELS = ['MH', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
@@ -49,13 +50,15 @@ interface FennlerVakantlarProps {
   academicYearId?: number;
   masterPlan?: any[];
   assignedHours?: any[];
+  isLocked?: boolean;
 }
 
 export default function FennlerVakantlar({
   institutionId: propId,
   academicYearId: propYearId,
   masterPlan: propMasterPlan,
-  assignedHours: propAssignedHours
+  assignedHours: propAssignedHours,
+  isLocked = false
 }: FennlerVakantlarProps = {}) {
   const { currentUser } = useAuth();
   const { institutionId: urlId } = useParams();
@@ -106,7 +109,8 @@ export default function FennlerVakantlar({
       const rowMap: Record<string, SubjectRow> = {};
 
       effectiveMasterPlan.forEach((it: any) => {
-        const key = `${it.subject_id}_${it.education_type}`;
+        const isExtra = !!it.is_extra;
+        const key = `${it.subject_id}_${it.education_type}_${isExtra}`;
         if (!rowMap[key]) {
           rowMap[key] = {
             id: Math.random().toString(36).substr(2, 9),
@@ -115,19 +119,30 @@ export default function FennlerVakantlar({
             educationType: it.education_type as EducationType,
             hours: {},
             assignedHours: 0,
-            groupCount: Number(it.group_count) || 1
+            groupCount: Number(it.group_count) || 1,
+            isExtra: isExtra
           };
         }
         const gCnt = Number(it.group_count) || 1;
-        rowMap[key].hours[it.class_level] = it.hours * gCnt; // Backend uses 'hours' * 'group_count'
+        const currentHours = Number(rowMap[key].hours[it.class_level]) || 0;
+        rowMap[key].hours[it.class_level] = currentHours + (it.hours * gCnt); // SUM instead of overwrite
       });
 
       const assigned = masterPlanData.assignedHours || [];
       assigned.forEach((as: any) => {
-        const key = `${as.subject_id}_${as.education_type}`;
-        if (rowMap[key]) {
-          rowMap[key].assignedHours = Number(as.total_assigned) || 0; // Use total_assigned from backend
-        }
+        // Assigned hours usually don't have is_extra flag in teaching_loads table directly,
+        // or they might be mixed. We assign them to the 'main' row or match by subject.
+        // For simplicity and matching Dashboard, we try to match by subject and edu_type.
+        Object.values(rowMap).forEach(row => {
+          if (row.subjectId === as.subject_id && row.educationType === as.education_type) {
+            // If there are multiple rows (main and extra), we might need to split or double.
+            // But usually teaching_loads are just total per subject.
+            // To match dashboard sum, we'll assign the total to the main row.
+            if (!row.isExtra) {
+              row.assignedHours = Number(as.total_assigned) || 0;
+            }
+          }
+        });
       });
 
       setRows(Object.values(rowMap));
@@ -234,7 +249,8 @@ export default function FennlerVakantlar({
       educationType: currentEducationType,
       hours: {},
       assignedHours: 0,
-      groupCount: 1
+      groupCount: 1,
+      isExtra: false
     };
 
     setRows([...rows, newRow]);
@@ -298,6 +314,9 @@ export default function FennlerVakantlar({
     
     if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
     
+    // SECURITY: Skip auto-save if locked
+    if (isLocked) return;
+
     saveTimeoutRef.current = setTimeout(() => {
       handleSave();
     }, 2000);
@@ -420,6 +439,7 @@ export default function FennlerVakantlar({
                                  value={row.hours[lvl] ?? ''}
                                  onChange={(e) => handleCellChange(row.id, lvl, e.target.value)}
                                  placeholder="0"
+                                 disabled={isLocked}
                                />
                                {row.groupCount > 1 && row.hours[lvl] && Number(row.hours[lvl]) > 0 && (
                                  <div className="absolute top-0 right-0 bg-amber-500 text-white text-[7px] font-black px-1 rounded-bl-md shadow-sm z-10">
@@ -435,12 +455,14 @@ export default function FennlerVakantlar({
                             {vacant > 0 ? `${vacant.toFixed(1)}s` : '0'}
                           </td>
                           <td className="p-4 text-center">
-                            <button 
-                              onClick={() => handleDeleteRow(row)}
-                              className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {!isLocked && (
+                              <button 
+                                onClick={() => handleDeleteRow(row)}
+                                className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </td>
                         </motion.tr>
                       );
@@ -452,11 +474,12 @@ export default function FennlerVakantlar({
                     <tr className="bg-slate-50/30 border-y border-slate-100">
                       <td colSpan={activeLevels.length + 4} className="px-5 py-3 text-center">
                         <select 
-                          className="text-[10px] font-black uppercase tracking-widest h-8 px-4 rounded-xl border border-slate-200 bg-white hover:border-blue-300 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all"
+                          className="text-[10px] font-black uppercase tracking-widest h-8 px-4 rounded-xl border border-slate-200 bg-white hover:border-blue-300 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all disabled:opacity-50"
                           onChange={(e) => handleAddSubject(Number(e.target.value))}
                           value=""
+                          disabled={isLocked}
                         >
-                          <option value="" disabled>+ YENİ FƏNN ƏLAVƏ ET</option>
+                          <option value="" disabled>{isLocked ? '🚫 REDAKTƏ QAPALIDIR' : '+ YENİ FƏNN ƏLAVƏ ET'}</option>
                           {allSubjects
                             .filter(s => !rows.some(r => r.subjectId === s.id && r.educationType === currentEducationType))
                             .sort((a,b) => a.name.localeCompare(b.name))
@@ -493,6 +516,7 @@ export default function FennlerVakantlar({
                             value={row.hours[lvl] ?? ''}
                             onChange={(e) => handleCellChange(row.id, lvl, e.target.value)}
                             placeholder="0"
+                            disabled={isLocked}
                           />
                           {row.groupCount > 1 && row.hours[lvl] && Number(row.hours[lvl]) > 0 && (
                             <div className="absolute top-0 right-0 bg-amber-500 text-white text-[7px] font-black px-1 rounded-bl-md shadow-sm z-10">

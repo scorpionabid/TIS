@@ -19,6 +19,7 @@ interface TeacherWorkloadPanelProps {
   institutionId?: number;
   academicYearId?: number;
   employmentType?: 'full_time' | 'part_time' | 'contract' | 'substitute' | 'mentor' | 'practitioner';
+  isLocked?: boolean;
 }
 
 interface WorkloadItem {
@@ -47,7 +48,8 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
   teacherName,
   institutionId,
   academicYearId,
-  employmentType = 'full_time'
+  employmentType = 'full_time',
+  isLocked = false
 }) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -149,12 +151,14 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
               )}
             </div>
           </div>
-          <Button 
-            size="sm" 
-            onClick={() => setIsAdding(true)}
-          >
-            <Plus className="h-4 w-4 mr-1" /> Əlavə Et
-          </Button>
+          {!isLocked && (
+            <Button 
+              size="sm" 
+              onClick={() => setIsAdding(true)}
+            >
+              <Plus className="h-4 w-4 mr-1" /> Əlavə Et
+            </Button>
+          )}
         </div>
       </CardHeader>
 
@@ -241,7 +245,7 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
                                   variant="ghost"
                                   className="h-7 w-7 text-rose-400 hover:text-rose-600 hover:bg-rose-50"
                                   onClick={() => deleteMutation.mutate(load.id)}
-                                  disabled={deleteMutation.isPending}
+                                  disabled={deleteMutation.isPending || isLocked}
                                 >
                                   <Trash2 size={14} />
                                 </Button>
@@ -264,14 +268,16 @@ export const TeacherWorkloadPanel: React.FC<TeacherWorkloadPanelProps> = ({
           <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
             <BookOpen className="h-8 w-8 text-slate-300 mx-auto mb-3" />
             <p className="text-sm font-medium text-slate-500">Hələ dərs yükü təyin edilməyib</p>
-            <Button 
-                variant="ghost" 
-                size="sm" 
-                className="mt-4 text-indigo-600 hover:text-indigo-700 font-bold"
-                onClick={() => setIsAdding(true)}
-            >
-                <Plus className="h-4 w-4 mr-1" /> İndi əlavə et
-            </Button>
+            {!isLocked && (
+              <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="mt-4 text-indigo-600 hover:text-indigo-700 font-bold"
+                  onClick={() => setIsAdding(true)}
+              >
+                  <Plus className="h-4 w-4 mr-1" /> İndi əlavə et
+              </Button>
+            )}
           </div>
         )}
       </CardContent>

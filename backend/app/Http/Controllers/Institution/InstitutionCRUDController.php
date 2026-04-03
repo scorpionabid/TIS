@@ -162,30 +162,42 @@ class InstitutionCRUDController extends Controller
 
             if (! empty($institutionIds)) {
                 // One single DISTINCT ON query to get correctly deduplicated stats for all institutions
-                $batchStats = DB::select('
+                $batchStats = DB::select("
                     SELECT
                         institution_id,
                         COALESCE(SUM(hours), 0) as total_hours,
                         COALESCE(SUM(CASE WHEN subject_id <> 57 THEN hours ELSE 0 END), 0) as main_hours,
                         COALESCE(SUM(CASE WHEN subject_id = 57 THEN hours ELSE 0 END), 0) as club_hours
                     FROM (
-                        SELECT DISTINCT ON (institution_id, class_level, subject_id, education_type)
-                            institution_id, subject_id, hours
+                        SELECT DISTINCT ON (
+                            institution_id, 
+                            class_level, 
+                            subject_id, 
+                            COALESCE(is_extra, false)
+                        )
+                            institution_id, 
+                            subject_id, 
+                            hours
                         FROM curriculum_plans
                         WHERE academic_year_id = :year_id
                           AND institution_id = ANY(:inst_ids)
-                        ORDER BY institution_id, class_level, subject_id, education_type, id ASC
+                        ORDER BY 
+                            institution_id, 
+                            class_level, 
+                            subject_id, 
+                            COALESCE(is_extra, false), 
+                            id ASC
                     ) as deduped
                     GROUP BY institution_id
-                ', [
+                ", [
                     'year_id' => $academicYearId,
                     'inst_ids' => '{' . implode(',', $institutionIds) . '}',
                 ]);
 
-                $statsMap = collect($batchStats)->keyBy('institution_id');
+                $statsMap = collect($batchStats)->keyBy(fn($item) => (int)$item->institution_id);
 
                 $institutions->getCollection()->transform(function ($institution) use ($statsMap) {
-                    $stats = $statsMap->get($institution->id);
+                    $stats = $statsMap->get((int)$institution->id);
                     if ($stats) {
                         // Correct teaching load hours = inflated_plan - raw_vacancy
                         $inflatedMain = (float) $institution->curriculum_main_hours;

@@ -27,10 +27,10 @@ class CurriculumPlanService
             ->where('classes.institution_id', $institutionId)
             ->where('classes.academic_year_id', $yearId)
             ->whereNull('teaching_loads.deleted_at')
-            ->groupBy('teaching_loads.subject_id', DB::raw("COALESCE(teaching_loads.education_type, 'umumi')"))
+            ->groupBy('teaching_loads.subject_id', DB::raw("COALESCE(NULLIF(LOWER(teaching_loads.education_type), 'ümumi'), 'umumi')"))
             ->select(
                 'teaching_loads.subject_id',
-                DB::raw("COALESCE(teaching_loads.education_type, 'umumi') as education_type"),
+                DB::raw("COALESCE(NULLIF(LOWER(teaching_loads.education_type), 'ümumi'), 'umumi') as education_type"),
                 DB::raw('SUM(teaching_loads.weekly_hours) as total_assigned')
             )
             ->get();
@@ -188,6 +188,7 @@ class CurriculumPlanService
         }
 
         // 2. Rol əsaslı əlavə məhdudiyyətlər (Region Admin tərəfindən qoyulan)
+        // DİQQƏT: Bu yoxlama hasAnyRole-dan əvvəl gəlməlidir ki, bypass olmasın.
         if ($user->hasRole('sektoradmin') && !($settings['can_sektor_edit'] ?? true)) {
             return false;
         }
@@ -198,8 +199,13 @@ class CurriculumPlanService
         // 3. Təsdiqləmə statusu yoxlanışı
         $approval = $this->getApprovalStatus($institutionId, $yearId);
         
-        // Sektor, Region adminləri və Operatorlar redaktə edə bilir (əgər region qlobal kilidləməyibsə və ya icazə verilibsə)
-        if ($user->hasAnyRole(['sektoradmin', 'regionadmin', 'superadmin', 'regionoperator'])) {
+        // Superadmin və Regionadmin hər zaman redaktə edə bilir (kilid yoxdursa)
+        if ($user->hasAnyRole(['regionadmin', 'superadmin'])) {
+            return true;
+        }
+
+        // Sektoradmin və Operator üçün: əgər bura çatıbsa, deməli yuxarıdakı can_edit yoxlamalarından keçib
+        if ($user->hasAnyRole(['sektoradmin', 'regionoperator'])) {
             return true;
         }
 
@@ -209,36 +215,38 @@ class CurriculumPlanService
 
     /**
      * Finds the region associated with the given institution and returns its settings.
+     * Uses recursive ancestors search for maximum reliability.
      */
     public function getRegionSettings(int $institutionId): array
     {
-        $institution = \App\Models\Institution::with('parent.parent')->find($institutionId);
+        $institution = \App\Models\Institution::find($institutionId);
         
         $regionDeadline = null;
         $isLocked = false;
+        $canSektorEdit = true;
+        $canOperatorEdit = true;
 
         if ($institution) {
             $regionInstitutionId = null;
 
             if ($institution->type === 'regional_education_department') {
                 $regionInstitutionId = $institution->id;
-            } elseif ($institution->type === 'sector_education_office') {
-                $regionInstitutionId = $institution->parent_id;
             } else {
-                // Məktəb səviyyəsindədirsə, parent-parent (Sector -> Region)
-                $sector = $institution->parent;
-                if ($sector) {
-                    $regionInstitutionId = $sector->parent_id;
+                // Recursive ancestors search through the hierarchy
+                $ancestors = $institution->getAncestors();
+                $region = $ancestors->where('type', 'regional_education_department')->first();
+                if ($region) {
+                    $regionInstitutionId = $region->id;
                 }
             }
 
             if ($regionInstitutionId) {
-                $regionRecord = Region::where('institution_id', $regionInstitutionId)->first();
+                $regionRecord = \App\Models\Region::where('institution_id', $regionInstitutionId)->first();
                 if ($regionRecord) {
                     $regionDeadline = $regionRecord->curriculum_deadline;
                     $isLocked = $regionRecord->is_curriculum_locked;
-                    $canSektorEdit = $regionRecord->can_sektor_edit;
-                    $canOperatorEdit = $regionRecord->can_operator_edit;
+                    $canSektorEdit = (bool) ($regionRecord->can_sektor_edit ?? true);
+                    $canOperatorEdit = (bool) ($regionRecord->can_operator_edit ?? true);
                 }
             }
         }
@@ -246,8 +254,8 @@ class CurriculumPlanService
         return [
             'deadline' => $regionDeadline,
             'is_locked' => $isLocked,
-            'can_sektor_edit' => $canSektorEdit ?? true,
-            'can_operator_edit' => $canOperatorEdit ?? true,
+            'can_sektor_edit' => $canSektorEdit,
+            'can_operator_edit' => $canOperatorEdit,
         ];
     }
 
